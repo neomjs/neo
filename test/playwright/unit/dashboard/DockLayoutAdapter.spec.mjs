@@ -506,6 +506,52 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(hostOwned.headerActions.map(action => action.action)).toEqual(['maximize'])
     });
 
+    test('reload leads the engine set and reserves its name through the guard table', () => {
+        const
+            model       = createModel(),
+            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+
+            enabled = DockLayoutAdapter.project(model, {
+                enableDockCloseAction   : true,
+                enableDockMaximizeAction: true,
+                enableDockPinAction     : true,
+                enableDockReloadAction  : true,
+                resolveComponentRef     : resolvePane
+            }),
+
+            enabledMain = getProjectedChildren(enabled)[0];
+
+        // The frozen family order: reload leads the engine set, close stays last.
+        expect(enabledMain.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'maximize', 'close']);
+
+        // Focus-gated like its engine siblings — no `contextual` opt-out — and it SHIPS hidden:
+        // availability is a live-card contract probe only the workspace can run post-mount.
+        expect(enabledMain.headerActions[0].contextual).toBeUndefined();
+        expect(enabledMain.headerActions[0].hidden).toBe(true);
+        expect(enabledMain.headerActions[0].iconCls).toBe('fa fa-rotate-right');
+
+        // Off = byte-identical: no reload entry materialises for the flag alone.
+        const withoutReload = getProjectedChildren(DockLayoutAdapter.project(model, {
+            enableDockCloseAction: true,
+            resolveComponentRef  : resolvePane
+        }))[0];
+
+        expect(withoutReload.headerActions.map(action => action.action)).toEqual(['close']);
+
+        // The guard table reserves the name exactly while the flag is on.
+        const project = (resolveDockHeaderActions, extra={}) => () => DockLayoutAdapter.project(model, {
+            resolveComponentRef: resolvePane, resolveDockHeaderActions, ...extra
+        });
+
+        expect(project(() => [{action: 'reload'}], {enableDockReloadAction: true}))
+            .toThrow(/"reload" is reserved while enableDockReloadAction is on/);
+
+        const hostReload = getProjectedChildren(project(() => [{action: 'reload', iconCls: 'fa fa-x'}])())[0];
+
+        expect(hostReload.headerActions.map(action => action.action)).toEqual(['reload'])
+    });
+
     test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {
         let result = DockLayoutAdapter.project(createModel(), {
                 resolveComponentRef: componentRef => ({

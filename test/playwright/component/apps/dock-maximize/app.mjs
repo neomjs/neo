@@ -1,7 +1,160 @@
+import Component     from '../../../../../src/component/Base.mjs';
 import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
 import Persistence   from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import Viewport      from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
+
+/**
+ * @summary A pane owning the reload contract: `dockReload()` counts its invocations — the
+ * delegation witness (asked, never recreated).
+ */
+class ReloadProbe extends Component {
+    static config = {
+        /**
+         * @member {String} className='Test.Playwright.Component.DockMaximize.ReloadProbe'
+         * @protected
+         */
+        className: 'Test.Playwright.Component.DockMaximize.ReloadProbe',
+        /**
+         * @member {String} ntype='dock-maximize-reload-probe'
+         * @protected
+         */
+        ntype: 'dock-maximize-reload-probe'
+    }
+
+    /**
+     * Spec-readable invocation counter.
+     * @member {Number} reloadCount=0
+     */
+    reloadCount = 0
+
+    /**
+     * 'sync' resolves immediately; 'defer' returns a promise the spec resolves through the
+     * workspace trigger; 'reject' returns an async rejection.
+     * @member {String} reloadMode='sync'
+     */
+    reloadMode = 'sync'
+
+    /**
+     * The deferred resolver while {@link #reloadMode} is 'defer' and an invocation is in flight.
+     * @member {Function|null} resolveDeferred=null
+     */
+    resolveDeferred = null
+
+    /**
+     * The reload contract: the author owns what reload means — including whether it is async.
+     * A deferred producer's resolver is ALSO stashed on the standing fixture probe (which
+     * outlives the workspace), so the teardown arm can release the producer AFTER destroy —
+     * the falsifier for post-destroy continuation mutations. One deferred flight at a time.
+     * @returns {void|Promise<*>}
+     */
+    dockReload() {
+        this.reloadCount++;
+
+        if (this.reloadMode === 'reject') {
+            return Promise.reject(new Error('async refusal'))
+        }
+
+        if (this.reloadMode === 'defer') {
+            return new Promise(resolve => {
+                this.resolveDeferred = resolve;
+
+                const probe = Neo.get('dock-maximize-probe');
+
+                probe && (probe.deferredRelease = resolve)
+            })
+        }
+    }
+}
+
+ReloadProbe = Neo.setupClass(ReloadProbe);
+
+/**
+ * @summary The standing fixture probe: a spec-readable mirror component that OUTLIVES the
+ * workspace. Carries the observer lifecycle log and the post-destroy release channel for a
+ * deferred `dockReload()` producer — `releaseDeferredCount` is the spec's only way to settle a
+ * producer after the workspace (and every trigger config on it) is gone.
+ */
+class FixtureProbe extends Component {
+    static config = {
+        /**
+         * @member {String} className='Test.Playwright.Component.DockMaximize.FixtureProbe'
+         * @protected
+         */
+        className: 'Test.Playwright.Component.DockMaximize.FixtureProbe',
+        /**
+         * @member {String} ntype='dock-maximize-fixture-probe'
+         * @protected
+         */
+        ntype: 'dock-maximize-fixture-probe',
+        /**
+         * Trigger: releases the stashed deferred resolver — usable after workspace destroy.
+         * @member {Number} releaseDeferredCount_=0
+         */
+        releaseDeferredCount_: 0
+    }
+
+    /**
+     * The stashed resolver of the one in-flight deferred `dockReload()` producer.
+     * @member {Function|null} deferredRelease=null
+     */
+    deferredRelease = null
+
+    /**
+     * Spec-readable: how many deferred producers this probe has released.
+     * @member {Number} deferredReleasedTotal=0
+     */
+    deferredReleasedTotal = 0
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetReleaseDeferredCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        let me = this;
+
+        if (me.deferredRelease) {
+            me.deferredRelease();
+            me.deferredRelease = null;
+            me.deferredReleasedTotal++
+        }
+    }
+}
+
+FixtureProbe = Neo.setupClass(FixtureProbe);
+
+/**
+ * @summary A pane whose `dockReload()` throws — the containment witness: the pane is kept,
+ * the error surfaces, and no recreate ever runs.
+ */
+class ThrowingReloadProbe extends Component {
+    static config = {
+        /**
+         * @member {String} className='Test.Playwright.Component.DockMaximize.ThrowingReloadProbe'
+         * @protected
+         */
+        className: 'Test.Playwright.Component.DockMaximize.ThrowingReloadProbe',
+        /**
+         * @member {String} ntype='dock-maximize-throwing-probe'
+         * @protected
+         */
+        ntype: 'dock-maximize-throwing-probe'
+    }
+
+    /**
+     * The reload contract, refusing: containment must keep this pane.
+     */
+    dockReload() {
+        throw new Error('probe refuses to reload')
+    }
+}
+
+ThrowingReloadProbe = Neo.setupClass(ThrowingReloadProbe);
 
 const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
@@ -58,6 +211,19 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         captureCount_: 0,
         /**
+         * Spec trigger: sets the alpha probe's reload mode ('sync' | 'defer' | 'reject') —
+         * worker-side state the page realm cannot reach directly.
+         * @member {String|null} alphaReloadMode_=null
+         * @reactive
+         */
+        alphaReloadMode_: null,
+        /**
+         * Spec trigger: each bump resolves the alpha probe's deferred `dockReload()` promise.
+         * @member {Number} alphaReloadResolveCount_=0
+         * @reactive
+         */
+        alphaReloadResolveCount_: 0,
+        /**
          * Spec trigger: JSON `{itemId, tabsNodeId, index}` commits one `addTab` operation —
          * the confinement arms need the catalog-only, in-node, and cross-node variants.
          * @member {String|null} addTabJson_=null
@@ -80,6 +246,10 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          * @member {Boolean} enableDockMaximizeAction=true
          */
         enableDockMaximizeAction: true,
+        /**
+         * @member {Boolean} enableDockReloadAction=true
+         */
+        enableDockReloadAction: true,
         /**
          * @member {String} id='dock-maximize-workspace'
          */
@@ -150,6 +320,25 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
     settleJson = null
 
     /**
+     * Spec-readable mirror of the PRODUCTION settlement channel: the fixture subscribes to the
+     * engine's `dockReloadSettled` event like any application would — the mirror proves the
+     * public surface, not a test-only override.
+     * @member {String|null} lastReloadResultJson=null
+     */
+    lastReloadResultJson = null
+
+    /**
+     * @param {Object} config
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        this.on('dockReloadSettled', data => {
+            this.lastReloadResultJson = JSON.stringify({errors: data.errors, itemId: data.itemId})
+        })
+    }
+
+    /**
      * @param {Object} data
      */
     onDockMaximizeResize(data) {
@@ -179,6 +368,37 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
         // Post-destroy the engine wipes instance fields, so read "torn" as any non-true value.
         observerLog.push(`destroy:${wasObserved}->${this.dockMaximizeResizeObserved ? 'live' : 'torn'}`);
         syncObserverProbe()
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAlphaReloadMode(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        const probe = Neo.get('dock-maximize-pane-alpha');
+
+        probe && (probe.reloadMode = value)
+    }
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetAlphaReloadResolveCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        const probe = Neo.get('dock-maximize-pane-alpha');
+
+        probe?.resolveDeferred?.();
+        probe && (probe.resolveDeferred = null)
     }
 
     /**
@@ -354,8 +574,15 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
             }
         }
 
+        // alpha and beta both own the reload contract — two contract carriers in ONE node is
+        // what witnesses per-item single-flight across active-item switches; gamma's contract
+        // throws (containment witness); frame stays contract-free — the hidden witness.
+        const module = itemId === 'alpha' || itemId === 'beta' ? ReloadProbe
+            : itemId === 'gamma' ? ThrowingReloadProbe
+            : null;
+
         return {
-            ntype: 'component',
+            ...(module ? {module} : {ntype: 'component'}),
             id   : `dock-maximize-pane-${itemId}`,
             style: {alignItems: 'center', display: 'flex', justifyContent: 'center'},
             text : item?.title || itemId
@@ -370,8 +597,8 @@ export const onStart = () => Neo.app({
         module: Viewport,
         items : [
             {module: MaximizeFixtureWorkspace, flex: 1},
-            // The observer-log probe: outlives the workspace so the destroy arm can read it.
-            {ntype: 'component', id: 'dock-maximize-probe', style: {display: 'none'}}
+            // The standing probe: outlives the workspace — observer log + post-destroy release.
+            {module: FixtureProbe, id: 'dock-maximize-probe', style: {display: 'none'}}
         ]
     },
     name: 'Test.Playwright.DockMaximize'
