@@ -1970,7 +1970,8 @@ class Workspace extends Container {
             zone = tabContainer.getTabBar?.()?.sortZone;
 
             if (restore.zone && zone && zone.id === restore.zoneId) {
-                Object.assign(zone, restore.zone)
+                // One coherent batched mutation — the same idiom as the suppress direction.
+                zone.set(restore.zone)
             }
 
             if (animate) {
