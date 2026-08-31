@@ -1,3 +1,22 @@
 :root .neo-theme-light { // .neo-tab-container
     --tab-container-content-border: 1px solid #ddd;
+
+    // Inline inherits the classic theme's established 25px / square geometry and tightens only
+    // horizontal padding. Keeping inherited defaults out of this block prevents copy-drift while
+    // leaving one measured, deletion-sensitive variant effect.
+    &.neo-tab-container-inline > .neo-tab-header-toolbar,
+    .neo-tab-container-inline > .neo-tab-header-toolbar {
+        --tab-button-padding: 7px 10px 6px;
+    }
+
+    // Standalone gives classic-theme consumers a coherent free-standing card treatment without
+    // changing the ui:null default above.
+    &.neo-tab-container-standalone > .neo-tab-header-toolbar,
+    .neo-tab-container-standalone > .neo-tab-header-toolbar {
+        --tab-button-border-radius : 8px;
+        --tab-button-gap           : 4px;
+        --tab-button-height        : 40px;
+        --tab-button-height-pressed: 40px;
+        --tab-button-padding       : 7px 16px 6px;
+    }
 }

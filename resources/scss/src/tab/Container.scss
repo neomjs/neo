@@ -1,4 +1,11 @@
 .neo-tab-container {
+    // The public inline-header hook belongs to the variant selector, not the generic toolbar. A
+    // consumer may set the token on any ancestor; ui:null and standalone containers never match
+    // this rule and therefore keep their established flat paint.
+    &.neo-tab-container-inline > .neo-tab-header-toolbar {
+        background-image: var(--tab-header-inline-background-image, none);
+    }
+
     &.neo-bottom {
         > .neo-tab-body-container {
             border-bottom: 0;
