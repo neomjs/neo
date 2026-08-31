@@ -129,7 +129,7 @@ test.describe('Neo.main.addon.Stylesheet#createStyleSheet', () => {
  *
  * `basePath.substring(6)` means "strip one `../../` hop" — exact for the engine's own serving,
  * where a dist page lives inside `dist/<env>/apps/<app>/`. An absolute mount (one index per app
- * OUTSIDE dist, the klarserver arrangement) has no hops to strip: `/mount/` became `udio/…` and
+ * OUTSIDE dist, a fixed-mount server arrangement) has no hops to strip: `/mount/` became `udio/…` and
  * every stylesheet 404'd, black-paging the app. The absolute branch derives `basePath +
  * 'dist/<env>/'`; every relative shape below is pinned byte-identical to the pre-fix arithmetic.
  */
@@ -168,13 +168,13 @@ test.describe('Neo.main.addon.Stylesheet — dist-root derivation', () => {
 
     test('addThemeFiles emits mount-rooted theme sheets on an absolute basePath', async () => {
         const hrefs = deriveHrefs(
-            {appPath: 'apps/probe/app.mjs', basePath: '/webstudio/', environment: 'dist/development', themes: ['neo-theme-dark']},
+            {appPath: 'apps/probe/app.mjs', basePath: '/mount-b/', environment: 'dist/development', themes: ['neo-theme-dark']},
             proto => proto.addThemeFiles({className: 'Neo.grid.Container', folders: ['src', 'theme-dark']})
         );
 
         expect(hrefs).toEqual([
-            '/webstudio/dist/development/css/src/grid/Container.css',
-            '/webstudio/dist/development/css/theme-dark/grid/Container.css'
+            '/mount-b/dist/development/css/src/grid/Container.css',
+            '/mount-b/dist/development/css/theme-dark/grid/Container.css'
         ])
     });
 
@@ -205,6 +205,34 @@ test.describe('Neo.main.addon.Stylesheet — dist-root derivation', () => {
             '../../css/src/Global.css',
             '../../css/theme-dark/Global.css'
         ])
+    });
+
+    test('the Font Awesome path survives absolute mounts in bundled envs and stays package-rooted otherwise', () => {
+        const probe = (basePath, environment) => {
+            const saved = {basePath: Neo.config.basePath, environment: Neo.config.environment};
+
+            Object.assign(Neo.config, {basePath, environment});
+
+            try {
+                return Stylesheet.prototype.getFontAwesomePath()
+            } finally {
+                Object.assign(Neo.config, saved)
+            }
+        };
+
+        // bundled env, absolute mount: the black-page path — must root at the mount's dist tree
+        expect(probe('/mount/', 'dist/production'))
+            .toBe('/mount/dist/production/resources/fontawesome-free/css/all.min.css');
+
+        // bundled env, relative serving: the original strip-one-hop arithmetic, byte-identical
+        expect(probe('../../../../', 'dist/production'))
+            .toBe('../../resources/fontawesome-free/css/all.min.css');
+
+        // source + dist/esm fetch from node_modules, basePath-rooted in both mount shapes
+        expect(probe('/mount/', 'development'))
+            .toBe('/mount/node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        expect(probe('../../', 'dist/esm'))
+            .toBe('../../node_modules/@fortawesome/fontawesome-free/css/all.min.css')
     });
 
     test('getAbsoluteDistRoot answers absolute and fully-qualified mounts, and yields to relative arithmetic', () => {

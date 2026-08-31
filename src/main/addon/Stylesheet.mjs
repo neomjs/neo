@@ -43,20 +43,12 @@ class Stylesheet extends Base {
     construct(config) {
         super.construct(config);
 
-        let neoConfig = Neo.config,
-            env       = neoConfig.environment,
-            faPath;
+        let neoConfig = Neo.config;
 
         if (!neoConfig.useSSR) {
             if (neoConfig.useFontAwesome) {
-                if (env === 'development' || env === 'dist/esm') {
-                    faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
-                } else {
-                    faPath = (this.getAbsoluteDistRoot() ?? neoConfig.basePath.substring(6)) + 'resources/fontawesome-free/css/all.min.css'
-                }
-
                 this.createStyleSheet({
-                    href: faPath
+                    href: this.getFontAwesomePath()
                 })
             }
 
@@ -109,6 +101,26 @@ class Stylesheet extends Base {
         }
 
         return null
+    }
+
+    /**
+     * @summary The Font Awesome stylesheet URL for the active environment.
+     *
+     * Source and `dist/esm` fetch from the package inside `node_modules` (already basePath-rooted,
+     * so absolute mounts need no help). The bundled environments carry a copied
+     * `resources/fontawesome-free` tree inside `dist/<env>/`, addressed through the same dist-root
+     * derivation as every stylesheet.
+     * @returns {String}
+     * @protected
+     */
+    getFontAwesomePath() {
+        let {basePath, environment: env} = Neo.config;
+
+        if (env === 'development' || env === 'dist/esm') {
+            return basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
+        }
+
+        return (this.getAbsoluteDistRoot() ?? basePath.substring(6)) + 'resources/fontawesome-free/css/all.min.css'
     }
 
     /**
