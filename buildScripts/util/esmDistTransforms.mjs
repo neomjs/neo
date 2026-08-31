@@ -13,6 +13,8 @@
  * @see https://github.com/neomjs/neo/issues/6752 introduced the workspace import rewrite
  */
 
+import * as acorn from 'acorn';
+
 /**
  * The output tree this build writes, relative to the workspace root.
  *
@@ -52,7 +54,8 @@ export const enginePackagePath = 'node_modules/neo.mjs';
  *
  * The quote class is `["'`]` and the single quote is the point. It was `["`]` — double quote or
  * backtick only — while the engine's house style, and every generated workspace's, is the single
- * quote. So the rewrite added by #6752 never fired on the code it was written for, and Terser
+ * quote. So the rewrite added by https://github.com/neomjs/neo/issues/6752 never fired on the code
+ * it was written for, and Terser
  * normalized the untouched specifiers to double quotes afterwards, which made the output *look*
  * like the rewrite had run.
  *
@@ -67,17 +70,21 @@ const IMPORT_SPECIFIER_REGEX =
     /((?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
 
 /**
- * Matches any relative import specifier, whatever the quote style.
+ * The AST node types whose `source` may name a module.
  *
- * Module-scope constant, same reasoning and same `lastIndex` invariant as the pattern above.
+ * `ExportNamedDeclaration` is included but only counts when it actually has a `source` — a plain
+ * `export {x}` re-exports nothing and its `source` is null.
  *
- * Deliberately separate from the rewrite pattern: this one runs over *emitted* code, which Terser has
- * already normalized, so it cannot assume the source's quoting.
+ * For the three static forms the grammar guarantees that `source` is a string literal.
+ * `ImportExpression` is the exception, and the reason {@link staticSpecifier} exists: its `source` is
+ * an ARBITRARY expression, so `import(base + name)` is a node of this type that names no module at
+ * all. Membership here means "may carry a specifier", never "does".
  *
- * @type {RegExp}
+ * @type {Set<String>}
  */
-const RELATIVE_SPECIFIER_REGEX =
-    /(?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)(["'`])(\.{1,2}\/(?:(?!\1).)*)\1/g;
+const SPECIFIER_NODE_TYPES = new Set([
+    'ExportAllDeclaration', 'ExportNamedDeclaration', 'ImportDeclaration', 'ImportExpression'
+]);
 
 /**
  * Rewrites `node_modules`-bearing specifiers for the flattened `dist/esm` layout.
@@ -258,18 +265,143 @@ export function unsafeSourceRootReason(root) {
 }
 
 /**
- * Every relative specifier imported by a piece of emitted code.
+ * The module specifier an AST source node statically names, or `null` when it names none.
  *
- * @param {String} code
- * @returns {String[]}
+ * The three properties this preserves are the three ways that reading the raw source text instead
+ * gets it wrong — a parser recovers node kind and cooked value, and slicing delimiters off the text
+ * throws both away again:
+ *
+ * - **a source node is not always a string.** `import('../' + name + '/x.mjs')` is a
+ *   `BinaryExpression`, and removing its first and last character yields `../' + name + '/x.mjs`,
+ *   which the guard would report as a file that is not there. Nothing about that import is
+ *   statically knowable, so `null` is the honest answer and the guard says nothing about it.
+ * - **a quoted string containing `${…}` is a literal, not a template.** `import('../data/${x}.mjs')`
+ *   requests a file spelled exactly that way; classifying it as computed checks only that
+ *   `../data/` exists and lets a genuinely absent file through.
+ * - **a literal's escapes resolve.** `import('./foo.mjs')` requests `./foo.mjs` — which is what
+ *   `value` holds, and what the raw text does not.
+ *
+ * A template literal is rebuilt from its COOKED quasis with each interpolation reinserted as the
+ * source wrote it, so the static text is what the runtime concatenates while the report still prints
+ * something a developer recognizes. One with no interpolation is a literal path that happens to be
+ * written in backticks: it names a single file and is checked as one.
+ *
+ * @param {Object} source a {@link SPECIFIER_NODE_TYPES} node's `source`
+ * @param {String} code   the module text it was parsed from
+ * @returns {Object|null} `{specifier, computed}`, or `null` when nothing is statically knowable
  */
-export function relativeSpecifiers(code) {
-    return [...code.matchAll(RELATIVE_SPECIFIER_REGEX)].map(match => match[2])
+export function staticSpecifier(source, code) {
+    if (source.type === 'Literal') {
+        // `import(0)` parses; a non-string literal names no module.
+        return typeof source.value === 'string' ? {specifier: source.value, computed: false} : null
+    }
+
+    if (source.type === 'TemplateLiteral') {
+        const specifier = source.quasis.map((quasi, index) => {
+            const expression = source.expressions[index];
+
+            // `cooked` is null only for an invalid escape, which is legal exclusively in a TAGGED
+            // template and so cannot occur here; `raw` keeps this total regardless.
+            return (quasi.value.cooked ?? quasi.value.raw) +
+                (expression ? '${' + code.slice(expression.start, expression.end) + '}' : '')
+        }).join('');
+
+        return {specifier, computed: source.expressions.length > 0}
+    }
+
+    return null
 }
 
 /**
- * Reports every emitted import that cannot boot: one naming a file that is not there, and one naming
- * the wrong engine.
+ * Every relative specifier imported by a piece of emitted code.
+ *
+ * Read from the module's AST rather than matched out of its text, because a regex over minified code
+ * cannot tell an import from a string that contains one — and this engine ships several. The portal's
+ * home page renders `"import Viewport from '../../apps/colors/view/Viewport.mjs';"` as sample code, the
+ * Toast example renders a `node_modules/neo.mjs` specifier the same way, and a text match reported all
+ * of them as broken imports on a full build. They are strings; only a parser knows that.
+ *
+ * `acorn` is already this build's parser — `astTemplateProcessor` runs every emitted module through it
+ * — so this reads the grammar the transform already depends on rather than adding a second opinion
+ * about what the code says.
+ *
+ * What each entry carries is decided by the node's TYPE, never by re-reading its text: using a parser
+ * only helps if the semantics it recovered survive extraction. See {@link staticSpecifier}.
+ *
+ * @param {String} code
+ * @returns {Object[]} `{specifier, computed}` records, in source order
+ */
+export function relativeSpecifiers(code) {
+    const
+        specifiers = [],
+        visit      = node => {
+            if (!node || typeof node !== 'object') {
+                return
+            }
+
+            if (Array.isArray(node)) {
+                node.forEach(visit);
+                return
+            }
+
+            if (SPECIFIER_NODE_TYPES.has(node.type) && node.source) {
+                const entry = staticSpecifier(node.source, code);
+
+                if (entry && (entry.specifier.startsWith('./') || entry.specifier.startsWith('../'))) {
+                    specifiers.push(entry)
+                }
+            }
+
+            // A dynamic import can sit anywhere, so every child is visited rather than only the
+            // program body. `parent` is skipped because acorn does not set it and a future walker
+            // that does would loop.
+            Object.keys(node).forEach(key => key !== 'parent' && visit(node[key]))
+        };
+
+    visit(acorn.parse(code, {ecmaVersion: 'latest', sourceType: 'module'}));
+
+    return specifiers
+}
+
+/**
+ * The directory a computed specifier reads from, or `null` when the specifier is a literal path.
+ *
+ * The engine loads its parser, normalizer, connection, task, canvas and Main-addon families through
+ * a template literal — `../data/parser/${name}.mjs`. In source those calls carry webpack magic
+ * comments between the parenthesis and the template literal, so {@link relativeSpecifiers} never
+ * reaches them; but Terser strips comments, and the EMITTED module this guard inspects is
+ * post-Terser. What it hands back is literal text still carrying the interpolation, which no
+ * filesystem can hold.
+ *
+ * Exempting that text is the obvious move and it throws away real signal. A computed specifier still
+ * makes one static claim: everything before the first interpolation is a path, and the directory it
+ * ends in must be in the output tree. `../data/parser/${name}.mjs` asserts `dist/esm/src/data/parser/`
+ * exists — and an uncopied source root, the very defect this guard was built for, is visible exactly
+ * there. So the prefix is checked and the interpolation is not guessed at.
+ *
+ * A specifier interpolated from its first segment — `../../${path}/task.mjs` — yields a prefix of
+ * `../../`, which trivially exists. That is the honest answer: nothing about it is statically
+ * knowable, so the guard says nothing about it.
+ *
+ * Whether a specifier IS computed is not this function's call and must not be read from its return
+ * value: a quoted `'../data/${x}.mjs'` is a literal filename that contains those two characters.
+ * {@link staticSpecifier} decides it from the AST node type, and {@link findUnresolvableImports}
+ * carries that flag; this only answers *where* an already-computed one reads from.
+ *
+ * @param {String} specifier a specifier {@link staticSpecifier} flagged `computed`
+ * @returns {String|null} the prefix through its last `/`, or `null` when it holds no interpolation
+ */
+export function computedSpecifierRoot(specifier) {
+    const interpolation = specifier.indexOf('${');
+
+    // `relativeSpecifiers` keeps only specifiers opening `./` or `../`, so a separator always
+    // precedes the interpolation and the slice is never the whole specifier.
+    return interpolation === -1 ? null : specifier.slice(0, specifier.lastIndexOf('/', interpolation) + 1)
+}
+
+/**
+ * Reports every emitted import that cannot boot: one naming a file that is not there, one whose
+ * computed family reads from a directory that is not there, and one naming the wrong engine.
  *
  * This is the guard the build never had. Both shipped defect classes end the same way — a specifier
  * pointing at a file that is not in the output tree — and both were invisible because a copy-and-
@@ -285,21 +417,41 @@ export function relativeSpecifiers(code) {
  * loads it fails at runtime in a way no path check would ever have reported. Identity, not
  * existence, is the property there, so that shape fails whether or not the target is on disk.
  *
- * @param {Object[]} modules `{outputPath, specifiers}` records, as emitted
+ * The third reason exists so the report can say the right sentence. "This import does not resolve"
+ * is wrong about a computed specifier — the import is fine and the directory its family reads from
+ * is gone — and a developer told the wrong thing goes looking in the wrong place. All three exit 1;
+ * the separation is what the reader is told, never whether the build refuses.
+ *
+ * @param {Object[]} modules `{outputPath, specifiers}` records whose `specifiers` are
+ *                           {@link relativeSpecifiers} entries — `{specifier, computed}`, not strings
  * @param {Function} exists  predicate over an absolute path, injected so specs need no fixture tree
  * @param {Function} resolve `(from, specifier) => absolutePath`
- * @returns {Object[]} `{outputPath, specifier, resolved, reason}`; reason is `missing` or `engine-identity`
+ * @returns {Object[]} `{outputPath, specifier, resolved, reason}`; reason is `missing`, `computed-root`
+ *                    or `engine-identity`
  */
 export function findUnresolvableImports(modules, exists, resolve) {
     const failures = [];
 
     modules.forEach(({outputPath, specifiers}) => {
-        specifiers.forEach(specifier => {
+        specifiers.forEach(({specifier, computed}) => {
             const
-                resolved = resolve(outputPath, specifier),
-                reason   = addressesSourceEngine(resolved) || addressesSourceEngine(specifier)
-                    ? 'engine-identity'
-                    : exists(resolved) ? null : 'missing';
+                // Read from the flag the parser set, never re-derived from the text: a literal
+                // filename may contain `${…}` and is still one file.
+                computedRoot = computed ? computedSpecifierRoot(specifier) : null,
+                // A computed specifier names no file, so what gets resolved is the directory its
+                // family reads from. A literal one resolves as itself, exactly as before.
+                resolved     = resolve(outputPath, computedRoot ?? specifier);
+
+            let reason = null;
+
+            // Identity is checked first and on the specifier as written, so a computed family
+            // reaching `node_modules/neo.mjs` is still the two-graph defect rather than a missing
+            // directory. Truncating to the prefix must not launder that.
+            if (addressesSourceEngine(resolved) || addressesSourceEngine(specifier)) {
+                reason = 'engine-identity'
+            } else if (!exists(resolved)) {
+                reason = computed ? 'computed-root' : 'missing'
+            }
 
             if (reason) {
                 failures.push({outputPath, specifier, resolved, reason})
