@@ -1,9 +1,10 @@
-import fs           from 'fs-extra';
-import path         from 'path';
-import {spawnSync}  from 'child_process';
-import {minifyHtml} from '../../util/minifyHtml.mjs';
-import * as Terser  from 'terser';
-import webpack      from 'webpack';
+import fs                  from 'fs-extra';
+import path                from 'path';
+import {spawnSync}         from 'child_process';
+import {copyDistAppAssets} from '../../util/distAppAssets.mjs';
+import {minifyHtml}        from '../../util/minifyHtml.mjs';
+import * as Terser         from 'terser';
+import webpack             from 'webpack';
 
 const
     cwd            = process.cwd(),
@@ -75,7 +76,12 @@ export default async function(env) {
             }
         }
 
-        lAppName = folder === 'examples' ? key : key.toLowerCase();
+        // `key` carries the real on-disk casing — `parseFolder` reads it from the filesystem — and
+        // the reads below use `lAppName` too, not just the writes. Folding an app folder to lower
+        // case therefore makes the build read a path that does not exist on a case-sensitive
+        // filesystem, and splits the output from `copyResources`, which uses the true casing. Only
+        // the synthetic `Docs` key needs the fold, since its source folder is `docs/`.
+        lAppName = folder === '' ? key.toLowerCase() : key;
         fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, folder, lAppName));
 
         // neo-config.json
@@ -111,7 +117,14 @@ export default async function(env) {
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'index.html');
         content    = await minifyHtml(fs.readFileSync(inputPath, 'utf-8'));
 
-        fs.writeFileSync(outputPath, content)
+        fs.writeFileSync(outputPath, content);
+
+        // Static siblings the generated page links relatively (e.g. a web app manifest). Nothing
+        // above copies them: this function enumerates only the files it generates.
+        copyDistAppAssets(
+            path.resolve(cwd, folder, lAppName),
+            path.resolve(cwd, buildTarget.folder, folder, lAppName)
+        )
     };
 
     const isFile = fileName => fs.lstatSync(fileName).isFile();
