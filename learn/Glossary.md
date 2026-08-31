@@ -145,7 +145,7 @@ A string alias used in Neo.mjs to declaratively specify the type of a component 
 An `ntype` is also the source of a class's **type flags**: `Neo.setupClass()` derives a boolean `is<Ntype>` property on
 the prototype for every `ntype` in the inheritance chain (`ntype: 'tree-store'` yields `isTreeStore`). Those names are
 computed at runtime, so they never appear as literals in the source — see
-[Extending Neo Classes](guides/fundamentals/ExtendingNeoClasses.md).
+[Class Compilation → Synthesizing `is<Ntype>` Type Flags](guides/coreengine/SetupClass.md#3-synthesizing-isntype-type-flags).
 
 ## O
 

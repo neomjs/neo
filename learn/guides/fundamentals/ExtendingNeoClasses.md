@@ -197,44 +197,21 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
 
 ### Automatic `is<Ntype>` Type Flags
 
-Enhancing the global namespace is not the only thing `setupClass()` does. It also stamps a boolean **type flag** onto
-the class prototype for every `ntype` in the class's inheritance chain. The flag name is *derived* from the `ntype`
-rather than written by hand:
-
-```
-ntype: 'tree-store'  →  Neo.camel()       →  'treeStore'
-                     →  Neo.capitalize()  →  'TreeStore'
-                     →  proto.isTreeStore = true
-```
-
-Because the whole chain is walked, a class carries its ancestors' flags alongside its own:
+Enhancing the global namespace is not the only thing `setupClass()` does. It also derives a boolean `is<Ntype>` flag
+on the prototype for every `ntype` in the class's chain — `ntype: 'tree-store'` yields `isTreeStore`, and a
+`TreeStore` also carries its ancestors' `isStore`. That gives a subtype test needing no `instanceof` and no import of
+the class being tested against, so a base class can branch on a subtype without taking a dependency edge on it:
 
 ```javascript
-TreeStore.prototype.isTreeStore  // true
-TreeStore.prototype.isStore      // true — inherited via the ntype chain
-Store.prototype.isTreeStore      // undefined
+// src/grid/Container.mjs — a TreeStore turns the grid into a TreeGrid; a plain Store does not
+me.isTreeGrid = value?.isTreeStore === true;
 ```
 
-This gives you a cheap type test that needs no `instanceof` and no import of the class you are testing against — which
-matters in a multi-threaded engine, where the class you would compare against may not live in the same worker. Real
-usage, from `src/grid/Container.mjs`:
+Because the names are **computed at runtime**, a source search cannot find where they are set: `grep isTreeStore src/`
+matches only the line that *reads* the flag. One hit at a read site is not evidence of a dangling reference.
 
-```javascript
-afterSetStore(value, oldValue) {
-    let me = this;
-    // ...
-    // a TreeStore turns the grid into a TreeGrid; a plain Store does not
-    me.isTreeGrid = value?.isTreeStore === true;
-}
-```
-
-> **These property names are computed at runtime, so you cannot find them by searching the source.**
-> `grep isTreeStore src/` matches only the line that *reads* the flag — the assignment does not exist as text
-> anywhere in the repository. A single search hit at a read site is therefore **not** evidence of a dangling
-> reference. Resolve the name against the `ntype` chain before concluding that a flag is undefined.
->
-> The same invisibility applies to renames: changing a class's `ntype` renames every flag derived from it, and no
-> static search will surface the readers that silently became `undefined`.
+See [Class Compilation → Synthesizing `is<Ntype>` Type Flags](../coreengine/SetupClass.md#3-synthesizing-isntype-type-flags)
+for the derivation, the chain-walk semantics, and how this differs from the trailing-underscore reactive API.
 
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for
 its configuration-driven approach.
