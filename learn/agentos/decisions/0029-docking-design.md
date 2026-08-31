@@ -84,7 +84,7 @@ durable half is additive data inside the layout envelope; it does not mint a sta
 
 | State class | Examples | Owner | Persistence |
 |---|---|---|---|
-| **Worker-owned shared truth** | committed `neo.dock.zone.v1` documents incl. tab `activeItemId`, split `sizes`, and edge `extent`/`resizable`; the workspace-set registry; `neo.dock.layout.v1` perspectives; `neo.dock.layoutCollection.v1`; durable placement hints; item catalogs incl. `pinned` / `autoHidden` | workspace container(s) in the App Worker | Serializable per contract rules |
+| **Worker-owned shared truth** | committed `neo.dock.zone.v1` documents incl. tab `activeItemId`, split `sizes`, and edge `extent`/`resizable`; the workspace-set registry; `neo.dock.layout.v1` perspectives; `neo.dock.layoutCollection.v1`; durable placement hints; item catalogs incl. `pinned` / `autoHidden` / `locked` and their policy hints | workspace container(s) in the App Worker | Serializable per contract rules |
 | **Per-window render projection** | projected config trees; edge rails; splitter affordances; tab headers; placeholder panes | `projection.LayoutAdapter.project()` output per window | Never persisted; derived |
 | **Per-window runtime interaction state** | `dockPreview` payloads; reveal/open state of auto-hidden panes (§2.7); hover state; splitter pixel math mid-drag | the window's drag/interaction surfaces | Never persisted; never crosses the seam except as operation descriptors |
 | **Main-thread-only state** | DOM nodes; `DOMRect`s; screen coordinates; native window geometry; `getWindowAt` lookups | main-thread addons (`Neo.manager.Window`, `WindowPosition`) | Never persisted; consumed by arbitration (§2.3), results delivered as semantic events |
@@ -112,6 +112,28 @@ Edge pointer frames resize only main-thread presentation under the target band's
 converts the final pixel size into one normalized `resizeEdgeZone` commit. Escape, stale generation, rejection, and
 destruction restore the prior projection and commit zero operations. Split-node `sizes` remain authoritative only for
 split nodes; an edge never borrows an ancestor split ratio.
+
+#### Committed item lock state (amendment, 2026-08-31 — #17949)
+
+An item may carry committed `locked: true|false` plus the policy hint `lockable: true|false`;
+both are plain JSON booleans in the item catalog and therefore ride saved layouts and perspectives
+without a second persistence surface. Missing `locked` means unlocked, and missing `lockable`
+means the item may be locked. `setItemLocked` is the sole state transition and fails closed for
+unknown items, non-boolean state, and `lockable: false`.
+
+Lock protects the item as a **source** while preserving its role as a target. `closeItem`,
+`detachItem`, and source `moveItem` reject a locked item at the model boundary. The existing
+`addTab` dispatch downgrades an in-tree item to `moveItem`, so in-strip reorder and cross-zone
+movement share that same guard; an unlocked item may still move into a tabs node that contains a
+locked peer.
+
+The interaction layer is derived per projection, never persisted: the Workspace makes the live
+pane root inert, stamps the stable locked visual token, hides close, and removes the tab button's
+`.neo-draggable` source token. A Workspace-owned `WeakMap` records whether the pane already owned
+`vdom.inert` and its prior value; unlock restores that exact ownership/value rather than blindly
+making independently inert content interactive. These presentation guards improve affordance
+honesty, while the reducer remains the independent boundary for stale chrome and programmatic
+descriptors.
 
 ### §2.2 Named Perspectives
 
