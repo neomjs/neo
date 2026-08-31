@@ -5,6 +5,12 @@ import path                   from 'node:path';
 import process                from 'node:process';
 import {fileURLToPath}        from 'node:url';
 
+import {
+    DEFAULT_CORPUS_PATH,
+    DEFAULT_MAX_CORPUS_AGE_HOURS,
+    FACET_PATHS
+}                             from './dataSyncWatchdog.mjs';
+
 /**
  * @module buildScripts.dataSyncPipeline
  * @summary Runs the scheduled Data Sync emission from a verified `dev` head and
@@ -73,12 +79,66 @@ const
             // labels over GraphQL. That is a credentialled read, so `none` was a mis-declaration —
             // not a deliberate denial — and it failed exactly as `scopedStageEnv` promises a
             // mis-declared stage will.
-            args      : ['./buildScripts/docs/rebuildContentIndexesAndSeo.mjs', '--include-labels'],
-            command   : process.execPath,
-            label     : 'content indexes and SEO',
-            tokenScope: 'reader'
+            args               : ['./buildScripts/docs/rebuildContentIndexesAndSeo.mjs', '--include-labels'],
+            command            : process.execPath,
+            label              : 'content indexes and SEO',
+            requiresFreshCorpus: true,
+            tokenScope         : 'reader'
         }
     ];
+
+/**
+ * The emission stages this pipeline must run, declared INDEPENDENTLY of `emissionCommands`.
+ *
+ * The independence is the whole mechanism and it is easy to destroy by tidying: derive this list
+ * from `emissionCommands` and deleting a stage deletes its own expectation, so the assertion below
+ * passes on a pipeline that lost a generator. That is not a hypothetical — `c623b2f63c` removed the
+ * `GitHub Workflow corpus` entry and the run went *shorter*, not red, and stayed green for five days
+ * over a frozen corpus.
+ *
+ * This is a second hand-maintained list on purpose, which the credential vocabulary above rightly
+ * refuses to be. The distinction: `stageTokenSources` centralizes so selection and scrubbing cannot
+ * drift, because there drift is the defect. Here drift IS the signal — the list is the independent
+ * witness, and a witness derived from the thing it witnesses attests to nothing. Adding a stage is
+ * meant to cost an edit here; that edit is the review surface.
+ *
+ * It names only the stages the ENGINE owns. GitHub corpus PRODUCTION is deliberately absent: the
+ * emitter lives in the Agent OS repository, which consumes this Engine as a published package and is
+ * never imported by it, so the producer publishes the corpus INTO this repository and can never
+ * appear in `emissionCommands` again. An absent producer is therefore not detectable on this axis at
+ * all; {@link #assertCorpusFreshness} is the instrument that catches it, and the two axes together
+ * are what make `no-generated-changes` unreachable by having no generator.
+ * @type {String[]}
+ */
+export const REQUIRED_EMISSION_STAGES = ['install dependencies', 'content indexes and SEO'];
+
+/**
+ * @summary Refuses to run an emission whose stage set has lost a required stage.
+ *
+ * Fails BEFORE any stage runs. A pipeline missing a generator must not first publish whatever the
+ * survivors derive and then report the gap — the derived commit is the artifact that made the
+ * five-day outage look healthy.
+ *
+ * @param {Object}   [options]
+ * @param {Object[]} [options.stages=emissionCommands] The stage table to check.
+ * @param {String[]} [options.required=REQUIRED_EMISSION_STAGES] Labels that must be present.
+ * @throws {Error} Naming every missing label, never just the first.
+ * @returns {void}
+ */
+export function assertEmissionStageSet({stages = emissionCommands, required = REQUIRED_EMISSION_STAGES} = {}) {
+    const
+        present = new Set(stages.map(stage => stage.label)),
+        missing = required.filter(label => !present.has(label));
+
+    if (missing.length > 0) {
+        throw new Error(
+            `dataSyncPipeline: emission stage set is missing ${missing.map(label => `"${label}"`).join(', ')}. ` +
+            `Expected ${JSON.stringify(required)}, found ${JSON.stringify([...present])}. A stage that ` +
+            'vanishes from `emissionCommands` must turn this run RED, not shorter — a run that emits ' +
+            'less and still exits 0 is indistinguishable from a run with nothing to do.'
+        )
+    }
+}
 
 /**
  * @summary Builds the child environment for one emission stage, carrying exactly the credential
@@ -555,6 +615,100 @@ export function aggregateDeferredFailures(errors) {
 }
 
 /**
+ * @summary Reads each corpus facet's newest COMMIT date, the only honest freshness instrument here.
+ *
+ * Not `mtime`: this runs in an ephemeral Actions checkout where every file's mtime is checkout time,
+ * so an mtime probe certifies a five-day-old corpus as seconds fresh. Not the working tree either —
+ * the question is what the branch carries, which is what every downstream consumer clones.
+ *
+ * A facet with NO commit visible resolves to `null` rather than to a large age, and the assertion
+ * below treats that as stale. `null` here means "the instrument saw nothing", which for a corpus
+ * that is supposed to be published on a cadence is the loudest state, not the most permissive one.
+ *
+ * @param {Object}   options
+ * @param {String}   options.cwd Repository root.
+ * @param {Function} options.execute Child-process executor.
+ * @param {String}   [options.corpusPath=DEFAULT_CORPUS_PATH] Corpus root the facet subpaths hang off.
+ * @param {Object}   [options.facetPaths=FACET_PATHS] Facet name → subpaths, shared with the watchdog.
+ * @param {String}   [options.ref=remoteDevRef] The ref whose committed corpus is measured.
+ * @returns {Promise<Object<String, String|null>>} Facet name → newest ISO commit date, or `null`.
+ */
+export async function readCorpusFacetCommitDates({
+    cwd,
+    execute,
+    corpusPath = DEFAULT_CORPUS_PATH,
+    facetPaths = FACET_PATHS,
+    ref        = remoteDevRef
+}) {
+    const dates = {};
+
+    for (const [facet, subpaths] of Object.entries(facetPaths)) {
+        const observed = [];
+
+        for (const subpath of subpaths) {
+            // Newest-wins across a multi-path facet, matching `dataSyncWatchdog.latestCommitDate`:
+            // `issues` spans active + archive and consumers dual-source them, so an archive-only
+            // repair is maintenance rather than freshness. Measuring min-wins here would breach on
+            // a healthy corpus and train everyone to ignore the guard.
+            const {stdout} = await git(execute, cwd, [
+                'log', '-1', '--format=%cI', ref, '--', path.posix.join(corpusPath, subpath)
+            ]);
+
+            stdout.trim() && observed.push(stdout.trim())
+        }
+
+        dates[facet] = observed.length > 0 ?
+            observed.reduce((newest, date) => Date.parse(date) > Date.parse(newest) ? date : newest) :
+            null
+    }
+
+    return dates
+}
+
+/**
+ * @summary Refuses to DERIVE the portal from a corpus the pipeline is no longer producing.
+ *
+ * This is the axis that catches an absent producer. The stage-set assertion cannot: the emitter runs
+ * in the Agent OS repository, so its absence never shows up in `emissionCommands`. What shows up is a
+ * corpus that stops advancing while the derivation stage keeps rebuilding the portal from it and
+ * committing the result — a green run, fresh derived commits, and a frozen source.
+ *
+ * Threshold is `DEFAULT_MAX_CORPUS_AGE_HOURS`, imported from the watchdog rather than restated, so the
+ * two mechanisms cannot disagree about what "stale" means. It is deliberately NOT the pipeline's hourly
+ * cadence: a facet only commits when GitHub content actually changed, so a cadence-tight threshold would
+ * breach on every quiet hour and be muted within a day. 48h catches this defect on day two instead of
+ * day five, which is the improvement actually on offer; a tighter bound needs a producer that emits a
+ * heartbeat even when nothing changed, and that is not in this ticket.
+ *
+ * @param {Object} options
+ * @param {Object<String, String|null>} options.facetCommitDates Facet name → newest ISO commit date.
+ * @param {Number} [options.maxAgeHours=DEFAULT_MAX_CORPUS_AGE_HOURS] Staleness bound.
+ * @param {Date}   [options.now=new Date()] Clock, injected so the spec can witness a boundary.
+ * @throws {Error} Naming every stale facet with its measured age, never just the first.
+ * @returns {void}
+ */
+export function assertCorpusFreshness({facetCommitDates, maxAgeHours = DEFAULT_MAX_CORPUS_AGE_HOURS, now = new Date()}) {
+    const stale = Object.entries(facetCommitDates).map(([facet, lastCommitAt]) => ({
+        ageHours: lastCommitAt ? (now.getTime() - Date.parse(lastCommitAt)) / 3_600_000 : null,
+        facet,
+        lastCommitAt
+    })).filter(({ageHours}) => ageHours === null || ageHours > maxAgeHours);
+
+    if (stale.length > 0) {
+        throw new Error(
+            'dataSyncPipeline: refusing to derive the portal from a stale corpus — ' +
+            stale.map(({ageHours, facet, lastCommitAt}) => lastCommitAt ?
+                `\`${facet}\` is ${ageHours.toFixed(1)}h old (threshold ${maxAgeHours}h)` :
+                `no commit visible for \`${facet}\``
+            ).join(', ') +
+            '. The derivation stage reads this corpus and commits what it produces, so deriving from a ' +
+            'frozen source publishes fresh-looking artifacts over stale facts. If the producer is down, ' +
+            'that is the finding; a shorter green run is not.'
+        )
+    }
+}
+
+/**
  * @summary Runs the complete generated-output emission sequence for one fresh-head attempt.
  * @param {Object}   options
  * @param {Number}   options.attempt Current attempt number.
@@ -571,6 +725,11 @@ export async function emitGeneratedData({
     execute = executeCommand,
     log     = console.log
 }) {
+
+    // BEFORE any stage runs, and before any artifact is produced. A pipeline that has lost a stage
+    // must not first publish what the survivors derive and then mention the gap — that derived
+    // commit is precisely what made five days of a frozen corpus read as healthy.
+    assertEmissionStageSet();
 
     // EVERY deferred failure, not the last one. A single slot silently dropped three of the four
     // DevIndex stages when one denial failed them all, so the run reported one cause and hid the
@@ -595,9 +754,25 @@ export async function emitGeneratedData({
         command,
         label,
         publishGeneratedProgressOnFailure = false,
+        requiresFreshCorpus = false,
         tokenScope
     } of emissionCommands) {
         log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
+
+        // A per-stage flag, like `publishGeneratedProgressOnFailure` beside it, and unlike the
+        // `requiresCredential` flag this file rightly refused: that one would have restated
+        // `tokenScope`, free to drift from it. This declares something nothing else declares —
+        // which stages CONSUME the corpus — and only the consumer can be refused an input.
+        if (requiresFreshCorpus) {
+            const facetCommitDates = await readCorpusFacetCommitDates({cwd, execute});
+
+            log(
+                `[DataSync] emit attempt=${attempt} stage=${label} corpus=` +
+                Object.entries(facetCommitDates).map(([facet, date]) => `${facet}@${date ?? 'none'}`).join(' ')
+            );
+
+            assertCorpusFreshness({facetCommitDates})
+        }
 
         try {
             await execute(command, args, {cwd, env: scopedStageEnv(tokenScope)})

@@ -65,6 +65,11 @@ const
      * freshness is the newest commit across both (an archive-only repair is maintenance).
      * `WATCHDOG_CORPUS_FACETS` overrides the NAME list only; unknown names get a single
      * subpath equal to their name.
+     *
+     * EXPORTED because the pipeline's own freshness guard measures the same corpus this
+     * axis measures. Two hand-maintained facet lists is how a facet gets added to the watchdog and
+     * missed by the guard — the guard then certifies a corpus one third of which it never looked
+     * at, and that failure is silent. One declaration, two consumers.
      * @type {Object<String, String[]>}
      */
     FACET_PATHS = {
@@ -73,6 +78,8 @@ const
         discussions: ['discussions']
     },
     DEFAULT_CORPUS_FACETS            = Object.keys(FACET_PATHS);
+
+export {DEFAULT_CORPUS_PATH, DEFAULT_MAX_CORPUS_AGE_HOURS, FACET_PATHS};
 
 /**
  * Reduces the newest-first completed run history to the streak facts.
