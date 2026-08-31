@@ -224,6 +224,14 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         alphaReloadResolveCount_: 0,
         /**
+         * Spec trigger: each bump dispatches `handleDockReloadAction` with NO resolvable active
+         * item (null tabContainer) — the no-active race arm: settlement must still reach the
+         * `dockReloadSettled` channel, with `itemId: null`.
+         * @member {Number} dispatchNoActiveReloadCount_=0
+         * @reactive
+         */
+        dispatchNoActiveReloadCount_: 0,
+        /**
          * Spec trigger: JSON `{itemId, tabsNodeId, index}` commits one `addTab` operation —
          * the confinement arms need the catalog-only, in-node, and cross-node variants.
          * @member {String|null} addTabJson_=null
@@ -399,6 +407,19 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
 
         probe?.resolveDeferred?.();
         probe && (probe.resolveDeferred = null)
+    }
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetDispatchNoActiveReloadCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        this.handleDockReloadAction({dockNodeId: 'main-tabs', tabContainer: null})
     }
 
     /**
@@ -592,11 +613,92 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
 
 MaximizeFixtureWorkspace = Neo.setupClass(MaximizeFixtureWorkspace);
 
+/**
+ * @summary The flag-off subject: `enableDockReloadAction` stays at its false default while the
+ * HOST legally owns the semantic name `reload` through `resolveDockHeaderActions` (the reserved-
+ * name guard fires only for enabled engine actions). The negative arm proves default-off is
+ * behaviorally INERT: no engine sweep may rewrite this consumer-owned action's state.
+ */
+class HostReloadFixtureWorkspace extends DockWorkspace {
+    static config = {
+        /**
+         * @member {String} className='Test.Playwright.Component.DockMaximize.HostWorkspace'
+         * @protected
+         */
+        className: 'Test.Playwright.Component.DockMaximize.HostWorkspace',
+        /**
+         * One engine action ON, so the header projects an action rail at all — close's opt-in
+         * must not leak reload's sync.
+         * @member {Boolean} enableDockCloseAction=true
+         */
+        enableDockCloseAction: true,
+        /**
+         * @member {String} id='dock-hostreload-workspace'
+         */
+        id: 'dock-hostreload-workspace',
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'}
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        this.add(this.projectDockModel());
+        this.onDockZoneDocumentChange(structuredClone(hostFixtureDocument))
+    }
+
+    /**
+     * Host header actions ride the projection options hook. The host-owned action carries the
+     * ENGINE-RESERVABLE name while the engine flag is off; `showOnFocus: false` keeps it ungated
+     * — consumer-owned state the sweep must not touch.
+     * @returns {Object}
+     */
+    getDockProjectionOptions() {
+        return {
+            ...super.getDockProjectionOptions(),
+            resolveDockHeaderActions: () => [{action: 'reload', hidden: false, iconCls: 'fa fa-rotate-right', showOnFocus: false}]
+        }
+    }
+
+    /**
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {Object}
+     */
+    resolvePane(itemId, item) {
+        return {
+            id   : `dock-host-pane-${itemId}`,
+            ntype: 'component',
+            text : item?.title || itemId
+        }
+    }
+}
+
+HostReloadFixtureWorkspace = Neo.setupClass(HostReloadFixtureWorkspace);
+
+const hostFixtureDocument = {
+    schema: 'neo.dock.zone.v1',
+    root  : 'host-root',
+    items : {
+        'host-a': {componentRef: 'HostA', title: 'HostA', kind: 'panel'},
+        'host-b': {componentRef: 'HostB', title: 'HostB', kind: 'panel'}
+    },
+    nodes: {
+        'host-root': {type: 'tabs', items: ['host-a', 'host-b'], activeItemId: 'host-a'}
+    }
+};
+
 export const onStart = () => Neo.app({
     mainView: {
         module: Viewport,
         items : [
             {module: MaximizeFixtureWorkspace, flex: 1},
+            {module: HostReloadFixtureWorkspace, height: 200},
             // The standing probe: outlives the workspace — observer log + post-destroy release.
             {module: FixtureProbe, id: 'dock-maximize-probe', style: {display: 'none'}}
         ]

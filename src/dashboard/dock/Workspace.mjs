@@ -1362,15 +1362,6 @@ class Workspace extends Container {
     }
 
     /**
-     * Synchronizes every projected engine header action after reconciliation, including retained tabs
-     * whose action instance outlived a model-policy or active-item change.
-     *
-     * Each action's own sync is a no-op when that action was never projected (`getActionItem` misses),
-     * so this sweep stays correct for any subset of the engine set a consumer enabled.
-     * @param {Map<String,Neo.tab.Container>|null} [tabs=null]
-     * @protected
-     */
-    /**
      * The boot-time header-action sync. A consumer may mount its FIRST projection statically —
      * items assembled in `construct()` — without ever entering {@link #refreshDockWorkspace},
      * and on that path no header-action sync runs at all: projected action rows are
@@ -1386,6 +1377,18 @@ class Workspace extends Container {
         value && this.syncDockHeaderActions()
     }
 
+    /**
+     * Synchronizes every projected engine header action after reconciliation, including retained tabs
+     * whose action instance outlived a model-policy or active-item change.
+     *
+     * Each action's own sync guards on its own opt-in and is a no-op when the action was never
+     * projected — the opt-in guard is load-bearing, not redundant: a host may legally own an
+     * engine action NAME while that engine flag is off (the reserved-name guard fires only for
+     * enabled actions), and `getActionItem` finds the host's action by name. Without the guard,
+     * this sweep would rewrite consumer-owned action state.
+     * @param {Map<String,Neo.tab.Container>|null} [tabs=null]
+     * @protected
+     */
     syncDockHeaderActions(tabs=null) {
         let me            = this,
             projectedTabs = tabs;
@@ -1635,6 +1638,9 @@ class Workspace extends Container {
      * never inherits another item's window. Teardown mid-flight settles terminally through
      * `core.Base#trap`: destroy rejects the trapped delegation even when the pane's producer
      * never settles, and the post-destroy continuation returns without touching erased state.
+     * The no-active race (teardown, active-item flip mid-dispatch) settles through the channel
+     * too, carrying `itemId: null` — one settlement per activation, with the single-flight
+     * absorption as the only silent path.
      * @param {Object} data
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
@@ -1648,7 +1654,12 @@ class Workspace extends Container {
             errors = [];
 
         if (!itemId) {
-            return {errors: ['Dock reload action requires an active item']}
+            // The no-active race (teardown, active-item flip mid-dispatch) settles through the
+            // SAME channel as every other completion — the action wire discards returns, so an
+            // unsettled early return here would be an activation the event contract never saw.
+            errors.push('Dock reload action requires an active item');
+            !me.isDestroyed && me.fire('dockReloadSettled', {dockNodeId, errors, itemId: null});
+            return {errors}
         }
 
         // Single-flight: a second activation during the window neither invokes nor settles —
@@ -1711,6 +1722,11 @@ class Workspace extends Container {
      * @protected
      */
     syncDockReloadAction(tabContainer) {
+        // Opt-in guard first (the pin precedent): while the engine flag is off, a host may own
+        // the semantic name `reload` — getActionItem() would find THAT action, and writing to it
+        // here would overwrite consumer-owned state. Default-off means behaviorally inert.
+        if (!this.enableDockReloadAction) return;
+
         let action   = tabContainer?.getActionItem?.('reload'),
             itemId   = this.getActiveDockItemId(tabContainer),
             disabled = false,

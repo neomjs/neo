@@ -208,6 +208,39 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         await expect(reload).toBeEnabled()
     });
 
+    test('default-off is behaviorally inert: a host-owned reload action keeps consumer state', async ({page}) => {
+        const host   = tabsNodeWith(page, 'HostA'),
+              close  = actionButton(host, 'fa-times'),
+              reload = actionButton(host, 'fa-rotate-right');
+
+        // The host workspace legally owns the NAME `reload` while the engine flag is off. The
+        // engine's close action (its flag IS on) proves the sweep runs on this header — reload's
+        // per-action guard, not a dead sweep, is what protects the host action.
+        await expect(close).toHaveCount(1);
+        await expect(reload).toHaveCount(1);
+
+        // Active switches drive both sync paths (no-commit re-emit + committed activation); a
+        // guardless sweep hides the host action here — the pane has no dockReload() contract.
+        await tabButton(host, 'HostB').click();
+        await expect(tabButton(host, 'HostB')).toHaveClass(/pressed/);
+        await expect(reload).toHaveCount(1);
+        await expect(reload).toBeEnabled();
+
+        await tabButton(host, 'HostA').click();
+        await expect(tabButton(host, 'HostA')).toHaveClass(/pressed/);
+        await expect(reload).toHaveCount(1);
+        await expect(reload).toBeEnabled()
+    });
+
+    test('the no-active race settles through the channel with a null item', async ({page}) => {
+        await setWorkspace(page, {dispatchNoActiveReloadCount: 1});
+
+        await expect.poll(() => lastSettled(page)).toEqual({
+            errors: ['Dock reload action requires an active item'],
+            itemId: null
+        })
+    });
+
     test('teardown mid-flight settles terminally: a producer released after destroy mutates nothing', async ({page}) => {
         const main     = tabsNodeWith(page, 'Alpha'),
               pageErrs = [];
