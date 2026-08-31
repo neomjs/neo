@@ -485,6 +485,31 @@
     }
 }
 
+// The maximize presentation (Neo.dashboard.dock.Workspace#maximizedNodeId): a class toggle plus
+// four inline rect values MEASURED from the workspace root at toggle time — never `inset: 0`,
+// which answers to the viewport or an incidental fixed containing block instead of the
+// workspace. The pane is never re-parented (an iframe reloads its browsing context on
+// re-parent): the same node paints the measured rect in place while the committed layout stays
+// untouched underneath. Sits above the rails and the reveal overlay (z 20) — one overlay tier
+// at a time.
+.neo-dock-maximized {
+    // An opaque surface is part of the contract: the committed layout reflows underneath the
+    // fixed pane, and a transparent header band would ghost the covered nodes' chrome through.
+    background: var(--dock-maximize-background, var(--neo-background-color, #fff));
+    margin    : 0;
+    position  : fixed;
+    z-index   : var(--dock-maximize-z-index, 40);
+}
+
+// While a restore FLIP glides the pane from the workspace rect back into its flow slot, the
+// shrinking pane keeps painting above the re-expanded layout; without the hold it would drop
+// behind its siblings the moment `position: fixed` leaves it. The workspace removes the class
+// when the motion settles.
+.neo-dock-maximize-restoring {
+    position: relative;
+    z-index : var(--dock-maximize-z-index, 40);
+}
+
 // One visual family for cross indicators and edge chips: token-fed surfaces, motion-contract
 // timing only. `visibility` (not `display`) keeps the DOM warm so position glides and the
 // show/hide fades actually run. The ground/line read the dock-domain aliases — the theme
