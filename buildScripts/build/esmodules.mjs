@@ -6,6 +6,7 @@ import {minifyHtml}         from '../util/minifyHtml.mjs';
 import {processFileContent} from '../util/astTemplateProcessor.mjs';
 
 import {
+    enginePackagePath,
     esmOutputRoot,
     findUnresolvableImports,
     relativeSpecifiers,
@@ -142,18 +143,25 @@ Promise.all(promises).then(() => {
     // reached a file the output tree never had. Copied here, beside `docs/output`, because it is the
     // same shape: an artifact the tree needs and the minifier does not produce.
     //
-    // Guarded, and the guard is NOT dead code — which is worth stating, because it looks like it is.
-    // `templateBuildProcessor` imports the same bundle at module scope, so this script cannot start
-    // without one; but that import resolves relative to THIS FILE, i.e. against the engine package,
-    // while the copy below reads `root`, the workspace being built. Inside this repository those are
-    // the same path and the check does read as unreachable. In a consuming workspace they are not:
-    // the engine supplies the bundle the loader needs and the workspace root has none, so an
-    // unconditional copy fails a build that is otherwise correct.
+    // TWO candidate sources, because the bundle lives in a different place depending on who is
+    // building. Inside this repository `npm run bundle-parse5` writes it to the workspace root, and
+    // that is the copy a release must ship. In a consuming workspace the root has no `dist/` at all;
+    // the bundle arrives inside the installed package, which is what #17943 made true — before it,
+    // the artifact was absent from the tarball and a consumer had no source for it anywhere.
     //
-    // Absent, nothing is copied and the guard below names the dangling import honestly. Giving the
-    // workspace case a real source is a packaging question, not a copy-site one.
-    const parse5Path = path.resolve(root, 'dist/parse5.mjs');
-    if (fs.existsSync(parse5Path)) {
+    // The engine candidate is why a consumer build resolves at all: without it every workspace
+    // emitted a `dist/esm` whose HtmlTemplateProcessor imports a file nothing ever wrote, and the
+    // resolution guard below failed the build — correctly, and for a cause no consumer could fix.
+    //
+    // Still guarded rather than unconditional: neither candidate is an invariant. A checkout that has
+    // not run `bundle-parse5` has no root copy, and the guard below then names the dangling import
+    // honestly instead of the build dying on a missing file.
+    const parse5Path = [
+        path.resolve(root, 'dist/parse5.mjs'),
+        path.resolve(root, enginePackagePath, 'dist/parse5.mjs')
+    ].find(fs.existsSync);
+
+    if (parse5Path) {
         fs.copySync(parse5Path, path.resolve(root, outputBasePath, 'dist/parse5.mjs'))
     }
 
