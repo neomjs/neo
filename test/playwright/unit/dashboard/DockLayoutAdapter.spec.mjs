@@ -953,7 +953,31 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(plugins[0].module).toBe(TabOverflowPlugin);
     });
 
-    test.describe('tear-out projection threading — opt-in flag + the clone-safe gesture seams', () => {
+    test.describe('tab sort boundary + tear-out projection threading', () => {
+        test('a workspace boundary enables ordinary cross-zone motion without arming tear-out', () => {
+            const result = DockLayoutAdapter.project(createModel(), {
+                dockWorkspaceBoundaryContainerId: 'dock-workspace-root',
+                resolveComponentRef              : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            });
+            const config = result.items[0].headerToolbar.sortZoneConfig;
+
+            expect(config).toMatchObject({
+                allowOverdrag      : false,
+                boundaryContainerId: 'dock-workspace-root',
+                enableProxyToPopup : false
+            })
+        });
+
+        test('an explicit tear-out boundary wins over the workspace default', () => {
+            const result = DockLayoutAdapter.project(createModel(), {
+                dockTearOutBoundaryContainerId  : 'tear-out-root',
+                dockWorkspaceBoundaryContainerId: 'dock-workspace-root',
+                resolveComponentRef             : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            });
+
+            expect(result.items[0].headerToolbar.sortZoneConfig.boundaryContainerId).toBe('tear-out-root')
+        });
+
         test('enableDockTearOut arms the app-boundary popup grammar on every projected tab sort zone and threads the four gesture seams', () => {
             const captured = {cancel: [], entry: [], exit: [], terminal: []};
 
@@ -994,7 +1018,10 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                 resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             });
 
-            expect(result.items[0].headerToolbar.sortZoneConfig.enableProxyToPopup).toBe(false)
+            const config = result.items[0].headerToolbar.sortZoneConfig;
+
+            expect(config.enableProxyToPopup).toBe(false);
+            expect(config).not.toHaveProperty('boundaryContainerId')
         })
     });
 

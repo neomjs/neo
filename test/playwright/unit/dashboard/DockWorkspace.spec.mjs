@@ -294,6 +294,22 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(tabsOf(workspace.items[0]).size).toBe(2)
     });
 
+    test('a Workspace-backed projection bounds every tab sort zone to the Workspace root without arming tear-out', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const projectedTabs = tabsOf(workspace.projectDockModel());
+
+        expect(projectedTabs.size).toBe(2);
+
+        projectedTabs.forEach(tabContainer => {
+            expect(tabContainer.headerToolbar.sortZoneConfig).toMatchObject({
+                allowOverdrag      : false,
+                boundaryContainerId: workspace.id,
+                enableProxyToPopup : false
+            })
+        })
+    });
+
     test('an action the workspace does not own is re-emitted to the host with its node id', () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 

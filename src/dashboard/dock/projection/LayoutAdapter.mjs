@@ -402,7 +402,13 @@ class LayoutAdapter extends Base {
      * @param {Object} model
      * @param {Object} [options={}]
      * @param {String|String[]|null} [options.dockTearOutBoundaryContainerId] Main-thread DOM
-     *     boundary whose exit starts a tear-out; omitted values retain the tab-toolbar boundary.
+     *     boundary whose exit starts a tear-out. When present, this takes precedence over
+     *     {@link options.dockWorkspaceBoundaryContainerId}.
+     * @param {String|String[]|null} [options.dockWorkspaceBoundaryContainerId] Main-thread DOM
+     *     boundary for ordinary in-workspace cross-zone tab drags. A
+     *     {@link Neo.dashboard.dock.Workspace} supplies its own component id; direct adapter
+     *     consumers own supplying this option. Omitting both boundary options retains the generic
+     *     tab-toolbar clamp.
      * @param {Boolean} [options.enableVesselConversion=false] Arms the optional source-owned
      *     conversion policy. Consumers keep this false until their physical lifecycle is ready.
      * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
@@ -469,7 +475,13 @@ class LayoutAdapter extends Base {
             // tab.Container. The HOST owns vessel acquisition + the `detachItem` commit at the
             // terminal; the projection only threads the opt-in + the closure seams. Absent = fully
             // in-window, the unchanged default.
-            dockTearOutBoundaryContainerId   : options.dockTearOutBoundaryContainerId ?? null,
+            // The explicit tear-out boundary wins, but the ordinary Workspace-backed projection
+            // no longer needs to opt into tear-out merely to let a tab leave its source toolbar.
+            // Direct adapter consumers still get the generic toolbar clamp when both options are
+            // absent — the adapter owns no component and cannot manufacture a DOM boundary id.
+            dockTabSortBoundaryContainerId   : options.dockTearOutBoundaryContainerId
+                || options.dockWorkspaceBoundaryContainerId
+                || null,
             enableDockCloseAction            : options.enableDockCloseAction === true,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
@@ -1017,11 +1029,12 @@ class LayoutAdapter extends Base {
                 plugins       : [{module: TabOverflowPlugin}],
                 sortZoneConfig: {
                     module: TabSortZone,
-                    // A dock host spans multiple tab strips. Its composition can therefore name
-                    // the app/window boundary whose EXIT means tear-out; retaining the toolbar
-                    // fallback keeps consumers that omit the option byte-identical.
-                    ...(context.dockTearOutBoundaryContainerId
-                        ? {boundaryContainerId: context.dockTearOutBoundaryContainerId}
+                    // A dock host spans multiple tab strips. Workspace-backed compositions supply
+                    // their root boundary for ordinary cross-zone motion; an explicit tear-out
+                    // boundary has already won during context construction. Direct adapter
+                    // consumers that supply neither option retain the generic toolbar clamp.
+                    ...(context.dockTabSortBoundaryContainerId
+                        ? {boundaryContainerId: context.dockTabSortBoundaryContainerId}
                         : null),
                     dockGroupNodeId : nodeId === context.stackDragNodeId ? nodeId : null,
                     dockItemIds     : items,

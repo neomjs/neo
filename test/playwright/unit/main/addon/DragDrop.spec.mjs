@@ -1653,3 +1653,63 @@ test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract',
         expect(addon.zoneRegistrations).toEqual({})
     })
 });
+
+test.describe('Neo.main.addon.DragDrop — dock sort-first boundary motion (#17926)', () => {
+    test('a sort-first move can leave the toolbar and keep following the pointer inside the workspace boundary', () => {
+        const originalSend = DomEvents.sendMessageToApp,
+              sent         = [];
+
+        const createAddon = boundaryContainerRect => ({
+            allowOverdrag       : false,
+            alwaysFireDragMove  : true,
+            boundaryContainerRect,
+            dragCancelled       : false,
+            dragProxyElement    : {
+                getBoundingClientRect: () => ({height: 20, width: 80}),
+                style                : {}
+            },
+            dragProxyRect       : {height: 20, width: 80},
+            dragZoneId          : 'dock-tab-sort-zone',
+            getEventData        : event => ({clientX: event.detail.clientX, clientY: event.detail.clientY}),
+            isWindowDragging    : false,
+            moveHorizontal      : true,
+            moveVertical        : true,
+            offsetX             : 5,
+            offsetY             : 5,
+            windowDragParked    : false
+        });
+        const move = (addon, clientY) => DragDrop.prototype.onDragMove.call(addon, {
+            detail: {
+                clientX      : 45,
+                clientY,
+                originalEvent: {screenX: 45, screenY: clientY}
+            }
+        });
+
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            const toolbarBound = createAddon({bottom: 40, left: 0, right: 240, top: 0});
+
+            // The user sorts inside the strip first, then exits it on a later frame.
+            move(toolbarBound, 20);
+            move(toolbarBound, 200);
+
+            expect(sent.map(frame => frame.proxyRect.top)).toEqual([15, 20]);
+
+            sent.length = 0;
+
+            const workspaceBound = createAddon({bottom: 400, left: 0, right: 800, top: 0});
+
+            move(workspaceBound, 20);
+            move(workspaceBound, 200);
+
+            // Same gesture, same non-overdrag policy: the workspace boundary keeps the proxy at
+            // the pointer instead of parking it at the source toolbar's edge.
+            expect(sent.map(frame => frame.proxyRect.top)).toEqual([15, 195]);
+            expect(sent.at(-1)).toMatchObject({clientY: 200, type: 'drag:move'})
+        } finally {
+            DomEvents.sendMessageToApp = originalSend
+        }
+    })
+});

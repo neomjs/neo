@@ -1505,6 +1505,11 @@ class Workspace extends Container {
      * reducer and view-sync onto every projected affordance, the consumer's resolvers, and the
      * hook-provided options. {@link #dockProjectionConfig} is merged onto the result.
      *
+     * This Workspace's component id is always the ordinary tab-sort boundary, so a sort-first
+     * gesture can leave its source toolbar and reach sibling dock zones without enabling tear-out.
+     * An explicit `dockTearOutBoundaryContainerId` supplied by {@link #getDockProjectionOptions}
+     * keeps higher precedence inside the adapter.
+     *
      * A `null` document projects the EMPTY shell — the model contract's recoverable fallback
      * (`dockModel === null` → empty projection) — still carrying the `neo-dashboard`
      * default-carrier class, so the token floor reaches an empty workspace.
@@ -1524,6 +1529,10 @@ class Workspace extends Container {
             config = LayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
                 ...me.getDockProjectionOptions(),
+                // The Workspace component is the DOM-root authority for ordinary cross-zone tab
+                // motion. An explicit dockTearOutBoundaryContainerId from the hook still wins in
+                // LayoutAdapter; direct adapter consumers must supply this field themselves.
+                dockWorkspaceBoundaryContainerId: me.id,
                 onDockActiveIndexChange: me.onDockActiveIndexChange.bind(me),
                 // Bound unconditionally: a host can project its OWN header actions without enabling
                 // the close action, and wiring the seam inside that opt-in left those intents with
