@@ -45,8 +45,10 @@ class Container extends BaseContainer {
         /**
          * Selects the tab-header chrome for this placement. `inline` is the compact, flush variant for
          * embedding inside pane/header bands; `standalone` is the roomier free-standing variant. `null`
-         * preserves the active theme's established default.
+         * preserves the active theme's established default. This overrides the inherited reactive
+         * config's default without repeating its trailing underscore, per the class-system contract.
          * @member {String|null} ui=null
+         * @reactive
          */
         ui: null,
         /**

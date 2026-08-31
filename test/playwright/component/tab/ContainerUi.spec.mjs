@@ -9,27 +9,27 @@ const THEMES = [
 
 const EXPECTED = {
     'neo-theme-light': {
-        inline    : {height: '25px', radius: '0px'},
-        null      : {height: '25px', radius: '0px'},
-        standalone: {height: '40px', radius: '8px'},
+        inline    : {height: '25px', padding: '7px 10px 6px', radius: '0px'},
+        null      : {height: '25px', padding: '7px 12px 6px', radius: '0px'},
+        standalone: {height: '40px', padding: '7px 16px 6px', radius: '8px'},
         textColor : 'rgb(43, 43, 43)'
     },
     'neo-theme-dark': {
-        inline    : {height: '25px', radius: '0px'},
-        null      : {height: '25px', radius: '0px'},
-        standalone: {height: '40px', radius: '8px'},
+        inline    : {height: '25px', padding: '7px 10px 6px', radius: '0px'},
+        null      : {height: '25px', padding: '7px 12px 6px', radius: '0px'},
+        standalone: {height: '40px', padding: '7px 16px 6px', radius: '8px'},
         textColor : 'rgb(187, 187, 187)'
     },
     'neo-theme-neo-light': {
-        inline    : {height: '32px', radius: '0px'},
-        null      : {height: '48px', radius: '8px'},
-        standalone: {height: '48px', radius: '8px'},
+        inline    : {height: '32px', padding: '4px 12px 3px', radius: '0px'},
+        null      : {height: '48px', padding: '7px 16px 6px', radius: '8px'},
+        standalone: {height: '48px', padding: '7px 16px 6px', radius: '8px'},
         textColor : 'rgb(69, 75, 66)'
     },
     'neo-theme-neo-dark': {
-        inline    : {height: '32px', radius: '0px'},
-        null      : {height: '48px', radius: '8px'},
-        standalone: {height: '48px', radius: '8px'},
+        inline    : {height: '32px', padding: '4px 12px 3px', radius: '0px'},
+        null      : {height: '48px', padding: '7px 16px 6px', radius: '8px'},
+        standalone: {height: '48px', padding: '7px 16px 6px', radius: '8px'},
         textColor : 'rgb(153, 162, 149)'
     }
 };
@@ -290,5 +290,20 @@ test.describe('Neo.tab.Container — ui variants', () => {
         expect(after.inline).toContain('linear-gradient');
         expect(after.nested).toBe('none');
         expect(after.null).toBe('none')
+    });
+
+    test('a runtime ui change replaces the previous modifier class', async ({page}) => {
+        const root = page.locator('#tab-ui-inline');
+
+        await expect(root).toHaveClass(/neo-tab-container-inline/);
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, ui: 'standalone'}), 'tab-ui-inline');
+
+        await expect(root).toHaveClass(/neo-tab-container-standalone/);
+        await expect(root).not.toHaveClass(/neo-tab-container-inline/);
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, ui: null}), 'tab-ui-inline');
+
+        await expect(root).not.toHaveClass(/neo-tab-container-inline|neo-tab-container-standalone/)
     })
 });
