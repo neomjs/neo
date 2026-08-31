@@ -1369,12 +1369,14 @@ class Workspace extends Container {
      * pane-dependent action such as reload would stay at its projected default forever. Mount is
      * the one surface every boot path shares.
      *
-     * The sync is DEFERRED off the mount cascade (the MonacoEditor post-mount idiom): container
-     * mount flips every child's `mounted` in the same frame, and writing action state into that
-     * window races the initial render application — observed on slow rigs as duplicated header
-     * chrome. The delay is a boot convenience, not a correctness surface: every write in the
-     * sweep is change-guarded and idempotent, and `timeout()` is destroy-rejected, so a torn-down
-     * workspace never runs it.
+     * A workspace whose boot DID run the refresh already synced on settled chrome (the
+     * post-reconcile sweep), so this hook narrows to the never-refreshed case: `refreshPromise`
+     * present means the refresh owns boot truth and writing again from the mount window would
+     * only race the initial application train (observed on slow rigs as duplicated bar chrome).
+     * For the static case the sync is additionally deferred off the mount cascade (the
+     * MonacoEditor post-mount idiom) — container mount flips every child's `mounted` in the same
+     * frame. Every write in the sweep is change-guarded and idempotent, and `timeout()` is
+     * destroy-rejected, so a torn-down workspace never runs it.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -1382,7 +1384,7 @@ class Workspace extends Container {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && this.timeout(100).then(() => {
+        value && !this.refreshPromise && this.timeout(100).then(() => {
             !this.isDestroyed && this.syncDockHeaderActions()
         }).catch(() => null)
     }
