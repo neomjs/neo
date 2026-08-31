@@ -133,15 +133,19 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         document.items.alpha.locked = true;
 
         let tabs = findTabsConfig(LayoutAdapter.project(document, {
-            dockLockIconCls    : 'lock-action',
-            dockUnlockIconCls  : 'unlock-action',
+            dockLockIconCls      : 'lock-action',
+            dockUnlockIconCls    : 'unlock-action',
             enableDockCloseAction: true,
             enableDockLockAction : true,
             resolveComponentRef  : () => ({ntype: 'component'})
         }));
 
         expect(tabs.headerActions.find(action => action.action === 'lock'))
-            .toMatchObject({hidden: false, iconCls: 'unlock-action'});
+            .toMatchObject({
+                hidden : false,
+                iconCls: 'unlock-action',
+                vdom   : {'aria-label': 'unlock'}
+            });
         expect(tabs.headerActions.find(action => action.action === 'close').hidden).toBe(true);
 
         document.items.alpha.lockable = false;
@@ -167,8 +171,8 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
                       }
                   },
                   nodes: {
-                      root        : {type: 'edge-zone', zones: {right: {nodeId: 'edge-tabs'}}},
-                      'edge-tabs' : {type: 'tabs', items: ['railed'], activeItemId: 'railed'}
+                      root       : {type: 'edge-zone', zones: {right: {nodeId: 'edge-tabs'}}},
+                      'edge-tabs': {type: 'tabs', items: ['railed'], activeItemId: 'railed'}
                   }
               },
               syncPane = () => {},
@@ -209,11 +213,11 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
     test('locks and unlocks the real pane, action, close affordance, and tab drag source', () => {
         workspace = Neo.create(LockWorkspace, {
-            dockModel             : createDocument(),
-            dockLockIconCls       : 'lock-action',
-            dockUnlockIconCls     : 'unlock-action',
-            enableDockCloseAction : true,
-            enableDockLockAction  : true
+            dockModel            : createDocument(),
+            dockLockIconCls      : 'lock-action',
+            dockUnlockIconCls    : 'unlock-action',
+            enableDockCloseAction: true,
+            enableDockLockAction : true
         });
 
         const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('main-tabs'),
@@ -236,6 +240,10 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(pane.cls).toContain('neo-dock-pane-locked');
         expect(tabButton.wrapperCls).not.toContain('neo-draggable');
         expect(lockAction.iconCls).toBe('unlock-action');
+        expect(lockAction.vdom['aria-label']).toBe('unlock');
+        expect(lockAction.showOnFocus, 'the reversal stays persistent while the lock persists').toBe(false);
+        expect(lockAction.cls).not.toContain('neo-toolbar-action-context-inactive');
+        expect(lockAction.vdom.inert).toBeUndefined();
         expect(closeAction.hidden).toBe(true);
 
         const unlocked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
@@ -247,6 +255,10 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(pane.cls).not.toContain('neo-dock-pane-locked');
         expect(tabButton.wrapperCls).toContain('neo-draggable');
         expect(lockAction.iconCls).toBe('lock-action');
+        expect(lockAction.vdom['aria-label']).toBe('lock');
+        expect(lockAction.showOnFocus, 'unlock restores the family focus gate').toBe(true);
+        expect(lockAction.cls).toContain('neo-toolbar-action-context-inactive');
+        expect(lockAction.vdom.inert).toBe(true);
         expect(closeAction.hidden).toBe(false)
     });
 

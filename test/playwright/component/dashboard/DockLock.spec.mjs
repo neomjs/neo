@@ -94,9 +94,24 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
 
         expect(keyboardFocus).not.toContain('dock-lock-control-alpha');
 
-        await tabButton(main, 'Alpha').click();
-        await awaitRefresh(page);
-        await actionButton(main, 'fa-lock-open').click();
+        const outside = page.locator('#dock-lock-outside-focus'),
+              unlock  = actionButton(main, 'fa-lock-open');
+
+        await outside.focus();
+        await expect(outside).toBeFocused();
+
+        // A persistent protective state must not hide its reversal behind transient focus. With
+        // focus deliberately outside the dock, only unlock stays discoverable/actionable; no other
+        // contextual sibling is exposed by this.
+        await expect(unlock).not.toHaveClass(/neo-toolbar-action-context-inactive/);
+        await expect(unlock).toHaveAttribute('aria-label', 'unlock');
+        expect(await unlock.evaluate(node => ({
+            ariaHidden: node.getAttribute('aria-hidden'),
+            inert     : node.inert,
+            tabIndex  : node.tabIndex
+        }))).toEqual({ariaHidden: null, inert: false, tabIndex: 0});
+
+        await unlock.click();
         await awaitRefresh(page);
 
         await expect(page.locator('#dock-lock-pane-alpha')).not.toHaveClass(/neo-dock-pane-locked/);
@@ -111,6 +126,18 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
         expect(await page.evaluate(() => window.__dockLockClicks)).toBe(2);
 
+        await outside.focus();
+        const relock = actionButton(main, 'fa-lock');
+
+        await expect(relock).toHaveClass(/neo-toolbar-action-context-inactive/);
+        await expect(relock).toHaveAttribute('aria-label', 'lock');
+        expect(await relock.evaluate(node => ({
+            ariaHidden: node.getAttribute('aria-hidden'),
+            inert     : node.inert,
+            tabIndex  : node.tabIndex
+        }))).toEqual({ariaHidden: 'true', inert: true, tabIndex: -1});
+
+        await tabButton(main, 'Beta').focus();
         await tabButton(main, 'Beta').click();
         await awaitRefresh(page);
         expect(await readInertOwnership(page, 'dock-lock-pane-beta')).toEqual({owned: true, value: true});

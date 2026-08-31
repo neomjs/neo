@@ -549,7 +549,7 @@ class LayoutAdapter extends Base {
                 || options.resolveComponentRef
                 || (() => null),
             stackDragNodeId,
-            syncDockLockPane                   : options.syncDockLockPane,
+            syncDockLockPane                  : options.syncDockLockPane,
             tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
             vesselConversionConvertThreshold  : options.vesselConversionConvertThreshold,
             vesselConversionPointerExitGraceMs: options.vesselConversionPointerExitGraceMs,
@@ -1084,8 +1084,22 @@ class LayoutAdapter extends Base {
 
         const headerActions = [
             ...hostActions,
-            // Reload leads the engine set per the frozen family order (reload · lock · pin · maximize —
-            // close always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
+            // Lock leads the frozen engine set. The ordinary lock gesture inherits focus gating;
+            // while the protective state persists, its UNLOCK reversal stays persistent too, so
+            // discoverability never depends on re-entering a transient focus context.
+            ...(context.enableDockLockAction ? [{
+                action : 'lock',
+                hidden : !activeItemId || context.items[activeItemId]?.lockable === false,
+                iconCls: context.items[activeItemId]?.locked === true
+                    ? context.dockUnlockIconCls
+                    : context.dockLockIconCls,
+                showOnFocus: context.items[activeItemId]?.locked !== true,
+                vdom       : {
+                    'aria-label': context.items[activeItemId]?.locked === true ? 'unlock' : 'lock'
+                }
+            }] : []),
+            // Reload follows lock in the frozen family order (lock · reload · pin · maximize — close
+            // always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
             // CONSTANT true here — per-item availability must ride the ONE retained instance's
             // runtime state (`Workspace#syncDockReloadAction`, the `syncDockCloseAction`
             // pattern), never this config: a row that varies between projections changes the
@@ -1096,13 +1110,6 @@ class LayoutAdapter extends Base {
                 action : 'reload',
                 hidden : true,
                 iconCls: 'fa fa-rotate-right'
-            }] : []),
-            ...(context.enableDockLockAction ? [{
-                action : 'lock',
-                hidden : !activeItemId || context.items[activeItemId]?.lockable === false,
-                iconCls: context.items[activeItemId]?.locked === true
-                    ? context.dockUnlockIconCls
-                    : context.dockLockIconCls
             }] : []),
             ...(context.enableDockPinAction ? [{
                 action    : 'pin',

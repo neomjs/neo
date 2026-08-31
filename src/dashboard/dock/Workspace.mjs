@@ -1443,7 +1443,9 @@ class Workspace extends Container {
      * Presentation is deliberately a second layer beneath the model guards. Lock stamps
      * `vdom.inert` plus `neo-dock-pane-locked` in one pane update and removes only the tab
      * button's `neo-draggable` source token. Unlock restores the exact prior inert ownership/value
-     * and exact prior drag-token ownership. Locked headers remain legal drop targets.
+     * and exact prior drag-token ownership. Locked headers remain legal drop targets. The ordinary
+     * lock gesture is focus-gated; once the protective state persists, its unlock reversal becomes
+     * persistent too, so discoverability never depends on re-entering a transient focus context.
      * @param {Neo.tab.Container|null} tabContainer
      * @protected
      */
@@ -1457,14 +1459,30 @@ class Workspace extends Container {
             activeItem   = me.dockModel?.items?.[activeItemId],
             hidden       = !activeItemId || activeItem?.lockable === false,
             iconCls      = activeItem?.locked === true ? me.dockUnlockIconCls : me.dockLockIconCls,
+            ariaLabel    = activeItem?.locked === true ? 'unlock' : 'lock',
+            showOnFocus  = activeItem?.locked !== true,
             changes      = {};
 
         if (action) {
+            let ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel;
+
             action.hidden  !== hidden  && (changes.hidden  = hidden);
             action.iconCls !== iconCls && (changes.iconCls = iconCls);
+            action.showOnFocus !== showOnFocus && (changes.showOnFocus = showOnFocus);
 
-            if (Object.keys(changes).length) {
-                action.setSilent(changes);
+            if (Object.keys(changes).length || ariaLabelChanged) {
+                // `setSilent()` consumes non-config class-field keys from its input, so remember
+                // this transition BEFORE handing the batch over.
+                let focusGateChanged = Object.hasOwn(changes, 'showOnFocus');
+
+                Object.keys(changes).length && action.setSilent(changes);
+                ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
+
+                // `showOnFocus` is a stable-instance policy flip, not an action-list rebuild. The
+                // toolbar owns the inert/aria/tab-index presentation and must release/re-arm it
+                // before this one update publishes the changed action.
+                focusGateChanged && tabContainer?.getTabBar?.()?.applyContextualActionState(true);
+
                 action.update()
             }
         }
@@ -3077,16 +3095,16 @@ class Workspace extends Container {
                 // motion. An explicit dockTearOutBoundaryContainerId from the hook still wins in
                 // LayoutAdapter; direct adapter consumers must supply this field themselves.
                 dockWorkspaceBoundaryContainerId: me.id,
-                onDockActiveIndexChange: me.onDockActiveIndexChange.bind(me),
+                onDockActiveIndexChange         : me.onDockActiveIndexChange.bind(me),
                 // Bound unconditionally: a host can project its OWN header actions without enabling
                 // the close action, and wiring the seam inside that opt-in left those intents with
                 // nowhere to arrive.
                 onDockHeaderAction     : me.onDockHeaderAction.bind(me),
                 ...(me.enableDockCloseAction && {enableDockCloseAction: true}),
                 ...(me.enableDockLockAction && {
-                    dockLockIconCls      : me.dockLockIconCls,
-                    dockUnlockIconCls    : me.dockUnlockIconCls,
-                    enableDockLockAction : true
+                    dockLockIconCls     : me.dockLockIconCls,
+                    dockUnlockIconCls   : me.dockUnlockIconCls,
+                    enableDockLockAction: true
                 }),
                 ...(me.enableDockPinAction && {enableDockPinAction: true}),
                 ...(me.enableDockReloadAction && {enableDockReloadAction: true}),

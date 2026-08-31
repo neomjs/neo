@@ -221,12 +221,19 @@ class Toolbar extends Container {
             visible = me.contextualActionsVisible;
 
         me.getActionItems().forEach(item => {
-            if (!me.isFocusGatedAction(item)) {
+            let focusGated      = me.isFocusGatedAction(item),
+                ownsInactiveTab = Object.hasOwn(item, '_toolbarActionTabIndex');
+
+            // A live action may leave the focus gate so a persistent protective state can keep its
+            // reversal discoverable. If this toolbar previously made it inactive, the opt-out must
+            // release that owned layer once; a persistent action that was never gated stays
+            // untouched, including any consumer-owned inert/aria state.
+            if (!focusGated && !ownsInactiveTab) {
                 return
             }
 
             let cls      = [...(item.cls || [])],
-                inactive = !visible,
+                inactive = focusGated && !visible,
                 vdom     = item.vdom;
 
             NeoArray.toggle(cls, 'neo-toolbar-action-context-inactive', inactive);
@@ -244,13 +251,15 @@ class Toolbar extends Container {
                 delete vdom['aria-hidden'];
                 delete vdom.inert;
 
-                if (item._toolbarActionTabIndex === null) {
-                    delete vdom.tabIndex
-                } else {
-                    vdom.tabIndex = item._toolbarActionTabIndex
-                }
+                if (ownsInactiveTab) {
+                    if (item._toolbarActionTabIndex === null) {
+                        delete vdom.tabIndex
+                    } else {
+                        vdom.tabIndex = item._toolbarActionTabIndex
+                    }
 
-                delete item._toolbarActionTabIndex
+                    delete item._toolbarActionTabIndex
+                }
             }
 
             !silent && item.update()

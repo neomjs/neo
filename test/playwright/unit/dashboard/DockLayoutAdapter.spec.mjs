@@ -551,13 +551,14 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(hostOwned.headerActions.map(action => action.action)).toEqual(['maximize'])
     });
 
-    test('reload leads the engine set and reserves its name through the guard table', () => {
+    test('lock leads reload in the engine set and reload reserves its name through the guard table', () => {
         const
             model       = createModel(),
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
 
             enabled = DockLayoutAdapter.project(model, {
                 enableDockCloseAction   : true,
+                enableDockLockAction    : true,
                 enableDockMaximizeAction: true,
                 enableDockPinAction     : true,
                 enableDockReloadAction  : true,
@@ -566,15 +567,15 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
             enabledMain = getProjectedChildren(enabled)[0];
 
-        // The frozen family order: reload leads the engine set, close stays last.
+        // The frozen family order: lock leads reload in the engine set; close stays last.
         expect(enabledMain.headerActions.map(action => action.action))
-            .toEqual(['reload', 'pin', 'maximize', 'close']);
+            .toEqual(['lock', 'reload', 'pin', 'maximize', 'close']);
 
         // Focus-gated like its engine siblings — no `contextual` opt-out — and it SHIPS hidden:
         // availability is a live-card contract probe only the workspace can run post-mount.
-        expect(enabledMain.headerActions[0].contextual).toBeUndefined();
-        expect(enabledMain.headerActions[0].hidden).toBe(true);
-        expect(enabledMain.headerActions[0].iconCls).toBe('fa fa-rotate-right');
+        expect(enabledMain.headerActions[1].contextual).toBeUndefined();
+        expect(enabledMain.headerActions[1].hidden).toBe(true);
+        expect(enabledMain.headerActions[1].iconCls).toBe('fa fa-rotate-right');
 
         // Off = byte-identical: no reload entry materialises for the flag alone.
         const withoutReload = getProjectedChildren(DockLayoutAdapter.project(model, {
@@ -1231,7 +1232,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         test('a workspace boundary enables ordinary cross-zone motion without arming tear-out', () => {
             const result = DockLayoutAdapter.project(createModel(), {
                 dockWorkspaceBoundaryContainerId: 'dock-workspace-root',
-                resolveComponentRef              : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef             : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             });
             const config = result.items[0].headerToolbar.sortZoneConfig;
 

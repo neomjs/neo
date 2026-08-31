@@ -378,12 +378,13 @@ class Operations extends Base {
     }
 
     /**
-     * @summary Updates an item's committed lock state when its policy permits locking.
+     * @summary Updates an item's committed lock state when its policy permits locking or unlocking.
      *
      * Lock is the model boundary beneath the Workspace presentation: while true, close, detach,
      * and source moves fail closed even when stale chrome or a programmatic descriptor bypasses
      * the projected inert and drag-source affordances. An absent value reads as unlocked, matching
-     * the additive boolean-state precedent of pinned and autoHidden.
+     * the additive boolean-state precedent of pinned and autoHidden. `lockable:false` refuses both
+     * directions deliberately: it is permanent item policy, not merely a lock-button visibility hint.
      * @param {Object} document
      * @param {Object} args {itemId, locked}
      * @returns {{document:Object, errors:String[]}}

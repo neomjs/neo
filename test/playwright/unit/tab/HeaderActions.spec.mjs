@@ -427,6 +427,43 @@ test.describe.serial('Neo tab header actions', () => {
         expect(legacyGated.showOnFocus).toBe(true)
     });
 
+    test('a live action can leave and re-enter the focus gate without retaining toolbar-owned inert state', () => {
+        const tabs = own(Neo.create(TabContainer, {
+                  headerActions: [
+                      {action: 'reversible', iconCls: 'fa fa-lock'},
+                      {action: 'sibling',    iconCls: 'fa fa-thumbtack'}
+                  ],
+                  items        : [{module: Component, header: {text: 'One'}}]
+              })),
+              action = tabs.getActionItem('reversible'),
+              sibling = tabs.getActionItem('sibling'),
+              bar    = tabs.getTabBar();
+
+        // The tab header defaults to gated and starts outside focus.
+        expect(action.cls).toContain('neo-toolbar-action-context-inactive');
+        expect(action.vdom).toMatchObject({'aria-hidden': 'true', inert: true, tabIndex: -1});
+
+        // A persistent protective state can keep its reversal discoverable outside transient
+        // focus. The toolbar owns this inert/aria/tab-index layer, so leaving the gate must release
+        // exactly it.
+        action.showOnFocus = false;
+        bar.applyContextualActionState(true);
+
+        expect(action.cls).not.toContain('neo-toolbar-action-context-inactive');
+        expect(action.vdom.inert).toBeUndefined();
+        expect(action.vdom['aria-hidden']).toBeUndefined();
+        expect(action.vdom.tabIndex).toBeUndefined();
+        expect(sibling.cls, 'the exception releases only the reversal').toContain('neo-toolbar-action-context-inactive');
+        expect(sibling.vdom.inert).toBe(true);
+
+        // Returning to the ordinary gate while focus is still outside re-arms the same instance.
+        action.showOnFocus = true;
+        bar.applyContextualActionState(true);
+
+        expect(action.cls).toContain('neo-toolbar-action-context-inactive');
+        expect(action.vdom).toMatchObject({'aria-hidden': 'true', inert: true, tabIndex: -1})
+    });
+
     test('a mixed actionDefaults lets the CURRENT key decide, not the deprecated one', () => {
         const container = own(Neo.create(BaseContainer, {
                   items: [{
