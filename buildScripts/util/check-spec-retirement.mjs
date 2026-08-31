@@ -145,6 +145,103 @@ export function hasRetirementAccount(message) {
 }
 
 /**
+ * @summary The in-tree path a deleted spec's subject would occupy: its own parent directory plus its name.
+ *
+ * `…/unit/ai/buildScripts/util/check-block-alignment.spec.mjs` yields `util/check-block-alignment.mjs`,
+ * which `buildScripts/util/check-block-alignment.mjs` satisfies.
+ *
+ * **The parent directory is load-bearing and was added on measurement, not taste.** A bare basename
+ * match — `logger.spec.mjs` looks for any `logger.mjs` — was the first draft, and replaying it over
+ * `c623b2f63c` produced ten false positives: four per-server `logger.spec.mjs` files resolved to
+ * `src/util/Logger.mjs`, two per-server `Server.spec.mjs` files to `examples/form/field/fileupload/server.mjs`,
+ * and `daemons/orchestrator/scheduling/picker.spec.mjs` to `src/form/field/Picker.mjs`. None of those
+ * files is the deleted spec's subject. Demanding an account for a file the author never touched is the
+ * failure this guard's own header warns about — it trains people to route around the check.
+ *
+ * The rule therefore under-reports rather than over-reports, deliberately. A spec sitting directly in
+ * `test/playwright/unit/` derives the suffix `unit/<name>.mjs`, which nothing satisfies, so it is never
+ * flagged. For a guard that demands an ACCOUNT, a false positive is the expensive error and a missed
+ * row is merely the status quo.
+ *
+ * @param {String} specPath Deleted spec path.
+ * @returns {String} Lower-cased `<parentDir>/<name>.mjs`, or an empty string when the path has no parent.
+ */
+export function deriveSubjectSuffix(specPath) {
+    const segments = String(specPath || '').split('/');
+
+    if (segments.length < 2) {
+        return ''
+    }
+
+    const
+        file      = segments.pop().replace(/\.spec\.mjs$/u, '.mjs'),
+        parentDir = segments.pop();
+
+    return `${parentDir}/${file}`.toLowerCase()
+}
+
+/**
+ * @summary Tree paths that still hold the deleted spec's subject.
+ *
+ * Case-insensitive because the split's own population needs it: `DataSyncPipeline.spec.mjs` covers
+ * `buildScripts/dataSyncPipeline.mjs`, and a case-sensitive match would call that subject departed.
+ *
+ * `test/` is excluded from the candidate set so that a sibling spec is never mistaken for an
+ * implementation — the question is whether the SUBJECT survived, not whether some other test did.
+ *
+ * @param {String} specPath Deleted spec path.
+ * @param {String[]} treePaths Tracked paths in the tree the deleting commit produced.
+ * @returns {String[]} Surviving subject paths, in tree order.
+ */
+export function findSurvivingSubjects(specPath, treePaths) {
+    const suffix = deriveSubjectSuffix(specPath);
+
+    if (!suffix) {
+        return []
+    }
+
+    return (treePaths || [])
+        .filter(path => path && !path.startsWith('test/'))
+        .filter(path => {
+            const lower = path.toLowerCase();
+
+            // `endsWith('/' + suffix)` anchors on a directory boundary, so `util/check-parse.mjs` is
+            // not satisfied by `…/util/check-parse-extra.mjs`, and the bare equality covers a subject
+            // sitting at the repository root.
+            return lower.endsWith(`/${suffix}`) || lower === suffix
+        })
+}
+
+/**
+ * @summary Deleted specs whose subject is still in the tree and whose account never says so.
+ *
+ * **This is the one half of the account that is mechanically gradeable.** The rule above — an account
+ * must EXIST, and the guard never asks whether it is TRUE — is correct and is not reopened here: no
+ * tool can grade "folded into X". But "the subject of this deleted spec is still in this repository"
+ * is not prose, it is a fact about the tree, and a commit removing that spec can be required to name
+ * the file it left behind.
+ *
+ * The empirical case is `c623b2f63c`, where one sentence accounted for 796 unit-spec deletions and
+ * mis-described at least 34 of them: measured against the tree that commit produced, 34 deleted specs
+ * had a surviving subject and the account named none. Naming is what a general sentence cannot fake —
+ * which is the whole point, since a general sentence is exactly what went wrong.
+ *
+ * @param {String[]} specs Deleted spec paths.
+ * @param {String[]} treePaths Tracked paths in the tree the deleting commit produced.
+ * @param {String} message Full commit message.
+ * @returns {Array<{spec: String, subjects: String[]}>} Unnamed survivors, in encounter order.
+ */
+export function unaccountedSurvivors(specs, treePaths, message) {
+    const body = String(message || '');
+
+    return (specs || [])
+        .map(spec => ({spec, subjects: findSurvivingSubjects(spec, treePaths)}))
+        // Naming ANY one of a subject's candidate paths discharges the row. The author is being asked
+        // to acknowledge that the implementation stayed, not to enumerate every file that shares a name.
+        .filter(({subjects}) => subjects.length > 0 && !subjects.some(subject => body.includes(subject)))
+}
+
+/**
  * @summary Renders the failure text.
  *
  * It names the paths and the marker and does NOT tell the author to restore the file. Restoring is
@@ -177,12 +274,51 @@ export function formatFailure(violations) {
 }
 
 /**
+ * @summary Renders the surviving-subject failure text.
+ *
+ * Deliberately worded as a NARROWING of the existing account rather than a new demand: the commit
+ * already carries a `spec-retired:` line — that is why it reached this check at all — and what is
+ * missing is one path inside it. Naming the fix that precisely is what keeps the rule cheap enough to
+ * satisfy rather than route around.
+ *
+ * @param {Array<{sha: String, subject: String, survivors: Array<{spec: String, subjects: String[]}>}>} violations
+ * @returns {String}
+ */
+export function formatSurvivingSubjectFailure(violations) {
+    const rows = violations.reduce((sum, {survivors}) => sum + survivors.length, 0);
+
+    const lines = [
+        `check-spec-retirement: ${rows} deleted spec(s) whose SUBJECT is still in this repository.`,
+        '',
+        'These commits carry an account, so the marker is satisfied — but the account does not mention',
+        'the implementation each deleted spec was covering, and that implementation did not leave.',
+        'A guard that still runs with no spec behind it is the coverage loss nothing else reports.',
+        '',
+        `Name the surviving file in the \`${RETIREMENT_MARKER}\` account — one path is enough per row —`,
+        'or restore the spec if the coverage was lost by accident rather than on purpose.',
+        ''
+    ];
+
+    violations.forEach(({sha, subject, survivors}) => {
+        lines.push(`  ${sha.slice(0, 10)} ${subject}`);
+        survivors.forEach(({spec, subjects}) => {
+            lines.push(`      deleted:  ${spec}`);
+            lines.push(`      survives: ${subjects.join(', ')}`);
+        });
+    });
+
+    return lines.join('\n')
+}
+
+/**
  * @summary Collects unaccounted spec deletions across the pushed ranges.
  * @param {String[]} ranges Rev-list ranges.
- * @returns {Array<{sha: String, subject: String, specs: String[]}>}
+ * @returns {{unaccounted: Array<{sha: String, subject: String, specs: String[]}>, survived: Array<{sha: String, subject: String, survivors: Array<{spec: String, subjects: String[]}>}>}}
  */
 function collectViolations(ranges) {
-    const violations = [];
+    const
+        violations = [],
+        survived   = [];
 
     ranges.forEach(range => {
         // Merges are scanned. An earlier draft passed `--no-merges` on the reasoning that a deletion
@@ -235,15 +371,31 @@ function collectViolations(ranges) {
                 return
             }
 
-            if (hasRetirementAccount(tryExec(`git log -1 ${sha} --format=%B`))) {
+            const message = tryExec(`git log -1 ${sha} --format=%B`);
+
+            if (!hasRetirementAccount(message)) {
+                violations.push({sha, subject: tryExec(`git log -1 ${sha} --format=%s`), specs});
+
+                // One defect per commit. Demanding the surviving-subject detail from a commit that has
+                // not written an account at all buries the primary instruction under a longer one.
                 return
             }
 
-            violations.push({sha, subject: tryExec(`git log -1 ${sha} --format=%s`), specs})
+            // Only reached when an account EXISTS, so the tree listing is paid for on the rare commit
+            // that deletes specs and answers for them — not on every commit in the range.
+            const survivors = unaccountedSurvivors(
+                specs,
+                tryExec(`git ls-tree -r --name-only ${sha}`).split('\n').map(path => path.trim()).filter(Boolean),
+                message
+            );
+
+            if (survivors.length > 0) {
+                survived.push({sha, subject: tryExec(`git log -1 ${sha} --format=%s`), survivors})
+            }
         })
     });
 
-    return violations
+    return {unaccounted: violations, survived}
 }
 
 /**
@@ -259,10 +411,23 @@ async function main() {
         }
     }
 
-    const violations = collectViolations(pendingRanges(stdin));
+    const
+        {unaccounted, survived} = collectViolations(pendingRanges(stdin)),
+        reports                 = [];
 
-    if (violations.length > 0) {
-        console.error(formatFailure(violations));
+    if (unaccounted.length > 0) {
+        reports.push(formatFailure(unaccounted))
+    }
+
+    if (survived.length > 0) {
+        reports.push(formatSurvivingSubjectFailure(survived))
+    }
+
+    if (reports.length > 0) {
+        // Both classes are reported in one run. Exiting on the first would hide the second behind a
+        // fix-and-re-push cycle, and a guard discovered one row at a time is how a bulk deletion gets
+        // accounted for one sentence at a time.
+        console.error(reports.join('\n\n'));
         process.exit(1)
     }
 }

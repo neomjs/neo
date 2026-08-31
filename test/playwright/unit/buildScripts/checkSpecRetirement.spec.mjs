@@ -3,10 +3,14 @@ import {test, expect} from '@playwright/test';
 import {
     RETIREMENT_MARKER,
     SPEC_PATH_PATTERN,
+    deriveSubjectSuffix,
+    findSurvivingSubjects,
     formatFailure,
+    formatSurvivingSubjectFailure,
     hasRetirementAccount,
     parseDeletedSpecs,
-    pendingRanges
+    pendingRanges,
+    unaccountedSurvivors
 }                     from '../../../../buildScripts/util/check-spec-retirement.mjs';
 
 test.describe('check-spec-retirement', () => {
@@ -203,6 +207,148 @@ test.describe('check-spec-retirement', () => {
 
         test('states that legitimate deletion stays cheap', () => {
             expect(rendered).toMatch(/account, not a veto/u);
+        });
+    });
+
+    test.describe('the surviving subject — the gradeable half of the account (#17922 AC-4)', () => {
+        // The guard asks whether an account EXISTS, never whether it is TRUE, and that stands. What
+        // these arms add is the one part of "true" that is a fact about the tree rather than prose:
+        // the deleted spec's subject is still here.
+        const TREE = [
+            'buildScripts/util/check-block-alignment.mjs',
+            'buildScripts/dataSyncPipeline.mjs',
+            'buildScripts/build/themes.mjs',
+            'src/ai/LockRegistry.mjs',
+            'src/ai/client/DockService.mjs',
+            'src/util/Logger.mjs',
+            'src/form/field/Picker.mjs',
+            'examples/form/field/fileupload/server.mjs',
+            // A NON-spec helper inside the test tree, positioned so that it WOULD satisfy the suffix
+            // `util/check-parse.mjs`. Without the `test/` exclusion this is a match, which is what
+            // makes the arm below able to fail. A sibling `*.spec.mjs` cannot serve here: the suffix
+            // ends in `.mjs`, never `.spec.mjs`, so it never matched and the arm was vacuously green.
+            'test/playwright/unit/buildScripts/util/check-parse.mjs'
+        ];
+
+        test.describe('deriveSubjectSuffix', () => {
+            test('is the parent directory plus the name, lower-cased', () => {
+                expect(deriveSubjectSuffix('test/playwright/unit/ai/buildScripts/util/check-block-alignment.spec.mjs'))
+                    .toBe('util/check-block-alignment.mjs');
+                expect(deriveSubjectSuffix('test/playwright/unit/ai/LockRegistry.spec.mjs')).toBe('ai/lockregistry.mjs');
+            });
+
+            test('a path with no parent directory yields nothing rather than throwing', () => {
+                expect(deriveSubjectSuffix('a.spec.mjs')).toBe('');
+                expect(deriveSubjectSuffix('')).toBe('');
+                expect(deriveSubjectSuffix(null)).toBe('');
+            });
+        });
+
+        test.describe('findSurvivingSubjects', () => {
+            test('resolves a subject that stayed behind', () => {
+                expect(findSurvivingSubjects('test/playwright/unit/ai/buildScripts/util/check-block-alignment.spec.mjs', TREE))
+                    .toEqual(['buildScripts/util/check-block-alignment.mjs']);
+            });
+
+            test('matches case-insensitively, which the split population requires', () => {
+                // `DataSyncPipeline.spec.mjs` covers `dataSyncPipeline.mjs`. A case-sensitive match
+                // would call that subject departed and wave the deletion through.
+                expect(findSurvivingSubjects('test/playwright/unit/ai/buildScripts/DataSyncPipeline.spec.mjs', TREE))
+                    .toEqual(['buildScripts/dataSyncPipeline.mjs']);
+            });
+
+            test('a genuinely departed subject resolves to nothing', () => {
+                // The positive control: this narrows what the marker must assert, it never widens it.
+                expect(findSurvivingSubjects('test/playwright/unit/ai/buildScripts/util/check-atomic-write-shape.spec.mjs', TREE))
+                    .toEqual([]);
+            });
+
+            test('a bare basename collision is NOT a surviving subject', () => {
+                // The measured false positives from replaying `c623b2f63c` with a basename-only rule.
+                // None of these files is the deleted spec's subject, and demanding an account for a
+                // file the author never touched is what trains people to route around the guard.
+                expect(findSurvivingSubjects('test/playwright/unit/ai/mcp/server/shared/logger.spec.mjs', TREE),
+                    'src/util/Logger.mjs is not the mcp server logger').toEqual([]);
+                expect(findSurvivingSubjects('test/playwright/unit/ai/daemons/orchestrator/scheduling/picker.spec.mjs', TREE),
+                    'src/form/field/Picker.mjs is not the scheduling picker').toEqual([]);
+                expect(findSurvivingSubjects('test/playwright/unit/ai/mcp/server/memory-core/Server.spec.mjs', TREE),
+                    'the fileupload example server is not the MCP server').toEqual([]);
+            });
+
+            test('a file inside the TEST tree never counts as the surviving implementation', () => {
+                // The question is whether the SUBJECT survived, not whether some other file under
+                // `test/` happens to carry the name. `test/playwright/unit/buildScripts/util/check-parse.mjs`
+                // satisfies this suffix on every axis except the one that matters.
+                expect(findSurvivingSubjects('test/playwright/unit/ai/buildScripts/util/check-parse.spec.mjs', TREE))
+                    .toEqual([]);
+            });
+
+            test('a longer name is not satisfied by a prefix match', () => {
+                // `endsWith('/' + suffix)` anchors on a directory boundary, so `check-parse.mjs` is
+                // not answered by `check-parse-extra.mjs`.
+                expect(findSurvivingSubjects('test/playwright/unit/ai/buildScripts/util/check-parse.spec.mjs',
+                    ['buildScripts/util/check-parse-extra.mjs'])).toEqual([]);
+            });
+        });
+
+        test.describe('unaccountedSurvivors', () => {
+            const specs = [
+                'test/playwright/unit/ai/buildScripts/util/check-block-alignment.spec.mjs',
+                'test/playwright/unit/ai/buildScripts/util/check-atomic-write-shape.spec.mjs'
+            ];
+
+            test('a general account that names no surviving file does not discharge the row', () => {
+                // This IS the incident: one sentence accounted for 796 unit-spec deletions, and 34 of
+                // the subjects it described as departed were still in the tree it produced.
+                const message = 'feat(engine): remove received Brain implementation\n\n' +
+                    'spec-retired: Brain-owned specs leave Engine with Agent OS; retained Fleet and\n' +
+                    'Neural Link coverage now binds an explicit external Brain runtime.';
+
+                expect(unaccountedSurvivors(specs, TREE, message)).toEqual([{
+                    spec    : 'test/playwright/unit/ai/buildScripts/util/check-block-alignment.spec.mjs',
+                    subjects: ['buildScripts/util/check-block-alignment.mjs']
+                }]);
+            });
+
+            test('naming the surviving path discharges it — the rule is satisfiable', () => {
+                const message = 'x\n\nspec-retired: buildScripts/util/check-block-alignment.mjs stays; coverage folded elsewhere.';
+
+                expect(unaccountedSurvivors(specs, TREE, message)).toEqual([]);
+            });
+
+            test('a deletion whose subjects all genuinely left stays green', () => {
+                const departed = ['test/playwright/unit/ai/buildScripts/util/check-atomic-write-shape.spec.mjs'];
+
+                expect(unaccountedSurvivors(departed, TREE, 'x\n\nspec-retired: moved to the Brain repo.')).toEqual([]);
+            });
+
+            test('empty and malformed input degrade to no findings, never to a throw', () => {
+                expect(unaccountedSurvivors(null, TREE, 'x')).toEqual([]);
+                expect(unaccountedSurvivors(specs, null, 'x')).toEqual([]);
+                expect(unaccountedSurvivors(specs, TREE, null).length).toBe(1);
+            });
+        });
+
+        test.describe('formatSurvivingSubjectFailure', () => {
+            const rendered = formatSurvivingSubjectFailure([{
+                sha      : 'c623b2f63cabcdef',
+                subject  : 'feat(engine): remove received Brain implementation',
+                survivors: [{
+                    spec    : 'test/playwright/unit/ai/buildScripts/util/check-block-alignment.spec.mjs',
+                    subjects: ['buildScripts/util/check-block-alignment.mjs']
+                }]
+            }]);
+
+            test('names both the deleted spec and the file that stayed', () => {
+                expect(rendered).toContain('test/playwright/unit/ai/buildScripts/util/check-block-alignment.spec.mjs');
+                expect(rendered).toContain('buildScripts/util/check-block-alignment.mjs');
+                expect(rendered).toContain('c623b2f63c');
+            });
+
+            test('asks for one path in the existing account rather than a new ceremony', () => {
+                expect(rendered).toContain(RETIREMENT_MARKER);
+                expect(rendered).toMatch(/one path is enough/u);
+            });
         });
     });
 
