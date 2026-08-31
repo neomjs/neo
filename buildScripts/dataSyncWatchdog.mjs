@@ -65,6 +65,11 @@ const
      * freshness is the newest commit across both (an archive-only repair is maintenance).
      * `WATCHDOG_CORPUS_FACETS` overrides the NAME list only; unknown names get a single
      * subpath equal to their name.
+     *
+     * EXPORTED because the pipeline's own freshness guard measures the same corpus this
+     * axis measures. Two hand-maintained facet lists is how a facet gets added to the watchdog and
+     * missed by the guard — the guard then certifies a corpus one third of which it never looked
+     * at, and that failure is silent. One declaration, two consumers.
      * @type {Object<String, String[]>}
      */
     FACET_PATHS = {
@@ -73,6 +78,8 @@ const
         discussions: ['discussions']
     },
     DEFAULT_CORPUS_FACETS            = Object.keys(FACET_PATHS);
+
+export {DEFAULT_CORPUS_PATH, DEFAULT_MAX_CORPUS_AGE_HOURS, FACET_PATHS};
 
 /**
  * Reduces the newest-first completed run history to the streak facts.
@@ -197,6 +204,31 @@ export function parseThreshold({name, raw, fallback}) {
     }
 
     return value
+}
+
+/**
+ * @summary The ONE effective corpus-age policy, resolved the same way for every consumer.
+ *
+ * The pipeline's freshness guard and this watchdog's alarm judge the same corpus, so they must
+ * resolve the same number or they can contradict each other about it. Importing
+ * `DEFAULT_MAX_CORPUS_AGE_HOURS` is NOT that: the constant is the fallback, while the operative
+ * value is `WATCHDOG_MAX_CORPUS_AGE_HOURS` when it is set. A consumer holding the constant sees
+ * 48h while this tool sees the override, so a 60h corpus under a 72h override is stale to one and
+ * fresh to the other. Sharing a default is not sharing policy.
+ *
+ * Resolved per call rather than at module load, so the value cannot be frozen by import order and
+ * a test can drive it through `env` without mutating the process.
+ *
+ * @param {Object} [env=process.env] Environment to resolve from.
+ * @returns {Number} Effective maximum corpus age in hours.
+ * @throws {Error} Via {@link parseThreshold} when the override is present but not a positive number.
+ */
+export function resolveMaxCorpusAgeHours(env = process.env) {
+    return parseThreshold({
+        name    : 'WATCHDOG_MAX_CORPUS_AGE_HOURS',
+        raw     : env.WATCHDOG_MAX_CORPUS_AGE_HOURS,
+        fallback: DEFAULT_MAX_CORPUS_AGE_HOURS
+    })
 }
 
 /**
@@ -434,7 +466,9 @@ async function main() {
         corpusPath             = process.env.WATCHDOG_CORPUS_PATH || DEFAULT_CORPUS_PATH,
         maxConsecutiveFailures = parseThreshold({name: 'WATCHDOG_MAX_CONSECUTIVE_FAILURES', raw: process.env.WATCHDOG_MAX_CONSECUTIVE_FAILURES, fallback: DEFAULT_MAX_CONSECUTIVE_FAILURES}),
         maxSuccessAgeHours     = parseThreshold({name: 'WATCHDOG_MAX_SUCCESS_AGE_HOURS', raw: process.env.WATCHDOG_MAX_SUCCESS_AGE_HOURS, fallback: DEFAULT_MAX_SUCCESS_AGE_HOURS}),
-        maxCorpusAgeHours      = parseThreshold({name: 'WATCHDOG_MAX_CORPUS_AGE_HOURS', raw: process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS, fallback: DEFAULT_MAX_CORPUS_AGE_HOURS}),
+        // Through the shared resolver, not a second inline `parseThreshold` — a duplicated
+        // resolution site is how the pipeline and this tool came to hold different numbers.
+        maxCorpusAgeHours      = resolveMaxCorpusAgeHours(process.env),
         dryRun                 = process.env.WATCHDOG_DRY_RUN === 'true' || args.has('--dry-run'),
         forceBreach            = process.env.WATCHDOG_FORCE_BREACH === 'true',
         forceRecovery          = process.env.WATCHDOG_FORCE_RECOVERY === 'true',
