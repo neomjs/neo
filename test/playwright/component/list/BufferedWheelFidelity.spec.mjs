@@ -40,10 +40,8 @@ import {test, expect} from '@playwright/test';
  */
 
 const
-    BOUNDARY_PX = 160,
-    ITEM_HEIGHT = 40,
-    LIST_ID     = 'buffered-list-under-test',
-    POOL_SIZE   = 16;
+    LIST_ID   = 'buffered-list-under-test',
+    POOL_SIZE = 16;
 
 /**
  * Reads App-Worker truth for the list under test.
@@ -64,24 +62,44 @@ const workerState = (page, keys) => page.evaluate(
 const domScrollTop = page => page.evaluate(id => document.getElementById(id)?.scrollTop ?? -1, LIST_ID);
 
 /**
- * The pooled row component ids in DOM order. Identity here is the recycle oracle: a scroll that crosses
- * no buffer edge must leave every slot occupied by the same component instance.
+ * Which Store record occupies each pool slot, in DOM order — the recycle oracle.
  *
- * The two `neo-buffered-list-spacer` nodes are excluded **by class rather than by position**. The list
- * mounts its bounded pool *between* two stable spacers that hold the unmounted extents
- * (`Buffered.mjs:445-458`), so a naive `children` read counts 18 for a 16-row pool. Filtering by class
- * states the reason in the code; the equivalent `slice(1, -1)` would encode the same fact as an
- * unexplained offset and would quietly return the wrong set if a third structural node ever appeared.
+ * **Slot ids and nested component ids are both useless here, and that is not obvious.** `createPooledItem`
+ * assigns `item.id = getSlotId(poolIndex)` → `…__slot-N`, and the nested component renders as
+ * `…__N__component`. Both are derived from the *pool index*, so both stay byte-identical even if every
+ * row were destroyed and rebuilt against different records. An assertion over either compares a
+ * deterministic function of the loop counter with itself and passes unconditionally.
+ *
+ * `data-record-id` is the one identity that moves with the data: it answers *which record is in this
+ * slot*, which is what recycling actually means. It changes iff the mounted range changes.
+ *
+ * The two `neo-buffered-list-spacer` nodes are excluded **by class rather than by position**
+ * (`Buffered.mjs:445-458`); `slice(1, -1)` would encode the same fact as an unexplained offset and
+ * would silently return the wrong set if a third structural node ever appeared.
  * @param {Object} page
  * @returns {Promise<String[]>}
  */
-const poolIds = page => page.evaluate(id => {
+const slotRecordIds = page => page.evaluate(id => {
     const root = document.getElementById(id);
 
     return root ? Array.from(root.children)
         .filter(node => !node.classList.contains('neo-buffered-list-spacer'))
-        .map(node => node.id)
+        .map(node => node.dataset.recordId)
         .filter(Boolean) : []
+}, LIST_ID);
+
+/**
+ * The logical Store index each pool slot currently renders, in DOM order. Pairs with
+ * {@link slotRecordIds}: the record ids prove *that* the window moved, these prove *where it moved to*.
+ * @param {Object} page
+ * @returns {Promise<Number[]>}
+ */
+const slotLogicalIndexes = page => page.evaluate(id => {
+    const root = document.getElementById(id);
+
+    return root ? Array.from(root.children)
+        .filter(node => !node.classList.contains('neo-buffered-list-spacer'))
+        .map(node => Number(node.dataset.logicalIndex)) : []
 }, LIST_ID);
 
 /**
@@ -120,29 +138,50 @@ test.describe('Neo.list.Buffered — wheel-distance fidelity', () => {
         await expect.poll(() => domScrollTop(page)).toBe(0)
     });
 
-    test('RED CONTROL: the fidelity assertion can actually fail', async ({page}) => {
-        // Proves the oracle is not vacuous BEFORE any green is reported.
+    test('RED CONTROL: an induced small-input→viewport-output makes the fidelity arm fail', async ({page}) => {
+        // Proves the oracle is not vacuous BEFORE any green is reported, by reproducing the REPORTED
+        // FAILURE CLASS rather than a large correct scroll.
         //
-        // The control drives a real wheel through the SAME path as every green arm, with a
-        // deliberately viewport-sized delta, and asserts the small-delta expectation rejects it. An
-        // earlier revision instead wrote `element.scrollTop` directly — that raced the engine and was
-        // intermittently observed reading back 680 rather than the written 400, because `createItems()`
-        // clamps `me.scrollTop` (`Buffered.mjs:357`) and re-stamps `vdom.scrollTop` (`:377`) on every
-        // captured scroll. A control whose own instrument fights the subject under test cannot certify
-        // anything, and its intermittency was indistinguishable from the defect it was built to detect.
-        await wheel(page, 400);
+        // Two earlier revisions of this control were both inadequate, and the reasons are worth keeping:
+        //   1. Writing `element.scrollTop` directly raced the engine — `createItems()` clamps
+        //      `me.scrollTop` (`Buffered.mjs:357`) and re-stamps `vdom.scrollTop` (`:377`) on every
+        //      captured scroll — and was intermittently observed reading 680 for a written 400. A
+        //      control whose failure mode is indistinguishable from the defect certifies nothing.
+        //   2. A plain `wheel(400)` producing 400 is *correct native fidelity for a large gesture*. It
+        //      passes, and passing is the problem: the reported class is a SMALL input yielding a
+        //      VIEWPORT output, so an arm that never exhibits that shape never shows the assertion
+        //      turning red.
+        //
+        // This installs an amplifier that adds a viewport per wheel event, drives the SAME 4 x 30px
+        // gesture the green arm uses, and asserts the green arm's own expectation is violated. The
+        // amplifier lives on this page only; every other test gets a fresh `page.goto`.
+        await page.evaluate(id => {
+            const el = document.getElementById(id);
+
+            el.addEventListener('wheel', () => { el.scrollTop += 400 }, {passive: true})
+        }, LIST_ID);
+
+        for (let i = 0; i < 4; i++) {
+            await wheel(page, 30)
+        }
 
         const observed = await domScrollTop(page);
 
-        expect(observed, 'a viewport-sized gesture must NOT satisfy the small-delta expectation').not.toBe(120);
-        expect(observed, 'and it must move the full requested distance').toBe(400)
+        // The exact expectation the green arm asserts. Under amplification it MUST NOT hold.
+        expect(observed, 'the small-delta expectation must be violated when output is amplified').not.toBe(120);
+        // And it must fail in the reported direction: a 120px input producing at least a viewport.
+        expect(observed, 'a 120px gesture must land past a full 400px viewport under amplification')
+            .toBeGreaterThanOrEqual(400)
     });
 
     test('four small deltas below the boundary move exactly their sum, and recycle nothing', async ({page}) => {
-        const idsBefore = await poolIds(page);
+        const recordsBefore = await slotRecordIds(page);
 
         expect(await spacerCount(page), 'the pool is bracketed by exactly two stable spacers').toBe(2);
-        expect(idsBefore.length, 'pool cardinality is viewport + 2*buffer, spacers excluded').toBe(POOL_SIZE);
+        expect(recordsBefore.length, 'pool cardinality is viewport + 2*buffer, spacers excluded').toBe(POOL_SIZE);
+        expect(await slotLogicalIndexes(page), 'at rest the window starts at the first record').toEqual(
+            Array.from({length: POOL_SIZE}, (_, i) => i)
+        );
 
         for (let i = 0; i < 4; i++) {
             await wheel(page, 30)
@@ -157,11 +196,12 @@ test.describe('Neo.list.Buffered — wheel-distance fidelity', () => {
 
         expect(workerScrollTop, 'App-Worker scrollTop must equal the physical seat').toBe(120);
         expect(mountedRange, 'no buffer edge was crossed, so the range must not move').toEqual([0, POOL_SIZE]);
-        expect(await poolIds(page), 'an unchanged range must not recycle any slot').toEqual(idsBefore)
+        expect(await slotRecordIds(page), 'an unchanged range must leave every slot on its own record')
+            .toEqual(recordsBefore)
     });
 
-    test('crossing the 160px boundary moves the range without moving the scroll seat off its sum', async ({page}) => {
-        const idsBefore = await poolIds(page);
+    test('crossing the 160px boundary moves the range to exactly [1, 17] and re-points the slots', async ({page}) => {
+        const recordsBefore = await slotRecordIds(page);
 
         // 6 x 30 = 180px: one delta past the boundary, still far smaller than the 400px viewport.
         for (let i = 0; i < 6; i++) {
@@ -175,13 +215,27 @@ test.describe('Neo.list.Buffered — wheel-distance fidelity', () => {
         const [workerScrollTop, mountedRange] = await workerState(page, ['scrollTop', 'mountedRange']);
 
         expect(workerScrollTop).toBe(180);
-        expect(mountedRange[0], 'past the boundary the range must have advanced').toBeGreaterThan(0);
-        expect(mountedRange[1] - mountedRange[0], 'pool cardinality is invariant across a range move').toBe(POOL_SIZE);
-        expect(await poolIds(page), 'a boundary crossing recycles slots in place, ids stay stable').toEqual(idsBefore);
 
-        // The record now at the first visible pixel is derivable, and is the real proof the range moved
-        // to the right place rather than merely moving.
-        expect(Math.floor(180 / ITEM_HEIGHT)).toBe(4)
+        // The exact range is derivable, so assert it exactly. `mountedRange[0] > 0` would admit any
+        // advanced-but-wrong window, which is the failure a windowing defect actually produces:
+        //   firstVisible = floor(180/40) = 4 · visibleEnd = 14 · 14 > 16 - 3, so
+        //   start = min(maxStart, visibleEnd + buffer - poolSize) = min(maxStart, 1) = 1
+        expect(mountedRange, 'the window must land where the arithmetic says, not merely move').toEqual([1, 17]);
+
+        // The App Worker's range moves synchronously with the captured scroll; the DOM follows a
+        // worker → VDOM → main round trip. Polling separates "the DOM has not caught up yet" from "the
+        // DOM disagrees with the engine", which are very different findings — a timeout here means the
+        // rendered window never reconciles with `mountedRange`, not merely that it was slow.
+        await expect.poll(() => slotLogicalIndexes(page), {
+            message: 'the rendered window must reconcile with mountedRange [1, 17]'
+        }).toEqual(Array.from({length: POOL_SIZE}, (_, i) => i + 1));
+
+        // Only once the DOM reflects the range is the recycle question meaningful. Comparing slot ids
+        // would pass unconditionally — they are pool-index-derived (see `slotRecordIds`).
+        const recordsAfter = await slotRecordIds(page);
+
+        expect(recordsAfter, 'a range move must re-point the slots onto different records').not.toEqual(recordsBefore);
+        expect(recordsAfter.length, 'pool cardinality is invariant across a range move').toBe(POOL_SIZE)
     });
 
     test('negative deltas are symmetric — scrolling back lands on the same pixels', async ({page}) => {
@@ -219,5 +273,43 @@ test.describe('Neo.list.Buffered — wheel-distance fidelity', () => {
         const [workerScrollTop] = await workerState(page, ['scrollTop']);
 
         expect(workerScrollTop).toBe(160)
+    })
+});
+
+/**
+ * The arms above drive `component/apps/buffered-list/` — a harness with its own model, store and row
+ * classes. It is deliberately separate, but that separation means **it is not evidence that the public
+ * example works**, and an evidence row citing the harness for the example would be citing a different
+ * app. This boots the real one.
+ */
+test.describe('Neo.examples.list.buffered — the public example boots', () => {
+    test('mounts a bounded pool and exposes its three windowing controls', async ({page}) => {
+        await page.goto('examples/list/buffered/index.html');
+
+        const list = page.locator('.neo-buffered-list');
+
+        await expect(list, 'the example must mount an actual Buffered list').toBeVisible();
+
+        // Bounded by construction: 5,000 records, but the DOM holds viewport + 2*buffer rows and two
+        // spacers. A list that mounted every record would still "be visible" — the count is what proves
+        // the example demonstrates windowing rather than merely rendering.
+        await expect.poll(
+            () => list.locator('li.neo-list-item').count(),
+            {message: 'the pool must stay bounded — this is the property the example exists to show'}
+        ).toBeGreaterThan(0);
+
+        const rowCount = await list.locator('li.neo-list-item').count();
+
+        expect(rowCount, '5,000 records must not produce 5,000 rows').toBeLessThan(100);
+        expect(await list.locator('.neo-buffered-list-spacer').count(), 'both extents are held by spacers').toBe(2);
+
+        // The three configs whose entire effect is windowing behaviour. An example that renders a list
+        // but cannot vary these would demonstrate nothing the plain list example does not already show.
+        for (const label of ['bufferRowRange', 'itemHeight', 'height']) {
+            await expect(
+                page.locator('.neo-textfield-label', {hasText: label}).first(),
+                `the example must expose ${label} as a live control`
+            ).toBeVisible()
+        }
     })
 });
