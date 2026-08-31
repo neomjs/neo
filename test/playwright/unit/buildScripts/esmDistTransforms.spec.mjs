@@ -267,6 +267,40 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         /** Bare specifiers are the resolver's business, not the output tree's. */
         test('bare package specifiers are ignored', () => {
             expect(transforms.relativeSpecifiers('import x from"neo.mjs";')).toEqual([])
+        });
+
+        /**
+         * The arm that reds against text matching. Both strings below are real emitted shapes: the
+         * portal's home page renders an import statement as sample code, and the Toast example does
+         * the same with a `node_modules/neo.mjs` specifier. A regex reported them as broken imports
+         * and an identity failure respectively, on every full build, and no source change could ever
+         * have satisfied it — the code is correct and the reader was wrong.
+         */
+        test('an import statement inside a string literal is not an import', () => {
+            const emitted = [
+                'const sample={html:"import Viewport from \'../../apps/colors/view/Viewport.mjs\';"};',
+                'const other=`import Toast from \'../../../../node_modules/neo.mjs/src/component/Toast.mjs\';`;',
+                'import real from"./real.mjs";'
+            ].join('');
+
+            expect(transforms.relativeSpecifiers(emitted)).toEqual(['./real.mjs'])
+        });
+
+        /** A dynamic import is an expression, so it can sit at any depth rather than in the body. */
+        test('a dynamic import nested inside a function is seen', () => {
+            expect(transforms.relativeSpecifiers('async function f(){return(await import("../deep/x.mjs")).default}'))
+                .toEqual(['../deep/x.mjs'])
+        });
+
+        /** `export {x}` re-exports nothing; only the sourced form names a module. */
+        test('a local export without a source contributes nothing', () => {
+            expect(transforms.relativeSpecifiers('const x=1;export{x};')).toEqual([])
+        });
+
+        /** The interpolation survives extraction, because the prefix rule downstream needs it. */
+        test('a template-literal specifier keeps its interpolation verbatim', () => {
+            expect(transforms.relativeSpecifiers('import(`../data/parser/${t}.mjs`);'))
+                .toEqual(['../data/parser/${t}.mjs'])
         })
     });
 

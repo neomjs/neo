@@ -13,6 +13,8 @@
  * @see https://github.com/neomjs/neo/issues/6752 introduced the workspace import rewrite
  */
 
+import * as acorn from 'acorn';
+
 /**
  * The output tree this build writes, relative to the workspace root.
  *
@@ -68,17 +70,16 @@ const IMPORT_SPECIFIER_REGEX =
     /((?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
 
 /**
- * Matches any relative import specifier, whatever the quote style.
+ * The AST node types that carry a module specifier.
  *
- * Module-scope constant, same reasoning and same `lastIndex` invariant as the pattern above.
+ * `ExportNamedDeclaration` is included but only counts when it actually has a `source` — a plain
+ * `export {x}` re-exports nothing and its `source` is null.
  *
- * Deliberately separate from the rewrite pattern: this one runs over *emitted* code, which Terser has
- * already normalized, so it cannot assume the source's quoting.
- *
- * @type {RegExp}
+ * @type {Set<String>}
  */
-const RELATIVE_SPECIFIER_REGEX =
-    /(?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)(["'`])(\.{1,2}\/(?:(?!\1).)*)\1/g;
+const SPECIFIER_NODE_TYPES = new Set([
+    'ExportAllDeclaration', 'ExportNamedDeclaration', 'ImportDeclaration', 'ImportExpression'
+]);
 
 /**
  * Rewrites `node_modules`-bearing specifiers for the flattened `dist/esm` layout.
@@ -261,11 +262,55 @@ export function unsafeSourceRootReason(root) {
 /**
  * Every relative specifier imported by a piece of emitted code.
  *
+ * Read from the module's AST rather than matched out of its text, because a regex over minified code
+ * cannot tell an import from a string that contains one — and this engine ships several. The portal's
+ * home page renders `"import Viewport from '../../apps/colors/view/Viewport.mjs';"` as sample code, the
+ * Toast example renders a `node_modules/neo.mjs` specifier the same way, and a text match reported all
+ * of them as broken imports on a full build. They are strings; only a parser knows that.
+ *
+ * `acorn` is already this build's parser — `astTemplateProcessor` runs every emitted module through it
+ * — so this reads the grammar the transform already depends on rather than adding a second opinion
+ * about what the code says.
+ *
+ * A template-literal specifier is returned with its interpolation intact, exactly as the source wrote
+ * it, so the consumer can apply {@link computedSpecifierRoot} and the report can print something a
+ * developer recognizes.
+ *
  * @param {String} code
  * @returns {String[]}
  */
 export function relativeSpecifiers(code) {
-    return [...code.matchAll(RELATIVE_SPECIFIER_REGEX)].map(match => match[2])
+    const
+        specifiers = [],
+        visit      = node => {
+            if (!node || typeof node !== 'object') {
+                return
+            }
+
+            if (Array.isArray(node)) {
+                node.forEach(visit);
+                return
+            }
+
+            if (SPECIFIER_NODE_TYPES.has(node.type) && node.source) {
+                // The raw slice minus its delimiters: identical to what the source wrote, whether it
+                // was quoted or a template literal.
+                const specifier = code.slice(node.source.start + 1, node.source.end - 1);
+
+                if (specifier.startsWith('./') || specifier.startsWith('../')) {
+                    specifiers.push(specifier)
+                }
+            }
+
+            // A dynamic import can sit anywhere, so every child is visited rather than only the
+            // program body. `parent` is skipped because acorn does not set it and a future walker
+            // that does would loop.
+            Object.keys(node).forEach(key => key !== 'parent' && visit(node[key]))
+        };
+
+    visit(acorn.parse(code, {ecmaVersion: 'latest', sourceType: 'module'}));
+
+    return specifiers
 }
 
 /**
