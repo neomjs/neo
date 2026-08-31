@@ -103,6 +103,14 @@ class Toolbar extends Container {
     }
 
     /**
+     * Action instances whose resize / visibility signals are already bound. Contributions survive
+     * consumer action rebuilds, so binding by collection pass would otherwise multiply listeners.
+     * @member {WeakSet<Neo.component.Base>}
+     * @protected
+     */
+    actionBindingItems = new WeakSet()
+
+    /**
      * Reconciles a live action-collection replacement after construction. Initial materialisation
      * stays inside createItems() so the toolbar still commits one child tree.
      * @param {Object[]|String[]|null} value
@@ -305,10 +313,15 @@ class Toolbar extends Container {
      * Observes availability changes whose geometry can alter a consumer such as tab overflow.
      * @protected
      */
-    bindActionItems() {
+    bindActionItems(items=this.getActionItems()) {
         let me = this;
 
-        me.getActionItems().forEach(item => {
+        items.forEach(item => {
+            if (me.actionBindingItems.has(item)) {
+                return
+            }
+
+            me.actionBindingItems.add(item);
             item.addDomListeners({resize: me.onActionResize, scope: me});
             item.on('hiddenChange', () => {
                 me.fire('actionVisibilityChange', {action: item.action, component: item})
@@ -412,12 +425,21 @@ class Toolbar extends Container {
             return []
         }
 
-        return [{
+        return [this.createActionSpacerConfig(), ...actions.map(action => this.createActionItemConfig(action))]
+    }
+
+    /**
+     * Returns the toolbar-owned spacer config shared by consumer actions and contributed actions.
+     * @returns {Object}
+     * @protected
+     */
+    createActionSpacerConfig() {
+        return {
             module               : Component,
             cls                  : ['neo-toolbar-action-spacer'],
             flex                 : 1,
             isToolbarActionSpacer: true
-        }, ...actions.map(action => this.createActionItemConfig(action))]
+        }
     }
 
     /**
@@ -433,6 +455,45 @@ class Toolbar extends Container {
             component,
             scope : this
         })
+    }
+
+    /**
+     * Adds one toolbar-owned action contribution ahead of consumer actions. Contributions are not
+     * written into {@link #actions}; the consumer remains the sole owner of that config, while the
+     * toolbar preserves the contributed instance across every consumer action rebuild.
+     * @param {Object} config Action config.
+     * @returns {Neo.component.Base} The stable contributed action instance.
+     */
+    addActionContribution(config) {
+        let me            = this,
+            actionItems   = me.getActionItems(),
+            firstAction   = actionItems[0],
+            firstConsumer = actionItems.find(item => item.isToolbarActionContribution !== true),
+            spacer        = me.getActionSpacer(),
+            contribution;
+
+        if (!spacer) {
+            spacer = me.insert(firstAction ? me.items.indexOf(firstAction) : me.items.length,
+                me.createActionSpacerConfig(), true)
+        }
+
+        firstConsumer = me.getActionItems().find(item => item.isToolbarActionContribution !== true);
+        contribution  = me.insert(firstConsumer ? me.items.indexOf(firstConsumer) : me.items.length,
+            me.createActionItemConfig({...config, isToolbarActionContribution: true}));
+
+        me.bindActionItems([contribution]);
+        me.applyContextualActionState(true);
+        me.fire('actionsChange', {actions: me.getActionItems()});
+
+        return contribution
+    }
+
+    /**
+     * Returns action instances contributed outside the consumer-owned {@link #actions} config.
+     * @returns {Neo.component.Base[]}
+     */
+    getActionContributionItems() {
+        return this.getActionItems().filter(item => item.isToolbarActionContribution === true)
     }
 
     /**
@@ -462,14 +523,49 @@ class Toolbar extends Container {
     }
 
     /**
+     * Retires one contributed action instance. The toolbar's ordinary item-destruction path owns
+     * contributions during toolbar teardown; contributors use this method for earlier retirement.
+     * @param {Neo.component.Base} instance
+     * @returns {Neo.component.Base|null}
+     */
+    removeActionContribution(instance) {
+        let me = this;
+
+        if (instance?.isToolbarActionContribution !== true || !me.items.includes(instance)) {
+            return null
+        }
+
+        me.remove(instance, true, true);
+
+        if (me.getActionItems().length === 0) {
+            let spacer = me.getActionSpacer();
+
+            spacer && me.remove(spacer, true, true)
+        }
+
+        me.updateDepth = -1;
+        me.update();
+        me.fire('actionsChange', {actions: me.getActionItems()});
+
+        return instance
+    }
+
+    /**
      * Replaces only the toolbar-owned action group while preserving every ordinary item.
      * @param {Object[]|String[]|null} actions
      * @protected
      */
     syncActions(actions) {
-        let me      = this,
-            owned   = [me.getActionSpacer(), ...me.getActionItems()].filter(Boolean),
-            configs = me.createActionItemConfigs(actions);
+        let me            = this,
+            contributions = me.getActionContributionItems(),
+            owned         = contributions.length > 0
+                ? me.getActionItems().filter(item => item.isToolbarActionContribution !== true)
+                : [me.getActionSpacer(), ...me.getActionItems()].filter(Boolean),
+            configs       = contributions.length > 0
+                ? Array.isArray(actions) && actions.length > 0
+                    ? actions.map(action => me.createActionItemConfig(action))
+                    : []
+                : me.createActionItemConfigs(actions);
 
         owned
             .map(item => me.items.indexOf(item))

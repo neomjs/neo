@@ -271,9 +271,12 @@ The preview layer carries grouped intent with one additive, optional, runtime-on
 #### Tab overflow
 
 Overflow is a **generic tab-subsystem affordance — not a dock concern, not a model change**. When a `tabs` node's
-headers exceed the available extent, the overflowing tabs collapse behind a floating control whose menu reaches them;
-selection commits through the ordinary `setActiveItem` path. `Neo.tab.plugin.Overflow` owns the partition, while
-`Neo.dashboard.dock.projection.LayoutAdapter.projectTabsNode()` only installs the plugin. Nothing new persists.
+headers exceed the available extent, the overflowing tabs collapse behind a control whose menu reaches them;
+selection commits through the ordinary `setActiveItem` path. `Neo.tab.plugin.Overflow` owns the partition and its
+default remains an out-of-collection floating control. Composed headers with an existing action rail may opt into a
+stable, focus-independent toolbar contribution instead: it occupies the first action slot only while overflowing,
+survives consumer-action replacement, and self-excludes from its own partition/visibility feedback. The dock adapter
+only installs that generic plugin mode. Nothing new persists.
 
 ### §2.5 Core-Lift Clause Disposition
 
