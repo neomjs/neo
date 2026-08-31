@@ -8,6 +8,10 @@ import {
     readCorpusFacetCommitDates,
     REQUIRED_EMISSION_STAGES
 }                     from '../../../../buildScripts/dataSyncPipeline.mjs';
+import {
+    evaluateBreach,
+    resolveMaxCorpusAgeHours
+}                     from '../../../../buildScripts/dataSyncWatchdog.mjs';
 
 const
     NOW   = new Date('2026-08-31T12:00:00Z'),
@@ -147,6 +151,80 @@ test.describe('dataSyncPipeline guards (#17920)', () => {
                 maxAgeHours     : 48,
                 now             : NOW
             })).toThrow()
+        });
+
+        // The guard and the alarm judge the SAME corpus, so they must resolve the same number.
+        // An earlier revision imported `DEFAULT_MAX_CORPUS_AGE_HOURS` — the fallback, not the
+        // policy — so with `WATCHDOG_MAX_CORPUS_AGE_HOURS` set the guard judged at 48h while the
+        // alarm judged at the override, and the two contradicted each other about one corpus.
+        // Kept as a standing control: 60h corpus, 72h policy.
+        test('a 60h corpus under a 72h override is fresh to BOTH the guard and the alarm', () => {
+            const
+                corpusAt  = hours(60),
+                effective = resolveMaxCorpusAgeHours({WATCHDOG_MAX_CORPUS_AGE_HOURS: '72'});
+
+            expect(effective).toBe(72);
+
+            // The guard, resolving through the shared policy rather than the imported default.
+            expect(() => assertCorpusFreshness({
+                facetCommitDates: {...fresh, issues: corpusAt},
+                maxAgeHours     : effective,
+                now             : NOW
+            })).not.toThrow();
+
+            // The alarm, on the same corpus and the same resolved policy.
+            expect(evaluateBreach({
+                consecutiveFailures: 0,
+                corpusFacets       : [{ageHours: 60, facet: 'issues', lastCommitAt: corpusAt}],
+                lastSuccessAt      : hours(1),
+                maxCorpusAgeHours  : effective,
+                now                : NOW
+            }).breached).toBe(false)
+        });
+
+        // The same corpus with NO override: both must now judge it stale at the 48h fallback.
+        // Without this arm the control above passes for a guard that ignores the corpus entirely.
+        test('the same 60h corpus is stale to BOTH once the override is absent', () => {
+            const
+                corpusAt  = hours(60),
+                effective = resolveMaxCorpusAgeHours({});
+
+            expect(effective).toBe(48);
+
+            expect(() => assertCorpusFreshness({
+                facetCommitDates: {...fresh, issues: corpusAt},
+                maxAgeHours     : effective,
+                now             : NOW
+            })).toThrow(/`issues` is 60\.0h old \(threshold 48h\)/);
+
+            expect(evaluateBreach({
+                consecutiveFailures: 0,
+                corpusFacets       : [{ageHours: 60, facet: 'issues', lastCommitAt: corpusAt}],
+                lastSuccessAt      : hours(1),
+                maxCorpusAgeHours  : effective,
+                now                : NOW
+            }).breached).toBe(true)
+        });
+
+        // The resolver is what the guard uses BY DEFAULT, not merely what a caller may pass.
+        // Asserting only the explicit-argument path would leave the production call site — which
+        // passes no `maxAgeHours` at all — completely uncovered.
+        test('the guard DEFAULTS to the resolved policy, not to the imported constant', () => {
+            const prior = process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS;
+
+            try {
+                process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS = '72';
+
+                // No `maxAgeHours` argument: the default expression must resolve the override.
+                expect(() => assertCorpusFreshness({
+                    facetCommitDates: {...fresh, issues: hours(60)},
+                    now             : NOW
+                })).not.toThrow()
+            } finally {
+                prior === undefined ?
+                    delete process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS :
+                    process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS = prior
+            }
         })
     });
 

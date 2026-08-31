@@ -7,8 +7,8 @@ import {fileURLToPath}        from 'node:url';
 
 import {
     DEFAULT_CORPUS_PATH,
-    DEFAULT_MAX_CORPUS_AGE_HOURS,
-    FACET_PATHS
+    FACET_PATHS,
+    resolveMaxCorpusAgeHours
 }                             from './dataSyncWatchdog.mjs';
 
 /**
@@ -673,8 +673,14 @@ export async function readCorpusFacetCommitDates({
  * corpus that stops advancing while the derivation stage keeps rebuilding the portal from it and
  * committing the result — a green run, fresh derived commits, and a frozen source.
  *
- * Threshold is `DEFAULT_MAX_CORPUS_AGE_HOURS`, imported from the watchdog rather than restated, so the
- * two mechanisms cannot disagree about what "stale" means. It is deliberately NOT the pipeline's hourly
+ * Threshold comes from `resolveMaxCorpusAgeHours()`, the watchdog's own resolver, so the two mechanisms
+ * resolve one effective policy — including the `WATCHDOG_MAX_CORPUS_AGE_HOURS` override.
+ *
+ * **An earlier revision imported `DEFAULT_MAX_CORPUS_AGE_HOURS` and claimed the two "cannot disagree".
+ * That was false**: the constant is only the fallback, so with the override set this guard judged at 48h
+ * while the alarm judged at the override. A 60h corpus under a 72h override had this function rejecting
+ * all three facets while `evaluateBreach` returned `{breached: false}` for the same corpus.
+ * Sharing a default is not sharing policy; sharing the resolver is. It is deliberately NOT the hourly
  * cadence: a facet only commits when GitHub content actually changed, so a cadence-tight threshold would
  * breach on every quiet hour and be muted within a day. 48h catches this defect on day two instead of
  * day five, which is the improvement actually on offer; a tighter bound needs a producer that emits a
@@ -682,12 +688,13 @@ export async function readCorpusFacetCommitDates({
  *
  * @param {Object} options
  * @param {Object<String, String|null>} options.facetCommitDates Facet name → newest ISO commit date.
- * @param {Number} [options.maxAgeHours=DEFAULT_MAX_CORPUS_AGE_HOURS] Staleness bound.
+ * @param {Number} [options.maxAgeHours=resolveMaxCorpusAgeHours()] Staleness bound. Resolved per call,
+ *     so an override set after module load is still honoured.
  * @param {Date}   [options.now=new Date()] Clock, injected so the spec can witness a boundary.
  * @throws {Error} Naming every stale facet with its measured age, never just the first.
  * @returns {void}
  */
-export function assertCorpusFreshness({facetCommitDates, maxAgeHours = DEFAULT_MAX_CORPUS_AGE_HOURS, now = new Date()}) {
+export function assertCorpusFreshness({facetCommitDates, maxAgeHours = resolveMaxCorpusAgeHours(), now = new Date()}) {
     const stale = Object.entries(facetCommitDates).map(([facet, lastCommitAt]) => ({
         ageHours: lastCommitAt ? (now.getTime() - Date.parse(lastCommitAt)) / 3_600_000 : null,
         facet,
