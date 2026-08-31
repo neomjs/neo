@@ -22,8 +22,13 @@ import { test, expect } from '../../fixtures.mjs';
  * reads the holder's committed `dockModel` at every stage. NOTHING here is committed programmatically
  * — every mutation in this spec comes from a real gesture, which is the point of it.
  *
- * Run: NEO_E2E_PORT=8091 npx playwright test DockPinCollapseNL -c test/playwright/playwright.config.e2e.mjs --workers=1
- * (the port override isolates from any foreign dev-server squatting on 8080)
+ * Run: NEO_AGENTOS_RUNTIME_ROOT=/path/to/neo-agent-brain NEO_E2E_PORT=8091 npx playwright test \
+ *      DockPinCollapseNL -c test/playwright/playwright.config.e2e.mjs --workers=1
+ *
+ * The runtime root is a PREREQUISITE, not a convenience: `playwright.config.e2e.mjs` builds its
+ * `testIgnore` from `discoverExternalBrainSpecs` whenever `NEO_AGENTOS_RUNTIME_ROOT` is unset, so a
+ * run without it does not fail this spec — it never selects it, and reports "No tests found". The
+ * port override isolates from any foreign dev-server squatting on 8080.
  */
 
 const bootDockExample = async ({ page, neuralLink }) => {

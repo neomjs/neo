@@ -17,6 +17,7 @@ import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 import Document                 from '../../../../src/dashboard/dock/model/Document.mjs';
+import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper               from '../../../../src/vdom/Helper.mjs';
 
@@ -997,9 +998,16 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             inspector   = tabs.get('inspector-tabs'),
             center      = tabs.get('center-tabs'),
             pinAction   = inspector.getActionItem('pin'),
-            visibility  = [];
+            visibility  = [],
+            // The EMITTER of each signal, not just its payload. "The group was not replaced" is a
+            // claim about which instance spoke, and a rebuilt group would announce itself here by
+            // emitting from a different object while the payload looked identical.
+            signalSources = [];
 
-        inspector.getTabBar().on('actionVisibilityChange', data => visibility.push([data.action, data.component.hidden]));
+        inspector.getTabBar().on('actionVisibilityChange', data => {
+            visibility.push([data.action, data.component.hidden]);
+            signalSources.push(data.component)
+        });
 
         // Center-owned: §2.7's fail-safe — main content never rails, so the affordance is not offered.
         // Asserted BOTH where the adapter computed it and, below, after the workspace recomputes it:
@@ -1030,7 +1038,105 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(workspace.getDockZoneDocument().items.notes.autoHidden).toBeUndefined();
 
         await inspector.set({activeIndex: 0});
-        expect(pinAction.hidden).toBe(false)
+        expect(pinAction.hidden).toBe(false);
+
+        // AC-3's actual boundary. Everything above resolved when the container's own `set()` did,
+        // and the reconciler had not run yet — so a group replacement performed BY reconciliation
+        // was exactly what the identity assertion could not observe. `refreshPromise` is the seam
+        // the workspace chains that work onto, so awaiting it and re-resolving both the container
+        // and the action FROM the refreshed tree is what makes "the same instance" a claim about
+        // the lifetime the retained action actually has.
+        await workspace.refreshPromise;
+
+        const reconciledTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(reconciledTabs, 'the tabs node is retained across reconciliation').toBe(inspector);
+        expect(reconciledTabs.getActionItem('pin'), 'and so is the action instance on it')
+            .toBe(pinAction);
+        expect(pinAction.hidden, 'converging on the active item\'s real policy').toBe(false);
+
+        // The load-bearing half, and the reason this counts emitters rather than signals. The refresh
+        // QUEUE replays each pending refresh in order, and refresh #1 reconciles chrome to the
+        // document as it stood when it was queued — so its sweep re-hides the action before refresh
+        // #2 settles it, and the post-refresh signal COUNT is not 0. Those extra signals are a
+        // property of the queue, not of this action: `close` lags identically, and nothing here
+        // could fix it without changing refresh sequencing for every consumer. What AC-3 actually
+        // claims is that no group was ever rebuilt behind them — every signal, before and after
+        // reconciliation, came from the one retained instance.
+        expect(new Set(signalSources).size, 'one emitter across every signal, not a rebuilt group')
+            .toBe(1);
+        expect(signalSources[0], 'and it is the instance the assertions above held').toBe(pinAction)
+    });
+
+    /**
+     * AC-5, exercised at the seam it names. The claim is about what `Persistence.capturePerspective`
+     * WRITES, so inferring it from the source document proves nothing: capture normalizes, validates
+     * and fingerprints, and any of those three could have made rendering an action observable in a
+     * saved layout. Rendering is a projection concern and must leave layout truth byte-identical;
+     * the gesture is a model concern and must move exactly the two committed fields §2.7 names.
+     */
+    test('capturing a perspective is unmoved by rendering the action, and moves only pinned/autoHidden on the gesture', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.pinned = true;
+
+        const capture = () => {
+            const {layout, errors} = Persistence.capturePerspective(workspace.getDockZoneDocument(), {
+                layoutId: 'ac5', title: 'AC-5'
+            });
+
+            expect(errors, 'the capture seam itself stays clean').toEqual([]);
+            return layout
+        };
+
+        // Captured from a workspace with the action OFF, then from one with it ON: the difference
+        // between the two runs is precisely "the action was rendered".
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        const before = capture();
+
+        workspace.destroy();
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        workspace.dockModel.items.inspector.pinned = true;
+
+        const tabs      = tabsOf(workspace.items[0]),
+              inspector = tabs.get('inspector-tabs'),
+              pinAction = inspector.getActionItem('pin');
+
+        expect(pinAction, 'the action really was projected in the second run').toBeTruthy();
+
+        const afterRender = capture();
+
+        expect(JSON.stringify(afterRender), 'rendering an action writes nothing into layout truth')
+            .toBe(JSON.stringify(before));
+
+        // Now the gesture, through the real handler.
+        pinAction.handler({component: pinAction});
+        await workspace.refreshPromise;
+
+        const afterGesture = capture();
+
+        expect(JSON.stringify(afterGesture), 'the gesture is not a no-op — otherwise the diff below is vacuous')
+            .not.toBe(JSON.stringify(before));
+
+        // The diff is exactly §2.7's two committed fields, on the one item, and nothing else.
+        const beforeItem = before.dockZone.items.inspector,
+              afterItem  = afterGesture.dockZone.items.inspector;
+
+        expect({...afterItem, pinned: beforeItem.pinned, autoHidden: beforeItem.autoHidden},
+            'no field outside pinned/autoHidden moved on the captured item')
+            .toEqual({...beforeItem});
+        expect([beforeItem.pinned, beforeItem.autoHidden], 'the captured item started pinned and visible')
+            .toEqual([true, undefined]);
+        expect([afterItem.pinned, afterItem.autoHidden], 'and ends unpinned and auto-hidden')
+            .toEqual([false, true]);
+
+        expect({...afterGesture.dockZone, items: null}, 'and the node tree itself is untouched')
+            .toEqual({...before.dockZone, items: null})
     });
 
     test('the pin action reports its own missing preconditions, and stays inert while its opt-in is off', () => {
