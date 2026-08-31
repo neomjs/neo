@@ -103,6 +103,26 @@ const slotLogicalIndexes = page => page.evaluate(id => {
 }, LIST_ID);
 
 /**
+ * The per-INSTANCE tag of each pooled component, read from the App Worker.
+ *
+ * This is the only oracle here that can witness **pool retention**. `slotRecordIds` proves the window
+ * re-pointed; slot ids and nested component ids are both pool-index-derived and survive a destroy and
+ * recreate byte-identical. A row's `instanceTag` increments once per construction and never repeats, so
+ * unchanged tags mean the *same component instances* are still mounted, and changed tags mean the pool
+ * was rebuilt behind identical ids — the failure a bounded list exists to prevent.
+ * @param {Object} page
+ * @returns {Promise<Number[]>}
+ */
+const slotInstanceTags = (page, poolSize) => page.evaluate(
+    ([id, size]) => Promise.all(
+        Array.from({length: size}, (_, i) =>
+            Neo.worker.App.getConfigs({id: `${id}__${i}__component`, keys: 'instanceTag'})
+        )
+    ),
+    [LIST_ID, poolSize]
+);
+
+/**
  * Count of structural spacer nodes — asserted alongside the pool so the exclusion above is proven to
  * have excluded something, rather than silently matching nothing.
  * @param {Object} page
@@ -175,7 +195,15 @@ test.describe('Neo.list.Buffered — wheel-distance fidelity', () => {
     });
 
     test('four small deltas below the boundary move exactly their sum, and recycle nothing', async ({page}) => {
-        const recordsBefore = await slotRecordIds(page);
+        const recordsBefore = await slotRecordIds(page),
+              tagsBefore    = await slotInstanceTags(page, POOL_SIZE);
+
+        // NON-VACUITY: the identity oracle must be reading real per-instance values before any
+        // comparison over it means anything. Sixteen `undefined`s would satisfy `toEqual` trivially —
+        // which is exactly how the previous slot-id oracle passed while witnessing nothing.
+        expect(tagsBefore.length, 'one tag per pool slot').toBe(POOL_SIZE);
+        expect(tagsBefore.every(t => Number.isInteger(t) && t > 0), 'every tag is a real construction id').toBe(true);
+        expect(new Set(tagsBefore).size, 'tags are distinct per instance, never a repeated constant').toBe(POOL_SIZE);
 
         expect(await spacerCount(page), 'the pool is bracketed by exactly two stable spacers').toBe(2);
         expect(recordsBefore.length, 'pool cardinality is viewport + 2*buffer, spacers excluded').toBe(POOL_SIZE);
@@ -197,11 +225,18 @@ test.describe('Neo.list.Buffered — wheel-distance fidelity', () => {
         expect(workerScrollTop, 'App-Worker scrollTop must equal the physical seat').toBe(120);
         expect(mountedRange, 'no buffer edge was crossed, so the range must not move').toEqual([0, POOL_SIZE]);
         expect(await slotRecordIds(page), 'an unchanged range must leave every slot on its own record')
-            .toEqual(recordsBefore)
+            .toEqual(recordsBefore);
+
+        // "recycle nothing" is a claim about component INSTANCES, and record ids cannot make it —
+        // they would be identical whether the pool was retained or destroyed and rebuilt against the
+        // same records under the same deterministic ids.
+        expect(await slotInstanceTags(page, POOL_SIZE), 'and must retain the same component instances')
+            .toEqual(tagsBefore)
     });
 
     test('crossing the 160px boundary moves the range to exactly [1, 17] and re-points the slots', async ({page}) => {
-        const recordsBefore = await slotRecordIds(page);
+        const recordsBefore = await slotRecordIds(page),
+              tagsBefore    = await slotInstanceTags(page, POOL_SIZE);
 
         // 6 x 30 = 180px: one delta past the boundary, still far smaller than the 400px viewport.
         for (let i = 0; i < 6; i++) {
@@ -235,7 +270,14 @@ test.describe('Neo.list.Buffered — wheel-distance fidelity', () => {
         const recordsAfter = await slotRecordIds(page);
 
         expect(recordsAfter, 'a range move must re-point the slots onto different records').not.toEqual(recordsBefore);
-        expect(recordsAfter.length, 'pool cardinality is invariant across a range move').toBe(POOL_SIZE)
+        expect(recordsAfter.length, 'pool cardinality is invariant across a range move').toBe(POOL_SIZE);
+
+        // The sharpest form of the pooling contract: a boundary crossing RE-POINTS the pool, it does not
+        // rebuild it. Records change; instances must not. Asserting both together is what distinguishes
+        // a genuine pool from a list that merely keeps its element count constant while churning
+        // components behind pool-index-derived ids.
+        expect(await slotInstanceTags(page, POOL_SIZE), 'the pool is re-pointed, never rebuilt')
+            .toEqual(tagsBefore)
     });
 
     test('negative deltas are symmetric — scrolling back lands on the same pixels', async ({page}) => {

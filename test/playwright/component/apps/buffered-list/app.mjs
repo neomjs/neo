@@ -4,6 +4,12 @@ import Store     from '../../../../../src/data/Store.mjs';
 import Viewport  from '../../../../../src/container/Viewport.mjs';
 
 /**
+ * Monotonic construction counter. See {@link PooledRow#instanceTag}.
+ * @member {Number} instanceSequence
+ */
+let instanceSequence = 0;
+
+/**
  * @summary One pooled row. Recycled by the list, never one instance per record.
  * @class Neo.BufferedListTestApp.PooledRow
  * @extends Neo.component.Base
@@ -12,6 +18,27 @@ class PooledRow extends Component {
     static config = {
         className: 'Neo.BufferedListTestApp.PooledRow',
         record_  : null
+    }
+
+    /**
+     * @summary A per-INSTANCE identity, because every id on this surface is per-SLOT.
+     *
+     * The list assigns slot ids as `…__slot-N` and the nested component renders as `…__N__component`,
+     * both derived from the pool index — so both stay byte-identical across a destroy/recreate and
+     * cannot witness whether an instance survived. `data-record-id` answers *which record* a slot shows,
+     * which is a different question: it proves the window re-pointed, not that the pool was retained.
+     *
+     * Pool retention is the entire point of a bounded list, so it needs an oracle that can actually
+     * fail. This counter increments once per construction and never repeats, making "the same component
+     * instance is still here" observable: unchanged tags mean retained instances, changed tags mean the
+     * pool was rebuilt behind identical ids.
+     * @member {Number|null} instanceTag=null
+     */
+    instanceTag = null
+
+    construct(config) {
+        super.construct(config);
+        this.instanceTag = ++instanceSequence
     }
 
     afterSetRecord(value, oldValue) {
