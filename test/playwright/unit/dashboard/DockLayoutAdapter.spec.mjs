@@ -330,7 +330,52 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         // host may own the name.
         const hostClose = getProjectedChildren(project(() => [{action: 'close', iconCls: 'fa fa-x'}])())[0];
 
-        expect(hostClose.headerActions.map(action => action.action)).toEqual(['close'])
+        expect(hostClose.headerActions.map(action => action.action)).toEqual(['close']);
+
+        // `pop-out` carries the same scoped reservation. The flag the adapter reads is already the
+        // AND of the action opt-in and the tear-out lifecycle — collapsed at the Workspace — so the
+        // name frees up exactly when the engine cannot project it.
+        expect(project(() => [{action: 'pop-out'}], {enableDockPopOutAction: true}))
+            .toThrow(/"pop-out" is reserved while enableDockPopOutAction is on/);
+
+        const hostPopOut = getProjectedChildren(project(() => [{action: 'pop-out', iconCls: 'fa fa-x'}])())[0];
+
+        expect(hostPopOut.headerActions.map(action => action.action)).toEqual(['pop-out'])
+    });
+
+    test('pop-out projects only when enabled, and lands at the family slot between pin and maximize', () => {
+        const model       = createModel(),
+              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+              project     = extra => getProjectedChildren(DockLayoutAdapter.project(model, {
+                  resolveComponentRef: resolvePane, ...extra
+              }))[0];
+
+        // Default off: the action is absent, not present-and-hidden. A hidden control still occupies
+        // the ordering contract and still reserves its name.
+        expect(project({}).headerActions?.some?.(action => action.action === 'pop-out') ?? false).toBe(false);
+
+        // The Workspace never sets the flag without the lifecycle armed, so the adapter has exactly
+        // one condition to honour — asserted here so a later refactor cannot quietly widen it into a
+        // second, adapter-side gate that could disagree with the Workspace's.
+        const enabled = project({dockPopOutIconCls: 'far fa-window-restore', enableDockPopOutAction: true}),
+              popOut  = enabled.headerActions.find(action => action.action === 'pop-out');
+
+        expect(popOut).toBeTruthy();
+        expect(popOut.iconCls).toBe('far fa-window-restore');
+
+        // Focus-gated like the rest of the engine set: no `contextual` opt-out. Only `close` opts out.
+        expect(popOut.contextual).toBeUndefined();
+
+        // The frozen family ordering — pin · pop-out · maximize, with close always last.
+        const ordered = project({
+            enableDockCloseAction   : true,
+            enableDockMaximizeAction: true,
+            enableDockPinAction     : true,
+            enableDockPopOutAction  : true
+        });
+
+        expect(ordered.headerActions.map(action => action.action))
+            .toEqual(['pin', 'pop-out', 'maximize', 'close'])
     });
 
     test('the pin action is absent and the projection byte-identical while its opt-in is off', () => {

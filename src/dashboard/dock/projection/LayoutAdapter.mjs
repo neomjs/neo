@@ -497,9 +497,11 @@ class LayoutAdapter extends Base {
                 || options.dockWorkspaceBoundaryContainerId
                 || null,
             dockMaximizeIconCls              : options.dockMaximizeIconCls || 'far fa-window-maximize',
+            dockPopOutIconCls                : options.dockPopOutIconCls || 'far fa-window-restore',
             enableDockCloseAction            : options.enableDockCloseAction === true,
             enableDockMaximizeAction         : options.enableDockMaximizeAction === true,
             enableDockPinAction              : options.enableDockPinAction === true,
+            enableDockPopOutAction           : options.enableDockPopOutAction === true,
             enableDockReloadAction           : options.enableDockReloadAction === true,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
@@ -1015,10 +1017,20 @@ class LayoutAdapter extends Base {
               // the key is host-supplied — `constructor` and `__proto__` must miss, exactly as they do
               // in `Operations.applyOperation`'s own-key dispatch.
               reservedActionNames = new Map([
-                  ['close',    context.enableDockCloseAction],
-                  ['maximize', context.enableDockMaximizeAction],
-                  ['pin',      context.enableDockPinAction],
-                  ['reload',   context.enableDockReloadAction]
+                  // Each row carries the opt-in's IDENTIFIER rather than letting the message derive
+                  // it from the action name. The derivation was `enableDock` + capitalised name +
+                  // `Action`, which silently produces a config that does not exist as soon as a name
+                  // is not one lowercase word — `pop-out` yielded `enableDockPop-outAction`, sending
+                  // the host to grep for something unfindable. Pairing them here cannot drift.
+                  ['close',    {enabled: context.enableDockCloseAction,    optIn: 'enableDockCloseAction'}],
+                  ['maximize', {enabled: context.enableDockMaximizeAction, optIn: 'enableDockMaximizeAction'}],
+                  ['pin',      {enabled: context.enableDockPinAction,      optIn: 'enableDockPinAction'}],
+                  // Reserved only while the flag is on — and that flag is already the AND of
+                  // `enableDockPopOutAction` and `enableDockTearOutLifecycle`, collapsed at the
+                  // Workspace's context assembly. So `pop-out` frees up as a host name exactly when
+                  // the engine cannot project it, which is the contract the other rows carry.
+                  ['pop-out',  {enabled: context.enableDockPopOutAction,   optIn: 'enableDockPopOutAction'}],
+                  ['reload',   {enabled: context.enableDockReloadAction,   optIn: 'enableDockReloadAction'}]
               ]);
 
         for (const action of hostActions) {
@@ -1037,10 +1049,10 @@ class LayoutAdapter extends Base {
                 throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: duplicate host header action "${name}" on dock node "${nodeId}"`)
             }
 
-            if (reservedActionNames.get(name)) {
-                let optIn = `enableDock${name[0].toUpperCase()}${name.slice(1)}Action`;
+            const reserved = reservedActionNames.get(name);
 
-                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "${name}" is reserved while ${optIn} is on (dock node "${nodeId}")`)
+            if (reserved?.enabled) {
+                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "${name}" is reserved while ${reserved.optIn} is on (dock node "${nodeId}")`)
             }
 
             seen.add(name)
@@ -1078,6 +1090,18 @@ class LayoutAdapter extends Base {
                     || context.items[activeItemId]?.pinnable === false
                     || !Document.findOwningEdge({nodes: context.nodes}, activeItemId),
                 iconCls   : 'fa fa-thumbtack'
+            }] : []),
+            // Pop-out sits between pin and maximize per the family's frozen ordering. Same
+            // focus-gating default as the rest of the engine set — no `contextual` key.
+            //
+            // Hidden without an active item, and on nothing else: unlike pin, every docked item is
+            // detachable, so there is no per-item policy to consult. Admission is the real gate and
+            // it lives at the host's vessel seam, where a refusal leaves the pane untouched — a
+            // header that pre-guessed the host's answer would hide a control that would have worked.
+            ...(context.enableDockPopOutAction ? [{
+                action : 'pop-out',
+                hidden : !activeItemId,
+                iconCls: context.dockPopOutIconCls
             }] : []),
             // Maximize inherits the same focus-gating default; the family ordering contract keeps
             // the engine set between host actions and the always-visible, always-last `close`.

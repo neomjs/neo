@@ -314,6 +314,97 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         workspace = null
     });
 
+    test.describe('#17947 pop-out dispatches the drag terminal, never a second lifecycle', () => {
+        // The whole point of the leaf: a click enters the SAME pair the pointer gesture's terminal
+        // calls. These arms assert the dispatch and its ordering, because "no parallel lifecycle" is
+        // only provable at the call — a handler that re-implemented `openVessel`/`applyOperation`
+        // would satisfy every projection assertion above and still be the thing the ticket forbids.
+        const armWorkspace = (calls, {exitResult=undefined}={}) => {
+            const ws = Neo.create(PlainWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            ws.tearOutHandlers = {
+                onDockTearOutExit: async data => {
+                    calls.push(['exit', data]);
+                    return exitResult
+                },
+                onDockTearOutTerminal: data => {
+                    calls.push(['terminal', data]);
+                    return {document: ws.dockModel, errors: []}
+                }
+            };
+
+            // No main thread in unit mode; the geometry delta is asserted separately from dispatch.
+            ws.measureDockPaneRect = async () => ({height: 200, width: 400, x: 10, y: 20});
+
+            return ws
+        };
+
+        const tabContainerFor = itemId => ({
+            activeIndex: 0,
+            getTabBar  : () => ({sortZoneConfig: {dockItemIds: [itemId]}}),
+            id         : 'live-tabs'
+        });
+
+        test('the happy path calls exit then terminal, and carries the measured rect', async () => {
+            const calls = [];
+
+            workspace = armWorkspace(calls);
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1';
+            await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(calls.map(entry => entry[0])).toEqual(['exit', 'terminal']);
+
+            // `sortZone: null` is the click's signature — the gesture supplies a live zone, a click
+            // has none, and the seam already accepts the difference.
+            expect(calls[0][1]).toMatchObject({itemId, sortZone: null});
+            expect(calls[0][1].proxyRect).toMatchObject({height: 200, width: 400});
+            expect(calls[1][1]).toEqual({itemId})
+        });
+
+        test('a refused vessel commits NOTHING — terminal is never reached', async () => {
+            const calls = [];
+
+            // Admission-first and fail-closed: `onDockTearOutExit` resolving false is the host
+            // declining the window, and the pane must stay docked with no detach committed.
+            workspace = armWorkspace(calls, {exitResult: false});
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(calls.map(entry => entry[0])).toEqual(['exit']);
+            expect(result.errors?.[0]).toMatch(/refused by the host vessel seam/)
+        });
+
+        test('refuses before dispatch when there is no active item, and when the lifecycle is absent', async () => {
+            const calls = [];
+
+            workspace = armWorkspace(calls);
+
+            const noItem = await workspace.handleDockPopOutAction({
+                dockNodeId  : 'main-tabs',
+                tabContainer: {activeIndex: null, getTabBar: () => ({sortZoneConfig: {dockItemIds: []}}), id: 'live-tabs'}
+            });
+
+            expect(noItem.errors?.[0]).toMatch(/requires an active item/);
+            expect(calls).toEqual([]);
+
+            // Unreachable through the projection contract — the action is double-gated on the
+            // lifecycle that creates these handlers — but the router is reachable by a host
+            // re-emitting the intent, so it must refuse rather than throw on a missing pipeline.
+            workspace.tearOutHandlers = null;
+
+            const itemId  = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  noPipe  = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(noPipe.errors?.[0]).toMatch(/requires the tear-out lifecycle/);
+            expect(calls).toEqual([])
+        })
+    });
+
     test('the holder contract: a config-assigned document is readable before any operation', () => {
         const document = createDocument();
 
