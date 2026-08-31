@@ -1,6 +1,6 @@
 # Class Compilation (`Neo.setupClass`)
 
-To solve the `constructor` trap and enable declarative configurations, Neo.mjs must know exactly how a class is structured before it creates an instance. In native JavaScript, defining a class is a static, one-time operation—once the `class {}` block is evaluated, its prototype is largely fixed. 
+To solve the `constructor` trap and enable declarative configurations, Neo.mjs must know exactly how a class is structured before it creates an instance. In native JavaScript, defining a class is a static, one-time operation—once the `class {}` block is evaluated, its prototype is largely fixed.
 
 Neo.mjs introduces a crucial **compilation step** that occurs *after* a class is defined but *before* it is ever instantiated. This step is the forge where standard JS classes are granted their engine superpowers, managed by `Neo.setupClass()`.
 
@@ -42,7 +42,7 @@ graph TD
     subgraph setupClass
         Merge["Merge Configs Downwards"]
     end
-    
+
     MyComp -.-> Merge
     Merge -.-> FinalConfig["Unified Config:<br/>{ id_: null, width_: 300 }"]
 ```
@@ -53,11 +53,54 @@ graph TD
 
 As `setupClass` merges the configs, it actively hunts for any property name ending with a trailing underscore (e.g., `mySetting_`).
 
-This trailing underscore is the declarative signal for the Neo Config System. When the compiler encounters one, it automatically generates a public getter and setter on the class prototype (stripping the underscore). 
+This trailing underscore is the declarative signal for the Neo Config System. When the compiler encounters one, it automatically generates a public getter and setter on the class prototype (stripping the underscore).
 
 It wires these generated getters and setters into the `core.Config` system, guaranteeing that whenever this property is accessed or changed at runtime, the engine's `beforeSet`, `beforeGet`, and `afterSet` lifecycle hooks will fire.
 
-### 3. Applying Overwrites
+### 3. Synthesizing `is<Ntype>` Type Flags
+
+Alongside the reactive API, `setupClass` walks the class's **ntype chain** and stamps a boolean flag onto the
+prototype for every `ntype` it finds:
+
+```javascript
+// src/Neo.mjs, inside setupClass()
+ntypeChain.forEach(ntype => {
+    proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
+})
+```
+
+The flag name is *derived from the `ntype` string*, never written by hand:
+
+```
+ntype: 'tree-store'  →  Neo.camel()       →  'treeStore'
+                     →  Neo.capitalize()  →  'TreeStore'
+                     →  proto.isTreeStore = true
+```
+
+Because the whole chain is walked, a class carries its ancestors' flags alongside its own. `Neo.data.TreeStore`'s
+chain is `['tree-store', 'store', 'collection', 'base']`, so:
+
+```javascript
+TreeStore.prototype.isTreeStore  // true
+TreeStore.prototype.isStore      // true — inherited via the ntype chain
+Store.prototype.isTreeStore      // undefined
+```
+
+> **This is a different mechanism from section 2.** Type flags are derived from the **`ntype` chain**; reactive
+> getters and setters are generated from **trailing-underscore config names**. Neither produces the other, and a
+> trailing underscore never creates an `is<Ntype>` flag.
+
+The flags give a subtype test that needs no `instanceof` and no import of the class being tested against — so a
+base class can branch on a subtype without taking a dependency edge on it. `src/form/Container.mjs:414` branches
+on `field.isBasefield`, and `src/grid/Container.mjs:536` infers TreeGrid mode from `value?.isTreeStore`.
+
+**These names are computed at runtime, so a source search cannot find where they are set.** `grep isTreeStore src/`
+matches only the line that *reads* the flag — the assignment exists nowhere as text. A single hit at a read site is
+therefore **not** evidence of a dangling reference; resolve the name against the `ntype` chain first. The same
+invisibility applies to renames: changing a class's `ntype` renames every flag derived from it, and no static
+search will surface the readers that silently became `undefined`.
+
+### 4. Applying Overwrites
 
 Before finalizing the unified blueprint, `setupClass` checks a global `Neo.overwrites` object.
 
@@ -78,7 +121,7 @@ Neo.overwrites = {
 
 When `Neo.setupClass(Neo.component.Base)` runs, it intercepts this overwrite and surgically injects `width_: 500` directly into its static config prototype.
 
-### 4. Mixin Resolution
+### 5. Mixin Resolution
 
 Complex UI components often need to share horizontal features (like being "Observable" or "Resizable") that don't fit cleanly into a single vertical inheritance tree. Since JavaScript only supports single inheritance, Neo provides a robust Mixin system.
 
@@ -101,7 +144,7 @@ graph TD
     M2 ==> CopyMethods
     M1 ==> MergeConfigs
     M2 ==> MergeConfigs
-    
+
     CopyMethods -.-> R["Enhanced Target Class<br/>(Prototype & Configs updated)"]
     MergeConfigs -.-> R
 ```
@@ -109,7 +152,7 @@ graph TD
 *   **Method Copying:** Methods from the mixin are attached to the target class prototype. `setupClass` tracks where methods came from using an internal `_from` property to cleanly prevent collisions if multiple mixins define the same method.
 *   **Config Merging:** If a mixin defines reactive configs, those are seamlessly integrated into the target class's blueprint and processed to generate getters and setters.
 
-### 5. Advanced Component Composition (`mergeFrom`)
+### 6. Advanced Component Composition (`mergeFrom`)
 
 When building complex container components, you often want to allow developers to easily configure deeply nested child items without forcing them to override the entire `items` array.
 
@@ -152,7 +195,7 @@ class PageContainer extends Container {
 
 When a user creates this container, they can simply pass `contentConfig: { style: { padding: '20px' } }`. During the `construct()` phase, `core.Base` sees the `[mergeFrom]` symbol and automatically deep-merges that custom config block exactly where the symbol is placed inside the `items` tree. This is incredibly powerful for creating highly customizable, deeply nested widgets.
 
-### 6. The "Gatekeeper" Pattern (Mixed Environments)
+### 7. The "Gatekeeper" Pattern (Mixed Environments)
 
 `setupClass` includes a critical check at the very beginning: if the class namespace already exists, it immediately returns the existing class instead of recompiling it.
 

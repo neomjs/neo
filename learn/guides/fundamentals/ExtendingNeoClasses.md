@@ -195,10 +195,28 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
 * **Engine Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for
   its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
 
+### Automatic `is<Ntype>` Type Flags
+
+Enhancing the global namespace is not the only thing `setupClass()` does. It also derives a boolean `is<Ntype>` flag
+on the prototype for every `ntype` in the class's chain — `ntype: 'tree-store'` yields `isTreeStore`, and a
+`TreeStore` also carries its ancestors' `isStore`. That gives a subtype test needing no `instanceof` and no import of
+the class being tested against, so a base class can branch on a subtype without taking a dependency edge on it:
+
+```javascript
+// src/grid/Container.mjs — a TreeStore turns the grid into a TreeGrid; a plain Store does not
+me.isTreeGrid = value?.isTreeStore === true;
+```
+
+Because the names are **computed at runtime**, a source search cannot find where they are set: `grep isTreeStore src/`
+matches only the line that *reads* the flag. One hit at a read site is not evidence of a dangling reference.
+
+See [Class Compilation → Synthesizing `is<Ntype>` Type Flags](../coreengine/SetupClass.md#3-synthesizing-isntype-type-flags)
+for the derivation, the chain-walk semantics, and how this differs from the trailing-underscore reactive API.
+
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for
 its configuration-driven approach.
 
-## 5. Practical Examples: Models, Stores, and Controllers
+## 6. Practical Examples: Models, Stores, and Controllers
 
 The principles of class extension apply universally across all Neo.mjs class types.
 
