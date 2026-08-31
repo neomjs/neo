@@ -1,33 +1,38 @@
-name: Consumer Worker Build
+name: Consumer Runtime Build
 
 # The only check that builds this package from OUTSIDE itself.
 #
 # Every other build check runs where the repository IS the workspace, which is precisely the case in
-# which the worker configs' consumer rebasing is never exercised. Four defects of that shape landed
-# within one day (#17881, #17868, and the two the #17882 review found), each invisible to a green
+# which consumer-owned dynamic contexts are never exercised. Five defects of that shape landed
+# across #17881, #17868, #17907, and the two the #17882 review found, each invisible to a green
 # suite here. A guard that reasons about relative paths would have missed the one that mattered — the
 # optional-root failure was found by a physical build a minute after a simulated one reported every
 # root correct — so this packs, installs and compiles for real.
 #
 # PR-only, and path-filtered to the two layers that own the contract plus the guard's own sources:
-# `Data.mjs` decides which roots exist, the worker configs decide where those roots live once the
-# framework is a dependency, and changing either without the other is the defect.
+# `Data.mjs` / `Main.mjs` decide which roots exist, and the webpack helpers/configs decide where
+# those roots live once the framework is a dependency. Changing one half without the other is the
+# defect.
 
 on:
   pull_request:
     branches: [dev]
     paths:
       - 'src/worker/Data.mjs'
+      - 'src/Main.mjs'
+      - 'buildScripts/webpack/mainAddonContextPlugin.mjs'
       - 'buildScripts/webpack/workerContextRebasePlugin.mjs'
+      - 'buildScripts/webpack/development/webpack.config.main.mjs'
       - 'buildScripts/webpack/development/webpack.config.worker.mjs'
+      - 'buildScripts/webpack/production/webpack.config.main.mjs'
       - 'buildScripts/webpack/production/webpack.config.worker.mjs'
-      - 'buildScripts/util/check-consumer-worker-build.mjs'
-      - '.github/workflows/consumer-worker-build.yml'
+      - 'buildScripts/util/check-consumer-runtime-build.mjs'
+      - '.github/workflows/consumer-runtime-build.yml'
       - '.npmignore'
       - 'package.json'
 
 concurrency:
-  group: consumer-worker-build-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  group: consumer-runtime-build-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -48,5 +53,5 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Build a Data worker from an installed copy, under an `apps/` ancestor
-        run: node buildScripts/util/check-consumer-worker-build.mjs
+      - name: Build Data-worker and Main contexts from an installed copy, under an `apps/` ancestor
+        run: node buildScripts/util/check-consumer-runtime-build.mjs
