@@ -3,6 +3,13 @@ import TextField from '../../form/field/Text.mjs';
 import VdomUtil  from '../../util/VDom.mjs';
 
 /**
+ * @summary Inline cell editing for table & grid containers, written against the View focus anchor.
+ *
+ * DOM focus never sits on a cell: the owning view (grid.View, or the table body where no view
+ * exists) is the single focus anchor, and cells are addressed through the selection model. Every
+ * seam here follows from that: keys register on the anchor's registry, the edit target resolves
+ * from the selection model rather than from a key event's target, and settling an editor returns
+ * focus to the anchor so keyboard navigation continues where the gesture left off.
  * @class Neo.table.plugin.CellEditing
  * @extends Neo.plugin.Base
  */
@@ -32,6 +39,8 @@ class CellEditing extends Plugin {
          */
         editorCls: ['neo-table-editor'],
         /**
+         * True returns DOM focus to the owner's focus anchor after an editor settles, so
+         * keyboard navigation continues from the edited cell's selection.
          * @member {Boolean} focusCells=true
          */
         focusCells: true
@@ -56,11 +65,18 @@ class CellEditing extends Plugin {
 
         let me               = this,
             {owner}          = me,
-            {selectionModel} = owner;
+            // Grids host the selection model on the VIEW (the focus anchor); tables keep it on
+            // the container. The model host is where selectionModelChange fires, too.
+            modelHost        = owner.view ?? owner,
+            {selectionModel} = modelHost;
 
         owner.on({
-            cellDoubleClick     : me.onCellDoubleClick,
-            focusLeave          : me.onFocusLeave,
+            cellDoubleClick: me.onCellDoubleClick,
+            focusLeave     : me.onFocusLeave,
+            scope          : me
+        });
+
+        modelHost.on({
             selectionModelChange: me.onSelectionModelChange,
             scope               : me
         });
@@ -70,11 +86,22 @@ class CellEditing extends Plugin {
             me.onSelectionModelChange({value: selectionModel})
         }
 
-        owner.body.keys.add({
-            Enter: 'onTableKeyDown',
-            Space: 'onTableKeyDown',
-            scope: me
-        })
+        // The focus anchor's registry, NOT the body's: keydown events target the focused
+        // element, and grid.View (where present) is the single focus anchor — key handlers
+        // registered on the body are unreachable there. Tables have no view and anchor on
+        // the body, so the fallback keeps their registry unchanged.
+        let anchor = me.getFocusAnchor(),
+            keys   = {
+                Enter: 'onTableKeyDown',
+                Space: 'onTableKeyDown',
+                scope: me
+            };
+
+        if (anchor.keys?.add) {
+            anchor.keys.add(keys)
+        } else {
+            anchor.keys = keys
+        }
     }
 
     /**
@@ -99,6 +126,43 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * The physical cell node id {@link #mountEditor} patches the editor into. Table body ids
+     * derive from the record directly; grid bodies pool their rows and derive from the row
+     * INDEX, so the grid plugin overrides this seam.
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {String}
+     */
+    getCellNodeId(record, dataField) {
+        return this.owner.body.getCellId(record, dataField)
+    }
+
+    /**
+     * The component holding DOM focus for the owner: the view where one exists (grid), the body
+     * otherwise (table).
+     * @returns {Neo.component.Base}
+     */
+    getFocusAnchor() {
+        let {owner} = this;
+
+        return owner.view || owner.body
+    }
+
+    /**
+     * The id the active selection model uses for the given cell. Grid cell models speak logical
+     * ids (`<recordId>__<dataField>`), table cell models the physical node id — both bodies
+     * expose the matching builder.
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {String}
+     */
+    getSelectionCellId(record, dataField) {
+        let {body} = this.owner;
+
+        return body.getLogicalCellId?.(record, dataField) || body.getCellId(record, dataField)
+    }
+
+    /**
      * @param {Object} record
      * @param {String} dataField
      * @returns {Promise<void>}
@@ -111,8 +175,8 @@ class CellEditing extends Plugin {
         let me                  = this,
             {appName, windowId} = me,
             {body}              = me.owner,
-            cellId              = body.getCellId(record, dataField),
-            cellNode            = VdomUtil.find(body.vdom, cellId).vdom,
+            cellId              = me.getCellNodeId(record, dataField),
+            cellNode            = VdomUtil.find(body.vdom, cellId)?.vdom,
             column              = me.owner.headerToolbar.getColumn(dataField),
             editor              = me.editors[dataField],
             value               = record[dataField],
@@ -120,10 +184,13 @@ class CellEditing extends Plugin {
 
         if (me.mountedEditor) {
             await me.unmountEditor();
-            await me.timeout(10)
+            await me.timeout(10);
+
+            // The row redraw rebuilt its cell nodes — the earlier resolution is stale
+            cellNode = VdomUtil.find(body.vdom, cellId)?.vdom
         }
 
-        if (!column.editable) {
+        if (!column.editable || !cellNode) {
             return
         }
 
@@ -170,7 +237,9 @@ class CellEditing extends Plugin {
 
         await me.timeout(30);
 
-        editor.focus()
+        // children:true descends to the input element: the field's outer div is not focusable,
+        // so focusing the component id alone is a silent no-op at the DomAccess layer.
+        editor.focus(editor.id, true)
     }
 
     /**
@@ -238,11 +307,31 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * A cell selection moving off the edited cell settles the editor: committing when the field
+     * is valid & dirty, unmounting otherwise — an abandoned editor must not linger in a cell the
+     * selection has left. Selecting the edited cell itself (every mount flow selects first) is a
+     * no-op.
      * @param {Object} data
+     * @param {String[]} data.selection
+     * @returns {Promise<void>}
      */
-    onSelectionChange(data) {
-        // todo: Once we separate cell selections & focus, we can use this event to mount editors
-        // console.log('onSelectionChange', data);
+    async onSelectionChange({selection}) {
+        let me     = this,
+            editor = me.mountedEditor,
+            editedCellIds;
+
+        if (editor) {
+            // The model speaks logical ids under `useInternalId: false` and physical node ids
+            // otherwise — the edited cell counts as still-selected in either dialect.
+            editedCellIds = [
+                me.getSelectionCellId(editor.record, editor.dataField),
+                me.getCellNodeId(editor.record, editor.dataField)
+            ];
+
+            if (!selection?.some(id => editedCellIds.includes(id))) {
+                await me.submitEditor()
+            }
+        }
     }
 
     /**
@@ -261,17 +350,59 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async onTableKeyDown(data) {
-        let me       = this,
-            {target} = data,
-            {body}   = me.owner,
-            dataField, record;
+        let me   = this,
+            cell = me.resolveSelectedCell();
 
-        if (!me.mountedEditor && target.cls?.includes('neo-selected')) {
-            dataField = body.getCellDataField(target.id);
-            record    = body.getRecord(target.id);
-
-            await me.mountEditor(record, dataField)
+        if (!me.mountedEditor && cell) {
+            await me.mountEditor(cell.record, cell.dataField)
         }
+    }
+
+    /**
+     * Resolves the edit target from the ACTIVE selection, never from an event target: under the
+     * View focus anchor, key events target the anchor element, so the selected cell exists only
+     * in the selection model. Grid cell models answer logical ids (`<recordId>__<dataField>`),
+     * table cell models physical node ids — both forms resolve here.
+     * @returns {{dataField: String, record: Object}|null}
+     */
+    resolveSelectedCell() {
+        let {owner} = this,
+            model   = (owner.view ?? owner).selectionModel || owner.selectionModel,
+            cellId, dataField, parts, record;
+
+        if (!model?.ntype?.includes('cell') || !model.hasSelection()) {
+            return null
+        }
+
+        cellId    = model.getSelection()[0];
+        record    = owner.body.getRecord(cellId);
+        dataField = owner.body.getCellDataField(cellId);
+
+        if (!record || !dataField) {
+            parts = cellId.split('__');
+
+            if (parts.length === 2) {
+                record    ??= owner.store.get(parts[0]);
+                dataField ||= parts[1]
+            }
+        }
+
+        return record && dataField ? {dataField, record} : null
+    }
+
+    /**
+     * Re-renders the row a settled editor occupied, removing the editor's vdom reference. The
+     * table body owns its row vdom directly; grid bodies pool row components, so the grid
+     * plugin overrides this seam with the pooled redraw.
+     * @param {Object} record
+     * @returns {Promise<void>}
+     */
+    async redrawRow(record) {
+        let {body}   = this.owner,
+            rowIndex = body.store.indexOf(record);
+
+        body.getVdomRoot().cn[rowIndex] = body.createRow({record, rowIndex});
+        await body.promiseUpdate()
     }
 
     /**
@@ -295,7 +426,10 @@ class CellEditing extends Plugin {
         if (cellId) {
             selectionModel?.deselect(cellId, true); // the cell might still count as selected => silent deselect first
             selectionModel?.select(cellId);
-            me.focusCells && me.owner.focus(cellId)
+
+            // Cells are not focusable — DOM focus returns to the anchor, whose keys drive the
+            // next Enter/Space edit on the selection this method just placed.
+            me.focusCells && me.getFocusAnchor().focus()
         }
     }
 
@@ -327,15 +461,12 @@ class CellEditing extends Plugin {
             return
         }
 
-        let me       = this,
-            record   = me.mountedEditor.record,
-            {body}   = me.owner,
-            rowIndex = body.store.indexOf(record);
+        let me     = this,
+            record = me.mountedEditor.record;
 
         me.mountedEditor = null;
 
-        body.getVdomRoot().cn[rowIndex] = body.createRow({record, rowIndex});
-        await body.promiseUpdate()
+        await me.redrawRow(record)
     }
 }
 
