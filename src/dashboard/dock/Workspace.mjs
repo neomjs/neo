@@ -1505,9 +1505,11 @@ class Workspace extends Container {
      *
      * This class owns the ENGINE SET, each action only while its own opt-in is on: `close`
      * ({@link #enableDockCloseAction}), `maximize` ({@link #enableDockMaximizeAction} — a pure
-     * presentation toggle that never reaches the reducer), `pin` ({@link #enableDockPinAction})
-     * and `reload` ({@link #enableDockReloadAction} — runtime-only like maximize: delegation
-     * into the pane's own `dockReload()`, never an operation). Every other intent —
+     * presentation toggle that never reaches the reducer), `pin` ({@link #enableDockPinAction}),
+     * `reload` ({@link #enableDockReloadAction} — runtime-only like maximize: delegation into the
+     * pane's own `dockReload()`, never an operation) and `pop-out`
+     * ({@link #enableDockPopOutAction}, itself double-gated on
+     * {@link #enableDockTearOutLifecycle}). Every other intent —
      * including host actions projected through `resolveDockHeaderActions` — is re-emitted as a
      * **`dockHeaderAction`** event carrying `{action, dockNodeId, tabContainer}`, so a host receives it
      * without subclassing this class or overriding a protected method, and this method returns `null`
@@ -1515,11 +1517,17 @@ class Workspace extends Container {
      *
      * Routing lives here and the effect lives in one handler per action, so a further engine action is
      * a new handler plus a row below rather than another branch grown into this method.
+     *
+     * **`pop-out` is the one asynchronous row**, because vessel admission is: it returns the
+     * settlement as a Promise of the same `{document, errors}` envelope the synchronous rows return,
+     * never a bare Boolean. The projection wire discards this return, so the shape is a contract for
+     * a subclass or a direct caller rather than for the button — which is exactly why it must not
+     * quietly differ per action.
      * @param {Object} data
      * @param {String} data.action
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
-     * @returns {{document:Object,errors:String[]}|null}
+     * @returns {{document:Object,errors:String[]}|Promise<{document:Object,errors:String[]}>|null}
      */
     onDockHeaderAction({action, dockNodeId, tabContainer}={}) {
         let me = this;
@@ -1616,11 +1624,14 @@ class Workspace extends Container {
      * Focus and announcement are **not** performed here — see {@link #enableDockPopOutAction} for
      * why that bound is deliberate and whose job they are.
      *
+     * Settles as the same `{document, errors}` envelope every other engine action returns. The
+     * terminal itself answers with a bare Boolean — that is the drag path's internal grammar, and
+     * translating it here rather than leaking it keeps one shape across the router's rows.
+     *
      * @param {Object}                  data
      * @param {String}                  data.dockNodeId
      * @param {Neo.tab.Container|null}  data.tabContainer
-     * @returns {Promise<Object|null>} the tear-out terminal's result, or an error envelope when the
-     * action could not start
+     * @returns {Promise<{document:Object,errors:String[]}>}
      * @protected
      */
     async handleDockPopOutAction({dockNodeId, tabContainer}={}) {
@@ -1648,7 +1659,15 @@ class Workspace extends Container {
             return {document: me.dockModel, errors: ['Dock pop-out was refused by the host vessel seam']}
         }
 
-        return me.tearOutHandlers.onDockTearOutTerminal({itemId})
+        const committed = await me.tearOutHandlers.onDockTearOutTerminal({itemId});
+
+        // A false terminal means the reducer refused (or threw) and the machine already retired the
+        // vessel it had opened — the pane is back where it was, so this is a refusal, not a partial
+        // commit. `dockModel` is read AFTER the terminal precisely so a success reports the advanced
+        // document rather than the one this method started with.
+        return committed
+            ? {document: me.dockModel, errors: []}
+            : {document: me.dockModel, errors: ['Dock pop-out was refused by the detach commit']}
     }
 
     /**

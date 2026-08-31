@@ -438,7 +438,9 @@ class LayoutAdapter extends Base {
      *     their intent arrives through `onDockHeaderAction` like any other, and focus gating is the
      *     tab header's own default. Semantic names must be unique per node, and every engine-owned
      *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`, `maximize` under `enableDockMaximizeAction`, `pin`
-     *     under `enableDockPinAction`, `reload` under `enableDockReloadAction`.
+     *     under `enableDockPinAction`, `reload` under `enableDockReloadAction`, `pop-out` under
+     *     `enableDockPopOutAction`. A name is reserved exactly while the engine can project it, so
+     *     `pop-out` is free for a host whenever the workspace's tear-out lifecycle is not armed.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
      * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel

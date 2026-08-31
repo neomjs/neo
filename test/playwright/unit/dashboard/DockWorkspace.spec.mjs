@@ -319,7 +319,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // calls. These arms assert the dispatch and its ordering, because "no parallel lifecycle" is
         // only provable at the call — a handler that re-implemented `openVessel`/`applyOperation`
         // would satisfy every projection assertion above and still be the thing the ticket forbids.
-        const armWorkspace = (calls, {exitResult=undefined}={}) => {
+        // The stub answers in the REAL seam's grammar: `window.TearOut`'s terminal returns a bare
+        // Boolean, not an envelope. A stub that returned `{document, errors}` here would be a
+        // reconstruction confirming itself — every arm would pass while the production translation
+        // of a refusing terminal went unexercised.
+        const armWorkspace = (calls, {exitResult=undefined, terminalResult=true}={}) => {
             const ws = Neo.create(PlainWorkspace, {
                 dockModel             : createDocument(),
                 enableDockPopOutAction: true
@@ -332,7 +336,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 },
                 onDockTearOutTerminal: data => {
                     calls.push(['terminal', data]);
-                    return {document: ws.dockModel, errors: []}
+                    return terminalResult
                 }
             };
 
@@ -397,6 +401,57 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(calls[0][1]).toMatchObject({itemId, sortZone: null});
             expect(calls[0][1].proxyRect).toMatchObject({height: 200, width: 400});
             expect(calls[1][1]).toEqual({itemId})
+        });
+
+        test('an admitted vessel whose detach the reducer refuses settles as a refusal, not a Boolean', async () => {
+            const calls = [];
+
+            // The terminal's own refusal route: it retired the vessel it had opened and committed
+            // nothing. That has to reach the caller as the SAME `{document, errors}` envelope the
+            // synchronous rows of the router use — leaking the seam's bare `false` would make a
+            // refusal read as a falsy success to anyone checking `result.errors?.length`.
+            workspace = armWorkspace(calls, {terminalResult: false});
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(calls.map(entry => entry[0])).toEqual(['exit', 'terminal']);
+            expect(result.errors?.[0]).toMatch(/refused by the detach commit/)
+        });
+
+        test('the handler holds NO lifecycle of its own — asserted from its source, not from behaviour', () => {
+            // AC: "no click-specific reintegration branch exists (asserted structurally: one
+            // terminal, one retire path)". Behaviour cannot show this — a handler that duplicated
+            // the vessel/commit/return sequence would pass every behavioural arm in this file and
+            // be exactly what the ticket forbids. Only the source text can witness an ABSENCE.
+            const source = DockWorkspace.prototype.handleDockPopOutAction.toString();
+
+            expect(source).toContain('onDockTearOutExit');
+            expect(source).toContain('onDockTearOutTerminal');
+
+            for (const forbidden of [
+                'applyOperation',      // it must not commit detachItem itself
+                'applyDockZoneOperation',
+                'openTearOutVessel',   // nor acquire a vessel outside the pair
+                'acquireTearOutVessel',
+                'reintegrateTearOutItem',
+                'retireTearOutVessel',
+                'onVesselRetired'
+            ]) {
+                expect(source, `pop-out must reach ${forbidden} only THROUGH the tear-out pair`).not.toContain(forbidden)
+            }
+        });
+
+        test('a committed pop-out settles as an envelope carrying the ADVANCED document', async () => {
+            const calls = [];
+
+            workspace = armWorkspace(calls);
+
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+
+            expect(result.errors).toEqual([]);
+            expect(result.document).toBe(workspace.dockModel)
         });
 
         test('a refused vessel commits NOTHING — terminal is never reached', async () => {
@@ -647,6 +702,39 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace = null;
             Neo.apps = previousApps;
             Neo.Main.getByPath = previousGetByPath
+        });
+
+        test('#17947 pop-out commits detachItem through the REAL lifecycle, not a stubbed pair', async () => {
+            // The handler arms elsewhere in this file stub `tearOutHandlers` to assert dispatch and
+            // ordering. This one drives the real thing: real admission, real reducer, real committed
+            // document — which is the AC that matters, because dispatching correctly into a broken
+            // pipeline would satisfy every ordering assertion and still detach nothing.
+            workspace = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            const tabContainer = {
+                activeIndex: 0,
+                getTabBar  : () => ({sortZoneConfig: {dockItemIds: ['preview']}}),
+                id         : 'popout-tabs'
+            };
+
+            // `measureDockPaneRect` finds no `Neo.main.DomAccess` here and resolves null. That is the
+            // documented degradation — the vessel opens at the host's default geometry rather than a
+            // wrong one — so the commit path is exercised exactly as it is in production.
+            const result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
+
+            expect(result, 'the terminal must return a result, not a refusal envelope').toBeTruthy();
+            expect(result.errors ?? []).toEqual([]);
+
+            await workspace.refreshPromise;
+
+            // The committed document is the witness: the item left the dock through `detachItem`.
+            const committed = workspace.getDockZoneDocument();
+
+            expect(Document.findOwningEdge(committed, 'preview'), 'a detached item owns no edge').toBeFalsy();
+            expect(workspace.tearOutPanes.preview, 'the vessel holds the pane').toBeTruthy()
         });
 
         test('terminal-first connect lands one admitted live pane, then returns it before observers fire', async () => {
