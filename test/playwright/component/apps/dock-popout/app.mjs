@@ -11,9 +11,9 @@ const fixtureDocument = {
         gamma : {componentRef: 'Gamma',  title: 'Gamma',  kind: 'panel'},
         pinned: {componentRef: 'Pinned', title: 'Pinned', kind: 'panel'},
         // The railed arm's subject: auto-hidden in the committed document, and it STAYS that way
-        // across a detach. Detachment and auto-hide are orthogonal, not mutually exclusive (#17969)
-        // — a railed item that pops out keeps `autoHidden: true`, so that its committed collapse
-        // state survives the round trip and it rails again on reintegration.
+        // across a detach. Detachment and auto-hide are orthogonal, not mutually exclusive — a
+        // railed item that pops out keeps `autoHidden: true`, so its committed collapse state
+        // survives the round trip and it rails again on reintegration.
         railed: {componentRef: 'Railed', title: 'Railed', kind: 'panel', autoHidden: true}
     },
     nodes: {
