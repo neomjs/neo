@@ -314,7 +314,7 @@ The minimal interface between the docking shell and the product surfaces that li
 
 | The embedded surface provides | The docking shell guarantees |
 |---|---|
-| A stable `componentRef` registered with the workspace's resolver | Resolution to the live instance on every projection; the instance is **moved / re-parented, never destroyed** (landed adapter rule) |
+| A stable `componentRef` registered with the workspace's resolver | Resolution to the live instance on every projection; the instance is **moved / re-parented, never destroyed** (landed adapter rule) — one conditioned exception, see *User-triggered recreate* below |
 | Optionally a `blueprint` — a serializable Neo config for creation-from-saved-state | Instantiation from blueprint when no live instance exists; recoverable placeholder (never silent drop) when neither resolves (landed placeholder + stale-ref policy) |
 | Policy hints: `closable`, `pinnable`, `movable` | Enforcement at the operation layer (e.g. `setItemPinned` / `setItemAutoHidden` reject `pinnable === false`; landed) |
 | JSON-only `metadata` — no secrets, credentials, functions, DOM, live objects | No-secret validation on every persistence path (landed, #13153 class of checks) |
@@ -324,6 +324,23 @@ Two binding consequences:
 
 - **Panes are layout-blind.** An embedded surface never reads or mutates the dock document, never listens to drag surfaces, and never persists its own placement. It experiences docking exclusively as ordinary Neo component lifecycle (mount/unmount/re-parent) plus its own config updates. A pane that "helps" with layout is a contract violation.
 - **Layout is pane-blind.** The shell knows items only as catalog records. Cockpit panes and FM-UX cards add zero cases to the docking code; if a product surface needs a new docking behavior, that behavior enters through an amendment to this ADR, not through a pane-specific branch.
+
+#### User-triggered recreate (amendment, 2026-09-01 — #17966)
+
+The table above guarantees a resolved instance is **moved / re-parented, never destroyed**. That guarantee is unchanged for every shell-initiated operation. This amendment adds one narrow exception and states its **condition**, not merely its permission — the row stays authoritative wherever the condition is unmet.
+
+**The exception.** A pane that does not implement the `dockReload()` delegation contract (#17948) has no recovery path once its own state is wedged: a JS error inside the surface leaves an instance the shell will faithfully re-parent forever. For that case only, a **user-triggered** recreate may destroy the resolved instance and replace it with a fresh one for the same `dockItemId` and slot.
+
+**The condition — a two-phase transaction, or the exception does not apply.**
+
+1. **Prepare.** A fresh candidate is obtained and validated *independently of the live-instance cache*, without touching the live pane. Three failure shapes must each leave the old pane fully intact and settle with a named error: the factory throws, it returns `null`, or it returns the cached — still live — current instance. Rollback is by construction, not by repair: at this point nothing has been destroyed.
+2. **Commit.** The card-body slot is replaced through container ownership (`removeAt` + insert), never a bare destroy. `core.Base#destroy` unregisters an instance without removing it from `parent.items`, and the reconciler fills `liveItems` positionally from `body.items` and prefers that entry over `resolveItem` — so a bare destroy can hand an erased object back as the live answer on the next refresh. The old instance is destroyed only after the candidate is live.
+
+**Identity that survives:** `dockItemId`, tab, header actions, and overflow membership. The component *instance* is the only thing this exception permits losing, and only for the item the user acted on — which is why §2.3 placement continuity and §2.2 perspective capture are unaffected.
+
+**Still forbidden:** automatic recreation of any kind — crash detection, watchdogs, retry policies. Those live in consumer territory above the transaction. A shell that recreates without a user action has re-entered the rule this amendment does not touch.
+
+**Retirement condition.** This exception exists only because `dockReload()` is optional. When the delegation contract becomes mandatory for embedded surfaces, or a pane-level error boundary makes a wedged pane recoverable without identity loss, this subsection retires with the leaf that makes it unnecessary and the table row returns to unconditional. Whoever lands that leaf should delete this block rather than qualify it further.
 
 ### §2.7 Auto-Hide UI Contract
 
