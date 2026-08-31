@@ -67,6 +67,7 @@ class DockFlip extends Base {
         remote: {
             app: [
                 'captureFirst',
+                'land',
                 'play'
             ]
         }
@@ -86,6 +87,15 @@ class DockFlip extends Base {
      * @private
      */
     #activeCleanups = new Set()
+
+    /**
+     * Plays which entered their bounded projection waits but have not necessarily installed a
+     * cleanup yet: host id → Set<{interrupted:Boolean}>. `land()` marks these states so a play can
+     * never arm fixed-stage presentation after direct manipulation already reclaimed geometry.
+     * @member {Map<String,Set<Object>>} #pendingPlays
+     * @private
+     */
+    #pendingPlays = new Map()
 
     /**
      * Collects the marker elements inside a host: every element whose class list contains a
@@ -388,13 +398,47 @@ class DockFlip extends Base {
     }
 
     /**
-     * @summary Interrupts every active presentation stage before the addon lifecycle is destroyed.
+     * @summary Instantly lands every active FLIP presentation without destroying the addon.
+     *
+     * Interactive geometry takes precedence over presentation: a splitter or other direct
+     * manipulation may call this remote seam before it captures layout rects. Every active play
+     * already owns one idempotent cleanup closure; running those closures restores fixed-stage
+     * positioning, transforms, transitions, opacity, and stacking to the committed layout while
+     * resolving the interrupted play as `false`. No dock document or projection state changes.
+     *
+     * @param {String|null} [hostId=null] Optional dock-host scope; `null` lands every active stage.
+     * @returns {Boolean} True when at least one active presentation was landed.
+     */
+    land({hostId=null}={}) {
+        let pendingCount = 0;
+
+        this.#pendingPlays.forEach((states, pendingHostId) => {
+            if (!hostId || pendingHostId === hostId) {
+                states.forEach(state => {
+                    if (!state.interrupted) {
+                        state.interrupted = true;
+                        pendingCount++
+                    }
+                })
+            }
+        });
+
+        const active = [...this.#activeCleanups]
+            .filter(cancel => !hostId || cancel.hostId === hostId);
+
+        active.forEach(cancel => cancel());
+
+        return pendingCount + active.length > 0
+    }
+
+    /**
+     * @summary Lands every active presentation stage before the addon lifecycle is destroyed.
      * @returns {void}
      */
     destroy() {
-        this.#activeCleanups.forEach(cancel => cancel());
-        this.#activeCleanups.clear();
+        this.land();
         this.#firstSnapshots = {};
+        this.#pendingPlays.clear();
 
         super.destroy()
     }
@@ -484,8 +528,8 @@ class DockFlip extends Base {
             durationResolve = null,
             durationTimer   = null,
             hostEl,
-            interrupted     = false,
             moves           = [],
+            playState       = {interrupted: false},
             settled         = false;
 
         // One idempotent settlement path owns every temporary visual mutation. In particular,
@@ -494,7 +538,7 @@ class DockFlip extends Base {
         const cleanup = (wasInterrupted = false) => {
             if (settled) return;
 
-            interrupted ||= wasInterrupted;
+            playState.interrupted ||= wasInterrupted;
 
             const resolveDuration = durationResolve;
 
@@ -523,6 +567,7 @@ class DockFlip extends Base {
         };
 
         cancel = () => cleanup(true);
+        cancel.hostId = hostId;
 
         delete this.#firstSnapshots[hostId];
 
@@ -540,6 +585,15 @@ class DockFlip extends Base {
         if (document.hidden) {
             return false
         }
+
+        let pending = this.#pendingPlays.get(hostId);
+
+        if (!pending) {
+            pending = new Set();
+            this.#pendingPlays.set(hostId, pending)
+        }
+
+        pending.add(playState);
 
         const
             firstLineages = first.lineages,
@@ -580,7 +634,7 @@ class DockFlip extends Base {
             // those nodes never detach either, and the landed geometry (landedInPlace) is the
             // proof the swap already happened.
             if (!preservedMarkerSet && !landedInPlace) {
-                while (frame < maxFrames && first.els.length > 0 && first.els.every(el => el.isConnected)) {
+                while (!playState.interrupted && frame < maxFrames && first.els.length > 0 && first.els.every(el => el.isConnected)) {
                     await this.#nextFrame();
                     frame++
                 }
@@ -589,10 +643,15 @@ class DockFlip extends Base {
             // stage B: now wait (bounded) for the NEW tree's markers to exist
             markers = this.collectMarkers(hostId, markerPrefix);
 
-            while (markers.size < 1 && frame < maxFrames * 2) {
+            while (!playState.interrupted && markers.size < 1 && frame < maxFrames * 2) {
                 await this.#nextFrame();
                 frame++;
                 markers = this.collectMarkers(hostId, markerPrefix)
+            }
+
+            if (playState.interrupted) {
+                cleanup(true);
+                return false
             }
 
             if (markers.size < 1) {
@@ -607,6 +666,11 @@ class DockFlip extends Base {
             // inverse transform is installed.
             if (!preservedMarkerSet && !landedInPlace) {
                 await this.#nextFrame()
+            }
+
+            if (playState.interrupted) {
+                cleanup(true);
+                return false
             }
 
             markers.forEach((el, key) => {
@@ -723,7 +787,7 @@ class DockFlip extends Base {
                 return false
             }
 
-            if (interrupted || this.isDestroyed) {
+            if (playState.interrupted || this.isDestroyed) {
                 cleanup(true);
 
                 return false
@@ -748,7 +812,7 @@ class DockFlip extends Base {
                 }, duration + 50)
             });
 
-            if (interrupted || this.isDestroyed) return false;
+            if (playState.interrupted || this.isDestroyed) return false;
 
             cleanup();
 
@@ -758,6 +822,9 @@ class DockFlip extends Base {
             cleanup();
 
             return false
+        } finally {
+            pending.delete(playState);
+            pending.size < 1 && this.#pendingPlays.delete(hostId)
         }
     }
 }
