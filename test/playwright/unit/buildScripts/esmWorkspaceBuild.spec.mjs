@@ -54,7 +54,7 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         // A lazily-loaded family whose directory the output tree does not have. The module itself is
         // emitted and every literal specifier in it resolves; only the interpolated root is absent,
         // which is the shape the engine's own optional branches take (`examples/`, `docs/app/`, `WS/`
-        // addons) and which no consuming workspace can supply. See #17971.
+        // addons) and which no consuming workspace can supply.
         if (computedFamily) {
             fs.outputFileSync(path.join(root, 'components/Lazy.mjs'),
                 'export const load = name => import(`../plugins/${name}.mjs`);\n')
@@ -146,7 +146,7 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
      * family reads it (here). This stage cannot tell an uncopied source root from a branch the
      * workspace never takes, and inside this repository the second reading never applies — every
      * default root exists — so the arm shipped fatal and no build here ever noticed. Every consuming
-     * workspace failed on it. See #17971.
+     * workspace failed on it.
      */
     test('a computed family whose root is absent warns and leaves the build green', () => {
         workspace = createWorkspace({computedFamily: true, declareExtraRoot: true});
