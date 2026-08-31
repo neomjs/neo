@@ -1006,6 +1006,9 @@ class LayoutAdapter extends Base {
             cls         : ['neo-dashboard-dock-tabs'],
             dockNodeId  : nodeId,
             dockNodeType: 'tabs',
+            // A dock tab strip is embedded pane chrome, not a free-standing tab card. `ui` is the
+            // existing component-level styling seam; nothing enters the committed dock document.
+            ui          : 'inline',
             ...(headerActions.length > 0 && {headerActions}),
             ...(context.enableDockCloseAction && {
                 // The empty-tabs fallback receives focus after its last close. A plain div cannot

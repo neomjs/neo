@@ -949,6 +949,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         // owns its computeOverflow static, so nothing reaches back to the adapter). Wiring, not behavior: this
         // pins that the projection carries the plugin, so a silent drop of the injection is caught in CI.
         expect(mainTabs.ntype).toBe('tab-container');
+        expect(mainTabs.ui, 'dock tab strips use the generic embedded-header variant').toBe('inline');
         expect(plugins).toHaveLength(1);
         expect(plugins[0].module).toBe(TabOverflowPlugin);
     });

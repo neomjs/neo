@@ -43,6 +43,13 @@ class Container extends BaseContainer {
          */
         ntype: 'tab-container',
         /**
+         * Selects the tab-header chrome for this placement. `inline` is the compact, flush variant for
+         * embedding inside pane/header bands; `standalone` is the roomier free-standing variant. `null`
+         * preserves the active theme's established default.
+         * @member {String|null} ui=null
+         */
+        ui: null,
+        /**
          * You can use null to not mount any items initially
          * @member {Number|null} activeIndex_=0
          * @reactive

@@ -1,0 +1,294 @@
+import {test, expect} from '@playwright/test';
+
+const THEMES = [
+    'neo-theme-light',
+    'neo-theme-dark',
+    'neo-theme-neo-light',
+    'neo-theme-neo-dark'
+];
+
+const EXPECTED = {
+    'neo-theme-light': {
+        inline    : {height: '25px', radius: '0px'},
+        null      : {height: '25px', radius: '0px'},
+        standalone: {height: '40px', radius: '8px'},
+        textColor : 'rgb(43, 43, 43)'
+    },
+    'neo-theme-dark': {
+        inline    : {height: '25px', radius: '0px'},
+        null      : {height: '25px', radius: '0px'},
+        standalone: {height: '40px', radius: '8px'},
+        textColor : 'rgb(187, 187, 187)'
+    },
+    'neo-theme-neo-light': {
+        inline    : {height: '32px', radius: '0px'},
+        null      : {height: '48px', radius: '8px'},
+        standalone: {height: '48px', radius: '8px'},
+        textColor : 'rgb(69, 75, 66)'
+    },
+    'neo-theme-neo-dark': {
+        inline    : {height: '32px', radius: '0px'},
+        null      : {height: '48px', radius: '8px'},
+        standalone: {height: '48px', radius: '8px'},
+        textColor : 'rgb(153, 162, 149)'
+    }
+};
+
+let componentIds = [];
+
+/** Links the four tab value layers into the persistent component-test document. */
+async function loadThemeStylesheets(page) {
+    const hrefs = THEMES.flatMap(theme => {
+        const directory = theme.replace('neo-theme-', 'theme-'),
+              files     = [
+                  `/dist/development/css/${directory}/tab/Container.css`,
+                  `/dist/development/css/${directory}/tab/Strip.css`,
+                  `/dist/development/css/${directory}/tab/header/Button.css`
+              ];
+
+        if (theme.includes('neo-light') || theme.includes('neo-dark')) {
+            files.unshift(
+                `/dist/development/css/${directory}/design-tokens/Core.css`,
+                `/dist/development/css/${directory}/design-tokens/Semantic.css`,
+                `/dist/development/css/${directory}/design-tokens/Component.css`
+            )
+        }
+
+        return files
+    });
+
+    await page.evaluate(async hrefs => {
+        for (const href of hrefs) {
+            const link = document.createElement('link');
+
+            link.rel  = 'stylesheet';
+            link.href = href;
+
+            await new Promise((resolve, reject) => {
+                link.onload  = resolve;
+                link.onerror = () => reject(new Error(`stylesheet did not load: ${href}`));
+                document.head.appendChild(link)
+            })
+        }
+    }, hrefs)
+}
+
+/** Creates the three contract variants as side-by-side real browser components. */
+async function createVariants(page) {
+    componentIds = await page.evaluate(async () => {
+        const variants = [
+            {id: 'tab-ui-default',       label: 'Theme default', left: 0},
+            {id: 'tab-ui-null',          label: 'Theme default', left: 290, setUi: true, ui: null},
+            {id: 'tab-ui-inline',        label: 'Inline',        left: 580, setUi: true, ui: 'inline'},
+            {id: 'tab-ui-standalone',    label: 'Standalone',    left: 870, setUi: true, ui: 'standalone'}
+        ];
+
+        const ids = [];
+
+        for (const variant of variants) {
+            const bodyItem = variant.ui === 'inline' ? {
+                activeIndex: 0,
+                header     : {text: variant.label},
+                id         : 'tab-ui-nested-null',
+                items      : [{
+                    header: {text: 'Nested theme default'},
+                    ntype : 'component',
+                    text  : 'Nested theme default body'
+                }],
+                ntype: 'tab-container'
+            } : {
+                header: {text: variant.label},
+                ntype : 'component',
+                text  : `${variant.label} body`
+            };
+
+            const config = {
+                activeIndex: 0,
+                height     : 170,
+                id         : variant.id,
+                importPath : '../tab/Container.mjs',
+                items      : [bodyItem],
+                ntype      : 'tab-container',
+                parentId   : 'component-test-viewport',
+                style      : {
+                    left    : `${variant.left}px`,
+                    position: 'absolute',
+                    top     : '0px'
+                },
+                width: 280
+            };
+
+            variant.setUi && (config.ui = variant.ui);
+
+            const result = await Neo.worker.App.createNeoInstance(config);
+
+            if (!result.success) {
+                throw new Error(`TabContainer creation failed: ${result.error.message}`)
+            }
+
+            ids.push(result.id)
+        }
+
+        return ids
+    });
+
+    await Promise.all(componentIds.map(id => page.waitForSelector(`#${id}`, {state: 'attached'})))
+}
+
+/** Replaces the active document theme without retaining a competing theme ancestor. */
+const applyTheme = (page, theme) => page.evaluate(name => {
+    for (const element of [document.body, document.documentElement]) {
+        element.classList.forEach(cls => cls.startsWith('neo-theme-') && element.classList.remove(cls))
+    }
+
+    document.body.classList.add(name);
+
+    return document.body.className
+}, theme);
+
+/** Reads the concrete header paint rather than accepting a loaded stylesheet as evidence. */
+const readVariant = (page, id) => page.evaluate(componentId => {
+    const root    = document.getElementById(componentId),
+          button  = root.querySelector('.neo-tab-header-button'),
+          toolbar = root.querySelector('.neo-tab-header-toolbar'),
+          style   = getComputedStyle(button);
+
+    return {
+        backgroundImage: getComputedStyle(toolbar).backgroundImage,
+        cls            : [...root.classList],
+        height         : style.height,
+        padding        : style.padding,
+        radius         : style.borderRadius,
+        textColor      : getComputedStyle(button.querySelector('.neo-button-text')).color
+    }
+}, id);
+
+/** A generated-id-independent DOM signature for the omitted-vs-explicit-null regression control. */
+const readDomSignature = (page, id) => page.evaluate(componentId => {
+    const visit = element => ({
+        children: [...element.children].map(visit),
+        cls     : [...element.classList].filter(cls => !cls.startsWith('neo-theme-')).sort(),
+        tag     : element.tagName
+    });
+
+    return visit(document.getElementById(componentId))
+}, id);
+
+test.describe('Neo.tab.Container — ui variants', () => {
+    test.beforeEach(async ({page}) => {
+        await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
+        await page.waitForSelector('#component-test-viewport', {state: 'attached'});
+        await loadThemeStylesheets(page);
+        await createVariants(page)
+    });
+
+    test.afterEach(async ({page}) => {
+        await page.evaluate(async ids => {
+            for (const id of ids) {
+                await Neo.worker.App.destroyNeoInstance(id)
+            }
+        }, componentIds);
+
+        componentIds = []
+    });
+
+    for (const theme of THEMES) {
+        test(`${theme}: null stays current while inline and standalone are intentional`, async ({page}, testInfo) => {
+            await applyTheme(page, theme);
+            expect(await page.evaluate(name => document.body.classList.contains(name), theme)).toBe(true);
+
+            const measured = {
+                default   : await readVariant(page, 'tab-ui-default'),
+                inline    : await readVariant(page, 'tab-ui-inline'),
+                null      : await readVariant(page, 'tab-ui-null'),
+                standalone: await readVariant(page, 'tab-ui-standalone')
+            };
+
+            const expectedDefaultClasses = [
+                'neo-flex-align-stretch',
+                'neo-flex-container',
+                'neo-flex-direction-column',
+                'neo-flex-pack-start',
+                'neo-flex-wrap-nowrap',
+                'neo-tab-container',
+                'neo-tab-container-plain',
+                'neo-top'
+            ];
+
+            expect(measured.default.cls.filter(cls => !cls.startsWith('neo-theme-')).sort())
+                .toEqual(expectedDefaultClasses);
+            expect(measured.null.cls.filter(cls => !cls.startsWith('neo-theme-')).sort())
+                .toEqual(expectedDefaultClasses);
+            expect(measured.null.cls).not.toContain('neo-tab-container-inline');
+            expect(measured.null.cls).not.toContain('neo-tab-container-standalone');
+            expect(measured.inline.cls).toContain('neo-tab-container-inline');
+            expect(measured.standalone.cls).toContain('neo-tab-container-standalone');
+
+            for (const variant of ['inline', 'null', 'standalone']) {
+                expect(measured[variant]).toMatchObject({
+                    ...EXPECTED[theme][variant],
+                    textColor: EXPECTED[theme].textColor
+                })
+            }
+
+            expect(measured.default).toMatchObject({
+                ...EXPECTED[theme].null,
+                textColor: EXPECTED[theme].textColor
+            });
+            expect(await readDomSignature(page, 'tab-ui-null'))
+                .toEqual(await readDomSignature(page, 'tab-ui-default'));
+
+            expect(measured.inline.height).not.toBe(measured.standalone.height);
+            expect(measured.inline.radius).not.toBe(measured.standalone.radius);
+
+            await testInfo.attach(`${theme}-tab-ui-comparison.json`, {
+                body       : Buffer.from(JSON.stringify(measured, null, 2)),
+                contentType: 'application/json'
+            });
+            await testInfo.attach(`${theme}-tab-ui-comparison.png`, {
+                body       : await page.screenshot({clip: {height: 180, width: 1180, x: 0, y: 0}}),
+                contentType: 'image/png'
+            })
+        })
+    }
+
+    test('the inline gradient hook is opt-in and cannot leak to ui:null', async ({page}) => {
+        await applyTheme(page, 'neo-theme-neo-light');
+
+        const before = {
+            default: await readVariant(page, 'tab-ui-default'),
+            inline : await readVariant(page, 'tab-ui-inline'),
+            nested : await readVariant(page, 'tab-ui-nested-null'),
+            null   : await readVariant(page, 'tab-ui-null')
+        };
+
+        expect(before.default.backgroundImage).toBe('none');
+        expect(before.inline.backgroundImage).toBe('none');
+        expect(before.nested).toMatchObject({
+            backgroundImage: 'none',
+            height         : '48px',
+            radius         : '8px'
+        });
+        expect(before.null.backgroundImage).toBe('none');
+
+        const after = await page.evaluate(() => {
+            const gradient = 'linear-gradient(rgb(1, 2, 3), rgb(4, 5, 6))';
+
+            // A consumer root is the broadest supported owner. The direct-child selector must paint
+            // the inline header but neither a sibling nor a nested ui:null header.
+            document.body.style.setProperty('--tab-header-inline-background-image', gradient);
+
+            return {
+                default: getComputedStyle(document.querySelector('#tab-ui-default > .neo-tab-header-toolbar')).backgroundImage,
+                inline : getComputedStyle(document.querySelector('#tab-ui-inline > .neo-tab-header-toolbar')).backgroundImage,
+                nested : getComputedStyle(document.querySelector('#tab-ui-nested-null > .neo-tab-header-toolbar')).backgroundImage,
+                null   : getComputedStyle(document.querySelector('#tab-ui-null > .neo-tab-header-toolbar')).backgroundImage
+            }
+        });
+
+        expect(after.default).toBe('none');
+        expect(after.inline).toContain('linear-gradient');
+        expect(after.nested).toBe('none');
+        expect(after.null).toBe('none')
+    })
+});

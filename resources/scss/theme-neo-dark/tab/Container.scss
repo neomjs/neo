@@ -1,3 +1,24 @@
 :root .neo-theme-neo-dark { // .neo-tab-container
     --tab-container-content-border: 1px solid var(--sem-color-border-default);
+
+    // Embedded pane chrome uses the semantic 32px density tier and releases the free-standing
+    // radius. The theme's ui:null contract remains the established 48px / 8px treatment.
+    &.neo-tab-container-inline > .neo-tab-header-toolbar,
+    .neo-tab-container-inline > .neo-tab-header-toolbar {
+        --tab-button-border-radius : 0;
+        --tab-button-gap           : 0;
+        --tab-button-height        : var(--sem-height-large);
+        --tab-button-height-pressed: var(--sem-height-large);
+        --tab-button-padding       : 4px var(--sem-spacing-small) 3px;
+    }
+
+    // Standalone explicitly names the theme's existing free-standing treatment.
+    &.neo-tab-container-standalone > .neo-tab-header-toolbar,
+    .neo-tab-container-standalone > .neo-tab-header-toolbar {
+        --tab-button-border-radius : var(--cmp-tab-borderradius);
+        --tab-button-gap           : 0;
+        --tab-button-height        : var(--cmp-tab-height);
+        --tab-button-height-pressed: var(--cmp-tab-height);
+        --tab-button-padding       : 7px var(--cmp-tab-spacinghorizontal) 6px;
+    }
 }

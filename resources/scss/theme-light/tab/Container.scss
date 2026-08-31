@@ -1,3 +1,24 @@
 :root .neo-theme-light { // .neo-tab-container
     --tab-container-content-border: 1px solid #ddd;
+
+    // Inline is the classic theme's established flush strip, now addressable per instance.
+    &.neo-tab-container-inline > .neo-tab-header-toolbar,
+    .neo-tab-container-inline > .neo-tab-header-toolbar {
+        --tab-button-border-radius : 0;
+        --tab-button-gap           : 0;
+        --tab-button-height        : 25px;
+        --tab-button-height-pressed: 25px;
+        --tab-button-padding       : 7px 12px 6px;
+    }
+
+    // Standalone gives classic-theme consumers a coherent free-standing card treatment without
+    // changing the ui:null default above.
+    &.neo-tab-container-standalone > .neo-tab-header-toolbar,
+    .neo-tab-container-standalone > .neo-tab-header-toolbar {
+        --tab-button-border-radius : 8px;
+        --tab-button-gap           : 4px;
+        --tab-button-height        : 40px;
+        --tab-button-height-pressed: 40px;
+        --tab-button-padding       : 7px 16px 6px;
+    }
 }
