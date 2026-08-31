@@ -166,6 +166,32 @@ class Workspace extends Container {
          */
         enableDockMaximizeAction: false,
         /**
+         * @summary Projects a `pop-out` header action that detaches the active pane into its own
+         * vessel window, through the drag tear-out's own commit path.
+         *
+         * **Double-gated:** the action projects only while {@link #enableDockTearOutLifecycle} is
+         * also armed. Without that lifecycle there are no tear-out handlers to dispatch into, so a
+         * projected button would be an affordance for a gesture the workspace cannot perform. The
+         * gate lives at the projection-context assembly rather than in the adapter, which keeps the
+         * adapter a pure projector keyed on one flag — and means `pop-out` is a reserved host-action
+         * name exactly when the action can actually render.
+         *
+         * **Focus and announcement stay host-owned, deliberately.** The pane moves; this workspace
+         * makes no promise about where focus lands or what a screen reader hears. Both belong to the
+         * host: it opened the vessel through its own admission seam, so only it can honestly promise
+         * focus into that window, and an announcement without a host-owned `aria-live` region is
+         * theater. A host wanting focus-follow implements it at the seam it already owns. If
+         * focus-on-pop-out becomes family policy it arrives as its own leaf with the full a11y
+         * story, not smuggled in here.
+         * @member {Boolean} enableDockPopOutAction=false
+         */
+        enableDockPopOutAction: false,
+        /**
+         * Icon of the projected pop-out action.
+         * @member {String} dockPopOutIconCls='far fa-window-restore'
+         */
+        dockPopOutIconCls: 'far fa-window-restore',
+        /**
          * Icon of the projected maximize action while its node is not maximized.
          * @member {String} dockMaximizeIconCls='far fa-window-maximize'
          */
@@ -473,6 +499,10 @@ class Workspace extends Container {
         };
         me.tearOutAdmissions.set(itemId, admission);
 
+        // Captured while the workspace is still alive, for the destroyed branch below — see the
+        // comment there for why reading the hook after the await is not the same thing.
+        const closeVessel = me.closeTearOutVessel.bind(me);
+
         try {
             vessel = await me.openTearOutVessel(request)
         } catch (error) {
@@ -481,6 +511,32 @@ class Workspace extends Container {
 
         if (!vessel) {
             me.tearOutAdmissions.get(itemId) === admission && me.clearTearOutAdmission(itemId, admission);
+            return null
+        }
+
+        // `destroy()` can land inside the await above, and this is the one gap where teardown cannot
+        // clean up after itself: `retireTearOutState` sweeps vessels by `windowName`, and a pending
+        // admission has none yet — the host is still deciding. So the sweep skips this record, then
+        // the host answers with a REAL OS window that no map still remembers. Everything below reads
+        // admission state that teardown has already dismantled; reaching it throws, the coordinator's
+        // `openVessel` try/catch swallows that as a failed admission, and the window is orphaned with
+        // nobody holding its name.
+        //
+        // Closed through the hook captured ABOVE, not through {@link #retireTearOutVessel} and not
+        // through `me.closeTearOutVessel` read here: the retirement bookkeeping lives in the very
+        // maps teardown just reset, and `Neo.core.Base#destroy` deletes the instance's own
+        // properties — so a consumer hook assigned per instance is already gone by this line, and
+        // reading it now would silently fall back to a prototype default that no longer knows about
+        // this vessel. The reference captured while the workspace was alive is the one that owns it.
+        //
+        // Exactly once: this branch runs at most once per admission and then refuses, so no later
+        // path can retire the same vessel again. Wrapped because a hook that throws here would
+        // surface as an unhandled rejection — the caller discards this promise.
+        if (me.isDestroyed) {
+            try {
+                await closeVessel({...vessel, admissionToken, generation: admission.generation, itemId})
+            } catch (error) {}
+
             return null
         }
 
@@ -1279,7 +1335,10 @@ class Workspace extends Container {
      * instance, the way {@link #syncDockCloseAction} does, not by returning a different list. Names
      * must be unique per node, and every engine-owned name is reserved while its own opt-in is on —
      * `close` under {@link #enableDockCloseAction}, `maximize` under {@link #enableDockMaximizeAction},
-     * `pin` under {@link #enableDockPinAction}, `reload` under {@link #enableDockReloadAction};
+     * `pin` under {@link #enableDockPinAction}, `reload` under {@link #enableDockReloadAction},
+     * `pop-out` while {@link #dockPopOutActionActive} holds — that one is a conjunction rather than a
+     * single opt-in, because the action dispatches into the tear-out lifecycle and is not projected
+     * without it;
      * both violations throw at projection rather than silently unaddressing an action. Their intent
      * surfaces on the `dockHeaderAction` event — see {@link #onDockHeaderAction}.
      * @returns {Object}
@@ -1288,6 +1347,22 @@ class Workspace extends Container {
         return this.enableDockTearOutLifecycle
             ? {enableDockTearOut: true, ...this.tearOutHandlers}
             : {}
+    }
+
+    /**
+     * @summary The single effective predicate for the pop-out action: is the engine the owner?
+     *
+     * Two questions must never disagree — *may a host own the name `pop-out`?* and *does the engine
+     * intercept a `pop-out` intent?* Answering them from different expressions is what let the
+     * adapter free the name (it gates on both configs) while the router still swallowed the host's
+     * intent (it gated on the action config alone). One reader, so they cannot drift.
+     *
+     * `enableDockPopOutAction` alone is not sufficient: the handler dispatches into
+     * {@link #tearOutHandlers}, which only exist while {@link #enableDockTearOutLifecycle} is armed.
+     * @returns {Boolean}
+     */
+    get dockPopOutActionActive() {
+        return this.enableDockPopOutAction === true && this.enableDockTearOutLifecycle === true
     }
 
     /**
@@ -1479,9 +1554,11 @@ class Workspace extends Container {
      *
      * This class owns the ENGINE SET, each action only while its own opt-in is on: `close`
      * ({@link #enableDockCloseAction}), `maximize` ({@link #enableDockMaximizeAction} — a pure
-     * presentation toggle that never reaches the reducer), `pin` ({@link #enableDockPinAction})
-     * and `reload` ({@link #enableDockReloadAction} — runtime-only like maximize: delegation
-     * into the pane's own `dockReload()`, never an operation). Every other intent —
+     * presentation toggle that never reaches the reducer), `pin` ({@link #enableDockPinAction}),
+     * `reload` ({@link #enableDockReloadAction} — runtime-only like maximize: delegation into the
+     * pane's own `dockReload()`, never an operation) and `pop-out`
+     * ({@link #enableDockPopOutAction}, itself double-gated on
+     * {@link #enableDockTearOutLifecycle}). Every other intent —
      * including host actions projected through `resolveDockHeaderActions` — is re-emitted as a
      * **`dockHeaderAction`** event carrying `{action, dockNodeId, tabContainer}`, so a host receives it
      * without subclassing this class or overriding a protected method, and this method returns `null`
@@ -1489,11 +1566,17 @@ class Workspace extends Container {
      *
      * Routing lives here and the effect lives in one handler per action, so a further engine action is
      * a new handler plus a row below rather than another branch grown into this method.
+     *
+     * **`pop-out` is the one asynchronous row**, because vessel admission is: it returns the
+     * settlement as a Promise of the same `{document, errors}` envelope the synchronous rows return,
+     * never a bare Boolean. The projection wire discards this return, so the shape is a contract for
+     * a subclass or a direct caller rather than for the button — which is exactly why it must not
+     * quietly differ per action.
      * @param {Object} data
      * @param {String} data.action
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
-     * @returns {{document:Object,errors:String[]}|null}
+     * @returns {{document:Object,errors:String[]}|Promise<{document:Object,errors:String[]}>|null}
      */
     onDockHeaderAction({action, dockNodeId, tabContainer}={}) {
         let me = this;
@@ -1504,6 +1587,15 @@ class Workspace extends Container {
 
         if (action === 'pin' && me.enableDockPinAction) {
             return me.handleDockPinAction({dockNodeId, tabContainer})
+        }
+
+        // `dockPopOutActionActive`, not `enableDockPopOutAction`: ownership of the NAME and
+        // interception of the INTENT must use one predicate. Gating projection on both configs while
+        // gating the router on one meant that with the action opted in and the lifecycle off, the
+        // adapter correctly freed `pop-out` for a host to own — and the engine then swallowed that
+        // host's intent here instead of re-emitting it.
+        if (action === 'pop-out' && me.dockPopOutActionActive) {
+            return me.handleDockPopOutAction({dockNodeId, tabContainer})
         }
 
         if (action === 'maximize' && me.enableDockMaximizeAction) {
@@ -1562,6 +1654,135 @@ class Workspace extends Container {
         }
 
         return result
+    }
+
+    /**
+     * @summary Detaches the active pane into its own vessel window, through the drag tear-out's
+     * own commit path.
+     *
+     * **One vessel pipeline, one detach commit — provably, not by inspection.** This dispatches
+     * `onDockTearOutExit` then `onDockTearOutTerminal`, which is literally what the pointer
+     * gesture's terminal calls. It is not a second sequence that resembles the drag path; it is
+     * that path, entered from a click. So admission, the exactly-once `detachItem` commit, the
+     * throwing-reducer refusal route and vessel retirement are all inherited rather than restated,
+     * and none of them can drift out of agreement with the gesture.
+     *
+     * The only delta from the drag entry is **geometry**: the gesture supplies a live proxy rect,
+     * a click has none, so the pane's current box is measured first and the vessel opens over it —
+     * the pane appears to lift in place rather than materialising at a default position.
+     *
+     * `onDockTearOutExit` is admission-first and fail-closed: a falsy resolution means the host
+     * refused the window, and the pane stays exactly where it is with nothing committed. Terminal
+     * is only reached on an admitted vessel.
+     *
+     * Focus and announcement are **not** performed here — see {@link #enableDockPopOutAction} for
+     * why that bound is deliberate and whose job they are.
+     *
+     * Settles as the same `{document, errors}` envelope every other engine action returns. The
+     * terminal itself answers with a bare Boolean — that is the drag path's internal grammar, and
+     * translating it here rather than leaking it keeps one shape across the router's rows.
+     *
+     * @param {Object}                  data
+     * @param {String}                  data.dockNodeId
+     * @param {Neo.tab.Container|null}  data.tabContainer
+     * @returns {Promise<{document:Object,errors:String[]}>}
+     * @protected
+     */
+    async handleDockPopOutAction({dockNodeId, tabContainer}={}) {
+        let me     = this,
+            itemId = me.getActiveDockItemId(tabContainer);
+
+        if (!itemId) {
+            return {document: me.dockModel, errors: ['Dock pop-out action requires an active item']}
+        }
+
+        if (!me.tearOutHandlers) {
+            // Unreachable while the projection contract holds — the action is double-gated on
+            // `enableDockTearOutLifecycle`, which is what creates these handlers. Kept because the
+            // router is reachable by a host re-emitting the intent, and a missing pipeline must
+            // refuse rather than throw.
+            return {document: me.dockModel, errors: ['Dock pop-out action requires the tear-out lifecycle']}
+        }
+
+        const proxyRect = await me.measureDockPaneRect(tabContainer);
+
+        // A click is asynchronous across two awaits and `destroy()` nulls `tearOutHandlers`, so the
+        // pipeline is re-checked after EVERY await rather than captured once. Nothing here may
+        // commit into a workspace that is already gone.
+        if (me.isDestroyed || !me.tearOutHandlers) {
+            return {document: me.dockModel, errors: ['Dock pop-out abandoned: the workspace was destroyed before admission']}
+        }
+
+        // Admission-first. A refused vessel leaves the pane untouched and uncommitted.
+        const admitted = await me.tearOutHandlers.onDockTearOutExit({itemId, proxyRect, sortZone: null});
+
+        if (admitted === false) {
+            return {document: me.dockModel, errors: ['Dock pop-out was refused by the host vessel seam']}
+        }
+
+        if (me.isDestroyed || !me.tearOutHandlers) {
+            // Admitted, then the workspace went away before the commit. The vessel is real and open,
+            // so abandoning it silently would orphan a window; retire it through the machine that
+            // opened it rather than leaving the caller to guess.
+            me.tearOutHandlers?.retireActiveVessel?.();
+
+            return {document: me.dockModel, errors: ['Dock pop-out abandoned: the workspace was destroyed after admission']}
+        }
+
+        // Captured BEFORE the terminal so the check below needs positive evidence of a transition.
+        // Reading only the "after" state would let an absent or empty document read as a detach —
+        // `findContainingTabsId` returns null for "not in the tree" AND for "no tree at all", so a
+        // success would be reported from the absence of any evidence.
+        const wasInTree = !!Document.findContainingTabsId(me.dockModel, itemId);
+
+        await me.tearOutHandlers.onDockTearOutTerminal({itemId});
+
+        // **The terminal's return value cannot separate commit from refusal.** It resolves `true` on
+        // a committed detach, and on refusal it resolves `retireVessel(vessel)` — which is ALSO true
+        // when the retirement succeeds. So a reducer refusal whose cleanup worked is indistinguishable
+        // from a commit by that Boolean, and reading it as success would report a detach that never
+        // happened.
+        //
+        // The committed document is the honest witness: a detached item is no longer in any tabs
+        // node. Read AFTER the terminal, so a success reports the advanced document rather than the
+        // one this method started with.
+        const detached = wasInTree && !Document.findContainingTabsId(me.dockModel, itemId);
+
+        return detached
+            ? {document: me.dockModel, errors: []}
+            : {document: me.dockModel, errors: ['Dock pop-out was refused by the detach commit']}
+    }
+
+    /**
+     * @summary The active pane's current global box, used as the vessel's opening geometry.
+     *
+     * Measures the tabs node rather than the workspace: the vessel should lift the **pane** the
+     * button sits on, not the whole dock. A failed or degenerate measurement resolves `null`, which
+     * the tear-out seam accepts — the vessel then opens at the host's default geometry instead of
+     * at a wrong one, which is the safer of the two failures.
+     *
+     * @param {Neo.tab.Container|null} tabContainer
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async measureDockPaneRect(tabContainer) {
+        let me   = this,
+            id   = tabContainer?.id,
+            rect = null;
+
+        if (!id) {
+            return null
+        }
+
+        try {
+            rect = await Neo.main.DomAccess.getBoundingClientRect({id, windowId: me.windowId})
+        } catch (error) {
+            rect = null
+        }
+
+        Array.isArray(rect) && (rect = rect[0]);
+
+        return (rect?.width > 0 && rect?.height > 0) ? rect : null
     }
 
     /**
@@ -2623,6 +2844,15 @@ class Workspace extends Container {
                 ...(me.enableDockCloseAction && {enableDockCloseAction: true}),
                 ...(me.enableDockPinAction && {enableDockPinAction: true}),
                 ...(me.enableDockReloadAction && {enableDockReloadAction: true}),
+                // The double gate lives here rather than in the adapter: pop-out dispatches into
+                // `tearOutHandlers`, which only exist while the lifecycle is armed, so the action
+                // must not project without it. Collapsing both configs into the one flag the
+                // adapter reads keeps that projector pure — and keeps `pop-out` reserved as a host
+                // name exactly when it can actually render.
+                ...(me.dockPopOutActionActive && {
+                    dockPopOutIconCls     : me.dockPopOutIconCls,
+                    enableDockPopOutAction: true
+                }),
                 ...(me.enableDockMaximizeAction && {
                     dockMaximizeIconCls     : me.dockMaximizeIconCls,
                     enableDockMaximizeAction: true
