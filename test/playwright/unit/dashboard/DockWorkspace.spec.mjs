@@ -17,6 +17,7 @@ import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 import Document                 from '../../../../src/dashboard/dock/model/Document.mjs';
+import Operations               from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper               from '../../../../src/vdom/Helper.mjs';
@@ -323,7 +324,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // Boolean, not an envelope. A stub that returned `{document, errors}` here would be a
         // reconstruction confirming itself — every arm would pass while the production translation
         // of a refusing terminal went unexercised.
-        const armWorkspace = (calls, {exitResult=undefined, terminalResult=true}={}) => {
+        const armWorkspace = (calls, {commits=true, exitResult=undefined}={}) => {
             const ws = Neo.create(PlainWorkspace, {
                 dockModel             : createDocument(),
                 enableDockPopOutAction: true
@@ -334,9 +335,21 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                     calls.push(['exit', data]);
                     return exitResult
                 },
+                // Production grammar, and the whole point of the pair below: the real terminal
+                // resolves `true` on a commit AND `retireVessel(...)` on refusal, which is ALSO true
+                // when the retirement succeeds. So the Boolean cannot separate them — it is returned
+                // as `true` in BOTH stub modes here, deliberately. What differs is whether the
+                // document advances, which is the signal the handler must actually read.
                 onDockTearOutTerminal: data => {
                     calls.push(['terminal', data]);
-                    return terminalResult
+
+                    if (commits) {
+                        ws.dockModel = Operations.applyOperation(
+                            ws.dockModel, {operation: 'detachItem', itemId: data.itemId}
+                        ).document
+                    }
+
+                    return true
                 }
             };
 
@@ -410,7 +423,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // nothing. That has to reach the caller as the SAME `{document, errors}` envelope the
             // synchronous rows of the router use — leaking the seam's bare `false` would make a
             // refusal read as a falsy success to anyone checking `result.errors?.length`.
-            workspace = armWorkspace(calls, {terminalResult: false});
+            workspace = armWorkspace(calls, {commits: false});
 
             const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
                   result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
@@ -442,16 +455,36 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             }
         });
 
-        test('a committed pop-out settles as an envelope carrying the ADVANCED document', async () => {
-            const calls = [];
+        // A COMMITTED pop-out is deliberately not asserted from a stub. The real terminal resolves
+        // `true` for a commit and `retireVessel(...)` for a refusal — which is also true when the
+        // retirement succeeds — so any stub that models the outcome with a Boolean teaches the wrong
+        // grammar, and a handler reading that Boolean would report detaches that never happened.
+        // The commit is witnessed against the real lifecycle instead, in the `#17681` matrix:
+        // "#17947 pop-out commits detachItem through the REAL lifecycle, not a stubbed pair".
+        // What the stubs above are for is dispatch, ordering, geometry and pre-terminal refusal.
 
-            workspace = armWorkspace(calls);
+        test('with the lifecycle off, a HOST owns pop-out and the engine re-emits its intent', async () => {
+            // The two questions — may a host own the name, and does the engine intercept the intent —
+            // must agree. They did not: projection freed the name on both configs while the router
+            // intercepted on the action config alone, so a host action named `pop-out` rendered
+            // legally and then vanished into an engine handler that had no pipeline to dispatch into.
+            workspace = Neo.create(PlainWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true   // ...and enableDockTearOutLifecycle deliberately OFF
+            });
 
-            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
-                  result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+            expect(workspace.dockPopOutActionActive, 'the engine does not own it without the lifecycle').toBe(false);
 
-            expect(result.errors).toEqual([]);
-            expect(result.document).toBe(workspace.dockModel)
+            const intents = [];
+
+            workspace.on('dockHeaderAction', data => intents.push(data));
+
+            const tabContainer = {id: 'host-tabs'};
+
+            workspace.onDockHeaderAction({action: 'pop-out', dockNodeId: 'main-tabs', tabContainer});
+
+            expect(intents).toHaveLength(1);
+            expect(intents[0]).toMatchObject({action: 'pop-out', dockNodeId: 'main-tabs', tabContainer})
         });
 
         test('a refused vessel commits NOTHING — terminal is never reached', async () => {

@@ -1317,6 +1317,22 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary The single effective predicate for the pop-out action: is the engine the owner?
+     *
+     * Two questions must never disagree — *may a host own the name `pop-out`?* and *does the engine
+     * intercept a `pop-out` intent?* Answering them from different expressions is what let the
+     * adapter free the name (it gates on both configs) while the router still swallowed the host's
+     * intent (it gated on the action config alone). One reader, so they cannot drift.
+     *
+     * `enableDockPopOutAction` alone is not sufficient: the handler dispatches into
+     * {@link #tearOutHandlers}, which only exist while {@link #enableDockTearOutLifecycle} is armed.
+     * @returns {Boolean}
+     */
+    get dockPopOutActionActive() {
+        return this.enableDockPopOutAction === true && this.enableDockTearOutLifecycle === true
+    }
+
+    /**
      * Resolves the current Dock item from live tab order, never a closure-captured model index.
      * The reconciler owns `dockItemIds`; the TabContainer owns `activeIndex`.
      * @param {Neo.tab.Container|null} tabContainer
@@ -1540,7 +1556,12 @@ class Workspace extends Container {
             return me.handleDockPinAction({dockNodeId, tabContainer})
         }
 
-        if (action === 'pop-out' && me.enableDockPopOutAction) {
+        // `dockPopOutActionActive`, not `enableDockPopOutAction`: ownership of the NAME and
+        // interception of the INTENT must use one predicate. Gating projection on both configs while
+        // gating the router on one meant that with the action opted in and the lifecycle off, the
+        // adapter correctly freed `pop-out` for a host to own — and the engine then swallowed that
+        // host's intent here instead of re-emitting it.
+        if (action === 'pop-out' && me.dockPopOutActionActive) {
             return me.handleDockPopOutAction({dockNodeId, tabContainer})
         }
 
@@ -1652,6 +1673,13 @@ class Workspace extends Container {
 
         const proxyRect = await me.measureDockPaneRect(tabContainer);
 
+        // A click is asynchronous across two awaits and `destroy()` nulls `tearOutHandlers`, so the
+        // pipeline is re-checked after EVERY await rather than captured once. Nothing here may
+        // commit into a workspace that is already gone.
+        if (me.isDestroyed || !me.tearOutHandlers) {
+            return {document: me.dockModel, errors: ['Dock pop-out abandoned: the workspace was destroyed before admission']}
+        }
+
         // Admission-first. A refused vessel leaves the pane untouched and uncommitted.
         const admitted = await me.tearOutHandlers.onDockTearOutExit({itemId, proxyRect, sortZone: null});
 
@@ -1659,13 +1687,35 @@ class Workspace extends Container {
             return {document: me.dockModel, errors: ['Dock pop-out was refused by the host vessel seam']}
         }
 
-        const committed = await me.tearOutHandlers.onDockTearOutTerminal({itemId});
+        if (me.isDestroyed || !me.tearOutHandlers) {
+            // Admitted, then the workspace went away before the commit. The vessel is real and open,
+            // so abandoning it silently would orphan a window; retire it through the machine that
+            // opened it rather than leaving the caller to guess.
+            me.tearOutHandlers?.retireActiveVessel?.();
 
-        // A false terminal means the reducer refused (or threw) and the machine already retired the
-        // vessel it had opened — the pane is back where it was, so this is a refusal, not a partial
-        // commit. `dockModel` is read AFTER the terminal precisely so a success reports the advanced
-        // document rather than the one this method started with.
-        return committed
+            return {document: me.dockModel, errors: ['Dock pop-out abandoned: the workspace was destroyed after admission']}
+        }
+
+        // Captured BEFORE the terminal so the check below needs positive evidence of a transition.
+        // Reading only the "after" state would let an absent or empty document read as a detach —
+        // `findContainingTabsId` returns null for "not in the tree" AND for "no tree at all", so a
+        // success would be reported from the absence of any evidence.
+        const wasInTree = !!Document.findContainingTabsId(me.dockModel, itemId);
+
+        await me.tearOutHandlers.onDockTearOutTerminal({itemId});
+
+        // **The terminal's return value cannot separate commit from refusal.** It resolves `true` on
+        // a committed detach, and on refusal it resolves `retireVessel(vessel)` — which is ALSO true
+        // when the retirement succeeds. So a reducer refusal whose cleanup worked is indistinguishable
+        // from a commit by that Boolean, and reading it as success would report a detach that never
+        // happened.
+        //
+        // The committed document is the honest witness: a detached item is no longer in any tabs
+        // node. Read AFTER the terminal, so a success reports the advanced document rather than the
+        // one this method started with.
+        const detached = wasInTree && !Document.findContainingTabsId(me.dockModel, itemId);
+
+        return detached
             ? {document: me.dockModel, errors: []}
             : {document: me.dockModel, errors: ['Dock pop-out was refused by the detach commit']}
     }
@@ -2766,7 +2816,7 @@ class Workspace extends Container {
                 // must not project without it. Collapsing both configs into the one flag the
                 // adapter reads keeps that projector pure — and keeps `pop-out` reserved as a host
                 // name exactly when it can actually render.
-                ...(me.enableDockPopOutAction && me.enableDockTearOutLifecycle && {
+                ...(me.dockPopOutActionActive && {
                     dockPopOutIconCls     : me.dockPopOutIconCls,
                     enableDockPopOutAction: true
                 }),
