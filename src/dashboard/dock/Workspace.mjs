@@ -138,10 +138,13 @@ class Workspace extends Container {
          *
          * Input contract while a node is maximized: in-strip tab reordering stays live;
          * cross-zone drag sources and tear-out affordances of the maximized node are suppressed
-         * (every drop target sits under the maximized plane); `Escape` restores and returns
-         * focus to the restored node's active header button; any committed dock operation
-         * clears maximize BEFORE applying, and that clear is terminal for the re-projection
-         * rule on {@link #maximizedNodeId}.
+         * (every drop target sits under the maximized plane); engaging maximize closes an
+         * in-progress reveal overlay; `Escape` restores and returns focus to the restored
+         * node's active header button. A committed dock operation that reaches beyond the
+         * maximized node clears maximize BEFORE applying, terminally for the re-projection rule
+         * on {@link #maximizedNodeId}; operations confined to the node itself (activating one
+         * of its tabs; closing, reordering or adding an item within it) defer to that rule
+         * instead, which re-applies onto the surviving node and clears when the node collapsed.
          * @member {Boolean} enableDockMaximizeAction=false
          */
         enableDockMaximizeAction: false,
@@ -346,6 +349,25 @@ class Workspace extends Container {
      * @protected
      */
     dockMaximizeRestore = null
+
+    /**
+     * The in-flight maximizedNodeId transition as an awaitable — every consumer that must
+     * observe settled maximize presentation (the refresh chain, the continuity sync) awaits
+     * this instead of racing the async clear/apply pair.
+     * @member {Promise|null} dockMaximizeTransition=null
+     * @protected
+     */
+    dockMaximizeTransition = null
+
+    /**
+     * The in-flight maximize FLIP window (a settled-safe promise). Opposite-direction style
+     * mutations and resize re-applies serialize on it: a play's end-of-window cleanup restores
+     * the inline-style snapshot it captured at invert time, so geometry written INSIDE the
+     * window would be silently overwritten by stale values when the window closes.
+     * @member {Promise|null} dockMaximizePlay=null
+     * @protected
+     */
+    dockMaximizePlay = null
 
     /**
      * @param {Object} config
@@ -1584,12 +1606,17 @@ class Workspace extends Container {
         }
 
         let me      = this,
-            animate = me.dockMaximizeMotion !== 'instant';
+            animate = me.dockMaximizeMotion !== 'instant',
+            steps   = [];
 
         me.dockMaximizeMotion = 'animate';
 
-        oldValue && me.clearDockMaximizePresentation({animate: animate && !value});
-        value    && me.applyDockMaximizePresentation(value, {animate})
+        oldValue && steps.push(me.clearDockMaximizePresentation({animate: animate && !value}));
+        value    && steps.push(me.applyDockMaximizePresentation(value, {animate}));
+
+        // The awaitable transition: the settled-surface contract (refreshPromise) and the
+        // continuity sync serialize on this instead of racing fire-and-forget presentation work.
+        me.dockMaximizeTransition = Promise.all(steps).catch(() => null)
     }
 
     /**
@@ -1758,7 +1785,32 @@ class Workspace extends Container {
         played = Promise.resolve(played).catch(() => null);
         played.finally(() => MotionSignal.leave(me));
 
+        me.dockMaximizePlay = played;
+
         return played
+    }
+
+    /**
+     * Engaging maximize closes an in-progress reveal — one overlay tier at a time, and
+     * deterministically: the reveal machine gets an explicit dismissal input rather than the
+     * presentation relying on the overlay's focus/outside-click decay to arrive in time.
+     * @protected
+     */
+    dismissDockRevealOverlays() {
+        let walk = item => {
+            if (!item) {
+                return
+            }
+
+            if (item.ntype === 'dashboard-dock-rail') {
+                item.revealMachine?.outsideClick?.();
+                return
+            }
+
+            (item.items || []).forEach(walk)
+        };
+
+        walk(this.getDockHost()?.items?.[this.dockShellIndex])
     }
 
     /**
@@ -1789,11 +1841,12 @@ class Workspace extends Container {
             zoneId: zone?.id || null
         };
 
-        if (zone) {
-            zone.allowOverdrag       = false;
-            zone.boundaryContainerId = bar.id;
-            zone.enableProxyToPopup  = false
-        }
+        // One coherent batched mutation per direction — the core reactive-config idiom.
+        zone?.set({
+            allowOverdrag      : false,
+            boundaryContainerId: bar.id,
+            enableProxyToPopup : false
+        })
     }
 
     /**
@@ -1810,10 +1863,15 @@ class Workspace extends Container {
      * @protected
      */
     async applyDockMaximizePresentation(nodeId, {animate=true}={}) {
-        let me           = this,
-            tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId}),
-            host         = null,
-            rect;
+        let me   = this,
+            host = null,
+            rect, tabContainer;
+
+        // Serialize on any in-flight FLIP window: its end-of-window cleanup restores the
+        // inline-style snapshot from invert time, which would overwrite geometry written here.
+        await me.dockMaximizePlay;
+
+        tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
 
         if (!tabContainer || tabContainer.isDestroyed) {
             me.failDockMaximize(nodeId);
@@ -1831,6 +1889,7 @@ class Workspace extends Container {
             return
         }
 
+        me.dismissDockRevealOverlays();
         me.suppressDockMaximizeDragSources(tabContainer);
 
         if (animate) {
@@ -1842,13 +1901,15 @@ class Workspace extends Container {
             }
         }
 
+        // wrapperStyle is the dock's geometry carrier (the reconciler writes split flex through
+        // it) and a shallow-merge descriptor: only the four rect keys ride here, and `null`
+        // removes — the `style` config cannot remove against the wrapperStyle/vdom mirror loop.
         tabContainer.set({
             cls: [...new Set([
                 ...tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'),
                 'neo-dock-maximized'
             ])],
-            style: {
-                ...tabContainer.style,
+            wrapperStyle: {
                 height: `${rect.height}px`,
                 left  : `${rect.left}px`,
                 top   : `${rect.top}px`,
@@ -1856,7 +1917,16 @@ class Workspace extends Container {
             }
         });
 
-        animate && me.playDockMaximizeFlip(host);
+        if (animate) {
+            // The mutation→motion boundary must be deterministic: play() measures Last and
+            // snapshots inline styles for its cleanup, so an un-flushed delta makes it capture
+            // the OLD geometry — and its cleanup would then resurrect the stale inline values.
+            try {
+                await tabContainer.promiseUpdate?.()
+            } catch (error) {/* destroyed mid-flight: the play gate below lands instantly */}
+
+            me.playDockMaximizeFlip(host)
+        }
 
         me.syncDockMaximizeActionIcon(tabContainer, true);
         await me.registerDockMaximizeResizeObserver(true)
@@ -1884,6 +1954,10 @@ class Workspace extends Container {
 
         me.dockMaximizeRestore = null;
 
+        // Same serialization as the apply path: never mutate geometry inside a live FLIP
+        // window whose cleanup will re-stamp its stale snapshot.
+        await me.dockMaximizePlay;
+
         tabContainer = me.getDockHost()?.down?.({dockNodeId: restore.nodeId});
 
         if (tabContainer && !tabContainer.isDestroyed) {
@@ -1898,15 +1972,24 @@ class Workspace extends Container {
                 host = await me.captureDockMaximizeFirst()
             }
 
+            // Null values through the shallow-merge wrapperStyle descriptor are the house
+            // removal idiom (the reconciler un-sets flex the same way).
             tabContainer.set({
                 cls: [
                     ...tabContainer.cls.filter(c => c !== 'neo-dock-maximized'),
                     ...(animate ? ['neo-dock-maximize-restoring'] : [])
                 ],
-                style: {...tabContainer.style, height: null, left: null, top: null, width: null}
+                wrapperStyle: {height: null, left: null, top: null, width: null}
             });
 
             if (animate) {
+                // Same deterministic boundary as the apply path: an un-flushed delta lets play()
+                // snapshot the maximize rect as "inline styles to restore" — its cleanup would
+                // stamp the fullscreen values back onto the restored node.
+                try {
+                    await tabContainer.promiseUpdate?.()
+                } catch (error) {/* destroyed mid-flight */}
+
                 me.playDockMaximizeFlip(host).then(() => {
                     !tabContainer.isDestroyed && (tabContainer.cls = tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'))
                 })
@@ -1953,8 +2036,15 @@ class Workspace extends Container {
         }
 
         switch (operation) {
-            case 'addTab':
-                return tabsNodeId === nodeId;
+            case 'addTab': {
+                // The addTab handler re-dispatches an already-contained item to moveItem, so a
+                // descriptor targeting the maximized node can still RELOCATE the item out of a
+                // sibling — that reaches beyond the node. Neutral only for a catalog-only item
+                // or one already inside the maximized node.
+                let source = Document.findContainingTabsId(me.dockModel, itemId);
+
+                return tabsNodeId === nodeId && (!source || source === nodeId)
+            }
             case 'closeItem':
                 return Document.findContainingTabsId(me.dockModel, itemId) === nodeId;
             case 'moveItem':
@@ -1975,7 +2065,7 @@ class Workspace extends Container {
      * only ever re-applies a transient that survived.
      * @protected
      */
-    syncDockMaximizeProjection() {
+    async syncDockMaximizeProjection() {
         let me     = this,
             nodeId = me.maximizedNodeId,
             tabContainer;
@@ -1987,9 +2077,10 @@ class Workspace extends Container {
         tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
 
         if (tabContainer && me.dockModel?.nodes?.[nodeId]?.type === 'tabs') {
-            me.applyDockMaximizePresentation(nodeId, {animate: false})
+            await me.applyDockMaximizePresentation(nodeId, {animate: false})
         } else {
-            me.failDockMaximize(nodeId)
+            me.failDockMaximize(nodeId);
+            await me.dockMaximizeTransition
         }
     }
 
@@ -2024,7 +2115,11 @@ class Workspace extends Container {
         if (register && me.maximizedNodeId) {
             addon.register({componentId: me.id, id: me.id, windowId});
             me.dockMaximizeResizeObserved = true
-        } else if (!register && me.dockMaximizeResizeObserved) {
+        } else if (!register && me.dockMaximizeResizeObserved && !me.maximizedNodeId) {
+            // The generation guard: a restore's deferred unregister can land AFTER a newer
+            // maximize registered — the observation is keyed on the one workspace id, so tearing
+            // it down here would leave the newer presentation blind. While any maximize is live,
+            // the observation stays; the final restore (transient null) tears down.
             addon.unregister({componentId: me.id, id: me.id, windowId});
             me.dockMaximizeResizeObserved = false
         }
@@ -2056,11 +2151,16 @@ class Workspace extends Container {
             return
         }
 
+        await me.dockMaximizePlay;
+
+        if (me.maximizedNodeId !== nodeId) {
+            return
+        }
+
         tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
 
         tabContainer && !tabContainer.isDestroyed && tabContainer.set({
-            style: {
-                ...tabContainer.style,
+            wrapperStyle: {
                 height: `${rect.height}px`,
                 left  : `${rect.left}px`,
                 top   : `${rect.top}px`,
@@ -2441,7 +2541,10 @@ class Workspace extends Container {
         });
 
         me.syncDockHeaderActions(result?.currentTabs);
-        me.syncDockMaximizeProjection();
+
+        // Awaited on purpose: refreshPromise is the settled-surface contract, and a maximize
+        // presentation that re-applies after it settles is a surface nobody can await.
+        await me.syncDockMaximizeProjection();
 
         // FLIP phase 2: fire-and-forget by default — the addon self-waits for the swap, inverts and
         // plays; the counted motion signal brackets the awaited animation window. Gate on the

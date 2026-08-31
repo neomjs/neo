@@ -7,17 +7,32 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        alpha: {componentRef: 'Alpha', title: 'Alpha', kind: 'panel'},
-        beta : {componentRef: 'Beta',  title: 'Beta',  kind: 'panel'},
-        frame: {componentRef: 'Frame', title: 'Frame', kind: 'panel'},
-        gamma: {componentRef: 'Gamma', title: 'Gamma', kind: 'panel'}
+        alpha: {componentRef: 'Alpha',  title: 'Alpha',  kind: 'panel'},
+        beta : {componentRef: 'Beta',   title: 'Beta',   kind: 'panel'},
+        // catalog-only: in no tabs node, so an addTab targeting it is a REAL add, never a move
+        delta : {componentRef: 'Delta',  title: 'Delta',  kind: 'panel'},
+        frame : {componentRef: 'Frame',  title: 'Frame',  kind: 'panel'},
+        gamma : {componentRef: 'Gamma',  title: 'Gamma',  kind: 'panel'},
+        pinned: {componentRef: 'Pinned', title: 'Pinned', kind: 'panel'},
+        railed: {componentRef: 'Railed', title: 'Railed', kind: 'panel', autoHidden: true}
     },
     nodes: {
-        root        : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}}},
+        root        : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}, right: {nodeId: 'edge-tabs', extent: 0.25}}},
         'root-split': {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
         'main-tabs' : {type: 'tabs', items: ['alpha', 'beta'],  activeItemId: 'alpha'},
-        'side-tabs' : {type: 'tabs', items: ['frame', 'gamma'], activeItemId: 'frame'}
+        'side-tabs' : {type: 'tabs', items: ['frame', 'gamma'], activeItemId: 'frame'},
+        'edge-tabs' : {type: 'tabs', items: ['pinned', 'railed'], activeItemId: 'pinned'}
     }
+};
+
+// Spec-readable observer lifecycle log, mirrored onto a probe component that OUTLIVES the
+// workspace — the destroy arm reads it after destroyNeoInstance.
+const observerLog = [];
+
+const syncObserverProbe = () => {
+    const probe = Neo.get('dock-maximize-probe');
+
+    probe && (probe.observerLogJson = JSON.stringify(observerLog))
 };
 
 /**
@@ -42,6 +57,13 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          * @reactive
          */
         captureCount_: 0,
+        /**
+         * Spec trigger: JSON `{itemId, tabsNodeId, index}` commits one `addTab` operation —
+         * the confinement arms need the catalog-only, in-node, and cross-node variants.
+         * @member {String|null} addTabJson_=null
+         * @reactive
+         */
+        addTabJson_: null,
         /**
          * Spec trigger: setting an item id commits one `closeItem` operation through the
          * ordinary reducer + view-sync pair — the outside-operation arm cannot click a control
@@ -73,6 +95,21 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          * @reactive
          */
         refreshCount_: 0,
+        /**
+         * Debug trigger: each bump snapshots the main-tabs container's style surfaces into
+         * {@link #styleProbeJson}.
+         * @member {Number} styleProbeCount_=0
+         * @reactive
+         */
+        styleProbeCount_: 0,
+        /**
+         * Spec trigger: each bump awaits the live {@link #refreshPromise} and then SYNCHRONOUSLY
+         * snapshots the maximize surface into {@link #settleJson} — the settled-surface witness:
+         * if re-apply outlived the refresh chain, the snapshot catches it stale.
+         * @member {Number} settleProbeCount_=0
+         * @reactive
+         */
+        settleProbeCount_: 0,
         /**
          * Spec trigger: each bump snapshots the maximize-relevant sort-zone flags of the
          * `main-tabs` header into {@link #zoneSnapshotJson}.
@@ -107,12 +144,104 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
     resizeEventCount = 0
 
     /**
+     * Spec-readable settled-surface snapshot, refreshed per {@link #settleProbeCount} bump.
+     * @member {String|null} settleJson=null
+     */
+    settleJson = null
+
+    /**
      * @param {Object} data
      */
     onDockMaximizeResize(data) {
         this.resizeEventCount++;
 
         return super.onDockMaximizeResize(data)
+    }
+
+    /**
+     * @param {Boolean} register
+     */
+    async registerDockMaximizeResizeObserver(register) {
+        await super.registerDockMaximizeResizeObserver(register);
+
+        observerLog.push(`${register ? 'reg' : 'unreg'}:${this.dockMaximizeResizeObserved}`);
+        syncObserverProbe()
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        const wasObserved = this.dockMaximizeResizeObserved;
+
+        super.destroy(...args);
+
+        // Post-destroy the engine wipes instance fields, so read "torn" as any non-true value.
+        observerLog.push(`destroy:${wasObserved}->${this.dockMaximizeResizeObserved ? 'live' : 'torn'}`);
+        syncObserverProbe()
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAddTabJson(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        const descriptor = {operation: 'addTab', ...JSON.parse(value)},
+              result     = this.applyDockZoneOperation(descriptor);
+
+        if (result && !result.errors?.length && result.document) {
+            this.onDockZoneDocumentChange(result.document, descriptor, this)
+        }
+    }
+
+    /**
+     * Debug mirror: worker-side style config + vdom-root style of the main-tabs container.
+     * @member {String|null} styleProbeJson=null
+     */
+    styleProbeJson = null
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetStyleProbeCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        const tab = this.getDockHost()?.down?.({dockNodeId: 'main-tabs'});
+
+        this.styleProbeJson = JSON.stringify({
+            cls     : tab?.cls,
+            style   : tab?.style,
+            vdomRoot: tab?.getVdomRoot?.()?.style,
+            wrapper : tab?.wrapperStyle
+        })
+    }
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    async afterSetSettleProbeCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        await this.refreshPromise;
+
+        this.settleJson = JSON.stringify({
+            maximizedNodeId: this.maximizedNodeId,
+            observed       : this.dockMaximizeResizeObserved,
+            restore        : !!this.dockMaximizeRestore
+        })
     }
 
     /**
@@ -239,7 +368,11 @@ MaximizeFixtureWorkspace = Neo.setupClass(MaximizeFixtureWorkspace);
 export const onStart = () => Neo.app({
     mainView: {
         module: Viewport,
-        items : [{module: MaximizeFixtureWorkspace, flex: 1}]
+        items : [
+            {module: MaximizeFixtureWorkspace, flex: 1},
+            // The observer-log probe: outlives the workspace so the destroy arm can read it.
+            {ntype: 'component', id: 'dock-maximize-probe', style: {display: 'none'}}
+        ]
     },
     name: 'Test.Playwright.DockMaximize'
 });

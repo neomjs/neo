@@ -33,7 +33,9 @@ const setWorkspace = (page, configs) => page.evaluate(
     {id: WORKSPACE_ID, ...configs}
 );
 
-const tabsNode = (page, index) => page.locator('.neo-dashboard-dock-tabs').nth(index);
+const tabsNodeWith = (page, tabText) => page.locator('.neo-dashboard-dock-tabs', {
+    has: page.locator(`.neo-tab-header-button:has-text("${tabText}")`)
+});
 
 const tabButton = (node, text) => node.locator('.neo-tab-header-button', {hasText: text});
 
@@ -61,7 +63,7 @@ test.beforeEach(async ({page}) => {
 
 test.describe('dock maximize — presentation, never topology', () => {
     test('the toggle is focus-gated beside an always-visible close, in the frozen order', async ({page}) => {
-        const main = tabsNode(page, 0);
+        const main = tabsNodeWith(page, 'Alpha');
 
         // Focus-gated through the toolbar's geometry-preserving carrier: the maximize control is
         // rendered but context-inactive until the container holds focus; the close action's
@@ -80,7 +82,7 @@ test.describe('dock maximize — presentation, never topology', () => {
     });
 
     test('maximize paints the measured workspace rect on the SAME node — iframe intact — and Escape restores with focus return', async ({page}) => {
-        const side = tabsNode(page, 1);
+        const side = tabsNodeWith(page, 'Frame');
 
         await page.evaluate(() => {
             const frame = document.getElementById('dock-maximize-frame');
@@ -133,7 +135,7 @@ test.describe('dock maximize — presentation, never topology', () => {
     });
 
     test('the committed document and captured perspectives never observe maximize', async ({page}) => {
-        const main = tabsNode(page, 0);
+        const main = tabsNodeWith(page, 'Alpha');
 
         await setWorkspace(page, {captureCount: 1});
 
@@ -162,7 +164,7 @@ test.describe('dock maximize — presentation, never topology', () => {
     });
 
     test('inside-the-node operations keep maximize, outside operations clear it terminally, and continuity re-applies iff the node survives', async ({page}) => {
-        const main = tabsNode(page, 0);
+        const main = tabsNodeWith(page, 'Alpha');
 
         await tabButton(main, 'Alpha').click();
         await actionButton(main, 'fa-window-maximize').click();
@@ -200,7 +202,7 @@ test.describe('dock maximize — presentation, never topology', () => {
     });
 
     test('while maximized, the workspace resize observation re-measures the rect live', async ({page}) => {
-        const main = tabsNode(page, 0);
+        const main = tabsNodeWith(page, 'Alpha');
 
         await tabButton(main, 'Alpha').click();
         await actionButton(main, 'fa-window-maximize').click();
@@ -219,7 +221,7 @@ test.describe('dock maximize — presentation, never topology', () => {
     });
 
     test('while maximized, cross-zone and tear-out drag flags suppress and lift exactly on restore', async ({page}) => {
-        const main = tabsNode(page, 0);
+        const main = tabsNodeWith(page, 'Alpha');
 
         await setWorkspace(page, {zoneSnapshotCount: 1});
 
@@ -250,8 +252,105 @@ test.describe('dock maximize — presentation, never topology', () => {
         expect(JSON.parse((await readWorkspace(page, ['zoneSnapshotJson']))[0])).toEqual(JSON.parse(before))
     });
 
+    test('addTab confinement: relocating a sibling item clears; catalog-only and in-node adds keep maximize', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+
+        // A catalog-only item added INTO the maximized node is a real add — confined.
+        await setWorkspace(page, {addTabJson: JSON.stringify({itemId: 'delta', tabsNodeId: 'main-tabs', index: 2})});
+        await expect(tabButton(main, 'Delta')).toHaveCount(1);
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+
+        // An in-node reorder through the addTab→moveItem redirect — confined.
+        await setWorkspace(page, {addTabJson: JSON.stringify({itemId: 'beta', tabsNodeId: 'main-tabs', index: 0})});
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+
+        // Relocating a SIBLING's item into the maximized node reaches beyond it: the addTab
+        // handler re-dispatches to a cross-node moveItem, and the pre-clear must fire.
+        await setWorkspace(page, {addTabJson: JSON.stringify({itemId: 'gamma', tabsNodeId: 'main-tabs', index: 1})});
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
+        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual([null])
+    });
+
+    test('engaging maximize dismisses a live reveal overlay — one overlay tier at a time', async ({page}) => {
+        const visibleOverlay = page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
+
+        // Open the auto-hidden item's transient reveal from its rail tab.
+        await page.locator('.neo-dashboard-dock-edge-rail').getByText('Railed').click();
+        await expect(visibleOverlay).toHaveCount(1);
+
+        // Engage maximize WITHOUT a pointer interaction (setConfigs), so no generic
+        // outside-click/focus-leave dismissal can fire first — the deterministic dismissal in
+        // the presentation apply is the only thing that can close the overlay here.
+        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+        await expect(visibleOverlay).toHaveCount(0)
+    });
+
+    test('the observation lives exactly as long as a presentation — teardown, rapid regeneration, destroy', async ({page}) => {
+        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+        await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(true);
+
+        // Ordinary restore tears down.
+        await setWorkspace(page, {maximizedNodeId: null});
+        await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(false);
+
+        // Rapid A → restore → B: the old restore's deferred unregister must not blind the new
+        // generation — B must end observed with resize delivery live.
+        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+        await setWorkspace(page, {maximizedNodeId: null});
+        await setWorkspace(page, {maximizedNodeId: 'side-tabs'});
+        await expect.poll(async () => await readWorkspace(page, ['maximizedNodeId', 'dockMaximizeResizeObserved']))
+            .toEqual(['side-tabs', true]);
+
+        const before = (await readWorkspace(page, ['resizeEventCount']))[0],
+              size   = page.viewportSize();
+
+        await page.setViewportSize({height: size.height - 80, width: size.width - 80});
+        await expect.poll(async () => (await readWorkspace(page, ['resizeEventCount']))[0], {timeout: 10_000}).toBeGreaterThan(before);
+
+        // The fail-safe clear tears down.
+        await setWorkspace(page, {maximizedNodeId: 'ghost-tabs'});
+        await expect.poll(async () => await readWorkspace(page, ['maximizedNodeId', 'dockMaximizeResizeObserved']))
+            .toEqual([null, false]);
+
+        // Destroy while observed tears down at the addon — read through the surviving probe.
+        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+        await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(true);
+
+        await page.evaluate(() => Neo.worker.App.destroyNeoInstance('dock-maximize-workspace'));
+
+        await expect.poll(async () => {
+            const reply = await page.evaluate(() => Neo.worker.App.getConfigs({id: 'dock-maximize-probe', keys: ['observerLogJson']})),
+                  log   = JSON.parse((reply?.data ?? reply)?.[0] || '[]');
+
+            return log[log.length - 1]
+        }).toBe('destroy:true->torn')
+    });
+
+    test('re-projection reapply is part of the settled refresh surface', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+
+        // An in-node operation re-projects; a consumer awaiting refreshPromise must already see
+        // the re-applied presentation AND the live observation — the settled-surface contract.
+        await setWorkspace(page, {closeItemId: 'beta'});
+        await setWorkspace(page, {settleProbeCount: 1});
+
+        await expect.poll(async () => JSON.parse((await readWorkspace(page, ['settleJson']))[0] || 'null'))
+            .toEqual({maximizedNodeId: 'main-tabs', observed: true, restore: true})
+    });
+
     test('both transitions ride the FLIP motion window and settle clean', async ({page}) => {
-        const main = tabsNode(page, 0);
+        const main = tabsNodeWith(page, 'Alpha');
 
         await tabButton(main, 'Alpha').click();
         await actionButton(main, 'fa-window-maximize').click();
@@ -281,6 +380,15 @@ test.describe('dock maximize — presentation, never topology', () => {
         await actionButton(main, 'fa-window-minimize').click();
 
         await page.waitForFunction(() => document.querySelector('.neo-dock-maximize-restoring') !== null, undefined, {timeout: 3000});
+
+        // The restore glide is a REAL inverted transform on the restoring node, not only the
+        // paint-order sentinel.
+        await page.waitForFunction(() => {
+            const el = document.querySelector('.neo-dock-maximize-restoring');
+
+            return el && el.style.transform !== ''
+        }, undefined, {timeout: 3000});
+
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
         await page.waitForFunction(() => document.querySelector('.neo-dock-maximize-restoring') === null);
 
@@ -288,6 +396,15 @@ test.describe('dock maximize — presentation, never topology', () => {
             const el = document.getElementById('dock-maximize-pane-alpha')?.closest('.neo-dashboard-dock-tabs');
 
             return el && !el.style.top && !el.style.width && el.style.transform === ''
+        }, undefined, {timeout: 8000}).catch(async () => {
+            const residual = await page.evaluate(() => document.getElementById('dock-maximize-pane-alpha')
+                ?.closest('.neo-dashboard-dock-tabs')?.getAttribute('style'));
+
+            await setWorkspace(page, {styleProbeCount: 1});
+
+            const worker = (await readWorkspace(page, ['styleProbeJson']))[0];
+
+            throw new Error(`restore left residual inline style: ${residual} · worker-side: ${worker}`)
         })
     })
 });
