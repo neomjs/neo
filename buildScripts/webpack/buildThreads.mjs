@@ -1,15 +1,19 @@
-import chalk           from 'chalk';
-import {spawnSync}     from 'child_process';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import path            from 'path';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk               from 'chalk';
+import {spawnSync}         from 'child_process';
+import {Command}           from 'commander';
+import envinfo             from 'envinfo';
+import fs                  from 'fs-extra';
+import inquirer            from 'inquirer';
+import os                  from 'os';
+import path                from 'path';
+import {createRequire}     from 'module';
+import {resolvePackageBin} from '../util/resolvePackageBin.mjs';
+import {sanitizeInput}     from '../util/sanitizer.mjs';
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
       cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
+      nodeCmd     = os.platform().startsWith('win') ? 'node.exe' : 'node',
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.resolve(cwd, 'package.json')),
       neoPath     = packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/',
@@ -18,7 +22,11 @@ const __dirname   = path.resolve(),
       programName = `${packageJson.name} buildThreads`,
       questions   = [];
 
-let webpack = './node_modules/.bin/webpack';
+// Resolved from THIS module's URL, so the lookup is independent of the consumer cwd `cpOpts` runs
+// under — see `buildScripts/util/resolvePackageBin.mjs` for why the entry script rather than the
+// `.bin` shim. Separators are normalised for the shell these are dispatched through, which is what
+// the removed `path.sep === '\\'` branch did for the old shim path.
+const webpackBin = resolvePackageBin('webpack', createRequire(import.meta.url).resolve).replace(/\\/g, '/');
 
 program
     .name(programName)
@@ -84,39 +92,35 @@ if (programOpts.info) {
               insideNeo = programOpts.framework || false,
               startDate = new Date();
 
-        if (path.sep === '\\') {
-            webpack = path.resolve(webpack).replace(/\\/g,'/');
-        }
-
         function parseThreads(tPath) {
             let childProcess;
 
             if (threads === 'all' || threads === 'main') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.main.mjs`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [webpackBin, '--config', `${tPath}.main.mjs`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
             if (threads === 'all' || threads === 'app') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.appworker.mjs`, `--env insideNeo=${insideNeo}`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [webpackBin, '--config', `${tPath}.appworker.mjs`, `--env insideNeo=${insideNeo}`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
             if (threads === 'all' || threads === 'canvas') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=canvas`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [webpackBin, '--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=canvas`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
             if (threads === 'all' || threads === 'data') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=data`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [webpackBin, '--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=data`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
             if (threads === 'all' || threads === 'service') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=service`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [webpackBin, '--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=service`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
             if (threads === 'all' || threads === 'task') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=task`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [webpackBin, '--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=task`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
             if (threads === 'all' || threads === 'vdom') {
-                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=vdom`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [webpackBin, '--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=vdom`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
         }
