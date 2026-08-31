@@ -1305,7 +1305,10 @@ class Workspace extends Container {
      * instance, the way {@link #syncDockCloseAction} does, not by returning a different list. Names
      * must be unique per node, and every engine-owned name is reserved while its own opt-in is on —
      * `close` under {@link #enableDockCloseAction}, `maximize` under {@link #enableDockMaximizeAction},
-     * `pin` under {@link #enableDockPinAction}, `reload` under {@link #enableDockReloadAction};
+     * `pin` under {@link #enableDockPinAction}, `reload` under {@link #enableDockReloadAction},
+     * `pop-out` while {@link #dockPopOutActionActive} holds — that one is a conjunction rather than a
+     * single opt-in, because the action dispatches into the tear-out lifecycle and is not projected
+     * without it;
      * both violations throw at projection rather than silently unaddressing an action. Their intent
      * surfaces on the `dockHeaderAction` event — see {@link #onDockHeaderAction}.
      * @returns {Object}

@@ -16,7 +16,6 @@ import {test, expect} from '@playwright/test';
  *   active tab button, instead of the pane.
  * - **Fail-closed admission.** A declined vessel leaves the document byte-identical and the pane
  *   exactly where it was.
- * - **§2.7 mutual exclusion.** Detaching a railed item clears `autoHidden` in the same commit.
  * - **One retire path.** The item comes home through the engine's own dead-vessel compensation —
  *   the drag path's path — landing back at its captured placement.
  *
@@ -181,13 +180,18 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
         // is that the router entry the button reaches is reachable independently of the button,
         // which is what lets a host re-emit the intent for a node it owns the chrome of.
         //
-        // NOTE — `autoHidden` clearing on the detach of a RAILED item is deliberately NOT asserted
-        // here, in either direction. The docking design record's §2.7 state table makes detached and
-        // auto-hidden mutually exclusive, and `model/Operations.detachItem` -> `detachFromTabs` does
-        // not implement that: it removes the item from its node and reassigns `activeItemId`,
-        // touching no item field. Until the record and the model agree, an assertion either way
-        // cements one of them; the divergence belongs to the shared detach commit, which the drag
-        // terminal and the keyboard twin reach exactly as this button does.
+        // NOTE — detachment does NOT clear `autoHidden`, and that is the settled contract, not a
+        // gap: the two are orthogonal states. `model/Operations.detachItem` -> `detachFromTabs`
+        // removes the item from its node and reassigns `activeItemId`, touching no item field, and
+        // the docking design record's §2.7 state table — which read them as mutually exclusive — is
+        // the side being corrected. Nothing here asserts it either way, because the assertion
+        // belongs to the shared detach commit rather than to this button: the rail is a separate
+        // affordance, no click can make a railed item active, and the drag terminal and the
+        // keyboard twin reach that same commit exactly as this entry does.
+        //
+        // The read below is therefore a FIXTURE PRECONDITION, not a claim about detach: it pins
+        // that the railed sibling starts committed as auto-hidden, so the assertions after the
+        // pop-out can show it survived untouched.
         const before = await readDocument(page);
 
         expect(before.items.railed.autoHidden).toBe(true);
@@ -200,6 +204,12 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
         const document = await waitForDocument(page, doc => !itemsInNodes(doc).includes('pinned'));
 
         expect(document.items.pinned).toBeTruthy();
+
+        // The orthogonality direction this fixture CAN reach: a sibling's detach commit leaves the
+        // railed item's `autoHidden` exactly as it was. Without this the precondition above reads as
+        // setup for an assertion nobody makes.
+        expect(document.items.railed.autoHidden).toBe(true);
+
         expect((await readVesselLog(page)).opened.map(entry => entry.itemId)).toEqual(['pinned'])
     });
 

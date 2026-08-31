@@ -428,6 +428,14 @@ class LayoutAdapter extends Base {
      *     delegation-only reload action into every tabs header — runtime only, no operation is
      *     ever committed. The workspace owns the `dockReload()` dispatch, the single-flight
      *     window, the `dockReloadSettled` settlement event and the per-active-pane visibility.
+     * @param {Boolean} [options.enableDockPopOutAction=false] Projects one engine-owned pop-out
+     *     action into every tabs header, focus-gated by the tab header's own default. Unlike the
+     *     other engine actions this one is not self-sufficient: the click enters the tear-out
+     *     lifecycle's own exit/terminal pair — the drag gesture's path — so a workspace projects it
+     *     only while that lifecycle is armed too, and the name stays free for a host otherwise. The
+     *     workspace owns the pane measurement, the vessel admission and the retire path.
+     * @param {String} [options.dockPopOutIconCls='far fa-window-restore'] Icon of the projected
+     *     pop-out action.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
      * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
