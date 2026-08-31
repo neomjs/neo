@@ -56,9 +56,10 @@ leaving the underscore off makes it a plain prototype value that does not trigge
 
 ### Overriding an inherited reactive config
 
-A config is declared reactive exactly once per prototype chain, so the sentence above inverts as soon as you are
-*extending* rather than declaring. To give an inherited reactive config a new default, use the **bare name** — it stays
-fully reactive, lifecycle hooks included:
+A config is declared reactive exactly once **per config name** in the prototype chain. The sentence above therefore
+still holds for any config this class introduces — a subclass declares its own new reactive configs with the underscore
+exactly like a base class does. What changes is only the case where the name is **already reactive on an ancestor**: to
+give such a config a new default, use the **bare name** — it stays fully reactive, lifecycle hooks included:
 
 ```javascript readonly
 class MyComponent extends Neo.component.Base {
@@ -69,8 +70,9 @@ class MyComponent extends Neo.component.Base {
 }
 ```
 
-Repeating the underscore is not merely unidiomatic — `Neo.setupClass` **throws**, because the parent class already owns
-the accessor:
+Repeating the underscore is not merely unidiomatic — `Neo.setupClass` **throws**, because an ancestor already owns the
+accessor. The check is `Neo.hasPropertySetter`, which walks the whole prototype chain, so this fires for a config
+inherited from any base class, not only the direct parent:
 
 ```javascript readonly
 static config = {

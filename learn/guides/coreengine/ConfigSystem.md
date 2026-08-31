@@ -6,7 +6,7 @@ The Neo.mjs runtime engine provides a robust, predictable Config System designed
 
 ## The Trailing Underscore Convention
 
-As established during the compilation phase, the core mechanism for defining a reactive property is the trailing underscore in the `static config` block. It is applied **once per prototype chain** — a subclass overriding an inherited reactive config's default uses the bare name and stays reactive, while repeating the underscore throws; see [Class Compilation → Prototype Chain Walking & Config Merging](SetupClass.md#1-prototype-chain-walking--config-merging).
+As established during the compilation phase, the core mechanism for defining a reactive property is the trailing underscore in the `static config` block. It is applied **once per config name** in the prototype chain — a subclass still declares its own new reactive configs with the underscore, and only a name that is already reactive on an ancestor is different: overriding that default uses the bare name and stays reactive, while repeating the underscore throws; see [Class Compilation → Prototype Chain Walking & Config Merging](SetupClass.md#1-prototype-chain-walking--config-merging).
 
 ```javascript readonly
 class MyComponent extends Base {

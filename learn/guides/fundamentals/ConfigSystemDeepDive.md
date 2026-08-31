@@ -25,8 +25,10 @@ At its heart, the push system is built on a few key principles:
     This provides a single, clear source of truth for a class's API.
 *   **`_` Suffix Convention:** Config properties that require custom logic when they change are declared with a trailing
     underscore (e.g., `myValue_`). This signals the engine to automatically create a native getter and setter on the
-    class's prototype for this property. The underscore is used **once per prototype chain**: a subclass overriding an
-    inherited reactive config's default uses the bare name and stays reactive, while repeating the underscore throws.
+    class's prototype for this property. The underscore is used **once per config name** in the prototype chain: a
+    subclass declares its own new reactive configs with the underscore as usual, and only a name already made reactive
+    by an ancestor differs — overriding that default uses the bare name and stays reactive, while repeating the
+    underscore throws.
     See [Class Compilation → Prototype Chain Walking & Config Merging](../coreengine/SetupClass.md#1-prototype-chain-walking--config-merging).
 *   **Lifecycle Hooks:** For a config like `myValue_`, the engine provides optional lifecycle hooks that you can
     implement in your class:
