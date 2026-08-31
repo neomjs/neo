@@ -84,6 +84,16 @@ export function createGestureClaimArbiter({claimTtlMs = 300, now = Date.now} = {
          * absent by contract (stale = ignored), so re-claiming after expiry is a REACQUISITION —
          * a new acquisition time, competing under the tie/age rules as a new claim. The expiry
          * boundary is `expiresAt >= now` = live, matching the resolver's prune condition exactly.
+         *
+         * **The pass instant is the SENIORITY axis and nothing else.** It orders claims against each
+         * other; it does not say when this call happened. Liveness and expiry are therefore read from
+         * the real clock at refresh, never from `timestamp` — a pass is not guaranteed to be short,
+         * and deriving `expiresAt` from its start makes a claim refreshed more than `claimTtlMs` into
+         * a slow pass arrive ALREADY EXPIRED. That inverts the one property the TTL exists to state:
+         * a claim lives `claimTtlMs` after its LAST REFRESH. The same read also decides `live`, so an
+         * existing record that expired mid-pass is correctly seen as stale rather than pinned alive by
+         * a stale instant.
+         *
          * @param {String} stableId
          * @param {Object} zone Opaque target handle, returned verbatim by a winning resolve.
          * @param {Number} [timestamp=now()] The claim pass's acquisition instant. A caller raising
@@ -94,11 +104,15 @@ export function createGestureClaimArbiter({claimTtlMs = 300, now = Date.now} = {
          */
         claim(stableId, zone, timestamp = now()) {
             const
-                existing  = claims.get(stableId),
-                live      = existing != null && existing.expiresAt >= timestamp,
-                record    = {
+                // Real time, sampled once per call: liveness and expiry are wall-clock facts.
+                refreshedAt = now(),
+                existing    = claims.get(stableId),
+                live        = existing != null && existing.expiresAt >= refreshedAt,
+                record      = {
+                    // Seniority: the pass instant on acquisition, carried forward across a refresh.
                     acquiredAt: live ? existing.acquiredAt : timestamp,
-                    expiresAt : timestamp + claimTtlMs,
+                    // Lifetime: always measured from THIS refresh.
+                    expiresAt : refreshedAt + claimTtlMs,
                     stableId,
                     token,
                     zone

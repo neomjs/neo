@@ -279,9 +279,23 @@ test.describe('Neo.manager.GestureClaimArbiter — the §2.8.1 claim protocol', 
             // Without a shared pass instant each claim reads the clock itself, so the boundary
             // manufactures a seniority ordering out of the caller's iteration order. This is the
             // defect the parameter exists to remove — pinned so a regression cannot pass silently.
-            expect(runPass(Infinity, false)).toBe('workspace-a');
-            expect(runPass(1,        false)).toBe('workspace-c');
-            expect(runPass(2,        false)).toBe('workspace-b')
+            //
+            // Asserted as the PROPERTY, not as a boundary→winner table. An earlier revision pinned
+            // `runPass(2, false) === 'workspace-b'`, which encoded how many times `claim()` happens
+            // to read the clock: adding the separate refresh read for the TTL fix moved the boundary
+            // and reddened this arm without changing anything it exists to witness. The defect was
+            // never "workspace-b at 2" — it is that the winner is a FUNCTION OF THE BOUNDARY at all.
+            // Sweeping every boundary is also strictly stronger than the three hand-picked ones.
+            const
+                boundaries = [Infinity, 1, 2, 3, 4, 5, 6, 7, 8],
+                unshared   = new Set(boundaries.map(tickAfter => runPass(tickAfter, false))),
+                shared     = new Set(boundaries.map(tickAfter => runPass(tickAfter, true)));
+
+            // The defect: which window wins depends on where the millisecond landed.
+            expect(unshared.size).toBeGreaterThan(1);
+
+            // The fix: one instant per pass collapses it to the lexicographic winner, everywhere.
+            expect([...shared]).toEqual(['workspace-a'])
         });
 
         test('seniority ACROSS passes still dominates — the age axis is untouched', () => {
@@ -308,6 +322,56 @@ test.describe('Neo.manager.GestureClaimArbiter — the §2.8.1 claim protocol', 
             clock += 7;
 
             expect(arbiter.passInstant()).toBe(1_007)
+        })
+    });
+
+    // ── The pass instant is SENIORITY only; TTL is wall-clock ──────────────────────────────────
+    //
+    // Sharing one instant across a pass fixes the ordering, and it must not leak into liveness.
+    // A pass is not guaranteed to be short: deriving `expiresAt` from the pass START makes a claim
+    // refreshed late in a slow pass arrive already expired, inverting "a claim lives claimTtlMs
+    // after its LAST REFRESH". These arms hold that line at the exact boundary.
+    test.describe('a slow pass must not expire the claims it is still raising', () => {
+        test('a claim raised MORE than a TTL after passInstant() is live for a full TTL from ITS refresh', () => {
+            const passInstant = arbiter.passInstant();     // clock = 1_000
+
+            // The pass is slow: 150ms > claimTtlMs (100) elapses before this claim is raised.
+            clock = 1_150;
+
+            const record = arbiter.claim('zone-a', {id: 'a'}, passInstant);
+
+            // Seniority still comes from the pass, which is the whole point of sharing the instant.
+            expect(record.acquiredAt).toBe(passInstant);
+
+            // But it is ALIVE, and for a full TTL measured from the refresh — not born expired.
+            expect(record.expiresAt).toBe(1_250);
+            expect(arbiter.resolve()?.zone).toEqual({id: 'a'});
+
+            // Still resolvable right up to its own boundary...
+            clock = 1_250;
+            expect(arbiter.resolve()?.zone).toEqual({id: 'a'});
+
+            // ...and stale one tick past it.
+            clock = 1_251;
+            expect(arbiter.resolve()).toBe(null)
+        });
+
+        test('an existing record that expired mid-pass is STALE, not pinned alive by the pass instant', () => {
+            arbiter.claim('zone-a', {id: 'first'});        // clock 1_000 → expires 1_100
+            const passInstant = arbiter.passInstant();     // 1_000, before the expiry
+
+            // The pass drags past the existing record's expiry.
+            clock = 1_200;
+
+            const record = arbiter.claim('zone-a', {id: 'second'}, passInstant);
+
+            // Liveness is judged at the REFRESH, so this is a reacquisition: seniority resets to the
+            // instant supplied now, and the dead record's acquiredAt does not survive. Judging it
+            // against the stale pass instant would have read `expiresAt 1_100 >= 1_000` = live and
+            // revived a claim that had already lapsed.
+            expect(record.acquiredAt).toBe(passInstant);
+            expect(record.expiresAt).toBe(1_300);
+            expect(arbiter.resolve()?.zone).toEqual({id: 'second'})
         })
     })
 });
