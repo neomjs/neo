@@ -371,8 +371,16 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(centerTab.headerActions.map(action => action.action)).toEqual(['pin', 'close']);
 
         // Right-band-owned, pinnable, active — the one case where the gesture can complete.
-        expect(terminalTabs.headerActions[1]).toMatchObject({action: 'pin', contextual: false, hidden: false});
+        expect(terminalTabs.headerActions[1]).toMatchObject({action: 'pin', hidden: false});
         expect(terminalTabs.headerActions[1].iconCls).toBeTruthy();
+
+        // Focus-gated like a host action, NOT like close. `close` opts out with `contextual: false`
+        // because it must stay reachable on an unfocused pane; the engine set inherits the tab
+        // header's `showOnFocus` default, and carrying close's opt-out would leave a permanently
+        // visible control on every header.
+        expect(terminalTabs.headerActions[1].contextual, 'pin inherits the header focus gate').toBeUndefined();
+        expect(terminalTabs.headerActions[0].contextual, 'the host action is gated too').toBeUndefined();
+        expect(terminalTabs.headerActions[2].contextual, 'close is the one deliberate exemption').toBe(false);
 
         // Center-owned: §2.7 never rails main content, so the affordance must not offer it.
         expect(centerTab.headerActions[0].hidden, 'a center-owned active item cannot collapse').toBe(true);

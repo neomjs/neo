@@ -51,6 +51,21 @@ const tabsNodeId = async (app, dockNodeId) => {
     return record?.id ?? record?.properties?.id
 };
 
+/**
+ * Clicks one pane's tab header, which is how a user gives that pane focus. The engine set is
+ * FOCUS-GATED (`showOnFocus`, `visibility: hidden` while closed), so without this the actions are
+ * invisible for a reason that has nothing to do with the policy under test.
+ */
+const focusPane = async (app, page, dockItemId) => {
+    const records = await app.findInstances({ className: 'Neo.tab.header.Button', dockItemId }, ['id', 'dockItemId']),
+          record  = Array.isArray(records) ? records[0] : records,
+          id      = record?.id ?? record?.properties?.id;
+
+    expect(id, `the ${dockItemId} pane owns a live tab header button`).toBeTruthy();
+    await page.locator(`#${id}`).click();
+    await page.waitForTimeout(400)
+};
+
 test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
     test.setTimeout(90000);
     test.use({ viewport: { width: 1600, height: 900 } });
@@ -82,15 +97,29 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
               pinButton = page.locator(`#${pinAction.id}`);
 
         // Product truth #4: §2.7's fail-safe reaches the real product — the center stack projects the
-        // action too, but hidden, because main content never rails. A visible control there would
-        // offer a collapse the model refuses.
+        // action too, but hidden, because main content never rails.
+        //
+        // The center pane is FOCUSED first on purpose. The engine set is focus-gated, so an unfocused
+        // header hides every action of it; asserting invisibility there would pass whether or not the
+        // center rule exists. With the gate open, the only thing that can still hide this control is
+        // the policy under test.
+        await focusPane(app, page, 'strategy');
+
         const centerPin = await app.callMethod(mainTabsId, 'getActionItem', ['pin']);
 
         expect(centerPin?.id, 'the center stack projects the action instance').toBeTruthy();
-        await expect(page.locator(`#${centerPin.id}`), 'a center-owned pane must not offer the collapse').toBeHidden();
+        expect(centerPin.hidden, 'a center-owned pane must not offer the collapse').toBe(true);
+        await expect(page.locator(`#${centerPin.id}`), 'and it is not reachable in the DOM either').toBeHidden();
 
-        // Native gesture: collapse the inspector from its OWN header.
-        await expect(pinButton).toBeVisible({ timeout: 10000 });
+        // The control arm for that gate: the close action, which opts OUT of focus gating, IS visible
+        // on the very same focused header — so "hidden" above is this action's policy, not the gate.
+        const centerClose = await app.callMethod(mainTabsId, 'getActionItem', ['close']);
+
+        await expect(page.locator(`#${centerClose.id}`), 'the ungated close action proves the header is live').toBeVisible();
+
+        // Native gesture: collapse the inspector from its OWN header, once that pane holds focus.
+        await focusPane(app, page, 'inspector');
+        await expect(pinButton, 'a focused edge-owned pane offers the collapse').toBeVisible({ timeout: 10000 });
         await pinButton.click();
 
         // Product truth #2: worker truth carries the collapse, committed through the semantic path.

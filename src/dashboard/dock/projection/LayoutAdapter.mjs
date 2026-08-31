@@ -1015,7 +1015,12 @@ class LayoutAdapter extends Base {
             ...hostActions,
             ...(context.enableDockPinAction ? [{
                 action    : 'pin',
-                contextual: false,
+                // No `contextual` key, deliberately: the engine set inherits the tab header's
+                // `showOnFocus` default and is focus-gated like a host action. Opting OUT is the
+                // CLOSE action's own choice — close must stay reachable on an unfocused pane —
+                // and copying that opt-out here would put a permanently-visible control on every
+                // header in the workspace.
+                //
                 // Hidden wherever the gesture could not complete, so the header never offers a
                 // collapse the model or the projection would refuse: no active item, an item whose
                 // policy forbids pinning (`Operations.setItemAutoHidden` rejects `pinnable: false`),
