@@ -5,7 +5,8 @@ import os             from 'os';
 import path           from 'path';
 
 import {
-    classifyTarget, collectDeadLinks, describeFinding, extractLinkTargets, resolveTarget, stagedReader, trackedFiles
+    classifyTarget, collectDeadLinks, describeFinding, extractLinkTargets, repoTabTarget, resolveTarget,
+    runAudit, scanTargets, stagedReader, trackedFiles
 } from '../../../../buildScripts/util/check-relative-links.mjs';
 
 /**
@@ -288,5 +289,168 @@ test.describe('check-relative-links — the index is the authority, not the file
     test('the reader returns staged content, not what is sitting in the working tree', () => {
         expect(stagedReader(root)('staged.md')).toBe('staged body\n');
         expect(fs.readFileSync(path.join(root, 'staged.md'), 'utf8')).toBe('WORKTREE EDIT, NOT STAGED\n')
+    })
+});
+
+
+/**
+ * The entry docs — every root-level `*.md` plus `.github/**` — joined this guard after a community
+ * contributor was handed a `CONTRIBUTING.md` linking to two files the split had moved.
+ *
+ * They share the resolver with `learn/**` and differ in two rules. Both are pinned here because both
+ * are **silent** when wrong: portal misclassification reports a tracked file dead, and an uncounted
+ * exclusion reports coverage the guard does not have.
+ */
+test.describe('check-relative-links — the entry-doc corpus', () => {
+    test('a portal-shaped target is an id under learn/ and a path everywhere else', () => {
+        // Same string, two corpora, two answers. Remove `allowPortal` from the module and the second
+        // expectation fails — which is what makes this arm a control rather than a description.
+        expect(classifyTarget('Benefits', {allowPortal: true }).kind).toBe('portal');
+        expect(classifyTarget('Benefits', {allowPortal: false}).kind).toBe('path');
+
+        // The default must stay `portal`, or every existing learn/** call site silently changes.
+        expect(classifyTarget('Benefits').kind).toBe('portal')
+    });
+
+    test('a README link to LICENSE is resolved as a path, never judged against tree.json', () => {
+        // The trap this scoping exists to avoid: `LICENSE` is slash-less and suffix-less, so the
+        // unscoped classifier calls it a portal id and reports a tracked file dead. Empty portalIds
+        // is deliberate — under the old rule this scan MUST produce a finding.
+        const tracked  = new Set(['LICENSE']),
+              {findings} = collectDeadLinks({
+                  files: ['README.md'], tracked, portalIds: new Set(), read: () => '<a href="LICENSE">licence</a>'
+              });
+
+        expect(findings).toEqual([])
+    });
+
+    test('a dangling link in a root entry doc IS reported — the red control', () => {
+        const tracked    = new Set(['CONTRIBUTING.md', 'learn/guides/fundamentals/CodebaseOverview.md']),
+              {findings} = collectDeadLinks({
+                  files: ['CONTRIBUTING.md'], tracked, read: () => '<a href="./.github/GONE.md">overview</a>'
+              });
+
+        expect(findings).toHaveLength(1);
+        expect(findings[0].resolved).toBe('.github/GONE.md')
+    });
+
+    test('a repo-tab link is excluded by rule AND counted, never silently dropped', () => {
+        // `../../issues` is how CONTRIBUTING.md addresses the issues tab: GitHub resolves a relative
+        // link against the blob URL, so climbing off `/<owner>/<repo>/blob/<ref>/` lands on the tab.
+        expect(repoTabTarget('../../issues')).toBe('issues');
+        expect(repoTabTarget('src/data/TreeStore.mjs')).toBe(null);
+
+        const {findings, navigation} = collectDeadLinks({
+            files: ['CONTRIBUTING.md'], tracked: new Set(['CONTRIBUTING.md']),
+            read : () => '<a href="../../issues">Issues Tracker</a>'
+        });
+
+        expect(findings).toEqual([]);
+
+        // The count is the point. An exclusion the summary cannot name is indistinguishable from
+        // coverage, and this rule is broad enough to hide a real finding behind it.
+        expect(navigation).toBe(1)
+    });
+
+    test('scanTargets selects root docs by rule, so a new entry doc is covered the day it lands', () => {
+        const files = scanTargets([
+            'CONTRIBUTING.md',
+            'SECURITY.md',                       // never enumerated anywhere — the decay case
+            '.github/AI_QUICK_START.md',
+            'learn/guides/fundamentals/X.md',
+            'src/data/TreeStore.mjs',            // not markdown
+            'apps/portal/README.md'              // markdown, but not an entry doc
+        ]);
+
+        expect(files).toContain('CONTRIBUTING.md');
+        expect(files).toContain('SECURITY.md');
+        expect(files).toContain('.github/AI_QUICK_START.md');
+        expect(files).toContain('learn/guides/fundamentals/X.md');
+        expect(files).not.toContain('src/data/TreeStore.mjs');
+        expect(files).not.toContain('apps/portal/README.md')
+    })
+});
+
+
+/**
+ * Two repairs from cross-family review, both of the same family: an instrument that looked
+ * measured and was not.
+ */
+test.describe('check-relative-links — the exemption names a destination, not a shape', () => {
+    // `startsWith('..')` was a SHAPE. These three resolve identically under it and must not.
+    test('an escaped path that is not a tab is reported, not exempted', () => {
+        expect(repoTabTarget('../../issues'),   'a real tab').toBe('issues');
+        expect(repoTabTarget('../../pulls'),    'a real tab').toBe('pulls');
+        expect(repoTabTarget('../../GONE.md'),  'escapes the tree, addresses no tab').toBe(null);
+        expect(repoTabTarget('..hidden'),       'never climbed anywhere').toBe(null);
+        expect(repoTabTarget('../..'),          'climbs and addresses nothing').toBe(null)
+    });
+
+    test('the collector reports the two negatives and counts only the positive', () => {
+        const run = target => collectDeadLinks({
+            files  : ['CONTRIBUTING.md'],
+            tracked: new Set(['CONTRIBUTING.md']),
+            read   : () => `<a href="${target}">x</a>`
+        });
+
+        const tab = run('../../issues');
+        expect(tab.findings, '../../issues is navigation').toEqual([]);
+        expect(tab.navigation).toBe(1);
+
+        for (const dead of ['../../GONE.md', '..hidden']) {
+            const result = run(dead);
+            expect(result.findings, `${dead} must be reported`).toHaveLength(1);
+            expect(result.navigation, `${dead} must not be counted as navigation`).toBe(0)
+        }
+    })
+});
+
+/**
+ * The consumed path, end to end.
+ *
+ * Every arm above injects `files`, `tracked` or `read`, which proves the helpers and nothing about
+ * whether the binary composes them that way. A loader-hook mutation that restored `main()` to the
+ * former `learn/**`-only selector left the whole suite green. `runAudit` is now the single
+ * composition both the CLI and this arm consume, over a real seeded git index.
+ */
+test.describe('check-relative-links — the audit production runs', () => {
+    let root;
+
+    test.beforeAll(() => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'link-guard-audit-'));
+
+        const git = (...args) => execFileSync('git', args, {cwd: root, encoding: 'utf8'});
+
+        git('init', '-q');
+        git('config', 'user.email', 'guard@test.invalid');
+        git('config', 'user.name', 'Guard Test');
+
+        fs.mkdirSync(path.join(root, 'learn'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'learn', 'Guide.md'), '[ok](../CONTRIBUTING.md)\n');
+
+        // The entry doc: a dangling link, and a repo-tab link that must stay exempt.
+        fs.writeFileSync(
+            path.join(root, 'CONTRIBUTING.md'),
+            '[gone](./.github/CODEBASE_OVERVIEW.md)\n[tab](../../issues)\n'
+        );
+
+        git('add', '.')
+    });
+
+    test.afterAll(() => {
+        fs.rmSync(root, {recursive: true, force: true})
+    });
+
+    test('selects a root entry doc and reports its dangling link', () => {
+        const {files, findings, navigation} = runAudit(root);
+
+        // Selection: reverting `scanTargets` to `learn/**` drops this file and reddens the arm.
+        expect(files, 'the root entry doc must be selected').toContain('CONTRIBUTING.md');
+
+        expect(findings.map(f => f.file)).toContain('CONTRIBUTING.md');
+        expect(findings.find(f => f.file === 'CONTRIBUTING.md').resolved).toBe('.github/CODEBASE_OVERVIEW.md');
+
+        // ...and the tab link in the same file is still exempt, so the arm is not just "everything reds".
+        expect(navigation, 'the repo-tab link is still counted, not reported').toBe(1)
     })
 });

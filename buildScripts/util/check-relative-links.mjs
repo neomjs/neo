@@ -1,9 +1,26 @@
 #!/usr/bin/env node
 /**
  * @module buildScripts/util/check-relative-links
- * @summary Fails loud when a markdown file under `learn/**` links to a path the repository does not
- * contain. Custody decisions move targets; nothing moved the referrers, and until this guard existed
- * nothing could see the difference.
+ * @summary Fails loud when a scanned markdown file links to a path the repository does not contain.
+ * Custody decisions move targets; nothing moved the referrers, and until this guard existed nothing
+ * could see the difference.
+ *
+ * ### Two corpora, one resolver
+ *
+ * `learn/**` is the guide corpus. The **entry docs** — every root-level `*.md` plus `.github/**` —
+ * are what a newcomer and an agent operator read first, and they were outside this guard until a
+ * community contributor was handed a `CONTRIBUTING.md` pointing at two files the split had moved.
+ * They share the resolver and differ in two rules, both of which are properties of the corpus
+ * rather than of the link:
+ *
+ *   - **Portal refs exist only under `learn/**`.** A slash-less, suffix-less target is a portal id
+ *     there and a plain path everywhere else. Judging `LICENSE` in a README against `learn/tree.json`
+ *     would report a live file dead, so `allowPortal` is off outside the guide corpus.
+ *   - **A target that climbs above the repository root is GitHub tab navigation.** `../../issues` in
+ *     `CONTRIBUTING.md` is not a broken path; GitHub resolves a relative link against the blob URL,
+ *     so climbing two levels off `/<owner>/<repo>/blob/<ref>/` lands on `/<owner>/<repo>/issues`. It
+ *     is excluded by rule and **counted in the summary line** — an exclusion nobody can see is how a
+ *     guard goes quietly fail-open.
  *
  * ### Why it resolves against git rather than the filesystem
  *
@@ -51,8 +68,15 @@ import {fileURLToPath} from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       repoRoot  = path.resolve(__dirname, '../..'),
 
-      /** Directories whose markdown files are scanned for referrers. */
-      SCAN_ROOTS = ['learn/'],
+      /** The guide corpus: the only place a portal ref is meaningful. */
+      PORTAL_SCOPE = 'learn/',
+
+      /**
+       * Directory prefixes whose markdown files are scanned. Root-level `*.md` files are added by
+       * {@link scanTargets} as a rule rather than a list, so a new entry doc is covered the day it
+       * lands instead of the day someone remembers to enumerate it.
+       */
+      SCAN_ROOTS = ['learn/', '.github/'],
 
       /** Suffixes that make a slash-less target a file path rather than a portal ref. */
       FILE_SUFFIXES = ['.md', '.mjs', '.js', '.json', '.scss', '.css', '.html', '.png', '.jpg', '.svg'],
@@ -112,10 +136,19 @@ export function extractLinkTargets(markdown) {
 
 /**
  * Classifies one raw link target.
- * @param {String} target
+ *
+ * `allowPortal` is a property of the **corpus**, not of the link. Under `learn/**` a slash-less,
+ * suffix-less target is a portal id, judged against `learn/tree.json`. In an entry doc the same
+ * shape is an ordinary path — `<a href="LICENSE">` — and checking it against the portal manifest
+ * reports a tracked file dead. Widening the scan set without this flag would plant that trap rather
+ * than trip it: the entry docs contain zero portal-shaped targets today, so nothing would have
+ * caught it.
+ * @param {String}  target
+ * @param {Object}  [options]
+ * @param {Boolean} [options.allowPortal=true]
  * @returns {{kind: 'external'|'portal'|'path', value: String}}
  */
-export function classifyTarget(target) {
+export function classifyTarget(target, {allowPortal = true} = {}) {
     if (EXTERNAL_TARGET.test(target)) {
         return {kind: 'external', value: target}
     }
@@ -132,22 +165,13 @@ export function classifyTarget(target) {
     // — then judged a markdown file against tree.json membership and reported it dead.
     const lower = value.toLowerCase();
 
-    if (!value.includes('/') && !FILE_SUFFIXES.some(suffix => lower.endsWith(suffix))) {
+    if (allowPortal && !value.includes('/') && !FILE_SUFFIXES.some(suffix => lower.endsWith(suffix))) {
         return {kind: 'portal', value}
     }
 
     return {kind: 'path', value}
 }
 
-/**
- * Resolves every path-shaped link in `files` and reports the ones the tracked set does not contain.
- *
- * @param {Object}   options
- * @param {String[]} options.files Repo-relative markdown paths to scan.
- * @param {Set}      options.tracked Every repo-relative path git knows about.
- * @param {Function} options.read `(repoRelativePath) => String`
- * @returns {{findings: Object[], checked: Number, skipped: Number}}
- */
 /**
  * Resolves one classified target to the repo-relative path it addresses.
  *
@@ -174,6 +198,47 @@ export function resolveTarget({kind, value}, base) {
     // `normalize` preserves a trailing slash, and the directory set has none — so a link written
     // `./guides/` would miss a directory that is right there. Strip it before lookup.
     return path.posix.normalize(path.posix.join(base, value)).replace(/\/+$/, '')
+}
+
+/**
+ * The repository tabs GitHub serves directly under `/<owner>/<repo>/`.
+ *
+ * The list IS the exemption: anything escaping the tree that is not one of these is a broken path,
+ * not navigation, and must be reported.
+ * @type {Set<String>}
+ */
+export const REPO_TAB_SEGMENTS = new Set([
+    'actions', 'branches', 'commits', 'discussions', 'graphs', 'issues', 'labels', 'milestones',
+    'network', 'projects', 'pulls', 'pulse', 'releases', 'security', 'tags', 'wiki'
+]);
+
+/**
+ * Names the repository tab a resolved target addresses, or `null` when it addresses none.
+ *
+ * GitHub renders a relative link against the blob URL, so `../../issues` in a root-level document
+ * resolves to `/<owner>/<repo>/issues` — the issues tab, which is what the author meant.
+ *
+ * **Climbing out of the tree is not by itself permission to be exempt.** The first version of this
+ * rule tested `resolved.startsWith('..')`, which is a *shape*, not a destination: it also waved
+ * through `../../GONE.md`, a genuinely dead path, and `..hidden`, a filename that never climbed
+ * anywhere. Counting an exemption makes it visible; it does not make it correct, and a counter on a
+ * predicate broader than the class it names is fail-open while looking measured.
+ * @param {String|null} resolved
+ * @returns {String|null}
+ */
+export function repoTabTarget(resolved) {
+    if (typeof resolved !== 'string' || !resolved.startsWith('../')) {
+        return null
+    }
+
+    const rest = resolved.replace(/^(?:\.\.\/)+/, '');
+
+    // A remainder that still climbs, or none at all, addresses nothing nameable.
+    if (!rest || rest.startsWith('..')) {
+        return null
+    }
+
+    return REPO_TAB_SEGMENTS.has(rest.split('/')[0]) ? rest.split('/')[0] : null
 }
 
 /**
@@ -218,6 +283,34 @@ export function describeFinding({kind, resolved}) {
         : `resolves to ${resolved}, which the repository does not contain`
 }
 
+/**
+ * The markdown files this guard scans: everything under {@link SCAN_ROOTS}, plus every root-level
+ * `*.md`.
+ *
+ * Root docs are selected by a rule — no slash in the path — rather than an enumerated list. An
+ * enumeration decays silently: the next entry doc someone adds is unguarded until a human notices,
+ * which is the same trigger-starvation that left the entry docs unwatched to begin with.
+ * @param {Iterable<String>} tracked
+ * @returns {String[]}
+ */
+export function scanTargets(tracked) {
+    return [...tracked].filter(f =>
+        f.endsWith('.md') && (SCAN_ROOTS.some(root => f.startsWith(root)) || !f.includes('/')))
+}
+
+/**
+ * Resolves every path-shaped link in `files` and reports the ones the tracked set does not contain.
+ *
+ * @param {Object}        options
+ * @param {String[]}      options.files Repo-relative markdown paths to scan.
+ * @param {Set<String>}   options.tracked Every repo-relative path git knows about.
+ * @param {Function}      options.read `(repoRelativePath) => String`
+ * @param {Set<String>}   [options.portalIds] Every id in `learn/tree.json`; an empty set reports
+ *     every portal ref dead, which is correct for a corpus that has no manifest.
+ * @returns {{findings: Object[], checked: Number, portal: Number, navigation: Number}}
+ *     `checked` counts every non-external target considered; `portal` and `navigation` are the two
+ *     classes resolved by rule rather than by path, reported so neither can be silently broad.
+ */
 export function collectDeadLinks({files, tracked, read, portalIds = new Set()}) {
     // A link may address a directory (`../guides/`); derive the directory set once.
     const dirs = new Set();
@@ -231,14 +324,16 @@ export function collectDeadLinks({files, tracked, read, portalIds = new Set()}) 
     }
 
     const findings = [];
-    let   checked  = 0,
-          portal   = 0;
+    let   checked    = 0,
+          portal     = 0,
+          navigation = 0;
 
     for (const file of files) {
-        const base = path.posix.dirname(file);
+        const base        = path.posix.dirname(file),
+              allowPortal = file.startsWith(PORTAL_SCOPE);
 
         for (const raw of extractLinkTargets(read(file))) {
-            const classified = classifyTarget(raw);
+            const classified = classifyTarget(raw, {allowPortal});
 
             if (classified.kind === 'external') continue;
 
@@ -259,13 +354,21 @@ export function collectDeadLinks({files, tracked, read, portalIds = new Set()}) 
 
             const resolved = resolveTarget(classified, base);
 
+            // Counted, never silent. An exclusion the summary does not name is indistinguishable
+            // from coverage — and an exclusion broader than the class it names is fail-open even
+            // while it is being counted, which is exactly what `startsWith('..')` was.
+            if (repoTabTarget(resolved)) {
+                navigation++;
+                continue
+            }
+
             if (resolved === null || (!tracked.has(resolved) && !dirs.has(resolved))) {
                 findings.push({file, target: raw, resolved, kind: classified.kind})
             }
         }
     }
 
-    return {findings, checked, portal}
+    return {findings, checked, portal, navigation}
 }
 
 /**
@@ -294,14 +397,31 @@ export function stagedReader(root = repoRoot) {
     return f => execFileSync('git', ['show', `:${f}`], {cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024})
 }
 
-function main() {
-    const tracked = new Set(trackedFiles()),
-          files   = [...tracked].filter(f => f.endsWith('.md') && SCAN_ROOTS.some(r => f.startsWith(r))),
-          read    = stagedReader();
+/**
+ * The whole audit, composed exactly once.
+ *
+ * The CLI and the spec both call THIS. Previously `main()` did its own selection, reading and
+ * collection while the spec exercised the three helpers in separate arms — so restoring `main()` to
+ * the former `learn/**`-only selector left every test green. Helper arms prove the helpers; only a
+ * shared composition proves the thing production runs.
+ * @param {String} [root=repoRoot] Repository to audit; injectable so a spec can seed a real index.
+ * @returns {{findings: Object[], checked: Number, portal: Number, navigation: Number, files: String[]}}
+ */
+export function runAudit(root = repoRoot) {
+    const tracked = new Set(trackedFiles(root)),
+          files   = scanTargets(tracked),
+          read    = stagedReader(root),
+          // A seeded repository has no portal manifest, and absence must not be silently treated as
+          // "every portal ref is fine" — an empty set reports them, which is the honest default.
+          portalIds = tracked.has(`${PORTAL_ROOT}/tree.json`)
+              ? portalIdsFrom(read(`${PORTAL_ROOT}/tree.json`))
+              : new Set();
 
-    const {findings, checked, portal} = collectDeadLinks({
-        files, tracked, read, portalIds: portalIdsFrom(read(`${PORTAL_ROOT}/tree.json`))
-    });
+    return {files, ...collectDeadLinks({files, tracked, read, portalIds})}
+}
+
+function main() {
+    const {files, findings, checked, portal, navigation} = runAudit();
 
     if (findings.length > 0) {
         console.error(`check-relative-links: ${findings.length} unresolved link(s) in ${files.length} file(s).\n`);
@@ -324,7 +444,8 @@ function main() {
 
     console.log(
         `check-relative-links: OK — ${checked} link(s) resolved across ${files.length} file(s) ` +
-        `under ${SCAN_ROOTS.join(', ')}, of which ${portal} portal id(s). Nothing exempted.`
+        `under ${SCAN_ROOTS.join(', ')} and the root entry docs, of which ${portal} portal id(s) ` +
+        `and ${navigation} repo-tab link(s) such as ../../issues. Nothing else exempted.`
     )
 }
 
