@@ -1185,25 +1185,29 @@ test.describe('Workstation — dense living-data composition', () => {
         expect((await railTabs.allTextContents()).map(value => value.trim()).sort())
             .toEqual(['Dependency Graph Explorer', 'Selection Inspector'].sort());
 
-        // One REAL generic overflow control, outside the draggable header collection.
-        const control = page.locator('.neo-tab-overflow-control');
+        // One REAL generic overflow contribution, projected as the first header action. It stays
+        // outside the draggable TAB collection while its menu remains a body-mounted overlay.
+        const
+            control      = page.locator('.neo-tab-overflow-control'),
+            heavyToolbar = page.locator('.neo-tab-header-toolbar')
+                .filter({hasText: 'Priority Alert Observatory'});
 
         await expect(control).toHaveCount(1);
-        expect(await page.evaluate(() =>
-            document.querySelector('.neo-tab-overflow-control')?.parentElement === document.body
-        ), 'the overflow control is a floating direct body child').toBe(true);
-
-        const heavyToolbar = page.locator('.neo-tab-header-toolbar').filter({hasText: 'Priority Alert Observatory'});
-
         await expect(heavyToolbar, 'one header owns the intentionally dense twelve-tab group').toHaveCount(1);
+        expect(await control.evaluate((node, toolbar) => node.parentElement === toolbar,
+            await heavyToolbar.elementHandle()), 'the overflow contribution belongs to its source toolbar').toBe(true);
 
-        const controlBox = await control.boundingBox(),
-              toolbarBox = await heavyToolbar.boundingBox();
+        const
+            actionRoots = heavyToolbar.locator(':scope > .neo-toolbar-action'),
+            controlBox  = await control.boundingBox(),
+            lastTabBox  = await heavyToolbar.locator(':scope > .neo-tab-header-button:visible').last().boundingBox();
 
-        expect(Math.abs((controlBox.x + controlBox.width) - (toolbarBox.x + toolbarBox.width)),
-            'overflow control right edge tracks the exact heavy toolbar').toBeLessThanOrEqual(2);
-        expect(Math.abs(controlBox.y - toolbarBox.y),
-            'overflow control top tracks the exact heavy toolbar').toBeLessThanOrEqual(2);
+        expect(await actionRoots.first().getAttribute('id'), 'overflow owns the first action slot')
+            .toBe(await control.getAttribute('id'));
+        expect(await actionRoots.last().getAttribute('aria-label'), 'close remains the final action')
+            .toBe('close');
+        expect(lastTabBox.x + lastTabBox.width,
+            'the visible tab partition ends before the measured contribution').toBeLessThanOrEqual(controlBox.x + 1);
 
         await control.click();
 
@@ -2046,7 +2050,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(pageErrors, 'no Playwright pageerror across the journey').toEqual([])
     });
 
-    test('the body-mounted overflow menu carries live Workstation theme and skin', async ({page, neuralLink}) => {
+    test('the header overflow action opens a body-mounted menu with live Workstation skin', async ({page, neuralLink}) => {
         await page.goto('/apps/workstation/index.html');
         await page.waitForSelector('.workstation-workspace', {timeout: 30000});
         await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
@@ -2067,9 +2071,8 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(workspaceId).toBeTruthy();
         await expect(control).toHaveCount(1);
         await expect(heavyToolbar).toHaveCount(1);
-        expect(await page.evaluate(() =>
-            document.querySelector('.neo-tab-overflow-control')?.parentElement === document.body
-        ), 'the themed control remains a floating direct-body child').toBe(true);
+        expect(await control.evaluate((node, toolbar) => node.parentElement === toolbar,
+            await heavyToolbar.elementHandle()), 'the themed contribution stays in its source toolbar').toBe(true);
 
         await control.click();
 
@@ -2085,6 +2088,7 @@ test.describe('Workstation — dense living-data composition', () => {
 
         const
             controlId   = await control.getAttribute('id'),
+            toolbarId   = await heavyToolbar.getAttribute('id'),
             darkRuntime = await app.getComponent(controlId, [
                 'menuList.id',
                 'menuList.theme',
@@ -2093,12 +2097,14 @@ test.describe('Workstation — dense living-data composition', () => {
             ]),
             darkSkin    = await readOverflowMenuSkin(page);
 
-        expect(darkRuntime.parentId).toBe('document.body');
+        expect(darkRuntime.parentId).toBe(toolbarId);
         expect(darkRuntime.theme).toBe('neo-theme-neo-dark');
         expect(darkRuntime['menuList.id']).toBeTruthy();
         expect(darkRuntime['menuList.theme']).toBe('neo-theme-neo-dark');
         expect(darkSkin.parentIsBody).toBe(true);
-        expect(darkSkin.controlThemeClasses).toEqual(['neo-theme-neo-dark']);
+        // The contribution now lives inside the themed header and inherits paint there; unlike the
+        // body-mounted menu, it needs no duplicate theme class on its own DOM root.
+        expect(darkSkin.controlThemeClasses).toEqual([]);
         expect(darkSkin.menuThemeClasses).toEqual(['neo-theme-neo-dark']);
         expect(darkSkin.tokens).toEqual({
             background: '#1a212c',
@@ -2140,8 +2146,6 @@ test.describe('Workstation — dense living-data composition', () => {
 
         await app.callMethod(workspaceId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
         await expect(root).toHaveClass(/neo-theme-neo-light/);
-        await expect(control).toHaveClass(/neo-theme-neo-light/);
-        await expect(control).not.toHaveClass(/neo-theme-neo-dark/);
         await expect(menu).toHaveClass(/neo-theme-neo-light/);
         await expect(menu).not.toHaveClass(/neo-theme-neo-dark/);
 
@@ -2151,7 +2155,7 @@ test.describe('Workstation — dense living-data composition', () => {
 
         expect(lightRuntime.theme).toBe('neo-theme-neo-light');
         expect(lightRuntime['menuList.theme']).toBe('neo-theme-neo-light');
-        expect(lightSkin.controlThemeClasses).toEqual(['neo-theme-neo-light']);
+        expect(lightSkin.controlThemeClasses).toEqual([]);
         expect(lightSkin.menuThemeClasses).toEqual(['neo-theme-neo-light']);
         expect(lightSkin.tokens).toEqual({
             background: '#f7f9fc',
@@ -2168,8 +2172,6 @@ test.describe('Workstation — dense living-data composition', () => {
 
         await app.callMethod(workspaceId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
         await expect(root).toHaveClass(/neo-theme-neo-dark/);
-        await expect(control).toHaveClass(/neo-theme-neo-dark/);
-        await expect(control).not.toHaveClass(/neo-theme-neo-light/);
         await expect(menu).toHaveClass(/neo-theme-neo-dark/);
         await expect(menu).not.toHaveClass(/neo-theme-neo-light/);
 

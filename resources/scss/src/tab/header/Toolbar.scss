@@ -3,6 +3,54 @@
     flex            : 0 0 auto;
     padding         : 0;
 
+    // Header actions are pane chrome, not standalone controls. Keep the semantic `.neo-button`
+    // instance (focus, accessibility, intent routing) while replacing only its paint and density
+    // inside a tab header. The direct-child scope is the negative contract: ordinary toolbars keep
+    // their established button treatment byte-for-byte.
+    &.neo-toolbar > .neo-toolbar-action.neo-button {
+        align-self      : center;
+        background-color: transparent;
+        background-image: none;
+        border          : 0;
+        border-radius   : var(--tab-header-action-border-radius);
+        height          : var(--tab-header-action-size);
+        margin          : 0;
+        min-width       : var(--tab-header-action-size);
+        padding         : 0;
+        width           : var(--tab-header-action-size);
+
+        .neo-button-glyph {
+            color    : var(--tab-header-action-glyph-color);
+            font-size: 12px;
+            margin   : 0;
+        }
+
+        .neo-button-ripple-wrapper {
+            border-radius: inherit;
+        }
+
+        &:hover {
+            background-color: var(--tab-header-action-background-color-hover);
+
+            .neo-button-glyph {
+                color: var(--tab-header-action-glyph-color-hover);
+            }
+        }
+
+        &:active {
+            background-color: var(--tab-header-action-background-color-active);
+
+            .neo-button-glyph {
+                color: var(--tab-header-action-glyph-color-active);
+            }
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--tab-header-action-glyph-color-hover);
+            outline-offset: -2px;
+        }
+    }
+
     &.neo-dock-bottom {
         .neo-tab-header-button.neo-button {
             align-self      : start;
