@@ -14,7 +14,28 @@
  */
 
 /**
- * Matches a static or dynamic import specifier that mentions `node_modules`.
+ * The output tree this build writes, relative to the workspace root.
+ *
+ * Exported rather than duplicated in the build script because it is now a *boundary*: a declared
+ * source root is only safe if it cannot address this tree, and that check has to compare against the
+ * same string the caller writes into.
+ *
+ * @type {String}
+ */
+export const esmOutputRoot = 'dist/esm';
+
+/**
+ * The engine's own package path inside a consuming workspace.
+ *
+ * Every specifier that still names it after the rewrite addresses a SECOND engine module graph, which
+ * is why it is a failure independent of whether the file it names exists.
+ *
+ * @type {String}
+ */
+export const enginePackagePath = 'node_modules/neo.mjs';
+
+/**
+ * Matches a static import, a dynamic import, or a re-export whose specifier mentions `node_modules`.
  *
  * Returned as a factory, not a shared constant: the pattern carries the `g` flag, so a single shared
  * instance would carry `lastIndex` between unrelated callers and skip matches non-deterministically.
@@ -25,10 +46,15 @@
  * normalized the untouched specifiers to double quotes afterwards, which made the output *look*
  * like the rewrite had run.
  *
+ * `export ... from` is matched for the same reason the quote class is wide: a re-export is a request
+ * the browser makes, so a rewrite that skips it emits a specifier addressing the workspace's engine
+ * from inside `dist/esm`. It used to be skipped, and the emitted path happened to resolve, so nothing
+ * failed — it simply booted two disjoint engine graphs.
+ *
  * @returns {RegExp}
  */
 export const createImportSpecifierRegex = () =>
-    /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
+    /((?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
 
 /**
  * Matches any relative import specifier, whatever the quote style.
@@ -118,10 +144,16 @@ export function rewriteNeoConfig(config, {insideNeo}) {
  *
  * Declared roots are additive and de-duplicated; the defaults cannot be dropped.
  *
+ * A declared root is not just an input path. The caller resolves it twice — once against the
+ * workspace to read from, once against `dist/esm` to write to — so the manifest field is an OUTPUT
+ * authority, and validating its type without validating its containment turns a convenience into an
+ * overwrite primitive. See {@link unsafeSourceRootReason}.
+ *
  * @param {Object}  options
  * @param {Boolean} options.insideNeo
  * @param {Object}  options.packageJson the consuming workspace's manifest
  * @returns {String[]}
+ * @throws {Error} on a malformed or unsafe declaration; never on a default
  */
 export function resolveSourceRoots({insideNeo, packageJson}) {
     const
@@ -138,7 +170,79 @@ export function resolveSourceRoots({insideNeo, packageJson}) {
         throw new Error('package.json "neo.esmSourceRoots" must be an array of non-empty strings')
     }
 
-    return [...new Set([...defaults, ...declared])]
+    const safe = declared.map(entry => {
+        const
+            root   = normalizeSourceRoot(entry),
+            reason = unsafeSourceRootReason(root);
+
+        if (reason) {
+            throw new Error(`package.json "neo.esmSourceRoots" entry ${JSON.stringify(entry)} ${reason}`)
+        }
+
+        return root
+    });
+
+    return [...new Set([...defaults, ...safe])]
+}
+
+/**
+ * The workspace-relative form of a declared source root: POSIX separators, no `./` prefix, no
+ * duplicate or trailing slashes.
+ *
+ * Normalizing before validating is the point — `.\\..//outside/` and `../outside` are the same
+ * request, and a check that only recognised one of them would be a check the other walks past.
+ *
+ * @param {String} root
+ * @returns {String}
+ */
+export const normalizeSourceRoot = root =>
+    root.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/^\.\//, '').replace(/\/$/, '');
+
+/**
+ * Why a normalized source root may not be built, or `null` when it is safe.
+ *
+ * The caller derives the output directory from the declared string, so an unconstrained entry does
+ * not merely read the wrong tree — it writes one. Two shapes are decisive:
+ *
+ * - an absolute root makes input and output the SAME external directory, because `path.resolve`
+ *   discards every earlier segment once it meets one: the build then minifies a foreign tree in
+ *   place, which is data loss, not a bad build;
+ * - a traversing root escapes `dist/esm` on the output side, so `../../outside` emits into the
+ *   workspace beside the output tree rather than inside it.
+ *
+ * The absolute forms are matched textually rather than through `path.isAbsolute`, because a Windows
+ * manifest is a perfectly ordinary thing to read on a POSIX CI box and the platform of the *checker*
+ * must not decide whether the declaration is safe.
+ *
+ * Overlap with `dist/esm` is rejected in both directions: a root beneath the output tree feeds the
+ * build its own output, and a root above it (`.`, `dist`) does the same one level up.
+ *
+ * @param {String} root a value already through {@link normalizeSourceRoot}
+ * @returns {String|null} the reason, phrased to complete `entry "x" …`
+ */
+export function unsafeSourceRootReason(root) {
+    if (root.startsWith('/')) {
+        return 'must be workspace-relative; an absolute root makes the build read and write the same external directory'
+    }
+
+    if (/^[a-z]:/i.test(root)) {
+        return 'must be workspace-relative; a drive-qualified root is absolute on Windows'
+    }
+
+    const segments = root.split('/').filter(segment => segment && segment !== '.');
+
+    if (segments.includes('..')) {
+        return 'must not traverse upwards; the output path is derived from it and would escape dist/esm'
+    }
+
+    const outputSegments = esmOutputRoot.split('/');
+
+    if (segments.every((segment, index) => segment === outputSegments[index]) ||
+        outputSegments.every((segment, index) => segment === segments[index])) {
+        return `must not overlap "${esmOutputRoot}"; the build would read its own output tree`
+    }
+
+    return null
 }
 
 /**
@@ -152,31 +256,59 @@ export function relativeSpecifiers(code) {
 }
 
 /**
- * Reports every emitted module whose relative imports do not resolve to a file that was emitted.
+ * Reports every emitted import that cannot boot: one naming a file that is not there, and one naming
+ * the wrong engine.
  *
  * This is the guard the build never had. Both shipped defect classes end the same way — a specifier
  * pointing at a file that is not in the output tree — and both were invisible because a copy-and-
  * minify build has no resolver to complain: an unrewritten `node_modules` path lands inside
  * `dist/esm` at a path that was never populated, and an uncopied source root leaves a sibling import
- * dangling. Containment in the output tree is therefore NOT the property to check; existence is.
+ * dangling. Containment in the output tree is NOT the property that separates those, because the
+ * rewrite deliberately points third-party packages back out at `../../node_modules/`. Existence is.
+ *
+ * Existence alone, however, is only sufficient for a package the output does not own. The engine the
+ * output DOES own is copied to `dist/esm/src`, so an emitted specifier that still names
+ * `node_modules/neo.mjs` addresses the workspace's own source engine — a second, disjoint module
+ * graph with its own class registry and its own singletons. It resolves, it exists, and the app that
+ * loads it fails at runtime in a way no path check would ever have reported. Identity, not
+ * existence, is the property there, so that shape fails whether or not the target is on disk.
  *
  * @param {Object[]} modules `{outputPath, specifiers}` records, as emitted
  * @param {Function} exists  predicate over an absolute path, injected so specs need no fixture tree
  * @param {Function} resolve `(from, specifier) => absolutePath`
- * @returns {Object[]} `{outputPath, specifier, resolved}` for each unresolvable import
+ * @returns {Object[]} `{outputPath, specifier, resolved, reason}`; reason is `missing` or `engine-identity`
  */
 export function findUnresolvableImports(modules, exists, resolve) {
     const failures = [];
 
     modules.forEach(({outputPath, specifiers}) => {
         specifiers.forEach(specifier => {
-            const resolved = resolve(outputPath, specifier);
+            const
+                resolved = resolve(outputPath, specifier),
+                reason   = addressesSourceEngine(resolved) || addressesSourceEngine(specifier)
+                    ? 'engine-identity'
+                    : exists(resolved) ? null : 'missing';
 
-            if (!exists(resolved)) {
-                failures.push({outputPath, specifier, resolved})
+            if (reason) {
+                failures.push({outputPath, specifier, resolved, reason})
             }
         })
     });
 
     return failures
+}
+
+/**
+ * True for a path that traverses the workspace's own engine package.
+ *
+ * Checked on whole segments: a directory named `node_modules/neo.mjs-examples` is somebody else's
+ * package and must not be caught by a substring match.
+ *
+ * @param {String} candidate
+ * @returns {Boolean}
+ */
+export function addressesSourceEngine(candidate) {
+    const normalized = candidate.replace(/\\/g, '/');
+
+    return normalized.includes(`/${enginePackagePath}/`) || normalized.startsWith(`${enginePackagePath}/`)
 }

@@ -5,6 +5,7 @@ import {minifyHtml}         from '../util/minifyHtml.mjs';
 import {processFileContent} from '../util/astTemplateProcessor.mjs';
 
 import {
+    esmOutputRoot,
     findUnresolvableImports,
     relativeSpecifiers,
     resolveSourceRoots,
@@ -13,7 +14,7 @@ import {
 } from '../util/esmDistTransforms.mjs';
 
 const
-    outputBasePath = 'dist/esm/',
+    outputBasePath = `${esmOutputRoot}/`,
     root           = path.resolve(),
     requireJson    = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson    = requireJson(path.join(root, 'package.json')),
@@ -21,11 +22,21 @@ const
     startDate      = new Date();
 
 const
-    inputDirectories = resolveSourceRoots({insideNeo, packageJson}),
     /** `{outputPath, specifiers}` per emitted module, checked once the whole tree exists. */
-    emittedModules   = [],
+    emittedModules = [],
     /** Files that threw. Collected rather than logged, so the build can refuse to exit 0. */
-    failures         = [];
+    failures       = [];
+
+let inputDirectories;
+
+// A rejected source root is a manifest mistake, not an engine crash: the developer who typed the
+// path is the one who has to read this, and a stack trace through buildScripts tells them nothing.
+try {
+    inputDirectories = resolveSourceRoots({insideNeo, packageJson})
+} catch (error) {
+    console.error(`\ndist/esm: ${error.message}`);
+    process.exit(1)
+}
 
 async function minifyDirectory(inputDir, outputDir) {
     if (fs.existsSync(inputDir)) {
@@ -134,18 +145,33 @@ Promise.all(promises).then(() => {
     // Runs only once the whole tree exists, because a forward reference to a file another root has
     // not emitted yet is not a defect. `dist/esm` ships without a resolver, so this is the only
     // stage that can tell a working output from one that merely finished.
-    const unresolvable = findUnresolvableImports(
-        emittedModules,
-        fs.existsSync,
-        (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier)
-    );
+    const
+        unresolvable = findUnresolvableImports(
+            emittedModules,
+            fs.existsSync,
+            (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier)
+        ),
+        report       = reason => unresolvable.filter(entry => entry.reason === reason)
+            .map(({outputPath, specifier}) => `  ${path.relative(root, outputPath)} → ${specifier}`),
+        missing      = report('missing'),
+        wrongEngine  = report('engine-identity');
+
+    if (missing.length > 0) {
+        console.error(`\ndist/esm: ${missing.length} import(s) do not resolve inside the output tree:`);
+        missing.forEach(line => console.error(line));
+        console.error('\nA source root the app imports may be missing from package.json "neo.esmSourceRoots".')
+    }
+
+    // Separate from the missing set on purpose: these DO resolve. They reach the workspace's own
+    // engine source instead of the copy in dist/esm, so the app boots two disjoint module graphs —
+    // a failure that looks like nothing at build time and like everything at runtime.
+    if (wrongEngine.length > 0) {
+        console.error(`\ndist/esm: ${wrongEngine.length} import(s) still address the workspace engine at node_modules/neo.mjs:`);
+        wrongEngine.forEach(line => console.error(line));
+        console.error('\nThese must be rewritten to the flattened dist/esm/src copy; two engine graphs cannot share a class registry.')
+    }
 
     if (unresolvable.length > 0) {
-        console.error(`\ndist/esm: ${unresolvable.length} import(s) do not resolve inside the output tree:`);
-        unresolvable.forEach(({outputPath, specifier}) => {
-            console.error(`  ${path.relative(root, outputPath)} → ${specifier}`)
-        });
-        console.error('\nA source root the app imports may be missing from package.json "neo.esmSourceRoots".');
         process.exit(1)
     }
 

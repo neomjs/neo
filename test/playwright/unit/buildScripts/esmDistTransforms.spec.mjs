@@ -1,3 +1,4 @@
+import path           from 'path';
 import {test, expect} from '@playwright/test';
 
 /**
@@ -58,6 +59,32 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                 "import x from '../../../../node_modules/neo.mjs/src/util/Function.mjs';");
 
             expect(rewritten).toBe("import x from '../../../../src/util/Function.mjs';")
+        });
+
+        /**
+         * A re-export is a request the browser makes, so it needs the same rewrite. The pattern
+         * matched `import` only, which left `export … from` addressing the workspace's own engine
+         * from inside `dist/esm` — a path that resolves, so nothing failed; it simply booted a second
+         * engine graph. Reds against the shipped pattern.
+         */
+        [
+            ["export {default} from '../../node_modules/neo.mjs/src/core/Base.mjs';",
+             "export {default} from '../../src/core/Base.mjs';"],
+            ['export*from"../node_modules/neo.mjs/src/Neo.mjs";',
+             'export*from"../src/Neo.mjs";'],
+            ["export * as Neo from '../node_modules/neo.mjs/src/Neo.mjs';",
+             "export * as Neo from '../src/Neo.mjs';"]
+        ].forEach(([source, expected], index) => {
+            test(`a re-export of the engine is rewritten too (form ${index})`, () => {
+                expect(transforms.rewriteImportPaths(source)).toBe(expected)
+            })
+        });
+
+        /** The rewrite must stay a specifier rewrite: an ordinary export naming the string is not one. */
+        test('an exported string that merely contains node_modules is untouched', () => {
+            const source = "export const dir = 'x/node_modules/neo.mjs/y';";
+
+            expect(transforms.rewriteImportPaths(source)).toBe(source)
         });
 
         /** A third-party package is not flattened; it moves two levels deeper with the output tree. */
@@ -174,6 +201,52 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                 expect(() => transforms.resolveSourceRoots({insideNeo: false, packageJson: {...workspace, neo}}))
                     .toThrow(/esmSourceRoots/)
             })
+        });
+
+        /**
+         * The declared root is not only an input path: the build resolves it a second time against
+         * `dist/esm` to decide where to WRITE. An unconstrained entry is therefore an output
+         * authority, and type-checking it while leaving containment open is what turns a convenience
+         * into an overwrite primitive.
+         *
+         * Each entry below is a shape the shipped `resolveSourceRoots` returned verbatim:
+         *
+         * - `/tmp/external` — `path.resolve` discards everything before an absolute segment, so the
+         *   build's input and output become the SAME external directory and it minifies a foreign
+         *   tree in place;
+         * - `C:\external` / `..\..\outside` — the Windows spellings of the same two requests, which
+         *   a POSIX-only check reads as harmless relative directory names;
+         * - `../../outside` — writes into the workspace beside `dist/esm` rather than inside it;
+         * - `dist/esm`, `dist`, `.` — feed the build its own output tree.
+         *
+         * All red against the shipped implementation, which validated only "non-empty string".
+         */
+        ['/tmp/external', 'C:\\external', '../../outside', '..\\..\\outside', 'dist/esm', 'dist/esm/nested', 'dist', '.', './']
+            .forEach(entry => {
+                test(`an unsafe declared root is refused: ${JSON.stringify(entry)}`, () => {
+                    expect(() => transforms.resolveSourceRoots({
+                        insideNeo  : false,
+                        packageJson: {...workspace, neo: {esmSourceRoots: [entry]}}
+                    })).toThrow(/esmSourceRoots/)
+                })
+            });
+
+        /** The guard must not be a blanket refusal: ordinary roots, in either spelling, still pass. */
+        test('safe roots are normalized to the workspace-relative form and kept', () => {
+            expect(transforms.resolveSourceRoots({
+                insideNeo  : false,
+                packageJson: {...workspace, neo: {esmSourceRoots: ['./components/', 'shared\\ui', 'distribution']}}
+            })).toEqual(['apps', 'docs', 'node_modules/neo.mjs/src', 'src', 'components', 'shared/ui', 'distribution'])
+        });
+
+        /** Normalization happens before the check, so the same request cannot be spelled past it. */
+        test('a traversing root is refused however it is spelled', () => {
+            ['.././../outside', './../outside', 'a/../../outside'].forEach(entry => {
+                expect(() => transforms.resolveSourceRoots({
+                    insideNeo  : false,
+                    packageJson: {...workspace, neo: {esmSourceRoots: [entry]}}
+                }), entry).toThrow(/esmSourceRoots/)
+            })
         })
     });
 
@@ -197,7 +270,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         })
     });
 
-    test.describe('findUnresolvableImports — existence, not containment, is the property', () => {
+    test.describe('findUnresolvableImports — existence for a foreign package, identity for the engine', () => {
         const resolve = (outputPath, specifier) =>
             specifier.startsWith('./')
                 ? outputPath.replace(/[^/]+$/, '') + specifier.slice(2)
@@ -246,6 +319,72 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                 resolve);
 
             expect(failures.map(entry => entry.specifier)).toEqual(['./x.mjs', './y.mjs'])
+        });
+
+        /**
+         * These arms use the production resolver rather than the toy one above, because the shape they
+         * describe only exists at real depth: an unrewritten engine specifier climbs out of `dist/esm`
+         * and lands back in the workspace it was copied FROM.
+         */
+        const resolveReal = (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier);
+
+        /**
+         * The arm that reds against the existence-only guard. The target is the workspace's real
+         * `node_modules/neo.mjs` source, so `exists` says yes and the build greened — while the app
+         * loaded a second engine graph beside the copy in `dist/esm/src`, each with its own class
+         * registry and its own singletons. Nothing about that is observable as a missing file, which
+         * is exactly why existence is the wrong property for the one package the output owns.
+         */
+        test('an engine import that resolves to the real workspace source is still a failure', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{
+                    outputPath: '/workspace/dist/esm/apps/x/app.mjs',
+                    specifiers: ['../../../../node_modules/neo.mjs/src/Neo.mjs']
+                }],
+                () => true,
+                resolveReal);
+
+            expect(failures).toHaveLength(1);
+            expect(failures[0].reason).toBe('engine-identity');
+            expect(failures[0].resolved).toBe('/workspace/node_modules/neo.mjs/src/Neo.mjs')
+        });
+
+        /**
+         * The non-vacuity control for the arm above: the rewrite deliberately points third-party
+         * packages back OUT of the output tree, so an existing target outside `dist/esm` must still
+         * pass. A guard that failed this one would be a containment check wearing an identity label,
+         * and it would break every workspace that imports a package.
+         */
+        test('a third-party package outside the output tree passes when it exists', () => {
+            expect(transforms.findUnresolvableImports(
+                [{
+                    outputPath: '/workspace/dist/esm/apps/x/app.mjs',
+                    specifiers: ['../../../../node_modules/some-lib/index.mjs']
+                }],
+                () => true,
+                resolveReal)).toEqual([])
+        });
+
+        /** A package whose name merely starts with the engine's is somebody else's package. */
+        test('a look-alike package name is not mistaken for the engine', () => {
+            expect(transforms.findUnresolvableImports(
+                [{
+                    outputPath: '/workspace/dist/esm/apps/x/app.mjs',
+                    specifiers: ['../../../../node_modules/neo.mjs-examples/index.mjs']
+                }],
+                () => true,
+                resolveReal)).toEqual([])
+        });
+
+        /** The two classes are distinguishable downstream, because the build reports them apart. */
+        test('a missing import is reported as missing, not as an identity failure', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{outputPath: '/workspace/dist/esm/apps/x/app.mjs', specifiers: ['../../components/Button.mjs']}],
+                () => false,
+                resolveReal);
+
+            expect(failures).toHaveLength(1);
+            expect(failures[0].reason).toBe('missing')
         })
     })
 });

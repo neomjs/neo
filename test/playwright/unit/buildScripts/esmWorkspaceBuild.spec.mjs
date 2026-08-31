@@ -27,21 +27,29 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         engineRoot = path.resolve(import.meta.dirname, '../../../..'),
         buildPath  = path.join(engineRoot, 'buildScripts/build/esmodules.mjs');
 
-    let workspace;
+    let workspace, external;
 
     /**
      * Writes the minimum workspace that reproduces the shipped failure. The engine copy is a stub
      * rather than the real `src/`: the defect is about path arithmetic and copy sets, so a real
      * engine would add minutes of Terser work without adding a single observation.
      */
-    const createWorkspace = ({declareExtraRoot}) => {
+    const createWorkspace = ({declareExtraRoot, engineReExport, sourceRoots}) => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-ws-'));
 
         fs.outputJsonSync(path.join(root, 'package.json'), {
             name   : 'my-workspace',
             version: '1.0.0',
+            ...(sourceRoots ? {neo: {esmSourceRoots: sourceRoots}} : {}),
             ...(declareExtraRoot ? {neo: {esmSourceRoots: ['components']}} : {})
         });
+
+        // A re-export of the engine. The rewrite matched `import` only, so this specifier used to
+        // survive into the output and address the workspace's own engine from inside dist/esm.
+        if (engineReExport) {
+            fs.outputFileSync(path.join(root, 'components/engine.mjs'),
+                "export {default as Base} from '../node_modules/neo.mjs/src/core/Base.mjs';\n")
+        }
 
         // The engine, as a workspace consumes it.
         fs.outputFileSync(path.join(root, 'node_modules/neo.mjs/src/core/Base.mjs'),
@@ -76,7 +84,8 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
 
     test.afterEach(() => {
         workspace && fs.removeSync(workspace);
-        workspace = null
+        external && fs.removeSync(external);
+        workspace = external = null
     });
 
     test('a configured workspace builds a tree whose every import resolves', () => {
@@ -116,6 +125,64 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         expect(output).toContain('apps/myapp/view/Viewport.mjs');
         expect(output).toContain('components/Button.mjs');
         expect(output).toContain('neo.esmSourceRoots')
+    });
+
+    /**
+     * The declared root decides where the build WRITES, so an unvalidated one is an overwrite
+     * primitive rather than a copy list. `path.resolve` discards every earlier segment once it meets
+     * an absolute one, which collapses the build's input and output onto the same external directory:
+     * the tree is read, minified, and written back over itself, outside the workspace entirely.
+     *
+     * The sentinel is the point of the arm. Asserting only the exit code would pass against a build
+     * that refused for some unrelated reason while still having touched the directory.
+     */
+    test('an absolute declared root is refused and the external tree is left byte-identical', () => {
+        external = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-external-'));
+
+        const
+            sentinelPath = path.join(external, 'keep.mjs'),
+            sentinel     = '// not the build\'s to touch\nexport default class Keep {}\n';
+
+        fs.outputFileSync(sentinelPath, sentinel);
+
+        workspace = createWorkspace({sourceRoots: [external]});
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, `build should have refused, output:\n${output}`).toBe(1);
+        expect(output).toContain('esmSourceRoots');
+        expect(fs.readFileSync(sentinelPath, 'utf8')).toBe(sentinel);
+        expect(fs.existsSync(path.join(external, 'dist'))).toBe(false)
+    });
+
+    /** The traversing spelling of the same request: it must not emit beside the output tree. */
+    test('a traversing declared root is refused before anything is written', () => {
+        workspace = createWorkspace({sourceRoots: ['../../outside']});
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, `build should have refused, output:\n${output}`).toBe(1);
+        expect(output).toContain('esmSourceRoots');
+        expect(fs.existsSync(path.join(workspace, 'dist'))).toBe(false)
+    });
+
+    /**
+     * The re-export arm. `export … from` was not part of the rewrite pattern, so this specifier
+     * reached the output unchanged — and there it either dangles or, worse, resolves back to the
+     * workspace's own engine source and boots a second module graph. Either way the build used to
+     * exit 0.
+     */
+    test('a re-export of the engine is rewritten to the flattened copy', () => {
+        workspace = createWorkspace({declareExtraRoot: true, engineReExport: true});
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, `build failed:\n${output}`).toBe(0);
+
+        const emitted = fs.readFileSync(path.join(workspace, 'dist/esm/components/engine.mjs'), 'utf8');
+
+        expect(emitted).not.toContain('node_modules');
+        expect(emitted).toContain('../src/core/Base.mjs')
     });
 
     /** An absolute mount must survive the config rewrite; `../..//mount/` resolves nowhere. */
