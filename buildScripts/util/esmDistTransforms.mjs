@@ -52,7 +52,8 @@ export const enginePackagePath = 'node_modules/neo.mjs';
  *
  * The quote class is `["'`]` and the single quote is the point. It was `["`]` — double quote or
  * backtick only — while the engine's house style, and every generated workspace's, is the single
- * quote. So the rewrite added by #6752 never fired on the code it was written for, and Terser
+ * quote. So the rewrite added by https://github.com/neomjs/neo/issues/6752 never fired on the code
+ * it was written for, and Terser
  * normalized the untouched specifiers to double quotes afterwards, which made the output *look*
  * like the rewrite had run.
  *
@@ -268,8 +269,39 @@ export function relativeSpecifiers(code) {
 }
 
 /**
- * Reports every emitted import that cannot boot: one naming a file that is not there, and one naming
- * the wrong engine.
+ * The directory a computed specifier reads from, or `null` when the specifier is a literal path.
+ *
+ * The engine loads its parser, normalizer, connection, task, canvas and Main-addon families through
+ * a template literal — `../data/parser/${name}.mjs`. In source those calls carry webpack magic
+ * comments between the parenthesis and the template literal, so {@link relativeSpecifiers} never
+ * reaches them; but Terser strips comments, and the EMITTED module this guard inspects is
+ * post-Terser. What it hands back is literal text still carrying the interpolation, which no
+ * filesystem can hold.
+ *
+ * Exempting that text is the obvious move and it throws away real signal. A computed specifier still
+ * makes one static claim: everything before the first interpolation is a path, and the directory it
+ * ends in must be in the output tree. `../data/parser/${name}.mjs` asserts `dist/esm/src/data/parser/`
+ * exists — and an uncopied source root, the very defect this guard was built for, is visible exactly
+ * there. So the prefix is checked and the interpolation is not guessed at.
+ *
+ * A specifier interpolated from its first segment — `../../${path}/task.mjs` — yields a prefix of
+ * `../../`, which trivially exists. That is the honest answer: nothing about it is statically
+ * knowable, so the guard says nothing about it.
+ *
+ * @param {String} specifier
+ * @returns {String|null} the prefix through its last `/`, or `null` for a literal specifier
+ */
+export function computedSpecifierRoot(specifier) {
+    const interpolation = specifier.indexOf('${');
+
+    // The regex only ever captures specifiers opening `./` or `../`, so a separator always precedes
+    // the interpolation and the slice is never the whole specifier.
+    return interpolation === -1 ? null : specifier.slice(0, specifier.lastIndexOf('/', interpolation) + 1)
+}
+
+/**
+ * Reports every emitted import that cannot boot: one naming a file that is not there, one whose
+ * computed family reads from a directory that is not there, and one naming the wrong engine.
  *
  * This is the guard the build never had. Both shipped defect classes end the same way — a specifier
  * pointing at a file that is not in the output tree — and both were invisible because a copy-and-
@@ -285,10 +317,16 @@ export function relativeSpecifiers(code) {
  * loads it fails at runtime in a way no path check would ever have reported. Identity, not
  * existence, is the property there, so that shape fails whether or not the target is on disk.
  *
+ * The third reason exists so the report can say the right sentence. "This import does not resolve"
+ * is wrong about a computed specifier — the import is fine and the directory its family reads from
+ * is gone — and a developer told the wrong thing goes looking in the wrong place. All three exit 1;
+ * the separation is what the reader is told, never whether the build refuses.
+ *
  * @param {Object[]} modules `{outputPath, specifiers}` records, as emitted
  * @param {Function} exists  predicate over an absolute path, injected so specs need no fixture tree
  * @param {Function} resolve `(from, specifier) => absolutePath`
- * @returns {Object[]} `{outputPath, specifier, resolved, reason}`; reason is `missing` or `engine-identity`
+ * @returns {Object[]} `{outputPath, specifier, resolved, reason}`; reason is `missing`, `computed-root`
+ *                    or `engine-identity`
  */
 export function findUnresolvableImports(modules, exists, resolve) {
     const failures = [];
@@ -296,10 +334,21 @@ export function findUnresolvableImports(modules, exists, resolve) {
     modules.forEach(({outputPath, specifiers}) => {
         specifiers.forEach(specifier => {
             const
-                resolved = resolve(outputPath, specifier),
-                reason   = addressesSourceEngine(resolved) || addressesSourceEngine(specifier)
-                    ? 'engine-identity'
-                    : exists(resolved) ? null : 'missing';
+                computedRoot = computedSpecifierRoot(specifier),
+                // A computed specifier names no file, so what gets resolved is the directory its
+                // family reads from. A literal one resolves as itself, exactly as before.
+                resolved     = resolve(outputPath, computedRoot ?? specifier);
+
+            let reason = null;
+
+            // Identity is checked first and on the specifier as written, so a computed family
+            // reaching `node_modules/neo.mjs` is still the two-graph defect rather than a missing
+            // directory. Truncating to the prefix must not launder that.
+            if (addressesSourceEngine(resolved) || addressesSourceEngine(specifier)) {
+                reason = 'engine-identity'
+            } else if (!exists(resolved)) {
+                reason = computedRoot === null ? 'missing' : 'computed-root'
+            }
 
             if (reason) {
                 failures.push({outputPath, specifier, resolved, reason})

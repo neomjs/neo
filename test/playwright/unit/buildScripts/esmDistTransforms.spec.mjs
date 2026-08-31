@@ -386,5 +386,96 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('missing')
         })
+    });
+
+    /**
+     * The guard as first shipped could not exit 0 against the engine's own tree: Terser strips the
+     * webpack magic comments that hid the lazy-loader families from `relativeSpecifiers`, so the
+     * emitted specifier reaching the guard is literal text carrying an interpolation — a path no
+     * filesystem can hold, reported as `missing`, on every real-engine build.
+     *
+     * Each arm here reds against that shipped code. The first two red because the old guard resolved
+     * the interpolated text itself and reported `missing`; the third reds because the old guard
+     * reported at all. The exemption these replace would have passed all three and checked nothing.
+     *
+     * @see https://github.com/neomjs/neo/issues/17942
+     */
+    test.describe('findUnresolvableImports — a computed specifier is judged by its prefix directory', () => {
+        const resolveReal = (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier);
+
+        test('the prefix directory is what gets resolved, and its presence passes', () => {
+            expect(transforms.findUnresolvableImports(
+                [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: ['../data/parser/${t}.mjs']}],
+                candidate => candidate === '/w/dist/esm/src/data/parser',
+                resolveReal)).toEqual([])
+        });
+
+        /** The signal the exemption would have thrown away: a source root nothing copied. */
+        test('an absent prefix directory fails as computed-root and resolves to the directory', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: ['../data/parser/${t}.mjs']}],
+                () => false,
+                resolveReal);
+
+            expect(failures).toHaveLength(1);
+            expect(failures[0].reason).toBe('computed-root');
+            expect(failures[0].specifier).toBe('../data/parser/${t}.mjs');
+            expect(failures[0].resolved).toBe('/w/dist/esm/src/data/parser')
+        });
+
+        /**
+         * `../../${path}/task.mjs` knows nothing beyond `../../`, so the guard must say nothing about
+         * it. Pinned, because a later tightening that started resolving the interpolation would red
+         * every workspace on a value only the runtime holds.
+         */
+        test('a specifier interpolated from its first segment is never reported', () => {
+            expect(transforms.findUnresolvableImports(
+                [{outputPath: '/w/dist/esm/src/worker/Task.mjs', specifiers: ['../../${path}/task.mjs']}],
+                candidate => candidate === '/w/dist/esm',
+                resolveReal)).toEqual([])
+        });
+
+        /**
+         * Truncating to the prefix must not launder the two-graph defect: identity is checked on the
+         * specifier as written, so a computed family reaching the workspace engine still fails as
+         * `engine-identity` rather than passing on a directory that happens to exist.
+         */
+        test('a computed specifier addressing the workspace engine is still an identity failure', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{
+                    outputPath: '/w/dist/esm/apps/x/app.mjs',
+                    specifiers: ['../../../node_modules/neo.mjs/src/main/addon/${name}.mjs']
+                }],
+                () => true,
+                resolveReal);
+
+            expect(failures).toHaveLength(1);
+            expect(failures[0].reason).toBe('engine-identity')
+        });
+
+        test('a literal specifier keeps reporting as missing, so no path becomes exempt', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{outputPath: '/w/dist/esm/src/f/u/HtmlTemplateProcessor.mjs', specifiers: ['../../../dist/parse5.mjs']}],
+                () => false,
+                resolveReal);
+
+            expect(failures).toHaveLength(1);
+            expect(failures[0].reason).toBe('missing')
+        });
+
+        test.describe('computedSpecifierRoot', () => {
+            test('a literal specifier has no computed root', () => {
+                expect(transforms.computedSpecifierRoot('../data/parser/json.mjs')).toBeNull()
+            });
+
+            test('the root ends at the last separator before the interpolation', () => {
+                expect(transforms.computedSpecifierRoot('../data/parser/${t}.mjs')).toBe('../data/parser/')
+            });
+
+            /** A later segment must not widen the root a second interpolation already bounded. */
+            test('only the first interpolation bounds the root', () => {
+                expect(transforms.computedSpecifierRoot('../${a}/b/${c}.mjs')).toBe('../')
+            })
+        })
     })
 });

@@ -137,6 +137,18 @@ Promise.all(promises).then(() => {
         fs.copySync(docsOutputPath, path.resolve(root, outputBasePath, 'docs/output'))
     }
 
+    // `src/functional/util/HtmlTemplateProcessor.mjs` imports `../../../dist/parse5.mjs`, an esbuild
+    // artifact from `npm run bundle-parse5` that no source root carries — so the copied source
+    // reached a file the output tree never had. Copied here, beside `docs/output`, because it is the
+    // same shape: an artifact the tree needs and the minifier does not produce.
+    //
+    // Absent, nothing is copied and the guard below names it. That is deliberate: silence would hide
+    // a tree whose template processor cannot load, which is the failure mode this build now refuses.
+    const parse5Path = path.resolve(root, 'dist/parse5.mjs');
+    if (fs.existsSync(parse5Path)) {
+        fs.copySync(parse5Path, path.resolve(root, outputBasePath, 'dist/parse5.mjs'))
+    }
+
     if (failures.length > 0) {
         console.error(`\ndist/esm: ${failures.length} file(s) failed to build:`);
         failures.forEach(({outputPath}) => console.error(`  ${path.relative(root, outputPath)}`));
@@ -152,15 +164,27 @@ Promise.all(promises).then(() => {
             fs.existsSync,
             (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier)
         ),
-        report       = reason => unresolvable.filter(entry => entry.reason === reason)
-            .map(({outputPath, specifier}) => `  ${path.relative(root, outputPath)} → ${specifier}`),
+        describe     = ({outputPath, specifier}) => `  ${path.relative(root, outputPath)} → ${specifier}`,
+        report       = (reason, format = describe) => unresolvable.filter(entry => entry.reason === reason).map(format),
         missing      = report('missing'),
+        computedRoot = report('computed-root',
+            entry => `${describe(entry)}  (directory ${path.relative(root, entry.resolved)}/ is absent)`),
         wrongEngine  = report('engine-identity');
 
     if (missing.length > 0) {
         console.error(`\ndist/esm: ${missing.length} import(s) do not resolve inside the output tree:`);
         missing.forEach(line => console.error(line));
         console.error('\nA source root the app imports may be missing from package.json "neo.esmSourceRoots".')
+    }
+
+    // Reported apart from the missing set because the instruction differs: these specifiers are
+    // computed at runtime and are not broken. The directory their family loads from is the thing that
+    // is not in the output tree, so that is what the line names — telling a developer "this import
+    // does not resolve" would send them to inspect a template literal that is doing nothing wrong.
+    if (computedRoot.length > 0) {
+        console.error(`\ndist/esm: ${computedRoot.length} computed import(s) read from a directory the output tree does not have:`);
+        computedRoot.forEach(line => console.error(line));
+        console.error('\nThe interpolation is never resolved — only the path before it. A whole source root is likely uncopied.')
     }
 
     // Separate from the missing set on purpose: these DO resolve. They reach the workspace's own
