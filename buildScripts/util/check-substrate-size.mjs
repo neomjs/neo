@@ -223,10 +223,21 @@ export function main({root = REPO_ROOT, targets = TARGET_FILES, limit = PER_FILE
     return 0
 }
 
-// Entrypoint guard, realpath-hardened on BOTH sides. The common spellings compare `process.argv[1]`
-// to `import.meta.url` directly, which disagree whenever the script is reached through a symlink:
-// argv[1] is the link path, import.meta.url is the resolved target, so the module loads, `main()`
-// never runs, and the process exits 0 — a guard that silently stops guarding.
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Entrypoint guard, canonicalized on BOTH sides — and it has to be both.
+//
+// The common spellings compare `process.argv[1]` to `import.meta.url` directly, which disagree
+// whenever the script is reached through a symlink: argv[1] is the link path, import.meta.url is the
+// resolved target, so the module loads, `main()` never runs, and the process exits 0 — a guard that
+// silently stops guarding, in a script whose entire job is to fail loudly.
+//
+// Realpathing only argv[1] fixes the ordinary symlink case and leaves one open, because
+// import.meta.url is *usually* already resolved but not always: under `--preserve-symlinks-main`
+// node keeps the link path there, so the resolved argv[1] and the unresolved import.meta.url differ
+// and the guard goes false again. That is the same silent exit 0, reachable by a flag rather than by
+// a link. Found by @neo-gpt in review — the comment claimed BOTH sides while the code canonicalized
+// one, so it read as covered.
+//
+// Both operands through realpathSync, compared as canonical paths.
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
     process.exit(main())
 }
