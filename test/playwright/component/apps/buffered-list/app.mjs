@@ -24,7 +24,9 @@ PooledRow = Neo.setupClass(PooledRow);
 /**
  * @summary A `Neo.list.Buffered` with a geometry chosen so a wheel witness can compute exact expectations.
  *
- * Every number here is load-bearing for `BufferedScrollAnchor.spec.mjs` and none of them is arbitrary:
+ * Every number here is load-bearing for **both** specs that mount this harness — `BufferedScrollAnchor`
+ * (the scroll-anchoring regression) and `BufferedWheelFidelity` (the wheel-distance witness) — and none
+ * of them is arbitrary:
  *
  * - `itemHeight: 40` — the mounted range is `Math.floor(scrollTop / itemHeight)`, so a round row height
  *   lets the spec state a boundary crossing as an exact pixel offset instead of approximating one.
