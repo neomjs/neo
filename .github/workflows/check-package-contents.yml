@@ -40,6 +40,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `dist/` is gitignored, so a fresh checkout has NONE of the build outputs a publish would
+      # carry — and `npm publish` runs `build-all` first (`buildScripts/release/publish.mjs`, which
+      # bundles parse5 via `buildScripts/build/all.mjs`). Without this step the pack under test is
+      # not the shape that ships: it can still prove nothing forbidden leaked, but it cannot prove a
+      # required artifact is present, because the artifact was never produced on this runner.
+      #
+      # Only parse5 is built, not `build-all`. It is the one build output the package is required to
+      # contain, it takes one esbuild call, and a full build here would cost minutes to prove nothing
+      # this check asserts.
+      - name: Bundle parse5
+        run: npm run bundle-parse5
+
       # A CI checkout has no live `.neo-ai-data/logs`, `sqlite/` or `wake-daemon/`, so a green here
       # proves the resources/content rule but CANNOT prove the Agent OS one — the
       # files it guards do not exist on this runner. That half is covered by the unit spec over the
