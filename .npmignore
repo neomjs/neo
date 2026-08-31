@@ -68,7 +68,15 @@ resources/content/
 
 /buildScripts/webpack/json/myApps.json
 
-/dist
+# The contents are excluded rather than the directory itself, because an ignore rule on `/dist`
+# cannot be undone: a negation never re-includes a file whose parent directory is excluded. Same
+# shape the `/apps/**/*` rules above use for the same reason.
+/dist/*
+# `src/functional/util/HtmlTemplateProcessor.mjs` imports this bundle by relative path, and
+# `buildScripts/util/templateBuildProcessor.mjs` imports it at module scope — so an installed engine
+# needs it to RUN the dist/esm build, not merely to execute the tree that build emits. It cannot be
+# produced on the consumer side: parse5 and esbuild are both devDependencies.
+!/dist/parse5.mjs
 /docs/output
 /tmp
 
