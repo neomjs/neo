@@ -78,6 +78,41 @@ export const FORBIDDEN_PREFIXES = [
 ];
 
 /**
+ * Files the tarball MUST contain. The mirror image of the rules above, and it exists because the
+ * two failures are not symmetric in how they announce themselves: a leak is discovered by anyone who
+ * unpacks the tarball, while a silent DROP is discovered by a consumer, at the point of use, with a
+ * module-not-found error naming a path nobody recognises.
+ *
+ * A `.npmignore` cannot express "keep exactly this file" without help, which is the second reason
+ * this list exists. An ignore rule on a directory is not reversible — a negation never re-includes a
+ * file whose parent directory is excluded — so `/dist/*` plus `!/dist/parse5.mjs` is the only shape
+ * that ships one file out of that tree, and it is one careless edit away from `/dist` again.
+ * @type {Array<{path: String, why: String}>}
+ */
+export const REQUIRED_ENTRIES = [
+    {
+        path: 'dist/parse5.mjs',
+        why : 'src/functional/util/HtmlTemplateProcessor.mjs imports this bundle by relative path, and buildScripts/util/templateBuildProcessor.mjs imports it at module scope — so an installed engine needs it to RUN the dist/esm build, not merely to execute the tree that build emits. A consumer cannot rebuild it: parse5 and esbuild are both devDependencies.'
+    }
+];
+
+/**
+ * @summary Pure predicate: which required entries are missing from the packed set?
+ *
+ * Split out from the pack invocation for the same reason as its counterpart below — the rule is
+ * testable by planting a path list, with no tarball on disk.
+ *
+ * @param {String[]} packedPaths Tarball-relative paths, as reported by `npm pack --json`.
+ * @param {Array<Object>} [rules=REQUIRED_ENTRIES] The presence rules to enforce.
+ * @returns {Array<{path: String, why: String}>} One entry per rule with no matching packed path.
+ */
+export function findMissingEntries(packedPaths, rules = REQUIRED_ENTRIES) {
+    const packed = new Set(packedPaths);
+
+    return rules.filter(rule => !packed.has(rule.path))
+}
+
+/**
  * @summary Pure predicate: which packed paths violate the forbidden-prefix rules?
  *
  * Split out from the `npm pack` invocation so the rule logic is unit-testable without spawning a
@@ -137,10 +172,27 @@ export function parsePackOutput(raw) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-    const raw    = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}),
-          report = parsePackOutput(raw)[0],
-          files  = report.files.map(file => file.path),
-          found  = findForbiddenEntries(files);
+    const raw     = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}),
+          report  = parsePackOutput(raw)[0],
+          files   = report.files.map(file => file.path),
+          found   = findForbiddenEntries(files),
+          missing = findMissingEntries(files);
+
+    if (missing.length) {
+        console.error(`\x1b[31mcheck-package-contents: ${missing.length} required entr(ies) missing from the npm tarball:\x1b[0m`);
+
+        for (const rule of missing) {
+            console.error(`\n  ${rule.path}`);
+            console.error(`    ${rule.why}`)
+        }
+
+        console.error(`
+Either an .npmignore rule stopped covering this file, or the release build did not produce it before
+packing. Check the pack first — 'npm pack --dry-run --json' is what ships, and the ignore patterns
+are only what someone believes ships.`);
+
+        process.exit(1)
+    }
 
     if (found.length) {
         console.error(`\x1b[31mcheck-package-contents: ${found.length} forbidden entr(ies) in the npm tarball:\x1b[0m`);
@@ -170,5 +222,5 @@ check, and let the pack decide.`);
         process.exit(1)
     }
 
-    console.log(`check-package-contents: OK — ${report.entryCount} files, ${(report.size / 1048576).toFixed(2)} MiB tarball, ${(report.unpackedSize / 1048576).toFixed(2)} MiB unpacked; no forbidden entries.`)
+    console.log(`check-package-contents: OK — ${report.entryCount} files, ${(report.size / 1048576).toFixed(2)} MiB tarball, ${(report.unpackedSize / 1048576).toFixed(2)} MiB unpacked; no forbidden entries, all ${REQUIRED_ENTRIES.length} required entr(ies) present.`)
 }

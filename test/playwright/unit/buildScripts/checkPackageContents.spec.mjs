@@ -138,3 +138,58 @@ test.describe('check-package-contents — fires on private state, not on the tra
         expect(FORBIDDEN_PREFIXES.every(rule => rule.prefix.endsWith('/'))).toBe(true);
     });
 });
+
+/**
+ * The mirror image of the suite above. A leak announces itself to anyone who unpacks the tarball; a
+ * silent DROP announces itself to a consumer, at the point of use, as a module-not-found error naming
+ * a path nobody recognises. Only one of those two is discoverable from this repository, which is why
+ * the presence half needs a gate at all.
+ *
+ * `dist/parse5.mjs` is the case that motivated it: `/dist` was excluded wholesale, so the bundle
+ * `HtmlTemplateProcessor` imports never shipped, and — because `templateBuildProcessor` imports it at
+ * module scope — an installed engine could not even START a `dist/esm` build. The `.npmignore` shape
+ * that fixes it (`/dist/*` plus a negation) is one careless edit away from `/dist` again, and an
+ * ignore rule cannot express "keep exactly this one".
+ */
+test.describe('check-package-contents — a required entry cannot be silently dropped', () => {
+    let findMissingEntries, REQUIRED_ENTRIES;
+
+    test.beforeAll(async () => {
+        ({findMissingEntries, REQUIRED_ENTRIES} =
+            await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    });
+
+    test('FIRES: the parse5 bundle absent from the packed set', () => {
+        // The exact regression `/dist` produced: a plausible-looking tarball with the producer script
+        // present and the artifact it produces missing.
+        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'package.json'];
+
+        expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
+    });
+
+    test('PASSES: the same set once the artifact ships', () => {
+        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'dist/parse5.mjs'];
+
+        expect(findMissingEntries(packed)).toEqual([])
+    });
+
+    test('the match is EXACT, so a lookalike path cannot satisfy the rule', () => {
+        // A prefix or suffix match would let `dist/esm/dist/parse5.mjs` — the copy the build emits
+        // INTO the output tree — stand in for the published bundle at the root. They are different
+        // files with different consumers, and only the root one is what an installed engine imports.
+        const packed = ['dist/esm/dist/parse5.mjs', 'vendor/dist/parse5.mjs', 'dist/parse5.mjs.map'];
+
+        expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
+    });
+
+    test('every required entry carries a reason, because the failure message is the whole product', () => {
+        // Same contract the forbidden rules carry: the consumer reading this failure is holding a
+        // broken install and needs to know what the file is FOR, not merely that it is absent.
+        expect(REQUIRED_ENTRIES.length).toBeGreaterThan(0);
+
+        REQUIRED_ENTRIES.forEach(rule => {
+            expect(rule.path).toBeTruthy();
+            expect(rule.why.length).toBeGreaterThan(40)
+        })
+    })
+});
