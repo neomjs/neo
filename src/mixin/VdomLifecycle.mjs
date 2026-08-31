@@ -501,6 +501,29 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Triggered after the updateDepth config got changed.
+     *
+     * A depth escalation that arrives while this component's own update is already in flight must
+     * reach the collision check, not only the payload. `Component#show()` is the canonical case: it
+     * sets `parent.updateDepth = -1` because a floating widget mounting into its parent needs the
+     * full tree, and it can land inside the parent's collection yield. The payload then widens while
+     * {@link Neo.manager.VDomUpdate#getInFlightUpdateDepth} still reports the depth the cycle
+     * started with, so a sibling writing in that window is told the scopes are disjoint and opens a
+     * second, overlapping flight.
+     *
+     * Widening only — see {@link Neo.manager.VDomUpdate#escalateInFlightUpdate}. The escalation
+     * itself is left completely alone; the payload keeps the scope `show()` asked for.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetUpdateDepth(value, oldValue) {
+        // `getVdomUpdatePayload` resets the depth by writing `_updateDepth` directly, which does not
+        // reach this hook — so a collection reset can never narrow a flight that is still open.
+        this.isVdomUpdating && VDomUpdate.escalateInFlightUpdate(this.id, value)
+    }
+
+    /**
      * Checks if a child update can be merged into a parent update.
      *
      * **Merge Strategy (Optimization):**
