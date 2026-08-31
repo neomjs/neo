@@ -181,14 +181,13 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
         // is that the router entry the button reaches is reachable independently of the button,
         // which is what lets a host re-emit the intent for a node it owns the chrome of.
         //
-        // NOTE — the ticket's AC also asks this arm to witness `autoHidden` clearing on the detach
-        // of a RAILED item. That is deliberately NOT asserted, in either direction: ADR 0029 §2.7
-        // states the rule ("`detachItem` on a railed item clears `autoHidden` in the same commit"),
-        // and `model/Operations.detachItem` -> `Document.detachFromTabs` does not implement it — it
-        // only removes the item from its node and reassigns `activeItemId`. That gap belongs to the
-        // shared detach commit, so it reaches the drag terminal and the keyboard twin exactly as it
-        // reaches this button; it is filed separately rather than patched behind a header leaf, and
-        // asserting today's behaviour here would cement the divergence as intended.
+        // NOTE — `autoHidden` clearing on the detach of a RAILED item is deliberately NOT asserted
+        // here, in either direction. The docking design record's §2.7 state table makes detached and
+        // auto-hidden mutually exclusive, and `model/Operations.detachItem` -> `detachFromTabs` does
+        // not implement that: it removes the item from its node and reassigns `activeItemId`,
+        // touching no item field. Until the record and the model agree, an assertion either way
+        // cements one of them; the divergence belongs to the shared detach commit, which the drag
+        // terminal and the keyboard twin reach exactly as this button does.
         const before = await readDocument(page);
 
         expect(before.items.railed.autoHidden).toBe(true);
