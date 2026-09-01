@@ -110,10 +110,11 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
         expect(apply(registry, [
             {action: 'insertNode', parentId: 'neo-grid-body', index: 0, vnode: {id: 'neo-row-1', nodeName: 'div'}}
         ], {
-            coherenceBatches: [{end: 1, ownerId: 'first-owner', start: 0}]
+            coherenceBatches: [{end: 1, ownerId: 'first-owner', sequence: 7, start: 0}]
         })).toEqual([]);
 
         expect(registry.liveSnapshot.get('neo-row-1').ownerId).toBe('first-owner');
+        expect(registry.liveSnapshot.get('neo-row-1').sequence).toBe(7);
 
         // Batch 2: the stale-baseline shape — a producer working from a stale baseline births
         // the same id again. Each batch is internally well-formed (the per-batch guards stay
@@ -121,13 +122,14 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
         const findings = apply(registry, [
             {action: 'insertNode', parentId: 'neo-grid-body', index: 1, vnode: {id: 'neo-row-1', nodeName: 'div'}}
         ], {
-            coherenceBatches: [{end: 1, ownerId: 'stale-owner', start: 0}]
+            coherenceBatches: [{end: 1, ownerId: 'stale-owner', sequence: 8, start: 0}]
         });
 
         expect(rulesOf(findings)).toEqual([COHERENCE_RULES.insert]);
         expect(findings[0].deltaIndex).toBe(0);
         expect(findings[0].detail).toContain('neo-row-1');
-        expect(findings[0].detail).toContain('first-owner')
+        expect(findings[0].detail).toContain('first-owner');
+        expect(findings[0].detail).toContain('sequence 7')
     });
 
     test('catches a string-rendered re-birth through the outerHTML root id', () => {

@@ -40,6 +40,15 @@ class Helper extends Base {
     }
 
     /**
+     * Monotonic VDom-worker compute sequence used only by the flag-gated coherence instrument.
+     * Every update owner in one `updateBatch()` shares the same sequence, letting Main compare
+     * compute order with its later apply/birth order without changing the default wire payload.
+     * @member {Number} coherenceBatchSequence=0
+     * @protected
+     */
+    coherenceBatchSequence = 0
+
+    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -860,6 +869,7 @@ class Helper extends Base {
         let me               = this,
             allDeltas        = [],
             coherenceBatches = NeoConfig.useDeltaCoherenceRegistry ? [] : null,
+            coherenceSequence = coherenceBatches ? ++me.coherenceBatchSequence : null,
             meta             = {},
             vnodes           = {},
             hasMeta          = false,
@@ -875,7 +885,9 @@ class Helper extends Base {
                 allDeltas.push(...result.deltas);
                 vnodes[id] = result.vnode;
 
-                coherenceBatches?.push({end: allDeltas.length, ownerId: id, start});
+                coherenceBatches?.push({
+                    end: allDeltas.length, ownerId: id, sequence: coherenceSequence, start
+                });
 
                 if (updateOpts.meta) {
                     meta[id] = updateOpts.meta;

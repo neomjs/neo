@@ -511,9 +511,11 @@ test.describe('Neo.vdom.Helper', () => {
 
             expect(response.deltas).toHaveLength(2);
             expect(response.coherenceBatches).toEqual([
-                {end: 1, ownerId: 'alpha-component', start: 0},
-                {end: 2, ownerId: 'beta-component',  start: 1}
-            ])
+                expect.objectContaining({end: 1, ownerId: 'alpha-component', start: 0}),
+                expect.objectContaining({end: 2, ownerId: 'beta-component',  start: 1})
+            ]);
+            expect(response.coherenceBatches[0].sequence).toBeGreaterThan(0);
+            expect(response.coherenceBatches[1].sequence).toBe(response.coherenceBatches[0].sequence)
         } finally {
             Neo.config.useDeltaCoherenceRegistry = previous
         }

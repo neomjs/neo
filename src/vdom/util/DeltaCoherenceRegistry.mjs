@@ -169,7 +169,7 @@ const DeltaCoherenceRegistry = {
      */
     children: new Map(),
     /**
-     * The live set: id → `{idSort, parentId, bornAt, ownerId?, witnessed}`.
+     * The live set: id → `{idSort, parentId, bornAt, ownerId?, sequence?, witnessed}`.
      * `witnessed` records how the entry came to be known: `'insert'`, `'rekey'`, or
      * `'first-touch'` (pre-session id accepted as live on first reference).
      * @member {Map<String, Object>} live
@@ -232,9 +232,10 @@ const DeltaCoherenceRegistry = {
      * @param {Number} deltaIndex
      * @param {String} action The acting delta's action (for the finding detail)
      * @param {String|null} [ownerId=null] App-worker update owner attributed to this delta
+     * @param {Number|null} [sequence=null] VDom-worker compute sequence attributed to this delta
      * @protected
      */
-    birth(tx, id, idSort, parentId, deltaIndex, action, ownerId=null) {
+    birth(tx, id, idSort, parentId, deltaIndex, action, ownerId=null, sequence=null) {
         if (typeof id !== 'string' || id === '') {
             return
         }
@@ -243,11 +244,12 @@ const DeltaCoherenceRegistry = {
 
         if (resolved.state === 'live') {
             const bornOwner = resolved.entry.ownerId ? `, owner ${JSON.stringify(resolved.entry.ownerId)}` : '';
+            const bornSequence = Number.isFinite(resolved.entry.sequence) ? `, sequence ${resolved.entry.sequence}` : '';
 
             tx.findings.push({
                 rule      : COHERENCE_RULES.insert,
                 deltaIndex,
-                detail    : `${action} births id "${id}" which is already live (born batch ${resolved.entry.bornAt}${bornOwner}, sort ${resolved.entry.idSort})`
+                detail    : `${action} births id "${id}" which is already live (born batch ${resolved.entry.bornAt}${bornOwner}${bornSequence}, sort ${resolved.entry.idSort})`
             });
             return
         }
@@ -261,6 +263,7 @@ const DeltaCoherenceRegistry = {
             parentId : parentId ?? null,
             bornAt   : this.batchSeq,
             ownerId  : ownerId ?? null,
+            sequence : Number.isFinite(sequence) ? sequence : null,
             witnessed: 'insert'
         });
         tx.retired.delete(id);
@@ -383,17 +386,17 @@ const DeltaCoherenceRegistry = {
             }
 
             const
-                range   = ranges[rangeIndex],
-                ownerId = range && range.start <= deltaIndex && deltaIndex < range.end
-                    ? range.ownerId ?? null
-                    : null;
+                range      = ranges[rangeIndex],
+                inRange    = range && range.start <= deltaIndex && deltaIndex < range.end,
+                ownerId    = inRange ? range.ownerId ?? null : null,
+                sequence   = inRange && Number.isFinite(range.sequence) ? range.sequence : null;
 
             switch (resolveAction(delta)) {
                 case 'focusNode':
                     me.touchTarget(tx, delta.id, deltaIndex, 'focusNode');
                     break
                 case 'insertNode':
-                    me.evaluateInsert(tx, delta, deltaIndex, ownerId);
+                    me.evaluateInsert(tx, delta, deltaIndex, ownerId, sequence);
                     break
                 case 'moveNode':
                     me.touchTarget(tx, delta.id, deltaIndex, 'moveNode');
@@ -413,7 +416,7 @@ const DeltaCoherenceRegistry = {
                     me.touchTarget(tx, delta.fromId, deltaIndex, 'replaceChild');
                     me.touchParent(tx, delta.parentId, deltaIndex, 'replaceChild');
                     me.retire(tx, delta.fromId);
-                    me.birth(tx, delta.toId, ID_SORTS.element, delta.parentId, deltaIndex, 'replaceChild', ownerId);
+                    me.birth(tx, delta.toId, ID_SORTS.element, delta.parentId, deltaIndex, 'replaceChild', ownerId, sequence);
                     break
                 case 'updateNode':
                     me.evaluateUpdate(tx, delta, deltaIndex);
@@ -439,15 +442,16 @@ const DeltaCoherenceRegistry = {
      * @param {Object} delta
      * @param {Number} deltaIndex
      * @param {String|null} [ownerId=null]
+     * @param {Number|null} [sequence=null]
      * @protected
      */
-    evaluateInsert(tx, delta, deltaIndex, ownerId=null) {
+    evaluateInsert(tx, delta, deltaIndex, ownerId=null, sequence=null) {
         this.touchParent(tx, delta.parentId, deltaIndex, 'insertNode');
 
         const rootId = extractInsertRootId(delta);
 
         if (rootId) {
-            this.birth(tx, rootId, witnessInsertSort(delta), delta.parentId, deltaIndex, 'insertNode', ownerId)
+            this.birth(tx, rootId, witnessInsertSort(delta), delta.parentId, deltaIndex, 'insertNode', ownerId, sequence)
         }
     },
 
