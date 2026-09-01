@@ -253,7 +253,9 @@ class Container extends Component {
     }
 
     /**
-     * Triggered after the dragResortable config got changed
+     * Triggered after the dragResortable config got changed. The hook awaits the sort-zone module,
+     * so a container created and destroyed inside that await (a short-lived projection, a unit
+     * harness tearing down) resumes here with no parent left: a destroyed container creates no zone.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -272,6 +274,10 @@ class Container extends Component {
             } else {
                 module = await me.trap(me.loadSortZoneModule());
                 module = module.default
+            }
+
+            if (me.isDestroyed || me.sortZone) {
+                return
             }
 
             me.createSortZone(Neo.merge({
@@ -636,9 +642,9 @@ class Container extends Component {
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item, silent=false, removeFromPreviousParent=true) {
-        let me          = this,
-            {items}     = me,
-            lca         = null,
+        let me      = this,
+            {items} = me,
+            lca     = null,
             i, itemParent, itemType, len, oldParent, parentsA, parentsB, returnArray;
 
         if (Array.isArray(item)) {

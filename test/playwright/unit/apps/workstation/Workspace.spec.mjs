@@ -1081,12 +1081,14 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('remote main previews render all four edges against the exact semantic target geometry', async () => {
+    test('remote main previews resolve through the affordance geometry: the full grammar on the pointed zone, the stored-home tab-into off-zone', async () => {
         const
             workspace         = Neo.create(Workspace, {}),
             sourceWorkspaceId = Workspace.vesselWorkspaceId('queues'),
             hostRect          = {x: 100, y: 80, width: 900, height: 600},
-            targetRect        = {x: 120, y: 120, width: 260, height: 260},
+            leftRect          = {x: 160, y: 140, width: 260, height: 260},
+            heavyRect         = {x: 520, y: 140, width: 300, height: 300},
+            farRect           = {x: 2000, y: 2000, width: 100, height: 100},
             paintedRects      = [],
             measuredIds       = [];
 
@@ -1094,9 +1096,24 @@ test.describe.serial('Workstation.view.Workspace', () => {
             await workspace.crossWindowParticipationPromise;
 
             const
-                host                    = workspace.getReference('dock-host'),
-                target                  = host.down({dockNodeId: 'left-tabs'}),
-                renderer                = workspace.dragAffordances.preview,
+                host        = workspace.getReference('dock-host'),
+                affordances = workspace.dragAffordances,
+                renderer    = affordances.preview,
+                zoneId      = nodeId => host.down({dockNodeId: nodeId}).id,
+                tabsZoneIds = Object.entries(workspace.dockModel.nodes)
+                    .filter(([, node]) => node.type === 'tabs')
+                    .map(([nodeId]) => zoneId(nodeId)),
+                rects                   = {[host.id]: hostRect, [zoneId('left-tabs')]: leftRect, [zoneId('heavy-tabs')]: heavyRect},
+                local                   = rect => ({x: rect.x - hostRect.x, y: rect.y - hostRect.y, width: rect.width, height: rect.height}),
+                render                  = (point, sourceWorkspace = sourceWorkspaceId) => workspace.renderCrossWindowPreview(
+                    Workspace.MAIN_WORKSPACE_ID,
+                    {
+                        draggedItem : {dockItemId: 'queues', dockSourceWorkspaceId: sourceWorkspace},
+                        localX      : point.x,
+                        localY      : point.y,
+                        sourceNodeId: Workspace.vesselTabsNodeId('queues')
+                    }
+                ),
                 WindowManager           = Neo.manager.Window,
                 originalGet             = WindowManager.get,
                 originalGetDomRect      = host.getDomRect,
@@ -1111,99 +1128,86 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1280, height: 720}});
                 host.getDomRect = async ids => {
                     measuredIds.push(ids);
-                    return [hostRect, targetRect]
+                    return ids.map(id => rects[id] ?? farRect)
                 };
                 renderer.applyTargetGeometry = rect => paintedRects.push(rect);
 
-                await workspace.ensureCrossWindowPreviewGeometry(Workspace.MAIN_WORKSPACE_ID, 'left-tabs');
+                // The first frame warms the SAME once-per-gesture measurement the indicator tier
+                // uses — the host plus EVERY projected tabs zone — and hides until it settles.
+                expect(render({x: 290, y: 180})).toBeNull();
+                expect(measuredIds).toHaveLength(1);
+                expect(measuredIds[0][0]).toBe(host.id);
+                expect([...measuredIds[0]].sort()).toEqual([host.id, ...tabsZoneIds].sort());
 
-                expect(measuredIds).toEqual([[host.id, target.id]]);
+                await affordances.ensureGeometry();
 
-                const
-                    baseData = {
-                        draggedItem: {
-                            dockItemId           : 'queues',
-                            dockSourceWorkspaceId: sourceWorkspaceId
-                        },
-                        sourceNodeId: Workspace.vesselTabsNodeId('queues')
-                    },
-                    points = {
-                        top   : {localX: 250, localY: 160},
-                        right : {localX: 379, localY: 250},
-                        bottom: {localX: 250, localY: 379},
-                        left  : {localX: 121, localY: 250}
-                    };
+                // Four edges of the stored home resolve against its exact measured rect (its parent is
+                // the edge-zone root, so every side is a node-splitting edge).
+                const points = {
+                    top   : {x: 290, y: 180},
+                    right : {x: 419, y: 270},
+                    bottom: {x: 290, y: 399},
+                    left  : {x: 161, y: 270}
+                };
 
                 Object.entries(points).forEach(([edge, point]) => {
-                    const preview = workspace.renderCrossWindowPreview(
-                        Workspace.MAIN_WORKSPACE_ID,
-                        {...baseData, ...point}
-                    );
+                    const preview = render(point);
 
                     expect(preview.target.nodeId).toBe('left-tabs');
                     expect(preview.placement.kind).toBe(`edge-${edge}`)
                 });
 
-                expect(paintedRects).toEqual(Array(4).fill({
-                    x     : targetRect.x - hostRect.x,
-                    y     : targetRect.y - hostRect.y,
-                    width : targetRect.width,
-                    height: targetRect.height
-                }));
+                expect(paintedRects).toEqual(Array(4).fill(local(leftRect)));
+                expect(measuredIds, 'one measurement serves the whole gesture').toHaveLength(1);
 
-                const
-                    nativeHomeId = 'right-top-tabs',
-                    nativeTarget = host.down({dockNodeId: nativeHomeId});
+                // The full grammar on ANY pointed zone: heavy-tabs sits in a horizontal split, so its
+                // left band is a sibling insertion — the region a native popup's corner selects.
+                const split = render({x: 530, y: 320});
 
-                workspace.tearOutPlacements.queues = {index: 1, tabsNodeId: nativeHomeId};
-                workspace.crossWindowPreviewGeometries.delete(Workspace.MAIN_WORKSPACE_ID);
+                expect(split.target.nodeId).toBe('heavy-tabs');
+                expect(split.placement.kind).toBe('split-before');
+                expect(paintedRects.at(-1)).toEqual(local(heavyRect));
+                expect(renderer.dockPreview?.previewId).toBe(split.previewId);
 
-                await workspace.ensureCrossWindowPreviewGeometry(
-                    Workspace.MAIN_WORKSPACE_ID,
-                    nativeHomeId
-                );
+                // Off every zone but inside the window: the stored home acquires the drop as a
+                // tab-into, painted on the home's exact rect — never on the pointer's empty position.
+                workspace.tearOutPlacements.queues = {index: 1, tabsNodeId: 'right-top-tabs'};
 
-                expect(measuredIds.at(-1)).toEqual([host.id, nativeTarget.id]);
+                const offZone = render({x: 450, y: 500}, Workspace.MAIN_WORKSPACE_ID);
 
-                const nativeReturnPreview = workspace.renderCrossWindowPreview(
-                    Workspace.MAIN_WORKSPACE_ID,
-                    {
-                        draggedItem: {
-                            dockItemId           : 'queues',
-                            dockSourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID
-                        },
-                        localX      : 250,
-                        localY      : 160,
-                        sourceNodeId: Workspace.vesselTabsNodeId('queues')
-                    }
-                );
+                expect(offZone?.target.nodeId, 'a main-origin native popup recovers its saved semantic home off-zone')
+                    .toBe('right-top-tabs');
+                expect(offZone.placement.kind).toBe('tab-into');
+                expect(paintedRects.at(-1)).toEqual(local(farRect));
 
-                expect(nativeReturnPreview?.target.nodeId,
-                    'a main-origin native popup must recover its own saved semantic home')
-                    .toBe(nativeHomeId);
+                // …while a pointed zone still wins over the stored home.
+                expect(render({x: 290, y: 300}, Workspace.MAIN_WORKSPACE_ID)).toMatchObject({
+                    placement: {kind: 'tab-into'},
+                    target   : {nodeId: 'left-tabs'}
+                });
 
-                workspace.tearOutPlacements.queues = {index: 0, tabsNodeId: 'left-tabs'};
-
+                // A main-window resize mid-gesture re-measures: the in-flight frame hides stale
+                // pixels, the settled one paints again.
                 let settleReplacement;
 
                 WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1279, height: 720}});
                 host.getDomRect = async ids => {
                     measuredIds.push(ids);
 
-                    return new Promise(resolve => settleReplacement = resolve)
+                    return new Promise(resolve => settleReplacement = () => resolve(ids.map(id => rects[id] ?? farRect)))
                 };
 
-                expect(workspace.renderCrossWindowPreview(
-                    Workspace.MAIN_WORKSPACE_ID,
-                    {...baseData, ...points.top}
-                )).toBeNull();
+                expect(render(points.top)).toBeNull();
                 expect(renderer.dockPreview, 'an in-flight replacement must hide stale pixels').toBeNull();
+                expect(measuredIds).toHaveLength(2);
 
-                settleReplacement([hostRect, targetRect]);
-                await workspace.ensureCrossWindowPreviewGeometry(Workspace.MAIN_WORKSPACE_ID, 'left-tabs')
+                settleReplacement();
+                await affordances.ensureGeometry();
+
+                expect(render(points.top)).toMatchObject({placement: {kind: 'edge-top'}, target: {nodeId: 'left-tabs'}})
             } finally {
-                WindowManager.get           = originalGet;
-                host.getDomRect             = originalGetDomRect;
+                WindowManager.get            = originalGet;
+                host.getDomRect              = originalGetDomRect;
                 renderer.applyTargetGeometry = originalApplyTargetRect;
                 workspace.windowId           = originalWindowId;
                 workspace.vesselWorkspaces.delete(sourceWorkspaceId);
@@ -1234,6 +1238,8 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             const
                 host               = workspace.getReference('dock-host'),
+                homeId             = host.down({dockNodeId: 'left-tabs'}).id,
+                farRect            = {x: 2000, y: 2000, width: 100, height: 100},
                 renderer           = workspace.dragAffordances.preview,
                 WindowManager      = Neo.manager.Window,
                 originalGet        = WindowManager.get,
@@ -1242,12 +1248,12 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             try {
                 WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1280, height: 720}});
-                host.getDomRect   = async () => [hostRect, targetRect];
+                host.getDomRect   = async ids => ids.map(id => id === host.id ? hostRect : id === homeId ? targetRect : farRect);
 
-                await workspace.ensureCrossWindowPreviewGeometry(Workspace.MAIN_WORKSPACE_ID, 'left-tabs');
+                await workspace.dragAffordances.ensureGeometry();
 
-                // Off-zone but window-admitted: inside the host rect, outside the exact node
-                // rect — the stored-home fallback must paint the grouped tab-into…
+                // Off-zone but window-admitted: inside the host rect, outside every zone rect —
+                // the stored-home fallback must paint the grouped tab-into…
                 participation.target.onRemoteDragMove({
                     draggedItem: {
                         dockGroupNodeId      : 'workstation-vessel-tabs:queues',
