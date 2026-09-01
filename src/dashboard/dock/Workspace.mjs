@@ -2203,10 +2203,23 @@ class Workspace extends Container {
             index   = itemIds.indexOf(itemId),
             pane    = index > -1 ? tabContainer.getCard(index) : null;
 
-        if (!pane || pane.isDestroyed || typeof pane.dockReload !== 'function') {
-            // The visibility sync hides the action for exactly these panes; reaching this guard
-            // means a race (teardown, active-item flip mid-dispatch) — settle it honestly.
-            errors.push(`Dock reload has no live dockReload() contract for item "${itemId}"`)
+        if (!pane || pane.isDestroyed) {
+            // No live card at all: a race (teardown, active-item flip mid-dispatch). There is
+            // nothing to delegate to and nothing to replace — settle it honestly.
+            errors.push(`Dock reload has no live pane for item "${itemId}"`)
+        } else if (typeof pane.dockReload !== 'function') {
+            // THE FALLBACK. A pane that never implemented the delegation contract has no other
+            // recovery once its own state is wedged, which is the entire reason the recreate
+            // transaction exists. Delegation first, recreate only when it is absent — a pane that
+            // owns `dockReload()` decides what reload means, and replacing it instead would
+            // discard that authority AND its identity.
+            //
+            // Settles through THIS method's channel rather than `dockRecreateSettled`: one
+            // activation, one settlement, whichever path served it. The recreate transaction's own
+            // channel stays for direct callers.
+            const recreated = me.recreateDockPane(itemId, pane, {dockNodeId});
+
+            recreated?.errors?.length && errors.push(...recreated.errors)
         } else {
             me.dockReloadInFlight.add(itemId);
             me.syncDockReloadAction(tabContainer);
@@ -2274,8 +2287,12 @@ class Workspace extends Container {
                 pane    = index > -1 ? tabContainer.getCard(index) : null,
                 carrier = pane?.isDestroyed ? null : (pane?.dockReload ?? pane?.module?.prototype?.dockReload);
 
-            disabled = this.dockReloadInFlight.has(itemId);
-            hidden   = typeof carrier !== 'function'
+            disabled = this.dockReloadInFlight.has(itemId) || this.dockRecreateInFlight.has(itemId);
+
+            // An absent delegation hook no longer hides the action on its own: the recreate
+            // fallback serves exactly those panes, so hiding them would hide the only recovery
+            // they have. Hidden only when NEITHER path can serve the item.
+            hidden = typeof carrier !== 'function' && !this.hasDockRecreateFallback()
         }
 
         // ONE batched update for both axes (`set()`), never two sequential writes: each write
@@ -3414,6 +3431,25 @@ class Workspace extends Container {
     }
 
     /**
+     * Whether this workspace can serve a recreate at all — i.e. whether a consumer overrode
+     * {@link #resolveFreshPane}.
+     *
+     * Derived from the prototype rather than by calling the factory, because this is consulted by
+     * {@link #syncDockReloadAction} on every active-item change and a visibility sync must not have
+     * side effects: invoking a consumer factory to decide whether to show a button would mint panes
+     * nobody asked for.
+     *
+     * It answers "is the capability wired", not "will this particular item succeed". A consumer that
+     * overrides the hook and then declines a specific item still gets a **visible** action that
+     * settles with a named refusal — which is the honest behaviour: hiding it would leave a wedged
+     * pane with no affordance and no explanation.
+     * @returns {Boolean}
+     */
+    hasDockRecreateFallback() {
+        return this.resolveFreshPane !== Workspace.prototype.resolveFreshPane
+    }
+
+    /**
      * Phase 1 of the two-phase recreate transaction: obtain and validate a fresh candidate **without
      * touching the live pane**.
      *
@@ -3512,15 +3548,31 @@ class Workspace extends Container {
             return {ok: false, index, reason: 'not-in-container'}
         }
 
-        // `false`: the old instance must outlive its own removal.
-        container.removeAt(index, false);
-        container.insert(index, candidate);
+        // INSERT FIRST, then remove. The reverse order — remove, then insert — has a window between
+        // the two calls where the slot is empty and the predecessor is orphaned, and an `insert`
+        // that throws (an invalid candidate config is ordinary consumer input) leaves it that way
+        // permanently. That is the silent pane loss this whole transaction exists to prevent, so the
+        // failure mode cannot live inside the commit either.
+        //
+        // Inserting at `index` shifts the predecessor to `index + 1`; nothing is removed until the
+        // candidate is demonstrably in the container.
+        try {
+            container.insert(index, candidate)
+        } catch (error) {
+            // Nothing was removed, so there is nothing to restore — rollback by construction here
+            // too, not by repair.
+            return {ok: false, index, reason: 'insert-failed', error}
+        }
 
-        // The candidate is in the slot; the predecessor is now safe to release. Ordering is the
-        // contract, not an implementation detail — everything above is reversible until this line.
+        // `false`: the predecessor must outlive its own removal, so a failure here still leaves a
+        // live pane in the container rather than a destroyed one.
+        container.removeAt(index + 1, false);
+
+        // The candidate is in the slot; the predecessor is now safe to release. The ordering is the
+        // contract, not an implementation detail.
         livePane.destroy();
 
-        return {ok: true, index, reason: null}
+        return {ok: true, index, reason: null, error: null}
     }
 
     /**
@@ -3572,7 +3624,11 @@ class Workspace extends Container {
             } else {
                 const committed = me.commitRecreateCandidate(livePane, prepared.candidate);
 
-                committed.ok || errors.push(`Dock recreate could not commit item "${itemId}": ${committed.reason}`)
+                if (!committed.ok) {
+                    errors.push(`Dock recreate could not commit item "${itemId}": ${committed.reason}`);
+
+                    committed.error && errors.push(committed.error.message)
+                }
             }
         } finally {
             me.dockRecreateInFlight.delete(itemId)

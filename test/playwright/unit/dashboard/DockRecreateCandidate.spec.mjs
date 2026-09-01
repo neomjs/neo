@@ -16,6 +16,7 @@ import Container                from '../../../../src/container/Base.mjs';
 import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+import TabContainer             from '../../../../src/tab/Container.mjs';
 // Side-effect imports: the projection instantiates by ntype, so the tab/toolbar/button classes must
 // be registered or `DockLayoutAdapter.project` throws `ntype tab-container does not exist`.
 import '../../../../src/manager/Instance.mjs';
@@ -333,6 +334,35 @@ test.describe('dock recreate — settles exactly once, one flight per item', () 
         expect(settlements.length, 'absorption is the only silent path — one settlement, not two').toBe(1)
     });
 
+    test('an insertion that THROWS leaves the live pane in its slot and settles once', () => {
+        // The atomicity hole this ordering exists to close. An invalid candidate config is ordinary
+        // consumer input, and `insert` throwing after `removeAt` would leave the slot EMPTY with the
+        // predecessor orphaned — silent pane loss, inside the transaction built to prevent it.
+        // Inserting first means a throw removes nothing.
+        const realInsert = container.insert.bind(container);
+
+        container.insert = () => { throw new Error('candidate could not be instantiated') };
+
+        workspace.resolveFreshPane = () => ({module: Component, id: 'settle-fresh'});
+
+        const result = workspace.recreateDockPane('editor', livePane);
+
+        container.insert = realInsert;
+
+        // Settles rather than throws...
+        expect(result, 'a throwing insert must settle, not propagate').not.toBeNull();
+        expect(settlements.length, 'exactly one settlement').toBe(1);
+        expect(settlements[0].errors[0]).toContain('insert-failed');
+        expect(settlements[0].errors[1]).toContain('could not be instantiated');
+
+        // ...and the slot is untouched: same instance, same index, still alive.
+        expect(container.items.length, 'nothing was removed').toBe(1);
+        expect(container.items[0], 'the SAME live instance is still in the slot').toBe(livePane);
+        expect(livePane.isDestroyed, 'and it was never destroyed').toBeFalsy();
+
+        expect(workspace.dockRecreateInFlight.has('editor'), 'the flight is released').toBe(false)
+    });
+
     test('the in-flight set is released even when a phase throws', () => {
         workspace.resolveFreshPane = () => { throw new Error('resolver exploded') };
 
@@ -346,6 +376,130 @@ test.describe('dock recreate — settles exactly once, one flight per item', () 
         workspace.recreateDockPane('editor', livePane);
 
         expect(settlements.length, 'a later invocation still runs and settles').toBe(2)
+    })
+});
+
+/**
+ * The production action path — the thing the ticket actually exists to provide.
+ *
+ * A recreate transaction nobody can reach is not a "default reload fallback". These arms drive
+ * `handleDockReloadAction` and `syncDockReloadAction`, the real dispatch and the real visibility
+ * derivation, against a real `tab.Container`.
+ *
+ * **Delegation first, recreate only in its absence.** A pane that implements `dockReload()` decides
+ * what reload means; replacing it would discard both that authority and its identity. The fallback
+ * serves only panes that never implemented it — the ones with no other recovery.
+ */
+test.describe('dock reload — the fallback the ticket exists to provide', () => {
+    let workspace, tabContainer, settlements;
+
+    const buildTabs = paneConfig => {
+        const tabs = Neo.create(TabContainer, {
+            appName    : 'DashboardDockRecreateCandidateTest',
+            activeIndex: 0,
+            items      : [paneConfig]
+        });
+
+        // The handler resolves the active card through the bar's dock id list — the same lookup
+        // production uses, populated here rather than faked.
+        tabs.getTabBar().sortZoneConfig = {dockItemIds: ['editor']};
+
+        return tabs
+    };
+
+    test.beforeEach(() => {
+        workspace   = buildWorkspace({enableDockReloadAction: true});
+        settlements = [];
+
+        workspace.on('dockReloadSettled', data => settlements.push(data))
+    });
+
+    test.afterEach(() => {
+        tabContainer?.destroy?.();
+        workspace?.destroy?.();
+        workspace = tabContainer = settlements = null
+    });
+
+    test('a contract-less pane is RECREATED, and settles through the reload channel', async () => {
+        tabContainer = buildTabs({module: Component, id: 'fallback-live'});
+
+        const livePane = tabContainer.getCard(0);
+
+        workspace.getActiveDockItemId = () => 'editor';
+        workspace.resolveFreshPane    = () => ({module: Component, id: 'fallback-fresh'});
+
+        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+
+        // One activation, one settlement — through the RELOAD channel, whichever path served it.
+        expect(settlements.length, 'the activation settles exactly once').toBe(1);
+        expect(settlements[0].errors, 'and it succeeded').toEqual([]);
+
+        expect(tabContainer.getCard(0).id, 'the pane was replaced').toBe('fallback-fresh');
+        expect(livePane.isDestroyed, 'and the predecessor released').toBe(true)
+    });
+
+    test('a consumer that DECLINES fresh resolution settles with a named refusal, pane intact', async () => {
+        tabContainer = buildTabs({module: Component, id: 'fallback-live'});
+
+        const livePane = tabContainer.getCard(0);
+
+        workspace.getActiveDockItemId = () => 'editor';
+        // Overridden — so the action is visible — but declining this item.
+        workspace.resolveFreshPane = () => null;
+
+        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+
+        expect(settlements.length).toBe(1);
+        expect(settlements[0].errors[0], 'the refusal reason travels').toContain('declined');
+        expect(tabContainer.getCard(0), 'the live pane is untouched').toBe(livePane);
+        expect(livePane.isDestroyed).toBeFalsy()
+    });
+
+    test('delegation still wins when the pane implements dockReload()', async () => {
+        let delegated = 0;
+
+        class ReloadablePane extends Component {
+            static config = {className: 'Test.DockRecreate.ReloadablePane', ntype: 'test-reloadable-pane'}
+            dockReload() { delegated++ }
+        }
+
+        Neo.setupClass(ReloadablePane);
+
+        tabContainer = buildTabs({module: ReloadablePane, id: 'fallback-live'});
+
+        const livePane = tabContainer.getCard(0);
+
+        workspace.getActiveDockItemId = () => 'editor';
+
+        // A fallback IS available — and must not be used. Replacing a pane that owns dockReload()
+        // would discard both its authority over what reload means and its identity.
+        workspace.resolveFreshPane = () => ({module: Component, id: 'fallback-fresh'});
+
+        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+
+        expect(delegated, 'the pane\'s own contract ran').toBe(1);
+        expect(tabContainer.getCard(0), 'and it was NOT replaced').toBe(livePane);
+        expect(livePane.isDestroyed).toBeFalsy()
+    });
+
+    test('an absent dockReload() no longer hides the action when a fallback exists', () => {
+        tabContainer = buildTabs({module: Component, id: 'fallback-live'});
+
+        const action = Neo.create(Component, {appName: 'DashboardDockRecreateCandidateTest'});
+
+        action.set = function(values) { Object.assign(this, values) };
+
+        tabContainer.getActionItem  = () => action;
+        workspace.getActiveDockItemId = () => 'editor';
+
+        // No fallback wired: hiding is correct — the item has no recovery at all.
+        workspace.syncDockReloadAction(tabContainer);
+        expect(action.hidden, 'no delegation, no fallback → hidden').toBe(true);
+
+        // Fallback wired: the action must appear, because it is now the pane's ONLY recovery.
+        workspace.resolveFreshPane = () => ({module: Component});
+        workspace.syncDockReloadAction(tabContainer);
+        expect(action.hidden, 'no delegation but a fallback → visible').toBe(false)
     })
 });
 
