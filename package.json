@@ -117,7 +117,7 @@
         "marked"                       : "^18.0.5",
         "mermaid"                      : "^11.16.0",
         "monaco-editor"                : "0.50.0",
-        "neo-agent-skills"             : "^0.1.1",
+        "neo-agent-skills"             : "^0.1.3",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.16",
         "sass"                         : "^1.101.0",
