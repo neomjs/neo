@@ -20,6 +20,7 @@ import * as core          from '../../../../src/core/_export.mjs';
 import Component          from '../../../../src/component/Base.mjs';
 import Container          from '../../../../src/container/Base.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import TreeBuilder        from '../../../../src/util/vdom/TreeBuilder.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 import VDomUpdate         from '../../../../src/manager/VDomUpdate.mjs';
 
@@ -618,5 +619,63 @@ test.describe('VdomLifecycle Race Condition', () => {
             Neo.config.useDeltaCoherenceRegistry = previousFlag;
             VDomUpdate.clearCoherenceAcknowledgments(appName, null)
         }
+    });
+
+    test('a child vnode adoption re-canonicalizes a raw ancestor cache before its next dense diff', async () => {
+        const
+            rootId       = getUniqueId('ancestor-cache-root'),
+            childOwnerId = getUniqueId('ancestor-cache-child'),
+            birthId      = getUniqueId('ancestor-cache-birth'),
+            applied      = [];
+
+        createdComponentIds.push(rootId);
+
+        const root = Neo.create(RaceContainer, {
+            appName,
+            id   : rootId,
+            items: [{
+                module: RaceContainer,
+                id    : childOwnerId,
+                items : [{
+                    module  : RaceChildComponent,
+                    id      : birthId,
+                    hidden  : true,
+                    hideMode: 'removeDom',
+                    text    : 'Birth'
+                }]
+            }]
+        });
+
+        await root.initVnode(true);
+        root.mounted = true;
+
+        const
+            childOwner = root.items[0],
+            birth       = childOwner.items[0];
+
+        Neo.applyDeltas = async (windowId, deltas) => applied.push(...deltas);
+
+        // Model the cache shape the CI capture exposed: this ancestor owns a raw snapshot of the
+        // child's old subtree instead of a live component-reference boundary.
+        root._vnode = TreeBuilder.getVnodeTree(root.vnode, -1);
+
+        expect(root.vnode.childNodes[0].componentId).toBeUndefined();
+
+        birth.setSilent({hidden: false});
+        childOwner.updateDepth = -1;
+        await childOwner.promiseUpdate();
+
+        // Child B is authoritative now. The ancestor cache must have become a reference so its
+        // dense payload expands B instead of diffing against the raw pre-birth snapshot A.
+        expect(root.vnode.childNodes[0]).toEqual(expect.objectContaining({
+            componentId: childOwnerId
+        }));
+
+        root.updateDepth = -1;
+        await root.promiseUpdate();
+
+        expect(applied.filter(delta =>
+            delta.action === 'insertNode' && delta.vnode?.id === birthId
+        )).toHaveLength(1)
     });
 });

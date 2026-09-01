@@ -1015,7 +1015,32 @@ class VdomLifecycle extends Base {
         // silent update
         me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
 
+        me.syncAncestorVnodeReferences();
+
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
+    }
+
+    /**
+     * @summary Replaces stale raw child snapshots along the live ancestor chain with component
+     * references after this owner adopts a vnode.
+     *
+     * Only the immediate child boundary is considered at each level. Existing references make
+     * deeper traversal unnecessary; different App/window realms terminate the walk, preserving
+     * cross-window move ownership. Internal `_vnode` caches are canonicalized in place without
+     * invoking the public setter or scheduling another render.
+     * @protected
+     */
+    syncAncestorVnodeReferences() {
+        const me = this;
+
+        let child  = me,
+            parent = child.parent;
+
+        while (parent && parent.appName === me.appName && parent.windowId === me.windowId) {
+            parent.vnode && ComponentManager.ensureVnodeComponentReference(parent.vnode, child);
+            child  = parent;
+            parent = parent.parent
+        }
     }
 
     /**
