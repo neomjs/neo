@@ -2359,6 +2359,72 @@ test.describe('Workstation — dense living-data composition', () => {
         })
     }
 
+    test('a narrow long-title reveal stays contained and reads as an elevated pane', async ({page, neuralLink}) => {
+        await bootActionAcceptance({page, neuralLink});
+
+        await page.setViewportSize({height: 900, width: 420});
+
+        const railTab = page.locator('.neo-dashboard-dock-edge-rail-left .neo-dashboard-dock-rail-tab')
+            .filter({hasText: 'Dependency Graph Explorer'});
+
+        await expect(railTab).toBeVisible({timeout: 10000});
+        await railTab.click();
+
+        const
+            overlay = page.locator(
+                '.neo-dashboard-dock-reveal-overlay-left:not(.neo-dashboard-dock-reveal-overlay-hidden)'
+            ),
+            titleText = overlay.locator('.neo-dashboard-dock-reveal-title .neo-button-text');
+
+        await expect(overlay).toBeVisible({timeout: 10000});
+        await expect(titleText).toHaveText('Dependency Graph Explorer');
+
+        const geometry = await overlay.evaluate(overlayNode => {
+            const
+                workspaceNode = overlayNode.closest('.workstation-workspace'),
+                headerNode    = overlayNode.querySelector('.neo-dashboard-dock-reveal-header'),
+                titleNode     = headerNode.querySelector('.neo-dashboard-dock-reveal-title'),
+                textNode      = titleNode.querySelector('.neo-button-text'),
+                pinNode       = headerNode.querySelector('.neo-dashboard-dock-reveal-pin'),
+                workspaceBox  = workspaceNode.getBoundingClientRect(),
+                overlayBox    = overlayNode.getBoundingClientRect(),
+                headerBox     = headerNode.getBoundingClientRect(),
+                titleBox      = titleNode.getBoundingClientRect(),
+                textBox       = textNode.getBoundingClientRect(),
+                pinBox        = pinNode.getBoundingClientRect(),
+                overlayStyle  = getComputedStyle(overlayNode),
+                textStyle     = getComputedStyle(textNode);
+
+            return {
+                backgroundColor: overlayStyle.backgroundColor,
+                boxShadow      : overlayStyle.boxShadow,
+                header         : {left: headerBox.left, right: headerBox.right},
+                overlayRatio   : overlayBox.width / workspaceBox.width,
+                overlayWidth   : overlayBox.width,
+                pin            : {left: pinBox.left, right: pinBox.right},
+                text           : {
+                    left        : textBox.left,
+                    overflow    : textStyle.overflow,
+                    right       : textBox.right,
+                    textOverflow: textStyle.textOverflow
+                },
+                title          : {left: titleBox.left, right: titleBox.right}
+            }
+        });
+
+        expect(geometry.title.left).toBeGreaterThanOrEqual(geometry.header.left);
+        expect(geometry.title.right).toBeLessThanOrEqual(geometry.pin.left);
+        expect(geometry.text.left).toBeGreaterThanOrEqual(geometry.title.left);
+        expect(geometry.text.right).toBeLessThanOrEqual(geometry.title.right);
+        expect(geometry.pin.right).toBeLessThanOrEqual(geometry.header.right);
+        expect(geometry.text.overflow).toBe('hidden');
+        expect(geometry.text.textOverflow).toBe('ellipsis');
+        expect(geometry.overlayRatio).toBeGreaterThan(0.75);
+        expect(geometry.overlayWidth).toBeCloseTo(320, 0);
+        expect(geometry.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+        expect(geometry.boxShadow).not.toBe('none');
+    });
+
     test('reload recreates a contract-less Workstation pane and adopts the committed identity', async ({page, neuralLink}) => {
         const pageErrors = [];
 

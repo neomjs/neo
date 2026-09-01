@@ -95,6 +95,16 @@
         }
     }
 
+    .neo-dashboard-dock-reveal-overlay {
+        --dock-reveal-background     : var(--workstation-rail);
+        --dock-reveal-border         : 1px solid color-mix(in srgb, var(--workstation-signal) 46%, var(--workstation-line));
+        --dock-reveal-min-block-size : 16rem;
+        --dock-reveal-min-inline-size: 20rem;
+        --dock-reveal-radius         : 8px;
+        --dock-reveal-shadow         : 0 14px 38px color-mix(in srgb, var(--workstation-ground) 72%, transparent),
+                                       0 0 20px color-mix(in srgb, var(--workstation-signal) 16%, transparent);
+    }
+
     // Horizontal rails read as an app-edge info line: give their labels the tourbar caption's
     // breathing room instead of the shared strip's 1px inline padding. The vertical rails keep the
     // slim shared padding — the physical 1px inline is what lets the rotated label fit the 14px

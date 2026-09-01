@@ -949,6 +949,9 @@ class Workspace extends DockWorkspace {
         let me = this;
 
         return {
+            // Dense Workstation panes need more than the engine's compact 25% reveal floor. The
+            // committed edge extent still wins whenever it is larger.
+            defaultRevealFraction      : 0.35,
             // Cross-window participation (§2.3): every projected tab zone registers as a
             // coordinator-visible drag source under one sort group; the workspace id rides the
             // payload for the receiving window's `transferItem` resolution.
