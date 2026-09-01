@@ -32,6 +32,11 @@ const readChrome = page => page.evaluate(() => [...document.querySelectorAll('.n
     return {
         containerId : container?.id ?? null,
         inline      : !!container?.classList.contains('neo-tab-container-inline'),
+        // The other two classes a tab container derives from its own configs. `ui` was the reported
+        // casualty, but the projected `cls` replacement dropped all three, so all three are pinned:
+        // a fix that restores only the visible one would pass an inline-only assertion.
+        plain       : !!container?.classList.contains('neo-tab-container-plain'),
+        position    : ['top', 'right', 'bottom', 'left'].find(edge => container?.classList.contains(`neo-${edge}`)) ?? null,
         headerHeight: buttons[0] ? getComputedStyle(buttons[0]).height : null,
         pressedCount: buttons.filter(button => button.classList.contains('pressed')).length,
         tabTexts    : buttons.map(button => button.textContent.trim()),
@@ -63,8 +68,9 @@ test.describe('Workstation — docking a tab to a grid edge leaves every other h
         // container starts inline. A future default flip must red here, not silently pass below.
         expect(before.length, 'the workspace must project several tab containers').toBeGreaterThan(2);
         expect(
-            before.filter(entry => !entry.inline).map(entry => entry.containerId),
-            `precondition: every container starts inline — ${JSON.stringify(before)}`
+            before.filter(entry => !entry.inline || !entry.plain || !entry.position)
+                .map(entry => ({id: entry.containerId, inline: entry.inline, plain: entry.plain, position: entry.position})),
+            `precondition: every container starts with all three config-derived classes — ${JSON.stringify(before)}`
         ).toEqual([]);
 
         const topology = (await app.getDockTopology(wsId)).document;
@@ -126,9 +132,24 @@ test.describe('Workstation — docking a tab to a grid edge leaves every other h
             `every dock tab container must still hold ui:'inline' in the App Worker — ${JSON.stringify(uiConfigs)}`
         ).toEqual([]);
 
+        // All three config-derived classes, not just the one the operator could see. `ui` produced
+        // the visible 32px→48px jump; `plain` and the position class were dropped by the same
+        // replacement and would have stayed lost behind an inline-only assertion.
         expect(
-            chrome.filter(entry => !entry.inline).map(entry => ({id: entry.containerId, h: entry.headerHeight, tabs: entry.tabTexts})),
-            `every tab container must still be inline after the split — ${JSON.stringify(chrome)}`
+            chrome.filter(entry => !entry.inline || !entry.plain || !entry.position)
+                .map(entry => ({id: entry.containerId, inline: entry.inline, plain: entry.plain, position: entry.position, h: entry.headerHeight})),
+            `every container keeps its config-derived classes after the split — ${JSON.stringify(chrome)}`
+        ).toEqual([]);
+
+        // Matched by container id, not by index: the split adds a node, so the two lists differ in
+        // length and a positional compare would fail on the new container rather than on a defect.
+        const positionBefore = new Map(before.map(entry => [entry.containerId, entry.position]));
+
+        expect(
+            chrome.filter(entry => positionBefore.has(entry.containerId))
+                .filter(entry => entry.position !== positionBefore.get(entry.containerId))
+                .map(entry => ({id: entry.containerId, was: positionBefore.get(entry.containerId), now: entry.position})),
+            'a retained container keeps its position class VALUE, not merely some position class'
         ).toEqual([]);
 
         // NOT asserted here, deliberately: a second, independent defect makes the source header

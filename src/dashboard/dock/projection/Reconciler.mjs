@@ -31,6 +31,41 @@ class Reconciler extends Base {
     }
 
     /**
+     * @summary The classes a retained tab container derives from its OWN configs.
+     *
+     * A projected `cls` is the projection's own constant and knows nothing about these, so replacing
+     * the array on a retained container dropped every one of them: `ui: 'inline'` lost its 32px
+     * density, the tab-bar position lost its orientation class, and a plain container lost its body
+     * border. A freshly constructed sibling kept them, because construction re-runs the hooks that
+     * add them — which is why the defect only ever showed on containers that survived.
+     *
+     * **Re-derived, never unioned with the live `cls`.** A union also preserves classes carrying
+     * STATE the projection is responsible for clearing: `dashboard.dock.Workspace` removes
+     * `neo-dock-maximized` by filtering `cls`, so keeping the live array made maximize sticky and
+     * broke its terminal-clear contract.
+     *
+     * Enumerated rather than inferred, each row naming the hook that owns it. There is no runtime
+     * marker separating a config-derived class from a state-carrying one, so a new derivation has to
+     * be added here deliberately — the alternative is a heuristic that silently guesses wrong in one
+     * direction or the other.
+     * @param {Neo.tab.Container} tab
+     * @returns {String[]}
+     * @static
+     */
+    static configDerivedClasses(tab) {
+        const classes = [];
+
+        // component.Base#afterSetUi
+        tab.ui && classes.push(`neo-${tab.ntype}-${tab.ui}`);
+        // tab.Container#afterSetTabBarPosition
+        tab.tabBarPosition && classes.push(`neo-${tab.tabBarPosition}`);
+        // tab.Container#afterSetPlain
+        tab.plain && classes.push(`${tab.tabContainerCls}-plain`);
+
+        return classes
+    }
+
+    /**
      * @summary Collects keyed tab-chrome owners below one projected dock shell.
      * @param {Neo.component.Base|null} root
      * @returns {Map<String,Neo.tab.Container>}
@@ -511,20 +546,7 @@ class Reconciler extends Base {
             targetParent.remove(placeholder, true, true);
             sourceParent.remove(tab, false, true, true);
             tab.setSilent({
-                // The projected `cls` is the projection's own constant and knows nothing about the
-                // class `component.Base#afterSetUi` derives from `ui`. Replacing the array dropped
-                // it, so a retained container silently lost `ui: 'inline'` — its header jumped from
-                // the inline 32px density to 48px — while a freshly constructed sibling kept it,
-                // because construction re-runs that hook.
-                //
-                // Re-derived rather than unioned with the live `cls`. A union also preserves classes
-                // carrying STATE the projection is responsible for clearing — `Workspace` removes
-                // `neo-dock-maximized` by filtering `cls`, so keeping the live array made maximize
-                // sticky and broke its terminal-clear contract.
-                cls      : [
-                    ...(plan.config.cls || []),
-                    ...(tab.ui ? [`neo-${tab.ntype}-${tab.ui}`] : [])
-                ],
+                cls      : [...(plan.config.cls || []), ...Reconciler.configDerivedClasses(tab)],
                 flex     : plan.config.flex,
                 listeners: plan.config.listeners,
                 style    : plan.config.style,
