@@ -206,4 +206,26 @@ test.describe('VDOM Auto-ID Generation', () => {
         c1.destroy();
         c2.destroy();
     });
+
+    test('addVnodeComponentReferences never reuses the previous sibling reference', () => {
+        const
+            first = Neo.create(Component, {appName, id: 'reference-sibling-first'}),
+            second = Neo.create(Component, {appName, id: 'reference-sibling-second'}),
+            tree = {
+                childNodes: [
+                    {childNodes: [], id: first.id},
+                    {childNodes: [], componentId: second.id, id: second.id}
+                ],
+                id: 'reference-sibling-parent'
+            },
+            result = Neo.manager.Component.addVnodeComponentReferences(tree, tree.id);
+
+        expect(result.childNodes).toEqual([
+            {componentId: first.id, id: first.id},
+            {childNodes: [], componentId: second.id, id: second.id}
+        ]);
+
+        first.destroy();
+        second.destroy()
+    });
 });

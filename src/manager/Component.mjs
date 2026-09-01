@@ -56,13 +56,19 @@ class Component extends Manager {
         vnode = {...vnode}; // shallow copy
 
         let me         = this,
-            childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
-            childNodeId, component, componentId, parentRef, referenceNode;
+            childNodes = vnode?.childNodes ? [...vnode.childNodes] : [];
 
         vnode.childNodes = childNodes;
 
-        childNodes.forEach((childNode, index) => {
-            childNodeId = childNode.id;
+        for (let index = 0, len = childNodes.length; index < len; index++) {
+            const childNode = childNodes[index];
+
+            let
+                childNodeId = childNode.id,
+                component,
+                componentId,
+                parentRef,
+                referenceNode;
 
             if (!childNode.componentId && childNodeId !== ownerId) {
                 component = me.get(childNodeId);
@@ -89,7 +95,7 @@ class Component extends Manager {
             }
 
             childNodes[index] = component ? referenceNode : me.addVnodeComponentReferences(childNode, ownerId)
-        });
+        }
 
         return vnode
     }
