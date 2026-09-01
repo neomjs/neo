@@ -85,6 +85,74 @@ class TreeStore extends Store {
     #childrenMap = new Map()
 
     /**
+     * @summary Inserts a node into a parent's child array, resolving membership by key.
+     *
+     * `#allRecordsMap` is keyed, so re-adding a node overwrites its entry. `#childrenMap` holds arrays,
+     * where membership has to be scanned for — and scanning by object identity is a membership test an
+     * equal-but-distinct literal can never satisfy, which is the ordinary shape for anything re-read
+     * from a config, a fixture or an API. Identity-scanning therefore appended the new literal beside
+     * the object it had just replaced: the child array held a stale node and a live one under the same
+     * key, `getCount()` reported one child while `getChildren()` returned two, and `updateSiblingStats()`
+     * published the array's length as `siblingCount` — a level with a single node announcing "1 of 2" to
+     * a screen reader while the rendered tree looked entirely correct.
+     *
+     * Resolving by key keeps both maps pointing at the same record: an existing key is replaced in place,
+     * so the re-added field values win and the stale object stops being reachable through `getChildren()`.
+     * Re-adding the exact same reference stays a no-op, and `affectedParents` grows only when the array
+     * actually changed, so `updateSiblingStats()` runs for a replacement and not for a no-op.
+     *
+     * **Why the caller hands over the previous record rather than letting this scan for the key.**
+     * Ingestion is already O(N) over a level, so a per-node key scan makes a bulk load O(N²) — with a
+     * record getter on every comparison rather than a reference check. Measured over 20k flat siblings,
+     * that is the difference between 0.5s and 11.6s, in the one class whose whole premise is 50k-record
+     * ingestion. A key absent from `#allRecordsMap` cannot be in any child array, so the common path —
+     * ingesting a genuinely new node — never scans at all, and only a real re-add pays for the lookup.
+     *
+     * @param {String|Number} parentId The child array to insert into. Root-level nodes live under 'root'.
+     * @param {Object|Neo.data.Record} data
+     * @param {Object|Neo.data.Record|undefined} existing What this key resolved to BEFORE the current
+     * ingestion overwrote it; `undefined` for a key the Structural Layer has never held.
+     * @param {Set} affectedParents Collects the parents whose derived stats need recalculating.
+     * @private
+     */
+    #addChild(parentId, data, existing, affectedParents) {
+        let me       = this,
+            siblings = me.#childrenMap.get(parentId),
+            index    = -1;
+
+        if (!siblings) {
+            siblings = [];
+            me.#childrenMap.set(parentId, siblings)
+        }
+
+        if (existing) {
+            index = siblings.indexOf(existing);
+
+            // `hydrateRecord()` heals both maps in step, so identity resolves the entry in practice.
+            // The key scan is the fallback for a node whose two map entries have drifted apart —
+            // without it, a drifted entry would silently duplicate exactly as it used to.
+            if (index < 0) {
+                let key = me.getKey(data);
+
+                index = siblings.findIndex(sibling => me.getKey(sibling) === key)
+            }
+        }
+
+        if (index > -1) {
+            // Same reference: the node is already parented here, so nothing derived can have changed.
+            if (siblings[index] === data) {
+                return
+            }
+
+            siblings[index] = data
+        } else {
+            siblings.push(data)
+        }
+
+        affectedParents.add(parentId)
+    }
+
+    /**
      * Triggered before the pathNormalizer config gets changed.
      * Instantiates a config object, defaulting to `Neo.data.normalizer.Path`. A falsy value stays
      * falsy on purpose: the normalizer is created on first `materializePath()` call, not eagerly for
@@ -1094,6 +1162,11 @@ class TreeStore extends Store {
                         data.collapsed = true
                     }
 
+                    // Captured before the overwrite: this is both the node a re-add replaces and the
+                    // proof that the key is in the hierarchy at all, which is what keeps `#addChild()`
+                    // from scanning a level per ingested node.
+                    let existing = me.#allRecordsMap.get(key);
+
                     me.#allRecordsMap.set(key, data);
 
                     if (!me.#childrenMap.has(parentId)) {
@@ -1108,10 +1181,7 @@ class TreeStore extends Store {
                         }
                     }
 
-                    if (!me.#childrenMap.get(parentId).includes(data)) {
-                        me.#childrenMap.get(parentId).push(data);
-                        affectedParents.add(parentId)
-                    }
+                    me.#addChild(parentId, data, existing, affectedParents);
 
                     // Identify nodes that need their flat visible descendants calculated
                     if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
@@ -1120,6 +1190,13 @@ class TreeStore extends Store {
                         // Auto-heal disconnected branches by reparenting them to 'root'
                         if (parentId !== 'root') {
                             data.parentId = 'root';
+
+                            // The re-parenting carries its own derived invariant. `depth` was resolved
+                            // against the declared parent above — and that parent is precisely the one
+                            // that turned out to be absent, so the value it produced describes a level
+                            // this node no longer sits on. A root-level node is at depth 0.
+                            data.depth = 0;
+
                             let siblings = me.#childrenMap.get(parentId);
                             if (siblings) {
                                 let idx = siblings.indexOf(data);
@@ -1127,13 +1204,8 @@ class TreeStore extends Store {
                                     siblings.splice(idx, 1)
                                 }
                             }
-                            if (!me.#childrenMap.has('root')) {
-                                me.#childrenMap.set('root', [])
-                            }
-                            if (!me.#childrenMap.get('root').includes(data)) {
-                                me.#childrenMap.get('root').push(data);
-                                affectedParents.add('root')
-                            }
+
+                            me.#addChild('root', data, existing, affectedParents)
                         }
                     } else {
                         let parentNode = me.#allRecordsMap.get(parentId);

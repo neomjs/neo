@@ -137,16 +137,18 @@ test.describe('Neo.data.TreeStore (Path Materialization)', () => {
             expect(second.id).toBe(first.id)
         });
 
-        test('CONTROL: a raw add() of the same node DOES duplicate it', () => {
-            // Without this control the test above proves nothing — it would pass against any
-            // implementation, including one that simply never adds twice because nothing adds at all.
-            // The Structural Layer dedupes children by object identity, so an equal-but-distinct
-            // literal is appended a second time. materializePath() is what avoids that.
+        test('CONTROL: a raw add() of the same node does not duplicate it either', () => {
+            // This control is inverted from what it originally pinned. The Structural Layer used to
+            // test child membership by object identity, so an equal-but-distinct literal was appended
+            // beside the node it should have replaced, and materializePath()'s own key filtering was
+            // the only thing between a caller and a duplicated child. splice() now resolves child
+            // membership by key, so idempotence holds for a raw add() too: what the test above proves
+            // about materializePath() no longer rests on the store lacking the same guarantee.
             store.materializePath('Group');
             store.add({id: 'Group', parentId: 'root', name: 'Group', isLeaf: false});
 
-            expect(childIds('root')).toEqual(['Group', 'Group']);
-            expect(store.get('Group').siblingCount).toBe(2)
+            expect(childIds('root')).toEqual(['Group']);
+            expect(store.get('Group').siblingCount).toBe(1)
         })
     });
 
