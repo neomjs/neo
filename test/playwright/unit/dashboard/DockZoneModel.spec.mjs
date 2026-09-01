@@ -110,6 +110,20 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(Document.validate(doc())).toEqual([])
         });
 
+        test('treats absent lock state as unlocked and rejects non-boolean lock fields', () => {
+            const input = doc();
+
+            expect(input.items.strategy.locked).toBeUndefined();
+            expect(Document.validate(input)).toEqual([]);
+
+            input.items.strategy.locked = 'true';
+            expect(Document.validate(input).join(' ')).toContain('locked must be a boolean');
+
+            input.items.strategy.locked   = false;
+            input.items.strategy.lockable = 'false';
+            expect(Document.validate(input).join(' ')).toContain('lockable must be a boolean')
+        });
+
         test('rejects a wrong schema', () => {
             const d = doc();
             d.schema = 'neo.dock.zone.v2';
@@ -202,6 +216,26 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(restored.errors).toEqual([]);
             expect(restored.document).toEqual(layout.dockZone);
             expect(restored.document).not.toBe(layout.dockZone)
+        });
+
+        test('round-trips committed lock state and policy through a perspective', () => {
+            const input = doc();
+
+            input.items.strategy.locked   = true;
+            input.items.strategy.lockable = false;
+
+            const {layout, errors} = Persistence.createSavedLayout(input, {
+                layoutId: 'locked-workspace',
+                title   : 'Locked Workspace'
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.dockZone.items.strategy).toMatchObject({locked: true, lockable: false});
+
+            const restored = Persistence.restoreSavedLayout(layout);
+
+            expect(restored.errors).toEqual([]);
+            expect(restored.document.items.strategy).toMatchObject({locked: true, lockable: false})
         });
 
         test('fails closed for unsupported wrapper schema', () => {
@@ -1646,6 +1680,96 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             const pinned = Operations.setItemAutoHidden(pinnedInput, {itemId: 'terminal', autoHidden: true});
             expect(pinned.document).toBe(pinnedInput);
             expect(pinned.errors.join(' ')).toContain('pinned')
+        })
+    });
+
+    test.describe('setItemLocked', () => {
+        test('updates committed lock state without mutating caller input', () => {
+            const input    = doc(),
+                  snapshot = JSON.stringify(input),
+                  locked   = Operations.applyOperation(input, {
+                      operation: 'setItemLocked',
+                      itemId   : 'strategy',
+                      locked   : true
+                  });
+
+            expect(locked.errors).toEqual([]);
+            expect(locked.document.items.strategy.locked).toBe(true);
+            expect(JSON.stringify(input)).toBe(snapshot);
+            expect(input.items.strategy.locked).toBeUndefined();
+
+            const unlocked = Operations.setItemLocked(locked.document, {
+                itemId: 'strategy',
+                locked: false
+            });
+
+            expect(unlocked.errors).toEqual([]);
+            expect(unlocked.document.items.strategy.locked).toBe(false)
+        });
+
+        test('fails closed for unknown items, non-boolean state, and non-lockable items', () => {
+            const input = doc();
+
+            input.items.strategy.lockable = false;
+
+            for (const result of [
+                Operations.setItemLocked(input, {itemId: 'ghost', locked: true}),
+                Operations.setItemLocked(input, {itemId: 'strategy', locked: 'true'}),
+                Operations.setItemLocked(input, {itemId: 'strategy', locked: true})
+            ]) {
+                expect(result.document).toBe(input);
+                expect(result.errors.length).toBeGreaterThan(0)
+            }
+        });
+
+        test('guards close, detach, cross-zone move, and the addTab reorder downgrade', () => {
+            const locked = Operations.setItemLocked(doc(), {itemId: 'strategy', locked: true});
+
+            expect(locked.errors).toEqual([]);
+
+            const snapshot = JSON.stringify(locked.document),
+                  attempts = [
+                      Operations.closeItem(locked.document, {itemId: 'strategy'}),
+                      Operations.detachItem(locked.document, {itemId: 'strategy'}),
+                      Operations.moveItem(locked.document, {itemId: 'strategy', targetNodeId: 'side-tabs'}),
+                      Operations.applyOperation(locked.document, {
+                          operation : 'addTab',
+                          itemId    : 'strategy',
+                          tabsNodeId: 'side-tabs',
+                          index     : 0
+                      })
+                  ];
+
+            for (const result of attempts) {
+                expect(result.document).toBe(locked.document);
+                expect(result.errors.join(' ')).toContain('locked');
+                expect(JSON.stringify(locked.document)).toBe(snapshot)
+            }
+        });
+
+        test('keeps locked headers as drop targets and restores structural operations after unlock', () => {
+            const locked = Operations.setItemLocked(doc(), {itemId: 'terminal', locked: true});
+
+            expect(locked.errors).toEqual([]);
+
+            const intoLockedNode = Operations.moveItem(locked.document, {
+                itemId      : 'strategy',
+                targetNodeId: 'side-tabs',
+                index       : 0
+            });
+
+            expect(intoLockedNode.errors).toEqual([]);
+            expect(intoLockedNode.document.nodes['side-tabs'].items).toEqual(['strategy', 'terminal']);
+
+            const unlocked = Operations.setItemLocked(locked.document, {itemId: 'terminal', locked: false});
+
+            expect(unlocked.errors).toEqual([]);
+            expect(Operations.closeItem(unlocked.document, {itemId: 'terminal'}).errors).toEqual([]);
+            expect(Operations.detachItem(unlocked.document, {itemId: 'terminal'}).errors).toEqual([]);
+            expect(Operations.moveItem(unlocked.document, {
+                itemId      : 'terminal',
+                targetNodeId: 'main-tabs'
+            }).errors).toEqual([])
         })
     });
 

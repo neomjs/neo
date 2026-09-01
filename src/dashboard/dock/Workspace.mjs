@@ -1,5 +1,6 @@
 import Component                   from '../../component/Base.mjs';
 import Container                   from '../../container/Base.mjs';
+import NeoArray                    from '../../util/Array.mjs';
 import LayoutAdapter               from './projection/LayoutAdapter.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
@@ -123,6 +124,25 @@ class Workspace extends Container {
          * @member {Boolean} enableDockCloseAction=false
          */
         enableDockCloseAction: false,
+        /**
+         * Projects one engine-owned lock toggle into each Dock tab header. The committed
+         * `locked` item field is the hard boundary: close, detach and source movement fail
+         * closed in the reducer. Workspace presentation mirrors that truth by making the pane
+         * inert, hiding close, and suppressing the tab drag source while preserving exact prior
+         * inert and drag-token ownership for unlock. Disabled by default.
+         * @member {Boolean} enableDockLockAction=false
+         */
+        enableDockLockAction: false,
+        /**
+         * Icon of the projected lock action while the active item is unlocked.
+         * @member {String} dockLockIconCls='fa fa-lock'
+         */
+        dockLockIconCls: 'fa fa-lock',
+        /**
+         * Icon of the projected lock action while the active item is locked.
+         * @member {String} dockUnlockIconCls='fa fa-lock-open'
+         */
+        dockUnlockIconCls: 'fa fa-lock-open',
         /**
          * Projects one persistent pin action into each Dock tab header — the entry half of the
          * collapse-to-rail round-trip (docking design record §2.7). Pressing it on an edge-owned pane
@@ -383,6 +403,22 @@ class Workspace extends Container {
      * @protected
      */
     dockMaximizeResizeWired = false
+
+    /**
+     * Exact pre-lock root-inert snapshots keyed by the live pane instance:
+     * `{owned:Boolean, value:*}`. A WeakMap cannot prolong a retired pane's lifetime.
+     * @member {WeakMap<Neo.component.Base,Object>} dockLockPaneState=new WeakMap()
+     * @protected
+     */
+    dockLockPaneState = new WeakMap()
+
+    /**
+     * Whether each live tab button owned the SortZone's `neo-draggable` token before lock
+     * suppressed it. Unlock restores that exact ownership instead of globally arming drag.
+     * @member {WeakMap<Neo.component.Base,Boolean>} dockLockDragState=new WeakMap()
+     * @protected
+     */
+    dockLockDragState = new WeakMap()
 
     /**
      * Restoration snapshot while a maximize presentation is applied:
@@ -1334,11 +1370,11 @@ class Workspace extends Container {
      * the node's retained lifetime — vary an action per active item by moving `hidden` on its stable
      * instance, the way {@link #syncDockCloseAction} does, not by returning a different list. Names
      * must be unique per node, and every engine-owned name is reserved while its own opt-in is on —
-     * `close` under {@link #enableDockCloseAction}, `maximize` under {@link #enableDockMaximizeAction},
-     * `pin` under {@link #enableDockPinAction}, `reload` under {@link #enableDockReloadAction},
-     * `pop-out` while {@link #dockPopOutActionActive} holds — that one is a conjunction rather than a
-     * single opt-in, because the action dispatches into the tear-out lifecycle and is not projected
-     * without it;
+     * `close` under {@link #enableDockCloseAction}, `lock` under {@link #enableDockLockAction},
+     * `maximize` under {@link #enableDockMaximizeAction}, `pin` under {@link #enableDockPinAction},
+     * `reload` under {@link #enableDockReloadAction}, `pop-out` while
+     * {@link #dockPopOutActionActive} holds — that one is a conjunction rather than a single opt-in,
+     * because the action dispatches into the tear-out lifecycle and is not projected without it;
      * both violations throw at projection rather than silently unaddressing an action. Their intent
      * surfaces on the `dockHeaderAction` event — see {@link #onDockHeaderAction}.
      * @returns {Object}
@@ -1394,9 +1430,180 @@ class Workspace extends Container {
 
         let action = tabContainer?.getActionItem?.('close'),
             itemId = this.getActiveDockItemId(tabContainer),
-            hidden = !itemId || this.dockModel?.items?.[itemId]?.closable === false;
+            item   = this.dockModel?.items?.[itemId],
+            hidden = !itemId || item?.closable === false || item?.locked === true;
 
         action && action.hidden !== hidden && (action.hidden = hidden)
+    }
+
+    /**
+     * Synchronizes the retained lock action and every projected pane/button against committed
+     * item truth. The action stays one stable instance; per-item hidden/icon state moves on it.
+     *
+     * Presentation is deliberately a second layer beneath the model guards. Lock stamps
+     * `vdom.inert` plus `neo-dock-pane-locked` in one pane update and removes only the tab
+     * button's `neo-draggable` source token. Unlock restores the exact prior inert ownership/value
+     * and exact prior drag-token ownership. Locked headers remain legal drop targets. The ordinary
+     * lock gesture is focus-gated; once the protective state persists, its unlock reversal becomes
+     * persistent too, so discoverability never depends on re-entering a transient focus context.
+     * @param {Neo.tab.Container|null} tabContainer
+     * @protected
+     */
+    syncDockLockAction(tabContainer) {
+        let me = this;
+
+        if (!me.enableDockLockAction) return;
+
+        let action       = tabContainer?.getActionItem?.('lock'),
+            activeItemId = me.getActiveDockItemId(tabContainer),
+            activeItem   = me.dockModel?.items?.[activeItemId],
+            hidden       = !activeItemId || activeItem?.lockable === false,
+            iconCls      = activeItem?.locked === true ? me.dockUnlockIconCls : me.dockLockIconCls,
+            ariaLabel    = activeItem?.locked === true ? 'unlock' : 'lock',
+            showOnFocus  = activeItem?.locked !== true,
+            changes      = {};
+
+        if (action) {
+            let ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel;
+
+            action.hidden  !== hidden  && (changes.hidden  = hidden);
+            action.iconCls !== iconCls && (changes.iconCls = iconCls);
+            action.showOnFocus !== showOnFocus && (changes.showOnFocus = showOnFocus);
+
+            if (Object.keys(changes).length || ariaLabelChanged) {
+                // `setSilent()` consumes non-config class-field keys from its input, so remember
+                // this transition BEFORE handing the batch over.
+                let focusGateChanged = Object.hasOwn(changes, 'showOnFocus');
+
+                Object.keys(changes).length && action.setSilent(changes);
+                ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
+
+                // `showOnFocus` is a stable-instance policy flip, not an action-list rebuild. The
+                // toolbar owns the inert/aria/tab-index presentation and must release/re-arm it
+                // before this one update publishes the changed action.
+                focusGateChanged && tabContainer?.getTabBar?.()?.applyContextualActionState(true);
+
+                action.update()
+            }
+        }
+
+        let itemIds = tabContainer?.getTabBar?.()?.sortZoneConfig?.dockItemIds || [],
+            panes   = tabContainer?.getCardContainer?.()?.items || [],
+            buttons = tabContainer?.getTabButtons?.() || [];
+
+        itemIds.forEach((itemId, index) => {
+            me.syncDockLockItemPresentation({
+                button: buttons[index],
+                locked: me.dockModel?.items?.[itemId]?.locked === true,
+                pane  : panes[index]
+            })
+        })
+    }
+
+    /**
+     * Applies or restores one item's lock presentation without changing model state.
+     * @param {Object} data
+     * @param {Neo.tab.header.Button|null} data.button
+     * @param {Boolean} data.locked
+     * @param {Neo.component.Base|null} data.pane
+     * @protected
+     */
+    syncDockLockItemPresentation({button, locked, pane}={}) {
+        let me = this;
+
+        if (pane && !pane.isDestroyed) {
+            let cls     = Array.isArray(pane.cls) ? [...pane.cls] : pane.cls ? [pane.cls] : [],
+                hadCls  = cls.includes('neo-dock-pane-locked'),
+                changed = false,
+                prior,
+                vdom    = pane.vdom;
+
+            if (locked) {
+                if (!me.dockLockPaneState.has(pane)) {
+                    me.dockLockPaneState.set(pane, {
+                        owned: Object.hasOwn(vdom, 'inert'),
+                        value: vdom.inert
+                    })
+                }
+
+                if (vdom.inert !== true) {
+                    vdom.inert = true;
+                    changed = true
+                }
+            } else if (me.dockLockPaneState.has(pane)) {
+                prior = me.dockLockPaneState.get(pane);
+
+                if (prior.owned) {
+                    vdom.inert = prior.value
+                } else {
+                    delete vdom.inert
+                }
+
+                me.dockLockPaneState.delete(pane);
+                changed = true
+            }
+
+            NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
+
+            if (hadCls !== locked) {
+                pane.setSilent({cls});
+                changed = true
+            }
+
+            changed && pane.update()
+        }
+
+        if (button && !button.isDestroyed) {
+            let cls       = Array.isArray(button.wrapperCls) ? [...button.wrapperCls] : [],
+                draggable = cls.includes('neo-draggable'),
+                restore;
+
+            if (locked) {
+                !me.dockLockDragState.has(button) && me.dockLockDragState.set(button, draggable);
+                NeoArray.remove(cls, 'neo-draggable')
+            } else if (me.dockLockDragState.has(button)) {
+                restore = me.dockLockDragState.get(button);
+                me.dockLockDragState.delete(button);
+                NeoArray.toggle(cls, 'neo-draggable', restore)
+            }
+
+            draggable !== cls.includes('neo-draggable') && (button.wrapperCls = cls)
+        }
+    }
+
+    /**
+     * Synchronizes the currently materialized rail-reveal panes against committed lock truth.
+     *
+     * Rails are synthetic affordances retained across stable-topology reconciliation, so their
+     * projection config is not a state-update channel. The materialization callback covers first
+     * reveal; this sweep covers a lock transition while the same overlay remains open. Dismissed
+     * cached panes restore on their next materialization callback.
+     * @protected
+     */
+    syncDockLockRails() {
+        let me = this;
+
+        if (!me.enableDockLockAction) return;
+
+        const visit = component => {
+            if (!component || component.isDestroyed) return;
+
+            if (component.dockNodeType === 'edge-rail') {
+                let itemId = component.revealOverlay?.revealPaneItemId,
+                    pane   = component.revealOverlay?.paneSlot?.items?.[0];
+
+                if (itemId && pane) {
+                    me.syncDockLockItemPresentation({
+                        locked: me.dockModel?.items?.[itemId]?.locked === true,
+                        pane
+                    })
+                }
+            }
+
+            component.items?.forEach(visit)
+        };
+
+        visit(me.getDockHost()?.items?.[me.dockShellIndex])
     }
 
     /**
@@ -1492,9 +1699,12 @@ class Workspace extends Container {
 
         projectedTabs?.forEach?.(tab => {
             me.syncDockCloseAction(tab);
+            me.syncDockLockAction(tab);
             me.syncDockPinAction(tab);
             me.syncDockReloadAction(tab)
         })
+
+        me.enableDockLockAction && me.syncDockLockRails()
     }
 
     /**
@@ -1517,6 +1727,7 @@ class Workspace extends Container {
             descriptor, result;
 
         me.syncDockCloseAction(container);
+        me.syncDockLockAction(container);
         me.syncDockPinAction(container);
 
         if (!me.dockModel || !itemId || committed === itemId) {
@@ -1554,11 +1765,11 @@ class Workspace extends Container {
      *
      * This class owns the ENGINE SET, each action only while its own opt-in is on: `close`
      * ({@link #enableDockCloseAction}), `maximize` ({@link #enableDockMaximizeAction} — a pure
-     * presentation toggle that never reaches the reducer), `pin` ({@link #enableDockPinAction}),
-     * `reload` ({@link #enableDockReloadAction} — runtime-only like maximize: delegation into the
-     * pane's own `dockReload()`, never an operation) and `pop-out`
-     * ({@link #enableDockPopOutAction}, itself double-gated on
-     * {@link #enableDockTearOutLifecycle}). Every other intent —
+     * presentation toggle that never reaches the reducer), `lock`
+     * ({@link #enableDockLockAction}), `pin` ({@link #enableDockPinAction}), `reload`
+     * ({@link #enableDockReloadAction} — runtime-only like maximize: delegation into the pane's own
+     * `dockReload()`, never an operation) and `pop-out` ({@link #enableDockPopOutAction}, itself
+     * double-gated on {@link #enableDockTearOutLifecycle}). Every other intent —
      * including host actions projected through `resolveDockHeaderActions` — is re-emitted as a
      * **`dockHeaderAction`** event carrying `{action, dockNodeId, tabContainer}`, so a host receives it
      * without subclassing this class or overriding a protected method, and this method returns `null`
@@ -1583,6 +1794,10 @@ class Workspace extends Container {
 
         if (action === 'close' && me.enableDockCloseAction) {
             return me.handleDockCloseAction({dockNodeId, tabContainer})
+        }
+
+        if (action === 'lock' && me.enableDockLockAction) {
+            return me.handleDockLockAction({dockNodeId, tabContainer})
         }
 
         if (action === 'pin' && me.enableDockPinAction) {
@@ -1651,6 +1866,46 @@ class Workspace extends Container {
             me.refreshPromise = me.refreshPromise.then(() => {
                 me.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId})
             })
+        }
+
+        return result
+    }
+
+    /**
+     * @summary Toggles the active item's committed lock state through the reducer.
+     *
+     * On success the committed document advances through the ordinary holder seam, then current
+     * chrome receives the derived presentation immediately; reconciliation repeats the same sync
+     * on retained/new instances. The reducer owns every refusal, including `lockable:false`.
+     * @param {Object} data
+     * @param {String} data.dockNodeId
+     * @param {Neo.tab.Container|null} data.tabContainer
+     * @returns {{document:Object,errors:String[]}|null}
+     * @protected
+     */
+    handleDockLockAction({dockNodeId, tabContainer}={}) {
+        let me     = this,
+            itemId = me.getActiveDockItemId(tabContainer);
+
+        if (!itemId) {
+            return {document: me.dockModel, errors: ['Dock lock action requires an active item']}
+        }
+
+        if (!me.dockModel) {
+            return {document: me.dockModel, errors: ['Dock lock action requires a committed document']}
+        }
+
+        let descriptor = {
+                operation: 'setItemLocked',
+                itemId,
+                locked   : me.dockModel.items[itemId]?.locked !== true
+            },
+            result = me.applyDockZoneOperation(descriptor);
+
+        if (result && !result.errors?.length && result.document) {
+            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
+            me.syncDockCloseAction(tabContainer);
+            me.syncDockLockAction(tabContainer)
         }
 
         return result
@@ -2793,6 +3048,10 @@ class Workspace extends Container {
         tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         me.dockModel = document;
+        // A currently revealed rail pane is retained outside tab chrome. It already exists at the
+        // commit boundary, so lock presentation follows the sole worker-truth write immediately;
+        // the post-reconcile sweep repeats this for newly materialized/retained surfaces.
+        me.enableDockLockAction && me.syncDockLockRails?.();
 
         me.refreshPromise = tail
             .then(() => me.timeout(0))
@@ -2836,12 +3095,17 @@ class Workspace extends Container {
                 // motion. An explicit dockTearOutBoundaryContainerId from the hook still wins in
                 // LayoutAdapter; direct adapter consumers must supply this field themselves.
                 dockWorkspaceBoundaryContainerId: me.id,
-                onDockActiveIndexChange: me.onDockActiveIndexChange.bind(me),
+                onDockActiveIndexChange         : me.onDockActiveIndexChange.bind(me),
                 // Bound unconditionally: a host can project its OWN header actions without enabling
                 // the close action, and wiring the seam inside that opt-in left those intents with
                 // nowhere to arrive.
                 onDockHeaderAction     : me.onDockHeaderAction.bind(me),
                 ...(me.enableDockCloseAction && {enableDockCloseAction: true}),
+                ...(me.enableDockLockAction && {
+                    dockLockIconCls     : me.dockLockIconCls,
+                    dockUnlockIconCls   : me.dockUnlockIconCls,
+                    enableDockLockAction: true
+                }),
                 ...(me.enableDockPinAction && {enableDockPinAction: true}),
                 ...(me.enableDockReloadAction && {enableDockReloadAction: true}),
                 // The double gate lives here rather than in the adapter: pop-out dispatches into
@@ -2861,6 +3125,10 @@ class Workspace extends Container {
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
                 resolveRevealComponentRef: (componentRef, item, itemId) => me.decorateFlipMarker(me.resolveRevealPane(itemId, item), itemId),
+                syncDockLockPane         : (pane, itemId) => me.syncDockLockItemPresentation({
+                    locked: me.dockModel?.items?.[itemId]?.locked === true,
+                    pane
+                }),
                 tabInsertDescriptor
             })
         }

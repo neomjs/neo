@@ -654,3 +654,11 @@ body > .neo-dock-dragproxy.neo-tab-header-toolbar {
     0%   { opacity: 0.55; }
     100% { opacity: 1; }
 }
+
+// Committed pane lock is model truth; this class is its projection-only visual carrier. Outline is
+// inset from layout via a negative offset, so locking never changes geometry in any theme.
+.neo-dashboard .neo-dock-pane-locked {
+    cursor        : not-allowed;
+    outline       : 1px solid color-mix(in srgb, currentColor 34%, transparent);
+    outline-offset: -1px;
+}

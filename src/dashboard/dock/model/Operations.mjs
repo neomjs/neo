@@ -50,6 +50,7 @@ class Operations extends Base {
         resizeEdgeZone   : (document, descriptor) => Operations.resizeEdgeZone(document, descriptor),
         detachItem       : (document, descriptor) => Operations.detachItem(document, descriptor),
         closeItem        : (document, descriptor) => Operations.closeItem(document, descriptor),
+        setItemLocked    : (document, descriptor) => Operations.setItemLocked(document, descriptor),
         setItemPinned    : (document, descriptor) => Operations.setItemPinned(document, descriptor),
         setItemAutoHidden: (document, descriptor) => Operations.setItemAutoHidden(document, descriptor),
         // transferItem / transferNode are TWO-document operations; their single-document dispatch is a
@@ -114,7 +115,9 @@ class Operations extends Base {
     }
 
     /**
-     * @summary Relocates an in-tree `itemId` into the target tabs node at `index`.
+     * @summary Relocates an unlocked in-tree `itemId` into the target tabs node at `index`.
+     *
+     * Locked items fail closed as sources; the target may still contain locked peers.
      * @param {Object} document
      * @param {Object} args {itemId, targetNodeId, index}
      * @returns {{document:Object, errors:String[]}}
@@ -123,6 +126,10 @@ class Operations extends Base {
     static moveItem(document, {itemId, targetNodeId, index} = {}) {
         if (!Document.findContainingTabsId(document, itemId)) {
             return {document, errors: [`item "${itemId}" is not in the tree`]}
+        }
+
+        if (document.items[itemId].locked === true) {
+            return {document, errors: [`item "${itemId}" is locked`]}
         }
 
         return Operations.addTab(document, {itemId, tabsNodeId: targetNodeId, index})
@@ -309,8 +316,8 @@ class Operations extends Base {
     }
 
     /**
-     * @summary Removes `itemId` from the tree but preserves its catalog record (for popup/window
-     * ownership), per the contract's `detachItem`.
+     * @summary Removes an unlocked `itemId` from the tree but preserves its catalog record (for
+     * popup/window ownership), per the contract's `detachItem`. Locked items fail closed.
      * @param {Object} document
      * @param {Object} args {itemId}
      * @returns {{document:Object, errors:String[]}}
@@ -321,6 +328,10 @@ class Operations extends Base {
             return {document, errors: [`item "${itemId}" is not in the tree`]}
         }
 
+        if (document.items[itemId].locked === true) {
+            return {document, errors: [`item "${itemId}" is locked`]}
+        }
+
         let doc = Document.clone(document);
 
         Document.detachFromTabs(doc, itemId);
@@ -329,9 +340,10 @@ class Operations extends Base {
     }
 
     /**
-     * @summary Removes a closeable `itemId` from the tree and catalog. When the item was active,
-     * activates the item at its former index or the preceding item; closing a non-active item
-     * preserves the surviving activation. An explicit `closable:false` fails closed.
+     * @summary Removes an unlocked, closeable `itemId` from the tree and catalog. When the item
+     * was active, activates the item at its former index or the preceding item; closing a
+     * non-active item preserves the surviving activation. Locked and explicit `closable:false`
+     * items fail closed.
      * @param {Object} document
      * @param {Object} args {itemId}
      * @returns {{document:Object, errors:String[]}}
@@ -341,6 +353,7 @@ class Operations extends Base {
         let item = document.items?.[itemId];
 
         if (!item) return {document, errors: [`unknown item "${itemId}"`]};
+        if (item.locked === true) return {document, errors: [`item "${itemId}" is locked`]};
         if (item.closable === false) return {document, errors: [`item "${itemId}" is not closable`]};
 
         let tabsNodeId  = Document.findContainingTabsId(document, itemId),
@@ -360,6 +373,33 @@ class Operations extends Base {
         }
 
         delete doc.items[itemId];
+
+        return Document.commit(document, doc)
+    }
+
+    /**
+     * @summary Updates an item's committed lock state when its policy permits locking or unlocking.
+     *
+     * Lock is the model boundary beneath the Workspace presentation: while true, close, detach,
+     * and source moves fail closed even when stale chrome or a programmatic descriptor bypasses
+     * the projected inert and drag-source affordances. An absent value reads as unlocked, matching
+     * the additive boolean-state precedent of pinned and autoHidden. `lockable:false` refuses both
+     * directions deliberately: it is permanent item policy, not merely a lock-button visibility hint.
+     * @param {Object} document
+     * @param {Object} args {itemId, locked}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static setItemLocked(document, {itemId, locked} = {}) {
+        let item = document.items?.[itemId];
+
+        if (!item) return {document, errors: [`unknown item "${itemId}"`]};
+        if (typeof locked !== 'boolean') return {document, errors: ['locked must be a boolean']};
+        if (item.lockable === false) return {document, errors: [`item "${itemId}" is not lockable`]};
+
+        let doc = Document.clone(document);
+
+        doc.items[itemId].locked = locked;
 
         return Document.commit(document, doc)
     }

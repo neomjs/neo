@@ -43,7 +43,10 @@ class Document extends Base {
      * @protected
      * @static
      */
-    static dockZoneItemKeys = new Set(['componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned', 'autoHidden', 'movable', 'metadata'])
+    static dockZoneItemKeys = new Set([
+        'componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned',
+        'autoHidden', 'lockable', 'locked', 'movable', 'metadata'
+    ])
 
     /**
      * Fields allowed on persisted dock-zone nodes, keyed by node type.
@@ -730,8 +733,9 @@ class Document extends Base {
      * @summary Validates a dock-zone document against the contract invariants.
      *
      * Checks: schema, root presence, reference integrity (split children / edge-zone zones / tabs
-     * items all resolve), each item appears at most once across the tree, split sizes match child
-     * count and sum to 1, and `tabs.activeItemId` is null or one of `tabs.items`.
+     * items all resolve), each item appears at most once across the tree, committed item-state
+     * booleans have the right type, split sizes match child count and sum to 1, and
+     * `tabs.activeItemId` is null or one of `tabs.items`.
      * @param {Object} document
      * @returns {String[]} the (possibly empty) list of invariant violations
      * @static
@@ -763,6 +767,14 @@ class Document extends Base {
 
             if (Document.isJsonRecord(item) && Object.hasOwn(item, 'autoHidden') && typeof item.autoHidden !== 'boolean') {
                 errors.push(`item "${itemId}" autoHidden must be a boolean`)
+            }
+
+            if (Document.isJsonRecord(item) && Object.hasOwn(item, 'lockable') && typeof item.lockable !== 'boolean') {
+                errors.push(`item "${itemId}" lockable must be a boolean`)
+            }
+
+            if (Document.isJsonRecord(item) && Object.hasOwn(item, 'locked') && typeof item.locked !== 'boolean') {
+                errors.push(`item "${itemId}" locked must be a boolean`)
             }
 
             if (Document.isJsonRecord(item) && item.pinned === true && item.autoHidden === true) {
