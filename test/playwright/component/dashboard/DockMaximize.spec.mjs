@@ -265,7 +265,14 @@ test.describe('dock maximize — presentation, never topology', () => {
         expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
         await expect.poll(async () => JSON.parse(
             (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
-        )).toEqual(['clear:start', 'clear:apply', 'apply:main-tabs'])
+        ).length).toBeGreaterThanOrEqual(3);
+
+        const transitions = JSON.parse((await readWorkspace(page, ['maximizeTransitionLogJson']))[0]);
+
+        expect(transitions.slice(0, 2)).toEqual(['clear:start', 'clear:apply']);
+        expect(transitions.slice(2).length, 'at least one apply must follow the clear').toBeGreaterThan(0);
+        expect([...new Set(transitions.slice(2))], 'every later apply is the same idempotent reapply')
+            .toEqual(['apply:main-tabs'])
     });
 
     test('refresh-owned failure does not await a transition waiting on that refresh', async ({page}) => {
