@@ -41,6 +41,40 @@ const tabButton = (node, text) => node.locator('.neo-tab-header-button', {hasTex
 
 const actionButton = (node, glyph) => node.locator(`.neo-tab-header-toolbar .neo-button:has([class*="${glyph}"])`);
 
+/**
+ * `toHaveCount` on the maximize marker, plus the one observable that splits this arm's failure
+ * space when it reds — `maximizedNodeId`, read at failure time.
+ *
+ * `Workspace#applyDockMaximizePresentation` has two terminal exits that both leave the marker at
+ * 0 forever, and the DOM cannot tell them apart:
+ *
+ * - **`null`** — the fail-safe (`failDockMaximize`) cleared the transient, because the tabs node
+ *   did not resolve or `measureDockMaximizeRect` returned a 0×0 workspace rect.
+ * - **a surviving id** — the config write landed and the presentation was lost downstream of it.
+ *
+ * Without that read a failure is a bare "expected 1, received 0" and the two families are
+ * indistinguishable. The assertion itself is unchanged; only what a failure reports is.
+ * @param {Object} page
+ * @param {Number} count
+ * @returns {Promise<void>}
+ */
+const expectMaximizedCount = async (page, count) => {
+    try {
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(count)
+    } catch (error) {
+        let nodeId;
+
+        try {
+            [nodeId] = await readWorkspace(page, ['maximizedNodeId'])
+        } catch (readError) {
+            nodeId = `<unreadable: ${readError.message}>`
+        }
+
+        error.message += `\n\nmaximizedNodeId at failure: ${JSON.stringify(nodeId)}`;
+        throw error
+    }
+};
+
 const maximizedRectMatchesWorkspace = page => page.waitForFunction(() => {
     const el = document.querySelector('.neo-dock-maximized'),
           ws = document.getElementById('dock-maximize-workspace');
@@ -189,7 +223,9 @@ test.describe('dock maximize — presentation, never topology', () => {
 
         // Continuity: a NON-operation re-projection re-applies a surviving transient…
         await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
-        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+        // This re-apply follows a cross-worker write with no committed operation behind it, so a
+        // failure here has two indistinguishable families — hence the reporting variant.
+        await expectMaximizedCount(page, 1);
 
         await setWorkspace(page, {refreshCount: 1});
         await page.waitForFunction(() => document.querySelectorAll('.neo-dock-maximized').length === 1);
