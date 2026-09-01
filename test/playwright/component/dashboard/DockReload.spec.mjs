@@ -50,6 +50,25 @@ const tabButton = (node, text) => node.locator('.neo-tab-header-button', {hasTex
 
 const actionButton = (node, glyph) => node.locator(`.neo-tab-header-toolbar .neo-button:has([class*="${glyph}"])`);
 
+/**
+ * Proves an action locator resolves to exactly one node BEFORE any state is read off it.
+ *
+ * Playwright's strict mode refuses on arity before a state assertion evaluates anything, so a
+ * toolbar carrying two nodes surfaces as whichever assertion ran next — a message naming a
+ * property that was never read, with the real subject buried in a selector dump. Asserting the
+ * precondition first makes the failure name itself in one line, and fails earlier than the
+ * strict-mode abort it replaces.
+ * @param {Object} locator the action locator about to be read
+ * @param {String} subject the action's name, for the failure message
+ * @returns {Promise<Object>} the same locator, once its arity holds
+ */
+const soleAction = async (locator, subject) => {
+    await expect(locator, `${subject}: exactly one retained action node — two means duplicated tab-bar chrome`)
+        .toHaveCount(1);
+
+    return locator
+};
+
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/dock-maximize/index.html');
     await page.waitForSelector('#dock-maximize-workspace', {state: 'attached'});
@@ -58,17 +77,25 @@ test.beforeEach(async ({page}) => {
 
 test.describe('dock reload — delegation-only, settled, single-flight', () => {
     test('reload leads the engine set, focus-gated like its siblings', async ({page}) => {
-        const main = tabsNodeWith(page, 'Alpha');
+        const main     = tabsNodeWith(page, 'Alpha'),
+              reload   = actionButton(main, 'fa-rotate-right'),
+              maximize = actionButton(main, 'fa-window-maximize'),
+              close    = actionButton(main, 'fa-times');
 
-        await expect(actionButton(main, 'fa-rotate-right')).toHaveClass(/neo-toolbar-action-context-inactive/);
+        await soleAction(reload, 'reload');
+        await expect(reload).toHaveClass(/neo-toolbar-action-context-inactive/);
 
         await tabButton(main, 'Alpha').click();
-        await expect(actionButton(main, 'fa-rotate-right')).not.toHaveClass(/neo-toolbar-action-context-inactive/);
+        await soleAction(reload, 'reload');
+        await expect(reload).not.toHaveClass(/neo-toolbar-action-context-inactive/);
 
         // The frozen ordering contract as geometry: reload → maximize → close.
-        const reloadBox = await actionButton(main, 'fa-rotate-right').boundingBox(),
-              maxBox    = await actionButton(main, 'fa-window-maximize').boundingBox(),
-              closeBox  = await actionButton(main, 'fa-times').boundingBox();
+        await soleAction(maximize, 'maximize');
+        await soleAction(close,    'close');
+
+        const reloadBox = await reload.boundingBox(),
+              maxBox    = await maximize.boundingBox(),
+              closeBox  = await close.boundingBox();
 
         expect(reloadBox.x).toBeLessThan(maxBox.x);
         expect(maxBox.x).toBeLessThan(closeBox.x)
@@ -87,6 +114,7 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         const [docBefore] = await readInstance(page, WORKSPACE_ID, ['docJson']);
 
         await tabButton(main, 'Alpha').click();
+        await soleAction(actionButton(main, 'fa-rotate-right'), 'reload');
         await actionButton(main, 'fa-rotate-right').click();
 
         await expect.poll(() => lastSettled(page)).toEqual({errors: [], itemId: 'alpha'});
@@ -116,6 +144,7 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
 
         const [docBefore] = await readInstance(page, WORKSPACE_ID, ['docJson']);
 
+        await soleAction(actionButton(side, 'fa-rotate-right'), 'reload');
         await actionButton(side, 'fa-rotate-right').click();
 
         await expect.poll(async () => (await lastSettled(page))?.errors?.[0] || '').toContain('probe refuses to reload');
@@ -138,9 +167,11 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
 
         const [docBefore] = await readInstance(page, WORKSPACE_ID, ['docJson']);
 
+        await soleAction(reload, 'reload');
         await reload.click();
 
         // In flight: the stable instance disables; a second activation cannot double-invoke.
+        await soleAction(reload, 'reload');
         await expect(reload).toBeDisabled();
         await reload.click({force: true});
         await expect.poll(async () => (await readInstance(page, 'dock-maximize-pane-alpha', ['reloadCount']))[0]).toBe(1);
@@ -148,6 +179,7 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         // Resolution settles, re-enables.
         await setWorkspace(page, {alphaReloadResolveCount: 1});
         await expect.poll(() => lastSettled(page)).toEqual({errors: [], itemId: 'alpha'});
+        await soleAction(reload, 'reload');
         await expect(reload).toBeEnabled();
 
         // An async rejection settles with the failure text and keeps everything intact.
@@ -155,6 +187,7 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         await reload.click();
 
         await expect.poll(async () => (await lastSettled(page))?.errors?.[0] || '').toContain('async refusal');
+        await soleAction(reload, 'reload');
         await expect(reload).toBeEnabled();
         await expect.poll(async () => (await readInstance(page, 'dock-maximize-pane-alpha', ['reloadCount']))[0]).toBe(2);
 
@@ -184,12 +217,15 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
 
         await tabButton(main, 'Alpha').click();
         await setWorkspace(page, {alphaReloadMode: 'defer'});
+        await soleAction(reload, 'reload');
         await reload.click();
+        await soleAction(reload, 'reload');
         await expect(reload).toBeDisabled();
 
         // beta shares the node and the contract but owns NO flight: the same action instance
         // must re-enable for it — inheriting alpha's window is the falsifier.
         await tabButton(main, 'Beta').click();
+        await soleAction(reload, 'reload');
         await expect(reload).toBeEnabled();
 
         // beta can even run its own (sync) delegation while alpha's flight is still open.
@@ -200,11 +236,13 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         // back on alpha the open flight must resurface as disabled — not the false-enable that
         // a blind `disabled = false` at beta's settlement would have written.
         await tabButton(main, 'Alpha').click();
+        await soleAction(reload, 'reload');
         await expect(reload).toBeDisabled();
 
         // releasing alpha's producer settles it and re-derives the enabled state.
         await setWorkspace(page, {alphaReloadResolveCount: 1});
         await expect.poll(() => lastSettled(page)).toEqual({errors: [], itemId: 'alpha'});
+        await soleAction(reload, 'reload');
         await expect(reload).toBeEnabled()
     });
 
@@ -222,19 +260,19 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         // The host workspace legally owns the NAME `reload` while the engine flag is off. The
         // engine's close action (its flag IS on) proves the sweep runs on this header — reload's
         // per-action guard, not a dead sweep, is what protects the host action.
-        await expect(close).toHaveCount(1);
-        await expect(reload).toHaveCount(1);
+        await soleAction(close,  'close');
+        await soleAction(reload, 'reload');
 
         // Active switches drive both sync paths (no-commit re-emit + committed activation); a
         // guardless sweep hides the host action here — the pane has no dockReload() contract.
         await tabButton(host, 'HostB').click();
         await expect(tabButton(host, 'HostB')).toHaveClass(/pressed/);
-        await expect(reload).toHaveCount(1);
+        await soleAction(reload, 'reload');
         await expect(reload).toBeEnabled();
 
         await tabButton(host, 'HostA').click();
         await expect(tabButton(host, 'HostA')).toHaveClass(/pressed/);
-        await expect(reload).toHaveCount(1);
+        await soleAction(reload, 'reload');
         await expect(reload).toBeEnabled()
     });
 
@@ -255,7 +293,9 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
 
         await tabButton(main, 'Alpha').click();
         await setWorkspace(page, {alphaReloadMode: 'defer'});
+        await soleAction(actionButton(main, 'fa-rotate-right'), 'reload');
         await actionButton(main, 'fa-rotate-right').click();
+        await soleAction(actionButton(main, 'fa-rotate-right'), 'reload');
         await expect(actionButton(main, 'fa-rotate-right')).toBeDisabled();
 
         await page.evaluate(() => Neo.worker.App.destroyNeoInstance('dock-maximize-workspace'));
@@ -268,5 +308,43 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         await expect.poll(async () => (await readInstance(page, 'dock-maximize-probe', ['deferredReleasedTotal']))[0]).toBe(1);
 
         expect(pageErrs).toEqual([])
+    });
+
+    test('the arity guard names duplicated chrome, and the state read it protects does not', async ({page}) => {
+        const main   = tabsNodeWith(page, 'Alpha'),
+              reload = actionButton(main, 'fa-rotate-right');
+
+        await tabButton(main, 'Alpha').click();
+        await soleAction(reload, 'reload');
+
+        // The exact shape duplicated retained chrome produces: a second node, same id, in the
+        // same toolbar. Cloning the resolved node reproduces it without provoking the engine.
+        await reload.evaluate(node => node.parentElement.appendChild(node.cloneNode(true)));
+        await expect(reload, 'the injected duplicate is present — otherwise this proves nothing').toHaveCount(2);
+
+        let refusal = null;
+
+        try {
+            await soleAction(reload, 'reload')
+        } catch (error) {
+            refusal = String(error)
+        }
+
+        expect(refusal, 'the guard refuses a toolbar carrying two action nodes').not.toBeNull();
+        expect(refusal, 'the refusal names its subject in the message itself').toContain('duplicated tab-bar chrome');
+
+        // The reason the guard earns its place: reached unguarded, the state assertion reports a
+        // property strict mode never let it evaluate, and buries the real subject in a selector
+        // dump. Same duplicate, two messages — only one of them is readable.
+        let unguarded = null;
+
+        try {
+            await expect(reload).toBeEnabled({timeout: 1000})
+        } catch (error) {
+            unguarded = String(error)
+        }
+
+        expect(unguarded, 'the unguarded read aborts on arity, not on state').toContain('strict mode violation');
+        expect(unguarded, 'and it leads with the state it never evaluated').toContain('toBeEnabled')
     })
 });
