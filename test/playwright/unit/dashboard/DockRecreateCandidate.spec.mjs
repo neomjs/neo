@@ -205,7 +205,9 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
 
         expect(container.items.length).toBe(2);
         expect(container.items[0], 'the sibling is untouched').toBe(sibling);
-        expect(container.items[1].id).toBe('recreate-fresh')
+        expect(container.items[1].id).toBe('recreate-fresh');
+        expect(result.pane, 'the result exposes the exact component instantiated into the slot')
+            .toBe(container.items[1])
     });
 
     /**
@@ -233,6 +235,7 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
 
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('torn-down');
+        expect(result.pane).toBeNull();
 
         // The container is not mutated on the way out — no half-replaced slot, no orphan insert.
         expect(container.items.length, 'a torn-down commit inserts nothing').toBe(before);
@@ -296,6 +299,7 @@ test.describe('dock recreate — settles exactly once, one flight per item', () 
         const result = workspace.recreateDockPane('editor', livePane, {dockNodeId: 'node-1'});
 
         expect(result.errors).toEqual([]);
+        expect(result.pane, 'the transaction carries the exact committed instance').toBe(container.items[0]);
         expect(settlements.length, 'exactly one settlement').toBe(1);
         expect(settlements[0]).toMatchObject({dockNodeId: 'node-1', itemId: 'editor'});
         expect(container.items[0].id).toBe('settle-fresh')
@@ -351,6 +355,7 @@ test.describe('dock recreate — settles exactly once, one flight per item', () 
 
         // Settles rather than throws...
         expect(result, 'a throwing insert must settle, not propagate').not.toBeNull();
+        expect(result.pane, 'a refusal must never publish a candidate').toBeNull();
         expect(settlements.length, 'exactly one settlement').toBe(1);
         expect(settlements[0].errors[0]).toContain('insert-failed');
         expect(settlements[0].errors[1]).toContain('could not be instantiated');
@@ -630,6 +635,78 @@ test.describe('dock recreate — a refresh after recreate resolves the candidate
         } finally {
             host.destroy();
             workspace.destroy()
+        }
+    })
+});
+
+test.describe('Workstation cache adoption', () => {
+    test('header pop-out enters Workstation custom exit policy, not the raw handler bundle', async () => {
+        const {default: WorkstationWorkspace} = await import('../../../../apps/workstation/view/Workspace.mjs'),
+              workspace                       = Object.create(WorkstationWorkspace.prototype),
+              data                            = {itemId: 'security', proxyRect: {height: 20, width: 30, x: 1, y: 2}};
+        let received = null;
+
+        workspace.onDockTearOutExit = async value => {
+            received = value;
+            return true
+        };
+
+        await expect(workspace.admitDockPopOut(data)).resolves.toBe(true);
+        expect(received).toBe(data)
+    });
+
+    test('fresh resolution stays private until the exact committed pane replaces the cache entry', async () => {
+        // Dynamic after setup(): Workstation's dependency graph reaches manager.Window, whose
+        // singleton requires the test worker installed above before module evaluation.
+        const {default: WorkstationWorkspace} = await import('../../../../apps/workstation/view/Workspace.mjs');
+
+        const
+            itemId    = 'security',
+            item      = {componentRef: itemId, title: 'Security'},
+            container = Neo.create(Container, {
+                appName: 'DashboardDockRecreateCandidateTest',
+                items  : [{module: Component, id: 'workstation-recreate-live'}]
+            }),
+            livePane  = container.items[0],
+            workspace = Object.create(WorkstationWorkspace.prototype);
+
+        workspace.dockModel             = {items: {[itemId]: item}};
+        workspace.dockRecreateInFlight  = new Set();
+        workspace.fire                  = () => {};
+        workspace.isDestroyed           = false;
+        workspace.paneCache             = {[itemId]: livePane};
+
+        try {
+            const
+                freshA = workspace.resolveFreshPane(itemId, item),
+                freshB = workspace.resolveFreshPane(itemId, item);
+
+            expect(freshA).not.toBe(freshB);
+            expect(freshA).not.toBe(livePane);
+            expect(workspace.paneCache[itemId], 'prepare-time creation must not publish').toBe(livePane);
+
+            freshA.destroy();
+            freshB.destroy();
+
+            workspace.resolveFreshPane = () => null;
+
+            const refused = workspace.recreateDockPane(itemId, livePane, {settle: false});
+
+            expect(refused.pane).toBeNull();
+            expect(workspace.paneCache[itemId], 'a refusal preserves cache truth').toBe(livePane);
+            expect(container.items[0], 'a refusal preserves slot truth').toBe(livePane);
+
+            delete workspace.resolveFreshPane;
+
+            const committed = workspace.recreateDockPane(itemId, livePane, {settle: false});
+
+            expect(committed.errors).toEqual([]);
+            expect(committed.pane).toBe(container.items[0]);
+            expect(workspace.paneCache[itemId]).toBe(committed.pane);
+            expect(committed.pane).not.toBe(livePane);
+            expect(livePane.isDestroyed).toBe(true)
+        } finally {
+            container.destroy()
         }
     })
 });

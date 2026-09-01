@@ -204,48 +204,59 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(sideChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
     });
 
-    test('projects the opt-in persistent Dock close action and forwards every runtime intent', () => {
-        const model = createModel();
-
-        model.items.swarm.closable = false;
-
+    test('projects the stable default Dock action rail and keeps capability in action state', () => {
         const
+            model       = createModel(),
+            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            hidden      = getProjectedChildren(DockLayoutAdapter.project(model, {
+                resolveComponentRef: resolvePane
+            }))[0],
+            available   = getProjectedChildren(DockLayoutAdapter.project(model, {
+                dockPopOutActionAvailable: true,
+                resolveComponentRef      : resolvePane
+            }))[0],
+            optedOut   = getProjectedChildren(DockLayoutAdapter.project(model, {
+                enableDockCloseAction   : false,
+                enableDockMaximizeAction: false,
+                enableDockPinAction     : false,
+                enableDockPopOutAction  : false,
+                enableDockReloadAction  : false,
+                resolveComponentRef     : resolvePane
+            }))[0];
+
+        expect(hidden.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(hidden.headerActions.some(action => action.action === 'lock')).toBe(false);
+        expect(hidden.headerActions.find(action => action.action === 'reload').hidden).toBe(true);
+        expect(hidden.headerActions.find(action => action.action === 'pop-out').hidden).toBe(true);
+        expect(hidden.headerActions.slice(0, -1).every(action => action.contextual === undefined)).toBe(true);
+        expect(hidden.headerActions.at(-1)).toMatchObject({action: 'close', contextual: false});
+        expect(hidden.vdom.tabIndex).toBe(-1);
+
+        expect(available.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(available.headerActions.find(action => action.action === 'pop-out').hidden).toBe(false);
+
+        expect(optedOut.headerActions, 'explicit false retains the public compatibility escape').toBeUndefined();
+        expect(optedOut.vdom).toBeUndefined()
+    });
+
+    test('routes default-rail and active-index intents through the tabs-node owner', () => {
+        const
+            model         = createModel(),
             intents       = [],
             activeChanges = [],
-            disabled      = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
-            }),
-            enabled       = DockLayoutAdapter.project(model, {
-                enableDockCloseAction  : true,
+            projected     = DockLayoutAdapter.project(model, {
                 onDockActiveIndexChange: data => activeChanges.push(data),
                 onDockHeaderAction     : data => intents.push(data),
                 resolveComponentRef    : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             }),
-            disabledMain = getProjectedChildren(disabled)[0],
-            enabledMain  = getProjectedChildren(enabled)[0],
-            closeAction  = enabledMain.headerActions[0];
+            main          = getProjectedChildren(projected)[0],
+            tabContainer  = {id: 'live-tabs'};
 
-        expect(disabledMain.headerActions).toBeUndefined();
-        expect(disabledMain.vdom).toBeUndefined();
-
-        expect(closeAction).toMatchObject({
-            action    : 'close',
-            contextual: false,
-            hidden    : true
-        });
-        expect(closeAction.iconCls).toBeTruthy();
-        expect(enabledMain.vdom.tabIndex).toBe(-1);
-
-        const tabContainer = {id: 'live-tabs'};
-
-        // EVERY intent reaches the owner, not just `close`. Filtering in the wire is what made the
-        // header slot unusable for a host: an action could be projected and reach nothing when
-        // pressed. Deciding what to act on belongs to the owner, which ignores what it does not own.
-        enabledMain.listeners.headerAction({action: 'custom', tabContainer});
-        expect(intents).toEqual([{action: 'custom', dockNodeId: 'main-tabs', tabContainer}]);
-
-        enabledMain.listeners.headerAction({action: 'close', tabContainer});
-        enabledMain.listeners.activeIndexChange({item: {id: 'live-card'}, value: 0});
+        main.listeners.headerAction({action: 'custom', tabContainer});
+        main.listeners.headerAction({action: 'close', tabContainer});
+        main.listeners.activeIndexChange({item: {id: 'live-card'}, value: 0});
 
         expect(intents).toEqual([
             {action: 'custom', dockNodeId: 'main-tabs', tabContainer},
@@ -254,146 +265,78 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(activeChanges).toEqual([{dockNodeId: 'main-tabs', item: {id: 'live-card'}, tabContainer: null, value: 0}])
     });
 
-    test('projects host-authored header actions before the close action and routes their intent', () => {
+    test('projects host actions before the default rail and keeps close persistent and last', () => {
         const
             model       = createModel(),
             intents     = [],
             seenNodeIds = [],
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-            pinAction   = () => [{action: 'pin', iconCls: 'fa fa-thumbtack'}],
-
-            hostOnly = DockLayoutAdapter.project(model, {
+            projected   = DockLayoutAdapter.project(model, {
                 onDockHeaderAction      : data => intents.push(data),
                 resolveComponentRef     : resolvePane,
                 resolveDockHeaderActions: nodeId => {
                     seenNodeIds.push(nodeId);
-                    return nodeId === 'main-tabs' ? pinAction() : []
+                    return nodeId === 'main-tabs' ? [{action: 'filter', iconCls: 'fa fa-filter'}] : []
                 }
             }),
+            main        = getProjectedChildren(projected)[0],
+            tabContainer = {id: 'live-tabs'};
 
-            both = DockLayoutAdapter.project(model, {
-                enableDockCloseAction   : true,
-                onDockHeaderAction      : data => intents.push(data),
-                resolveComponentRef     : resolvePane,
-                resolveDockHeaderActions: pinAction
-            }),
-
-            hostMain = getProjectedChildren(hostOnly)[0],
-            bothMain = getProjectedChildren(both)[0];
-
-        // The slot is usable WITHOUT the close opt-in; wiring it only under that flag is what left a
-        // host with no way in.
-        expect(hostMain.headerActions.map(action => action.action)).toEqual(['pin']);
-
-        // The focusable-root fallback stays tied to the close action, which is what needs it: closing
-        // the last item leaves the empty projection as the focus successor.
-        expect(hostMain.vdom).toBeUndefined();
-
-        // Composition, and the order: close remains the rightmost control it already was.
-        expect(bothMain.headerActions.map(action => action.action)).toEqual(['pin', 'close']);
-
-        // Host actions inherit the tab header's focus gating. Opting out is the close action's
-        // choice, not a default imposed on everyone sharing its rail.
-        expect(bothMain.headerActions[0].contextual).toBeUndefined();
-        expect(bothMain.headerActions[1].contextual).toBe(false);
-
-        // The resolver is consulted per tabs node, by id, so a host can differ per zone.
-        expect(seenNodeIds).toContain('main-tabs');
+        expect(main.headerActions.map(action => action.action))
+            .toEqual(['filter', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(main.headerActions[0].contextual).toBeUndefined();
+        expect(main.headerActions.at(-1).contextual).toBe(false);
         expect(new Set(seenNodeIds).size, 'asked once per node, not once per item').toBe(seenNodeIds.length);
 
-        const tabContainer = {id: 'live-tabs'};
-
-        hostMain.listeners.headerAction({action: 'pin', tabContainer});
-        expect(intents).toEqual([{action: 'pin', dockNodeId: 'main-tabs', tabContainer}])
+        main.listeners.headerAction({action: 'filter', tabContainer});
+        expect(intents).toEqual([{action: 'filter', dockNodeId: 'main-tabs', tabContainer}])
     });
 
-    test('rejects host action names that would make an action unaddressable', () => {
-        const model       = createModel(),
-              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-              project     = (resolveDockHeaderActions, extra={}) => () => DockLayoutAdapter.project(model, {
-                  resolveComponentRef: resolvePane, resolveDockHeaderActions, ...extra
-              });
-
-        // Semantic names ADDRESS actions — `getActionItem(name)` returns the first match and intents
-        // route by name — so a duplicate leaves one of the pair permanently unreachable. Silent is the
-        // wrong failure here: the host sees a header that is simply missing a control.
-        expect(project(() => [{action: 'pin'}, {action: 'pin'}])).toThrow(/duplicate host header action "pin"/);
-        expect(project(() => [{iconCls: 'fa fa-x'}])).toThrow(/requires a semantic `action` name/);
-
-        // Host actions project BEFORE the close action, so a host `close` would win `getActionItem`
-        // and capture BOTH the engine's `hidden` policy sync and its intent — the engine's own close
-        // would go dark with nothing reporting it.
-        expect(project(() => [{action: 'close'}], {enableDockCloseAction: true}))
-            .toThrow(/"close" is reserved while enableDockCloseAction is on/);
-
-        // Scoped, not blanket: with the engine's close action off there is nothing to shadow, so a
-        // host may own the name.
-        const hostClose = getProjectedChildren(project(() => [{action: 'close', iconCls: 'fa fa-x'}])())[0];
-
-        expect(hostClose.headerActions.map(action => action.action)).toEqual(['close']);
-
-        // `pop-out` carries the same scoped reservation. The flag the adapter reads is already the
-        // AND of the action opt-in and the tear-out lifecycle — collapsed at the Workspace — so the
-        // name frees up exactly when the engine cannot project it.
-        expect(project(() => [{action: 'pop-out'}], {enableDockPopOutAction: true}))
-            .toThrow(/"pop-out" is reserved while enableDockPopOutAction is on/);
-
-        const hostPopOut = getProjectedChildren(project(() => [{action: 'pop-out', iconCls: 'fa fa-x'}])())[0];
-
-        expect(hostPopOut.headerActions.map(action => action.action)).toEqual(['pop-out'])
-    });
-
-    test('pop-out projects only when enabled, and lands at the family slot between pin and maximize', () => {
-        const model       = createModel(),
-              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-              project     = extra => getProjectedChildren(DockLayoutAdapter.project(model, {
-                  resolveComponentRef: resolvePane, ...extra
-              }))[0];
-
-        // Default off: the action is absent, not present-and-hidden. A hidden control still occupies
-        // the ordering contract and still reserves its name.
-        expect(project({}).headerActions?.some?.(action => action.action === 'pop-out') ?? false).toBe(false);
-
-        // The Workspace never sets the flag without the lifecycle armed, so the adapter has exactly
-        // one condition to honour — asserted here so a later refactor cannot quietly widen it into a
-        // second, adapter-side gate that could disagree with the Workspace's.
-        const enabled = project({dockPopOutIconCls: 'far fa-window-restore', enableDockPopOutAction: true}),
-              popOut  = enabled.headerActions.find(action => action.action === 'pop-out');
-
-        expect(popOut).toBeTruthy();
-        expect(popOut.iconCls).toBe('far fa-window-restore');
-
-        // Focus-gated like the rest of the engine set: no `contextual` opt-out. Only `close` opts out.
-        expect(popOut.contextual).toBeUndefined();
-
-        // The frozen family ordering — pin · pop-out · maximize, with close always last.
-        const ordered = project({
-            enableDockCloseAction   : true,
-            enableDockMaximizeAction: true,
-            enableDockPinAction     : true,
-            enableDockPopOutAction  : true
-        });
-
-        expect(ordered.headerActions.map(action => action.action))
-            .toEqual(['pin', 'pop-out', 'maximize', 'close'])
-    });
-
-    test('the pin action is absent and the projection byte-identical while its opt-in is off', () => {
+    test('reserves every default action name and keeps lock reservation opt-in', () => {
         const
-            model       = createEdgeZoneModel(),
+            model       = createModel(),
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-            options     = {enableDockCloseAction: true, resolveComponentRef: resolvePane},
+            project     = (actions, extra={}) => () => DockLayoutAdapter.project(model, {
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: () => actions,
+                ...extra
+            });
 
-            without = DockLayoutAdapter.project(model, options),
-            offFlag = DockLayoutAdapter.project(model, {...options, enableDockPinAction: false});
+        expect(project([{action: 'filter'}, {action: 'filter'}])).toThrow(/duplicate host header action "filter"/);
+        expect(project([{iconCls: 'fa fa-x'}])).toThrow(/requires a semantic `action` name/);
 
-        // Explicit-false is the same projection as absent, and both are the same projection the
-        // consumers that never heard of this leaf already receive.
-        expect(JSON.stringify(offFlag)).toBe(JSON.stringify(without));
-        expect(JSON.stringify(without)).not.toContain('"pin"')
+        const defaultFlags = {
+            close    : 'enableDockCloseAction',
+            maximize : 'enableDockMaximizeAction',
+            pin      : 'enableDockPinAction',
+            'pop-out': 'enableDockPopOutAction',
+            reload   : 'enableDockReloadAction'
+        };
+
+        for (const [name, flag] of Object.entries(defaultFlags)) {
+            expect(project([{action: name}])).toThrow(new RegExp(`"${name}" is reserved by ${flag}`));
+
+            const hostOwned = collectProjectedTabsById(project([{action: name}], {[flag]: false})())
+                .get('main-tabs');
+
+            expect(hostOwned.headerActions.filter(action => action.action === name),
+                `explicit false frees ${name} for the host`).toHaveLength(1)
+        }
+
+        const hostLock = collectProjectedTabsById(project([{action: 'lock'}])()).get('main-tabs');
+
+        expect(hostLock.headerActions.map(action => action.action))
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(project([{action: 'lock'}], {enableDockLockAction: true}))
+            .toThrow(/"lock" is reserved by enableDockLockAction/);
+
+        const prototypeName = collectProjectedTabsById(project([{action: 'constructor'}])()).get('main-tabs');
+
+        expect(prototypeName.headerActions.map(action => action.action))
+            .toEqual(['constructor', 'reload', 'pin', 'pop-out', 'maximize', 'close'])
     });
 
-    test('the opt-in pin action projects at its frozen slot and is hidden wherever the collapse could not complete', () => {
+    test('pin and pop-out keep stable slots while capability and policy change their state', () => {
         const model = createEdgeZoneModel();
 
         model.items.inspector.pinnable = false;
@@ -401,10 +344,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         const
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
             result      = DockLayoutAdapter.project(model, {
-                enableDockCloseAction   : true,
-                enableDockPinAction     : true,
-                resolveComponentRef     : resolvePane,
-                resolveDockHeaderActions: nodeId => nodeId === 'terminal-tabs' ? [{action: 'diagnose'}] : []
+                dockPopOutActionAvailable: true,
+                resolveComponentRef      : resolvePane,
+                resolveDockHeaderActions : nodeId => nodeId === 'terminal-tabs' ? [{action: 'diagnose'}] : []
             }),
             tabs          = collectProjectedTabsById(result),
             centerTab     = tabs.get('main-tabs'),
@@ -412,190 +354,78 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             inspectorTabs = tabs.get('inspector-tabs');
 
         // The frozen order, with a host action present: host actions, then the engine set, then close.
-        expect(terminalTabs.headerActions.map(action => action.action)).toEqual(['diagnose', 'pin', 'close']);
-        expect(centerTab.headerActions.map(action => action.action)).toEqual(['pin', 'close']);
+        expect(terminalTabs.headerActions.map(action => action.action))
+            .toEqual(['diagnose', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
+        expect(centerTab.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
 
         // Right-band-owned, pinnable, active — the one case where the gesture can complete.
-        expect(terminalTabs.headerActions[1]).toMatchObject({action: 'pin', hidden: false});
-        expect(terminalTabs.headerActions[1].iconCls).toBeTruthy();
+        expect(terminalTabs.headerActions.find(action => action.action === 'pin'))
+            .toMatchObject({action: 'pin', hidden: false});
+        expect(terminalTabs.headerActions.find(action => action.action === 'pop-out').hidden).toBe(false);
 
         // Focus-gated like a host action, NOT like close. `close` opts out with `contextual: false`
         // because it must stay reachable on an unfocused pane; the engine set inherits the tab
         // header's `showOnFocus` default, and carrying close's opt-out would leave a permanently
         // visible control on every header.
-        expect(terminalTabs.headerActions[1].contextual, 'pin inherits the header focus gate').toBeUndefined();
+        expect(terminalTabs.headerActions.find(action => action.action === 'pin').contextual,
+            'pin inherits the header focus gate').toBeUndefined();
         expect(terminalTabs.headerActions[0].contextual, 'the host action is gated too').toBeUndefined();
-        expect(terminalTabs.headerActions[2].contextual, 'close is the one deliberate exemption').toBe(false);
+        expect(terminalTabs.headerActions.at(-1).contextual, 'close is the one deliberate exemption').toBe(false);
 
         // Center-owned: §2.7 never rails main content, so the affordance must not offer it.
-        expect(centerTab.headerActions[0].hidden, 'a center-owned active item cannot collapse').toBe(true);
+        expect(centerTab.headerActions.find(action => action.action === 'pin').hidden,
+            'a center-owned active item cannot collapse').toBe(true);
 
         // Policy-refused: `setItemAutoHidden` rejects `pinnable: false`, so offering it would be a lie.
-        expect(inspectorTabs.headerActions.find(action => action.action === 'pin').hidden).toBe(true)
+        expect(inspectorTabs.headerActions.find(action => action.action === 'pin').hidden).toBe(true);
+
+        const noPopOut = collectProjectedTabsById(DockLayoutAdapter.project(model, {
+            resolveComponentRef: resolvePane
+        })).get('terminal-tabs');
+
+        expect(noPopOut.headerActions.find(action => action.action === 'pop-out').hidden).toBe(true)
     });
 
-    test('a host may own the name `pin` — until the engine action that reserves it is switched on', () => {
-        const model       = createEdgeZoneModel(),
-              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-              project     = extra => () => DockLayoutAdapter.project(model, {
-                  resolveComponentRef     : resolvePane,
-                  resolveDockHeaderActions: () => [{action: 'pin', iconCls: 'fa fa-thumbtack'}],
-                  ...extra
-              });
-
-        // Scoped exactly like `close`: with the engine's pin off there is nothing to shadow, and the
-        // host keeps a name it may well already ship.
-        expect(collectProjectedTabsById(project({})()).get('main-tabs').headerActions.map(action => action.action))
-            .toEqual(['pin']);
-
-        // With it on, the host action would win `getActionItem('pin')` and capture BOTH the engine's
-        // `hidden` policy sync and its intent — the collapse would go dark with nothing reporting it.
-        expect(project({enableDockPinAction: true}))
-            .toThrow(/"pin" is reserved while enableDockPinAction is on/);
-
-        // The close message is unchanged by sharing one reserved-name table with pin.
-        expect(project({enableDockCloseAction: true, resolveDockHeaderActions: () => [{action: 'close'}]}))
-            .toThrow(/"close" is reserved while enableDockCloseAction is on/)
-    });
-
-    test('a prototype-shaped host action name is not silently treated as reserved', () => {
-        const model       = createEdgeZoneModel(),
-              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef});
-
-        // The reserved-name lookup is keyed by host-supplied strings. Backed by an object literal,
-        // `constructor` would resolve to `Object.prototype.constructor` — truthy — and throw a
-        // reserved-name error for a name the engine does not own.
-        const projected = collectProjectedTabsById(DockLayoutAdapter.project(model, {
-            enableDockPinAction     : true,
-            resolveComponentRef     : resolvePane,
-            resolveDockHeaderActions: () => [{action: 'constructor', iconCls: 'fa fa-x'}]
-        })).get('main-tabs');
-
-        expect(projected.headerActions.map(action => action.action)).toEqual(['constructor', 'pin'])
-    });
-
-    test('a projection with no host resolver and no close action carries no action slot at all', () => {
-        const bare = getProjectedChildren(DockLayoutAdapter.project(createModel(), {
-            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
-        }))[0];
-
-        // Byte-identical to before the seam existed: an empty resolver result must not materialise an
-        // empty action group, which would add a spacer and change the header's geometry.
-        expect(bare.headerActions).toBeUndefined();
-        expect(bare.vdom).toBeUndefined()
-    });
-
-    test('projects the opt-in engine-owned maximize toggle between host actions and close', () => {
+    test('threads the maximize icon and routes its default-rail intent', () => {
         const
             model       = createModel(),
             intents     = [],
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-
-            disabled = DockLayoutAdapter.project(model, {resolveComponentRef: resolvePane}),
-
-            enabled = DockLayoutAdapter.project(model, {
-                enableDockCloseAction   : true,
-                enableDockMaximizeAction: true,
-                onDockHeaderAction      : data => intents.push(data),
-                resolveComponentRef     : resolvePane,
-                resolveDockHeaderActions: () => [{action: 'filter', iconCls: 'fa fa-filter'}]
+            projected   = DockLayoutAdapter.project(model, {
+                dockMaximizeIconCls: 'fa fa-expand',
+                onDockHeaderAction : data => intents.push(data),
+                resolveComponentRef: resolvePane
             }),
+            main        = getProjectedChildren(projected)[0],
+            maximize    = main.headerActions.find(action => action.action === 'maximize');
 
-            disabledMain = getProjectedChildren(disabled)[0],
-            enabledMain  = getProjectedChildren(enabled)[0],
-            maximize     = enabledMain.headerActions[1];
-
-        // Default off = byte-identical: no action slot materialises for the flag alone.
-        expect(disabledMain.headerActions).toBeUndefined();
-
-        // The frozen ordering contract: host actions → engine set → close, always last.
-        expect(enabledMain.headerActions.map(action => action.action)).toEqual(['filter', 'maximize', 'close']);
-
-        // Maximize rides the tab header's focus-gating default — no `contextual` opt-out, which is
-        // the close action's exemption alone.
         expect(maximize.contextual).toBeUndefined();
-        expect(maximize.iconCls).toBe('far fa-window-maximize');
-
-        // The icon is workspace-owned and threads through as an option.
-        const themed = getProjectedChildren(DockLayoutAdapter.project(model, {
-            dockMaximizeIconCls     : 'fa fa-expand',
-            enableDockMaximizeAction: true,
-            resolveComponentRef     : resolvePane
-        }))[0];
-
-        expect(themed.headerActions.map(action => action.action)).toEqual(['maximize']);
-        expect(themed.headerActions[0].iconCls).toBe('fa fa-expand');
+        expect(maximize.iconCls).toBe('fa fa-expand');
 
         // Intent arrives like any other action, with its tabs node identified.
         const tabContainer = {id: 'live-tabs'};
 
-        enabledMain.listeners.headerAction({action: 'maximize', tabContainer});
+        main.listeners.headerAction({action: 'maximize', tabContainer});
         expect(intents).toEqual([{action: 'maximize', dockNodeId: 'main-tabs', tabContainer}])
     });
 
-    test('reserves the maximize name exactly while its flag is on', () => {
-        const model       = createModel(),
-              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-              project     = (resolveDockHeaderActions, extra={}) => () => DockLayoutAdapter.project(model, {
-                  resolveComponentRef: resolvePane, resolveDockHeaderActions, ...extra
-              });
-
-        // Same failure class as a host `close`: the host copy would win `getActionItem` and capture
-        // the engine's icon sync and intent — silently.
-        expect(project(() => [{action: 'maximize'}], {enableDockMaximizeAction: true}))
-            .toThrow(/"maximize" is reserved while enableDockMaximizeAction is on/);
-
-        // Scoped, not blanket: with the engine action off, the name belongs to whoever projects it.
-        const hostOwned = getProjectedChildren(project(() => [{action: 'maximize', iconCls: 'fa fa-expand'}])())[0];
-
-        expect(hostOwned.headerActions.map(action => action.action)).toEqual(['maximize'])
-    });
-
-    test('lock leads reload in the engine set and reload reserves its name through the guard table', () => {
+    test('keeps lock opt-in ahead of the stable default rail', () => {
         const
             model       = createModel(),
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
-
-            enabled = DockLayoutAdapter.project(model, {
-                enableDockCloseAction   : true,
-                enableDockLockAction    : true,
-                enableDockMaximizeAction: true,
-                enableDockPinAction     : true,
-                enableDockReloadAction  : true,
-                resolveComponentRef     : resolvePane
+            enabled     = DockLayoutAdapter.project(model, {
+                enableDockLockAction: true,
+                resolveComponentRef : resolvePane
             }),
-
             enabledMain = getProjectedChildren(enabled)[0];
 
-        // The frozen family order: lock leads reload in the engine set; close stays last.
         expect(enabledMain.headerActions.map(action => action.action))
-            .toEqual(['lock', 'reload', 'pin', 'maximize', 'close']);
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
 
-        // Focus-gated like its engine siblings — no `contextual` opt-out — and it SHIPS hidden:
-        // availability is a live-card contract probe only the workspace can run post-mount.
         expect(enabledMain.headerActions[1].contextual).toBeUndefined();
         expect(enabledMain.headerActions[1].hidden).toBe(true);
         expect(enabledMain.headerActions[1].iconCls).toBe('fa fa-rotate-right');
-
-        // Off = byte-identical: no reload entry materialises for the flag alone.
-        const withoutReload = getProjectedChildren(DockLayoutAdapter.project(model, {
-            enableDockCloseAction: true,
-            resolveComponentRef  : resolvePane
-        }))[0];
-
-        expect(withoutReload.headerActions.map(action => action.action)).toEqual(['close']);
-
-        // The guard table reserves the name exactly while the flag is on.
-        const project = (resolveDockHeaderActions, extra={}) => () => DockLayoutAdapter.project(model, {
-            resolveComponentRef: resolvePane, resolveDockHeaderActions, ...extra
-        });
-
-        expect(project(() => [{action: 'reload'}], {enableDockReloadAction: true}))
-            .toThrow(/"reload" is reserved while enableDockReloadAction is on/);
-
-        const hostReload = getProjectedChildren(project(() => [{action: 'reload', iconCls: 'fa fa-x'}])())[0];
-
-        expect(hostReload.headerActions.map(action => action.action)).toEqual(['reload'])
     });
 
     test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {
@@ -984,10 +814,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         let result = DockLayoutAdapter.project(model, {
                 resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             }),
-            row          = result.items[0],
-            rail         = row.items.find(item => item.dockNodeType === 'edge-rail'),
-            side         = row.items.find(item => item.dockNodeId === 'side-split'),
-            terminalTabs = getProjectedChildren(side)[0];
+            row  = result.items[0],
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail'),
+            side = row.items.find(item => item.dockNodeId === 'side-split');
 
         // The auto-hidden item surfaces as a right-edge DockRail affordance.
         expect(rail).toBeTruthy();
@@ -1000,10 +829,8 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             {dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'}
         ]);
 
-        // ...and is gone from its tab flow (the now-empty terminal-tabs).
-        expect(terminalTabs.dockNodeId).toBe('terminal-tabs');
-        expect(terminalTabs.items).toEqual([]);
-        expect(terminalTabs.activeIndex).toBeNull();
+        // ...and its now-empty tabs node is gone from the live split, not rendered as dead chrome.
+        expect([...collectProjectedTabsById(side).keys()]).toEqual(['inspector-tabs']);
 
         // Geometry discipline: edge bands keep a fixed cross-extent, the center flexes.
         expect(side.flex).toBe('none');
@@ -1083,25 +910,48 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(rail.railItems.map(item => item.dockItemId)).toEqual(['detail']);
     });
 
-    test('a split-node edge band is exempt from the empty-band skip, even fully railed', () => {
+    test('a split edge band omits a child whose final live tab moved to the rail', () => {
         let model = createEdgeZoneModel();
 
-        model.items.terminal.autoHidden  = true;
-        model.items.inspector.autoHidden = true;
+        model.items.terminal.autoHidden = true;
 
         let result = DockLayoutAdapter.project(model, {
                 resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             }),
             row  = result.items[0],
-            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band'));
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
 
-        // The skip discriminates on the band's own node type: a SPLIT band represents committed
-        // geometry (child extents, splitters) beyond a tab flow, so it projects even when its
-        // leaf tab flows are emptied — collapsing it is a layout decision the split's owner
-        // makes through operations, never a projection-side inference.
+        // The committed split remains model truth, but a child with zero live tabs has no in-flow
+        // representation. Keeping it renders an empty tab header/body beside the rail — the exact
+        // Workstation failure when Commit Stream is the final item in its split child.
         expect(band).toBeTruthy();
         expect(band.dockNodeId).toBe('side-split');
-        expect(band.flex).toBe('none');
+        expect([...collectProjectedTabsById(band).keys()]).toEqual(['inspector-tabs']);
+        expect(getProjectedSplitters(band), 'one surviving child has no split boundary').toHaveLength(0);
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['terminal'])
+    });
+
+    test('a split edge band with no live descendants projects rail-only', () => {
+        let model  = createEdgeZoneModel(),
+            before = JSON.stringify(model);
+
+        model.items.terminal.autoHidden  = true;
+        model.items.inspector.autoHidden = true;
+        before = JSON.stringify(model);
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
+
+        expect(band, 'an empty split wrapper must not retain the edge-band extent').toBeUndefined();
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['terminal', 'inspector']);
+        expect(row.items.filter(item => item.dockNodeType === 'splitter'),
+            'rail-only has no edge splitter against a missing band').toHaveLength(0);
+        expect(JSON.stringify(model), 'projection never rewrites the committed split').toBe(before)
     });
 
     test('threads reducer callbacks from projection context into the rail affordance', () => {

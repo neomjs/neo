@@ -413,31 +413,21 @@ class LayoutAdapter extends Base {
      *     conversion policy. Consumers keep this false until their physical lifecycle is ready.
      * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
      *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
-     * @param {Boolean} [options.enableDockCloseAction=false] Projects one persistent close action
-     *     into every tabs header. The workspace owns the effect and policy synchronization.
+     * @param {Boolean} [options.enableDockCloseAction=true] Project the persistent close action.
      * @param {Boolean} [options.enableDockLockAction=false] Projects one engine-owned lock toggle
      *     into every tabs header. The workspace owns committed-state dispatch and presentation sync.
+     * @param {Boolean} [options.enableDockMaximizeAction=true] Project the maximize toggle.
+     * @param {Boolean} [options.enableDockPinAction=true] Project the collapse-to-rail action.
+     * @param {Boolean} [options.enableDockPopOutAction=true] Project the pop-out action; capability
+     *     still controls its hidden state through `dockPopOutActionAvailable`.
+     * @param {Boolean} [options.enableDockReloadAction=true] Project the reload action.
      * @param {String} [options.dockLockIconCls='fa fa-lock'] Icon while the active item is unlocked.
      * @param {String} [options.dockUnlockIconCls='fa fa-lock-open'] Icon while it is locked.
-     * @param {Boolean} [options.enableDockPinAction=false] Projects one persistent pin action into
-     *     every tabs header — the collapse-to-rail entry of docking design record §2.7. The workspace
-     *     owns the effect and policy synchronization, exactly as it does for close.
-     * @param {Boolean} [options.enableDockMaximizeAction=false] Projects one engine-owned maximize
-     *     toggle into every tabs header, focus-gated by the tab header's own default. The
-     *     workspace owns the transient state, geometry, motion and input policy; `maximize`
-     *     becomes a reserved host-action name while on.
      * @param {String} [options.dockMaximizeIconCls='far fa-window-maximize'] Icon of the projected
      *     maximize action in its un-maximized state; the workspace flips it per toggle.
-     * @param {Boolean} [options.enableDockReloadAction=false] Projects one engine-owned,
-     *     delegation-only reload action into every tabs header — runtime only, no operation is
-     *     ever committed. The workspace owns the `dockReload()` dispatch, the single-flight
-     *     window, the `dockReloadSettled` settlement event and the per-active-pane visibility.
-     * @param {Boolean} [options.enableDockPopOutAction=false] Projects one engine-owned pop-out
-     *     action into every tabs header, focus-gated by the tab header's own default. Unlike the
-     *     other engine actions this one is not self-sufficient: the click enters the tear-out
-     *     lifecycle's own exit/terminal pair — the drag gesture's path — so a workspace projects it
-     *     only while that lifecycle is armed too, and the name stays free for a host otherwise. The
-     *     workspace owns the pane measurement, the vessel admission and the retire path.
+     * @param {Boolean} [options.dockPopOutActionAvailable=false] Whether the owner currently has one
+     *     effective tear-out handler/admission bundle. The stable pop-out action always projects;
+     *     capability changes its hidden state rather than node-level action membership.
      * @param {String} [options.dockPopOutIconCls='far fa-window-restore'] Icon of the projected
      *     pop-out action.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
@@ -449,11 +439,8 @@ class LayoutAdapter extends Base {
      *     (`hidden` / `disabled`), never in a changing list. Actions project BEFORE the engine set,
      *     their intent arrives through `onDockHeaderAction` like any other, and focus gating is the
      *     tab header's own default. Semantic names must be unique per node, and every engine-owned
-     *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`,
-     *     `lock` under `enableDockLockAction`, `maximize` under `enableDockMaximizeAction`,
-     *     `pin` under `enableDockPinAction`, `reload` under `enableDockReloadAction`, and `pop-out`
-     *     under `enableDockPopOutAction`. A name is reserved exactly while the engine can project it,
-     *     so `pop-out` is free for a host whenever the workspace's tear-out lifecycle is not armed.
+     *     default-rail name is reserved while its default-on flag is not explicitly false; `lock`
+     *     joins the reserved set only while `enableDockLockAction` is on.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
      * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel
@@ -515,14 +502,15 @@ class LayoutAdapter extends Base {
                 || null,
             dockLockIconCls                  : options.dockLockIconCls || 'fa fa-lock',
             dockMaximizeIconCls              : options.dockMaximizeIconCls || 'far fa-window-maximize',
+            dockPopOutActionAvailable        : options.dockPopOutActionAvailable === true,
             dockPopOutIconCls                : options.dockPopOutIconCls || 'far fa-window-restore',
             dockUnlockIconCls                : options.dockUnlockIconCls || 'fa fa-lock-open',
-            enableDockCloseAction            : options.enableDockCloseAction === true,
+            enableDockCloseAction            : options.enableDockCloseAction !== false,
             enableDockLockAction             : options.enableDockLockAction === true,
-            enableDockMaximizeAction         : options.enableDockMaximizeAction === true,
-            enableDockPinAction              : options.enableDockPinAction === true,
-            enableDockPopOutAction           : options.enableDockPopOutAction === true,
-            enableDockReloadAction           : options.enableDockReloadAction === true,
+            enableDockMaximizeAction         : options.enableDockMaximizeAction !== false,
+            enableDockPinAction              : options.enableDockPinAction !== false,
+            enableDockPopOutAction           : options.enableDockPopOutAction !== false,
+            enableDockReloadAction           : options.enableDockReloadAction !== false,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
             items                            : model.items || {},
@@ -845,7 +833,7 @@ class LayoutAdapter extends Base {
      * @param {Object} descriptor Nested edge descriptor.
      * @param {String} edge One of `top`, `right`, `bottom`, `left`.
      * @param {Object} context
-     * @returns {Object}
+     * @returns {Object|null}
      * @protected
      * @static
      */
@@ -857,15 +845,15 @@ class LayoutAdapter extends Base {
             return null
         }
 
-        // An edge band whose tab flow is EMPTY (every item railed away as autoHidden) must not
+        // An edge band whose live flow is EMPTY (every descendant railed away as autoHidden) must not
         // hold layout. The fixed cross-extent below exists to protect the CENTER from an unsized
         // band — an empty band inverts that purpose and eats the geometry itself: a dead gutter
         // at desktop, and in narrow vessel windows the center split starves toward zero width
         // (band + rail can exceed the whole row). Reveals ride the absolute overlay, never the
         // band, so an empty band serves nothing; any pin / un-autohide operation re-runs the
-        // projection and the band returns with its first live item. Split-node bands and
-        // populated tab flows project unchanged.
-        if (config.dockNodeType === 'tabs' && !(config.items?.length > 0)) {
+        // projection and the band returns with its first live item. `projectSplitNode()` removes
+        // empty leaves recursively, so this predicate covers direct tabs and nested splits alike.
+        if (this.isEmptyProjection(config)) {
             return null
         }
 
@@ -877,6 +865,34 @@ class LayoutAdapter extends Base {
         }
 
         return config
+    }
+
+    /**
+     * @summary Whether a projected Dock subtree has no live pane flow after rail extraction.
+     *
+     * This inspects projected truth, never the committed document: an auto-hidden item stays in its
+     * original tabs/split model position so pin restores the exact layout, while the runtime tree
+     * omits the empty chrome that would otherwise render beside the rail.
+     * @param {Object|null} config
+     * @returns {Boolean}
+     * @protected
+     * @static
+     */
+    static isEmptyProjection(config) {
+        if (!config) {
+            return true
+        }
+
+        if (config.dockNodeType === 'tabs') {
+            return !(config.items?.length > 0)
+        }
+
+        if (config.dockNodeType === 'split') {
+            return !(config.items || []).some(item => item.dockNodeType !== 'splitter'
+                && !this.isEmptyProjection(item))
+        }
+
+        return false
     }
 
     /**
@@ -941,18 +957,26 @@ class LayoutAdapter extends Base {
      * @static
      */
     static projectSplitNode(nodeId, node, context) {
-        let children    = Array.isArray(node.children) ? node.children : [],
-            flexValues  = this.getFlexValues(node.sizes, children.length),
-            items       = [],
-            orientation = node.orientation === 'vertical' ? 'vertical' : 'horizontal',
-            layoutNtype = orientation === 'vertical' ? 'vbox' : 'hbox';
+        let children          = Array.isArray(node.children) ? node.children : [],
+            hasAuthoredSizes  = Array.isArray(node.sizes) && node.sizes.length === children.length,
+            items             = [],
+            orientation       = node.orientation === 'vertical' ? 'vertical' : 'horizontal',
+            layoutNtype       = orientation === 'vertical' ? 'vbox' : 'hbox',
+            projectedChildren = children.map((childId, index) => ({
+                index,
+                projected: this.projectNode(childId, context)
+            })).filter(entry => !this.isEmptyProjection(entry.projected)),
+            flexValues = this.getFlexValues(
+                hasAuthoredSizes ? projectedChildren.map(entry => node.sizes[entry.index]) : null,
+                projectedChildren.length
+            );
 
-        children.forEach((childId, index) => {
-            const projected = this.projectNode(childId, context);
+        projectedChildren.forEach((entry, projectedIndex) => {
+            const {index, projected} = entry;
 
             items.push({
                 ...projected,
-                flex : flexValues[index],
+                flex : flexValues[projectedIndex],
                 // The committed sizes are the SOLE geometry authority. Flexbox's default
                 // `min-height/min-width: auto` lets a zone's min-content floor cap the
                 // distribution — the rendered split then silently deviates from the
@@ -961,7 +985,12 @@ class LayoutAdapter extends Base {
                 style: {...projected.style, minHeight: 0, minWidth: 0}
             });
 
-            if (index < children.length - 1) {
+            // Resize grammar names a boundary in the COMMITTED child array. When rail extraction
+            // makes non-adjacent model children visually adjacent, there is no single boundary a
+            // drag could truthfully resize, so fail closed. Adjacent surviving children retain the
+            // original boundary index and exact operation semantics.
+            if (projectedIndex < projectedChildren.length - 1
+                && projectedChildren[projectedIndex + 1].index === index + 1) {
                 items.push(this.createSplitterAffordance(nodeId, orientation, index, context))
             }
         });
@@ -1018,13 +1047,12 @@ class LayoutAdapter extends Base {
             }
         ));
 
-        // Host actions precede the ENGINE SET, and `close` stays the rightmost control — the position
-        // it already occupies for every consumer that enables it, and the one the gesture is reached
-        // at. The family's frozen order is
+        // Host actions precede the ENGINE SET, and `close` stays the rightmost control. The frozen
+        // order is
         // `[tab overflow] → [host actions] → [lock · reload · pin · pop-out · maximize] → [close]`;
-        // each engine action ships behind its own `enableDock<X>Action` opt-in, so a header renders
-        // the subset its consumer enabled, in that order, never a different order.
-        // A host resolver returning nothing leaves the projection byte-identical to before.
+        // lock remains opt-in, while the five greenfield rail identities default on and retain an
+        // explicit-false compatibility escape. Per-item and host capability changes their state,
+        // never this node-static array.
         //
         // The resolver receives the node id ALONE, deliberately. Handing it the active item would
         // invite a per-item action LIST, and a list that changes between projections replaces the
@@ -1034,27 +1062,17 @@ class LayoutAdapter extends Base {
         // needing per-item behaviour has the same mechanism, on actions it owns.
         const hostActions = context.resolveDockHeaderActions?.(nodeId) || [],
               seen        = new Set(),
-              // Engine-owned names are reserved while their own opt-in is on. One table rather than a
-              // branch per action: every leaf of the §2.7 family reserves its name by construction, so
-              // adding an engine action cannot forget its guard. A Map (not an object literal) because
+              // Every action name is reserved exactly while its projection flag is on. A Map (not
+              // an object literal) because
               // the key is host-supplied — `constructor` and `__proto__` must miss, exactly as they do
               // in `Operations.applyOperation`'s own-key dispatch.
               reservedActionNames = new Map([
-                  // Each row carries the opt-in's IDENTIFIER rather than letting the message derive
-                  // it from the action name. The derivation was `enableDock` + capitalised name +
-                  // `Action`, which silently produces a config that does not exist as soon as a name
-                  // is not one lowercase word — `pop-out` yielded `enableDockPop-outAction`, sending
-                  // the host to grep for something unfindable. Pairing them here cannot drift.
-                  ['close',    {enabled: context.enableDockCloseAction,    optIn: 'enableDockCloseAction'}],
-                  ['lock',     {enabled: context.enableDockLockAction,     optIn: 'enableDockLockAction'}],
-                  ['maximize', {enabled: context.enableDockMaximizeAction, optIn: 'enableDockMaximizeAction'}],
-                  ['pin',      {enabled: context.enableDockPinAction,      optIn: 'enableDockPinAction'}],
-                  // Reserved only while the flag is on — and that flag is already the AND of
-                  // `enableDockPopOutAction` and `enableDockTearOutLifecycle`, collapsed at the
-                  // Workspace's context assembly. So `pop-out` frees up as a host name exactly when
-                  // the engine cannot project it, which is the contract the other rows carry.
-                  ['pop-out',  {enabled: context.enableDockPopOutAction,   optIn: 'enableDockPopOutAction'}],
-                  ['reload',   {enabled: context.enableDockReloadAction,   optIn: 'enableDockReloadAction'}]
+                  ['close',    context.enableDockCloseAction    ? 'enableDockCloseAction'    : null],
+                  ['maximize', context.enableDockMaximizeAction ? 'enableDockMaximizeAction' : null],
+                  ['pin',      context.enableDockPinAction      ? 'enableDockPinAction'      : null],
+                  ['pop-out',  context.enableDockPopOutAction   ? 'enableDockPopOutAction'   : null],
+                  ['reload',   context.enableDockReloadAction   ? 'enableDockReloadAction'   : null],
+                  ['lock',     context.enableDockLockAction ? 'enableDockLockAction' : null]
               ]);
 
         for (const action of hostActions) {
@@ -1073,10 +1091,10 @@ class LayoutAdapter extends Base {
                 throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: duplicate host header action "${name}" on dock node "${nodeId}"`)
             }
 
-            const reserved = reservedActionNames.get(name);
+            const reservedBy = reservedActionNames.get(name);
 
-            if (reserved?.enabled) {
-                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "${name}" is reserved while ${reserved.optIn} is on (dock node "${nodeId}")`)
+            if (reservedBy) {
+                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "${name}" is reserved by ${reservedBy} (dock node "${nodeId}")`)
             }
 
             seen.add(name)
@@ -1138,7 +1156,7 @@ class LayoutAdapter extends Base {
             // header that pre-guessed the host's answer would hide a control that would have worked.
             ...(context.enableDockPopOutAction ? [{
                 action : 'pop-out',
-                hidden : !activeItemId,
+                hidden : !activeItemId || !context.dockPopOutActionAvailable,
                 iconCls: context.dockPopOutIconCls
             }] : []),
             // Maximize inherits the same focus-gating default; the family ordering contract keeps
@@ -1168,7 +1186,7 @@ class LayoutAdapter extends Base {
             ...(headerActions.length > 0 && {headerActions}),
             ...(context.enableDockCloseAction && {
                 // The empty-tabs fallback receives focus after its last close. A plain div cannot
-                // own programmatic focus, so the opt-in makes the projected root focusable.
+                // own programmatic focus, so the close-capable projected root is focusable.
                 vdom: {tabIndex: -1}
             }),
             // Reuse the EXISTING tab-header SortZone for the gesture — no parallel drag system:

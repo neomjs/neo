@@ -76,8 +76,10 @@ const hostResolverCalls = [];
 
 class HostActionWorkspace extends DockWorkspace {
     static config = {
-        className: 'Test.Unit.Dashboard.DockWorkspace.HostActionWorkspace',
-        layout   : {ntype: 'vbox', align: 'stretch'}
+        className            : 'Test.Unit.Dashboard.DockWorkspace.HostActionWorkspace',
+        enableDockCloseAction: false,
+        enableDockPinAction  : false,
+        layout               : {ntype: 'vbox', align: 'stretch'}
     }
 
     // Module-scoped rather than an instance field: a plain class field on a Neo class enters the
@@ -106,8 +108,10 @@ class HostActionWorkspace extends DockWorkspace {
  */
 class HostBothActionsWorkspace extends DockWorkspace {
     static config = {
-        className: 'Test.Unit.Dashboard.DockWorkspace.HostBothActionsWorkspace',
-        layout   : {ntype: 'vbox', align: 'stretch'}
+        className            : 'Test.Unit.Dashboard.DockWorkspace.HostBothActionsWorkspace',
+        enableDockCloseAction: false,
+        enableDockPinAction  : false,
+        layout               : {ntype: 'vbox', align: 'stretch'}
     }
 
     construct(config) {
@@ -392,38 +396,37 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             id         : 'live-tabs'
         });
 
-        test('the double gate is enforced at the Workspace, not the adapter', () => {
+        test('stable pop-out membership separates explicit opt-out from handler availability', () => {
             // `tabsOf` yields item IDS, not tab nodes — reading `.headerActions` off one is
             // always undefined, which made the two `not.toContain` arms below pass vacuously until
             // the positive arm exposed it. `collect` walks the projection for the real node.
-            const actionNames = ws => {
+            const projectedAction = (ws, name) => {
                 const tabs = collect(ws.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
 
                 expect(tabs, 'the fixture must project a tabs node, or these assertions prove nothing').toBeTruthy();
 
-                return (tabs.headerActions || []).map(action => action.action)
+                return (tabs.headerActions || []).find(action => action.action === name)
             };
 
-            // Default off.
+            // Default membership is stable, but no handler means the gesture cannot run yet.
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
-            expect(actionNames(workspace)).not.toContain('pop-out');
+            expect(projectedAction(workspace, 'pop-out')).toMatchObject({action: 'pop-out', hidden: true});
             workspace.destroy();
 
-            // The action opt-in ALONE must not project it: without the lifecycle there are no
-            // tear-out handlers to dispatch into, so the button would offer a gesture the workspace
-            // cannot perform. This is the arm that pins the gate to the context assembly — the
-            // adapter reads one flag and would happily project on it.
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockPopOutAction: true});
-            expect(actionNames(workspace)).not.toContain('pop-out');
+            // Explicit false is the public compatibility escape: membership and name ownership end.
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockPopOutAction: false});
+            expect(projectedAction(workspace, 'pop-out')).toBeUndefined();
             workspace.destroy();
 
-            // Both on.
-            workspace = Neo.create(PlainWorkspace, {
-                dockModel                 : createDocument(),
-                enableDockPopOutAction    : true,
-                enableDockTearOutLifecycle: true
-            });
-            expect(actionNames(workspace)).toContain('pop-out')
+            // One host-owned bundle is sufficient; no second base lifecycle is required.
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace.tearOutHandlers = {
+                onDockTearOutExit    : async () => true,
+                onDockTearOutTerminal: async () => true
+            };
+            expect(workspace.enableDockTearOutLifecycle).toBe(false);
+            expect(workspace.dockPopOutActionActive).toBe(true);
+            expect(projectedAction(workspace, 'pop-out')).toMatchObject({action: 'pop-out', hidden: false})
         });
 
         test('the happy path calls exit then terminal, and carries the measured rect', async () => {
@@ -466,7 +469,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // be exactly what the ticket forbids. Only the source text can witness an ABSENCE.
             const source = DockWorkspace.prototype.handleDockPopOutAction.toString();
 
-            expect(source).toContain('onDockTearOutExit');
+            expect(source).toContain('admitDockPopOut');
             expect(source).toContain('onDockTearOutTerminal');
 
             for (const forbidden of [
@@ -547,10 +550,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // re-emitting the intent, so it must refuse rather than throw on a missing pipeline.
             workspace.tearOutHandlers = null;
 
-            const itemId  = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
-                  noPipe  = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
+            const itemId = [...tabsOf(workspace.items[0])][0] ?? 'item-1',
+                  noPipe = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer: tabContainerFor(itemId)});
 
-            expect(noPipe.errors?.[0]).toMatch(/requires the tear-out lifecycle/);
+            expect(noPipe.errors?.[0]).toMatch(/requires a tear-out handler bundle/);
             expect(calls).toEqual([])
         })
     });
@@ -582,7 +585,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
     });
 
     test('an action the workspace does not own is re-emitted to the host with its node id', () => {
-        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createDocument(),
+            enableDockPinAction: false
+        });
 
         const received     = [],
               tabContainer = {id: 'live-tabs'};
@@ -1489,11 +1495,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         const
-            tabs        = tabsOf(workspace.items[0]),
-            inspector   = tabs.get('inspector-tabs'),
-            center      = tabs.get('center-tabs'),
-            pinAction   = inspector.getActionItem('pin'),
-            visibility  = [],
+            tabs       = tabsOf(workspace.items[0]),
+            inspector  = tabs.get('inspector-tabs'),
+            center     = tabs.get('center-tabs'),
+            pinAction  = inspector.getActionItem('pin'),
+            visibility = [],
             // The EMITTER of each signal, not just its payload. "The group was not replaced" is a
             // claim about which instance spoke, and a rebuilt group would announce itself here by
             // emitting from a different object while the payload looked identical.
@@ -1659,7 +1665,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         const emitted = [];
 
-        workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: false
+        });
         workspace.on('dockHeaderAction', data => emitted.push(data.action));
 
         const offTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
@@ -1770,7 +1779,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
     test('tab activation commits with close actions disabled and survives unrelated re-projection', async () => {
         const document = createDocument();
 
-        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: false
+        });
 
         const tabs  = tabsOf(workspace.items[0]),
             side    = tabs.get('side-tabs'),

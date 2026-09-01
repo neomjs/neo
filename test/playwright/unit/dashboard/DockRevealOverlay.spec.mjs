@@ -65,6 +65,10 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         expect(overlay.titleLabel.text).toBe('Terminal');
         expect(overlay.pinButton.disabled).toBe(false);
         expect(overlay.pinButton.cls).toContain('neo-dashboard-dock-reveal-pin');
+        expect(overlay.pinButton.ui, 'the restore affordance is not a default-primary CTA').toBe('ghost');
+        expect(overlay.pinButton.iconCls).toBe('fa fa-thumbtack');
+        expect(overlay.pinButton.text, 'pane chrome uses a compact icon control').toBeNull();
+        expect(overlay.pinButton.vdom['aria-label']).toBe('Pin');
         expect(overlay.paneSlot.cls).toContain('neo-dashboard-dock-reveal-pane-slot');
         expect(overlay.paneSlot.items).toHaveLength(0);
     });

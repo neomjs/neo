@@ -489,7 +489,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             expect(receipt.result.nextShell).toBe(receipt.oldShell);
             expect(receipt.host.items).toEqual([receipt.oldShell]);
             expect(body.items).toEqual([receipt.panes.alpha]);
-            expect(bar.items.map(button => button.text)).toEqual(['Alpha']);
+            expect(alphaTab.getTabButtons().map(button => button.text)).toEqual(['Alpha']);
             expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha']);
             expect(receipt.panes.gamma.isDestroyed).toBeFalsy();
             expect(Boolean(receipt.panes.gamma.parent?.items?.includes(receipt.panes.gamma))).toBe(false);
@@ -525,7 +525,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             expect(receipt.result.nextShell).toBe(receipt.oldShell);
             expect(receipt.host.items).toEqual([receipt.oldShell]);
             expect(body.items).toEqual([receipt.panes.alpha, receipt.panes.gamma]);
-            expect(bar.items.map(button => button.text)).toEqual(['Alpha', 'Gamma']);
+            expect(alphaTab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Gamma']);
             expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'gamma']);
             expect(receipt.panes.gamma.isDestroyed).toBeFalsy();
             expect(receipt.result.reconciledItems).toBe(true);
@@ -614,7 +614,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             }),
             tab             = host.items[0],
             bar             = tab.getTabBar(),
-            betaButton      = bar.items[1],
+            betaButton      = tab.getTabButtons()[1],
             betaPaneDestroy = panes.beta.destroy.bind(panes.beta),
             betaButtonDestroy = betaButton.destroy.bind(betaButton),
             nextModel       = structuredClone(model),
@@ -657,7 +657,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
             expect(host.items[0]).toBe(tab);
             expect(tab.getCardContainer().items).toEqual([panes.alpha]);
-            expect(bar.items).toHaveLength(1);
+            expect(tab.getTabButtons()).toHaveLength(1);
             expect(betaPaneDestroyCount).toBe(1);
             expect(betaButtonDestroyCount).toBe(1)
         } finally {
@@ -684,7 +684,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                 })]
             }),
             tab               = host.items[0],
-            originalButton    = tab.getTabBar().items[1],
+            originalButton    = tab.getTabButtons()[1],
             originalDestroy   = panes.beta.destroy.bind(panes.beta),
             nextModel         = structuredClone(model),
             firstPlaceholders = new Map();
@@ -723,7 +723,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                 bar  = tab.getTabBar();
 
             expect(body.items).toEqual([panes.alpha, panes.gamma]);
-            expect(bar.items.map(button => button.text)).toEqual(['Alpha', 'Gamma']);
+            expect(tab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Gamma']);
             expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'gamma']);
             expect(bar.sortZone.dockItemIds).toEqual(['alpha', 'gamma']);
             expect(Boolean(panes.beta.parent?.items?.includes(panes.beta))).toBe(false);
@@ -745,9 +745,9 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
             expect(body.items).toEqual([panes.alpha, panes.beta, panes.gamma]);
             expect(body.items[1]).toBe(panes.beta);
-            expect(bar.items.map(button => button.text)).toEqual(['Alpha', 'Beta', 'Gamma']);
-            expect(bar.items[1]).not.toBe(originalButton);
-            expect(bar.items[1].wrapperCls).toContain('neo-draggable');
+            expect(tab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Beta', 'Gamma']);
+            expect(tab.getTabButtons()[1]).not.toBe(originalButton);
+            expect(tab.getTabButtons()[1].wrapperCls).toContain('neo-draggable');
             expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'beta', 'gamma']);
             expect(bar.sortZone.dockItemIds).toEqual(['alpha', 'beta', 'gamma']);
             expect(paneDestroyCount).toBe(0)

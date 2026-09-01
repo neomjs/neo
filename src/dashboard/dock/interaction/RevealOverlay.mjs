@@ -14,10 +14,11 @@ import NeoArray     from '../../../util/Array.mjs';
  * `revealEscape`, `revealPinRequested`. It decides nothing itself: timing, focus-hold and policy
  * all live upstream. It has no write path to any document.
  *
- * Composition: a header row (`Neo.component.Label` title + `Neo.button.Base` pin control) above a
- * pane-slot `Neo.container.Base`. The consuming workspace mounts the revealed pane INTO the slot
- * container (`overlay.paneSlot.add(...)` / `removeAll()`) — pane resolution stays the workspace's
- * concern (same seam as the adapter's `resolveComponentRef`), keeping this overlay pane-blind.
+ * Composition: a header row (`Neo.component.Label` title + compact ghost `Neo.button.Base` pin
+ * control) above a pane-slot `Neo.container.Base`. The consuming workspace mounts the revealed
+ * pane INTO the slot container (`overlay.paneSlot.add(...)` / `removeAll()`) — pane resolution
+ * stays the workspace's concern (same seam as the adapter's `resolveComponentRef`), keeping this
+ * overlay pane-blind.
  * Root-level `domListeners` (focus, key, pointer) are the container-level interaction surface;
  * every interactive CHILD is a real component.
  *
@@ -157,8 +158,11 @@ class RevealOverlay extends Container {
                 cls   : ['neo-dashboard-dock-reveal-pin'],
                 // Explicitly bound: function-type button handlers run as plain calls.
                 handler        : me.onPinClick.bind(me),
-                text           : 'Pin',
-                useRippleEffect: false
+                iconCls        : 'fa fa-thumbtack',
+                text           : null,
+                ui             : 'ghost',
+                useRippleEffect: false,
+                vdom           : {'aria-label': 'Pin'}
             }]
         }, {
             module: Container,

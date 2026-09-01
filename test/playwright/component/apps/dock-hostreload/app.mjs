@@ -3,10 +3,10 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 /**
- * @summary The flag-off subject: `enableDockReloadAction` stays at its false default while the
- * HOST legally owns the semantic name `reload` through `resolveDockHeaderActions` (the reserved-
- * name guard fires only for enabled engine actions). The negative arm proves default-off is
- * behaviorally INERT: no engine sweep may rewrite this consumer-owned action's state.
+ * @summary The explicit-opt-out subject: `enableDockReloadAction:false` lets the HOST legally own
+ * the semantic name `reload` through `resolveDockHeaderActions` (the reserved-name guard fires only
+ * for enabled engine actions). The negative arm proves the compatibility opt-out is behaviorally
+ * INERT: no engine sweep may rewrite this consumer-owned action's state.
  */
 class HostReloadFixtureWorkspace extends DockWorkspace {
     static config = {
@@ -21,6 +21,11 @@ class HostReloadFixtureWorkspace extends DockWorkspace {
          * @member {Boolean} enableDockCloseAction=true
          */
         enableDockCloseAction: true,
+        /**
+         * The engine default is on; this fixture exercises the preserved explicit opt-out.
+         * @member {Boolean} enableDockReloadAction=false
+         */
+        enableDockReloadAction: false,
         /**
          * @member {String} id='dock-hostreload-workspace'
          */

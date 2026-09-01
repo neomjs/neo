@@ -1684,8 +1684,10 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     test('resolveFocusedDockItem prefers the dockItemId STAMP and falls back for live panes (#15517)', () => {
         const sideTabs  = workspace.getReference('dock-host-b').down({dockNodeId: 'side-tabs'}),
               toolbar   = sideTabs.down({ntype: 'tab-header-toolbar'}),
-              buttons   = toolbar.items,
+              buttons   = toolbar.getTabButtons(),
               sideItems = workspace.getDockZoneDocument().nodes['side-tabs'].items;
+
+        expect(toolbar.getActionItems().length, 'the default action rail is present and excluded from tab identity').toBeGreaterThan(0);
 
         // DemoB's panes are LIVE instances — the adapter passes them through untouched by design,
         // so their buttons carry NO stamp and keep the positional fallback (the untouched discipline)

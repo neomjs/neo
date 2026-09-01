@@ -612,8 +612,8 @@ test.describe('Workstation — dense living-data composition', () => {
                 timeout  : 10000,
                 intervals: [25, 50, 100]
             }).toEqual({
-                height   : viewport.height,
-                railTabs : 2,
+                height  : viewport.height,
+                railTabs: 2,
                 // 2 split-node boundaries + 3 resizable edge affordances (left/right/bottom
                 // bands each project their own splitter since edge zones became resizable)
                 splitters: 5,
@@ -2048,6 +2048,117 @@ test.describe('Workstation — dense living-data composition', () => {
         expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-feed-pane'));
         expect(runtimeErrors, 'no global error or unhandled rejection across the journey').toEqual([]);
         expect(pageErrors, 'no Playwright pageerror across the journey').toEqual([])
+    });
+
+    test('pin round-trip retires a singleton split shell and reveals a compact restore control', async ({page, neuralLink}) => {
+        const pageErrors = [];
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-workspace', {timeout: 30000});
+
+        const
+            app        = await neuralLink.connectToApp('Workstation'),
+            workspaces = asArray(await app.findInstances(
+                {className: 'Workstation.view.Workspace'},
+                ['id']
+            )),
+            workspaceId = workspaces[0]?.id;
+
+        expect(workspaces).toHaveLength(1);
+        expect(workspaceId).toBeTruthy();
+
+        const
+            beforeModel  = (await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+            beforeChrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', ['right-bottom-tabs']),
+            commitsId    = beforeChrome?.buttons?.commits;
+
+        expect(beforeChrome, 'the opening document owns the singleton right-bottom tabs node').toBeTruthy();
+        expect(commitsId, 'Commit Stream has a real header button').toBeTruthy();
+
+        const openingChrome = await readTabChromeIdentity(app, workspaceId);
+
+        for (const [nodeId, receipt] of Object.entries(openingChrome)) {
+            const {headerActions} = await app.getComponent(receipt.containerId, ['headerActions']);
+
+            expect(headerActions.map(action => action.action), `${nodeId} owns the complete default vector`)
+                .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
+            expect(headerActions.find(action => action.action === 'pop-out').hidden,
+                `${nodeId} sees Workstation's handler bundle on first projection`).toBe(false)
+        }
+
+        await page.locator(`#${commitsId}`).click();
+
+        const collapse = page.locator(`#${beforeChrome.headerId} .neo-toolbar-action[aria-label="pin"]`);
+
+        await expect(collapse, 'focus reveals the default collapse action').toBeVisible({timeout: 10000});
+        await collapse.click();
+
+        await expect.poll(async () => {
+            const model = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
+            return [model.items.commits.pinned === true, model.items.commits.autoHidden]
+        }, {
+            message  : 'Commit Stream reaches committed auto-hidden truth',
+            timeout  : 10000,
+            intervals: [25, 50, 100]
+        }).toEqual([false, true]);
+
+        await expect.poll(
+            () => app.callMethod(workspaceId, 'getTabChromeIdentity', ['right-bottom-tabs']),
+            {
+                message  : 'the zero-live-item child is absent after projection settles',
+                timeout  : 10000,
+                intervals: [25, 50, 100]
+            }
+        ).toBeNull();
+        await expect(page.locator(`#${beforeChrome.containerId}`),
+            'the old empty tab header/body does not survive in the DOM').toHaveCount(0);
+
+        const railTab = page.locator('.neo-dashboard-dock-edge-rail-right .neo-dashboard-dock-rail-tab')
+            .filter({hasText: 'Commit Stream'});
+
+        await expect(railTab, 'the collapsed item reaches its owning right rail').toHaveCount(1);
+        await railTab.click();
+
+        const
+            overlay = page.locator(
+                '.neo-dashboard-dock-reveal-overlay-right:not(.neo-dashboard-dock-reveal-overlay-hidden)'
+            ),
+            restore = overlay.locator('.neo-dashboard-dock-reveal-pin');
+
+        await expect(overlay, 'rail click opens the transient reveal').toBeVisible({timeout: 10000});
+        await expect(overlay.locator('.neo-dashboard-dock-reveal-title')).toHaveText('Commit Stream');
+        await expect(restore, 'restore is a compact pane-chrome action, not a blue primary CTA')
+            .toHaveClass(/neo-button-ghost/);
+        await expect(restore).toHaveAttribute('aria-label', 'Pin');
+        await expect(restore).toHaveText('');
+
+        await restore.click();
+
+        await expect.poll(async () => {
+            const model = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
+            return [model.items.commits.pinned, model.items.commits.autoHidden]
+        }, {
+            message  : 'the reveal pin restores committed in-flow truth',
+            timeout  : 10000,
+            intervals: [25, 50, 100]
+        }).toEqual([true, false]);
+
+        const afterModel = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
+
+        expect(afterModel.nodes['split-right'], 'runtime pruning never rewrites committed split geometry')
+            .toEqual(beforeModel.nodes['split-right']);
+        await expect.poll(
+            () => app.callMethod(workspaceId, 'getTabChromeIdentity', ['right-bottom-tabs']),
+            {
+                message  : 'restoration reconstructs the committed tabs child',
+                timeout  : 10000,
+                intervals: [25, 50, 100]
+            }
+        ).toBeTruthy();
+        await expect(railTab, 'the restored item leaves the rail').toHaveCount(0);
+        expect(pageErrors).toEqual([])
     });
 
     test('the header overflow action opens a body-mounted menu with live Workstation skin', async ({page, neuralLink}) => {

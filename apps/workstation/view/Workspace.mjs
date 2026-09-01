@@ -139,21 +139,6 @@ class Workspace extends DockWorkspace {
          */
         dockHostReference: 'dock-host',
         /**
-         * Workstation is the public living witness for the model-authoritative close action.
-         * @member {Boolean} enableDockCloseAction=true
-         */
-        enableDockCloseAction: true,
-        /**
-         * Workstation is the public living witness for edge-pane collapse and reveal.
-         * @member {Boolean} enableDockPinAction=true
-         */
-        enableDockPinAction: true,
-        /**
-         * Workstation is the public living witness for transient in-place pane maximize.
-         * @member {Boolean} enableDockMaximizeAction=true
-         */
-        enableDockMaximizeAction: true,
-        /**
          * @member {String} flipMarkerPrefix='workstation-pane-'
          */
         flipMarkerPrefix: 'workstation-pane-',
@@ -465,6 +450,18 @@ class Workspace extends DockWorkspace {
 
         me.appendFeedBatch(25);
 
+        // The gesture tear-out choreography. A vessel never writes shared detach bookkeeping
+        // mid-gesture — model truth stays untouched until the detached terminal. Create the ONE
+        // effective bundle before first projection: pop-out membership is stable, while its initial
+        // hidden state samples bundle availability. Constructing it after `projectDockModel()`
+        // strands the retained action hidden until an unrelated refresh.
+        me.tearOutHandlers = createDockTearOutHandlers({
+            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
+            closeVessel     : vessel => me.closeTearOutVessel(vessel),
+            onDocumentChange: (document, operation, vessel) => me.onTearOutDocumentChange(document, operation, vessel),
+            openVessel      : request => me.openTearOutVessel(request)
+        });
+
         me.add([me.createTourBar(), me.createStatusBar(), {
             module: Container,
             cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
@@ -520,17 +517,6 @@ class Workspace extends DockWorkspace {
                     cls
                 }
             }
-        });
-
-        // The gesture tear-out choreography. The composition law (dockdemo sibling): a tear-out
-        // vessel NEVER writes shared detach bookkeeping mid-gesture — model truth is untouched
-        // until the detached terminal, so a cancelled or re-entered tear-out is zero-mutation
-        // by GUARD. Post-commit adoption uses its own bookkeeping (tearOutPanes/tearOutConnects).
-        me.tearOutHandlers = createDockTearOutHandlers({
-            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
-            closeVessel     : vessel => me.closeTearOutVessel(vessel),
-            onDocumentChange: (document, operation, vessel) => me.onTearOutDocumentChange(document, operation, vessel),
-            openVessel      : request => me.openTearOutVessel(request)
         });
 
         // The cross-window composition (docking design record §2.1/§2.3): one worker-owned
@@ -939,6 +925,16 @@ class Workspace extends DockWorkspace {
         await me.tearOutHandlers.onDockTearOutExit(data);
 
         return true
+    }
+
+    /**
+     * @summary Routes header-action pop-out through Workstation's augmented exit policy.
+     * @param {Object} data
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    admitDockPopOut(data) {
+        return this.onDockTearOutExit(data)
     }
 
     /**
@@ -2248,6 +2244,68 @@ class Workspace extends DockWorkspace {
     }
 
     /**
+     * @summary Creates one pane instance without consulting or mutating {@link #paneCache}.
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {Neo.component.Base}
+     * @protected
+     */
+    createPane(itemId, item) {
+        let me = this,
+            store;
+
+        if (itemId === 'scale') {
+            store = me.getStateProvider().getStore('scale');
+            return Neo.create({module: ScalePane, store})
+        }
+
+        if (itemId === 'feed') {
+            store = me.getStateProvider().getStore('feed');
+            return Neo.create({module: FeedPane, store})
+        }
+
+        const story = paneStories[itemId] || {
+            detail: 'resident operational',
+            icon  : 'fa-circle-nodes',
+            kicker: 'LIVE MODULE',
+            metric: 'READY'
+        };
+
+        return Neo.create({
+            module: Component,
+            cls   : ['workstation-pane', 'workstation-placeholder', `workstation-pane-${itemId}`],
+            html  : `<div class="workstation-resident-card">
+                <div class="workstation-resident-kicker"><span></span>${story.kicker}</div>
+                <i class="fa ${story.icon} workstation-resident-icon"></i>
+                <div class="workstation-resident-metric">${story.metric}</div>
+                <div class="workstation-resident-title">${item?.title ?? itemId}</div>
+                <div class="workstation-resident-footer">
+                    <span>${story.detail}</span><strong>LIVE</strong>
+                </div>
+                <div class="workstation-resident-wave"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>`
+        })
+    }
+
+    /**
+     * @summary Applies the model-owned presentation shared by cached and fresh panes.
+     * @param {Neo.component.Base} pane
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {Neo.component.Base}
+     * @protected
+     */
+    configurePane(pane, itemId, item) {
+        // The adapter can decorate plain configs, but this showcase deliberately returns LIVE
+        // instances. Carry the canonical tab header on the instance itself so tab.Container and
+        // Neo.tab.plugin.Overflow receive a meaningful title.
+        pane.header = {text: this.getPaneHeaderText(itemId, item)};
+        pane.addCls(`workstation-pane-${itemId}`);
+
+        return pane
+    }
+
+    /**
      * Returns the one live pane instance for an item id.
      * @param {String} itemId
      * @param {Object} item
@@ -2256,50 +2314,41 @@ class Workspace extends DockWorkspace {
     resolvePane(itemId, item) {
         let me    = this,
             cache = me.paneCache,
-            pane  = cache[itemId],
-            store;
+            pane  = cache[itemId];
 
         if (!pane || pane.isDestroyed) {
-            if (itemId === 'scale') {
-                store = me.getStateProvider().getStore('scale');
-                pane  = cache[itemId] = Neo.create({module: ScalePane, store})
-            } else if (itemId === 'feed') {
-                store = me.getStateProvider().getStore('feed');
-                pane  = cache[itemId] = Neo.create({module: FeedPane, store})
-            } else {
-                const story = paneStories[itemId] || {
-                    detail: 'resident operational',
-                    icon  : 'fa-circle-nodes',
-                    kicker: 'LIVE MODULE',
-                    metric: 'READY'
-                };
-
-                pane = cache[itemId] = Neo.create({
-                    module: Component,
-                    cls   : ['workstation-pane', 'workstation-placeholder', `workstation-pane-${itemId}`],
-                    html  : `<div class="workstation-resident-card">
-                        <div class="workstation-resident-kicker"><span></span>${story.kicker}</div>
-                        <i class="fa ${story.icon} workstation-resident-icon"></i>
-                        <div class="workstation-resident-metric">${story.metric}</div>
-                        <div class="workstation-resident-title">${item?.title ?? itemId}</div>
-                        <div class="workstation-resident-footer">
-                            <span>${story.detail}</span><strong>LIVE</strong>
-                        </div>
-                        <div class="workstation-resident-wave"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-                    </div>`
-                })
-            }
+            pane = cache[itemId] = me.createPane(itemId, item)
         }
 
-        // The adapter can decorate plain configs, but this showcase deliberately returns cached LIVE
-        // instances to preserve identity across re-projection. Carry the canonical tab header on the
-        // instance itself so tab.Container and Neo.tab.plugin.Overflow receive a meaningful title. The
-        // surrounding navigation groups use compact labels; the twelve-item heavy group keeps the full
-        // canonical titles and therefore owns the showcase's one intentional overflow affordance.
-        pane.header = {text: me.getPaneHeaderText(itemId, item)};
-        pane.addCls(`workstation-pane-${itemId}`);
+        return me.configurePane(pane, itemId, item)
+    }
 
-        return pane
+    /**
+     * @summary Creates a replacement without publishing it to the live pane cache.
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {Neo.component.Base}
+     */
+    resolveFreshPane(itemId, item) {
+        return this.configurePane(this.createPane(itemId, item), itemId, item)
+    }
+
+    /**
+     * @summary Adopts only the exact replacement committed by the base recreate transaction.
+     * @param {String} itemId
+     * @param {Neo.component.Base} livePane
+     * @param {Object} [options]
+     * @returns {{errors:String[],pane:?Neo.component.Base}|null}
+     * @protected
+     */
+    recreateDockPane(itemId, livePane, options) {
+        const result = super.recreateDockPane(itemId, livePane, options);
+
+        if (result?.pane && result.errors.length === 0) {
+            this.paneCache[itemId] = result.pane
+        }
+
+        return result
     }
 
     /**
