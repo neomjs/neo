@@ -97,6 +97,77 @@ const readTabChromeIdentity = async (app, workspaceId) => Object.fromEntries(awa
 ));
 
 /**
+ * @summary Boots one fresh Workstation action-acceptance arm.
+ * @param {Object} options
+ * @param {import('@playwright/test').Page} options.page
+ * @param {Object} options.neuralLink
+ * @returns {Promise<{app:Object,workspaceId:String}>}
+ */
+const bootActionAcceptance = async ({page, neuralLink}) => {
+    await page.goto('/apps/workstation/index.html');
+    await page.waitForSelector('.workstation-workspace', {timeout: 30000});
+
+    const app        = await neuralLink.connectToApp('Workstation'),
+          workspaces = asArray(await app.findInstances({className: 'Workstation.view.Workspace'}, ['id'])),
+          workspaceId = workspaces[0]?.id;
+
+    expect(workspaces).toHaveLength(1);
+    expect(workspaceId).toBeTruthy();
+
+    return {app, workspaceId}
+};
+
+/**
+ * @summary Focuses one real Workstation tab and resolves a visible header action on its live owner.
+ * @param {Object} data
+ * @param {Object} data.app
+ * @param {import('@playwright/test').Page} data.page
+ * @param {String} data.workspaceId
+ * @param {String} data.nodeId
+ * @param {String} data.itemId
+ * @param {String} data.actionName
+ * @returns {Promise<{action:Object,chrome:Object,locator:import('@playwright/test').Locator}>}
+ */
+const focusDockAction = async ({app, page, workspaceId, nodeId, itemId, actionName}) => {
+    const chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]),
+          buttonId = chrome?.buttons?.[itemId];
+
+    expect(chrome, `${nodeId} projects live tab chrome`).toBeTruthy();
+    expect(buttonId, `${itemId} owns a real header button`).toBeTruthy();
+
+    await page.locator(`#${buttonId}`).click();
+
+    const action  = await app.callMethod(chrome.containerId, 'getActionItem', [actionName]),
+          locator = page.locator(`#${action?.id}`);
+
+    expect(action?.id, `${actionName} resolves on the live tab owner`).toBeTruthy();
+    await expect(locator, `${actionName} is user-reachable after focus`).toBeVisible({timeout: 10000});
+
+    return {action, chrome, locator}
+};
+
+/**
+ * @summary Reads target-specific reveal-pin paint and compact geometry from the browser.
+ * @param {import('@playwright/test').Locator} locator
+ * @returns {Promise<Object>}
+ */
+const readRevealPinStyle = locator => locator.evaluate(element => {
+    const
+        style      = getComputedStyle(element),
+        glyphStyle = getComputedStyle(element.querySelector('.neo-button-glyph'));
+
+    return {
+        backgroundColor: style.backgroundColor,
+        border         : style.border,
+        glyphColor     : glyphStyle.color,
+        height         : Number.parseFloat(style.height),
+        opacity        : Number.parseFloat(style.opacity),
+        text           : element.textContent.trim(),
+        width          : Number.parseFloat(style.width)
+    }
+});
+
+/**
  * Returns only mounted Sparkline components owned by the scale pane.
  * @param {Object} app Neural Link fixture app handle.
  * @param {import('@playwright/test').Page} page
@@ -2158,6 +2229,300 @@ test.describe('Workstation — dense living-data composition', () => {
             }
         ).toBeTruthy();
         await expect(railTab, 'the restored item leaves the rail').toHaveCount(0);
+        expect(pageErrors).toEqual([])
+    });
+
+    test('the reveal pin stays compact and legible in both Workstation palettes', async ({page, neuralLink}) => {
+        const
+            {app, workspaceId} = await bootActionAcceptance({page, neuralLink}),
+            root               = page.locator('.workstation-viewport');
+
+        for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
+            await app.callMethod(workspaceId, 'setWorkspaceTheme', [theme]);
+            await expect(root).toHaveClass(new RegExp(theme));
+
+            const {chrome, locator} = await focusDockAction({
+                actionName: 'pin',
+                app,
+                itemId   : 'commits',
+                nodeId   : 'right-bottom-tabs',
+                page,
+                workspaceId
+            });
+
+            await locator.click();
+            await expect.poll(async () => {
+                const model = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
+
+                return [model.items.commits.pinned === true, model.items.commits.autoHidden]
+            }, {timeout: 10000}).toEqual([false, true]);
+            await expect(page.locator(`#${chrome.containerId}`)).toHaveCount(0);
+
+            await page.locator('.neo-dashboard-dock-edge-rail-right .neo-dashboard-dock-rail-tab')
+                .filter({hasText: 'Commit Stream'})
+                .click();
+
+            const
+                overlay = page.locator(
+                    '.neo-dashboard-dock-reveal-overlay-right:not(.neo-dashboard-dock-reveal-overlay-hidden)'
+                ),
+                header  = overlay.locator('.neo-dashboard-dock-reveal-header'),
+                restore = overlay.locator('.neo-dashboard-dock-reveal-pin');
+
+            await expect(overlay).toBeVisible({timeout: 10000});
+            await expect(restore).toHaveClass(/neo-button-ghost/);
+
+            const enabled = await readRevealPinStyle(restore);
+
+            expect(enabled.text, `${theme} keeps the control icon-only`).toBe('');
+            expect(enabled.width, `${theme} keeps compact width`).toBeLessThanOrEqual(48);
+            expect(enabled.height, `${theme} keeps compact height`).toBeLessThanOrEqual(48);
+            expect(enabled.width, `${theme} keeps an icon-sized square footprint`).toBe(enabled.height);
+            expect(enabled.glyphColor, `${theme} paints a legible glyph`).not.toBe('rgba(0, 0, 0, 0)');
+            expect(enabled.backgroundColor, `${theme} does not regress to the blue primary CTA`)
+                .not.toBe('rgb(67, 93, 177)');
+            await expect(header).toHaveScreenshot(`workstation-reveal-pin-${theme}-enabled.png`, {
+                animations: 'disabled'
+            });
+
+            const restoreId = await restore.getAttribute('id');
+
+            expect(restoreId).toBeTruthy();
+            await app.setProperties(restoreId, {disabled: true});
+            await expect(restore).toHaveAttribute('disabled', '');
+            await expect(restore).toHaveClass(/neo-disabled/);
+
+            const disabled = await readRevealPinStyle(restore);
+
+            expect(disabled.opacity, `${theme} disabled state remains visible`).toBeGreaterThan(0);
+            expect(disabled.opacity).toBeLessThanOrEqual(enabled.opacity);
+            expect(disabled.glyphColor, `${theme} disabled glyph remains painted`).not.toBe('rgba(0, 0, 0, 0)');
+            await expect(header).toHaveScreenshot(`workstation-reveal-pin-${theme}-disabled.png`, {
+                animations: 'disabled'
+            });
+
+            await app.setProperties(restoreId, {disabled: false});
+            await restore.click();
+            await expect.poll(async () => {
+                const model = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
+
+                return [model.items.commits.pinned, model.items.commits.autoHidden]
+            }, {timeout: 10000}).toEqual([true, false])
+        }
+    });
+
+    test('reload recreates a contract-less Workstation pane and adopts the committed identity', async ({page, neuralLink}) => {
+        const pageErrors = [];
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        const
+            {app, workspaceId} = await bootActionAcceptance({page, neuralLink}),
+            beforeModel        = (await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+            beforeIdentity     = await readIdentity(app, workspaceId),
+            beforeChrome       = await readTabChromeIdentity(app, workspaceId),
+            beforePaneId       = await app.callMethod(workspaceId, 'getPaneIdentity', ['metrics']),
+            {locator}          = await focusDockAction({
+                actionName: 'reload',
+                app,
+                itemId   : 'metrics',
+                nodeId   : 'right-top-tabs',
+                page,
+                workspaceId
+            });
+
+        expect(beforePaneId, 'Metrics owns a live predecessor before reload').toBeTruthy();
+        await locator.click();
+
+        await expect.poll(() => app.callMethod(workspaceId, 'getPaneIdentity', ['metrics']), {
+            message  : 'the contract-less reload publishes a distinct committed pane',
+            timeout  : 10000,
+            intervals: [25, 50, 100]
+        }).not.toBe(beforePaneId);
+
+        const
+            afterIdentity = await readIdentity(app, workspaceId),
+            afterModel    = (await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+            afterChrome   = await readTabChromeIdentity(app, workspaceId),
+            afterPaneId   = await app.callMethod(workspaceId, 'getPaneIdentity', ['metrics']);
+
+        expect(afterIdentity, 'root Provider, shared stores, and unrelated panes keep identity')
+            .toEqual(beforeIdentity);
+        expect(afterPaneId).not.toBe(beforePaneId);
+        expect(afterModel, 'reload is runtime-only and never rewrites the Dock document').toEqual(beforeModel);
+        expect(afterChrome, 'reload retains every tab-chrome owner and action identity').toEqual(beforeChrome);
+        await expect(page.locator(`#${beforePaneId}`), 'the predecessor retires').toHaveCount(0);
+        await expect(page.locator(`#${afterPaneId}`), 'the adopted candidate owns the live slot')
+            .toBeVisible();
+        expect(pageErrors).toEqual([])
+    });
+
+    test('pop-out uses the Workstation vessel lifecycle and reintegrates the same live pane', async ({page, neuralLink}) => {
+        const pageErrors = [];
+        let popup;
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        const
+            {app, workspaceId} = await bootActionAcceptance({page, neuralLink}),
+            beforeModel        = (await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+            paneId             = await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
+            {chrome, locator}  = await focusDockAction({
+                actionName: 'pop-out',
+                app,
+                itemId   : 'commits',
+                nodeId   : 'right-bottom-tabs',
+                page,
+                workspaceId
+            }),
+            beforeRect         = await page.locator(`#${chrome.containerId}`).boundingBox(),
+            popupPromise       = page.waitForEvent('popup', {timeout: 30000});
+
+        expect(paneId, 'Commit Stream owns a live pane before pop-out').toBeTruthy();
+        expect(beforeRect, 'the pop-out source pane is measurable').toBeTruthy();
+
+        try {
+            await locator.click();
+            popup = await popupPromise;
+            await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
+
+            await expect.poll(async () => {
+                const state = await app.getComponent(workspaceId, [
+                    'lastVesselOpen', 'tearOutPanes', 'tearOutPlacements', 'tearOutVesselDims'
+                ]);
+
+                return {
+                    dims     : state.tearOutVesselDims,
+                    placement: state.tearOutPlacements?.commits,
+                    stage    : state.lastVesselOpen?.stage,
+                    windowId : state.tearOutPanes?.commits?.windowId
+                }
+            }, {
+                message  : 'the header action reaches Workstation vessel admission and adoption',
+                timeout  : 30000,
+                intervals: [50, 100, 250]
+            }).toEqual({
+                dims: {
+                    height: Math.max(Math.round(beforeRect.height), 240),
+                    width : Math.max(Math.round(beforeRect.width), 320)
+                },
+                placement: {index: 0, tabsNodeId: 'right-bottom-tabs'},
+                stage    : 'granted',
+                windowId : expect.any(String)
+            });
+
+            expect(new URL(popup.url()).searchParams.get('popout')).toBe('commits');
+            expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
+                'pop-out preserves the exact live pane instance').toBe(paneId);
+            await expect(page.locator(`#${paneId}`), 'the main window releases the live pane').toHaveCount(0);
+            await expect(popup.locator(`#${paneId}`), 'the popup adopts the exact live pane').toBeVisible();
+
+            const detached = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
+
+            expect(Object.values(detached.nodes).some(node => node.type === 'tabs' && node.items?.includes('commits')),
+                'the committed detach removes Commit Stream from every tab flow').toBe(false);
+
+            expect(await app.callMethod(workspaceId, 'closeTearOutVessel', [{
+                itemId   : 'commits',
+                windowName: 'tearout-commits'
+            }]), 'the production retirement seam closes the adopted vessel').toBe(true);
+            await expect.poll(() => popup.isClosed(), {
+                message: 'the physical popup closes after the native acknowledgement',
+                timeout: 10000
+            }).toBe(true);
+
+            await expect.poll(async () => {
+                const state = await app.getComponent(workspaceId, ['dockModel', 'tearOutPanes', 'tearOutPlacements']);
+
+                return {
+                    inTree   : Object.values(state.dockModel.nodes)
+                        .some(node => node.type === 'tabs' && node.items?.includes('commits')),
+                    pane     : state.tearOutPanes?.commits ?? null,
+                    placement: state.tearOutPlacements?.commits ?? null
+                }
+            }, {
+                message  : 'physical vessel death clears lifecycle owners and reintegrates Commit Stream',
+                timeout  : 30000,
+                intervals: [50, 100, 250]
+            }).toEqual({inTree: true, pane: null, placement: null});
+
+            expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
+                'reintegration retains the same pane identity').toBe(paneId);
+            await expect(page.locator(`#${paneId}`), 'the exact live pane returns to the main window').toBeVisible();
+            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel.items,
+                'detach and reintegration preserve the item catalog').toEqual(beforeModel.items)
+        } finally {
+            popup && !popup.isClosed() && await popup.close()
+        }
+
+        expect(pageErrors).toEqual([])
+    });
+
+    test('maximize uses measured workspace geometry and restores the same pane and document', async ({page, neuralLink}) => {
+        const pageErrors = [];
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        const
+            {app, workspaceId} = await bootActionAcceptance({page, neuralLink}),
+            beforeModel        = (await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+            paneId             = await app.callMethod(workspaceId, 'getPaneIdentity', ['scale']),
+            {action, chrome, locator} = await focusDockAction({
+                actionName: 'maximize',
+                app,
+                itemId   : 'scale',
+                nodeId   : 'scale-tabs',
+                page,
+                workspaceId
+            }),
+            container          = page.locator(`#${chrome.containerId}`),
+            beforeRect         = await container.boundingBox(),
+            workspaceRect      = await page.locator(`#${workspaceId}`).boundingBox();
+
+        expect(beforeRect, 'the source tab flow is measurable').toBeTruthy();
+        expect(workspaceRect, 'the owning workspace is measurable').toBeTruthy();
+        await locator.click();
+
+        await expect.poll(async () => (await app.getComponent(workspaceId, ['maximizedNodeId'])).maximizedNodeId, {
+            message  : 'the real header click selects the semantic tabs node',
+            timeout  : 10000,
+            intervals: [25, 50, 100]
+        }).toBe('scale-tabs');
+        await expect(container).toHaveClass(/neo-dock-maximized/);
+
+        const maximizedRect = await container.boundingBox();
+
+        for (const key of ['x', 'y', 'width', 'height']) {
+            expect(maximizedRect[key], `maximized ${key} follows the measured workspace rect`)
+                .toBeCloseTo(workspaceRect[key], 0)
+        }
+
+        expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+            'maximize never commits presentation state').toEqual(beforeModel);
+        expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['scale']),
+            'maximize never recreates the pane').toBe(paneId);
+
+        const restoreAction = await app.callMethod(chrome.containerId, 'getActionItem', ['maximize']);
+
+        expect(restoreAction.id, 'the maximize action instance is retained for restore').toBe(action.id);
+        await page.locator(`#${restoreAction.id}`).click();
+
+        await expect.poll(async () => (await app.getComponent(workspaceId, ['maximizedNodeId'])).maximizedNodeId, {
+            message  : 'the second real click restores the presentation',
+            timeout  : 10000,
+            intervals: [25, 50, 100]
+        }).toBeNull();
+        await expect(container).not.toHaveClass(/neo-dock-maximized|neo-dock-maximize-restoring/, {timeout: 10000});
+
+        const restoredRect = await container.boundingBox();
+
+        for (const key of ['x', 'y', 'width', 'height']) {
+            expect(restoredRect[key], `restored ${key} returns to the original flow rect`)
+                .toBeCloseTo(beforeRect[key], 0)
+        }
+
+        expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel).toEqual(beforeModel);
+        expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['scale'])).toBe(paneId);
         expect(pageErrors).toEqual([])
     });
 
