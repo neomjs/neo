@@ -9,6 +9,7 @@ setup({
 import {test, expect}   from '@playwright/test';
 import Neo              from '../../../../src/Neo.mjs';
 import * as core        from '../../../../src/core/_export.mjs';
+import Document         from '../../../../src/dashboard/dock/model/Document.mjs';
 import DockTopologyDiff from '../../../../src/dashboard/dock/model/TopologyDiff.mjs';
 
 /**
@@ -169,5 +170,44 @@ test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
 
         expect(cycleResult.errors[0]).toContain('before document failed the shape gate');
         expect(cycleResult.errors[0]).toContain('cycle')
+    });
+
+    test('present malformed zone descriptors fail the shape gate on both sides; absent zones stay valid', () => {
+        const malformedDescriptors = ['main-split', {}, {nodeId: ''}];
+
+        malformedDescriptors.forEach(descriptor => {
+            const malformed = doc();
+
+            malformed.nodes.root.zones.center = descriptor;
+
+            expect(Document.validate(malformed), 'the document validator rejects the same descriptor')
+                .not.toEqual([]);
+
+            const gate = Document.computeShapeFingerprint(malformed);
+
+            expect(gate.fingerprint, 'a malformed present zone never yields a success fingerprint').toBe(null);
+            expect(gate.errors.join(' ')).toContain('zone "center"');
+
+            for (const side of ['before', 'after']) {
+                const result = side === 'before'
+                    ? DockTopologyDiff.diffDockDocuments(malformed, doc())
+                    : DockTopologyDiff.diffDockDocuments(doc(), malformed);
+
+                expect(result.errors[0]).toContain(`${side} document failed the shape gate`);
+                expect(result.moves).toEqual([]);
+                expect(result.adds).toEqual([]);
+                expect(result.removes).toEqual([]);
+                expect(result.unchanged).toEqual([])
+            }
+        });
+
+        const absent = doc();
+
+        delete absent.nodes.root.zones.center;
+
+        const absentGate = Document.computeShapeFingerprint(absent);
+
+        expect(absentGate.errors, 'an omitted optional zone remains valid').toEqual([]);
+        expect(absentGate.fingerprint?.shape).toBe('e{}')
     });
 });

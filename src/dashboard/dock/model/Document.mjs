@@ -999,6 +999,10 @@ class Document extends Base {
      * where or when they were captured (the persistence guardrail for `windowFingerprint`).
      * Deterministic by construction: child arrays keep document order, edge zones walk in the
      * fixed {@link #dockZoneEdgeKeys} order.
+     *
+     * Optional edge-zone slots may be absent. A present slot whose descriptor cannot resolve to a
+     * node id fails closed, so that corrupt descriptor cannot fingerprint identically to an omitted
+     * slot and pass downstream shape gates as a legitimate no-change result.
      * @param {Object} document The committed dock-zone document.
      * @returns {{fingerprint:(Object|null), errors:String[]}}
      * @static
@@ -1037,14 +1041,26 @@ class Document extends Base {
                     return `${node.orientation === 'horizontal' ? 'h' : 'v'}(${(node.children || []).map(walk).join(',')})`;
                 case 'tabs':
                     return `t${node.items?.length || 0}`;
-                case 'edge-zone':
+                case 'edge-zone': {
+                    const zones = node.zones || {};
+
                     return `e{${[...Document.dockZoneEdgeKeys]
                         .map(zone => {
-                            let nodeId = Document.getZoneNodeId(node.zones?.[zone]);
+                            if (!Object.hasOwn(zones, zone)) {
+                                return ''
+                            }
 
-                            return nodeId ? `${zone}:${walk(nodeId)}` : ''
+                            let childNodeId = Document.getZoneNodeId(zones[zone]);
+
+                            if (!childNodeId) {
+                                errors.push(`fingerprint walk found unusable descriptor for edge-zone "${nodeId}" zone "${zone}"`);
+                                return ''
+                            }
+
+                            return `${zone}:${walk(childNodeId)}`
                         })
                         .filter(Boolean).join(',')}}`;
+                }
                 default:
                     errors.push(`fingerprint walk found unsupported node type "${node.type}"`);
                     return '?'
