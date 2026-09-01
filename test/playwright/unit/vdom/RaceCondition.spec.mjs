@@ -374,12 +374,19 @@ test.describe('VdomLifecycle Race Condition', () => {
             container.setSilent({style: {color: 'blue'}});
             await container.promiseUpdate();
 
-            expect(observations).toHaveLength(2);
+            container.setSilent({style: {color: 'green'}});
+            await container.promiseUpdate();
+
+            expect(observations).toHaveLength(3);
             expect(observations[0].acknowledgments).toEqual([]);
             expect(observations[0].sequence).toBeGreaterThan(0);
             expect(observations[1].acknowledgments).toEqual([{
                 ownerId: containerId,
                 sequence: observations[0].sequence
+            }]);
+            expect(observations[2].acknowledgments).toEqual([{
+                ownerId: containerId,
+                sequence: observations[1].sequence
             }])
         } finally {
             VdomHelper.updateBatch = realUpdateBatch;
@@ -449,11 +456,17 @@ test.describe('VdomLifecycle Race Condition', () => {
 
             expect(observations).toHaveLength(3);
             expect(observations.map(item => item.deltaCount)).toEqual([1, 0, 0]);
-            expect(observations[2].acknowledgments).toEqual([{
+            // The third root cannot reference either sibling, so its wire snapshot is empty.
+            expect(observations[2].acknowledgments).toEqual([]);
+            expect(VDomUpdate.getCoherenceAcknowledgments(
+                appName, null, new Set([firstId, secondId])
+            )).toEqual([{
                 ownerId: secondId,
                 sequence: observations[1].sequence
             }]);
-            expect(observations[2].acknowledgments).not.toContainEqual({
+            expect(VDomUpdate.getCoherenceAcknowledgments(
+                appName, null, new Set([firstId, secondId])
+            )).not.toContainEqual({
                 ownerId: firstId,
                 sequence: observations[0].sequence
             });
@@ -462,10 +475,9 @@ test.describe('VdomLifecycle Race Condition', () => {
             await firstUpdate;
             firstUpdate = null;
 
-            await components[2].promiseUpdate();
-
-            expect(observations[3].deltaCount).toBe(0);
-            expect(observations[3].acknowledgments).toEqual([
+            expect(VDomUpdate.getCoherenceAcknowledgments(
+                appName, null, new Set([firstId, secondId, thirdId])
+            )).toEqual([
                 {ownerId: firstId,  sequence: observations[0].sequence},
                 {ownerId: secondId, sequence: observations[1].sequence},
                 {ownerId: thirdId,  sequence: observations[2].sequence}
@@ -473,6 +485,135 @@ test.describe('VdomLifecycle Race Condition', () => {
         } finally {
             releaseFirstApply();
             await firstUpdate?.catch(() => {});
+            VdomHelper.updateBatch = realUpdateBatch;
+            Neo.config.useDeltaCoherenceRegistry = previousFlag;
+            VDomUpdate.clearCoherenceAcknowledgments(appName, null)
+        }
+    });
+
+    test('every collected batch owner queues later mutations behind its adopted vnode', async () => {
+        const
+            rootId          = getUniqueId('batch-owner-root'),
+            childOwnerId    = getUniqueId('batch-owner-child'),
+            birthId         = getUniqueId('batch-owner-birth'),
+            previousFlag    = Neo.config.useDeltaCoherenceRegistry,
+            realUpdateBatch = VdomHelper.updateBatch,
+            appliedDeltas   = [],
+            responses       = [];
+
+        let boundaryOwnerIds, releaseRootBatch, signalRootBoundary;
+
+        const rootBoundary = new Promise(resolve => signalRootBoundary = resolve);
+
+        createdComponentIds.push(rootId);
+
+        const root = Neo.create(RaceContainer, {
+            appName,
+            id   : rootId,
+            items: [{
+                module: RaceContainer,
+                id    : childOwnerId,
+                items : [{
+                    module  : RaceChildComponent,
+                    id      : birthId,
+                    hidden  : true,
+                    hideMode: 'removeDom',
+                    text    : 'Birth'
+                }]
+            }]
+        });
+
+        await root.initVnode(true);
+        root.mounted = true;
+
+        const
+            childOwner = root.items[0],
+            birth       = childOwner.items[0];
+
+        Neo.config.useDeltaCoherenceRegistry = true;
+        Neo.applyDeltas = async (windowId, deltas) => appliedDeltas.push(...deltas);
+        VDomUpdate.clearCoherenceAcknowledgments(appName, null);
+
+        let blockedRoot = false;
+
+        VdomHelper.updateBatch = data => {
+            const ownerIds = Object.keys(data.updates);
+
+            if (!blockedRoot && ownerIds.includes(rootId)) {
+                blockedRoot = true;
+                boundaryOwnerIds = ownerIds;
+                signalRootBoundary();
+
+                return new Promise(resolve => releaseRootBatch = () => {
+                    const response = realUpdateBatch.call(VdomHelper, data);
+
+                    responses.push({ownerIds, response});
+                    resolve(response)
+                })
+            }
+
+            const response = realUpdateBatch.call(VdomHelper, data);
+
+            responses.push({ownerIds, response});
+
+            return response
+        };
+
+        let childPromise, rootPromise;
+
+        try {
+            expect(childOwner.vnode).toBeTruthy();
+
+            // A depth-1 parent does not cover its direct child, so the merged child stays an
+            // independent owner inside the same physical updateBatch() call.
+            root._updateDepth      = 1;
+            childOwner.updateDepth = -1;
+            VDomUpdate.registerMerged(rootId, childOwnerId, -1, 1);
+
+            expect(root.updateDepth).toBe(1);
+            expect(VDomUpdate.getMergedChildIds(rootId)).toContain(childOwnerId);
+
+            rootPromise = root.promiseUpdate();
+            await rootBoundary;
+
+            expect(boundaryOwnerIds).toContain(childOwnerId);
+
+            // The child payload is already frozen inside the blocked parent batch. A mutation now
+            // must queue behind that batch owner; opening a second flight can later overwrite the
+            // freshly adopted child vnode with this older response.
+            expect(childOwner.isVdomUpdating).toBe(true);
+            expect(VDomUpdate.getInFlightUpdateDepth(childOwnerId)).toBe(-1);
+
+            birth.setSilent({hidden: false});
+
+            let childResolved = false;
+
+            childPromise = childOwner.promiseUpdate().then(() => childResolved = true);
+
+            expect(childOwner.needsVdomUpdate).toBe(true);
+            expect(childResolved).toBe(false);
+
+            releaseRootBatch();
+            await rootPromise;
+
+            // The blocked batch did not contain the late birth. Its reply may start the queued
+            // follow-up, but must not settle that later promise.
+            expect(childResolved).toBe(false);
+
+            await childPromise;
+
+            root.updateDepth = -1;
+            await root.promiseUpdate();
+
+            const birthInserts = appliedDeltas.filter(delta =>
+                delta.action === 'insertNode' && delta.vnode?.id === birthId
+            );
+
+            expect(birthInserts).toHaveLength(1);
+            expect(responses.some(item => item.ownerIds.includes(childOwnerId))).toBe(true)
+        } finally {
+            releaseRootBatch?.();
+            await Promise.allSettled([rootPromise, childPromise].filter(Boolean));
             VdomHelper.updateBatch = realUpdateBatch;
             Neo.config.useDeltaCoherenceRegistry = previousFlag;
             VDomUpdate.clearCoherenceAcknowledgments(appName, null)

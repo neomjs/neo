@@ -869,6 +869,11 @@ class Helper extends Base {
         let me               = this,
             allDeltas        = [],
             coherenceBatches = NeoConfig.useDeltaCoherenceRegistry ? [] : null,
+            coherenceAcknowledgments = coherenceBatches && Array.isArray(data.coherenceAcknowledgments)
+                ? data.coherenceAcknowledgments.filter(item =>
+                    item?.ownerId != null && Number.isFinite(item.sequence)
+                ).map(item => ({ownerId: item.ownerId, sequence: item.sequence}))
+                : null,
             coherenceSequence = coherenceBatches ? ++me.coherenceBatchSequence : null,
             meta             = {},
             vnodes           = {},
@@ -886,11 +891,6 @@ class Helper extends Base {
                 vnodes[id] = result.vnode;
 
                 coherenceBatches?.push({
-                    acknowledgments: Array.isArray(data.coherenceAcknowledgments)
-                        ? data.coherenceAcknowledgments.filter(item =>
-                            item?.ownerId != null && Number.isFinite(item.sequence)
-                        ).map(item => ({ownerId: item.ownerId, sequence: item.sequence}))
-                        : [],
                     end: allDeltas.length, ownerId: id, sequence: coherenceSequence, start
                 });
 
@@ -912,6 +912,7 @@ class Helper extends Base {
         }
 
         if (coherenceBatches) {
+            response.coherenceAcknowledgments = coherenceAcknowledgments;
             response.coherenceBatches = coherenceBatches;
             response.coherenceSequence = coherenceSequence
         }

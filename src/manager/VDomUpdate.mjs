@@ -98,14 +98,23 @@ class VDomUpdate extends Collection {
      */
     descendantInFlightMap = new Map()
     /**
-     * Exact VDom-owner compute sequences whose Main result completed and whose vnode was adopted
-     * by the App worker, partitioned by App/window and owner. Owner-scoped Sets are required: a
-     * later zero-delta response can overtake an earlier Main-queued response, and one batch can
-     * lose an owner before vnode adoption. Used only by the default-off coherence instrument.
-     * @member {Map<String, Map<String, Set<Number>>>} coherenceAcknowledgmentsMap=new Map()
+     * Latest VDom-owner compute sequence whose Main result completed and whose vnode was adopted
+     * by the App worker, partitioned by App/window and owner. Per-owner latest values are exact:
+     * one owner cannot open its next flight while in-flight, while unrelated owners may overtake
+     * each other. Replacing instead of accumulating keeps the default-off instrument bounded by
+     * live component cardinality rather than update count.
+     * @member {Map<String, Map<String, Number>>} coherenceAcknowledgmentsMap=new Map()
      * @protected
      */
     coherenceAcknowledgmentsMap = new Map()
+    /**
+     * Owners whose current payload snapshot has already been collected. Promises registered while
+     * an owner is merely in-flight but not yet collected can still belong to that flight; only this
+     * post-collection window targets {@link #nextPromiseCallbackMap}.
+     * @member {Set<String>} collectedBatchOwnerSet=new Set()
+     * @protected
+     */
+    collectedBatchOwnerSet = new Set()
     /**
      * A Map that tracks VDOM updates that have been dispatched to the VDOM worker but
      * have not yet completed. This prevents redundant updates for the same component.
@@ -116,6 +125,14 @@ class VDomUpdate extends Collection {
      * @protected
      */
     inFlightUpdateMap = null;
+    /**
+     * Promise callbacks registered after an owner's payload was collected. They belong to the
+     * queued follow-up cycle, never the older in-flight response. Success promotes them into
+     * {@link #promiseCallbackMap}; failure rejects both generations.
+     * @member {Map<String, Object[]>|null} nextPromiseCallbackMap=null
+     * @protected
+     */
+    nextPromiseCallbackMap = null;
     /**
      * A Map that stores callbacks to be executed immediately after a component's VDOM update
      * finishes, but BEFORE the `needsVdomUpdate` check for the next cycle.
@@ -166,10 +183,13 @@ class VDomUpdate extends Collection {
 
         const me = this;
 
-        me.inFlightUpdateMap  = new Map();
-        me.mergedCallbackMap  = Neo.create(Collection, {keyProperty: 'ownerId'});
-        me.postUpdateQueueMap = Neo.create(Collection, {keyProperty: 'ownerId'});
-        me.promiseCallbackMap = new Map();
+        me.coherenceAcknowledgmentsMap = new Map();
+        me.collectedBatchOwnerSet       = new Set();
+        me.inFlightUpdateMap           = new Map();
+        me.mergedCallbackMap           = Neo.create(Collection, {keyProperty: 'ownerId'});
+        me.nextPromiseCallbackMap      = new Map();
+        me.postUpdateQueueMap          = Neo.create(Collection, {keyProperty: 'ownerId'});
+        me.promiseCallbackMap          = new Map();
     }
 
     /**
@@ -183,12 +203,14 @@ class VDomUpdate extends Collection {
 
     /**
      * Returns a sorted snapshot of the exact owner/sequence vnode adoptions for one App/window
-     * partition. Snapshotting prevents callers from mutating manager state.
+     * partition, optionally limited to owners the pending physical batch can reference.
+     * Snapshotting prevents callers from mutating manager state.
      * @param {String|null} appName
      * @param {String|Number|null} windowId
+     * @param {Set<String>|null} [ownerIds=null]
      * @returns {Object[]}
      */
-    getCoherenceAcknowledgments(appName, windowId) {
+    getCoherenceAcknowledgments(appName, windowId, ownerIds=null) {
         const owners = this.coherenceAcknowledgmentsMap.get(
             this.getCoherenceAcknowledgmentKey(appName, windowId)
         );
@@ -197,8 +219,10 @@ class VDomUpdate extends Collection {
 
         const acknowledgments = [];
 
-        for (const [ownerId, sequences] of owners) {
-            for (const sequence of sequences) {
+        for (const [ownerId, sequence] of owners) {
+            if (!Neo.getComponent(ownerId)) {
+                owners.delete(ownerId)
+            } else if (!ownerIds || ownerIds.has(ownerId)) {
                 acknowledgments.push({ownerId, sequence})
             }
         }
@@ -233,13 +257,7 @@ class VDomUpdate extends Collection {
             this.coherenceAcknowledgmentsMap.set(key, new Map())
         }
 
-        const owners = this.coherenceAcknowledgmentsMap.get(key);
-
-        if (!owners.has(ownerId)) {
-            owners.set(ownerId, new Set())
-        }
-
-        owners.get(ownerId).add(sequence)
+        this.coherenceAcknowledgmentsMap.get(key).set(ownerId, sequence)
     }
 
     /**
@@ -254,13 +272,32 @@ class VDomUpdate extends Collection {
      * @param {Function} [reject]  Settles the promise when the flight it is parked on fails.
      */
     addPromiseCallback(ownerId, resolve, reject) {
-        let me = this;
+        let me  = this,
+            map = me.collectedBatchOwnerSet.has(ownerId)
+                ? me.nextPromiseCallbackMap
+                : me.promiseCallbackMap;
 
-        if (!me.promiseCallbackMap.has(ownerId)) {
-            me.promiseCallbackMap.set(ownerId, [])
+        if (!map.has(ownerId)) {
+            map.set(ownerId, [])
         }
 
-        me.promiseCallbackMap.get(ownerId).push({resolve, reject})
+        map.get(ownerId).push({resolve, reject})
+    }
+
+    /**
+     * Marks one returned-vnode owner after its payload snapshot has been frozen.
+     * @param {String} ownerId
+     */
+    markPayloadCollected(ownerId) {
+        this.collectedBatchOwnerSet.add(ownerId)
+    }
+
+    /**
+     * Releases one returned-vnode owner from the post-collection window.
+     * @param {String} ownerId
+     */
+    unmarkPayloadCollected(ownerId) {
+        this.collectedBatchOwnerSet.delete(ownerId)
     }
 
     /**
@@ -329,6 +366,15 @@ class VDomUpdate extends Collection {
             }
             me.promiseCallbackMap.delete(ownerId);
         }
+
+        // Any promise registered after this owner's payload was collected belongs to the queued
+        // follow-up. Promote only after the older response settled, so it cannot resolve early.
+        const nextCallbacks = me.nextPromiseCallbackMap.get(ownerId);
+
+        if (nextCallbacks) {
+            me.promiseCallbackMap.set(ownerId, nextCallbacks);
+            me.nextPromiseCallbackMap.delete(ownerId)
+        }
     }
 
     /**
@@ -339,14 +385,17 @@ class VDomUpdate extends Collection {
      * @param {*}       error   The error to reject the parked promises with.
      */
     rejectPromiseCallbacks(ownerId, error) {
-        let me        = this,
-            callbacks = me.promiseCallbackMap.get(ownerId);
+        let me = this;
 
-        if (callbacks) {
-            for (let i = 0, len = callbacks.length; i < len; i++) {
-                callbacks[i].reject?.(error)
+        for (const map of [me.promiseCallbackMap, me.nextPromiseCallbackMap]) {
+            const callbacks = map.get(ownerId);
+
+            if (callbacks) {
+                for (let i = 0, len = callbacks.length; i < len; i++) {
+                    callbacks[i].reject?.(error)
+                }
+                map.delete(ownerId)
             }
-            me.promiseCallbackMap.delete(ownerId)
         }
     }
 
@@ -379,7 +428,7 @@ class VDomUpdate extends Collection {
      * @returns {Boolean}
      */
     hasPromiseCallbacks(ownerId) {
-        return this.promiseCallbackMap.has(ownerId)
+        return this.promiseCallbackMap.has(ownerId) || this.nextPromiseCallbackMap.has(ownerId)
     }
 
     /**

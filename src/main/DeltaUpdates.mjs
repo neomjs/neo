@@ -991,14 +991,17 @@ class DeltaUpdates extends Base {
      * @param {Object[]} deltas The normalized batch after `update` listeners had their mutation window.
      * @param {Object[]|null} [coherenceBatches=null] Flag-gated update-owner to delta-range map
      *     supplied by the VDom worker for diagnostic attribution.
+     * @param {Object[]|null} [coherenceAcknowledgments=null] Latest owner-vnode receipts captured
+     *     once for the physical batch.
      * @returns {Function} The ledger commit handle
      * @protected
      */
-    observeDeltaCoherence(deltas, coherenceBatches=null) {
+    observeDeltaCoherence(deltas, coherenceBatches=null, coherenceAcknowledgments=null) {
         const evaluation = this.coherenceRegistry.evaluateBatch(deltas, {coherenceBatches});
 
         if (evaluation.findings.length > 0) {
             console.warn('Delta coherence findings', {
+                acknowledgments: coherenceAcknowledgments,
                 coherenceBatches,
                 deltas,
                 findings: evaluation.findings
@@ -1097,7 +1100,18 @@ class DeltaUpdates extends Base {
             len = deltas.length;
 
             if (len > 0) {
-                coherenceCommit = me.observeDeltaCoherence(deltas, data.coherenceBatches)
+                let coherenceBatches = data.coherenceBatches;
+
+                // Owner ranges index the pre-listener delta array. If an addon inserted or
+                // removed entries, stale indices would confidently name the wrong producer.
+                // Fail closed on any length drift: keep observing coherence, drop attribution.
+                if (coherenceBatches?.at(-1)?.end !== len) {
+                    coherenceBatches = null
+                }
+
+                coherenceCommit = me.observeDeltaCoherence(
+                    deltas, coherenceBatches, data.coherenceAcknowledgments
+                )
             }
         }
 

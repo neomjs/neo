@@ -513,22 +513,16 @@ test.describe('Neo.vdom.Helper', () => {
                 }});
 
             expect(response.deltas).toHaveLength(2);
-            expect(response.coherenceBatches).toEqual([
-                expect.objectContaining({
-                    acknowledgments: [
-                        {ownerId: 'prior-alpha', sequence: 5},
-                        {ownerId: 'prior-beta', sequence: 7}
-                    ],
-                    end: 1, ownerId: 'alpha-component', start: 0
-                }),
-                expect.objectContaining({
-                    acknowledgments: [
-                        {ownerId: 'prior-alpha', sequence: 5},
-                        {ownerId: 'prior-beta', sequence: 7}
-                    ],
-                    end: 2, ownerId: 'beta-component', start: 1
-                })
+            expect(response.coherenceAcknowledgments).toEqual([
+                {ownerId: 'prior-alpha', sequence: 5},
+                {ownerId: 'prior-beta', sequence: 7}
             ]);
+            expect(response.coherenceBatches).toEqual([
+                expect.objectContaining({end: 1, ownerId: 'alpha-component', start: 0}),
+                expect.objectContaining({end: 2, ownerId: 'beta-component',  start: 1})
+            ]);
+            expect(response.coherenceBatches[0]).not.toHaveProperty('acknowledgments');
+            expect(response.coherenceBatches[1]).not.toHaveProperty('acknowledgments');
             expect(response.coherenceBatches[0].sequence).toBeGreaterThan(0);
             expect(response.coherenceBatches[1].sequence).toBe(response.coherenceBatches[0].sequence);
             expect(response.coherenceSequence).toBe(response.coherenceBatches[0].sequence)

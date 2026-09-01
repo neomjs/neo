@@ -216,7 +216,8 @@ class VdomLifecycle extends Base {
      * @private
      */
     async executeVdomUpdate(resolve, reject) {
-        let me = this;
+        let me            = this,
+            batchOwnerIds = new Set([me.id]);
 
         (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
@@ -308,6 +309,24 @@ class VdomLifecycle extends Base {
                 }
             }
 
+            // Every surviving update key owns a returned vnode, even when another component
+            // initiated the physical batch. Mark all of them in-flight before dispatch so a
+            // mutation arriving after payload collection queues behind this exact response instead
+            // of opening a second flight that can be overwritten by the older batch on return.
+            for (const id in updates) {
+                if (Object.hasOwn(updates, id)) {
+                    const component = Neo.getComponent(id);
+
+                    if (id !== me.id && component && !component.isDestroyed) {
+                        component.isVdomUpdating = true;
+                        VDomUpdate.registerInFlightUpdate(id, depths.get(id));
+                        batchOwnerIds.add(id)
+                    }
+
+                    VDomUpdate.markPayloadCollected(id)
+                }
+            }
+
             const batchData = {updates};
 
             // CRITICAL: SharedWorker Context Injection
@@ -322,8 +341,28 @@ class VdomLifecycle extends Base {
             }
 
             if (Neo.config.useDeltaCoherenceRegistry) {
+                const
+                    referenceableOwnerIds = new Set(),
+                    pendingOwners         = Object.keys(updates);
+
+                while (pendingOwners.length > 0) {
+                    const
+                        id        = pendingOwners.pop(),
+                        component = Neo.getComponent(id);
+
+                    if (component && !referenceableOwnerIds.has(id)) {
+                        referenceableOwnerIds.add(id);
+
+                        for (const child of ComponentManager.getDirectChildren(id)) {
+                            if (child.appName === me.appName && child.windowId === me.windowId) {
+                                pendingOwners.push(child.id)
+                            }
+                        }
+                    }
+                }
+
                 batchData.coherenceAcknowledgments = VDomUpdate.getCoherenceAcknowledgments(
-                    me.appName, me.windowId
+                    me.appName, me.windowId, referenceableOwnerIds
                 )
             }
 
@@ -342,6 +381,13 @@ class VdomLifecycle extends Base {
              * the Main Thread has painted the resulting DOM deltas.
              */
             me.afterExecuteVdomUpdate?.();
+
+            // The response has settled the frozen snapshot. Callback registration from this point
+            // targets the ordinary/current generation again; callbacks already parked for the
+            // follow-up remain isolated in nextPromiseCallbackMap until each owner resolves.
+            for (const id of batchOwnerIds) {
+                VDomUpdate.unmarkPayloadCollected(id)
+            }
 
             // Component could be destroyed while the update is running: a stale success payload
             // from a destroyed flight must never apply deltas or distribute vnodes.
@@ -381,27 +427,28 @@ class VdomLifecycle extends Base {
                 }
             }
         } catch (err) {
-            me.isVdomUpdating = false;
-            // Ensure state is cleaned up on error
-            VDomUpdate.unregisterInFlightUpdate(me.id);
+            const hasCallbacks = [...batchOwnerIds].some(id => VDomUpdate.hasPromiseCallbacks(id));
 
-            // A failed flight must reject every promise parked on it — the initiator AND any
-            // children merged into the cycle (rejectCallbacks is the error-path twin of the
-            // resolveVdomUpdate -> executeCallbacks success path). Detect the fire-and-forget case
-            // first (no parked promise), so a genuinely silent failure still logs rather than
-            // vanishing — the symptom otherwise surfaces minutes later as "the DOM stopped
-            // following". Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
-            VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
+            // A failed physical batch owns every vnode key it collected, not only its initiator.
+            // Release and reject them all; otherwise a disjoint child stays wedged forever.
+            for (const id of batchOwnerIds) {
+                const component = Neo.getComponent(id);
 
-            VDomUpdate.rejectCallbacks(me.id, err);
+                component && (component.isVdomUpdating = false);
+                VDomUpdate.unmarkPayloadCollected(id);
+                VDomUpdate.unregisterInFlightUpdate(id);
+                VDomUpdate.rejectCallbacks(id, err)
+            }
 
-            // Mirror of resolveVdomUpdate(): updates queued onto this flight while it was running
-            // are only ever drained by a follow-up cycle — without this, their content (and any
-            // attached promise callbacks) strand until the next organic update. A deterministic
-            // failure cannot hot-loop here: the retry consumes needsVdomUpdate, and with no new
-            // mutations a failing retry terminates after one bounded re-throw.
-            if (me.needsVdomUpdate) {
-                me.update()
+            // Detect the fire-and-forget case first, so a genuinely silent failure still logs.
+            hasCallbacks || console.error('vdom update failed', me.id, err);
+
+            // Mirror resolveVdomUpdate(): mutations queued behind any owner get one bounded
+            // follow-up after the failed batch releases them.
+            for (const id of batchOwnerIds) {
+                const component = Neo.getComponent(id);
+
+                component?.needsVdomUpdate && component.update()
             }
         }
     }
