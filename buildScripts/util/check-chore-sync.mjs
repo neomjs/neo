@@ -70,11 +70,17 @@ const syncFamilies = ['issues', 'discussions', 'pulls', 'release-notes'];
 // flat home, so neither shape is transitional and both must match.
 //
 // Recognising both is what makes this guard independent of when the emitter changes shape.
-// `isGeneratedSyncFile` is consumed on two arms that fail in OPPOSITE directions: the leakage arm
-// (`isGeneratedSyncFile(f) && !isInherited(f)`) goes EMPTY and passes silently when the corpus sits
-// outside these prefixes, while the NEO_SYNC_AUTOCOMMIT arm inverts the same predicate and rejects
-// the pipeline's own output. One unrecognised path shape, two opposite failures — and the silent
-// one is a guard that stops flagging rather than a guard that errors.
+// `isGeneratedSyncFile` is consumed on two arms that fail in OPPOSITE directions on an unrecognised
+// shape, and only one of them is armed today:
+//
+//   - the LEAKAGE arm (`isGeneratedSyncFile(f) && !isInherited(f)`) runs on every ordinary commit
+//     through `.husky/pre-commit`. Its filter goes EMPTY and the check PASSES — a guard that stops
+//     flagging rather than one that errors, which is why it is the arm worth landing early;
+//   - the NEO_SYNC_AUTOCOMMIT arm inverts the same predicate, so the same unrecognised shape makes
+//     it reject a sync-only staging as non-sync. It is DORMANT: nothing in either repository sets
+//     the variable, and the Data Sync pipeline commits with `--no-verify`, so it does not reach
+//     this guard at all. It is kept correct because a bypass that is wrong while unused is wrong
+//     the day something uses it — not because it fires today.
 const generatedSyncPaths = [
     ...syncFamilies.map(family => `resources/content/${family}/`),
     'resources/content/archive/',

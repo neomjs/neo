@@ -123,9 +123,9 @@ test.describe('check-chore-sync.mjs', () => {
     //
     // These three arms exist because the guard's two consumers fail in OPPOSITE directions when a
     // path shape stops being recognised. The leakage arm goes EMPTY and passes silently — a guard
-    // that quietly stops guarding; the autocommit arm inverts the same predicate and rejects the
-    // pipeline's own output. One unrecognised shape, two failures, only one of them audible. Both
-    // are pinned below, and both go red against the pre-re-key path list.
+    // that quietly stops guarding, and it runs on every ordinary commit; the autocommit arm inverts
+    // the same predicate and rejects a sync-only staging as non-sync. The first two arms below go
+    // red against the pre-re-key path list; the third is a control and passes against both.
 
     test('repo-qualified: staging a corpus file under resources/content/<repoSlug>/ on dev fails — the leakage arm must not go quiet when the corpus moves', () => {
         // The silent half. Before the guard learned this shape it matched nothing here, the filter
@@ -140,9 +140,9 @@ test.describe('check-chore-sync.mjs', () => {
     });
 
     test('repo-qualified + NEO_SYNC_AUTOCOMMIT=1: every family under a repoSlug is accepted as sync-only content', () => {
-        // The audible half, and the reason this guard lands BEFORE the producer: once emission moves,
-        // an unrecognised shape makes this arm classify the pipeline's own corpus as non-sync and
-        // exit 1 on it.
+        // The inverted half. It is DORMANT today — nothing in either repository sets the variable and
+        // the pipeline commits with `--no-verify` — so this arm is pinned because a bypass that is
+        // wrong while unused is wrong the day something uses it, not because it fires now.
         //
         // The staged set is the REAL post-cut topology, not a uniform one: `issues`, `discussions`
         // and `pulls` are the facets that gain a repository segment, while `release-notes`, the
