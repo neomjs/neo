@@ -58,18 +58,48 @@ try {
     process.exit(1);
 }
 
+// The corpus families the Data Sync pipeline emits. Named once because two different path shapes
+// are built from them below, and a family reaching only one of the two is the defect this list
+// exists to prevent.
+const syncFamilies = ['issues', 'discussions', 'pulls', 'release-notes'];
+
 // Generated GitHub workflow content that should not leak into feature commits.
+//
+// TWO shapes are live at once, deliberately. Emitted facets carry a repository segment —
+// `resources/content/<repoSlug>/<family>/` — while `archive/` stays a sibling root and keeps its
+// flat home, so neither shape is transitional and both must match.
+//
+// Recognising both is what makes this guard independent of when the emitter changes shape.
+// `isGeneratedSyncFile` is consumed on two arms that fail in OPPOSITE directions: the leakage arm
+// (`isGeneratedSyncFile(f) && !isInherited(f)`) goes EMPTY and passes silently when the corpus sits
+// outside these prefixes, while the NEO_SYNC_AUTOCOMMIT arm inverts the same predicate and rejects
+// the pipeline's own output. One unrecognised path shape, two opposite failures — and the silent
+// one is a guard that stops flagging rather than a guard that errors.
 const generatedSyncPaths = [
-    'resources/content/issues/',
-    'resources/content/discussions/',
-    'resources/content/pulls/',
-    'resources/content/release-notes/',
+    ...syncFamilies.map(family => `resources/content/${family}/`),
     'resources/content/archive/',
     'resources/content/_index.json',
     'resources/content/.sync-metadata.json'
 ];
 
-const isGeneratedSyncFile = file => generatedSyncPaths.some(item =>
+/**
+ * @summary Recognises a repository-qualified corpus facet — `resources/content/<repoSlug>/<family>/…`.
+ *
+ * Matched STRUCTURALLY rather than by enumerating slugs, so a second organisation repository does
+ * not become another place to remember. The family segment is what makes a path generated content:
+ * `resources/content/concepts/…` carries no family segment and is correctly not matched, which
+ * keeps hand-authored material under the same root outside this guard's reach.
+ * @param {String} file Repository-relative staged path.
+ * @returns {Boolean}
+ */
+const isRepoQualifiedSyncFile = file => {
+    const segments = file.split('/');
+
+    return segments.length > 4 && segments[0] === 'resources' && segments[1] === 'content' &&
+        syncFamilies.includes(segments[3])
+};
+
+const isGeneratedSyncFile = file => isRepoQualifiedSyncFile(file) || generatedSyncPaths.some(item =>
     item.endsWith('/') ? file.startsWith(item) : file === item
 );
 

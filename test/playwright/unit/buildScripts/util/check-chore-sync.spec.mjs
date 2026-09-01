@@ -119,6 +119,62 @@ test.describe('check-chore-sync.mjs', () => {
         expect(result.output).toContain('resources/content/concepts/example.md');
     });
 
+    // ── the repository-qualified corpus shape: `resources/content/<repoSlug>/<family>/`
+    //
+    // These three arms exist because the guard's two consumers fail in OPPOSITE directions when a
+    // path shape stops being recognised. The leakage arm goes EMPTY and passes silently — a guard
+    // that quietly stops guarding; the autocommit arm inverts the same predicate and rejects the
+    // pipeline's own output. One unrecognised shape, two failures, only one of them audible. Both
+    // are pinned below, and both go red against the pre-re-key path list.
+
+    test('repo-qualified: staging a corpus file under resources/content/<repoSlug>/ on dev fails — the leakage arm must not go quiet when the corpus moves', () => {
+        // The silent half. Before the guard learned this shape it matched nothing here, the filter
+        // produced an empty list, and the check PASSED — leakage detection stops without erroring.
+        stageFile('resources/content/neo/issues/chunk-1/issue-1.md');
+
+        const result = runScript(tempDir);
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Error: Sync-data leakage detected');
+        expect(result.output).toContain('resources/content/neo/issues/chunk-1/issue-1.md');
+    });
+
+    test('repo-qualified + NEO_SYNC_AUTOCOMMIT=1: every family under a repoSlug is accepted as sync-only content', () => {
+        // The audible half, and the reason this guard lands BEFORE the producer: once emission moves,
+        // an unrecognised shape makes this arm classify the pipeline's own corpus as non-sync and
+        // exit 1 on it.
+        //
+        // The staged set is the REAL post-cut topology, not a uniform one: `issues`, `discussions`
+        // and `pulls` are the facets that gain a repository segment, while `release-notes`, the
+        // `archive/` tree and the root index all keep their flat homes. Both shapes are legitimately
+        // live at once, and this arm exists to pin exactly that — a spec that staged every family
+        // under a slug would assert a migration that is not happening.
+        [
+            'resources/content/neo/issues/chunk-1/issue-1.md',
+            'resources/content/neo/discussions/chunk-1/discussion-1.md',
+            'resources/content/neo/pulls/chunk-1/pr-1.md',
+            'resources/content/release-notes/chunk-1/v1.0.0.md',
+            'resources/content/archive/issues/v1.0.0/chunk-1/issue-2.md',
+            'resources/content/_index.json'
+        ].forEach(stageFile);
+
+        expect(runScript(tempDir, { NEO_SYNC_AUTOCOMMIT: '1' }).status).toBe(0);
+    });
+
+    test('repo-qualified: a NON-family segment under a repoSlug is still not corpus data', () => {
+        // Non-vacuity control for the structural match. The family segment is what makes a path
+        // generated content — matching on `resources/content/<anything>/` would swallow authored
+        // material that merely shares the root, which is the sibling of the flat-layout control
+        // above (`resources/content/concepts/example.md`) one directory deeper.
+        stageFile('resources/content/neo/concepts/example.md');
+
+        const result = runScript(tempDir, { NEO_SYNC_AUTOCOMMIT: '1' });
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Error: NEO_SYNC_AUTOCOMMIT bypass rejected.');
+        expect(result.output).toContain('resources/content/neo/concepts/example.md');
+    });
+
     // Stages a real merge that carries a sync-pipeline commit — the exact shape of `git merge
     // origin/dev` on a feature branch. `--no-commit` leaves MERGE_HEAD set with the merge staged,
     // which is precisely the state the pre-commit hook runs in.
