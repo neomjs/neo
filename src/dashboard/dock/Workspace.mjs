@@ -2214,10 +2214,11 @@ class Workspace extends Container {
             // owns `dockReload()` decides what reload means, and replacing it instead would
             // discard that authority AND its identity.
             //
-            // Settles through THIS method's channel rather than `dockRecreateSettled`: one
-            // activation, one settlement, whichever path served it. The recreate transaction's own
-            // channel stays for direct callers.
-            const recreated = me.recreateDockPane(itemId, pane, {dockNodeId});
+            // `settle: false` because THIS method settles the activation. Without it one click
+            // emits two terminal events — `dockRecreateSettled` from the transaction and
+            // `dockReloadSettled` from here — and a consumer counting completions would see the
+            // action fire twice. The transaction's own channel stays for direct callers.
+            const recreated = me.recreateDockPane(itemId, pane, {dockNodeId, settle: false});
 
             recreated?.errors?.length && errors.push(...recreated.errors)
         } else {
@@ -3595,12 +3596,17 @@ class Workspace extends Container {
      * inside its own factory would otherwise recurse.
      * @param {String} itemId The stable workspace identity from the item catalog.
      * @param {Neo.component.Base} livePane The mounted pane to replace.
+     * **`settle: false` is for callers that own the settlement themselves.** The reload action is
+     * the one in tree: it serves a contract-less pane through this transaction and then settles on
+     * `dockReloadSettled`, so firing here too would emit **two terminal events for one activation**.
+     * The single-flight guard still applies — only the event is suppressed, never the transaction.
      * @param {Object} [options]
      * @param {String|null} [options.dockNodeId=null] Carried through to the settlement payload.
+     * @param {Boolean} [options.settle=true] `false` when an outer channel settles this invocation.
      * @returns {{errors: String[]}|null} `null` when an in-flight invocation absorbed this one.
      * @protected
      */
-    recreateDockPane(itemId, livePane, {dockNodeId=null}={}) {
+    recreateDockPane(itemId, livePane, {dockNodeId=null, settle=true}={}) {
         const me     = this,
               errors = [];
 
@@ -3634,7 +3640,7 @@ class Workspace extends Container {
             me.dockRecreateInFlight.delete(itemId)
         }
 
-        !me.isDestroyed && me.fire('dockRecreateSettled', {dockNodeId, errors, itemId});
+        settle && !me.isDestroyed && me.fire('dockRecreateSettled', {dockNodeId, errors, itemId});
 
         return {errors}
     }

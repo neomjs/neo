@@ -438,6 +438,48 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         expect(livePane.isDestroyed, 'and the predecessor released').toBe(true)
     });
 
+    test('ONE activation emits exactly ONE terminal event — both channels counted', async () => {
+        // The both-channel negative witness. The action path routes through the recreate
+        // transaction, which owns its own `dockRecreateSettled` channel — so without suppression a
+        // single click emits TWO terminal events and a consumer counting completions sees the action
+        // fire twice. Counting only the reload channel would never have caught it, which is why this
+        // arm subscribes to BOTH.
+        const recreateSettlements = [];
+
+        workspace.on('dockRecreateSettled', data => recreateSettlements.push(data));
+
+        tabContainer = buildTabs({module: Component, id: 'fallback-live'});
+
+        workspace.getActiveDockItemId = () => 'editor';
+        workspace.resolveFreshPane    = () => ({module: Component, id: 'fallback-fresh'});
+
+        await workspace.handleDockReloadAction({dockNodeId: 'node-1', tabContainer});
+
+        expect(settlements.length,         'dockReloadSettled fires once').toBe(1);
+        expect(recreateSettlements.length, 'and the nested transaction does NOT settle again').toBe(0);
+        expect(settlements.length + recreateSettlements.length, 'one activation, one terminal event').toBe(1)
+    });
+
+    test('a DIRECT caller still gets the recreate channel — suppression is per-call, not global', () => {
+        // `settle: false` must not disable the transaction's own channel for everyone else.
+        const recreateSettlements = [];
+
+        workspace.on('dockRecreateSettled', data => recreateSettlements.push(data));
+
+        const container = Neo.create(Container, {
+            appName: 'DashboardDockRecreateCandidateTest',
+            items  : [{module: Component, id: 'direct-live'}]
+        });
+
+        workspace.resolveFreshPane = () => ({module: Component, id: 'direct-fresh'});
+        workspace.recreateDockPane('editor', container.items[0]);
+
+        expect(recreateSettlements.length, 'a direct call settles on its own channel').toBe(1);
+        expect(settlements.length,         'and never on the reload channel').toBe(0);
+
+        container.destroy()
+    });
+
     test('a consumer that DECLINES fresh resolution settles with a named refusal, pane intact', async () => {
         tabContainer = buildTabs({module: Component, id: 'fallback-live'});
 
