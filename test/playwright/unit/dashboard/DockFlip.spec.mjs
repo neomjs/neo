@@ -949,7 +949,13 @@ test.describe('Neo.main.addon.DockFlip', () => {
                     return name === '--dock-transition-duration' ? '260ms' : 'linear'
                 }
             },
-            frames = [];
+            originalCancelAnimationFrame = globalThis.cancelAnimationFrame,
+            originalClearTimeout         = globalThis.clearTimeout,
+            originalSetTimeout           = globalThis.setTimeout,
+            frames                        = new Map(),
+            timers                        = new Map();
+
+        let carrierId = 0;
 
         sourceBody.parentElement      = host;
         destinationBody.parentElement = host;
@@ -962,29 +968,54 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle      = () => visibleStyle;
         globalThis.requestAnimationFrame = callback => {
-            frames.push(callback);
-            return frames.length
+            const id = ++carrierId;
+
+            frames.set(id, callback);
+
+            return id
         };
+        globalThis.cancelAnimationFrame = id => frames.delete(id);
+        globalThis.setTimeout = callback => {
+            const id = ++carrierId;
 
-        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+            timers.set(id, callback);
 
-        const playPromise = dockFlip.play({
-            hostId      : 'dock-host',
-            markerPrefix: 'dock-flip-item-',
-            maxFrames   : 1
-        });
+            return id
+        };
+        globalThis.clearTimeout = id => timers.delete(id);
 
-        expect(frames).toHaveLength(1); // play is pending in stage A, before #activeCleanups
+        try {
+            dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
 
-        marker.parentElement = destinationBody;
-        marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
+            const playPromise = dockFlip.play({
+                hostId      : 'dock-host',
+                markerPrefix: 'dock-flip-item-',
+                maxFrames   : 1
+            });
 
-        expect(dockFlip.land({hostId: 'dock-host'}), 'pending host play is an admitted landing target').toBe(true);
-        await expect(playPromise).resolves.toBe(false);
-        expect(frames, 'settlement does not need the held frame carrier to run').toHaveLength(1);
-        expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false);
-        expect(marker.style.position).toBeUndefined();
-        expect(dockFlip.land({hostId: 'dock-host'}), 'the pending registration retires on settle').toBe(false)
+            expect(frames.size).toBe(1); // pending in stage A, before #activeCleanups
+            expect(timers.size).toBe(1);
+
+            marker.parentElement = destinationBody;
+            marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
+
+            expect(dockFlip.land({hostId: 'dock-host'}), 'pending host play is an admitted landing target').toBe(true);
+            await expect(Promise.race([
+                playPromise,
+                new Promise(resolve => originalSetTimeout(() => resolve('wedged'), 50))
+            ])).resolves.toBe(false);
+            expect(frames.size, 'the held frame carrier is cancelled').toBe(0);
+            expect(timers.size, 'the held timer carrier is cancelled').toBe(0);
+            expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false);
+            expect(marker.style.position).toBeUndefined();
+            expect(dockFlip.land({hostId: 'dock-host'}), 'the pending registration retires on settle').toBe(false)
+        } finally {
+            originalCancelAnimationFrame === undefined
+                ? delete globalThis.cancelAnimationFrame
+                : globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+            globalThis.clearTimeout = originalClearTimeout;
+            globalThis.setTimeout   = originalSetTimeout
+        }
     });
 
     test('a same-host successor lands its active predecessor before capturing inline authority', async () => {
@@ -1077,6 +1108,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
             // The successor capture overlaps the active predecessor. It must land the old stage
             // before recording First, otherwise its cleanup snapshot canonizes temporary fixed px.
             dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+            expect(frames.size, 'successor capture cancels the predecessor frame immediately').toBe(0);
             await expect(firstPlay).resolves.toBe(false);
             expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false);
 
