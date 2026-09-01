@@ -360,6 +360,57 @@ test.describe('Neo.tab.Container — ui variants', () => {
         })
     }
 
+    /**
+     * A fifth engine theme builds with no `tab/` directory at all: `theme-cyberpunk` declares none of
+     * the `--tab-button-*` tokens. The tab title's weight rule outranks the button rule by
+     * specificity, so an undefined weight token would make that declaration invalid and hand the
+     * title the document's inherited weight — a regression no four-theme matrix can see. The
+     * consumption-site fallback is what keeps such a theme at the button family's weight, for every
+     * variant, exactly as before the token existed.
+     */
+    test('a theme without tab tokens keeps the button family\'s title weight through the fallback', async ({page}) => {
+        await page.evaluate(async hrefs => {
+            for (const href of hrefs) {
+                const link = document.createElement('link');
+
+                link.rel  = 'stylesheet';
+                link.href = href;
+
+                await new Promise((resolve, reject) => {
+                    link.onload  = resolve;
+                    link.onerror = () => reject(new Error(`stylesheet did not load: ${href}`));
+                    document.head.appendChild(link)
+                })
+            }
+        }, [
+            '/dist/development/css/theme-cyberpunk/button/Base.css',
+            '/dist/development/css/theme-cyberpunk/toolbar/Base.css'
+        ]);
+
+        await applyTheme(page, 'neo-theme-cyberpunk');
+
+        const tokens = await page.evaluate(() => {
+            const text  = document.querySelector('#tab-ui-null .neo-tab-header-button .neo-button-text'),
+                  style = getComputedStyle(text);
+
+            return {
+                buttonWeight: style.getPropertyValue('--button-text-font-weight').trim(),
+                tabWeight   : style.getPropertyValue('--tab-button-text-font-weight').trim()
+            }
+        });
+
+        // The precondition that makes this arm mean anything: the theme really declares no tab
+        // weight token, while it does declare the button family's.
+        expect(tokens.tabWeight, 'cyberpunk declares no tab title weight token').toBe('');
+        expect(tokens.buttonWeight, 'and does declare the button weight').toBe('600');
+
+        for (const variant of ['null', 'inline', 'standalone']) {
+            const measured = await readVariant(page, `tab-ui-${variant}`);
+
+            expect(measured.fontWeight, `${variant}: the title keeps the button family's weight`).toBe('600')
+        }
+    });
+
     test('the inline gradient hook is theme-valued, overridable and cannot leak to ui:null', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-light');
 

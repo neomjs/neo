@@ -30,8 +30,11 @@
         font-size  : var(--tab-button-text-font-size);
         // The title's weight is its own token. Without one it fell through to the button family's
         // weight, so every theme with semibold buttons had semibold tab titles by accident — and
-        // the inline dock header, where width is scarce, had no way to opt out.
-        font-weight: var(--tab-button-text-font-weight);
+        // the inline dock header, where width is scarce, had no way to opt out. The fallback IS
+        // that inheritance, made explicit: a theme that declares no tab tokens at all (cyberpunk)
+        // keeps the button family's weight, because an undefined token would otherwise make this
+        // declaration invalid and hand the title the document's inherited weight instead.
+        font-weight: var(--tab-button-text-font-weight, var(--button-text-font-weight));
     }
 
     .neo-tab-button-indicator {
