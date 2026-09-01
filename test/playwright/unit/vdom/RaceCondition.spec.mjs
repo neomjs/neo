@@ -152,6 +152,114 @@ test.describe('VdomLifecycle Race Condition', () => {
     });
 
     /**
+     * The in-flight registry reports a scope the payload no longer has.
+     *
+     * The depth is registered ONCE, when the cycle starts; the payload is built from
+     * `component.updateDepth` read LIVE after a macrotask yield. Between those two reads sits
+     * `Component#show()`, which sets `parent.updateDepth = -1` and calls `parent.update()` — so a
+     * header-action button becoming visible escalates its parent's depth mid-flight. That escalation
+     * is correct and these arms must never narrow it: a floating widget mounting into its parent
+     * needs the full tree.
+     *
+     * `isParentUpdating` and `hasUpdateCollision` both consult the REGISTERED depth, so every
+     * consumer of the collision contract is answered from a scope the payload no longer has. **That
+     * incoherence is the whole claim.** What it goes on to cause is not asserted here — a second
+     * overlapping flight was hypothesised and measured NOT to occur, because something further down
+     * still queues the sibling write, and the duplicate-render defect that hypothesis named was
+     * separate and separately cured.
+     *
+     * Reaching the window deterministically needs a SECOND cycle: `getVdomUpdatePayload` resets the
+     * depth to the config default by writing `_updateDepth`, so a container that has ever been at -1
+     * stays there until one payload is collected. The first drain below is what makes the window
+     * exist at all.
+     */
+    test.describe('a depth escalation arriving mid-flight', () => {
+        /**
+         * Opens a real second cycle and returns once it is genuinely in flight at depth 1.
+         * Returns false when the window could not be entered, so a caller can refuse to report a
+         * verdict it never observed.
+         */
+        const openSecondCycleAtDepthOne = async (container, child) => {
+            child.text = `${child.text} drain`;
+            await container.promiseUpdate();
+            await new Promise(resolve => setTimeout(resolve, 40));
+
+            child.text = `${child.text} again`;
+            container.update();
+
+            for (let i = 0; i < 40 && !container.isVdomUpdating; i++) {
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
+
+            return container.isVdomUpdating && VDomUpdate.getInFlightUpdateDepth(container.id) === 1
+        };
+
+        const buildContainer = async (containerId, hiddenId, siblingId) => {
+            const container = Neo.create(RaceContainer, {
+                appName,
+                id   : containerId,
+                items: [
+                    {module: RaceChildComponent, id: hiddenId,  hidden: true, text: 'Hidden'},
+                    {module: RaceChildComponent, id: siblingId, text: 'Sibling'}
+                ]
+            });
+
+            await container.initVnode(true);
+            container.mounted = true;
+            await new Promise(resolve => setTimeout(resolve, 40));
+
+            return container
+        };
+
+        test('reaches the collision check, while leaving the payload scope exactly as show() set it', async () => {
+            const containerId = getUniqueId('escalation-container');
+            createdComponentIds.push(containerId);
+
+            const container = await buildContainer(containerId, getUniqueId('hidden'), getUniqueId('sibling')),
+                  opened    = await openSecondCycleAtDepthOne(container, container.items[1]);
+
+            expect(opened, 'the depth-1 flight must be open, or this arm witnesses nothing').toBe(true);
+
+            // The real path: `hidden = false` runs Component#show().
+            container.items[0].hidden = false;
+
+            // The escalation itself is untouched. A floating widget mounting through show() still
+            // gets the full tree — narrowing this is the regression this arm exists to forbid.
+            expect(container.updateDepth, 'show() must still widen the payload to the full tree').toBe(-1);
+
+            // ...and the collision check now knows about it.
+            expect(
+                VDomUpdate.getInFlightUpdateDepth(containerId),
+                'the registered depth must track the scope the payload will be built from'
+            ).toBe(-1);
+
+            await new Promise(resolve => setTimeout(resolve, 60))
+        });
+
+        // A sibling arm lived here and was removed: it passed with the fix disabled, because
+        // `update()` tries `mergeIntoParentUpdate` BEFORE `isParentUpdating`, so in a plain
+        // container the sibling is absorbed by the merge and never reaches the collision check at
+        // all. It therefore witnessed nothing about this defect. The DOM-level consequence is
+        // covered at the component tier, where a real tab bar reaches the check; keeping a green
+        // arm here that cannot fail would have been worse than having none.
+
+        test('never narrows a flight: a reset written during collection cannot lower the record', () => {
+            const containerId = getUniqueId('escalation-guard');
+
+            VDomUpdate.registerInFlightUpdate(containerId, -1);
+
+            VDomUpdate.escalateInFlightUpdate(containerId, 1);
+            expect(VDomUpdate.getInFlightUpdateDepth(containerId), '-1 absorbs').toBe(-1);
+
+            VDomUpdate.unregisterInFlightUpdate(containerId);
+
+            // A component that is not in flight must not gain an entry.
+            VDomUpdate.escalateInFlightUpdate(containerId, -1);
+            expect(VDomUpdate.getInFlightUpdateDepth(containerId), 'no entry is created').toBeUndefined()
+        })
+    });
+
+    /**
      * Verifies that two siblings updating strictly their own internal structure (Depth 1)
      * do not cause conflicts or trigger unnecessary parent updates that lead to duplication.
      */

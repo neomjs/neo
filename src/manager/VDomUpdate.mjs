@@ -406,6 +406,44 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Widens the recorded depth of an update that is ALREADY in flight.
+     *
+     * `registerInFlightUpdate` records the depth once, when the cycle starts. The payload is built
+     * later, from `component.updateDepth` read live after a macrotask yield — and `Component#show()`
+     * sets `parent.updateDepth = -1` in exactly that window, because a floating widget mounting into
+     * its parent needs the full tree. The escalation is correct and must not be undone.
+     *
+     * What was wrong is that only the payload learned about it. {@link
+     * Neo.mixin.VdomLifecycle#isParentUpdating} and `hasUpdateCollision` both read the registry, so
+     * every consumer of the collision contract is answered from a scope the payload no longer has.
+     *
+     * What that incoherence goes on to cause is deliberately NOT asserted anywhere in this lane: a
+     * second overlapping flight was hypothesised and measured NOT to occur, because something further
+     * down still queues the sibling write. That absorber is unidentified.
+     *
+     * **This only ever widens.** It mirrors `beforeSetUpdateDepth`'s monotonic contract (-1 absorbs,
+     * otherwise `Math.max`), so the recorded scope can never shrink below what the collision check
+     * has already promised, and a payload can never lose a subtree because of it. The sole effect of
+     * being wrong here is more serialization, never a missing node.
+     *
+     * A component with no entry is not in flight and is left alone — this must not create one.
+     * @param {String} ownerId     The `id` of the component owning the update.
+     * @param {Number} updateDepth The escalated depth.
+     */
+    escalateInFlightUpdate(ownerId, updateDepth) {
+        const current = this.inFlightUpdateMap.get(ownerId);
+
+        if (current === undefined) return;
+
+        // No watchdog re-arm and no descendant re-registration: the flight is the same flight, and
+        // re-arming would hand a wedged component a fresh timeout on every escalation.
+        this.inFlightUpdateMap.set(
+            ownerId,
+            current === -1 || updateDepth === -1 ? -1 : Math.max(updateDepth, current)
+        )
+    }
+
+    /**
      * Marks a component's VDOM update as "in-flight," meaning it has been sent to the
      * worker for processing.
      * @param {String} ownerId     The `id` of the component owning the update.
