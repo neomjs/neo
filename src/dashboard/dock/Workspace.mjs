@@ -1590,25 +1590,56 @@ class Workspace extends Container {
 
         if (!me.enableDockLockAction) return;
 
+        me.forEachDockRail(rail => {
+            let itemId = rail.revealOverlay?.revealPaneItemId,
+                pane   = rail.revealOverlay?.paneSlot?.items?.[0];
+
+            if (itemId && pane) {
+                me.syncDockLockItemPresentation({
+                    locked: me.dockModel?.items?.[itemId]?.locked === true,
+                    pane
+                })
+            }
+        })
+    }
+
+    /**
+     * Visits every projected edge rail below the dock shell. Rails are leaves of the walk: their
+     * reveal overlays host application content, never dock nodes.
+     * @param {Function} callback Receives one {@link Neo.dashboard.dock.interaction.Rail}.
+     * @protected
+     */
+    forEachDockRail(callback) {
         const visit = component => {
             if (!component || component.isDestroyed) return;
 
             if (component.dockNodeType === 'edge-rail') {
-                let itemId = component.revealOverlay?.revealPaneItemId,
-                    pane   = component.revealOverlay?.paneSlot?.items?.[0];
-
-                if (itemId && pane) {
-                    me.syncDockLockItemPresentation({
-                        locked: me.dockModel?.items?.[itemId]?.locked === true,
-                        pane
-                    })
-                }
+                callback(component);
+                return
             }
 
             component.items?.forEach(visit)
         };
 
-        visit(me.getDockHost()?.items?.[me.dockShellIndex])
+        visit(this.getDockHost()?.items?.[this.dockShellIndex])
+    }
+
+    /**
+     * Releases every rail-cached reveal pane whose item leaves auto-hidden state with the incoming
+     * document — BEFORE the projection materializes that item's flow pane. The rail releases on its
+     * own leave paths (pin escape, reconciled leaver); this sweep covers the ones that never pass
+     * through it — a restored perspective, a transfer — which take the staged path that tears the
+     * old rail down only AFTER the new shell minted the flow pane. Silent: this refresh owns the
+     * next update train. See {@link Neo.dashboard.dock.interaction.Rail#releaseRevealPane}.
+     * @param {Object|null} document The committed document this refresh projects.
+     * @protected
+     */
+    releaseStaleRevealPanes(document) {
+        this.forEachDockRail(rail => {
+            Object.keys(rail.revealPaneCache || {}).forEach(itemId => {
+                document?.items?.[itemId]?.autoHidden === true || rail.releaseRevealPane(itemId, true)
+            })
+        })
     }
 
     /**
@@ -1715,34 +1746,29 @@ class Workspace extends Container {
      * Synchronizes every projected engine header action after reconciliation, including retained tabs
      * whose action instance outlived a model-policy or active-item change.
      *
+     * Walks the SETTLED shell, never a map handed in from the reconciler: that map is the OLD shell's
+     * tabs (`Reconciler.collectProjectedTabs(oldShell)`), so a node the projection just CREATED — a
+     * railed item pinned back into flow, a fresh boot's placeholders — is not in it, and `reload`'s
+     * availability, projected as a constant `hidden: true` by the stable-instance rule, is revealed
+     * by nothing else. Every write below is change-guarded, so re-walking retained nodes is idempotent.
+     *
      * Each action's own sync guards on its own opt-in and is a no-op when the action was never
      * projected — the opt-in guard is load-bearing, not redundant: a host may legally own an
      * engine action NAME while that engine flag is off (the reserved-name guard fires only for
      * enabled actions), and `getActionItem` finds the host's action by name. Without the guard,
      * this sweep would rewrite consumer-owned action state.
-     * @param {Map<String,Neo.tab.Container>|null} [tabs=null]
      * @protected
      */
-    syncDockHeaderActions(tabs=null) {
-        let me            = this,
-            projectedTabs = tabs;
+    syncDockHeaderActions() {
+        let me    = this,
+            shell = me.getDockHost()?.items?.[me.dockShellIndex];
 
-        // A fresh boot reconciles with nothing retained, so the reconciler's map arrives EMPTY —
-        // yet the staged projection resolved PLACEHOLDERS, whose pane-dependent action states
-        // (reload's contract probe) are wrong until this sync reaches the live chrome. Walk the
-        // shell whenever the handed map cannot.
-        if (!projectedTabs?.size) {
-            let shell = me.getDockHost()?.items?.[me.dockShellIndex];
-
-            projectedTabs = shell ? Reconciler.collectProjectedTabs(shell) : new Map()
-        }
-
-        projectedTabs?.forEach?.(tab => {
+        shell && Reconciler.collectProjectedTabs(shell).forEach(tab => {
             me.syncDockCloseAction(tab);
             me.syncDockLockAction(tab);
             me.syncDockPinAction(tab);
             me.syncDockReloadAction(tab)
-        })
+        });
 
         me.enableDockLockAction && me.syncDockLockRails()
     }
@@ -3292,6 +3318,7 @@ class Workspace extends Container {
         }
 
         me.beforeRefreshDockWorkspace(document, refreshOptions);
+        me.releaseStaleRevealPanes(document);
 
         const nextConfig = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId) => {
             const placeholder = me.createProjectionPlaceholder(itemId, item, componentRef);
@@ -3369,14 +3396,14 @@ class Workspace extends Container {
             // application: a bar write with the refresh's own update train still open is the
             // collision that duplicated retained chrome on slow rigs. Every write is
             // change-guarded, so post-settle is both the safe and the idempotent slot.
-            me.syncDockHeaderActions(result?.currentTabs);
+            me.syncDockHeaderActions();
 
             // Once more on SETTLED chrome: the pre-settle sync above can run while projected
             // header actions are still instantiating (a fresh boot's first refresh), and a
             // pane-dependent action state (reload's contract probe) corrected on chrome that
             // does not exist yet is a correction nobody received. Every write in the sync is
             // change-guarded, so re-running it on settled chrome is idempotent.
-            me.syncDockHeaderActions(result?.currentTabs)
+            me.syncDockHeaderActions()
         }
     }
 

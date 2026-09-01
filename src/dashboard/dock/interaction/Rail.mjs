@@ -363,6 +363,47 @@ class Rail extends Container {
     }
 
     /**
+     * Releases the blueprint- or placeholder-created reveal pane of an item that LEFT auto-hidden
+     * state (pin, transfer, a restored perspective). The cache parks panes across dismissals so a
+     * re-reveal keeps its instance, but an item returning to the tab flow gets its flow pane from
+     * the projection — and a consumer resolving both from one config mints the same id twice. A
+     * cached reveal pane that outlives the flow pane's creation unregisters that id when the rail
+     * tears down, leaving a live pane nobody can address and a refresh that throws mid-teardown.
+     * Destroying it here, while it is still the id's only holder, keeps the registry honest.
+     *
+     * Live instances are never cached (parked, never owned — see {@link #syncRevealPane}), so a
+     * consumer's own pane cannot be destroyed through this path.
+     *
+     * The rail releases on its own leave paths (the pin escape, a reconciled leaver) BEFORE the
+     * dismissal parks the pane, so a revealed pane leaves through its slot in the one update the
+     * dismissal would otherwise spend on parking it — its DOM node and its registration retire
+     * together, ahead of the refresh that mints the flow pane. The workspace's pre-projection sweep
+     * ({@link Neo.dashboard.dock.Workspace#releaseStaleRevealPanes}) covers the leave paths that
+     * never pass through this rail (a restored perspective, a transfer), silently.
+     * @param {String} itemId
+     * @param {Boolean} [silent=false] `true` when the caller owns the next update train.
+     * @protected
+     */
+    releaseRevealPane(itemId, silent=false) {
+        let me   = this,
+            pane = me.revealPaneCache[itemId];
+
+        if (!pane) {
+            return
+        }
+
+        delete me.revealPaneCache[itemId];
+
+        if (!pane.isDestroyed) {
+            const parent = pane.parent;
+
+            // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
+            // resolve a slot that no longer lists it — go through the parent only while it does.
+            parent?.items?.includes(pane) ? parent.remove(pane, true, silent) : pane.destroy(false, silent)
+        }
+    }
+
+    /**
      * Tears down the reveal machinery before container destruction — pending dwell/grace timers
      * must never outlive the rail.
      * @param {...*} args
@@ -461,6 +502,9 @@ class Rail extends Container {
         result     = me.commitOperation(descriptor);
 
         if (!result.errors?.length) {
+            // The item leaves the rail: its reveal pane goes first, through the slot, so the flow
+            // pane the scheduled refresh mints never meets it (id, DOM node, registration).
+            me.releaseRevealPane(itemId);
             me.revealMachine?.itemCleared(itemId)
         }
 
@@ -604,6 +648,7 @@ class Rail extends Container {
             }
 
             if (!target.some(railItem => railItem.dockItemId === existing[index].dockItemId)) {
+                me.releaseRevealPane(existing[index].dockItemId);
                 me.revealMachine?.itemCleared(existing[index].dockItemId);
                 me.removeAt(index)
             }

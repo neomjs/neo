@@ -721,9 +721,11 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
         }
 
         // alpha and beta both own the reload contract — two contract carriers in ONE node is
-        // what witnesses per-item single-flight across active-item switches; gamma's contract
-        // throws (containment witness); frame stays contract-free — the hidden witness.
-        const module = itemId === 'alpha' || itemId === 'beta' ? ReloadProbe
+        // what witnesses per-item single-flight across active-item switches; pinned owns it too,
+        // as the EDGE node's carrier for the rail round-trip arm (the action has to come back
+        // with the pane); gamma's contract throws (containment witness); frame stays
+        // contract-free — the hidden witness.
+        const module = itemId === 'alpha' || itemId === 'beta' || itemId === 'pinned' ? ReloadProbe
             : itemId === 'gamma' ? ThrowingReloadProbe
             : null;
 
