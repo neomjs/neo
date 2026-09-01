@@ -678,4 +678,84 @@ test.describe('VdomLifecycle Race Condition', () => {
             delta.action === 'insertNode' && delta.vnode?.id === birthId
         )).toHaveLength(1)
     });
+
+    test('a surviving collected owner settles when its initiator dies after reparent', async () => {
+        const
+            rootId          = getUniqueId('destroyed-initiator-root'),
+            childOwnerId    = getUniqueId('destroyed-initiator-child'),
+            hostId          = getUniqueId('destroyed-initiator-host'),
+            previousGet     = Neo.get,
+            realUpdateBatch = VdomHelper.updateBatch;
+
+        let releaseRootBatch, signalRootBoundary;
+
+        const rootBoundary = new Promise(resolve => signalRootBoundary = resolve);
+
+        createdComponentIds.push(rootId, hostId);
+
+        const
+            root = Neo.create(RaceContainer, {
+                appName,
+                id   : rootId,
+                items: [{module: RaceContainer, id: childOwnerId, items: []}]
+            }),
+            host = Neo.create(RaceContainer, {appName, id: hostId, items: []});
+
+        await root.initVnode(true);
+        await host.initVnode(true);
+        root.mounted = host.mounted = true;
+
+        const childOwner = root.items[0];
+
+        Neo.applyDeltas = async () => {};
+
+        let blockedRoot = false;
+
+        VdomHelper.updateBatch = data => {
+            const ownerIds = Object.keys(data.updates);
+
+            if (!blockedRoot && ownerIds.includes(rootId) && ownerIds.includes(childOwnerId)) {
+                blockedRoot = true;
+                signalRootBoundary();
+
+                return new Promise(resolve => releaseRootBatch = () =>
+                    resolve(realUpdateBatch.call(VdomHelper, data))
+                )
+            }
+
+            return realUpdateBatch.call(VdomHelper, data)
+        };
+
+        let flight;
+
+        try {
+            root._updateDepth      = 1;
+            childOwner.updateDepth = -1;
+            VDomUpdate.registerMerged(rootId, childOwnerId, -1, 1);
+
+            flight = root.executeVdomUpdate();
+            await rootBoundary;
+
+            expect(childOwner.isVdomUpdating).toBe(true);
+
+            root.remove(childOwner, false, true, true);
+            Neo.get = Neo.getComponent; // ordinary App boot installs this alias; the unit harness does not.
+            host.add(childOwner, true);
+            childOwner._needsVdomUpdate = false; // isolate settlement: no queued content follow-up.
+            root.destroy();
+
+            expect(Neo.getComponent(childOwnerId)).toBe(childOwner);
+
+            releaseRootBatch();
+            await flight;
+
+            expect(childOwner.isVdomUpdating).toBe(false);
+            expect(VDomUpdate.getInFlightUpdateDepth(childOwnerId)).toBeUndefined()
+        } finally {
+            releaseRootBatch?.();
+            await flight?.catch(() => {});
+            Neo.get = previousGet;
+            VdomHelper.updateBatch = realUpdateBatch
+        }
+    });
 });

@@ -389,41 +389,68 @@ class VdomLifecycle extends Base {
                 VDomUpdate.unmarkPayloadCollected(id)
             }
 
-            // Component could be destroyed while the update is running: a stale success payload
-            // from a destroyed flight must never apply deltas or distribute vnodes.
-            if (me.id && !me.isDestroyed) {
-                // When not using a VdomWorker, we need to apply the deltas inside the App worker
-                if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
-                    await Neo.applyDeltas(me.windowId, response.deltas)
-                }
+            // With a VDom worker, the response means Main already applied the physical batch even
+            // if its initiator died meanwhile. The local Helper path has not applied anything yet;
+            // keep its historical initiator-survival gate and fail closed for every owner when dead.
+            const canAdoptResponse = Neo.config.useVdomWorker || (me.id && !me.isDestroyed);
 
-                // Distribute results back to ALL components in the batch
+            if (!Neo.config.useVdomWorker && canAdoptResponse && response.deltas?.length > 0) {
+                await Neo.applyDeltas(me.windowId, response.deltas)
+            }
+
+            const
+                releasedError = new Error(
+                    'VDOM batch response could not be adopted because its initiator was destroyed'
+                ),
+                settledOwnerIds = new Set(),
+                releaseOwner = id => {
+                    const component = Neo.getComponent(id);
+
+                    component && (component.isVdomUpdating = false);
+                    VDomUpdate.unregisterInFlightUpdate(id);
+                    VDomUpdate.rejectCallbacks(id, releasedError);
+                    component?.needsVdomUpdate && component.update()
+                };
+
+            releasedError.code = 'NEO_VDOM_BATCH_RESPONSE_NOT_ADOPTED';
+
+            if (canAdoptResponse) {
+                // Settle every returned vnode owner independently. A moved surviving sibling must
+                // never wedge merely because the transport initiator was destroyed.
                 for (const id in response.vnodes) {
                     if (Object.hasOwn(response.vnodes, id)) {
-                        const vnode     = response.vnodes[id];
-                        const component = Neo.getComponent(id);
+                        const
+                            vnode     = response.vnodes[id],
+                            component = Neo.getComponent(id);
+
+                        settledOwnerIds.add(id);
 
                         if (component && !component.isDestroyed) {
                             component.vnode = vnode;
 
                             // This owner-specific receipt means both halves completed: Main applied
                             // the deltas (or acknowledged a no-op), then App adopted this vnode.
-                            // Record before callbacks because they can synchronously request the next
-                            // batch, whose snapshot must see the newly authoritative owner baseline.
+                            // Record before callbacks because they can request the next batch.
                             if (Neo.config.useDeltaCoherenceRegistry) {
                                 VDomUpdate.recordCoherenceAcknowledgment(
                                     me.appName, me.windowId, id, response.coherenceSequence
                                 )
                             }
 
-                            // Resolve the update for this component and its merged children
-                            // Note: response.deltas contains the aggregated deltas for the whole batch
                             component.resolveVdomUpdate({
                                 deltas: response.deltas,
                                 vnode
                             }, componentMergedChildren.get(id));
+                        } else {
+                            releaseOwner(id)
                         }
                     }
+                }
+            }
+
+            for (const id of batchOwnerIds) {
+                if (!settledOwnerIds.has(id)) {
+                    releaseOwner(id)
                 }
             }
         } catch (err) {
