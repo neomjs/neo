@@ -210,4 +210,53 @@ test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
         expect(absentGate.errors, 'an omitted optional zone remains valid').toEqual([]);
         expect(absentGate.fingerprint?.shape).toBe('e{}')
     });
+
+    test('non-record zone containers fail the validator and shape gate together, never fabricating categories', () => {
+        const malformedContainers = ['main-split', [], null, 42],
+              emptyCategories     = {
+                  adds         : [],
+                  autoHideFlips: [],
+                  moves        : [],
+                  removes      : [],
+                  resizes      : [],
+                  tabReorders  : [],
+                  unchanged    : []
+              };
+
+        malformedContainers.forEach(zones => {
+            const malformed = doc();
+
+            malformed.nodes.root.zones = zones;
+
+            const validationErrors = Document.validate(malformed),
+                  gate             = Document.computeShapeFingerprint(malformed);
+
+            expect(validationErrors.length > 0,
+                `validator and fingerprint gate must agree for zones=${JSON.stringify(zones)}`)
+                .toBe(gate.errors.length > 0);
+            expect(gate.fingerprint, 'a non-record zones container never yields a success fingerprint').toBe(null);
+
+            for (const side of ['before', 'after']) {
+                const result = side === 'before'
+                    ? DockTopologyDiff.diffDockDocuments(malformed, doc())
+                    : DockTopologyDiff.diffDockDocuments(doc(), malformed);
+
+                expect(result.errors[0]).toContain(`${side} document failed the shape gate`);
+
+                for (const [category, expected] of Object.entries(emptyCategories)) {
+                    expect(result[category], `${side} ${category} stays empty for zones=${JSON.stringify(zones)}`)
+                        .toEqual(expected)
+                }
+            }
+        });
+
+        const empty = doc();
+
+        empty.nodes.root.zones = {};
+
+        const gate = Document.computeShapeFingerprint(empty);
+
+        expect(gate.errors, 'an empty zones record is the legitimate no-occupancy case').toEqual([]);
+        expect(gate.fingerprint?.shape).toBe('e{}')
+    });
 });
