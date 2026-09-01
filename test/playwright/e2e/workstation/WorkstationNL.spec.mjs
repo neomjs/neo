@@ -175,6 +175,32 @@ const readRevealPinStyle = locator => locator.evaluate(element => {
     }
 });
 
+/** @summary Reads active inline-tab title geometry and typography from its real button. */
+const readInlineTitleChrome = button => button.evaluate(node => {
+    const
+        title     = node.querySelector('.neo-button-text'),
+        buttonBox = node.getBoundingClientRect(),
+        titleBox  = title.getBoundingClientRect(),
+        rootStyle = getComputedStyle(node),
+        style     = getComputedStyle(title);
+
+    return {
+        backgroundColor: rootStyle.backgroundColor,
+        backgroundImage: rootStyle.backgroundImage,
+        border         : rootStyle.border,
+        borderRadius   : rootStyle.borderRadius,
+        color          : style.color,
+        fontFamily     : style.fontFamily,
+        fontSize       : style.fontSize,
+        fontWeight     : style.fontWeight,
+        height         : buttonBox.height,
+        inset          : titleBox.left - buttonBox.left,
+        lineHeight     : style.lineHeight,
+        padding        : rootStyle.padding,
+        textTransform: style.textTransform
+    }
+});
+
 /**
  * Returns only mounted Sparkline components owned by the scale pane.
  * @param {Object} app Neural Link fixture app handle.
@@ -2241,12 +2267,12 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('the reveal pin stays compact and legible in both Workstation palettes', async ({page, neuralLink}) => {
-        const
-            {app, workspaceId} = await bootActionAcceptance({page, neuralLink}),
-            root               = page.locator('.workstation-viewport');
+    for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
+        test(`the reveal header matches inline tab chrome under ${theme}`, async ({page, neuralLink}) => {
+            const
+                {app, workspaceId} = await bootActionAcceptance({page, neuralLink}),
+                root               = page.locator('.workstation-viewport');
 
-        for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
             await app.callMethod(workspaceId, 'setWorkspaceTheme', [theme]);
             await expect(root).toHaveClass(new RegExp(theme));
 
@@ -2259,10 +2285,13 @@ test.describe('Workstation — dense living-data composition', () => {
                 workspaceId
             });
 
+            await page.mouse.move(0, 0);
             await expect(locator).toHaveAttribute('aria-label', 'unpin');
             await expect(locator.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
 
-            const inlineAction = await readRevealPinStyle(locator);
+            const
+                inlineAction = await readRevealPinStyle(locator),
+                inlineTitle  = await readInlineTitleChrome(page.locator(`#${chrome.buttons.commits}`));
 
             await locator.click();
             await expect.poll(async () => {
@@ -2281,7 +2310,8 @@ test.describe('Workstation — dense living-data composition', () => {
                     '.neo-dashboard-dock-reveal-overlay-right:not(.neo-dashboard-dock-reveal-overlay-hidden)'
                 ),
                 header  = overlay.locator('.neo-dashboard-dock-reveal-header'),
-                restore = overlay.locator('.neo-dashboard-dock-reveal-pin');
+                restore = overlay.locator('.neo-dashboard-dock-reveal-pin'),
+                title   = overlay.locator('.neo-dashboard-dock-reveal-title');
 
             await expect(overlay).toBeVisible({timeout: 10000});
             await expect(restore).toHaveClass(/neo-toolbar-action/);
@@ -2290,6 +2320,8 @@ test.describe('Workstation — dense living-data composition', () => {
             const enabled = await readRevealPinStyle(restore);
 
             expect(enabled, `${theme} reveal and inline actions share exact chrome`).toEqual(inlineAction);
+            expect(await readInlineTitleChrome(title),
+                `${theme} reveal and active inline titles share inset, height and typography`).toEqual(inlineTitle);
             expect(enabled.text, `${theme} keeps the control icon-only`).toBe('');
             expect(enabled.width, `${theme} keeps compact width`).toBeLessThanOrEqual(48);
             expect(enabled.height, `${theme} keeps compact height`).toBeLessThanOrEqual(48);
@@ -2324,8 +2356,8 @@ test.describe('Workstation — dense living-data composition', () => {
 
                 return [model.items.commits.pinned, model.items.commits.autoHidden]
             }, {timeout: 10000}).toEqual([true, false])
-        }
-    });
+        })
+    }
 
     test('reload recreates a contract-less Workstation pane and adopts the committed identity', async ({page, neuralLink}) => {
         const pageErrors = [];

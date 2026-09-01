@@ -315,7 +315,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         expect(overlay?.ntype).toBe('dashboard-dock-reveal-overlay');
         expect(rail.items).toContain(overlay);
         expect(overlay.revealState).toBe('revealed-focused');
-        expect(overlay.titleLabel.text).toBe('Terminal');
+        expect(overlay.titleTab.text).toBe('Terminal');
         expect(overlay.paneSlot.items).toHaveLength(1);
         expect(overlay.paneSlot.items[0].html).toBe('terminal');
 
