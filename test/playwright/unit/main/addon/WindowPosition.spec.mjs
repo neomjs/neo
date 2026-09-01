@@ -157,6 +157,24 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
         expect(addon.intervalId, 'switching off releases the poll').toBeNull()
     });
 
+    /**
+     * The two witnesses above call the hook directly, so they cannot see whether the config is wired
+     * to it. Reactivity rides on the trailing underscore alone: without it `afterSetObserveMovement`
+     * never fires and the poll is silently never armed by config — the same silent non-arming this
+     * feature exists to end, one layer up. The class-level accessor is the witness that survives the
+     * mock's missing `addEventListener`, and the non-reactive sibling is the control that proves the
+     * assertion discriminates.
+     */
+    test('observeMovement is wired as a reactive config on the class, not a plain field', () => {
+        const
+            reactive = Object.getOwnPropertyDescriptor(WindowPosition.prototype, 'observeMovement'),
+            plain    = Object.getOwnPropertyDescriptor(WindowPosition.prototype, 'intervalTime');
+
+        expect(typeof reactive?.set, 'observeMovement_ installs a prototype setter').toBe('function');
+        expect(typeof reactive?.get, 'observeMovement_ installs a prototype getter').toBe('function');
+        expect(typeof plain?.set, 'the non-reactive intervalTime config installs no setter (control)').not.toBe('function')
+    });
+
     test('remote routing metadata is stripped before configs reach the addon', () => {
         let configs;
         const data  = {appName: 'WindowPositionTest', observeResize: true, windowId: 'popup-a'};
