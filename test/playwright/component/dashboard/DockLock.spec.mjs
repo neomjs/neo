@@ -189,5 +189,47 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
             owned: false,
             value: undefined
         })
+    });
+
+    /**
+     * An item can leave auto-hidden state without the rail ever being asked — a restored perspective,
+     * a transfer, or as here a `setItemPinned` committed straight through the reducer. Only the
+     * workspace's pre-projection sweep sees it leave. With the overlay OPEN on that item, the sweep
+     * has to retire the reveal state with the pane, and the refresh has to settle: this fixture mints
+     * pane ids from a config, so a reveal pane that outlives the flow pane's creation is exactly the
+     * id collision that rejected the refresh silently.
+     */
+    test('a reducer-committed pin-back with an open reveal returns the pane to flow and settles', async ({page}) => {
+        const railTab = page.locator('.neo-dashboard-dock-edge-rail').getByText('Railed'),
+              overlay = page.locator(
+                  '.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)'
+              );
+
+        // Unlock first: the arm is about the leave path, not the lock boundary.
+        await setWorkspace(page, {
+            operationJson: JSON.stringify({operation: 'setItemLocked', itemId: 'railed', locked: false, attempt: 2})
+        });
+        await awaitRefresh(page);
+
+        await railTab.click();
+        await expect(overlay).toHaveCount(1);
+        await expect(overlay.locator('#dock-lock-pane-railed')).toBeVisible();
+
+        // The leave path the rail never sees: the reducer un-rails the revealed item directly.
+        await setWorkspace(page, {
+            operationJson: JSON.stringify({operation: 'setItemPinned', itemId: 'railed', pinned: true, attempt: 3})
+        });
+        await awaitRefresh(page);
+
+        const returned = tabsNodeWith(page, 'Railed');
+
+        await expect(returned, 'the band is back with a tabs node').toHaveCount(1);
+        await expect(returned.locator('#dock-lock-pane-railed'), 'the flow pane took the consumer id').toBeVisible();
+        await expect(overlay, 'the reveal is gone with the rail').toHaveCount(0);
+        await expect(page.locator('.neo-dashboard-dock-edge-rail').getByText('Railed'), 'and so is its rail tab')
+            .toHaveCount(0);
+
+        // The pane is the registered holder of its id — a zombie would have no worker instance.
+        expect((await readConfigs(page, 'dock-lock-pane-railed', ['mounted']))?.[0]).toBe(true)
     })
 });

@@ -313,17 +313,69 @@ class SweepWitnessWorkspace extends PlainWorkspace {
 
     sweepLog = []
 
-    syncDockHeaderActions(tabs=null) {
+    syncDockHeaderActions() {
         this.sweepLog.push('sweep');
-        return super.syncDockHeaderActions(tabs)
+        return super.syncDockHeaderActions()
     }
 }
 
 Neo.setupClass(SweepWitnessWorkspace);
 
+/**
+ * The recreate fallback wired (`resolveFreshPane` overridden), so `reload` is offered on every node
+ * with an active item while no pane carries `dockReload()` — the Workstation's shape. Which nodes the
+ * post-settle sweep REACHES is then the only thing deciding whether the action shows.
+ */
+class RecreateFallbackWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.RecreateFallbackWorkspace'
+    }
+
+    resolveFreshPane(itemId, item) {
+        return this.resolvePane(itemId, item)
+    }
+}
+
+Neo.setupClass(RecreateFallbackWorkspace);
+
+/**
+ * A consumer minting deterministic pane ids from a config — the shape every dock component fixture
+ * uses. Reveal and flow resolve from the same config, so the reveal pane and the flow pane compete
+ * for one id across the pin escape.
+ */
+class FixedIdWorkspace extends RecreateFallbackWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.FixedIdWorkspace'
+    }
+
+    resolvePane(itemId, item) {
+        return {ntype: 'component', id: `fixed-id-pane-${itemId}`, text: item?.title || itemId}
+    }
+}
+
+Neo.setupClass(FixedIdWorkspace);
+
 
 const
-    tabsOf  = shell => DockProjectionReconciler.collectProjectedTabs(shell),
+    tabsOf = shell => DockProjectionReconciler.collectProjectedTabs(shell),
+    railOf = shell => {
+        let found = null;
+
+        const visit = component => {
+            if (!component || found) return;
+
+            if (component.dockNodeType === 'edge-rail') {
+                found = component;
+                return
+            }
+
+            component.items?.forEach(visit)
+        };
+
+        visit(shell);
+
+        return found
+    },
     collect = (config, predicate, out=[]) => {
         if (config && typeof config === 'object') {
             predicate(config) && out.push(config);
@@ -1473,6 +1525,133 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         expect(commits.map(descriptor => descriptor.operation)).toEqual(['setItemAutoHidden']);
         expect(workspace.getDockZoneDocument().items.inspector.autoHidden).toBe(true)
+    });
+
+    /**
+     * `reload` is projected `hidden: true` by the stable-instance rule and revealed only by the
+     * post-settle sweep. A railed item projects no tabs node; pinning it back CREATES one beside the
+     * retained center — a node the reconciler's map (the OLD shell's tabs) never held. The sweep has
+     * to reach it anyway, or the returned pane comes back without the one action the round trip owes it.
+     */
+    test('a pane pinned back from the rail returns with its reload action — the sweep reaches the FRESH node', async () => {
+        const document = createEdgeDocument();
+
+        // Committed auto-hidden: the right band projects a rail and no `inspector-tabs` node.
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(RecreateFallbackWorkspace, {dockModel: document});
+
+        expect(tabsOf(workspace.items[0]).get('inspector-tabs'), 'an all-railed band keeps no tab flow')
+            .toBeUndefined();
+
+        // The reveal overlay's pin control commits exactly this; the model clears `autoHidden` itself.
+        const descriptor = {operation: 'setItemPinned', itemId: 'inspector', pinned: true},
+              result     = workspace.applyDockZoneOperation(descriptor);
+
+        expect(result.errors, 'the restore is a clean commit').toEqual([]);
+        expect(result.document.items.inspector.autoHidden, 'and it un-hides the item').not.toBe(true);
+
+        workspace.onDockZoneDocumentChange(result.document, descriptor);
+        await workspace.refreshPromise;
+
+        const tabs     = tabsOf(workspace.items[0]),
+              returned = tabs.get('inspector-tabs');
+
+        expect(returned, 'the band is back with a tabs node').toBeTruthy();
+
+        // ONE post-settle sweep ran. It reached the retained node — that is the control — and it
+        // has to reach the node the projection just created.
+        expect(tabs.get('center-tabs').getActionItem('reload').hidden,
+            'the post-settle sweep reached the retained node').toBe(false);
+        expect(returned.getActionItem('reload')?.hidden,
+            'the returned node offers reload exactly like a never-railed one').toBe(false)
+    });
+
+    /**
+     * The reveal pane is a SEPARATE materialization of the item: a consumer resolving reveal and flow
+     * from one config mints the same id for both. The refresh that returns the item to flow releases
+     * the cached reveal pane BEFORE it mints the flow pane — otherwise the old rail's teardown
+     * unregisters the id under the live flow pane, the refresh throws mid-teardown, and the post-settle
+     * sweep never runs.
+     */
+    test('the pin escape returns a consumer-fixed-id pane to flow without an id collision, and the refresh settles', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        const rail = railOf(workspace.items[0]);
+
+        expect(rail, 'the right band projects a rail').toBeTruthy();
+
+        // Reveal from the rail tab: the overlay materializes the pane from the consumer's config.
+        rail.onTabClick({component: rail.items[0]});
+
+        const revealPane = rail.revealPaneCache.inspector;
+
+        expect(revealPane?.id, 'the reveal pane carries the consumer-minted id').toBe('fixed-id-pane-inspector');
+
+        // The overlay's pin control: commits through the workspace reducer and dismisses the reveal.
+        expect(rail.onRevealPinRequested({itemId: 'inspector'}).errors).toEqual([]);
+
+        await workspace.refreshPromise;
+
+        const tabs     = tabsOf(workspace.items[0]),
+              returned = tabs.get('inspector-tabs'),
+              flowPane = returned?.getCard(0);
+
+        expect(flowPane?.id, 'the flow pane took the id').toBe('fixed-id-pane-inspector');
+        expect(flowPane.isDestroyed, 'and it is alive').toBeFalsy();
+        expect(Neo.get('fixed-id-pane-inspector'), 'registered under it — the only holder').toBe(flowPane);
+        expect(revealPane.isDestroyed, 'the reveal pane was released before the flow pane was minted').toBe(true);
+        expect(returned.getActionItem('reload')?.hidden, 'and the post-settle sweep ran on the returned node').toBe(false)
+    });
+
+    /**
+     * The leave paths that bypass the rail (a restored perspective, a transfer) reach the reveal pane
+     * only through the workspace's pre-projection sweep. The state machine's contract names those
+     * transitions `itemCleared`, so the sweep retires the reveal STATE with the pane: an overlay whose
+     * `revealPaneItemId` still named the departed item would short-circuit onto an empty slot the
+     * next time that item is revealed.
+     */
+    test('the pre-projection sweep retires an open reveal with its pane — state, pointer and slot', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        const rail = railOf(workspace.items[0]);
+
+        rail.onTabClick({component: rail.items[0]});
+
+        const revealPane = rail.revealPaneCache.inspector,
+              overlay    = rail.revealOverlay;
+
+        expect(rail.revealMachine.state, 'revealed').toBe('revealed-focused');
+        expect(overlay.revealPaneItemId, 'the overlay names the revealed item').toBe('inspector');
+        expect(overlay.paneSlot.items.includes(revealPane), 'and hosts its pane').toBe(true);
+
+        // A restore that un-rails the item: the rail is never asked, only the sweep sees it leave.
+        const restored = structuredClone(workspace.getDockZoneDocument());
+
+        delete restored.items.inspector.autoHidden;
+
+        await workspace.releaseStaleRevealPanes(restored);
+
+        expect(rail.revealPaneCache.inspector, 'the cache forgot the pane').toBeUndefined();
+        expect(revealPane.isDestroyed, 'the pane is destroyed').toBe(true);
+        expect(rail.revealMachine.state, 'the reveal state is idle for the departed item').toBe('idle');
+        expect(overlay.revealPaneItemId, 'the overlay no longer names it').toBeNull();
+        expect(overlay.paneSlot.items, 'and its slot is empty').toHaveLength(0);
+
+        // An item that stays railed is untouched by the same sweep.
+        rail.onTabClick({component: rail.items[0]});
+        await workspace.releaseStaleRevealPanes(workspace.getDockZoneDocument());
+
+        expect(rail.revealPaneCache.inspector, 'a still-railed item keeps its reveal pane').toBeTruthy();
+        expect(rail.revealMachine.state, 'and its reveal').toBe('revealed-focused')
     });
 
     test('the pin action refuses fail-closed where the collapse cannot complete, and moves by hidden on ONE instance', async () => {

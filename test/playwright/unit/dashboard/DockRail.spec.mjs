@@ -9,6 +9,7 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
+import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the registry the release witness reads
 import Button            from '../../../../src/button/Base.mjs';
 import DockLayoutAdapter from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockRail          from '../../../../src/dashboard/dock/interaction/Rail.mjs';
@@ -292,6 +293,75 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         rail.onTabClick({component: rail.items[0]});
         overlay.fire('revealEscape', {});
         expect(rail.revealMachine.state).toBe('idle');
+    });
+
+    /**
+     * An item that leaves auto-hidden state gets its flow pane from the projection. A consumer that
+     * resolves reveal and flow from ONE config mints the same id twice, so the cached reveal pane has
+     * to go first — while it is the id's only holder — or its later teardown unregisters the flow pane.
+     */
+    test('releaseRevealPane destroys a cached blueprint pane and forgets it; a live instance is never cached', async () => {
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-release',
+            railItems          : createRailItems(),
+            resolveComponentRef: componentRef => ({ntype: 'component', id: 'dock-rail-release-pane', html: componentRef})
+        });
+
+        rail.onTabClick({component: rail.items[0]});
+        rail.revealMachine.escape();
+
+        const cached = rail.revealPaneCache.terminal;
+
+        expect(cached, 'a blueprint-created reveal pane is cached').toBeTruthy();
+        expect(Neo.get('dock-rail-release-pane'), 'and holds the consumer-minted id').toBe(cached);
+
+        // Parked: the release lets the dismissal's update land, then destroys.
+        await rail.releaseRevealPane('terminal');
+
+        expect(rail.revealPaneCache.terminal, 'the cache forgets it').toBeUndefined();
+        expect(cached.isDestroyed, 'the instance is destroyed').toBe(true);
+        expect(rail.revealOverlay.paneSlot.items.includes(cached), 'and left the slot').toBe(false);
+        expect(Neo.get('dock-rail-release-pane'), 'so the id is free for the flow pane').toBeNull();
+
+        // Idempotent: releasing a released or never-cached item is a no-op.
+        await rail.releaseRevealPane('terminal');
+        await rail.releaseRevealPane('editor');
+
+        // The pin escape releases on its own, while the pane is still IN the slot: one update
+        // retires the DOM node and the registration together, ahead of the refresh it scheduled.
+        rail.onTabClick({component: rail.items[0]});
+
+        const revealed = rail.revealPaneCache.terminal;
+
+        expect(rail.revealOverlay.paneSlot.items.includes(revealed), 'revealed: the pane sits in the slot').toBe(true);
+        expect(rail.onRevealPinRequested({itemId: 'terminal'}).errors).toEqual([]);
+        expect(rail.revealPaneCache.terminal, 'pinned back: forgotten').toBeUndefined();
+        expect(revealed.isDestroyed, 'destroyed').toBe(true);
+        expect(rail.revealOverlay.paneSlot.items, 'and the slot is empty').toHaveLength(0);
+        expect(Neo.get('dock-rail-release-pane'), 'the id is free again').toBeNull();
+
+        // A live instance is added as-is and parked, never cached — release cannot reach it.
+        const livePane = Neo.create(Button, {id: 'dock-rail-release-live', text: 'live'});
+
+        rail.destroy();
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-release-live-rail',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => livePane
+        });
+
+        rail.onTabClick({component: rail.items[0]});
+        rail.revealMachine.escape();
+        await rail.releaseRevealPane('terminal');
+
+        expect(rail.revealPaneCache.terminal, 'never cached').toBeUndefined();
+        expect(livePane.isDestroyed, 'the consumer still owns its pane').toBeFalsy();
+
+        livePane.destroy()
     });
 
     test('self-hosts a composed reveal overlay child and materializes the pane through resolveComponentRef', () => {

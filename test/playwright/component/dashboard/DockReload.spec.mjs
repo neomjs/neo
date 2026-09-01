@@ -101,6 +101,44 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         expect(maxBox.x).toBeLessThan(closeBox.x)
     });
 
+    test('a pane pinned back from the rail returns with its reload action', async ({page}) => {
+        const edge   = tabsNodeWith(page, 'Pinned'),
+              reload = actionButton(edge, 'fa-rotate-right');
+
+        // The edge node's carrier offers reload from the first projection on.
+        await soleAction(reload, 'reload');
+        await tabButton(edge, 'Pinned').click();
+        await expect(reload).not.toHaveClass(/neo-toolbar-action-context-inactive/);
+
+        // The one-way unpin rails the pane. `railed` is committed auto-hidden already, so the
+        // band's live flow empties and its tabs node leaves the projection entirely.
+        await actionButton(edge, 'fa-thumbtack-slash').click();
+        await expect(edge).toHaveCount(0);
+
+        // Reveal from the rail tab, then the overlay's pin control restores the pane into flow.
+        // The band comes back as a FRESH tabs node — the reconciler retained nothing of it.
+        await page.locator('.neo-dashboard-dock-edge-rail').getByText('Pinned').click();
+
+        const overlay = page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
+
+        await expect(overlay).toHaveCount(1);
+        await overlay.getByRole('button', {name: 'Pin'}).click();
+
+        const returned   = tabsNodeWith(page, 'Pinned'),
+              reloadBack = actionButton(returned, 'fa-rotate-right');
+
+        await expect(returned).toHaveCount(1);
+
+        // The action is projected `hidden: true` by the stable-instance rule and only the
+        // post-settle sweep reveals it — a sweep that never reaches the fresh node leaves the
+        // returned pane without the one action the round trip owes it.
+        await soleAction(reloadBack, 'reload');
+        await expect(reloadBack).toHaveClass(/neo-toolbar-action-context-inactive/);
+
+        await tabButton(returned, 'Pinned').click();
+        await expect(reloadBack).not.toHaveClass(/neo-toolbar-action-context-inactive/)
+    });
+
     test('sync delegation settles clean: asked once, identity kept, document untouched', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 

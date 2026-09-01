@@ -118,12 +118,11 @@ class StaticBootFixtureWorkspace extends DockWorkspace {
     /**
      * Counts real sweeps so the spec can assert the absence of a write, not merely the absence of
      * a rendered symptom — a hidden action and an un-run sweep look identical in the DOM.
-     * @param {Map|null} [tabs=null]
      * @returns {*}
      */
-    syncDockHeaderActions(tabs=null) {
+    syncDockHeaderActions() {
         this.sweepCount++;
-        return super.syncDockHeaderActions(tabs)
+        return super.syncDockHeaderActions()
     }
 
     /**
