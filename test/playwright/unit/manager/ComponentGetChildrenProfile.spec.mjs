@@ -143,4 +143,27 @@ test.describe.serial('ComponentManager getChildren Profile', () => {
 
         owner.destroy()
     });
+
+    test('ancestor reference refresh prefers an immediate sibling over a deeper duplicate id', () => {
+        const
+            component = {
+                createVdomReference() {
+                    return {componentId: this.id}
+                },
+                id  : 'duplicate-boundary',
+                vdom: {id: 'duplicate-boundary'}
+            },
+            deep = {childNodes: [], id: component.id},
+            tree = {
+                childNodes: [
+                    {childNodes: [{childNodes: [deep], id: 'nested-level'}], id: 'deep-branch'},
+                    {childNodes: [], id: component.id}
+                ],
+                id: 'root'
+            };
+
+        expect(ComponentManager.ensureVnodeComponentReference(tree, component)).toBe('replaced');
+        expect(tree.childNodes[1]).toEqual({componentId: component.id});
+        expect(deep).toEqual({childNodes: [], id: component.id})
+    });
 });

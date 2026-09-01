@@ -432,12 +432,26 @@ class VdomLifecycle extends Base {
                             // the deltas (or acknowledged a no-op), then App adopted this vnode.
                             // Record before callbacks because they can request the next batch.
                             if (Neo.config.useDeltaCoherenceRegistry) {
+                                const referenceTrace = component.coherenceAncestorReferenceTrace;
+
+                                let hasMissingBoundary = false;
+
+                                for (const entry of referenceTrace || []) {
+                                    if (entry.disposition === 'missing') {
+                                        hasMissingBoundary = true;
+                                        break
+                                    }
+                                }
+
                                 VDomUpdate.recordCoherenceAcknowledgment(
                                     me.appName,
                                     me.windowId,
                                     id,
                                     response.coherenceSequence,
-                                    component.coherenceAncestorReferenceTrace
+                                    referenceTrace,
+                                    hasMissingBoundary
+                                        ? me.getCoherenceOwnerSnapshot(response, id, component, referenceTrace)
+                                        : null
                                 )
                             }
 
@@ -541,10 +555,21 @@ class VdomLifecycle extends Base {
         let me            = this,
             updateDepth   = depth ?? me.updateDepth,
             {vdom, vnode} = me,
+            vdomTree      = TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
+            vnodeTree     = TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds),
             opts          = {
-                vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
-                vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds)
+                vdom : vdomTree,
+                vnode: vnodeTree
             };
+
+        if (Neo.config.useDeltaCoherenceRegistry) {
+            opts.coherencePayloadSnapshot = {
+                mergedAllowlist: mergedChildIds ? [...mergedChildIds].slice(0, 64) : [],
+                updateDepth,
+                vdom : me.getCoherenceTreeFingerprints(vdomTree,  'cn'),
+                vnode: me.getCoherenceTreeFingerprints(vnodeTree, 'childNodes')
+            }
+        }
 
         if (currentWorker?.isSharedWorker) {
             opts.appName  = me.appName;
@@ -564,6 +589,139 @@ class VdomLifecycle extends Base {
         me._updateDepth = me.constructor.config.updateDepth;
 
         return opts
+    }
+
+    /**
+     * @summary Returns bounded component-boundary fingerprints for one generated payload tree.
+     *
+     * Each entry names reference-vs-raw shape, `neoIgnore`, and at most 16 direct child identities.
+     * The traversal records at most 64 component roots, enough to classify the Dock carrier without
+     * serializing the generated trees themselves.
+     * @param {Object} root
+     * @param {String} childKey 'cn' or 'childNodes'
+     * @returns {Object[]}
+     * @protected
+     */
+    getCoherenceTreeFingerprints(root, childKey) {
+        const
+            fingerprints = [],
+            limit         = 64,
+            childLimit    = 16,
+            stack         = [root];
+
+        while (stack.length > 0 && fingerprints.length < limit) {
+            const
+                node      = stack.pop(),
+                children  = node?.[childKey] || [],
+                component = node?.componentId
+                    ? Neo.getComponent(node.componentId)
+                    : node?.id
+                        ? Neo.getComponent(node.id) || ComponentManager.wrapperNodes.get(node.id)
+                        : null;
+
+            if (component) {
+                const childIdentities = [];
+
+                for (let index = 0, len = Math.min(children.length, childLimit); index < len; index++) {
+                    const child = children[index];
+
+                    childIdentities.push(
+                        child?.componentId ?? child?.id ?? child?.tag ?? child?.nodeName ?? typeof child
+                    )
+                }
+
+                fingerprints.push({
+                    childCount : children.length,
+                    children   : childIdentities,
+                    componentId: component.id,
+                    id         : node.id ?? null,
+                    neoIgnore  : node.neoIgnore === true,
+                    shape      : node.componentId ? 'reference' : 'raw'
+                })
+            }
+
+            for (let index = children.length - 1; index >= 0; index--) {
+                typeof children[index] === 'object' && children[index] !== null && stack.push(children[index])
+            }
+        }
+
+        return fingerprints
+    }
+
+    /**
+     * @summary Returns a bounded diagnostic snapshot for one adopted owner on a flagged physical
+     * batch.
+     *
+     * Direct vdom/vnode child identities expose asymmetric owner baselines without serializing full
+     * trees. Owner-range delta actions identify whether the response inserted, removed, or merely
+     * updated that baseline. Every list is capped at 32; full cardinalities travel separately.
+     * @param {Object} response
+     * @param {String} ownerId
+     * @param {Neo.component.Base} component
+     * @param {Object[]} referenceTrace
+     * @returns {Object}
+     * @protected
+     */
+    getCoherenceOwnerSnapshot(response, ownerId, component, referenceTrace) {
+        let snapshotComponent = component;
+
+        for (const entry of referenceTrace) {
+            if (entry.disposition === 'missing') {
+                snapshotComponent = Neo.getComponent(entry.ancestorId) || component;
+                break
+            }
+        }
+
+        const
+            limit         = 32,
+            vdomChildren  = snapshotComponent.getVdomRoot?.()?.cn || [],
+            vnodeChildren = snapshotComponent.getVnodeRoot?.()?.childNodes || [],
+            snapshot      = {
+                baselineOwnerId: snapshotComponent.id,
+                vdomChildCount : vdomChildren.length,
+                vdomChildren   : [],
+                vnodeChildCount: vnodeChildren.length,
+                vnodeChildren  : []
+            };
+
+        for (let index = 0, len = Math.min(vdomChildren.length, limit); index < len; index++) {
+            const child = vdomChildren[index];
+
+            snapshot.vdomChildren.push(child?.componentId ?? child?.id ?? child?.tag ?? typeof child)
+        }
+
+        for (let index = 0, len = Math.min(vnodeChildren.length, limit); index < len; index++) {
+            const child = vnodeChildren[index];
+
+            snapshot.vnodeChildren.push(child?.componentId ?? child?.id ?? child?.nodeName ?? typeof child)
+        }
+
+        let range;
+
+        for (const item of response.coherenceBatches || []) {
+            if (item.ownerId === ownerId) {
+                range = item;
+                break
+            }
+        }
+
+        if (range) {
+            const ownerDeltas = response.deltas.slice(range.start, range.end);
+
+            snapshot.deltaCount = ownerDeltas.length;
+            snapshot.deltas     = [];
+
+            for (let index = 0, len = Math.min(ownerDeltas.length, limit); index < len; index++) {
+                const delta = ownerDeltas[index];
+
+                snapshot.deltas.push({
+                    action: delta.action || 'updateNode',
+                    id    : delta.vnode?.id ?? delta.id ?? delta.toId ?? null
+                })
+            }
+        }
+
+        return snapshot
     }
 
     /**

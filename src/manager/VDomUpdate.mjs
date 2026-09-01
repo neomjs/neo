@@ -248,8 +248,16 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId
      * @param {Number} sequence
      * @param {Object[]|null} [referenceTrace=null]
+     * @param {Object|null} [ownerSnapshot=null]
      */
-    recordCoherenceAcknowledgment(appName, windowId, ownerId, sequence, referenceTrace=null) {
+    recordCoherenceAcknowledgment(
+        appName,
+        windowId,
+        ownerId,
+        sequence,
+        referenceTrace=null,
+        ownerSnapshot=null
+    ) {
         if (ownerId == null || !Number.isFinite(sequence)) return;
 
         const key = this.getCoherenceAcknowledgmentKey(appName, windowId);
@@ -259,6 +267,7 @@ class VDomUpdate extends Collection {
         }
 
         this.coherenceAcknowledgmentsMap.get(key).set(ownerId, {
+            ...(ownerSnapshot && {ownerSnapshot}),
             ...(referenceTrace?.length > 0 && {referenceTrace}),
             sequence
         })

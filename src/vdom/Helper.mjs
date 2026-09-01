@@ -874,6 +874,17 @@ class Helper extends Base {
                     item?.ownerId != null && Number.isFinite(item.sequence)
                 ).map(item => ({
                     ownerId: item.ownerId,
+                    ...(item.ownerSnapshot && {
+                        ownerSnapshot: {
+                            baselineOwnerId: item.ownerSnapshot.baselineOwnerId,
+                            deltaCount     : item.ownerSnapshot.deltaCount,
+                            deltas         : item.ownerSnapshot.deltas,
+                            vdomChildCount : item.ownerSnapshot.vdomChildCount,
+                            vdomChildren   : item.ownerSnapshot.vdomChildren,
+                            vnodeChildCount: item.ownerSnapshot.vnodeChildCount,
+                            vnodeChildren  : item.ownerSnapshot.vnodeChildren
+                        }
+                    }),
                     ...(Array.isArray(item.referenceTrace) && item.referenceTrace.length > 0 && {
                         referenceTrace: item.referenceTrace.map(entry => ({
                             ancestorId : entry.ancestorId,
@@ -901,6 +912,9 @@ class Helper extends Base {
                 vnodes[id] = result.vnode;
 
                 coherenceBatches?.push({
+                    ...(updateOpts.coherencePayloadSnapshot && {
+                        payloadSnapshot: updateOpts.coherencePayloadSnapshot
+                    }),
                     end: allDeltas.length, ownerId: id, sequence: coherenceSequence, start
                 });
 

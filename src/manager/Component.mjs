@@ -30,15 +30,6 @@ class Component extends Manager {
     childMap = new Map()
 
     /**
-     * Reusable synchronous traversal stack for {@link #ensureVnodeComponentReference}. The method
-     * executes without callbacks or awaits, so one singleton-owned scratch array removes a hot-path
-     * allocation without introducing re-entrancy risk.
-     * @member {Object[]} vnodeReferenceTraversalStack=[]
-     * @protected
-     */
-    vnodeReferenceTraversalStack = []
-
-    /**
      * @member {Map} wrapperNodes=new Map()
      */
     wrapperNodes = new Map()
@@ -111,6 +102,8 @@ class Component extends Manager {
      * later adopts a newer vnode, the raw copy does not advance and a future ancestor diff can
      * replay already-live nodes. This method searches only raw DOM-shaped branches: an existing
      * component reference is already the desired live boundary and is never resolved or traversed.
+     * Search order is breadth-at-each-level, left-to-right: an immediate sibling boundary wins over
+     * a deeper duplicate-id descendant because only the immediate child boundary belongs here.
      * Wrapper-root ids are preserved through {@link Neo.mixin.VdomLifecycle#createVdomReference}.
      * @param {Object|null} vnode The ancestor's cached vnode
      * @param {Neo.component.Base} component The immediate child boundary to canonicalize
@@ -119,15 +112,10 @@ class Component extends Manager {
     ensureVnodeComponentReference(vnode, component) {
         if (!vnode || !component) return 'missing';
 
-        let me = this;
-
         const
             componentId = component.id,
             rootId      = component.vdom?.id ?? componentId,
-            stack       = me.vnodeReferenceTraversalStack;
-
-        stack.length = 0;
-        stack.push(vnode);
+            stack       = [vnode];
 
         while (stack.length > 0) {
             const
@@ -141,7 +129,6 @@ class Component extends Manager {
 
                 if (child?.componentId) {
                     if (child.componentId === componentId) {
-                        stack.length = 0;
                         return 'existing'
                     }
 
@@ -151,7 +138,6 @@ class Component extends Manager {
                 if (child?.id === rootId) {
                     node.childNodes = [...childNodes];
                     node.childNodes[index] = component.createVdomReference();
-                    stack.length = 0;
                     return 'replaced'
                 }
 
