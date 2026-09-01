@@ -872,7 +872,17 @@ class Helper extends Base {
             coherenceAcknowledgments = coherenceBatches && Array.isArray(data.coherenceAcknowledgments)
                 ? data.coherenceAcknowledgments.filter(item =>
                     item?.ownerId != null && Number.isFinite(item.sequence)
-                ).map(item => ({ownerId: item.ownerId, sequence: item.sequence}))
+                ).map(item => ({
+                    ownerId: item.ownerId,
+                    ...(Array.isArray(item.referenceTrace) && item.referenceTrace.length > 0 && {
+                        referenceTrace: item.referenceTrace.map(entry => ({
+                            ancestorId : entry.ancestorId,
+                            boundaryId : entry.boundaryId,
+                            disposition: entry.disposition
+                        }))
+                    }),
+                    sequence: item.sequence
+                }))
                 : null,
             coherenceSequence = coherenceBatches ? ++me.coherenceBatchSequence : null,
             meta             = {},

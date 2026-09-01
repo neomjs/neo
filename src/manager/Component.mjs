@@ -114,10 +114,10 @@ class Component extends Manager {
      * Wrapper-root ids are preserved through {@link Neo.mixin.VdomLifecycle#createVdomReference}.
      * @param {Object|null} vnode The ancestor's cached vnode
      * @param {Neo.component.Base} component The immediate child boundary to canonicalize
-     * @returns {Boolean} True when the boundary already existed or was replaced
+     * @returns {String} 'existing', 'replaced', or 'missing'
      */
     ensureVnodeComponentReference(vnode, component) {
-        if (!vnode || !component) return false;
+        if (!vnode || !component) return 'missing';
 
         let me = this;
 
@@ -142,7 +142,7 @@ class Component extends Manager {
                 if (child?.componentId) {
                     if (child.componentId === componentId) {
                         stack.length = 0;
-                        return true
+                        return 'existing'
                     }
 
                     continue
@@ -152,14 +152,14 @@ class Component extends Manager {
                     node.childNodes = [...childNodes];
                     node.childNodes[index] = component.createVdomReference();
                     stack.length = 0;
-                    return true
+                    return 'replaced'
                 }
 
                 child?.childNodes?.length > 0 && stack.push(child)
             }
         }
 
-        return false
+        return 'missing'
     }
 
     /**

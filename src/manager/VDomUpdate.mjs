@@ -103,7 +103,7 @@ class VDomUpdate extends Collection {
      * one owner cannot open its next flight while in-flight, while unrelated owners may overtake
      * each other. Replacing instead of accumulating keeps the default-off instrument bounded by
      * live component cardinality rather than update count.
-     * @member {Map<String, Map<String, Number>>} coherenceAcknowledgmentsMap=new Map()
+     * @member {Map<String, Map<String, Object>>} coherenceAcknowledgmentsMap=new Map()
      * @protected
      */
     coherenceAcknowledgmentsMap = new Map()
@@ -219,11 +219,11 @@ class VDomUpdate extends Collection {
 
         const acknowledgments = [];
 
-        for (const [ownerId, sequence] of owners) {
+        for (const [ownerId, acknowledgment] of owners) {
             if (!Neo.getComponent(ownerId)) {
                 owners.delete(ownerId)
             } else if (!ownerIds || ownerIds.has(ownerId)) {
-                acknowledgments.push({ownerId, sequence})
+                acknowledgments.push({ownerId, ...acknowledgment})
             }
         }
 
@@ -247,8 +247,9 @@ class VDomUpdate extends Collection {
      * @param {String|Number|null} windowId
      * @param {String} ownerId
      * @param {Number} sequence
+     * @param {Object[]|null} [referenceTrace=null]
      */
-    recordCoherenceAcknowledgment(appName, windowId, ownerId, sequence) {
+    recordCoherenceAcknowledgment(appName, windowId, ownerId, sequence, referenceTrace=null) {
         if (ownerId == null || !Number.isFinite(sequence)) return;
 
         const key = this.getCoherenceAcknowledgmentKey(appName, windowId);
@@ -257,7 +258,10 @@ class VDomUpdate extends Collection {
             this.coherenceAcknowledgmentsMap.set(key, new Map())
         }
 
-        this.coherenceAcknowledgmentsMap.get(key).set(ownerId, sequence)
+        this.coherenceAcknowledgmentsMap.get(key).set(ownerId, {
+            ...(referenceTrace?.length > 0 && {referenceTrace}),
+            sequence
+        })
     }
 
     /**

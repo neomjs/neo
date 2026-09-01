@@ -433,7 +433,11 @@ class VdomLifecycle extends Base {
                             // Record before callbacks because they can request the next batch.
                             if (Neo.config.useDeltaCoherenceRegistry) {
                                 VDomUpdate.recordCoherenceAcknowledgment(
-                                    me.appName, me.windowId, id, response.coherenceSequence
+                                    me.appName,
+                                    me.windowId,
+                                    id,
+                                    response.coherenceSequence,
+                                    component.coherenceAncestorReferenceTrace
                                 )
                             }
 
@@ -1058,16 +1062,29 @@ class VdomLifecycle extends Base {
      * @protected
      */
     syncAncestorVnodeReferences() {
-        const me = this;
+        const
+            me    = this,
+            trace = Neo.config.useDeltaCoherenceRegistry ? [] : null;
 
         let child  = me,
             parent = child.parent;
 
         while (parent && parent.appName === me.appName && parent.windowId === me.windowId) {
-            parent.vnode && ComponentManager.ensureVnodeComponentReference(parent.vnode, child);
+            const disposition = parent.vnode
+                ? ComponentManager.ensureVnodeComponentReference(parent.vnode, child)
+                : 'no-vnode';
+
+            trace?.push({
+                ancestorId: parent.id,
+                boundaryId: child.id,
+                disposition
+            });
+
             child  = parent;
             parent = parent.parent
         }
+
+        me.coherenceAncestorReferenceTrace = trace
     }
 
     /**
