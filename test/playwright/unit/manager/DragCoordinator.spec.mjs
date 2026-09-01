@@ -925,6 +925,222 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         )).toBeNull()
     });
 
+    /**
+     * A native-titlebar drop settles while the user may still hold the popup's titlebar. A window
+     * the OS is dragging can neither hand focus to the target nor be moved, so the strict park's
+     * first answer is a refusal. There is no release event on this path: a park that finally
+     * succeeds is how the coordinator learns the user let go, so a refusal must retry, not end.
+     */
+    test('a refused strict native park RETRIES with the disposition backoff and commits once the park succeeds', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [],
+            source      = {
+                getNativeWindowDrag: () => ({draggedItem, embodyNativeHover: true, sourceWindowId: 'win-popup', widgetName: 'terminal'}),
+                onRemoteDropOut() {
+                    order.push('retire');
+                    return true
+                },
+                resumeWindowDrag: () => true,
+                sortGroup       : 'dock',
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    // The OS still holds the popup for the first two attempts; the third parks.
+                    return order.filter(entry => entry === 'suspend').length >= 3
+                },
+                windowId: 'win-main'
+            },
+            target = {
+                acceptsRemoteDrag        : () => true,
+                awaitRemoteDragEmbodiment: async () => true,
+                onRemoteDragLeave() {
+                    order.push('leave')
+                },
+                onRemoteDragMove(payload) {
+                    order.push(payload.embodyProxy ? 'embody' : 'preview');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('commit');
+                    return {type: 'addTab'}
+                }
+            },
+            candidate = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldHandoff = DragCoordinator.nativeWindowDropHandoffMs,
+            oldRetry   = DragCoordinator.nativeWindowDispositionRetryMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs      = 0;
+        DragCoordinator.nativeWindowDispositionRetryMs = 5;
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            // The first refusal schedules a retry instead of ending the gesture.
+            expect(order).toEqual(['suspend']);
+            expect(candidate.phase, 'the candidate waits in park-retry').toBe('park-retry');
+            expect(candidate.parkAttempts).toBe(1);
+            expect(DragCoordinator.nativeWindowDropCandidates.get('win-popup'), 'the candidate is retained').toBe(candidate);
+
+            await expect.poll(() => order.includes('retire'), {timeout: 2000, intervals: [10, 25, 50]}).toBe(true);
+
+            expect(order).toEqual(['suspend', 'suspend', 'suspend', 'embody', 'commit', 'retire']);
+            expect(candidate.parkAttempts, 'two refusals were counted before the park succeeded').toBe(2);
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup'), 'the committed gesture releases its candidate').toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs      = oldHandoff;
+            DragCoordinator.nativeWindowDispositionRetryMs = oldRetry
+        }
+    });
+
+    test('the park retry is BOUNDED — past the limit the gesture ends exactly as a refusal did before retries', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [],
+            source      = {
+                getNativeWindowDrag: () => ({draggedItem, embodyNativeHover: true, sourceWindowId: 'win-popup', widgetName: 'terminal'}),
+                sortGroup          : 'dock',
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return false
+                },
+                windowId: 'win-main'
+            },
+            target = {
+                acceptsRemoteDrag: () => true,
+                onRemoteDragLeave() {
+                    order.push('leave')
+                },
+                onRemoteDragMove: () => ({itemId: 'terminal'}),
+                onRemoteDrop() {
+                    order.push('commit');
+                    return {type: 'addTab'}
+                }
+            },
+            candidate = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldLimit = DragCoordinator.nativeWindowParkRetryLimit,
+            oldRetry = DragCoordinator.nativeWindowDispositionRetryMs;
+
+        DragCoordinator.nativeWindowParkRetryLimit     = 3;
+        DragCoordinator.nativeWindowDispositionRetryMs = 5;
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+        DragCoordinator.nativeHoverTargets.set('win-popup', target);
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+            await expect.poll(() => order.includes('leave'), {timeout: 2000, intervals: [10, 25, 50]}).toBe(true);
+
+            expect(order, 'exactly the limit\'s worth of park attempts, then the hover ends').toEqual(['suspend', 'suspend', 'suspend', 'leave']);
+            expect(order).not.toContain('commit');
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup'), 'the exhausted gesture releases its candidate').toBe(false);
+            expect(DragCoordinator.nativeHoverTargets.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowParkRetryLimit     = oldLimit;
+            DragCoordinator.nativeWindowDispositionRetryMs = oldRetry
+        }
+    });
+
+    test('a source geometry update during park-retry REPLACES the candidate and clears the pending retry', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [],
+            source      = {
+                getNativeWindowDrag: windowId => windowId === 'win-popup'
+                    ? {draggedItem, embodyNativeHover: true, sourceWindowId: 'win-popup', widgetName: 'terminal'}
+                    : null,
+                sortGroup: 'dock',
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return false
+                },
+                windowId: 'win-source'
+            },
+            target = {
+                acceptsRemoteDrag: () => true,
+                onRemoteDragLeave() {
+                    order.push('leave')
+                },
+                onRemoteDragMove(payload) {
+                    order.push(payload.embodyProxy ? 'embody' : 'preview');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('commit');
+                    return {type: 'addTab'}
+                },
+                sortGroup: 'dock',
+                windowId : 'win-target'
+            },
+            oldRetry = DragCoordinator.nativeWindowDispositionRetryMs;
+
+        registerWindow('win-source', 2000,   0, 400, 400);
+        registerWindow('win-popup',   500, 500, 300, 200);
+        registerWindow('win-target',  600, 550, 400, 300);
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(target);
+        DragCoordinator.nativeWindowDispositionRetryMs = 40;
+
+        try {
+            // One geometry event over the target creates the candidate; force its commit now.
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+            const stale = DragCoordinator.nativeWindowDropCandidates.get('win-popup');
+
+            expect(stale, 'the hover produced a retained candidate').toBeTruthy();
+            clearTimeout(stale.timeoutId);
+            await DragCoordinator.commitNativeWindowDrop('win-popup', stale);
+
+            expect(stale.phase).toBe('park-retry');
+            expect(order.filter(entry => entry === 'suspend')).toHaveLength(1);
+
+            // The user moved on: a new geometry event replaces the retained candidate...
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+            const fresh = DragCoordinator.nativeWindowDropCandidates.get('win-popup');
+
+            expect(fresh, 'the geometry event installs a new candidate').toBeTruthy();
+            expect(fresh).not.toBe(stale);
+            expect(stale.cancelled, 'the replaced candidate is cancelled').toBe(true);
+
+            // ...and the stale retry never fires: no second park attempt within its scheduled delay.
+            await new Promise(resolve => setTimeout(resolve, 120));
+            expect(order.filter(entry => entry === 'suspend'), 'the pending retry died with its candidate').toHaveLength(1)
+        } finally {
+            DragCoordinator.clearNativeWindowDropCandidate('win-popup');
+            DragCoordinator.endNativeGesture('win-popup');
+            DragCoordinator.unregister(source);
+            DragCoordinator.unregister(target);
+            DragCoordinator.nativeWindowDispositionRetryMs = oldRetry
+        }
+    });
+
     test('native embodiment is retained before semantic commit, then target commit precedes source retirement', async () => {
         let resolveRenderer;
 
