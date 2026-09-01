@@ -178,5 +178,55 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
         await menuItem.click();
         await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selected}),
             'selection still activates through activeIndex after the hidden replacement').toHaveCount(1)
+    });
+
+    test('the restored split settles once — no pass re-applies a superseded extent', async ({page}) => {
+        const root    = page.locator(`#${TAB_ID}`),
+              toolbar = root.locator(':scope > .neo-tab-header-toolbar'),
+              control = toolbar.getByRole('button', {name: 'More tabs', exact: true});
+
+        await expect(control).toBeVisible({timeout: 10000});
+
+        const controlId = await control.getAttribute('id');
+
+        await replaceHeaderActions(page, 'visible');
+        await expect(toolbar.getByRole('button', {name: 'host visible', exact: true})).toBeVisible();
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, width: 1200}), TAB_ID);
+        await expect(toolbar.locator(`#${controlId}`), 'all-fit hides the contribution from DOM')
+            .toHaveCount(0, {timeout: 10000});
+
+        await replaceHeaderActions(page, 'hidden');
+        await expect(toolbar.getByRole('button', {name: 'host hidden', exact: true})).toBeVisible();
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, width: 380}), TAB_ID);
+
+        // A retrying assertion cannot witness a transient — it polls until the contribution returns and
+        // then stops looking, which is why the sibling arm above races this defect instead of pinning it.
+        // So sample from the moment the width is set, WITHOUT waiting for the restore first: record every
+        // distinct state of the action group, then assert against the recorded sequence. Waiting for the
+        // contribution before sampling would let the flap happen inside the wait and go unrecorded.
+        const states = [];
+
+        for (let i = 0; i < 80; i++) {
+            const ids = (await actionIds(toolbar)).join(',');
+
+            states.at(-1) !== ids && states.push(ids);
+            await page.waitForTimeout(25)
+        }
+
+        const restoredAt = states.findIndex(state => state.split(',').includes(controlId));
+
+        expect(restoredAt, 'the contribution returns after the narrow resize').toBeGreaterThan(-1);
+
+        // Once it is back it must STAY back. A later state without it means a projection pass applied a
+        // verdict measured against the superseded (wide) extent, taking the contribution out of the DOM
+        // and the overflowing tabs back into it — a state that reads as coherent because it is one.
+        const afterRestore = states.slice(restoredAt);
+
+        expect(afterRestore.filter(state => !state.split(',').includes(controlId)),
+            'no pass re-applies a superseded extent once the contribution is restored').toEqual([]);
+        expect(afterRestore.at(-1).split(',')[0], 'the contribution holds the first action slot')
+            .toBe(controlId)
     })
 });

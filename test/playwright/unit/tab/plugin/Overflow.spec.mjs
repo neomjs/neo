@@ -1414,5 +1414,59 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
         owner.fire('remove', {index: 1, item: {id: 'b2'}});
 
         expect(projected, 'owner `remove` re-runs project so a removed tab drops from the split + menu').toBe(true)
+    });
+
+    // The owner's `insert` / `remove` also carry its ACTION group — a consumer `actions`
+    // replacement moves through the same container methods as a tab add. Recapturing on those restores
+    // every hidden header to DOM for the measure window, and `insert` fires only AFTER its own
+    // promiseUpdate round-trip, so the pass lands late and re-applies an all-fit split over a newer
+    // resize's split. `actionsChange` already covers the real (extent-only) effect without a recapture.
+    test('an action-group `insert` does NOT recapture — it is an extent change, not a tab-set mutation', async () => {
+        const {plugin, owner} = createWiredPlugin();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let   projected = false;
+        const orig      = plugin.project.bind(plugin);
+        plugin.project = arg => { projected = true; return orig(arg) };
+
+        owner.fire('insert', {index: 2, item: {id: 'neo-button-9', isToolbarAction: true}});
+
+        expect(projected, 'a single action insert must not re-run project').toBe(false);
+
+        // The extent DID change, and the action-set channel is what must carry it.
+        owner.fire('actionsChange', {actions: []});
+        expect(projected, '`actionsChange` still re-projects the tab-exclusive extent').toBe(true)
+    });
+
+    test('a BATCHED action insert does not recapture — `Container#insert` fires once with the whole array', async () => {
+        const {plugin, owner} = createWiredPlugin();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let   projected = false;
+        const orig      = plugin.project.bind(plugin);
+        plugin.project = arg => { projected = true; return orig(arg) };
+
+        // The shape `syncActions` actually produces: the per-item recursion is silent, so the single
+        // fired event carries an ARRAY. A membership test written for one instance misses this entirely.
+        owner.fire('insert', {index: 2, item: [
+            {id: 'neo-component-4', isToolbarActionSpacer: true},
+            {id: 'neo-button-9',    isToolbarAction      : true},
+            {id: 'neo-button-10',   isToolbarAction      : true}
+        ]});
+
+        expect(projected, 'a batched action insert must not re-run project').toBe(false)
+    });
+
+    test('a MIXED batch still recaptures — only an all-action batch is exempt', async () => {
+        const {plugin, owner} = createWiredPlugin();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let   recapture = null;
+        const orig      = plugin.project.bind(plugin);
+        plugin.project = arg => { recapture = arg; return orig(arg) };
+
+        owner.fire('insert', {index: 2, item: [{id: 'neo-button-9', isToolbarAction: true}, {id: 'b3'}]});
+
+        expect(recapture, 'a batch containing a real tab still recaptures').toBe(true)
     })
 });
