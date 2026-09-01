@@ -3383,6 +3383,79 @@ class Workspace extends Container {
     resolveRevealPane(itemId, item) {
         return this.resolvePane(itemId, item)
     }
+
+    /**
+     * Hook: produces a **fresh** candidate pane for an item, bypassing any live-instance cache.
+     *
+     * Deliberately a separate hook rather than an option on {@link #resolvePane}. Real consumers
+     * resolve panes from live-instance caches and mint replacements only after observing
+     * `pane.isDestroyed`; an option those consumers do not implement would be silently ignored and
+     * hand back **the very instance the recreate is meant to replace**. A distinct hook cannot be
+     * accidentally satisfied by a cache, and its default says the honest thing: this consumer does
+     * not support recreate.
+     *
+     * Returning `null` is a legitimate answer, not a failure of contract — it declines the
+     * capability, and {@link #prepareRecreateCandidate} reports that as a named refusal with the
+     * live pane untouched.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Object} item The persisted item record.
+     * @returns {Object|Neo.component.Base|null}
+     */
+    resolveFreshPane(itemId, item) {
+        return null
+    }
+
+    /**
+     * Phase 1 of the two-phase recreate transaction: obtain and validate a fresh candidate **without
+     * touching the live pane**.
+     *
+     * Rollback is by construction rather than by repair — nothing is destroyed here, so every
+     * refusal below leaves the workspace exactly as it was. The docking record's user-triggered
+     * recreate exception is conditioned on this phase — without a validated candidate the exception
+     * does not apply and the never-destroyed guarantee stands unmodified.
+     * @see ADR 0029 §2.6 — ticket-ref-ok: the record IS this method's authority, not a tracking ref;
+     *      the contract is unreadable without it and an accepted ADR section does not close.
+     *
+     * The three refusals are the ones a cache-backed resolver actually produces:
+     *
+     * | refusal | why it is not a candidate |
+     * |---|---|
+     * | `threw` | the factory raised; the error is carried, never swallowed |
+     * | `declined` | returned `null` — including the default, i.e. recreate unsupported |
+     * | `live-instance` | returned the pane that is already mounted, so "replacing" it is a no-op that would destroy the only copy |
+     *
+     * The `live-instance` check is the load-bearing one and the reason a factory seam alone is not
+     * enough: a resolver reading its own cache answers with the current instance, which looks like a
+     * successful candidate and is the exact shape that turns a recovery click into silent pane loss.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Neo.component.Base} livePane The currently mounted pane for that item.
+     * @returns {{ok: Boolean, candidate: ?Object, reason: ?String, error: ?Error}}
+     */
+    prepareRecreateCandidate(itemId, livePane) {
+        // The same read the rest of this class uses for a catalog record; an item the committed
+        // document does not carry resolves to null and the factory decides what that means.
+        const item = this.dockModel?.items?.[itemId] || null;
+
+        let candidate;
+
+        try {
+            candidate = this.resolveFreshPane(itemId, item)
+        } catch (error) {
+            return {ok: false, candidate: null, reason: 'threw', error}
+        }
+
+        if (!candidate) {
+            return {ok: false, candidate: null, reason: 'declined', error: null}
+        }
+
+        // Identity, not equality: a config object that merely describes the same pane is a valid
+        // candidate; the mounted instance itself is not.
+        if (livePane && candidate === livePane) {
+            return {ok: false, candidate: null, reason: 'live-instance', error: null}
+        }
+
+        return {ok: true, candidate, reason: null, error: null}
+    }
 }
 
 export default Neo.setupClass(Workspace);
