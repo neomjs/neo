@@ -239,6 +239,14 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
         // and consumes the whole strip, collapsing every tab into the overflow menu.
         await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), componentId);
 
+        // This arm is the only one that replaces the shared `beforeEach` container, and it reuses the
+        // same id. Resolving the worker-side destroy does NOT mean the DOM is gone: the removal travels
+        // to main as a separate message, so re-creating immediately can mount the new header while the
+        // old one is still attached. Two toolbars then answer to one id and the strict-mode locators
+        // below abort on arity — and the orphan outlives the test, because the App Worker is shared, so
+        // the casualty surfaces in whatever spec runs next. Await the detach; it is the actual barrier.
+        await page.waitForSelector(`#${TAB_ID}`, {state: 'detached'});
+
         componentId = await page.evaluate(async id => {
             const result = await Neo.worker.App.createNeoInstance({
                 activeIndex  : 0,
