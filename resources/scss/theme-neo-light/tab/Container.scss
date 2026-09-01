@@ -16,7 +16,18 @@
     // Embedded pane chrome uses the semantic 32px density tier and releases the free-standing
     // radius. The theme's ui:null contract remains the established 48px / 8px treatment.
     &.neo-tab-container-inline > .neo-tab-header-toolbar,
-    .neo-tab-container-inline > .neo-tab-header-toolbar {
+    .neo-tab-container-inline > .neo-tab-header-toolbar,
+    // Self-scoped: a drag proxy is a detached toolbar at document.body, so it has no container
+    // ancestor for the two forms above to match. draggable.tab.header.toolbar.SortZone propagates
+    // the owner's ui-derived class onto it, and these two forms are what let the same tokens resolve
+    // there — one source, rather than a value snapshot taken at drag start.
+    //
+    // BOTH are required, and the `&` form is the one that is easy to miss: DragZone#createDragProxy
+    // pushes the resolved theme class onto the PROXY ITSELF, so theme + toolbar + variant all land on
+    // a single element and the descendant form below cannot match it. The descendant form still
+    // carries the case where an ancestor holds the theme.
+    &.neo-tab-header-toolbar.neo-tab-container-inline,
+    .neo-tab-header-toolbar.neo-tab-container-inline {
         --tab-button-border-radius : 0;
         --tab-button-gap           : 0;
         --tab-button-height        : var(--sem-height-large);
@@ -26,7 +37,12 @@
 
     // Standalone explicitly names the theme's existing free-standing treatment.
     &.neo-tab-container-standalone > .neo-tab-header-toolbar,
-    .neo-tab-container-standalone > .neo-tab-header-toolbar {
+    .neo-tab-container-standalone > .neo-tab-header-toolbar,
+    // The detached-proxy pair, mirroring the inline block above. SortZone propagates whatever
+    // non-null `ui` the owner holds, so every variant the themes name needs both self-scoped
+    // forms — an inline-only self-scope would leave a standalone proxy silently ancestor-scoped.
+    &.neo-tab-header-toolbar.neo-tab-container-standalone,
+    .neo-tab-header-toolbar.neo-tab-container-standalone {
         --tab-button-border-radius : var(--cmp-tab-borderradius);
         --tab-button-gap           : 0;
         --tab-button-height        : var(--cmp-tab-height);
