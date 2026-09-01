@@ -30,6 +30,15 @@ class Component extends Manager {
     childMap = new Map()
 
     /**
+     * Reusable synchronous traversal stack for {@link #ensureVnodeComponentReference}. The method
+     * executes without callbacks or awaits, so one singleton-owned scratch array removes a hot-path
+     * allocation without introducing re-entrancy risk.
+     * @member {Object[]} vnodeReferenceTraversalStack=[]
+     * @protected
+     */
+    vnodeReferenceTraversalStack = []
+
+    /**
      * @member {Map} wrapperNodes=new Map()
      */
     wrapperNodes = new Map()
@@ -110,40 +119,47 @@ class Component extends Manager {
     ensureVnodeComponentReference(vnode, component) {
         if (!vnode || !component) return false;
 
+        let me = this;
+
         const
             componentId = component.id,
             rootId      = component.vdom?.id ?? componentId,
-            visit       = node => {
-                const childNodes = node?.childNodes;
+            stack       = me.vnodeReferenceTraversalStack;
 
-                if (!childNodes) return false;
+        stack.length = 0;
+        stack.push(vnode);
 
-                for (let index = 0, len = childNodes.length; index < len; index++) {
-                    const child = childNodes[index];
+        while (stack.length > 0) {
+            const
+                node       = stack.pop(),
+                childNodes = node?.childNodes;
 
-                    if (child?.componentId) {
-                        if (child.componentId === componentId) {
-                            return true
-                        }
+            if (!childNodes) continue;
 
-                        continue
-                    }
+            for (let index = 0, len = childNodes.length; index < len; index++) {
+                const child = childNodes[index];
 
-                    if (child?.id === rootId) {
-                        node.childNodes = [...childNodes];
-                        node.childNodes[index] = component.createVdomReference();
+                if (child?.componentId) {
+                    if (child.componentId === componentId) {
+                        stack.length = 0;
                         return true
                     }
 
-                    if (visit(child)) {
-                        return true
-                    }
+                    continue
                 }
 
-                return false
-            };
+                if (child?.id === rootId) {
+                    node.childNodes = [...childNodes];
+                    node.childNodes[index] = component.createVdomReference();
+                    stack.length = 0;
+                    return true
+                }
 
-        return visit(vnode)
+                child?.childNodes?.length > 0 && stack.push(child)
+            }
+        }
+
+        return false
     }
 
     /**

@@ -75,4 +75,72 @@ test.describe.serial('ComponentManager getChildren Profile', () => {
         children.forEach(c => c.destroy());
         parent.destroy();
     });
+
+    test('Profile ancestor reference refresh: canonical fast path and 10k raw-tail replacement', () => {
+        const
+            appName       = 'GetChildrenProfileTest',
+            owner         = Neo.create(Component, {appName, id: 'reference-profile-owner'}),
+            rawNodes      = Array.from({length: 10000}, (item, index) => ({
+                childNodes: [],
+                id        : `reference-profile-node-${index}`
+            })),
+            canonicalTree = {
+                childNodes: [owner.createVdomReference(), ...rawNodes],
+                id        : 'reference-profile-parent'
+            },
+            rawTailNodes  = [...rawNodes, {childNodes: [], id: owner.id}],
+            rawTailTree   = {
+                childNodes: rawTailNodes,
+                id        : 'reference-profile-raw-parent'
+            },
+            fastIterations = 5000,
+            scanIterations = 40;
+
+        // Warm both shapes before measuring JIT-stable loops.
+        ComponentManager.ensureVnodeComponentReference(canonicalTree, owner);
+        rawTailTree.childNodes = rawTailNodes;
+        ComponentManager.ensureVnodeComponentReference(rawTailTree, owner);
+
+        let startedAt = performance.now();
+
+        for (let index = 0; index < fastIterations; index++) {
+            ComponentManager.ensureVnodeComponentReference(canonicalTree, owner)
+        }
+
+        const canonicalPerCall = (performance.now() - startedAt) / fastIterations;
+
+        startedAt = performance.now();
+
+        for (let index = 0; index < scanIterations; index++) {
+            rawTailTree.childNodes = rawTailNodes;
+            ComponentManager.ensureVnodeComponentReference(rawTailTree, owner)
+        }
+
+        const rawTailPerCall = (performance.now() - startedAt) / scanIterations;
+
+        startedAt = performance.now();
+
+        for (let index = 0; index < scanIterations; index++) {
+            ComponentManager.addVnodeComponentReferences({
+                childNodes: rawTailNodes,
+                id        : 'reference-profile-full-parent'
+            }, 'reference-profile-full-parent')
+        }
+
+        const fullCanonicalizePerCall = (performance.now() - startedAt) / scanIterations;
+
+        console.log('ancestor reference profile (ms/call)', {
+            canonicalPerCall,
+            fullCanonicalizePerCall,
+            rawTailPerCall
+        });
+
+        expect(rawTailTree.childNodes.at(-1)).toEqual(expect.objectContaining({
+            componentId: owner.id
+        }));
+        expect(canonicalPerCall * 20).toBeLessThan(rawTailPerCall);
+        expect(rawTailPerCall).toBeLessThan(fullCanonicalizePerCall);
+
+        owner.destroy()
+    });
 });
