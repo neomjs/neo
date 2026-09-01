@@ -295,13 +295,19 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Visible or geometry-reserved actions which reduce the tab strip's main-axis extent.
+     * Actions which actually reduce the tab strip's main-axis extent.
+     *
+     * A contextually inactive action is collapsed out of the layout, so it must be excluded here
+     * rather than measured: a collapsed node reports an all-zero rect, and this measurement reads
+     * the rect's POSITION as well as its size. Measuring one would place the action cluster at
+     * offset 0 and consume the entire strip, collapsing every tab into the overflow menu.
      * @returns {Neo.component.Base[]}
      */
     getActionItems() {
         return (this.owner.getActionItems?.() || [])
             .filter(item => item !== this.control)
             .filter(item => !item.hidden || item.hideMode === 'visibility')
+            .filter(item => !(item.cls || []).includes('neo-toolbar-action-context-inactive'))
     }
 
     /**
@@ -688,8 +694,9 @@ class Overflow extends Plugin {
             }
 
             // 2. The strip extent — actions consume the same main axis but stay outside tab packing.
-            // Contextually inactive actions remain rendered, so their extent stays reserved without
-            // a focus-time repartition.
+            // A contextually inactive action is collapsed out of the layout, so it contributes a
+            // zero rect here and the extent tracks what is actually offered. A focus change can
+            // therefore repartition the tabs; that is intended, not a regression.
             let actionItems   = me.getActionItems(),
                 controlId     = me.control?.mounted ? me.control.id : null,
                 ids           = [owner.id, ...actionItems.map(item => item.id), ...(controlId ? [controlId] : [])],

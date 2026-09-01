@@ -96,6 +96,11 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
 
         await tabButton(edge, 'Pinned').click();
 
+        // Wait for the gate to actually open before measuring. A collapsed action has no box at
+        // all, so reading geometry while the reveal is still in flight yields null rather than a
+        // stale-but-plausible rect — the race the previous box-preserving contract hid.
+        await expect(actionButton(edge, 'fa-thumbtack')).not.toHaveClass(/neo-toolbar-action-context-inactive/);
+
         for (const [name, glyph] of [
             ['pin',      'fa-thumbtack'],
             ['popOut',   'fa-window-restore'],

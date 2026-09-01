@@ -213,7 +213,8 @@ class Toolbar extends Container {
     }
 
     /**
-     * Reserves or releases contextual action interactivity while preserving layout geometry.
+     * Offers or withdraws the contextual actions. A withdrawn action is removed from the layout,
+     * not merely made invisible — the rail must not encode absent affordances as empty space.
      * @param {Boolean} [silent=false]
      */
     applyContextualActionState(silent=false) {
