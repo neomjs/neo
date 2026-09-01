@@ -2846,7 +2846,13 @@ class Workspace extends Container {
             await me.applyDockMaximizePresentation(nodeId, {animate: false})
         } else {
             me.failDockMaximize(nodeId);
-            await me.dockMaximizeTransition
+
+            // This method runs INSIDE refreshDockWorkspace. A value-bearing transition may be
+            // waiting for this same refreshPromise before it applies, so awaiting the transition
+            // here closes a refresh → transition → refresh cycle. No projected node remains to
+            // restore in this branch; clear the independently-owned observer now and let the queued
+            // reactive clear drain after this refresh releases its tail.
+            await me.registerDockMaximizeResizeObserver(false)
         }
     }
 

@@ -286,6 +286,13 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         releaseMaximizeClearCount_: 0,
         /**
+         * Spec trigger: builds the refreshPromise ↔ dockMaximizeTransition cycle and records
+         * whether the refresh-owned sync can settle without its own promise being released first.
+         * @member {Number} maximizeCycleProbeCount_=0
+         * @reactive
+         */
+        maximizeCycleProbeCount_: 0,
+        /**
          * Debug trigger: each bump snapshots the main-tabs container's style surfaces into
          * {@link #styleProbeJson}.
          * @member {Number} styleProbeCount_=0
@@ -356,6 +363,12 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
      * @member {String} maximizeTransitionLogJson='[]'
      */
     maximizeTransitionLogJson = '[]'
+
+    /**
+     * Spec-readable settlement of the refresh-owned maximize sync.
+     * @member {Boolean} maximizeCycleSyncSettled=false
+     */
+    maximizeCycleSyncSettled = false
 
     /**
      * Spec-readable mirror of the PRODUCTION settlement channel: the fixture subscribes to the
@@ -631,6 +644,33 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
 
         this.maximizeClearRelease?.();
         this.maximizeClearRelease = null
+    }
+
+    /**
+     * Reproduces the two-lane dependency without timing: the apply transition waits on a held
+     * refresh promise; the refresh-owned sync encounters the unresolved node and may not wait on
+     * that transition before releasing the same refresh.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetMaximizeCycleProbeCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        let releaseRefresh;
+
+        this.maximizeCycleSyncSettled = false;
+        this.refreshPromise = new Promise(resolve => {
+            releaseRefresh = resolve
+        });
+        this.maximizedNodeId = 'ghost-tabs';
+
+        this.syncDockMaximizeProjection().then(() => {
+            this.maximizeCycleSyncSettled = true;
+            releaseRefresh()
+        })
     }
 
     /**

@@ -268,6 +268,15 @@ test.describe('dock maximize — presentation, never topology', () => {
         )).toEqual(['clear:start', 'clear:apply', 'apply:main-tabs'])
     });
 
+    test('refresh-owned failure does not await a transition waiting on that refresh', async ({page}) => {
+        await setWorkspace(page, {maximizeCycleProbeCount: 1});
+
+        await expect.poll(async () => (
+            await readWorkspace(page, ['maximizeCycleSyncSettled'])
+        )[0]).toBe(true);
+        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual([null])
+    });
+
     test('while maximized, the workspace resize observation re-measures the rect live', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 
