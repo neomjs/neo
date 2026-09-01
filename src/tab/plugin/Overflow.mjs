@@ -538,7 +538,28 @@ class Overflow extends Plugin {
      * Tab-set-mutation handler — a header add (`insert`) or reorder (`moveTo`) changed the button set, so
      * recapture natural widths (an added button has none cached) and re-partition against the mutated set.
      */
-    onTabSetChange() {
+    onTabSetChange({item}={}) {
+        // The owner's `insert` / `remove` also fire for its ACTION group — a consumer `actions`
+        // replacement, the action spacer, and this plugin's own contribution all move through the same
+        // container methods. None of those is a tab-set mutation: they change the tab-EXCLUSIVE extent,
+        // which `actionsChange` already re-projects through onActionSetChange WITHOUT a recapture.
+        //
+        // Recapturing on them is not merely redundant, it is wrong. A recapture restores every hidden
+        // header to the DOM for its measure window (project() step 1), and `insert` fires only AFTER
+        // its own promiseUpdate round-trip — so an action replacement queues a recapture that lands
+        // late and re-applies an all-fit split over the split a newer resize had already applied. The
+        // header then flaps for one pass: the overflowing tabs return and the overflow control leaves,
+        // in a state that reads as coherent because it IS one — the all-fit verdict for the old extent.
+        // `Container#insert` fires ONCE for a batch, with `item` carrying the whole array (its per-item
+        // recursion is silent), so the membership test has to cover both shapes.
+        let members = Array.isArray(item) ? item : item ? [item] : [];
+
+        if (members.length > 0 && members.every(member =>
+            member?.isToolbarAction === true || member?.isToolbarActionSpacer === true
+        )) {
+            return
+        }
+
         this.project(true)
     }
 
