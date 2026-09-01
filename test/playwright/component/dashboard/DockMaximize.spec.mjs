@@ -99,8 +99,8 @@ test.describe('dock maximize — presentation, never topology', () => {
     test('the toggle is focus-gated beside an always-visible close, in the frozen order', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 
-        // Focus-gated through the toolbar's geometry-preserving carrier: the maximize control is
-        // rendered but context-inactive until the container holds focus; the close action's
+        // Focus-gated: the maximize control is collapsed out of the layout until the container
+        // holds focus, so it costs no rail space while withdrawn; the close action's
         // `contextual: false` exemption is the visible contrast.
         await expect(actionButton(main, 'fa-window-maximize')).toHaveClass(/neo-toolbar-action-context-inactive/);
         await expect(actionButton(main, 'fa-times')).not.toHaveClass(/neo-toolbar-action-context-inactive/);

@@ -77,9 +77,9 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
     test('pop-out holds the frozen family slot, focus-gated beside an always-visible close', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 
-        // Focus-gated through the toolbar's geometry-preserving carrier: rendered, but
-        // context-inactive until the container holds focus. Close's `contextual: false` exemption
-        // is the visible contrast.
+        // Focus-gated: collapsed out of the layout entirely until the container holds focus, so a
+        // withdrawn action costs no rail space. Close's `contextual: false` exemption is the
+        // visible contrast — it is the one action that is always on offer.
         await expect(actionButton(main, 'fa-window-restore')).toHaveClass(/neo-toolbar-action-context-inactive/);
         await expect(actionButton(main, 'fa-times')).not.toHaveClass(/neo-toolbar-action-context-inactive/);
 
@@ -95,6 +95,11 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
               boxes = {};
 
         await tabButton(edge, 'Pinned').click();
+
+        // Wait for the gate to actually open before measuring. A collapsed action has no box at
+        // all, so reading geometry while the reveal is still in flight yields null rather than a
+        // stale-but-plausible rect — the race the previous box-preserving contract hid.
+        await expect(actionButton(edge, 'fa-thumbtack')).not.toHaveClass(/neo-toolbar-action-context-inactive/);
 
         for (const [name, glyph] of [
             ['pin',      'fa-thumbtack'],

@@ -228,5 +228,119 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
             'no pass re-applies a superseded extent once the contribution is restored').toEqual([]);
         expect(afterRestore.at(-1).split(',')[0], 'the contribution holds the first action slot')
             .toBe(controlId)
+    });
+
+    test('a withdrawn focus-gated action contributes no extent to the partition', async ({page}) => {
+        // The other arms in this file use `showOnFocus: false` throughout, so none of them exercise
+        // the plugin against a collapsed action. This one does: a gated action is removed from the
+        // layout while withdrawn, and the plugin must therefore EXCLUDE it from measurement rather
+        // than measure it. A collapsed node reports an all-zero rect, and this measurement reads the
+        // rect's POSITION as well as its size — measuring one places the action cluster at offset 0
+        // and consumes the whole strip, collapsing every tab into the overflow menu.
+        await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), componentId);
+
+        // This arm is the only one that replaces the shared `beforeEach` container, and it reuses the
+        // same id. Resolving the worker-side destroy does NOT mean the DOM is gone: the removal travels
+        // to main as a separate message, so re-creating immediately can mount the new header while the
+        // old one is still attached. Two toolbars then answer to one id and the strict-mode locators
+        // below abort on arity — and the orphan outlives the test, because the App Worker is shared, so
+        // the casualty surfaces in whatever spec runs next. Await the detach; it is the actual barrier.
+        await page.waitForSelector(`#${TAB_ID}`, {state: 'detached'});
+
+        componentId = await page.evaluate(async id => {
+            const result = await Neo.worker.App.createNeoInstance({
+                activeIndex  : 0,
+                height       : 240,
+                headerActions: [{
+                    action     : 'host-action',
+                    iconCls    : 'fa fa-star',
+                    showOnFocus: false
+                }, {
+                    // Focus-gated: the subject of this arm.
+                    action : 'gated-action',
+                    iconCls: 'fa fa-thumbtack'
+                }, {
+                    action     : 'close',
+                    iconCls    : 'fa fa-times',
+                    showOnFocus: false
+                }],
+                headerToolbar: {plugins: [{ntype: 'plugin-tab-overflow', projectAsAction: true}]},
+                id,
+                importPath   : '../tab/Container.mjs',
+                items        : Array.from({length: 8}, (_, index) => ({
+                    header: {text: `Tab ${index + 1}`},
+                    ntype : 'component',
+                    text  : `Content ${index + 1}`
+                })),
+                ntype   : 'tab-container',
+                parentId: 'component-test-viewport',
+                width   : 380
+            });
+
+            if (!result.success) {
+                throw new Error(`gated TabContainer creation failed: ${result.error.message}`)
+            }
+
+            return result.id
+        }, TAB_ID);
+
+        await page.waitForSelector(`#${componentId}`, {state: 'attached'});
+
+        const root    = page.locator(`#${TAB_ID}`),
+              toolbar = root.locator(':scope > .neo-tab-header-toolbar'),
+              control = toolbar.getByRole('button', {name: 'More tabs', exact: true}),
+              gated   = toolbar.locator(':scope > .neo-toolbar-action:has(.fa-thumbtack)'),
+              tabs    = toolbar.locator(':scope > .neo-tab-header-button');
+
+        await expect(gated, 'the gated action is projected').toHaveCount(1);
+        await expect(control, 'precondition: the strip overflows, so a partition exists to lose')
+            .toBeVisible({timeout: 10000});
+
+        const toolbarId = await toolbar.getAttribute('id'),
+              setGate   = visible => page.evaluate(
+                  ({id, visible}) => Neo.worker.App.setConfigs({id, contextualActionsVisible: visible}),
+                  {id: toolbarId, visible}
+              );
+
+        // The withdrawn state is pinned through the SAME reactive config the focus wiring writes
+        // (`toolbar.Base#contextualActionsVisible`), rather than by moving real focus. A standalone
+        // container has no focus subject holding focus, so driving the config is what makes the
+        // state deterministic here — and it is the identical state, not a proxy for it.
+        await setGate(false);
+        await expect(gated, 'the action is withdrawn').toHaveClass(/neo-toolbar-action-context-inactive/);
+
+        // Force a re-partition WHILE the action is collapsed. Toggling the gate alone does not
+        // re-measure, and the all-zero-rect defect only surfaces on a measurement pass: without
+        // this the arm passes whether or not the plugin excludes collapsed actions, which is the
+        // vacuity this control exists to remove.
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, width: 1200}), TAB_ID);
+        await expect(toolbar.locator('.neo-tab-overflow-control'), 'all-fit retires the contribution')
+            .toHaveCount(0, {timeout: 10000});
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, width: 380}), TAB_ID);
+
+        // Withdrawn: no box at all, so it cannot be measured into the strip extent.
+        expect(await gated.boundingBox(), 'a withdrawn action occupies no space').toBeNull();
+
+        // The partition stays usable. This is the assertion that reds when the plugin measures the
+        // collapsed action's all-zero rect: the cluster is then placed at offset 0, the strip reads
+        // as fully consumed, and every non-active tab is driven into the menu.
+        await expect(control, 'the overflow control is contributed').toHaveCount(1);
+        expect(await tabs.count(), 'direct tabs remain reachable without opening the menu')
+            .toBeGreaterThan(1);
+
+        const directTabs = await tabs.count();
+
+        // Revealing it must not break the invariants the other arms protect.
+        await setGate(true);
+        await expect(gated, 'the reveal exposes the gated action').not.toHaveClass(/neo-toolbar-action-context-inactive/);
+        expect(await gated.boundingBox(), 'and revealing it gives it a box').not.toBeNull();
+
+        await expect(control, 'the overflow control survives the reveal').toHaveCount(1);
+        await expect(toolbar.locator(':scope > .neo-tab-header-button.pressed'),
+            'exactly one tab stays active across the reveal').toHaveCount(1);
+        expect(await tabs.count(), 'the reveal may repartition, but never empties the strip')
+            .toBeGreaterThan(0);
+        expect(directTabs, 'precondition sanity: the withdrawn state had a real partition to lose')
+            .toBeGreaterThan(1)
     })
 });

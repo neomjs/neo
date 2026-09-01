@@ -269,7 +269,12 @@ test.describe('Neo.tab.Container — ui variants', () => {
 
             const exposedBox = await gatedAction.boundingBox();
 
-            expect(exposedBox, 'focus gating preserves the action box').toEqual(gatedBox);
+            // A gated action is collapsed OUT of the layout, so while quiet it has no box at all.
+            // The superseded contract preserved the box and left a hole in the rail between the
+            // actions actually on offer; revealing an action now grows the cluster instead of
+            // filling a slot that was already paid for.
+            expect(gatedBox,   'a gated action occupies no space').toBeNull();
+            expect(exposedBox, 'revealing it gives it a box').not.toBeNull();
 
             const measured = {
                 default   : await readVariant(page, 'tab-ui-default'),
