@@ -229,6 +229,10 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(hidden.headerActions.some(action => action.action === 'lock')).toBe(false);
         expect(hidden.headerActions.find(action => action.action === 'reload').hidden).toBe(true);
         expect(hidden.headerActions.find(action => action.action === 'pop-out').hidden).toBe(true);
+        expect(hidden.headerActions.find(action => action.action === 'pin')).toMatchObject({
+            iconCls: 'fa fa-thumbtack-slash',
+            vdom   : {'aria-label': 'unpin'}
+        });
         expect(hidden.headerActions.slice(0, -1).every(action => action.contextual === undefined)).toBe(true);
         expect(hidden.headerActions.at(-1)).toMatchObject({action: 'close', contextual: false});
         expect(hidden.vdom.tabIndex).toBe(-1);

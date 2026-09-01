@@ -64,8 +64,13 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         // Real composed children, not synthesized vdom.
         expect(overlay.titleLabel.text).toBe('Terminal');
         expect(overlay.pinButton.disabled).toBe(false);
+        expect(overlay.items[0].className).toBe('Neo.tab.header.Toolbar');
+        expect(overlay.items[0].cls).toContain('neo-tab-header-toolbar');
         expect(overlay.pinButton.cls).toContain('neo-dashboard-dock-reveal-pin');
-        expect(overlay.pinButton.ui, 'the restore affordance is not a default-primary CTA').toBe('ghost');
+        expect(overlay.pinButton.cls).toContain('neo-toolbar-action');
+        expect(overlay.pinButton.isToolbarAction, 'the preview uses the real tab-header action primitive').toBe(true);
+        expect(overlay.pinButton.showOnFocus, 'the revealed inverse stays persistently available').toBe(false);
+        expect(overlay.pinButton.ui, 'tab-header CSS, not a standalone Button ui, owns its chrome').toBeNull();
         expect(overlay.pinButton.iconCls).toBe('fa fa-thumbtack');
         expect(overlay.pinButton.text, 'pane chrome uses a compact icon control').toBeNull();
         expect(overlay.pinButton.vdom['aria-label']).toBe('Pin');

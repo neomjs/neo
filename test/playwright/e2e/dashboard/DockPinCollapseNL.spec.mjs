@@ -141,6 +141,9 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
         const pinAction = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']),
               pinButton = page.locator(`#${pinAction.id}`);
 
+        await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
+        await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
+
         // Product truth #4: §2.7's fail-safe reaches the real product — the center stack projects the
         // action too, but hidden, because main content never rails.
         //
@@ -227,9 +230,13 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
 
             const
                 inspectorTabsId = await tabsNodeId(app, 'inspector-tabs'),
-                pinAction        = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']);
+                pinAction        = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']),
+                pinButton        = page.locator(`#${pinAction.id}`),
+                inlineAction     = await readRevealPinStyle(pinButton);
 
-            await page.locator(`#${pinAction.id}`).click();
+            await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
+            await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
+            await pinButton.click();
             await expect.poll(async () => (await readModel()).items.inspector.autoHidden, {
                 timeout: 10000
             }).toBe(true);
@@ -244,11 +251,13 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
                 restore = overlay.locator('.neo-dashboard-dock-reveal-pin');
 
             await expect(overlay).toBeVisible({timeout: 10000});
-            await expect(restore).toHaveClass(/neo-button-ghost/);
+            await expect(restore).toHaveClass(/neo-toolbar-action/);
+            await expect(restore).not.toHaveClass(/neo-button-ghost/);
             await expect(restore).toHaveAttribute('aria-label', 'Pin');
 
             const enabled = await readRevealPinStyle(restore);
 
+            expect(enabled, `${theme} reveal and inline actions share exact chrome`).toEqual(inlineAction);
             expect(enabled.text, `${theme} keeps the control icon-only`).toBe('');
             expect(enabled.width, `${theme} keeps compact width`).toBeLessThanOrEqual(48);
             expect(enabled.height, `${theme} keeps compact height`).toBeLessThanOrEqual(48);
@@ -267,7 +276,7 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
             const disabled = await readRevealPinStyle(restore);
 
             expect(disabled.opacity, `${theme} disabled state remains visible`).toBeGreaterThan(0);
-            expect(disabled.opacity).toBeLessThanOrEqual(enabled.opacity);
+            expect(disabled.opacity, `${theme} disabled state differs from enabled`).toBeLessThan(enabled.opacity);
             expect(disabled.glyphColor, `${theme} disabled glyph remains painted`).not.toBe('rgba(0, 0, 0, 0)');
             await expect(header).toHaveScreenshot(`reveal-pin-${theme}-disabled.png`, {animations: 'disabled'})
         })

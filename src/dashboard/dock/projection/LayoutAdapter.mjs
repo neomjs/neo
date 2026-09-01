@@ -1145,7 +1145,11 @@ class LayoutAdapter extends Base {
                 hidden    : !activeItemId
                     || context.items[activeItemId]?.pinnable === false
                     || !Document.findOwningEdge({nodes: context.nodes}, activeItemId),
-                iconCls   : 'fa fa-thumbtack'
+                // Like maximize → minimize, the glyph names the NEXT action, not current state:
+                // this one-way command unpins into the rail; the reveal toolbar owns the inverse
+                // thumbtack that pins the pane back into flow.
+                iconCls   : 'fa fa-thumbtack-slash',
+                vdom      : {'aria-label': 'unpin'}
             }] : []),
             // Pop-out sits between pin and maximize per the family's frozen ordering. Same
             // focus-gating default as the rest of the engine set — no `contextual` key.

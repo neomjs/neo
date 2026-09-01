@@ -29,6 +29,14 @@
             border-radius: inherit;
         }
 
+        // The scoped action chrome outranks generic Button disabled paint. Without an equally
+        // scoped state rule, Neo themes whose generic button opacity is `inherit` render enabled
+        // and disabled tab actions pixel-identically. One toolbar rule keeps inline and reveal
+        // actions in lockstep while preserving the theme-owned disabled-opacity token.
+        &.neo-disabled {
+            opacity: var(--neo-disabled-opacity);
+        }
+
         &:hover {
             background-color: var(--tab-header-action-background-color-hover);
 

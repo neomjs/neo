@@ -129,11 +129,19 @@ const bootActionAcceptance = async ({page, neuralLink}) => {
  * @returns {Promise<{action:Object,chrome:Object,locator:import('@playwright/test').Locator}>}
  */
 const focusDockAction = async ({app, page, workspaceId, nodeId, itemId, actionName}) => {
-    const chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]),
-          buttonId = chrome?.buttons?.[itemId];
+    let chrome;
 
-    expect(chrome, `${nodeId} projects live tab chrome`).toBeTruthy();
-    expect(buttonId, `${itemId} owns a real header button`).toBeTruthy();
+    await expect.poll(async () => {
+        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
+
+        return chrome?.buttons?.[itemId] ?? null
+    }, {
+        message  : `${nodeId} projects ${itemId} into live tab chrome`,
+        timeout  : 10000,
+        intervals: [25, 50, 100]
+    }).toBeTruthy();
+
+    const buttonId = chrome.buttons[itemId];
 
     await page.locator(`#${buttonId}`).click();
 
@@ -2161,7 +2169,7 @@ test.describe('Workstation — dense living-data composition', () => {
 
         await page.locator(`#${commitsId}`).click();
 
-        const collapse = page.locator(`#${beforeChrome.headerId} .neo-toolbar-action[aria-label="pin"]`);
+        const collapse = page.locator(`#${beforeChrome.headerId} .neo-toolbar-action[aria-label="unpin"]`);
 
         await expect(collapse, 'focus reveals the default collapse action').toBeVisible({timeout: 10000});
         await collapse.click();
@@ -2200,8 +2208,9 @@ test.describe('Workstation — dense living-data composition', () => {
 
         await expect(overlay, 'rail click opens the transient reveal').toBeVisible({timeout: 10000});
         await expect(overlay.locator('.neo-dashboard-dock-reveal-title')).toHaveText('Commit Stream');
-        await expect(restore, 'restore is a compact pane-chrome action, not a blue primary CTA')
-            .toHaveClass(/neo-button-ghost/);
+        await expect(restore, 'restore is a real tab-header toolbar action, not a standalone CTA')
+            .toHaveClass(/neo-toolbar-action/);
+        await expect(restore).not.toHaveClass(/neo-button-ghost/);
         await expect(restore).toHaveAttribute('aria-label', 'Pin');
         await expect(restore).toHaveText('');
 
@@ -2250,6 +2259,11 @@ test.describe('Workstation — dense living-data composition', () => {
                 workspaceId
             });
 
+            await expect(locator).toHaveAttribute('aria-label', 'unpin');
+            await expect(locator.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
+
+            const inlineAction = await readRevealPinStyle(locator);
+
             await locator.click();
             await expect.poll(async () => {
                 const model = (await app.getComponent(workspaceId, ['dockModel'])).dockModel;
@@ -2270,10 +2284,12 @@ test.describe('Workstation — dense living-data composition', () => {
                 restore = overlay.locator('.neo-dashboard-dock-reveal-pin');
 
             await expect(overlay).toBeVisible({timeout: 10000});
-            await expect(restore).toHaveClass(/neo-button-ghost/);
+            await expect(restore).toHaveClass(/neo-toolbar-action/);
+            await expect(restore).not.toHaveClass(/neo-button-ghost/);
 
             const enabled = await readRevealPinStyle(restore);
 
+            expect(enabled, `${theme} reveal and inline actions share exact chrome`).toEqual(inlineAction);
             expect(enabled.text, `${theme} keeps the control icon-only`).toBe('');
             expect(enabled.width, `${theme} keeps compact width`).toBeLessThanOrEqual(48);
             expect(enabled.height, `${theme} keeps compact height`).toBeLessThanOrEqual(48);
@@ -2295,7 +2311,7 @@ test.describe('Workstation — dense living-data composition', () => {
             const disabled = await readRevealPinStyle(restore);
 
             expect(disabled.opacity, `${theme} disabled state remains visible`).toBeGreaterThan(0);
-            expect(disabled.opacity).toBeLessThanOrEqual(enabled.opacity);
+            expect(disabled.opacity, `${theme} disabled state differs from enabled`).toBeLessThan(enabled.opacity);
             expect(disabled.glyphColor, `${theme} disabled glyph remains painted`).not.toBe('rgba(0, 0, 0, 0)');
             await expect(header).toHaveScreenshot(`workstation-reveal-pin-${theme}-disabled.png`, {
                 animations: 'disabled'
