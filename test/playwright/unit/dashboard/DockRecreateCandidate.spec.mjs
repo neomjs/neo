@@ -9,11 +9,19 @@ setup({
 import {test, expect} from '@playwright/test';
 // `Neo` and the core exports must be evaluated FIRST: `Neo.gatekeep` is called at module scope by
 // everything below, so an alphabetical import order fails at load with "gatekeep is not a function".
-import Neo           from '../../../../src/Neo.mjs';
-import * as core     from '../../../../src/core/_export.mjs';
-import Component     from '../../../../src/component/Base.mjs';
-import Container     from '../../../../src/container/Base.mjs';
-import DockWorkspace from '../../../../src/dashboard/dock/Workspace.mjs';
+import Neo                      from '../../../../src/Neo.mjs';
+import * as core                from '../../../../src/core/_export.mjs';
+import Component                from '../../../../src/component/Base.mjs';
+import Container                from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+// Side-effect imports: the projection instantiates by ntype, so the tab/toolbar/button classes must
+// be registered or `DockLayoutAdapter.project` throws `ntype tab-container does not exist`.
+import '../../../../src/manager/Instance.mjs';
+import '../../../../src/button/Base.mjs';
+import '../../../../src/tab/Container.mjs';
+import '../../../../src/toolbar/Base.mjs';
 
 /**
  * Phase 1 of the two-phase recreate transaction: obtain and validate a fresh candidate **without
@@ -206,5 +214,94 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
         expect(orphan.isDestroyed, 'a refusal never destroys').toBeFalsy();
 
         orphan.destroy()
+    })
+});
+
+/**
+ * The reconciler interaction, driven through the **production** entry point.
+ *
+ * This is the ticket's finding #2 turned into a witness. `core.Base#destroy` unregisters an instance
+ * without removing it from `parent.items`, and `reconcileTabChrome` fills its live map **positionally**
+ * from `body.items` and prefers that entry over the app resolver — verified by the sibling spec's
+ * `resolverCalls === 0` arm. A bare destroy would therefore leave the erased object sitting in the
+ * slot, and the very next refresh would hand it back as the live answer.
+ *
+ * Everything above this block argues that `removeAt` + `insert` avoids that. Until this arm existed
+ * the argument was a **source reading, not a test** — which is why the AC is written against the real
+ * `reconcileProjection` rather than a reimplementation of its lookup.
+ *
+ * **The resolver here deliberately returns the DESTROYED pane.** If the reconciler ever fell back to
+ * it, or ever resolved the stale positional entry, the assertions below would surface a destroyed
+ * instance instead of the candidate. A resolver returning `null` would have made this arm pass for
+ * the wrong reason.
+ */
+test.describe('dock recreate — a refresh after recreate resolves the candidate, never the corpse', () => {
+    test('the reconciler finds the replacement positionally and never consults the resolver', async () => {
+        const
+            workspace = buildWorkspace(),
+            model     = {
+                schema: 'neo.dock.zone.v1',
+                root  : 'root-tabs',
+                items : {alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'}},
+                nodes : {'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'}}
+            },
+            pane = Neo.create(Component, {header: {text: 'Alpha'}}),
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {resolveComponentRef: () => pane})]
+            });
+
+        let resolverCalls = 0;
+
+        try {
+            const tab = host.items[0];
+
+            // Guard: without a live pane in the slot the recreate below is a no-op and every
+            // assertion afterwards would be vacuous.
+            expect(tab.getCardContainer().items[0], 'the harness must project the live pane').toBe(pane);
+
+            const commit = workspace.commitRecreateCandidate(pane, {
+                module: Component,
+                header: {text: 'Alpha (fresh)'},
+                id    : 'recreate-reconciled-fresh'
+            });
+
+            expect(commit.ok).toBe(true);
+            expect(pane.isDestroyed, 'the predecessor is released once the candidate is live').toBe(true);
+
+            const placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef(componentRef, item, itemId) {
+                          const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, placeholder);
+
+                          return placeholder
+                      }
+                  });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem() {
+                    resolverCalls++;
+                    return pane   // the DESTROYED instance — a fallback here must be visible
+                }
+            });
+
+            const resolved = host.items[0].getCardContainer().items[0];
+
+            expect(resolved.id, 'the slot holds the candidate').toBe('recreate-reconciled-fresh');
+            expect(resolved, 'and never the destroyed predecessor').not.toBe(pane);
+            expect(resolved.isDestroyed).toBeFalsy();
+
+            // Positional discovery, not resolution: the live map found the candidate in `body.items`
+            // and the app resolver was never asked. Had `removeAt` left the corpse listed, this is
+            // where it would have been handed back.
+            expect(resolverCalls, 'the live item is discovered before the resolver is consulted').toBe(0)
+        } finally {
+            host.destroy();
+            workspace.destroy()
+        }
     })
 });
