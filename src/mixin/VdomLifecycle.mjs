@@ -322,7 +322,7 @@ class VdomLifecycle extends Base {
             }
 
             if (Neo.config.useDeltaCoherenceRegistry) {
-                batchData.coherenceAcknowledgedSequence = VDomUpdate.getCoherenceAcknowledgedSequence(
+                batchData.coherenceAcknowledgments = VDomUpdate.getCoherenceAcknowledgments(
                     me.appName, me.windowId
                 )
             }
@@ -343,28 +343,12 @@ class VdomLifecycle extends Base {
              */
             me.afterExecuteVdomUpdate?.();
 
-            // With a VDom worker, the forwarded response is released only after Main applied the
-            // deltas. Record that receipt even if the initiating component was destroyed while the
-            // flight was away; the App/window partition still advanced. The local-Helper path
-            // records below only after its explicit `applyDeltas` call succeeds.
-            if (Neo.config.useDeltaCoherenceRegistry && Neo.config.useVdomWorker) {
-                VDomUpdate.recordCoherenceAcknowledgedSequence(
-                    me.appName, me.windowId, response.coherenceSequence
-                )
-            }
-
             // Component could be destroyed while the update is running: a stale success payload
             // from a destroyed flight must never apply deltas or distribute vnodes.
             if (me.id && !me.isDestroyed) {
                 // When not using a VdomWorker, we need to apply the deltas inside the App worker
                 if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
                     await Neo.applyDeltas(me.windowId, response.deltas)
-                }
-
-                if (Neo.config.useDeltaCoherenceRegistry && !Neo.config.useVdomWorker) {
-                    VDomUpdate.recordCoherenceAcknowledgedSequence(
-                        me.appName, me.windowId, response.coherenceSequence
-                    )
                 }
 
                 // Distribute results back to ALL components in the batch
@@ -375,6 +359,16 @@ class VdomLifecycle extends Base {
 
                         if (component && !component.isDestroyed) {
                             component.vnode = vnode;
+
+                            // This owner-specific receipt means both halves completed: Main applied
+                            // the deltas (or acknowledged a no-op), then App adopted this vnode.
+                            // Record before callbacks because they can synchronously request the next
+                            // batch, whose snapshot must see the newly authoritative owner baseline.
+                            if (Neo.config.useDeltaCoherenceRegistry) {
+                                VDomUpdate.recordCoherenceAcknowledgment(
+                                    me.appName, me.windowId, id, response.coherenceSequence
+                                )
+                            }
 
                             // Resolve the update for this component and its merged children
                             // Note: response.deltas contains the aggregated deltas for the whole batch

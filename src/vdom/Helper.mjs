@@ -886,9 +886,11 @@ class Helper extends Base {
                 vnodes[id] = result.vnode;
 
                 coherenceBatches?.push({
-                    acknowledgedSequence: Number.isFinite(data.coherenceAcknowledgedSequence)
-                        ? data.coherenceAcknowledgedSequence
-                        : null,
+                    acknowledgments: Array.isArray(data.coherenceAcknowledgments)
+                        ? data.coherenceAcknowledgments.filter(item =>
+                            item?.ownerId != null && Number.isFinite(item.sequence)
+                        ).map(item => ({ownerId: item.ownerId, sequence: item.sequence}))
+                        : [],
                     end: allDeltas.length, ownerId: id, sequence: coherenceSequence, start
                 });
 

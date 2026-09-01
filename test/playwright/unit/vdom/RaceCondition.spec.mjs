@@ -336,7 +336,7 @@ test.describe('VdomLifecycle Race Condition', () => {
         expect(childUpdates.length).toBeGreaterThan(0);
     });
 
-    test('the next flagged flight sees a compute sequence only after the prior Main apply ack', async () => {
+    test('the next flagged flight sees an owner acknowledgment only after vnode adoption', async () => {
         const
             containerId = getUniqueId('coherence-ack-container'),
             previousFlag = Neo.config.useDeltaCoherenceRegistry,
@@ -351,8 +351,8 @@ test.describe('VdomLifecycle Race Condition', () => {
             const response = realUpdateBatch.call(VdomHelper, data);
 
             observations.push({
-                acknowledgedSequence: data.coherenceAcknowledgedSequence ?? null,
-                sequence            : response.coherenceSequence
+                acknowledgments: data.coherenceAcknowledgments ?? null,
+                sequence       : response.coherenceSequence
             });
 
             return response
@@ -375,13 +375,107 @@ test.describe('VdomLifecycle Race Condition', () => {
             await container.promiseUpdate();
 
             expect(observations).toHaveLength(2);
-            expect(observations[0].acknowledgedSequence).toBeNull();
+            expect(observations[0].acknowledgments).toEqual([]);
             expect(observations[0].sequence).toBeGreaterThan(0);
-            expect(observations[1].acknowledgedSequence).toBe(observations[0].sequence)
+            expect(observations[1].acknowledgments).toEqual([{
+                ownerId: containerId,
+                sequence: observations[0].sequence
+            }])
         } finally {
             VdomHelper.updateBatch = realUpdateBatch;
             Neo.config.useDeltaCoherenceRegistry = previousFlag;
-            VDomUpdate.clearCoherenceAcknowledgedSequence(appName, null)
+            VDomUpdate.clearCoherenceAcknowledgments(appName, null)
+        }
+    });
+
+    test('ack snapshots preserve exact owner membership when a zero-delta flight overtakes Main apply', async () => {
+        const
+            firstId         = getUniqueId('coherence-held-apply'),
+            secondId        = getUniqueId('coherence-zero-delta'),
+            thirdId         = getUniqueId('coherence-observer'),
+            previousFlag    = Neo.config.useDeltaCoherenceRegistry,
+            realUpdateBatch = VdomHelper.updateBatch,
+            observations    = [];
+
+        let enterFirstApply, releaseFirstApply;
+
+        const
+            firstApplyEntered = new Promise(resolve => enterFirstApply = resolve),
+            firstApplyRelease = new Promise(resolve => releaseFirstApply = resolve),
+            components        = [firstId, secondId, thirdId].map(id => Neo.create(RaceContainer, {
+                appName,
+                id,
+                items: []
+            }));
+
+        createdComponentIds.push(firstId, secondId, thirdId);
+
+        for (const component of components) {
+            await component.initVnode(true);
+            component.mounted = true
+        }
+
+        Neo.config.useDeltaCoherenceRegistry = true;
+        VDomUpdate.clearCoherenceAcknowledgments(appName, null);
+
+        VdomHelper.updateBatch = data => {
+            const response = realUpdateBatch.call(VdomHelper, data);
+
+            observations.push({
+                acknowledgments: data.coherenceAcknowledgments ?? null,
+                deltaCount     : response.deltas.length,
+                sequence       : response.coherenceSequence
+            });
+
+            return response
+        };
+
+        Neo.applyDeltas = async () => {
+            enterFirstApply();
+            await firstApplyRelease
+        };
+
+        let firstUpdate;
+
+        try {
+            components[0].setSilent({style: {color: 'red'}});
+            firstUpdate = components[0].promiseUpdate();
+            await firstApplyEntered;
+
+            // Naked promiseUpdate() calls are genuine no-op flights. They bypass Main apply and
+            // can therefore overtake the first flight while its real style delta is held.
+            await components[1].promiseUpdate();
+            await components[2].promiseUpdate();
+
+            expect(observations).toHaveLength(3);
+            expect(observations.map(item => item.deltaCount)).toEqual([1, 0, 0]);
+            expect(observations[2].acknowledgments).toEqual([{
+                ownerId: secondId,
+                sequence: observations[1].sequence
+            }]);
+            expect(observations[2].acknowledgments).not.toContainEqual({
+                ownerId: firstId,
+                sequence: observations[0].sequence
+            });
+
+            releaseFirstApply();
+            await firstUpdate;
+            firstUpdate = null;
+
+            await components[2].promiseUpdate();
+
+            expect(observations[3].deltaCount).toBe(0);
+            expect(observations[3].acknowledgments).toEqual([
+                {ownerId: firstId,  sequence: observations[0].sequence},
+                {ownerId: secondId, sequence: observations[1].sequence},
+                {ownerId: thirdId,  sequence: observations[2].sequence}
+            ])
+        } finally {
+            releaseFirstApply();
+            await firstUpdate?.catch(() => {});
+            VdomHelper.updateBatch = realUpdateBatch;
+            Neo.config.useDeltaCoherenceRegistry = previousFlag;
+            VDomUpdate.clearCoherenceAcknowledgments(appName, null)
         }
     });
 });

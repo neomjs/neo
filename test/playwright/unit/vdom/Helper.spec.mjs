@@ -498,7 +498,10 @@ test.describe('Neo.vdom.Helper', () => {
             const
                 alphaOld = VdomHelper.create({vdom: {id: 'owner-alpha'}}).vnode,
                 betaOld  = VdomHelper.create({vdom: {id: 'owner-beta', cls: ['before']}}).vnode,
-                response = VdomHelper.updateBatch({coherenceAcknowledgedSequence: 5, updates: {
+                response = VdomHelper.updateBatch({coherenceAcknowledgments: [
+                    {ownerId: 'prior-alpha', sequence: 5},
+                    {ownerId: 'prior-beta', sequence: 7}
+                ], updates: {
                     'alpha-component': {
                         vdom : {id: 'owner-alpha', cn: [{id: 'owner-alpha-child'}]},
                         vnode: alphaOld
@@ -511,8 +514,20 @@ test.describe('Neo.vdom.Helper', () => {
 
             expect(response.deltas).toHaveLength(2);
             expect(response.coherenceBatches).toEqual([
-                expect.objectContaining({acknowledgedSequence: 5, end: 1, ownerId: 'alpha-component', start: 0}),
-                expect.objectContaining({acknowledgedSequence: 5, end: 2, ownerId: 'beta-component',  start: 1})
+                expect.objectContaining({
+                    acknowledgments: [
+                        {ownerId: 'prior-alpha', sequence: 5},
+                        {ownerId: 'prior-beta', sequence: 7}
+                    ],
+                    end: 1, ownerId: 'alpha-component', start: 0
+                }),
+                expect.objectContaining({
+                    acknowledgments: [
+                        {ownerId: 'prior-alpha', sequence: 5},
+                        {ownerId: 'prior-beta', sequence: 7}
+                    ],
+                    end: 2, ownerId: 'beta-component', start: 1
+                })
             ]);
             expect(response.coherenceBatches[0].sequence).toBeGreaterThan(0);
             expect(response.coherenceBatches[1].sequence).toBe(response.coherenceBatches[0].sequence);

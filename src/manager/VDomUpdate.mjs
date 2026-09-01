@@ -98,14 +98,14 @@ class VDomUpdate extends Collection {
      */
     descendantInFlightMap = new Map()
     /**
-     * Latest VDom-worker compute sequence whose result returned after Main applied it, partitioned
-     * by App/window. Used only while the default-off coherence instrument is enabled, so a later
-     * batch can disclose which earlier compute results were actually acknowledged before it took
-     * its vnode snapshot.
-     * @member {Map<String, Number>} coherenceAcknowledgedSequenceMap=new Map()
+     * Exact VDom-owner compute sequences whose Main result completed and whose vnode was adopted
+     * by the App worker, partitioned by App/window and owner. Owner-scoped Sets are required: a
+     * later zero-delta response can overtake an earlier Main-queued response, and one batch can
+     * lose an owner before vnode adoption. Used only by the default-off coherence instrument.
+     * @member {Map<String, Map<String, Set<Number>>>} coherenceAcknowledgmentsMap=new Map()
      * @protected
      */
-    coherenceAcknowledgedSequenceMap = new Map()
+    coherenceAcknowledgmentsMap = new Map()
     /**
      * A Map that tracks VDOM updates that have been dispatched to the VDOM worker but
      * have not yet completed. This prevents redundant updates for the same component.
@@ -177,20 +177,33 @@ class VDomUpdate extends Collection {
      * @param {String|null} appName
      * @param {String|Number|null} windowId
      */
-    clearCoherenceAcknowledgedSequence(appName, windowId) {
-        this.coherenceAcknowledgedSequenceMap.delete(this.getCoherenceAcknowledgmentKey(appName, windowId))
+    clearCoherenceAcknowledgments(appName, windowId) {
+        this.coherenceAcknowledgmentsMap.delete(this.getCoherenceAcknowledgmentKey(appName, windowId))
     }
 
     /**
-     * Returns the latest Main-applied VDom compute sequence for one App/window partition.
+     * Returns a sorted snapshot of the exact owner/sequence vnode adoptions for one App/window
+     * partition. Snapshotting prevents callers from mutating manager state.
      * @param {String|null} appName
      * @param {String|Number|null} windowId
-     * @returns {Number|null}
+     * @returns {Object[]}
      */
-    getCoherenceAcknowledgedSequence(appName, windowId) {
-        return this.coherenceAcknowledgedSequenceMap.get(
+    getCoherenceAcknowledgments(appName, windowId) {
+        const owners = this.coherenceAcknowledgmentsMap.get(
             this.getCoherenceAcknowledgmentKey(appName, windowId)
-        ) ?? null
+        );
+
+        if (!owners) return [];
+
+        const acknowledgments = [];
+
+        for (const [ownerId, sequences] of owners) {
+            for (const sequence of sequences) {
+                acknowledgments.push({ownerId, sequence})
+            }
+        }
+
+        return acknowledgments.sort((a, b) => a.sequence - b.sequence || a.ownerId.localeCompare(b.ownerId))
     }
 
     /**
@@ -205,22 +218,28 @@ class VDomUpdate extends Collection {
     }
 
     /**
-     * Advances one App/window acknowledgment monotonically after Main apply.
+     * Records one exact owner vnode adoption after its Main operation completed.
      * @param {String|null} appName
      * @param {String|Number|null} windowId
+     * @param {String} ownerId
      * @param {Number} sequence
      */
-    recordCoherenceAcknowledgedSequence(appName, windowId, sequence) {
-        if (!Number.isFinite(sequence)) return;
+    recordCoherenceAcknowledgment(appName, windowId, ownerId, sequence) {
+        if (ownerId == null || !Number.isFinite(sequence)) return;
 
-        const
-            key     = this.getCoherenceAcknowledgmentKey(appName, windowId),
-            current = this.coherenceAcknowledgedSequenceMap.get(key);
+        const key = this.getCoherenceAcknowledgmentKey(appName, windowId);
 
-        this.coherenceAcknowledgedSequenceMap.set(
-            key,
-            Number.isFinite(current) ? Math.max(current, sequence) : sequence
-        )
+        if (!this.coherenceAcknowledgmentsMap.has(key)) {
+            this.coherenceAcknowledgmentsMap.set(key, new Map())
+        }
+
+        const owners = this.coherenceAcknowledgmentsMap.get(key);
+
+        if (!owners.has(ownerId)) {
+            owners.set(ownerId, new Set())
+        }
+
+        owners.get(ownerId).add(sequence)
     }
 
     /**
