@@ -105,6 +105,76 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
         expect(addon.screenTop).toBe(window.screenTop)
     });
 
+    /**
+     * A pointer that leaves page content arms the poll and a pointer moving between elements clears
+     * it. That is the whole trigger contract without `observeMovement`, and it is why a titlebar
+     * grabbed from outside the content never publishes.
+     */
+    test('pointer-owned polling arms on a document-leaving mouseout and clears on element travel', () => {
+        const addon = {
+            checkMovement  : () => {},
+            intervalId     : null,
+            intervalTime   : 20,
+            observeMovement: false,
+            startPolling   : WindowPosition.prototype.startPolling,
+            stopPolling    : WindowPosition.prototype.stopPolling
+        };
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: {}});
+        expect(addon.intervalId, 'element travel never arms').toBeNull();
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: null});
+        expect(addon.intervalId, 'leaving the document arms').toBeTruthy();
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: {}});
+        expect(addon.intervalId, 'element travel clears').toBeNull()
+    });
+
+    test('observeMovement owns the poll: armed without any pointer event, immune to element travel', () => {
+        const addon = {
+            checkMovement  : () => {},
+            intervalId     : null,
+            intervalTime   : 20,
+            observeMovement: true,
+            startPolling   : WindowPosition.prototype.startPolling,
+            stopPolling    : WindowPosition.prototype.stopPolling
+        };
+
+        WindowPosition.prototype.afterSetObserveMovement.call(addon, true, false);
+
+        const armedId = addon.intervalId;
+
+        expect(armedId, 'the config arms the poll with no mouseout at all').toBeTruthy();
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: {}});
+        expect(addon.intervalId, 'element travel cannot clear a config-owned poll').toBe(armedId);
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: null});
+        expect(addon.intervalId, 'a document-leaving mouseout does not re-arm a second interval').toBe(armedId);
+
+        addon.observeMovement = false;
+        WindowPosition.prototype.afterSetObserveMovement.call(addon, false, true);
+        expect(addon.intervalId, 'switching off releases the poll').toBeNull()
+    });
+
+    /**
+     * The two witnesses above call the hook directly, so they cannot see whether the config is wired
+     * to it. Reactivity rides on the trailing underscore alone: without it `afterSetObserveMovement`
+     * never fires and the poll is silently never armed by config — the same silent non-arming this
+     * feature exists to end, one layer up. The class-level accessor is the witness that survives the
+     * mock's missing `addEventListener`, and the non-reactive sibling is the control that proves the
+     * assertion discriminates.
+     */
+    test('observeMovement is wired as a reactive config on the class, not a plain field', () => {
+        const
+            reactive = Object.getOwnPropertyDescriptor(WindowPosition.prototype, 'observeMovement'),
+            plain    = Object.getOwnPropertyDescriptor(WindowPosition.prototype, 'intervalTime');
+
+        expect(typeof reactive?.set, 'observeMovement_ installs a prototype setter').toBe('function');
+        expect(typeof reactive?.get, 'observeMovement_ installs a prototype getter').toBe('function');
+        expect(typeof plain?.set, 'the non-reactive intervalTime config installs no setter (control)').not.toBe('function')
+    });
+
     test('remote routing metadata is stripped before configs reach the addon', () => {
         let configs;
         const data  = {appName: 'WindowPositionTest', observeResize: true, windowId: 'popup-a'};

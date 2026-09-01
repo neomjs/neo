@@ -24,6 +24,20 @@ class WindowPosition extends Base {
          */
         intervalTime: 20,
         /**
+         * Keeps the movement poll armed independent of pointer state.
+         *
+         * By default the poll arms only on a `mouseout` that leaves the document, the signal a
+         * pointer produces when it travels from page content onto the OS titlebar. A window whose
+         * titlebar is grabbed WITHOUT the cursor ever entering its content (the header-action
+         * pop-out places the new titlebar right under the pointer) never produces that signal, so
+         * its movement is never published and {@link Neo.manager.Window} keeps the birth rect.
+         * Render targets that take part in cross-window hit testing opt in; the poll costs two
+         * integer compares per tick and publishes only on change.
+         * @member {Boolean} observeMovement_=false
+         * @reactive
+         */
+        observeMovement_: false,
+        /**
          * @member {Boolean} observeResize_=false
          * @reactive
          */
@@ -75,6 +89,19 @@ class WindowPosition extends Base {
         me.screenTop  = screenTop;
 
         window.addEventListener('mouseout', me.onMouseOut.bind(me))
+    }
+
+    /**
+     * Triggered after the observeMovement config got changed.
+     * While on, the config owns the poll: {@link #onMouseOut} neither arms nor clears it.
+     * Switching off releases the poll back to pointer ownership; the next document-leaving
+     * `mouseout` re-arms it.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetObserveMovement(value, oldValue) {
+        value ? this.startPolling() : this.stopPolling()
     }
 
     /**
@@ -200,13 +227,15 @@ class WindowPosition extends Base {
     onMouseOut(event) {
         let me = this;
 
+        // The config owns the poll while it observes movement; pointer travel must not clear it.
+        if (me.observeMovement) {
+            return
+        }
+
         if (!event.toElement) {
-            if (!me.intervalId) {
-                me.intervalId = setInterval(me.checkMovement.bind(me), me.intervalTime)
-            }
-        } else if (me.intervalId) {
-            clearInterval(me.intervalId);
-            me.intervalId = null
+            me.startPolling()
+        } else {
+            me.stopPolling()
         }
     }
 
@@ -254,6 +283,31 @@ class WindowPosition extends Base {
      */
     registerWindow(data) {
         this.windows[data.name] = data
+    }
+
+    /**
+     * @summary Arms the movement poll once; a running poll is left untouched.
+     * @protected
+     */
+    startPolling() {
+        let me = this;
+
+        if (!me.intervalId) {
+            me.intervalId = setInterval(me.checkMovement.bind(me), me.intervalTime)
+        }
+    }
+
+    /**
+     * @summary Clears the movement poll if it is running.
+     * @protected
+     */
+    stopPolling() {
+        let me = this;
+
+        if (me.intervalId) {
+            clearInterval(me.intervalId);
+            me.intervalId = null
+        }
     }
 
     /**
