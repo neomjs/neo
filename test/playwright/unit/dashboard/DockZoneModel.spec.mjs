@@ -1395,6 +1395,96 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(document.items.terminal).toBeDefined()
         });
 
+        /**
+         * The docking design record's detached row once demanded the opposite of this: that detaching
+         * a railed item CLEAR `autoHidden` in the same commit. The decision went the other way — the
+         * flag means residency *while docked*, so it survives the round trip. Clearing it would spend
+         * the return address the reintegration row guarantees and land a pane torn out of a rail back
+         * expanded, which is the wrong home for exactly the users a rail serves.
+         *
+         * This arm is that half of the ruling made falsifiable: implementing the retired clause reds it.
+         */
+        test('detachItem preserves autoHidden — the committed return address reintegration spends', () => {
+            const input = doc();
+
+            input.items.terminal.autoHidden = true;
+
+            const {document, errors} = Operations.detachItem(input, {itemId: 'terminal'});
+
+            expect(errors).toEqual([]);
+            expect(Document.findContainingTabsId(document, 'terminal')).toBe(null);
+            expect(document.items.terminal.autoHidden).toBe(true)
+        });
+
+        /**
+         * The other half, and the reason the commit rule was never needed: the exclusion holds one
+         * layer down. Rail membership is DERIVED by walking the node tree — an item is reached only
+         * through a `tabs` node's `items` array — and detaching filters the item out of exactly that
+         * array. So a detached item contributes no rail entry however its catalog record reads.
+         *
+         * Asserted against the RENDERED projection rather than the collection helper, for the reason
+         * the nested-rail arm below states: two derivations agreeing with each other is not the
+         * property. Non-vacuity is the whole arm — an absent rail passes for the wrong reason if the
+         * item never railed at all, so the pre-detach rail is asserted first as a control.
+         */
+        test('a detached item renders no rail, then rails again on return — the exclusion is structural', () => {
+            const railed = doc();
+
+            railed.items.terminal.autoHidden = true;
+
+            const railedItemIds = d => {
+                      const found = [];
+
+                      (function walk(config) {
+                          if (!config || typeof config !== 'object') return;
+
+                          if (config.dockNodeType === 'edge-rail') {
+                              config.railItems?.forEach(tab => found.push(tab.dockItemId))
+                          }
+
+                          Array.isArray(config.items) && config.items.forEach(walk)
+                      })(LayoutAdapter.project(d, {
+                          resolveComponentRef: componentRef => ({ntype: 'component', reference: componentRef})
+                      }));
+
+                      return found
+                  };
+
+            // `terminal` is `side-tabs`' only occupant, and detaching the last item prunes the empty
+            // node — so the edge it left would not survive for it to return to. Seed a second occupant
+            // through the real operation rather than by editing the fixture, so every document this arm
+            // asserts against is one the reducer can actually produce.
+            const seeded = Operations.addTab(railed, {itemId: 'swarm', tabsNodeId: 'side-tabs', index: 1});
+
+            expect(seeded.errors).toEqual([]);
+
+            // Control first: while docked, the flag really does rail this item. Without it the
+            // assertion below would pass against a projection that rails nothing at all.
+            expect(railedItemIds(seeded.document), 'the docked control renders a rail tab').toContain('terminal');
+
+            const {document, errors} = Operations.detachItem(seeded.document, {itemId: 'terminal'});
+
+            expect(errors).toEqual([]);
+            expect(document.items.terminal.autoHidden, 'the catalog flag is deliberately left set').toBe(true);
+            expect(railedItemIds(document), 'yet nothing rails it once it left the tree').not.toContain('terminal');
+
+            // The return leg, and the only part that proves the flag was worth preserving. Detach
+            // keeping `autoHidden` is a claim about REINTEGRATION: the item rails again when it comes
+            // home, with nobody re-setting the flag. Retention and structural exclusion are both
+            // observable while that claim is false — a document can preserve a flag nothing reads.
+            // Only re-entry separates a return address from dead state.
+            //
+            // It must return to an EDGE zone, and that is a real clause rather than fixture bookkeeping:
+            // `collectAutoHiddenItems` feeds `railsByEdge` per edge zone, and there is no center rail —
+            // so the same item, same flag, reintegrated into `main-tabs`, rails nothing at all. The
+            // return address is spendable only at an edge.
+            const returned = Operations.addTab(document, {itemId: 'terminal', tabsNodeId: 'side-tabs', index: 0});
+
+            expect(returned.errors).toEqual([]);
+            expect(returned.document.items.terminal.autoHidden, 'nothing re-set the flag on the way back').toBe(true);
+            expect(railedItemIds(returned.document), 'the returned item rails again, unattended').toContain('terminal')
+        });
+
         test('closeItem removes from both the tree and the catalog', () => {
             const {document, errors} = Operations.closeItem(doc(), {itemId: 'terminal'});
             expect(errors).toEqual([]);
