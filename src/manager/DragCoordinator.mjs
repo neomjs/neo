@@ -44,8 +44,9 @@ class DragCoordinator extends Manager {
          * A native-titlebar drop settles while the user may still hold the popup's titlebar, and a
          * window the OS is dragging can neither hand focus to the target nor be moved, so the first
          * park attempt legitimately fails. There is no release event on this path; a park that
-         * succeeds IS the release signal. Retries use the disposition backoff (250 ms doubling,
-         * capped at 5 s), so six attempts cover roughly twelve seconds of a held popup.
+         * succeeds IS the release signal. Each retry waits the disposition backoff (250 ms doubling,
+         * capped at 5 s): the default six retries wait 250 + 500 + 1000 + 2000 + 4000 + 5000 ms, so a
+         * popup may stay held for about 12.75 s after the terminal fires before the gesture ends.
          * @member {Number} nativeWindowParkRetryLimit=6
          */
         nativeWindowParkRetryLimit: 6,
@@ -307,9 +308,11 @@ class DragCoordinator extends Manager {
             return false
         }
 
+        // parkAttempts counts refusals; the limit counts RETRIES, so the last refusal admitted still
+        // schedules one more attempt (six retries = seven park attempts).
         candidate.parkAttempts = (candidate.parkAttempts || 0) + 1;
 
-        if (candidate.parkAttempts >= me.nativeWindowParkRetryLimit) {
+        if (candidate.parkAttempts > me.nativeWindowParkRetryLimit) {
             me.clearNativeWindowDropCandidate(windowId);
             me.endNativeGesture(windowId);
             return false
@@ -317,8 +320,7 @@ class DragCoordinator extends Manager {
 
         const delay = Math.min(
             5000,
-            Math.max(1, me.nativeWindowDispositionRetryMs) *
-                2 ** Math.min(candidate.parkAttempts - 1, 4)
+            Math.max(1, me.nativeWindowDispositionRetryMs) * 2 ** (candidate.parkAttempts - 1)
         );
 
         candidate.phase = 'park-retry';
@@ -1422,7 +1424,7 @@ class DragCoordinator extends Manager {
             // produced any given retained entry. Each entry carries its own `gestureToken` for that;
             // filter by it before reading, because the ring is a session tail and spans gestures.
             claimTrace: [...me.claimTrace],
-            sortZones                 : Array.from(me.sortZones.entries()).map(([group, map]) => ({
+            sortZones : Array.from(me.sortZones.entries()).map(([group, map]) => ({
                 group,
                 windows: Array.from(map.keys())
             }))

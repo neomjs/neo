@@ -1056,7 +1056,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
             await expect.poll(() => order.includes('leave'), {timeout: 2000, intervals: [10, 25, 50]}).toBe(true);
 
-            expect(order, 'exactly the limit\'s worth of park attempts, then the hover ends').toEqual(['suspend', 'suspend', 'suspend', 'leave']);
+            // the first attempt plus the limit's worth of RETRIES (three), then the hover ends
+            expect(order, 'one attempt, three retries, then the hover ends').toEqual(['suspend', 'suspend', 'suspend', 'suspend', 'leave']);
             expect(order).not.toContain('commit');
             expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup'), 'the exhausted gesture releases its candidate').toBe(false);
             expect(DragCoordinator.nativeHoverTargets.has('win-popup')).toBe(false)
