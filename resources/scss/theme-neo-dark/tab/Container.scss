@@ -37,7 +37,12 @@
 
     // Standalone explicitly names the theme's existing free-standing treatment.
     &.neo-tab-container-standalone > .neo-tab-header-toolbar,
-    .neo-tab-container-standalone > .neo-tab-header-toolbar {
+    .neo-tab-container-standalone > .neo-tab-header-toolbar,
+    // The detached-proxy pair, mirroring the inline block above. SortZone propagates whatever
+    // non-null `ui` the owner holds, so every variant the themes name needs both self-scoped
+    // forms — an inline-only self-scope would leave a standalone proxy silently ancestor-scoped.
+    &.neo-tab-header-toolbar.neo-tab-container-standalone,
+    .neo-tab-header-toolbar.neo-tab-container-standalone {
         --tab-button-border-radius : var(--cmp-tab-borderradius);
         --tab-button-gap           : 0;
         --tab-button-height        : var(--cmp-tab-height);

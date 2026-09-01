@@ -26,9 +26,56 @@ import {test, expect} from '@playwright/test';
  */
 
 const
-    INLINE_ID = 'drag-proxy-density-inline',
-    PLAIN_ID  = 'drag-proxy-density-plain',
-    THEMES    = ['neo-theme-neo-dark', 'neo-theme-neo-light', 'neo-theme-light'];
+    INLINE_ID     = 'drag-proxy-density-inline',
+    PLAIN_ID      = 'drag-proxy-density-plain',
+    STANDALONE_ID = 'drag-proxy-density-standalone',
+    VARIANT_IDS   = [INLINE_ID, PLAIN_ID, STANDALONE_ID],
+    THEMES        = ['neo-theme-neo-dark', 'neo-theme-neo-light', 'neo-theme-light', 'neo-theme-dark'];
+
+/**
+ * Links every theme's tab value layers into the persistent component-test document.
+ *
+ * The harness boots one theme's stylesheets; measuring another without linking its CSS reads the
+ * booted cascade under a renamed class and calls the result a variant. `ContainerUi.spec.mjs` uses
+ * this same idiom against the same empty-viewport harness, which is why all four themes are
+ * reachable here — an earlier revision of this file claimed otherwise and was wrong.
+ * @param {Object} page
+ * @returns {Promise<void>}
+ */
+async function loadThemeStylesheets(page) {
+    const hrefs = THEMES.flatMap(theme => {
+        const directory = theme.replace('neo-theme-', 'theme-'),
+              files     = [
+                  `/dist/development/css/${directory}/button/Base.css`,
+                  `/dist/development/css/${directory}/tab/Container.css`,
+                  `/dist/development/css/${directory}/tab/header/Button.css`,
+                  `/dist/development/css/${directory}/toolbar/Base.css`
+              ];
+
+        if (directory.startsWith('theme-neo-')) {
+            files.unshift(
+                `/dist/development/css/${directory}/design-tokens/Core.css`,
+                `/dist/development/css/${directory}/design-tokens/Semantic.css`,
+                `/dist/development/css/${directory}/design-tokens/Component.css`
+            )
+        }
+
+        return files
+    });
+
+    await page.evaluate(async list => {
+        await Promise.all(list.map(href => new Promise(resolve => {
+            if (document.querySelector(`link[href="${href}"]`)) return resolve();
+
+            const link = document.createElement('link');
+
+            link.rel    = 'stylesheet';
+            link.href   = href;
+            link.onload = link.onerror = resolve;
+            document.head.appendChild(link)
+        })))
+    }, hrefs)
+}
 
 /**
  * Themes the VIEWPORT through the engine, which is the only placement both halves of this measurement
@@ -100,6 +147,7 @@ test.describe('Neo.draggable.tab.header.toolbar.SortZone — the drag proxy inhe
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
         await page.waitForSelector('#component-test-viewport', {state: 'attached'});
+        await loadThemeStylesheets(page);
 
         // The viewport is an App Worker instance SHARED across every spec file — `page.goto()` gives a
         // fresh document, not a fresh component. Re-theming it is therefore a mutation that outlives
@@ -113,7 +161,7 @@ test.describe('Neo.draggable.tab.header.toolbar.SortZone — the drag proxy inhe
         // capture outlives the instance and would arm the next spec's first click.
         await page.mouse.up().catch(() => {});
 
-        for (const id of [INLINE_ID, PLAIN_ID]) {
+        for (const id of VARIANT_IDS) {
             await page.evaluate(componentId => Neo.worker.App.destroyNeoInstance(componentId), id).catch(() => {});
             await page.waitForSelector(`#${id}`, {state: 'detached'}).catch(() => {})
         }
@@ -124,14 +172,17 @@ test.describe('Neo.draggable.tab.header.toolbar.SortZone — the drag proxy inhe
     for (const theme of THEMES) {
         test(`the proxy carries the source header's density, per variant — ${theme}`, async ({page}) => {
             await applyTheme(page, theme);
-            await createTabContainer(page, INLINE_ID, 'inline');
-            await createTabContainer(page, PLAIN_ID,  null);
+            await createTabContainer(page, INLINE_ID,     'inline');
+            await createTabContainer(page, PLAIN_ID,      null);
+            await createTabContainer(page, STANDALONE_ID, 'standalone');
 
             const
-                inlineRoot = page.locator(`#${INLINE_ID}`),
-                plainRoot  = page.locator(`#${PLAIN_ID}`),
-                inlineSrc  = await density(inlineRoot),
-                plainSrc   = await density(plainRoot);
+                inlineRoot     = page.locator(`#${INLINE_ID}`),
+                plainRoot      = page.locator(`#${PLAIN_ID}`),
+                standaloneRoot = page.locator(`#${STANDALONE_ID}`),
+                inlineSrc      = await density(inlineRoot),
+                plainSrc       = await density(plainRoot),
+                standaloneSrc  = await density(standaloneRoot);
 
             // Non-vacuity: with identical variants, "proxy matches source" would hold on both arms
             // while proving nothing about the variant reaching the proxy at all.
@@ -139,8 +190,9 @@ test.describe('Neo.draggable.tab.header.toolbar.SortZone — the drag proxy inhe
                 .not.toEqual(plainSrc);
 
             for (const [label, root, expected] of [
-                ['inline', inlineRoot, inlineSrc],
-                ['ui:null', plainRoot, plainSrc]
+                ['inline',     inlineRoot,     inlineSrc],
+                ['ui:null',    plainRoot,      plainSrc],
+                ['standalone', standaloneRoot, standaloneSrc]
             ]) {
                 const
                     tab = root.locator('.neo-tab-header-button').first(),
