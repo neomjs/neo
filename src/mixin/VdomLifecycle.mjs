@@ -321,6 +321,12 @@ class VdomLifecycle extends Base {
                 batchData.windowId = me.windowId
             }
 
+            if (Neo.config.useDeltaCoherenceRegistry) {
+                batchData.coherenceAcknowledgedSequence = VDomUpdate.getCoherenceAcknowledgedSequence(
+                    me.appName, me.windowId
+                )
+            }
+
             /**
              * Optional hook that fires immediately before the VDOM payload is sent to the VDOM worker.
              * This is useful for telemetry (e.g., Performance tracking) as it excludes the synchronous
@@ -337,12 +343,28 @@ class VdomLifecycle extends Base {
              */
             me.afterExecuteVdomUpdate?.();
 
+            // With a VDom worker, the forwarded response is released only after Main applied the
+            // deltas. Record that receipt even if the initiating component was destroyed while the
+            // flight was away; the App/window partition still advanced. The local-Helper path
+            // records below only after its explicit `applyDeltas` call succeeds.
+            if (Neo.config.useDeltaCoherenceRegistry && Neo.config.useVdomWorker) {
+                VDomUpdate.recordCoherenceAcknowledgedSequence(
+                    me.appName, me.windowId, response.coherenceSequence
+                )
+            }
+
             // Component could be destroyed while the update is running: a stale success payload
             // from a destroyed flight must never apply deltas or distribute vnodes.
             if (me.id && !me.isDestroyed) {
                 // When not using a VdomWorker, we need to apply the deltas inside the App worker
                 if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
                     await Neo.applyDeltas(me.windowId, response.deltas)
+                }
+
+                if (Neo.config.useDeltaCoherenceRegistry && !Neo.config.useVdomWorker) {
+                    VDomUpdate.recordCoherenceAcknowledgedSequence(
+                        me.appName, me.windowId, response.coherenceSequence
+                    )
                 }
 
                 // Distribute results back to ALL components in the batch

@@ -98,6 +98,15 @@ class VDomUpdate extends Collection {
      */
     descendantInFlightMap = new Map()
     /**
+     * Latest VDom-worker compute sequence whose result returned after Main applied it, partitioned
+     * by App/window. Used only while the default-off coherence instrument is enabled, so a later
+     * batch can disclose which earlier compute results were actually acknowledged before it took
+     * its vnode snapshot.
+     * @member {Map<String, Number>} coherenceAcknowledgedSequenceMap=new Map()
+     * @protected
+     */
+    coherenceAcknowledgedSequenceMap = new Map()
+    /**
      * A Map that tracks VDOM updates that have been dispatched to the VDOM worker but
      * have not yet completed. This prevents redundant updates for the same component.
      *
@@ -161,6 +170,57 @@ class VDomUpdate extends Collection {
         me.mergedCallbackMap  = Neo.create(Collection, {keyProperty: 'ownerId'});
         me.postUpdateQueueMap = Neo.create(Collection, {keyProperty: 'ownerId'});
         me.promiseCallbackMap = new Map();
+    }
+
+    /**
+     * Clears one App/window coherence acknowledgment partition (test isolation).
+     * @param {String|null} appName
+     * @param {String|Number|null} windowId
+     */
+    clearCoherenceAcknowledgedSequence(appName, windowId) {
+        this.coherenceAcknowledgedSequenceMap.delete(this.getCoherenceAcknowledgmentKey(appName, windowId))
+    }
+
+    /**
+     * Returns the latest Main-applied VDom compute sequence for one App/window partition.
+     * @param {String|null} appName
+     * @param {String|Number|null} windowId
+     * @returns {Number|null}
+     */
+    getCoherenceAcknowledgedSequence(appName, windowId) {
+        return this.coherenceAcknowledgedSequenceMap.get(
+            this.getCoherenceAcknowledgmentKey(appName, windowId)
+        ) ?? null
+    }
+
+    /**
+     * Creates the collision-free key for one App/window acknowledgment partition.
+     * @param {String|null} appName
+     * @param {String|Number|null} windowId
+     * @returns {String}
+     * @protected
+     */
+    getCoherenceAcknowledgmentKey(appName, windowId) {
+        return JSON.stringify([appName ?? null, windowId ?? null])
+    }
+
+    /**
+     * Advances one App/window acknowledgment monotonically after Main apply.
+     * @param {String|null} appName
+     * @param {String|Number|null} windowId
+     * @param {Number} sequence
+     */
+    recordCoherenceAcknowledgedSequence(appName, windowId, sequence) {
+        if (!Number.isFinite(sequence)) return;
+
+        const
+            key     = this.getCoherenceAcknowledgmentKey(appName, windowId),
+            current = this.coherenceAcknowledgedSequenceMap.get(key);
+
+        this.coherenceAcknowledgedSequenceMap.set(
+            key,
+            Number.isFinite(current) ? Math.max(current, sequence) : sequence
+        )
     }
 
     /**

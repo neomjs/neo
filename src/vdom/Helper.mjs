@@ -886,6 +886,9 @@ class Helper extends Base {
                 vnodes[id] = result.vnode;
 
                 coherenceBatches?.push({
+                    acknowledgedSequence: Number.isFinite(data.coherenceAcknowledgedSequence)
+                        ? data.coherenceAcknowledgedSequence
+                        : null,
                     end: allDeltas.length, ownerId: id, sequence: coherenceSequence, start
                 });
 
@@ -907,7 +910,8 @@ class Helper extends Base {
         }
 
         if (coherenceBatches) {
-            response.coherenceBatches = coherenceBatches
+            response.coherenceBatches = coherenceBatches;
+            response.coherenceSequence = coherenceSequence
         }
 
         return response

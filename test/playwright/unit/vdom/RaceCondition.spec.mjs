@@ -335,4 +335,53 @@ test.describe('VdomLifecycle Race Condition', () => {
         // Expect Child update to succeed.
         expect(childUpdates.length).toBeGreaterThan(0);
     });
+
+    test('the next flagged flight sees a compute sequence only after the prior Main apply ack', async () => {
+        const
+            containerId = getUniqueId('coherence-ack-container'),
+            previousFlag = Neo.config.useDeltaCoherenceRegistry,
+            realUpdateBatch = VdomHelper.updateBatch,
+            observations = [];
+
+        createdComponentIds.push(containerId);
+        Neo.config.useDeltaCoherenceRegistry = true;
+        Neo.applyDeltas = async () => {};
+
+        VdomHelper.updateBatch = data => {
+            const response = realUpdateBatch.call(VdomHelper, data);
+
+            observations.push({
+                acknowledgedSequence: data.coherenceAcknowledgedSequence ?? null,
+                sequence            : response.coherenceSequence
+            });
+
+            return response
+        };
+
+        try {
+            const container = Neo.create(RaceContainer, {
+                appName,
+                id   : containerId,
+                items: [{module: RaceChildComponent, id: getUniqueId('coherence-child'), text: 'Child'}]
+            });
+
+            await container.initVnode(true);
+            container.mounted = true;
+
+            container.setSilent({style: {color: 'red'}});
+            await container.promiseUpdate();
+
+            container.setSilent({style: {color: 'blue'}});
+            await container.promiseUpdate();
+
+            expect(observations).toHaveLength(2);
+            expect(observations[0].acknowledgedSequence).toBeNull();
+            expect(observations[0].sequence).toBeGreaterThan(0);
+            expect(observations[1].acknowledgedSequence).toBe(observations[0].sequence)
+        } finally {
+            VdomHelper.updateBatch = realUpdateBatch;
+            Neo.config.useDeltaCoherenceRegistry = previousFlag;
+            VDomUpdate.clearCoherenceAcknowledgedSequence(appName, null)
+        }
+    });
 });

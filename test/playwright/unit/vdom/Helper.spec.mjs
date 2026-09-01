@@ -498,7 +498,7 @@ test.describe('Neo.vdom.Helper', () => {
             const
                 alphaOld = VdomHelper.create({vdom: {id: 'owner-alpha'}}).vnode,
                 betaOld  = VdomHelper.create({vdom: {id: 'owner-beta', cls: ['before']}}).vnode,
-                response = VdomHelper.updateBatch({updates: {
+                response = VdomHelper.updateBatch({coherenceAcknowledgedSequence: 5, updates: {
                     'alpha-component': {
                         vdom : {id: 'owner-alpha', cn: [{id: 'owner-alpha-child'}]},
                         vnode: alphaOld
@@ -511,11 +511,12 @@ test.describe('Neo.vdom.Helper', () => {
 
             expect(response.deltas).toHaveLength(2);
             expect(response.coherenceBatches).toEqual([
-                expect.objectContaining({end: 1, ownerId: 'alpha-component', start: 0}),
-                expect.objectContaining({end: 2, ownerId: 'beta-component',  start: 1})
+                expect.objectContaining({acknowledgedSequence: 5, end: 1, ownerId: 'alpha-component', start: 0}),
+                expect.objectContaining({acknowledgedSequence: 5, end: 2, ownerId: 'beta-component',  start: 1})
             ]);
             expect(response.coherenceBatches[0].sequence).toBeGreaterThan(0);
-            expect(response.coherenceBatches[1].sequence).toBe(response.coherenceBatches[0].sequence)
+            expect(response.coherenceBatches[1].sequence).toBe(response.coherenceBatches[0].sequence);
+            expect(response.coherenceSequence).toBe(response.coherenceBatches[0].sequence)
         } finally {
             Neo.config.useDeltaCoherenceRegistry = previous
         }
