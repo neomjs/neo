@@ -1001,8 +1001,8 @@ class Document extends Base {
      * fixed {@link #dockZoneEdgeKeys} order.
      *
      * Optional edge-zone slots may be absent. A present slot whose descriptor cannot resolve to a
-     * node id fails closed, so malformed topology can never fingerprint identically to an empty
-     * edge-zone and pass downstream shape gates as a legitimate no-change result.
+     * node id fails closed, so that corrupt descriptor cannot fingerprint identically to an omitted
+     * slot and pass downstream shape gates as a legitimate no-change result.
      * @param {Object} document The committed dock-zone document.
      * @returns {{fingerprint:(Object|null), errors:String[]}}
      * @static
