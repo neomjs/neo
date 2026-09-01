@@ -101,60 +101,6 @@ class Component extends Manager {
     }
 
     /**
-     * @summary Ensures one cached ancestor vnode delegates an immediate child subtree back to its
-     * live component owner.
-     *
-     * Dense responses can leave a raw child snapshot inside an ancestor cache. When that child
-     * later adopts a newer vnode, the raw copy does not advance and a future ancestor diff can
-     * replay already-live nodes. This method searches only raw DOM-shaped branches: an existing
-     * component reference is already the desired live boundary and is never resolved or traversed.
-     * Search order is breadth-at-each-level, left-to-right: an immediate sibling boundary wins over
-     * a deeper duplicate-id descendant because only the immediate child boundary belongs here.
-     * Wrapper-root ids are preserved through {@link Neo.mixin.VdomLifecycle#createVdomReference}.
-     * @param {Object|null} vnode The ancestor's cached vnode
-     * @param {Neo.component.Base} component The immediate child boundary to canonicalize
-     * @returns {String} 'existing', 'replaced', or 'missing'
-     */
-    ensureVnodeComponentReference(vnode, component) {
-        if (!vnode || !component) return 'missing';
-
-        const
-            componentId = component.id,
-            rootId      = component.vdom?.id ?? componentId,
-            stack       = [vnode];
-
-        while (stack.length > 0) {
-            const
-                node       = stack.pop(),
-                childNodes = node?.childNodes;
-
-            if (!childNodes) continue;
-
-            for (let index = 0, len = childNodes.length; index < len; index++) {
-                const child = childNodes[index];
-
-                if (child?.componentId) {
-                    if (child.componentId === componentId) {
-                        return 'existing'
-                    }
-
-                    continue
-                }
-
-                if (child?.id === rootId) {
-                    node.childNodes = [...childNodes];
-                    node.childNodes[index] = component.createVdomReference();
-                    return 'replaced'
-                }
-
-                child?.childNodes?.length > 0 && stack.push(child)
-            }
-        }
-
-        return 'missing'
-    }
-
-    /**
      * Returns the first component which matches the config-selector moving down the component items tree.
      * Use returnFirstMatch=false to get an array of all matching items instead.
      * If no match is found, returns null in case returnFirstMatch === true, otherwise an empty Array.

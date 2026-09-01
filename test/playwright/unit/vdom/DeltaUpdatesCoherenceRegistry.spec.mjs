@@ -137,64 +137,24 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
 
     test('enabled registry logs cross-batch findings WITHOUT blocking dispatch (observe-mode)', async () => {
         const
-            birth            = {action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-dup', nodeName: 'div'}},
-            acknowledgments  = [{ownerId: 'toolbar-owner', sequence: 3}],
-            firstBatches     = [{end: 1, ownerId: 'toolbar-owner', sequence: 3, start: 0}],
-            staleBatches     = [{end: 1, ownerId: 'workspace-owner', sequence: 4, start: 0}],
-            warnCalls        = [];
+            birth     = {action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-dup', nodeName: 'div'}},
+            warnCalls = [];
 
         Neo.config.useDeltaCoherenceRegistry = true;
         await DeltaUpdates.importDeltaInstruments();
         console.warn = (...args) => warnCalls.push(args);
 
-        DeltaUpdates.update({coherenceAcknowledgments: acknowledgments, coherenceBatches: firstBatches, deltas: [birth]});
+        DeltaUpdates.update({deltas: [birth]});
         expect(warnCalls).toEqual([]);
 
         // The stale-baseline cross-batch replay: each batch is per-batch-legal, the collision is
         // only visible against ledger state — and it must surface as a warning, never a throw.
-        expect(() => DeltaUpdates.update({
-            coherenceAcknowledgments: acknowledgments,
-            coherenceBatches: staleBatches,
-            deltas: [{...birth, index: 1}]
-        })).not.toThrow();
+        expect(() => DeltaUpdates.update({deltas: [{...birth, index: 1}]})).not.toThrow();
 
         expect(applied).toHaveLength(2);
         expect(warnCalls).toHaveLength(1);
         expect(warnCalls[0][0]).toBe('Delta coherence findings');
-        expect(warnCalls[0][1].findings.map(finding => finding.rule)).toEqual(['C-insert']);
-        expect(warnCalls[0][1].findings[0].detail).toContain('toolbar-owner');
-        expect(warnCalls[0][1].findings[0].detail).toContain('sequence 3');
-        expect(warnCalls[0][1].acknowledgments).toEqual(acknowledgments);
-        expect(warnCalls[0][1].coherenceBatches).toEqual(staleBatches)
-    });
-
-    test('listener length drift drops owner attribution instead of shifting its ranges', async () => {
-        const
-            birth        = {action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-shifted', nodeName: 'div'}},
-            firstBatches = [{end: 1, ownerId: 'birth-owner', sequence: 1, start: 0}],
-            staleBatches = [{end: 1, ownerId: 'wrong-if-shifted', sequence: 2, start: 0}],
-            warnCalls    = [];
-
-        Neo.config.useDeltaCoherenceRegistry = true;
-        await DeltaUpdates.importDeltaInstruments();
-        console.warn = (...args) => warnCalls.push(args);
-
-        DeltaUpdates.update({coherenceBatches: firstBatches, deltas: [birth]});
-
-        // The owner range was calculated for one delta. An addon inserts ahead of it during the
-        // documented by-reference mutation window, so the old [0,1) range is no longer truthful.
-        DeltaUpdates.on('update', data => {
-            data.deltas.unshift({id: 'neo-unrelated', style: {color: 'red'}})
-        }, null, {once: true});
-
-        DeltaUpdates.update({
-            coherenceBatches: staleBatches,
-            deltas: [{...birth, index: 1}]
-        });
-
-        expect(warnCalls).toHaveLength(1);
-        expect(warnCalls[0][1].findings.map(finding => finding.rule)).toEqual(['C-insert']);
-        expect(warnCalls[0][1].coherenceBatches).toBeNull()
+        expect(warnCalls[0][1].findings.map(finding => finding.rule)).toEqual(['C-insert'])
     });
 
     test('the ledger commits after application: state advances batch by batch', async () => {

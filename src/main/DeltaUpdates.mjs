@@ -989,23 +989,14 @@ class DeltaUpdates extends Base {
      * by `importDeltaInstruments()` — each browser window owns its own realm, which IS the
      * `{windowId, idSort, id}` partition.
      * @param {Object[]} deltas The normalized batch after `update` listeners had their mutation window.
-     * @param {Object[]|null} [coherenceBatches=null] Flag-gated update-owner to delta-range map
-     *     supplied by the VDom worker for diagnostic attribution.
-     * @param {Object[]|null} [coherenceAcknowledgments=null] Latest owner-vnode receipts captured
-     *     once for the physical batch.
      * @returns {Function} The ledger commit handle
      * @protected
      */
-    observeDeltaCoherence(deltas, coherenceBatches=null, coherenceAcknowledgments=null) {
-        const evaluation = this.coherenceRegistry.evaluateBatch(deltas, {coherenceBatches});
+    observeDeltaCoherence(deltas) {
+        const evaluation = this.coherenceRegistry.evaluateBatch(deltas);
 
         if (evaluation.findings.length > 0) {
-            console.warn('Delta coherence findings', {
-                acknowledgments: coherenceAcknowledgments,
-                coherenceBatches,
-                deltas,
-                findings: evaluation.findings
-            })
+            console.warn('Delta coherence findings', {deltas, findings: evaluation.findings})
         }
 
         return evaluation.commit
@@ -1100,18 +1091,7 @@ class DeltaUpdates extends Base {
             len = deltas.length;
 
             if (len > 0) {
-                let coherenceBatches = data.coherenceBatches;
-
-                // Owner ranges index the pre-listener delta array. If an addon inserted or
-                // removed entries, stale indices would confidently name the wrong producer.
-                // Fail closed on any length drift: keep observing coherence, drop attribution.
-                if (coherenceBatches?.at(-1)?.end !== len) {
-                    coherenceBatches = null
-                }
-
-                coherenceCommit = me.observeDeltaCoherence(
-                    deltas, coherenceBatches, data.coherenceAcknowledgments
-                )
+                coherenceCommit = me.observeDeltaCoherence(deltas)
             }
         }
 

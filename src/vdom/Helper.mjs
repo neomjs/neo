@@ -40,15 +40,6 @@ class Helper extends Base {
     }
 
     /**
-     * Monotonic VDom-worker compute sequence used only by the flag-gated coherence instrument.
-     * Every update owner in one `updateBatch()` shares the same sequence, letting Main compare
-     * compute order with its later apply/birth order without changing the default wire payload.
-     * @member {Number} coherenceBatchSequence=0
-     * @protected
-     */
-    coherenceBatchSequence = 0
-
-    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -860,63 +851,23 @@ class Helper extends Base {
      *
      * @param {Object} data
      * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
-     * When the coherence registry is enabled, `coherenceBatches` maps each update owner onto its
-     * exact half-open delta range so a Main-thread finding can name the App-worker flight that
-     * produced it. Flag-off responses stay byte-identical.
-     * @returns {Object} { deltas: Object[], meta: Object, vnodes: Object, coherenceBatches?: Object[] }
+     * @returns {Object} { deltas: Object[], meta: Object, vnodes: Object }
      */
     updateBatch(data) {
-        let me               = this,
-            allDeltas        = [],
-            coherenceBatches = NeoConfig.useDeltaCoherenceRegistry ? [] : null,
-            coherenceAcknowledgments = coherenceBatches && Array.isArray(data.coherenceAcknowledgments)
-                ? data.coherenceAcknowledgments.filter(item =>
-                    item?.ownerId != null && Number.isFinite(item.sequence)
-                ).map(item => ({
-                    ownerId: item.ownerId,
-                    ...(item.ownerSnapshot && {
-                        ownerSnapshot: {
-                            baselineOwnerId: item.ownerSnapshot.baselineOwnerId,
-                            deltaCount     : item.ownerSnapshot.deltaCount,
-                            deltas         : item.ownerSnapshot.deltas,
-                            vdomChildCount : item.ownerSnapshot.vdomChildCount,
-                            vdomChildren   : item.ownerSnapshot.vdomChildren,
-                            vnodeChildCount: item.ownerSnapshot.vnodeChildCount,
-                            vnodeChildren  : item.ownerSnapshot.vnodeChildren
-                        }
-                    }),
-                    ...(Array.isArray(item.referenceTrace) && item.referenceTrace.length > 0 && {
-                        referenceTrace: item.referenceTrace.map(entry => ({
-                            ancestorId : entry.ancestorId,
-                            boundaryId : entry.boundaryId,
-                            disposition: entry.disposition
-                        }))
-                    }),
-                    sequence: item.sequence
-                }))
-                : null,
-            coherenceSequence = coherenceBatches ? ++me.coherenceBatchSequence : null,
-            meta             = {},
-            vnodes           = {},
-            hasMeta          = false,
+        let me        = this,
+            allDeltas = [],
+            meta      = {},
+            vnodes    = {},
+            hasMeta   = false,
             result, id, updateOpts;
 
         for (id in data.updates) {
             if (Object.hasOwn(data.updates, id)) {
-                let start = allDeltas.length;
-
                 updateOpts = data.updates[id];
                 result     = me.update(updateOpts);
                 
                 allDeltas.push(...result.deltas);
                 vnodes[id] = result.vnode;
-
-                coherenceBatches?.push({
-                    ...(updateOpts.coherencePayloadSnapshot && {
-                        payloadSnapshot: updateOpts.coherencePayloadSnapshot
-                    }),
-                    end: allDeltas.length, ownerId: id, sequence: coherenceSequence, start
-                });
 
                 if (updateOpts.meta) {
                     meta[id] = updateOpts.meta;
@@ -933,12 +884,6 @@ class Helper extends Base {
 
         if (hasMeta) {
             response.meta = meta
-        }
-
-        if (coherenceBatches) {
-            response.coherenceAcknowledgments = coherenceAcknowledgments;
-            response.coherenceBatches = coherenceBatches;
-            response.coherenceSequence = coherenceSequence
         }
 
         return response

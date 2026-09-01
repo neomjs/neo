@@ -50,54 +50,10 @@ const tabButton = (node, text) => node.locator('.neo-tab-header-button', {hasTex
 
 const actionButton = (node, glyph) => node.locator(`.neo-tab-header-toolbar .neo-button:has([class*="${glyph}"])`);
 
-let coherenceFindingPromises = [];
-
-/**
- * Captures the default-off delta-coherence observer after this fixture explicitly enables it.
- * Findings remain non-throwing: the strict action locator is still the failure instrument, while
- * this attachment names the App-worker update owners and exact delta ranges that produced a
- * cross-batch insert-on-live id.
- * @param {import('@playwright/test').Page} page
- */
-const captureCoherenceFindings = page => {
-    coherenceFindingPromises = [];
-
-    page.on('console', message => {
-        if (message.type() === 'warning' && message.text().startsWith('Delta coherence findings')) {
-            coherenceFindingPromises.push(Promise.all(message.args().map(async handle => {
-                try {
-                    return await handle.jsonValue()
-                } catch (error) {
-                    return {unserializable: String(error)}
-                }
-            })).then(values => {
-                const payload = values[1] ?? {message: message.text()};
-
-                return payload.findings?.some(finding => finding.rule === 'C-insert') ? payload : null
-            }))
-        }
-    })
-};
-
 test.beforeEach(async ({page}) => {
-    captureCoherenceFindings(page);
     await page.goto('test/playwright/component/apps/dock-maximize/index.html');
     await page.waitForSelector('#dock-maximize-workspace', {state: 'attached'});
     await page.waitForSelector('.neo-tab-header-button',   {state: 'visible'})
-});
-
-test.afterEach(async ({}, testInfo) => {
-    const findings = (await Promise.all(coherenceFindingPromises)).filter(Boolean);
-
-    if (findings.length > 0) {
-        const body = JSON.stringify({test: testInfo.title, findings}, null, 2);
-
-        console.log('DELTA_COHERENCE_CAPTURE', body);
-        await testInfo.attach('delta-coherence-findings', {
-            body,
-            contentType: 'application/json'
-        })
-    }
 });
 
 test.describe('dock reload — delegation-only, settled, single-flight', () => {

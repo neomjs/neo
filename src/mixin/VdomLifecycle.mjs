@@ -216,8 +216,7 @@ class VdomLifecycle extends Base {
      * @private
      */
     async executeVdomUpdate(resolve, reject) {
-        let me            = this,
-            batchOwnerIds = new Set([me.id]);
+        let me = this;
 
         (resolve || reject) && VDomUpdate.addPromiseCallback(me.id, resolve, reject);
 
@@ -309,24 +308,6 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            // Every surviving update key owns a returned vnode, even when another component
-            // initiated the physical batch. Mark all of them in-flight before dispatch so a
-            // mutation arriving after payload collection queues behind this exact response instead
-            // of opening a second flight that can be overwritten by the older batch on return.
-            for (const id in updates) {
-                if (Object.hasOwn(updates, id)) {
-                    const component = Neo.getComponent(id);
-
-                    if (id !== me.id && component && !component.isDestroyed) {
-                        component.isVdomUpdating = true;
-                        VDomUpdate.registerInFlightUpdate(id, depths.get(id));
-                        batchOwnerIds.add(id)
-                    }
-
-                    VDomUpdate.markPayloadCollected(id)
-                }
-            }
-
             const batchData = {updates};
 
             // CRITICAL: SharedWorker Context Injection
@@ -338,32 +319,6 @@ class VdomLifecycle extends Base {
             if (currentWorker?.isSharedWorker) {
                 batchData.appName  = me.appName;
                 batchData.windowId = me.windowId
-            }
-
-            if (Neo.config.useDeltaCoherenceRegistry) {
-                const
-                    referenceableOwnerIds = new Set(),
-                    pendingOwners         = Object.keys(updates);
-
-                while (pendingOwners.length > 0) {
-                    const
-                        id        = pendingOwners.pop(),
-                        component = Neo.getComponent(id);
-
-                    if (component && !referenceableOwnerIds.has(id)) {
-                        referenceableOwnerIds.add(id);
-
-                        for (const child of ComponentManager.getDirectChildren(id)) {
-                            if (child.appName === me.appName && child.windowId === me.windowId) {
-                                pendingOwners.push(child.id)
-                            }
-                        }
-                    }
-                }
-
-                batchData.coherenceAcknowledgments = VDomUpdate.getCoherenceAcknowledgments(
-                    me.appName, me.windowId, referenceableOwnerIds
-                )
             }
 
             /**
@@ -382,118 +337,55 @@ class VdomLifecycle extends Base {
              */
             me.afterExecuteVdomUpdate?.();
 
-            // The response has settled the frozen snapshot. Callback registration from this point
-            // targets the ordinary/current generation again; callbacks already parked for the
-            // follow-up remain isolated in nextPromiseCallbackMap until each owner resolves.
-            for (const id of batchOwnerIds) {
-                VDomUpdate.unmarkPayloadCollected(id)
-            }
+            // Component could be destroyed while the update is running: a stale success payload
+            // from a destroyed flight must never apply deltas or distribute vnodes.
+            if (me.id && !me.isDestroyed) {
+                // When not using a VdomWorker, we need to apply the deltas inside the App worker
+                if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
+                    await Neo.applyDeltas(me.windowId, response.deltas)
+                }
 
-            // With a VDom worker, the response means Main already applied the physical batch even
-            // if its initiator died meanwhile. The local Helper path has not applied anything yet;
-            // keep its historical initiator-survival gate and fail closed for every owner when dead.
-            const canAdoptResponse = Neo.config.useVdomWorker || (me.id && !me.isDestroyed);
-
-            if (!Neo.config.useVdomWorker && canAdoptResponse && response.deltas?.length > 0) {
-                await Neo.applyDeltas(me.windowId, response.deltas)
-            }
-
-            const
-                releasedError = new Error(
-                    'VDOM batch response could not be adopted because its initiator was destroyed'
-                ),
-                settledOwnerIds = new Set(),
-                releaseOwner = id => {
-                    const component = Neo.getComponent(id);
-
-                    component && (component.isVdomUpdating = false);
-                    VDomUpdate.unregisterInFlightUpdate(id);
-                    VDomUpdate.rejectCallbacks(id, releasedError);
-                    component?.needsVdomUpdate && component.update()
-                };
-
-            releasedError.code = 'NEO_VDOM_BATCH_RESPONSE_NOT_ADOPTED';
-
-            if (canAdoptResponse) {
-                // Settle every returned vnode owner independently. A moved surviving sibling must
-                // never wedge merely because the transport initiator was destroyed.
+                // Distribute results back to ALL components in the batch
                 for (const id in response.vnodes) {
                     if (Object.hasOwn(response.vnodes, id)) {
-                        const
-                            vnode     = response.vnodes[id],
-                            component = Neo.getComponent(id);
-
-                        settledOwnerIds.add(id);
+                        const vnode     = response.vnodes[id];
+                        const component = Neo.getComponent(id);
 
                         if (component && !component.isDestroyed) {
                             component.vnode = vnode;
 
-                            // This owner-specific receipt means both halves completed: Main applied
-                            // the deltas (or acknowledged a no-op), then App adopted this vnode.
-                            // Record before callbacks because they can request the next batch.
-                            if (Neo.config.useDeltaCoherenceRegistry) {
-                                const referenceTrace = component.coherenceAncestorReferenceTrace;
-
-                                let hasMissingBoundary = false;
-
-                                for (const entry of referenceTrace || []) {
-                                    if (entry.disposition === 'missing') {
-                                        hasMissingBoundary = true;
-                                        break
-                                    }
-                                }
-
-                                VDomUpdate.recordCoherenceAcknowledgment(
-                                    me.appName,
-                                    me.windowId,
-                                    id,
-                                    response.coherenceSequence,
-                                    referenceTrace,
-                                    hasMissingBoundary
-                                        ? me.getCoherenceOwnerSnapshot(response, id, component, referenceTrace)
-                                        : null
-                                )
-                            }
-
+                            // Resolve the update for this component and its merged children
+                            // Note: response.deltas contains the aggregated deltas for the whole batch
                             component.resolveVdomUpdate({
                                 deltas: response.deltas,
                                 vnode
                             }, componentMergedChildren.get(id));
-                        } else {
-                            releaseOwner(id)
                         }
                     }
                 }
             }
-
-            for (const id of batchOwnerIds) {
-                if (!settledOwnerIds.has(id)) {
-                    releaseOwner(id)
-                }
-            }
         } catch (err) {
-            const hasCallbacks = [...batchOwnerIds].some(id => VDomUpdate.hasPromiseCallbacks(id));
+            me.isVdomUpdating = false;
+            // Ensure state is cleaned up on error
+            VDomUpdate.unregisterInFlightUpdate(me.id);
 
-            // A failed physical batch owns every vnode key it collected, not only its initiator.
-            // Release and reject them all; otherwise a disjoint child stays wedged forever.
-            for (const id of batchOwnerIds) {
-                const component = Neo.getComponent(id);
+            // A failed flight must reject every promise parked on it — the initiator AND any
+            // children merged into the cycle (rejectCallbacks is the error-path twin of the
+            // resolveVdomUpdate -> executeCallbacks success path). Detect the fire-and-forget case
+            // first (no parked promise), so a genuinely silent failure still logs rather than
+            // vanishing — the symptom otherwise surfaces minutes later as "the DOM stopped
+            // following". Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
+            VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
 
-                component && (component.isVdomUpdating = false);
-                VDomUpdate.unmarkPayloadCollected(id);
-                VDomUpdate.unregisterInFlightUpdate(id);
-                VDomUpdate.rejectCallbacks(id, err)
-            }
+            VDomUpdate.rejectCallbacks(me.id, err);
 
-            // Detect the fire-and-forget case first, so a genuinely silent failure still logs.
-            hasCallbacks || console.error('vdom update failed', me.id, err);
-
-            // Mirror resolveVdomUpdate(): mutations queued behind any owner get one bounded
-            // follow-up after the failed batch releases them.
-            for (const id of batchOwnerIds) {
-                const component = Neo.getComponent(id);
-
-                component?.needsVdomUpdate && component.update()
+            // Mirror of resolveVdomUpdate(): updates queued onto this flight while it was running
+            // are only ever drained by a follow-up cycle — without this, their content (and any
+            // attached promise callbacks) strand until the next organic update. A deterministic
+            // failure cannot hot-loop here: the retry consumes needsVdomUpdate, and with no new
+            // mutations a failing retry terminates after one bounded re-throw.
+            if (me.needsVdomUpdate) {
+                me.update()
             }
         }
     }
@@ -555,21 +447,10 @@ class VdomLifecycle extends Base {
         let me            = this,
             updateDepth   = depth ?? me.updateDepth,
             {vdom, vnode} = me,
-            vdomTree      = TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
-            vnodeTree     = TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds),
             opts          = {
-                vdom : vdomTree,
-                vnode: vnodeTree
+                vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
+                vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds)
             };
-
-        if (Neo.config.useDeltaCoherenceRegistry) {
-            opts.coherencePayloadSnapshot = {
-                mergedAllowlist: mergedChildIds ? [...mergedChildIds].slice(0, 64) : [],
-                updateDepth,
-                vdom : me.getCoherenceTreeFingerprints(vdomTree,  'cn'),
-                vnode: me.getCoherenceTreeFingerprints(vnodeTree, 'childNodes')
-            }
-        }
 
         if (currentWorker?.isSharedWorker) {
             opts.appName  = me.appName;
@@ -589,139 +470,6 @@ class VdomLifecycle extends Base {
         me._updateDepth = me.constructor.config.updateDepth;
 
         return opts
-    }
-
-    /**
-     * @summary Returns bounded component-boundary fingerprints for one generated payload tree.
-     *
-     * Each entry names reference-vs-raw shape, `neoIgnore`, and at most 16 direct child identities.
-     * The traversal records at most 64 component roots, enough to classify the Dock carrier without
-     * serializing the generated trees themselves.
-     * @param {Object} root
-     * @param {String} childKey 'cn' or 'childNodes'
-     * @returns {Object[]}
-     * @protected
-     */
-    getCoherenceTreeFingerprints(root, childKey) {
-        const
-            fingerprints = [],
-            limit         = 64,
-            childLimit    = 16,
-            stack         = [root];
-
-        while (stack.length > 0 && fingerprints.length < limit) {
-            const
-                node      = stack.pop(),
-                children  = node?.[childKey] || [],
-                component = node?.componentId
-                    ? Neo.getComponent(node.componentId)
-                    : node?.id
-                        ? Neo.getComponent(node.id) || ComponentManager.wrapperNodes.get(node.id)
-                        : null;
-
-            if (component) {
-                const childIdentities = [];
-
-                for (let index = 0, len = Math.min(children.length, childLimit); index < len; index++) {
-                    const child = children[index];
-
-                    childIdentities.push(
-                        child?.componentId ?? child?.id ?? child?.tag ?? child?.nodeName ?? typeof child
-                    )
-                }
-
-                fingerprints.push({
-                    childCount : children.length,
-                    children   : childIdentities,
-                    componentId: component.id,
-                    id         : node.id ?? null,
-                    neoIgnore  : node.neoIgnore === true,
-                    shape      : node.componentId ? 'reference' : 'raw'
-                })
-            }
-
-            for (let index = children.length - 1; index >= 0; index--) {
-                typeof children[index] === 'object' && children[index] !== null && stack.push(children[index])
-            }
-        }
-
-        return fingerprints
-    }
-
-    /**
-     * @summary Returns a bounded diagnostic snapshot for one adopted owner on a flagged physical
-     * batch.
-     *
-     * Direct vdom/vnode child identities expose asymmetric owner baselines without serializing full
-     * trees. Owner-range delta actions identify whether the response inserted, removed, or merely
-     * updated that baseline. Every list is capped at 32; full cardinalities travel separately.
-     * @param {Object} response
-     * @param {String} ownerId
-     * @param {Neo.component.Base} component
-     * @param {Object[]} referenceTrace
-     * @returns {Object}
-     * @protected
-     */
-    getCoherenceOwnerSnapshot(response, ownerId, component, referenceTrace) {
-        let snapshotComponent = component;
-
-        for (const entry of referenceTrace) {
-            if (entry.disposition === 'missing') {
-                snapshotComponent = Neo.getComponent(entry.ancestorId) || component;
-                break
-            }
-        }
-
-        const
-            limit         = 32,
-            vdomChildren  = snapshotComponent.getVdomRoot?.()?.cn || [],
-            vnodeChildren = snapshotComponent.getVnodeRoot?.()?.childNodes || [],
-            snapshot      = {
-                baselineOwnerId: snapshotComponent.id,
-                vdomChildCount : vdomChildren.length,
-                vdomChildren   : [],
-                vnodeChildCount: vnodeChildren.length,
-                vnodeChildren  : []
-            };
-
-        for (let index = 0, len = Math.min(vdomChildren.length, limit); index < len; index++) {
-            const child = vdomChildren[index];
-
-            snapshot.vdomChildren.push(child?.componentId ?? child?.id ?? child?.tag ?? typeof child)
-        }
-
-        for (let index = 0, len = Math.min(vnodeChildren.length, limit); index < len; index++) {
-            const child = vnodeChildren[index];
-
-            snapshot.vnodeChildren.push(child?.componentId ?? child?.id ?? child?.nodeName ?? typeof child)
-        }
-
-        let range;
-
-        for (const item of response.coherenceBatches || []) {
-            if (item.ownerId === ownerId) {
-                range = item;
-                break
-            }
-        }
-
-        if (range) {
-            const ownerDeltas = response.deltas.slice(range.start, range.end);
-
-            snapshot.deltaCount = ownerDeltas.length;
-            snapshot.deltas     = [];
-
-            for (let index = 0, len = Math.min(ownerDeltas.length, limit); index < len; index++) {
-                const delta = ownerDeltas[index];
-
-                snapshot.deltas.push({
-                    action: delta.action || 'updateNode',
-                    id    : delta.vnode?.id ?? delta.id ?? delta.toId ?? null
-                })
-            }
-        }
-
-        return snapshot
     }
 
     /**
@@ -1204,45 +952,7 @@ class VdomLifecycle extends Base {
         // silent update
         me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
 
-        me.syncAncestorVnodeReferences();
-
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
-    }
-
-    /**
-     * @summary Replaces stale raw child snapshots along the live ancestor chain with component
-     * references after this owner adopts a vnode.
-     *
-     * Only the immediate child boundary is considered at each level. Existing references make
-     * deeper traversal unnecessary; different App/window realms terminate the walk, preserving
-     * cross-window move ownership. Internal `_vnode` caches are canonicalized in place without
-     * invoking the public setter or scheduling another render.
-     * @protected
-     */
-    syncAncestorVnodeReferences() {
-        const
-            me    = this,
-            trace = Neo.config.useDeltaCoherenceRegistry ? [] : null;
-
-        let child  = me,
-            parent = child.parent;
-
-        while (parent && parent.appName === me.appName && parent.windowId === me.windowId) {
-            const disposition = parent.vnode
-                ? ComponentManager.ensureVnodeComponentReference(parent.vnode, child)
-                : 'no-vnode';
-
-            trace?.push({
-                ancestorId: parent.id,
-                boundaryId: child.id,
-                disposition
-            });
-
-            child  = parent;
-            parent = parent.parent
-        }
-
-        me.coherenceAncestorReferenceTrace = trace
     }
 
     /**
