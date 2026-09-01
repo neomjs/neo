@@ -212,6 +212,29 @@ The transform itself lives in `Neo.data.normalizer.Path`, the sibling of `Neo.da
 same category of reshaping, different input encoding. Use the normalizer directly through a
 `Neo.data.Pipeline` when path-addressed data arrives from a remote source in bulk.
 
+### Adding a node that already exists
+
+`add()` resolves nodes by key, not by object identity. A record whose key is already in the store
+**replaces** the node in its parent's child array rather than joining it there, so re-reading the same
+config, fixture or API response is idempotent and needs no "does this exist yet" branch of its own:
+
+```javascript readonly
+treeStore.add({id: 'Group', parentId: 'root', name: 'Group', isLeaf: false});
+treeStore.add({id: 'Group', parentId: 'root', name: 'Group', isLeaf: false});
+
+treeStore.getChildren('root');       // one entry — the second add replaced the first
+treeStore.get('Group').siblingCount; // 1
+```
+
+Both halves of the Structural Layer end up on the same record, so what `getChildren()` returns is what
+`get()` returns, and the derived ARIA fields describe the level that actually exists. What this is not
+is a **merge**: the node is replaced by the payload you pass, so a field you omit is re-derived from
+the defaults rather than inherited from the node it replaced.
+
+An auto-healed node — one whose declared parent was absent, re-parented to `'root'` as described above
+— carries `depth: 0`. The depth resolved against the missing parent describes a level the node does
+not end up on.
+
 ### Expanding and Collapsing
 
 The primary way users interact with a TreeStore is by toggling node visibility.

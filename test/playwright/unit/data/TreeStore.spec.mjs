@@ -1103,3 +1103,94 @@ test.describe('Neo.data.TreeStore (getChildren)', () => {
         turboStore.destroy()
     })
 });
+
+test.describe('Neo.data.TreeStore (re-adding an existing key)', () => {
+    let store;
+
+    class ReAddTreeModel extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.ReAddTreeModel',
+            fields   : [
+                {name: 'id',   type: 'String'},
+                {name: 'name', type: 'String'}
+            ]
+        }
+    }
+
+    const ReAddModel = Neo.setupClass(ReAddTreeModel);
+
+    test.beforeEach(() => {
+        store = Neo.create(TreeStore, {
+            model: ReAddModel,
+            data : [
+                {id: 'Group',   name: 'Group', isLeaf: false},
+                {id: 'Group/A', name: 'A',     isLeaf: true, parentId: 'Group'}
+            ]
+        })
+    });
+
+    test.afterEach(() => {
+        store?.destroy()
+    });
+
+    const childIds = (parentId='root') => store.getChildren(parentId).map(record => record.id);
+
+    test('replaces the node in its parent child array instead of appending beside it', () => {
+        store.add({id: 'Group/A', parentId: 'Group', name: 'A (updated)', isLeaf: true});
+
+        expect(childIds('Group')).toEqual(['Group/A']);
+        expect(store.get('Group/A').siblingCount).toBe(1);
+        expect(store.get('Group').childCount).toBe(1)
+    });
+
+    test('the re-added values win and the stale object stops being reachable', () => {
+        store.add({id: 'Group/A', parentId: 'Group', name: 'A (updated)', isLeaf: true});
+
+        const [child] = store.getChildren('Group');
+
+        expect(child.name).toBe('A (updated)');
+
+        // Both halves of the Structural Layer must resolve to the same record. A child array entry
+        // that get() no longer returns is the half-fix this assertion exists to reject: it would
+        // make siblingCount correct while leaving getChildren() serving the object it replaced.
+        expect(child).toBe(store.get('Group/A'))
+    });
+
+    test('a root-level re-add leaves one root entry with one sibling', () => {
+        store.add({id: 'Group', parentId: 'root', name: 'Group', isLeaf: false});
+
+        expect(store.getCount()).toBe(1);
+        expect(childIds()).toEqual(['Group']);
+        expect(store.get('Group').siblingCount).toBe(1)
+    });
+
+    test('adding the same object reference twice still no-ops', () => {
+        store.add(store.get('Group/A'));
+
+        expect(childIds('Group')).toEqual(['Group/A']);
+        expect(store.get('Group/A').siblingCount).toBe(1)
+    });
+
+    test('an auto-healed node carries the depth of the level it lands on', () => {
+        store.add({id: 'Orphan/A', parentId: 'Orphan', name: 'A'});
+
+        const healed = store.get('Orphan/A');
+
+        expect(healed.parentId).toBe('root');
+
+        // depth is resolved from the declared parent — here, the parent that turned out to be absent.
+        // Re-parenting to 'root' has to carry that derived field with it.
+        expect(healed.depth).toBe(0)
+    });
+
+    test('a re-added orphan heals into the root level once, not twice', () => {
+        store.add({id: 'Orphan/A', parentId: 'Orphan', name: 'A'});
+        store.add({id: 'Orphan/A', parentId: 'Orphan', name: 'A (updated)'});
+
+        // The auto-heal branch resolves membership on its own, so a fix confined to the main
+        // ingestion path leaves this one duplicating.
+        expect(childIds()).toEqual(['Group', 'Orphan/A']);
+        expect(store.get('Orphan/A').name).toBe('A (updated)');
+        expect(store.get('Orphan/A').siblingCount).toBe(2)
+    })
+});
