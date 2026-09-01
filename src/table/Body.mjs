@@ -578,6 +578,15 @@ class TableBody extends Component {
      * @param {Object[]} data.items
      * @param {Number}   [data.total]
      * @protected
+     *
+     * The scroll-to-top nudge is a detached dispatch: it fires 50ms after the mount check, so by
+     * the time the message is sent the body may be destroyed (`core.Base#destroy` rejects pending
+     * timeouts with `Neo.isDestroyed`) or the destination window may be gone (`worker.Base`
+     * rejects with `code: 'NEO_DEAD_PORT'`). Both are expected outcomes of a scroll into somewhere
+     * that no longer exists, not failures to report — and because a store load runs on every
+     * collection mutation, leaving either unhandled turns a ticking feed into one uncaught
+     * rejection per tick. Anything else IS a live failure, and this chain has no caller to
+     * propagate to, so the console is the honest terminal surface.
      */
     onStoreLoad(data) {
         let me         = this,
@@ -611,14 +620,17 @@ class TableBody extends Component {
         me.createViewData();
 
         if (me.mounted) {
-            me.timeout(50).then(() => {
-                Neo.main.DomAccess.scrollTo({
+            me.timeout(50)
+                .then(() => Neo.main.DomAccess.scrollTo({
                     direction: 'top',
                     id       : me.vdom.id,
                     value    : 0,
                     windowId
+                }))
+                .catch(reason => {
+                    reason !== Neo.isDestroyed && reason?.code !== 'NEO_DEAD_PORT' &&
+                        console.error('table.Body: scroll-to-top dispatch failed', {reason, windowId})
                 })
-            })
         }
     }
 
