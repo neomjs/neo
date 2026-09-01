@@ -438,6 +438,14 @@ class Workspace extends Container {
     dockReloadInFlight = new Set()
 
     /**
+     * Item ids with a recreate transaction in flight — the same single-flight contract the reload
+     * guard above uses, for the same reason: one settlement per invocation.
+     * @member {Set<String>} dockRecreateInFlight=new Set()
+     * @protected
+     */
+    dockRecreateInFlight = new Set()
+
+    /**
      * The in-flight maximizedNodeId transition as an awaitable — every consumer that must
      * observe settled maximize presentation (the refresh chain, the continuity sync) awaits
      * this instead of racing the async clear/apply pair.
@@ -2195,10 +2203,24 @@ class Workspace extends Container {
             index   = itemIds.indexOf(itemId),
             pane    = index > -1 ? tabContainer.getCard(index) : null;
 
-        if (!pane || pane.isDestroyed || typeof pane.dockReload !== 'function') {
-            // The visibility sync hides the action for exactly these panes; reaching this guard
-            // means a race (teardown, active-item flip mid-dispatch) — settle it honestly.
-            errors.push(`Dock reload has no live dockReload() contract for item "${itemId}"`)
+        if (!pane || pane.isDestroyed) {
+            // No live card at all: a race (teardown, active-item flip mid-dispatch). There is
+            // nothing to delegate to and nothing to replace — settle it honestly.
+            errors.push(`Dock reload has no live pane for item "${itemId}"`)
+        } else if (typeof pane.dockReload !== 'function') {
+            // THE FALLBACK. A pane that never implemented the delegation contract has no other
+            // recovery once its own state is wedged, which is the entire reason the recreate
+            // transaction exists. Delegation first, recreate only when it is absent — a pane that
+            // owns `dockReload()` decides what reload means, and replacing it instead would
+            // discard that authority AND its identity.
+            //
+            // `settle: false` because THIS method settles the activation. Without it one click
+            // emits two terminal events — `dockRecreateSettled` from the transaction and
+            // `dockReloadSettled` from here — and a consumer counting completions would see the
+            // action fire twice. The transaction's own channel stays for direct callers.
+            const recreated = me.recreateDockPane(itemId, pane, {dockNodeId, settle: false});
+
+            recreated?.errors?.length && errors.push(...recreated.errors)
         } else {
             me.dockReloadInFlight.add(itemId);
             me.syncDockReloadAction(tabContainer);
@@ -2266,8 +2288,12 @@ class Workspace extends Container {
                 pane    = index > -1 ? tabContainer.getCard(index) : null,
                 carrier = pane?.isDestroyed ? null : (pane?.dockReload ?? pane?.module?.prototype?.dockReload);
 
-            disabled = this.dockReloadInFlight.has(itemId);
-            hidden   = typeof carrier !== 'function'
+            disabled = this.dockReloadInFlight.has(itemId) || this.dockRecreateInFlight.has(itemId);
+
+            // An absent delegation hook no longer hides the action on its own: the recreate
+            // fallback serves exactly those panes, so hiding them would hide the only recovery
+            // they have. Hidden only when NEITHER path can serve the item.
+            hidden = typeof carrier !== 'function' && !this.hasDockRecreateFallback()
         }
 
         // ONE batched update for both axes (`set()`), never two sequential writes: each write
@@ -3382,6 +3408,241 @@ class Workspace extends Container {
      */
     resolveRevealPane(itemId, item) {
         return this.resolvePane(itemId, item)
+    }
+
+    /**
+     * Hook: produces a **fresh** candidate pane for an item, bypassing any live-instance cache.
+     *
+     * Deliberately a separate hook rather than an option on {@link #resolvePane}. Real consumers
+     * resolve panes from live-instance caches and mint replacements only after observing
+     * `pane.isDestroyed`; an option those consumers do not implement would be silently ignored and
+     * hand back **the very instance the recreate is meant to replace**. A distinct hook cannot be
+     * accidentally satisfied by a cache, and its default says the honest thing: this consumer does
+     * not support recreate.
+     *
+     * Returning `null` is a legitimate answer, not a failure of contract — it declines the
+     * capability, and {@link #prepareRecreateCandidate} reports that as a named refusal with the
+     * live pane untouched.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Object} item The persisted item record.
+     * @returns {Object|Neo.component.Base|null}
+     */
+    resolveFreshPane(itemId, item) {
+        return null
+    }
+
+    /**
+     * Whether this workspace can serve a recreate at all — i.e. whether a consumer overrode
+     * {@link #resolveFreshPane}.
+     *
+     * Derived from the prototype rather than by calling the factory, because this is consulted by
+     * {@link #syncDockReloadAction} on every active-item change and a visibility sync must not have
+     * side effects: invoking a consumer factory to decide whether to show a button would mint panes
+     * nobody asked for.
+     *
+     * It answers "is the capability wired", not "will this particular item succeed". A consumer that
+     * overrides the hook and then declines a specific item still gets a **visible** action that
+     * settles with a named refusal — which is the honest behaviour: hiding it would leave a wedged
+     * pane with no affordance and no explanation.
+     * @returns {Boolean}
+     */
+    hasDockRecreateFallback() {
+        return this.resolveFreshPane !== Workspace.prototype.resolveFreshPane
+    }
+
+    /**
+     * Phase 1 of the two-phase recreate transaction: obtain and validate a fresh candidate **without
+     * touching the live pane**.
+     *
+     * Rollback is by construction rather than by repair — nothing is destroyed here, so every
+     * refusal below leaves the workspace exactly as it was. The docking record's user-triggered
+     * recreate exception is conditioned on this phase — without a validated candidate the exception
+     * does not apply and the never-destroyed guarantee stands unmodified.
+     * @see ADR 0029 §2.6 — ticket-ref-ok: the record IS this method's authority, not a tracking ref;
+     *      the contract is unreadable without it and an accepted ADR section does not close.
+     *
+     * The three refusals are the ones a cache-backed resolver actually produces:
+     *
+     * | refusal | why it is not a candidate |
+     * |---|---|
+     * | `threw` | the factory raised; the error is carried, never swallowed |
+     * | `declined` | returned `null` — including the default, i.e. recreate unsupported |
+     * | `live-instance` | returned the pane that is already mounted, so "replacing" it is a no-op that would destroy the only copy |
+     *
+     * The `live-instance` check is the load-bearing one and the reason a factory seam alone is not
+     * enough: a resolver reading its own cache answers with the current instance, which looks like a
+     * successful candidate and is the exact shape that turns a recovery click into silent pane loss.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Neo.component.Base} livePane The currently mounted pane for that item.
+     * @returns {{ok: Boolean, candidate: ?Object, reason: ?String, error: ?Error}}
+     */
+    prepareRecreateCandidate(itemId, livePane) {
+        // The same read the rest of this class uses for a catalog record; an item the committed
+        // document does not carry resolves to null and the factory decides what that means.
+        const item = this.dockModel?.items?.[itemId] || null;
+
+        let candidate;
+
+        try {
+            candidate = this.resolveFreshPane(itemId, item)
+        } catch (error) {
+            return {ok: false, candidate: null, reason: 'threw', error}
+        }
+
+        if (!candidate) {
+            return {ok: false, candidate: null, reason: 'declined', error: null}
+        }
+
+        // Identity, not equality: a config object that merely describes the same pane is a valid
+        // candidate; the mounted instance itself is not.
+        if (livePane && candidate === livePane) {
+            return {ok: false, candidate: null, reason: 'live-instance', error: null}
+        }
+
+        return {ok: true, candidate, reason: null, error: null}
+    }
+
+    /**
+     * Phase 2 of the two-phase recreate transaction: replace exactly the card-body slot, then — and
+     * only then — destroy the instance that was there.
+     *
+     * **Never a bare destroy.** `core.Base#destroy` unregisters an instance without removing it from
+     * `parent.items`, and the reconciler fills its live map positionally from `body.items` and
+     * prefers that entry over the resolver. A destroyed-but-still-listed pane is therefore handed
+     * back as the live answer on the very next refresh. Structural removal belongs to the container,
+     * so this goes through `removeAt` + `insert`.
+     *
+     * `removeAt`'s `destroyItem` argument **defaults to true** and is passed `false` here. That
+     * default is the whole ordering hazard: taking it would destroy the old pane during removal, so
+     * a failure to insert the candidate afterwards would leave the slot empty with nothing to
+     * restore — the silent pane loss this transaction exists to prevent.
+     *
+     * Only the card body is touched, so tab, header-action and overflow identities are preserved by
+     * construction rather than by repair: the tab bar is never in the mutation path.
+     * @param {Neo.component.Base} livePane The mounted pane to replace.
+     * @param {Object|Neo.component.Base} candidate A candidate validated by
+     *     {@link #prepareRecreateCandidate} — never call this with an unvalidated one.
+     * @returns {{ok: Boolean, index: Number, reason: ?String}}
+     */
+    commitRecreateCandidate(livePane, candidate) {
+        // Teardown mid-transaction. Phase 1 and Phase 2 are separate calls, so a workspace or tab
+        // container can be destroyed in the gap between validating a candidate and committing it —
+        // a pane closed, a vessel torn down, a window disconnected. Every one of those must settle
+        // as a **refusal**, not as a throw and not as a partial mutation: by this point the caller
+        // holds a validated candidate and would otherwise commit it into a corpse.
+        //
+        // Checked before the container is touched, so a torn-down transaction mutates nothing at all
+        // rather than mutating and then failing.
+        if (!livePane || livePane.isDestroyed || this.isDestroyed) {
+            return {ok: false, index: -1, reason: 'torn-down'}
+        }
+
+        const container = livePane.parent;
+
+        if (!container || container.isDestroyed) {
+            return {ok: false, index: -1, reason: 'no-container'}
+        }
+
+        const index = container.indexOf(livePane.id);
+
+        if (index < 0) {
+            return {ok: false, index, reason: 'not-in-container'}
+        }
+
+        // INSERT FIRST, then remove. The reverse order — remove, then insert — has a window between
+        // the two calls where the slot is empty and the predecessor is orphaned, and an `insert`
+        // that throws (an invalid candidate config is ordinary consumer input) leaves it that way
+        // permanently. That is the silent pane loss this whole transaction exists to prevent, so the
+        // failure mode cannot live inside the commit either.
+        //
+        // Inserting at `index` shifts the predecessor to `index + 1`; nothing is removed until the
+        // candidate is demonstrably in the container.
+        try {
+            container.insert(index, candidate)
+        } catch (error) {
+            // Nothing was removed, so there is nothing to restore — rollback by construction here
+            // too, not by repair.
+            return {ok: false, index, reason: 'insert-failed', error}
+        }
+
+        // `false`: the predecessor must outlive its own removal, so a failure here still leaves a
+        // live pane in the container rather than a destroyed one.
+        container.removeAt(index + 1, false);
+
+        // The candidate is in the slot; the predecessor is now safe to release. The ordering is the
+        // contract, not an implementation detail.
+        livePane.destroy();
+
+        return {ok: true, index, reason: null, error: null}
+    }
+
+    /**
+     * The two phases run as one transaction, settling exactly once through a named channel.
+     *
+     * Mirrors the reload leaf's contract deliberately — `dockReloadSettled` / `dockReloadInFlight` —
+     * because a second settlement channel with different semantics on the same header would be a
+     * worse cost than the duplication. **Every completion settles**, including each refusal: the
+     * action wire has no result channel (`Observable.fire` discards listener returns), so an
+     * unsettled early return is an invocation the event contract never saw.
+     *
+     * Unlike reload this is **synchronous** — both phases are — so there is no producer to trap and
+     * no async teardown race. Teardown is still handled, by
+     * {@link #commitRecreateCandidate}'s `torn-down` refusal, and it settles through this channel
+     * like everything else.
+     *
+     * **Single-flight per item, and absorption is the only silent path** — a re-entrant invocation
+     * during the window neither runs nor settles, exactly as reload's does. Re-entrancy is not
+     * hypothetical here: `resolveFreshPane` is consumer code, and a consumer that recreates from
+     * inside its own factory would otherwise recurse.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Neo.component.Base} livePane The mounted pane to replace.
+     * **`settle: false` is for callers that own the settlement themselves.** The reload action is
+     * the one in tree: it serves a contract-less pane through this transaction and then settles on
+     * `dockReloadSettled`, so firing here too would emit **two terminal events for one activation**.
+     * The single-flight guard still applies — only the event is suppressed, never the transaction.
+     * @param {Object} [options]
+     * @param {String|null} [options.dockNodeId=null] Carried through to the settlement payload.
+     * @param {Boolean} [options.settle=true] `false` when an outer channel settles this invocation.
+     * @returns {{errors: String[]}|null} `null` when an in-flight invocation absorbed this one.
+     * @protected
+     */
+    recreateDockPane(itemId, livePane, {dockNodeId=null, settle=true}={}) {
+        const me     = this,
+              errors = [];
+
+        // Absorption: neither runs nor settles. The only silent path, by design.
+        if (me.dockRecreateInFlight.has(itemId)) {
+            return null
+        }
+
+        me.dockRecreateInFlight.add(itemId);
+
+        try {
+            const prepared = me.prepareRecreateCandidate(itemId, livePane);
+
+            if (!prepared.ok) {
+                // The refusal reason IS the error. A caller that only learns "it failed" cannot tell
+                // a consumer that declined the capability from one whose factory handed back the
+                // live instance — and those need different fixes.
+                errors.push(`Dock recreate refused for item "${itemId}": ${prepared.reason}`);
+
+                prepared.error && errors.push(prepared.error.message)
+            } else {
+                const committed = me.commitRecreateCandidate(livePane, prepared.candidate);
+
+                if (!committed.ok) {
+                    errors.push(`Dock recreate could not commit item "${itemId}": ${committed.reason}`);
+
+                    committed.error && errors.push(committed.error.message)
+                }
+            }
+        } finally {
+            me.dockRecreateInFlight.delete(itemId)
+        }
+
+        settle && !me.isDestroyed && me.fire('dockRecreateSettled', {dockNodeId, errors, itemId});
+
+        return {errors}
     }
 }
 
