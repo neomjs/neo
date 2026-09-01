@@ -336,6 +336,13 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                 await source.popup.waitForTimeout(120)
             }
 
+            // Every movement of the gesture is done: read the trigger witness NOW, while the source
+            // realm is certainly alive. The dwell timer is already running, and the commit that retires
+            // the source can land while the preview poll below is still reading — so a read placed after
+            // it would race the retirement, and any catch on that read would turn a dead probe into a 0.
+            expect(await source.popup.evaluate(() => globalThis.__nativeTitlebarMouseouts),
+                'no mouseout reached the source realm during the gesture').toBe(0);
+
             const {claimTrace} = await app.getComponent(coordId, ['claimTrace']);
 
             expect(claimTrace.at(-1), 'the last claim resolution names the target vessel').toMatchObject({
@@ -350,8 +357,6 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             }).toBeGreaterThan(0);
 
             expect(await page.locator('.neo-dock-preview-affordance').count(), 'the main window renders no preview').toBe(0);
-            expect(await source.popup.evaluate(() => globalThis.__nativeTitlebarMouseouts).catch(() => 0),
-                'no mouseout reached the source realm during the gesture').toBe(0);
 
             // Dwell + settle: the native terminal parks the source, commits the transfer into the
             // target vessel and retires the source vessel. The spec never closes a popup itself.
