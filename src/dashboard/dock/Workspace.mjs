@@ -1659,15 +1659,50 @@ class Workspace extends Container {
      * MonacoEditor post-mount idiom) — container mount flips every child's `mounted` in the same
      * frame. Every write in the sweep is change-guarded and idempotent, and `timeout()` is
      * destroy-rejected, so a torn-down workspace never runs it.
+     *
+     * The guard is re-derived AT WRITE TIME, not only at mount. The mount-time read proves nothing
+     * beyond "no refresh had started 100ms ago", and a refresh that BEGINS inside the deferral
+     * window owns boot truth exactly as much as one already open when the hook sampled. The
+     * never-refreshed case is unaffected — awaiting `null` is a no-op — while the overlapping case
+     * stops writing into an open application train. Settled tail and not resolution: a rejection
+     * belongs to whoever awaited that commit's snapshot, and chrome still needs its sync either way.
+     *
+     * A SETTLED PROMISE IS NOT THE SETTLED TAIL, because `refreshPromise` is a mutable field. A
+     * second commit can replace it while the snapshot this sweep awaited is still pending; that
+     * snapshot settling would then authorize the write ahead of the reconcile that replaced it —
+     * the same race one door further in. So the wait re-reads the field and repeats until the
+     * promise it awaited is still the one the workspace holds. Each commit chains off its
+     * predecessor's settled tail, so the loop drains rather than spins, and it needs no timer.
+     *
+     * Returns the deferred chain (or `null` when no sweep is scheduled) so the boot path is
+     * awaitable. Callers ignore it; a witness cannot observe a deferral it has no handle on.
      * @param {Boolean} value
      * @param {Boolean} oldValue
+     * @returns {Promise|null}
      * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && !this.refreshPromise && this.timeout(100).then(() => {
-            !this.isDestroyed && this.syncDockHeaderActions()
+        if (!value || this.refreshPromise) {
+            return null
+        }
+
+        return this.timeout(100).then(async () => {
+            let me = this,
+                awaited;
+
+            do {
+                awaited = me.refreshPromise;
+
+                try {
+                    await awaited
+                } catch (error) {
+                    // Not this sweep's rejection to handle — the chrome still wants syncing.
+                }
+            } while (!me.isDestroyed && me.refreshPromise !== awaited);
+
+            !me.isDestroyed && me.syncDockHeaderActions()
         }).catch(() => null)
     }
 
