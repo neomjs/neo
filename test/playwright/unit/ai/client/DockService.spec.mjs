@@ -12,7 +12,7 @@ import PerspectiveLibrary   from '../../../../../src/dashboard/dock/persistence/
  */
 function doc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -20,7 +20,7 @@ function doc() {
             terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
         },
         nodes: {
-            root        : {type: 'edge-zone', zones: {center: 'main-split'}},
+            root        : {type: 'edge-zone', zones: {center: {nodeId: 'main-split'}}},
             'main-split': {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.5, 0.5]},
             'main-tabs' : {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'strategy'},
             'side-tabs' : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
@@ -35,14 +35,14 @@ function doc() {
  */
 function doc2() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'},
             beta : {componentRef: 'beta',  title: 'Beta',  kind: 'panel'}
         },
         nodes: {
-            root       : {type: 'edge-zone', zones: {center: 'only-tabs'}},
+            root       : {type: 'edge-zone', zones: {center: {nodeId: 'only-tabs'}}},
             'only-tabs': {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'}
         }
     }
@@ -321,7 +321,11 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         expect(captured.layout.captureScope).toBe('window');
         // the landed producer computes the fingerprint from the PERSISTED tree — a null
         // fingerprint would mean the tool bypassed Persistence.capturePerspective()
-        expect(captured.layout.windowFingerprint?.schema).toBe('neo.harness.dockShape.v1');
+        // Wire identity renamed by the v13.2 cut (#17837 / PR #17841): the `neo.harness.*` family
+        // carried pre-release history, and the landed vocabulary is `neo.dock.*`. The assertion is
+        // updated rather than the producer — this arm exists to prove the fingerprint comes from
+        // Persistence, and the schema string is how it proves it.
+        expect(captured.layout.windowFingerprint?.schema).toBe('neo.dock.shape.v1');
         expect(Persistence.restoreSavedLayout(captured.layout).errors).toEqual([])
     });
 
@@ -363,7 +367,7 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         // slot 0 stays the primary dockZone; the ADDITIONAL window persists in windowDocuments
         expect(captured.layout.windowDocuments).toHaveLength(1);
         expect(Object.keys(captured.layout.windowDocuments[0].items)).toEqual(['alpha', 'beta']);
-        expect(captured.layout.windowFingerprint?.schema).toBe('neo.harness.dockTopologyShape.v1');
+        expect(captured.layout.windowFingerprint?.schema).toBe('neo.dock.topologyShape.v1');
         expect(captured.layout.windowFingerprint?.windowCount).toBe(2);
         expect(Persistence.restoreSavedLayout(captured.layout).errors).toEqual([]);
 

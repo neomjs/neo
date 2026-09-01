@@ -20,7 +20,7 @@ import {
  */
 function doc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -28,7 +28,7 @@ function doc() {
             terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
         },
         nodes: {
-            root        : {type: 'edge-zone', zones: {center: 'main-split'}},
+            root        : {type: 'edge-zone', zones: {center: {nodeId: 'main-split'}}},
             'main-split': {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.5, 0.5]},
             'main-tabs' : {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'strategy'},
             'side-tabs' : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
