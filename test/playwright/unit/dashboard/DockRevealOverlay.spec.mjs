@@ -66,6 +66,8 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         expect(overlay.titleTab.className).toBe('Neo.tab.header.Button');
         expect(overlay.titleTab.pressed).toBe(true);
         expect(overlay.titleTab.vdom.tabIndex).toBe(-1);
+        expect(overlay.titleTab.cls, 'long preview titles reuse the tab overflow contract')
+            .toContain('neo-tab-overflow-capped');
         expect(overlay.pinButton.disabled).toBe(false);
         expect(overlay.items[0].className).toBe('Neo.tab.header.Toolbar');
         expect(overlay.items[0].cls).toContain('neo-tab-header-toolbar');
@@ -104,6 +106,9 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
 
         expect(overlay.style.width).toBe('30%');
         expect(overlay.style.height).toBeNull();
+
+        overlay.revealExtent = 0.1;
+        expect(overlay.style.width, 'the configured fallback is also the usability floor').toBe('25%');
 
         overlay.revealExtent = null;
         expect(overlay.style.width).toBe('25%');

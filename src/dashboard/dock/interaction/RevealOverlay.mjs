@@ -26,7 +26,8 @@ import MotionSignal     from '../projection/MotionSignal.mjs';
  *
  * Sizing follows the auto-hide contract: the free dimension (width for left/right rails, height
  * for top/bottom) uses the extent the item's owning split last committed when one exists
- * (`revealExtent`, resolved by the rail), else the workspace-configurable `defaultRevealFraction`.
+ * (`revealExtent`, resolved by the rail), with the workspace-configurable `defaultRevealFraction`
+ * as both fallback and usability floor.
  * Left/right reveals span full height; top/bottom span full width. The overlay stays visible
  * through the dismiss grace window (`dismiss-pending`) — pointer wobble must not flicker it.
  *
@@ -66,8 +67,9 @@ class RevealOverlay extends Container {
          */
         baseCls: ['neo-dashboard-dock-reveal-overlay'],
         /**
-         * Workspace-configurable fallback for the free dimension when the document carries no
-         * committed extent for the item (fraction of the workspace extent).
+         * Workspace-configurable fallback and minimum for the free dimension (fraction of the
+         * workspace extent). A smaller committed band must not turn a transient preview into an
+         * unusable sliver; larger committed extents remain authoritative.
          * @member {Number} defaultRevealFraction_=0.25
          * @reactive
          */
@@ -162,8 +164,8 @@ class RevealOverlay extends Container {
             cls : ['neo-dashboard-dock-reveal-header', 'neo-tab-container-inline'],
             flex: 'none',
             items: [{
-                module: TabHeaderButton,
-                cls   : ['neo-dashboard-dock-reveal-title'],
+                module : TabHeaderButton,
+                cls    : ['neo-dashboard-dock-reveal-title', 'neo-tab-overflow-capped'],
                 pressed: true,
                 text   : '',
                 // A preview title is a visual active-tab identity, not another navigation stop.
@@ -451,7 +453,9 @@ class RevealOverlay extends Container {
         let me         = this,
             edge       = me.edge,
             isVertical = edge === 'left' || edge === 'right',
-            fraction   = Number.isFinite(me.revealExtent) ? me.revealExtent : me.defaultRevealFraction,
+            fraction   = Number.isFinite(me.revealExtent)
+                ? Math.max(me.revealExtent, me.defaultRevealFraction)
+                : me.defaultRevealFraction,
             item       = me.revealedItem,
             pct        = `${Math.round(fraction * 10000) / 100}%`,
             cls        = me.cls || [];

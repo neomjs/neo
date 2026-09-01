@@ -121,6 +121,16 @@
     // today. Defaulting to `hidden` would have been a silent rendering change for every square
     // rail, which is a redesign wearing a promotion's clothes.
     --dock-edge-rail-overflow       : visible;
+
+    // A reveal is an overlay, so opacity and elevation are functional rather than decorative:
+    // covered pane chrome must not bleed through, and the overlap boundary must remain visible.
+    // Consumers can supply identity values without re-declaring the structure.
+    --dock-reveal-background          : var(--neo-background-color, #fff);
+    --dock-reveal-border              : 0;
+    --dock-reveal-min-block-size      : 10rem;
+    --dock-reveal-min-inline-size     : 12rem;
+    --dock-reveal-radius              : 0;
+    --dock-reveal-shadow              : 0 12px 32px rgb(0 0 0 / 28%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -449,8 +459,13 @@
 }
 
 .neo-dashboard-dock-reveal-overlay {
-    position: absolute;
-    z-index : 20;
+    background   : var(--dock-reveal-background);
+    border       : var(--dock-reveal-border);
+    border-radius: var(--dock-reveal-radius);
+    box-shadow   : var(--dock-reveal-shadow);
+    overflow     : hidden;
+    position     : absolute;
+    z-index      : 20;
 
     // The overlay is also a flex container. Keep the semantic visibility state above the generic
     // `.neo-flex-container {display:flex}` rule without depending on stylesheet load order.
@@ -461,6 +476,16 @@
     // The reserved edge is the RAIL's extent, read from the rail's own token rather than
     // restated — the overlay must start exactly where the strip ends, and a second literal
     // here is how those two silently disagree.
+    &-left,
+    &-right {
+        min-inline-size: min(var(--dock-reveal-min-inline-size), calc(100% - var(--dock-edge-rail-size)));
+    }
+
+    &-top,
+    &-bottom {
+        min-block-size: min(var(--dock-reveal-min-block-size), calc(100% - var(--dock-edge-rail-size)));
+    }
+
     &-left   { inset: 0 auto 0 var(--dock-edge-rail-size); }
     &-right  { inset: 0 var(--dock-edge-rail-size) 0 auto; }
     &-top    { inset: var(--dock-edge-rail-size) 0 auto 0; }
