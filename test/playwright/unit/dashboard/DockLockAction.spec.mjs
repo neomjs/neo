@@ -207,7 +207,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
 
-        workspace.syncDockHeaderActions(new Map());
+        workspace.syncDockHeaderActions();
 
         expect(pane.vdom.inert).toBe(true);
         expect(pane.cls).toContain('neo-dock-pane-locked')

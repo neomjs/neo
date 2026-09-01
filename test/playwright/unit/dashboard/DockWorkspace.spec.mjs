@@ -1608,6 +1608,52 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(returned.getActionItem('reload')?.hidden, 'and the post-settle sweep ran on the returned node').toBe(false)
     });
 
+    /**
+     * The leave paths that bypass the rail (a restored perspective, a transfer) reach the reveal pane
+     * only through the workspace's pre-projection sweep. The state machine's contract names those
+     * transitions `itemCleared`, so the sweep retires the reveal STATE with the pane: an overlay whose
+     * `revealPaneItemId` still named the departed item would short-circuit onto an empty slot the
+     * next time that item is revealed.
+     */
+    test('the pre-projection sweep retires an open reveal with its pane — state, pointer and slot', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        const rail = railOf(workspace.items[0]);
+
+        rail.onTabClick({component: rail.items[0]});
+
+        const revealPane = rail.revealPaneCache.inspector,
+              overlay    = rail.revealOverlay;
+
+        expect(rail.revealMachine.state, 'revealed').toBe('revealed-focused');
+        expect(overlay.revealPaneItemId, 'the overlay names the revealed item').toBe('inspector');
+        expect(overlay.paneSlot.items.includes(revealPane), 'and hosts its pane').toBe(true);
+
+        // A restore that un-rails the item: the rail is never asked, only the sweep sees it leave.
+        const restored = structuredClone(workspace.getDockZoneDocument());
+
+        delete restored.items.inspector.autoHidden;
+
+        await workspace.releaseStaleRevealPanes(restored);
+
+        expect(rail.revealPaneCache.inspector, 'the cache forgot the pane').toBeUndefined();
+        expect(revealPane.isDestroyed, 'the pane is destroyed').toBe(true);
+        expect(rail.revealMachine.state, 'the reveal state is idle for the departed item').toBe('idle');
+        expect(overlay.revealPaneItemId, 'the overlay no longer names it').toBeNull();
+        expect(overlay.paneSlot.items, 'and its slot is empty').toHaveLength(0);
+
+        // An item that stays railed is untouched by the same sweep.
+        rail.onTabClick({component: rail.items[0]});
+        await workspace.releaseStaleRevealPanes(workspace.getDockZoneDocument());
+
+        expect(rail.revealPaneCache.inspector, 'a still-railed item keeps its reveal pane').toBeTruthy();
+        expect(rail.revealMachine.state, 'and its reveal').toBe('revealed-focused')
+    });
+
     test('the pin action refuses fail-closed where the collapse cannot complete, and moves by hidden on ONE instance', async () => {
         const document = createEdgeDocument();
 

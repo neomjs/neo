@@ -379,12 +379,15 @@ class Rail extends Container {
      * dismissal would otherwise spend on parking it — its DOM node and its registration retire
      * together, ahead of the refresh that mints the flow pane. The workspace's pre-projection sweep
      * ({@link Neo.dashboard.dock.Workspace#releaseStaleRevealPanes}) covers the leave paths that
-     * never pass through this rail (a restored perspective, a transfer), silently.
+     * never pass through this rail (a restored perspective, a transfer) and AWAITS the result: the
+     * slot's removal has to land before a staged projection inserts a node under the same id, and a
+     * destroy must never race an in-flight update that still diffs the pane's vnode — either one
+     * wedges the refresh (measured: a reconcile whose `promiseUpdate` never settles).
      * @param {String} itemId
-     * @param {Boolean} [silent=false] `true` when the caller owns the next update train.
+     * @returns {Promise<void>} Settles once the pane is gone from the DOM and the registry.
      * @protected
      */
-    releaseRevealPane(itemId, silent=false) {
+    async releaseRevealPane(itemId) {
         let me   = this,
             pane = me.revealPaneCache[itemId];
 
@@ -394,12 +397,24 @@ class Rail extends Container {
 
         delete me.revealPaneCache[itemId];
 
-        if (!pane.isDestroyed) {
-            const parent = pane.parent;
+        if (pane.isDestroyed) {
+            return
+        }
 
-            // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
-            // resolve a slot that no longer lists it — go through the parent only while it does.
-            parent?.items?.includes(pane) ? parent.remove(pane, true, silent) : pane.destroy(false, silent)
+        const parent = pane.parent;
+
+        // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
+        // resolve a slot that no longer lists it — go through the parent only while it does.
+        if (parent?.items?.includes(pane)) {
+            // `removeAt` splices the vdom BEFORE the payload is built and destroys the pane, so the
+            // removal it publishes never references the instance; hand its landing back.
+            parent.remove(pane, true);
+            await parent.promiseUpdate()
+        } else {
+            // Parked: the dismissal already spliced it out, but that update may still be in flight
+            // with the pane's vnode in its diff — let it land before the instance goes.
+            await parent?.promiseUpdate?.();
+            pane.isDestroyed || pane.destroy()
         }
     }
 

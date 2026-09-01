@@ -1629,17 +1629,31 @@ class Workspace extends Container {
      * document — BEFORE the projection materializes that item's flow pane. The rail releases on its
      * own leave paths (pin escape, reconciled leaver); this sweep covers the ones that never pass
      * through it — a restored perspective, a transfer — which take the staged path that tears the
-     * old rail down only AFTER the new shell minted the flow pane. Silent: this refresh owns the
-     * next update train. See {@link Neo.dashboard.dock.interaction.Rail#releaseRevealPane}.
+     * old rail down only AFTER the new shell minted the flow pane. Awaited: the releases have to
+     * LAND before the projection stages a node under a released id.
+     * See {@link Neo.dashboard.dock.interaction.Rail#releaseRevealPane}.
+     *
+     * The reveal STATE retires with the pane, exactly as on the rail's own leave paths: the state
+     * machine's contract names restore and transfer as `itemCleared` transitions, and an overlay
+     * whose `revealPaneItemId` still names a departed item would take `syncRevealPane`'s
+     * same-id early return onto an empty slot the next time that item is revealed.
      * @param {Object|null} document The committed document this refresh projects.
+     * @returns {Promise<void>}
      * @protected
      */
-    releaseStaleRevealPanes(document) {
+    async releaseStaleRevealPanes(document) {
+        const pending = [];
+
         this.forEachDockRail(rail => {
             Object.keys(rail.revealPaneCache || {}).forEach(itemId => {
-                document?.items?.[itemId]?.autoHidden === true || rail.releaseRevealPane(itemId, true)
+                if (document?.items?.[itemId]?.autoHidden !== true) {
+                    pending.push(rail.releaseRevealPane(itemId));
+                    rail.revealMachine?.itemCleared(itemId)
+                }
             })
-        })
+        });
+
+        await Promise.all(pending)
     }
 
     /**
@@ -3318,7 +3332,12 @@ class Workspace extends Container {
         }
 
         me.beforeRefreshDockWorkspace(document, refreshOptions);
-        me.releaseStaleRevealPanes(document);
+
+        await me.releaseStaleRevealPanes(document);
+
+        if (me.isDestroyed) {
+            return
+        }
 
         const nextConfig = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId) => {
             const placeholder = me.createProjectionPlaceholder(itemId, item, componentRef);
