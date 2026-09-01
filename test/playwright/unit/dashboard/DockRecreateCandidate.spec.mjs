@@ -12,6 +12,7 @@ import {test, expect} from '@playwright/test';
 import Neo           from '../../../../src/Neo.mjs';
 import * as core     from '../../../../src/core/_export.mjs';
 import Component     from '../../../../src/component/Base.mjs';
+import Container     from '../../../../src/container/Base.mjs';
 import DockWorkspace from '../../../../src/dashboard/dock/Workspace.mjs';
 
 /**
@@ -136,5 +137,74 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
 
         workspace.prepareRecreateCandidate('no-such-item', livePane);
         expect(seenItem, 'an unknown id resolves null rather than throwing').toBeNull()
+    })
+});
+
+/**
+ * Phase 2: replace the card-body slot, then — and only then — destroy what was there.
+ *
+ * The ordering is the contract. `removeAt`'s `destroyItem` argument defaults to `true`, so taking
+ * the default would destroy the old pane *during* its own removal and a failure to insert the
+ * candidate afterwards would leave an empty slot with nothing to restore. The first arm below is
+ * what notices if anyone ever takes that default back.
+ */
+test.describe('dock recreate — Phase 2 replaces the slot before releasing the predecessor', () => {
+    let workspace, container, livePane, sibling;
+
+    test.beforeEach(() => {
+        workspace = buildWorkspace();
+        container = Neo.create(Container, {
+            appName: 'DashboardDockRecreateCandidateTest',
+            items  : [
+                {module: Component, id: 'recreate-sibling'},
+                {module: Component, id: 'recreate-live'}
+            ]
+        });
+        [sibling, livePane] = container.items
+    });
+
+    test.afterEach(() => {
+        container?.destroy?.();
+        workspace?.destroy?.();
+        workspace = container = livePane = sibling = null
+    });
+
+    test('the predecessor is still alive at the moment the candidate enters the slot', () => {
+        // The ordering witness. Sampled INSIDE insert rather than after the call, because after the
+        // call both orderings look identical — which is exactly how a `destroyItem` regression would
+        // pass a naive assertion.
+        let aliveAtInsert = null;
+
+        const realInsert = container.insert.bind(container);
+
+        container.insert = (index, item, ...rest) => {
+            aliveAtInsert = livePane.isDestroyed !== true;
+            return realInsert(index, item, ...rest)
+        };
+
+        workspace.commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
+
+        expect(aliveAtInsert, 'the old pane must outlive its own removal').toBe(true);
+        expect(livePane.isDestroyed, 'and be released once the candidate is live').toBe(true)
+    });
+
+    test('the candidate lands in the SAME slot, leaving siblings in place', () => {
+        const result = workspace.commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
+
+        expect(result.ok).toBe(true);
+        expect(result.index, 'the replaced slot, not appended at the end').toBe(1);
+
+        expect(container.items.length).toBe(2);
+        expect(container.items[0], 'the sibling is untouched').toBe(sibling);
+        expect(container.items[1].id).toBe('recreate-fresh')
+    });
+
+    test('a pane with no container, or one its container does not list, refuses without mutating', () => {
+        const orphan = Neo.create(Component, {appName: 'DashboardDockRecreateCandidateTest'});
+
+        expect(workspace.commitRecreateCandidate(orphan, {module: Component}).reason).toBe('no-container');
+        expect(orphan.isDestroyed, 'a refusal never destroys').toBeFalsy();
+
+        orphan.destroy()
     })
 });

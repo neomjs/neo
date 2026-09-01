@@ -3456,6 +3456,52 @@ class Workspace extends Container {
 
         return {ok: true, candidate, reason: null, error: null}
     }
+
+    /**
+     * Phase 2 of the two-phase recreate transaction: replace exactly the card-body slot, then — and
+     * only then — destroy the instance that was there.
+     *
+     * **Never a bare destroy.** `core.Base#destroy` unregisters an instance without removing it from
+     * `parent.items`, and the reconciler fills its live map positionally from `body.items` and
+     * prefers that entry over the resolver. A destroyed-but-still-listed pane is therefore handed
+     * back as the live answer on the very next refresh. Structural removal belongs to the container,
+     * so this goes through `removeAt` + `insert`.
+     *
+     * `removeAt`'s `destroyItem` argument **defaults to true** and is passed `false` here. That
+     * default is the whole ordering hazard: taking it would destroy the old pane during removal, so
+     * a failure to insert the candidate afterwards would leave the slot empty with nothing to
+     * restore — the silent pane loss this transaction exists to prevent.
+     *
+     * Only the card body is touched, so tab, header-action and overflow identities are preserved by
+     * construction rather than by repair: the tab bar is never in the mutation path.
+     * @param {Neo.component.Base} livePane The mounted pane to replace.
+     * @param {Object|Neo.component.Base} candidate A candidate validated by
+     *     {@link #prepareRecreateCandidate} — never call this with an unvalidated one.
+     * @returns {{ok: Boolean, index: Number, reason: ?String}}
+     */
+    commitRecreateCandidate(livePane, candidate) {
+        const container = livePane?.parent;
+
+        if (!container) {
+            return {ok: false, index: -1, reason: 'no-container'}
+        }
+
+        const index = container.indexOf(livePane.id);
+
+        if (index < 0) {
+            return {ok: false, index, reason: 'not-in-container'}
+        }
+
+        // `false`: the old instance must outlive its own removal.
+        container.removeAt(index, false);
+        container.insert(index, candidate);
+
+        // The candidate is in the slot; the predecessor is now safe to release. Ordering is the
+        // contract, not an implementation detail — everything above is reversible until this line.
+        livePane.destroy();
+
+        return {ok: true, index, reason: null}
+    }
 }
 
 export default Neo.setupClass(Workspace);
