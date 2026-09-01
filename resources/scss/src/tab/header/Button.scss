@@ -26,8 +26,12 @@
     }
 
     .neo-button-text {
-        color    : var(--tab-button-text-color);
-        font-size: var(--tab-button-text-font-size);
+        color      : var(--tab-button-text-color);
+        font-size  : var(--tab-button-text-font-size);
+        // The title's weight is its own token. Without one it fell through to the button family's
+        // weight, so every theme with semibold buttons had semibold tab titles by accident — and
+        // the inline dock header, where width is scarce, had no way to opt out.
+        font-weight: var(--tab-button-text-font-weight);
     }
 
     .neo-tab-button-indicator {

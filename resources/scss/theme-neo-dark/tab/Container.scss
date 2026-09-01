@@ -32,7 +32,9 @@
         --tab-button-gap           : 0;
         --tab-button-height        : var(--sem-height-large);
         --tab-button-height-pressed: var(--sem-height-large);
-        --tab-button-padding       : 4px var(--sem-spacing-small) 3px;
+        --tab-button-padding         : 4px var(--sem-spacing-xsmall) 3px;
+        --tab-button-text-font-size  : var(--sem-typo-label-small-fontSize);
+        --tab-button-text-font-weight: var(--sem-typo-label-small-fontWeight);
     }
 
     // Standalone explicitly names the theme's existing free-standing treatment.

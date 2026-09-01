@@ -11,9 +11,11 @@
     // on the structural fallback.
     --tab-header-inline-background-image           : none;
 
-    // Inline inherits the classic theme's established 25px / square geometry and tightens only
-    // horizontal padding. Keeping inherited defaults out of this block prevents copy-drift while
-    // leaving one measured, deletion-sensitive variant effect.
+    // Inline inherits the classic theme's established 25px / square geometry and tightens only what
+    // a dock header cannot afford: horizontal padding and the title's weight — beside an action
+    // rail the title is chrome, not a button label, and the indicator bar already carries emphasis.
+    // Keeping inherited defaults out of this block prevents copy-drift while leaving measured,
+    // deletion-sensitive variant effects.
     &.neo-tab-container-inline > .neo-tab-header-toolbar,
     .neo-tab-container-inline > .neo-tab-header-toolbar,
     // Self-scoped: a drag proxy is a detached toolbar at document.body, so it has no container
@@ -27,7 +29,8 @@
     // carries the case where an ancestor holds the theme.
     &.neo-tab-header-toolbar.neo-tab-container-inline,
     .neo-tab-header-toolbar.neo-tab-container-inline {
-        --tab-button-padding: 7px 10px 6px;
+        --tab-button-padding         : 7px 8px 6px;
+        --tab-button-text-font-weight: 400;
     }
 
     // Standalone gives classic-theme consumers a coherent free-standing card treatment without
