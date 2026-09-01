@@ -25,6 +25,19 @@ const ENGINE_ACTIONS = [
     {glyph: 'fa-times',           name: 'close'}
 ];
 
+const WORKSPACE_ID = 'dock-static-boot-workspace';
+
+const readWorkspace = async (page, keys) => {
+    const reply = await page.evaluate(data => Neo.worker.App.getConfigs(data), {id: WORKSPACE_ID, keys});
+
+    return reply?.data ?? reply
+};
+
+const setWorkspace = (page, configs) => page.evaluate(
+    data => Neo.worker.App.setConfigs(data),
+    {id: WORKSPACE_ID, ...configs}
+);
+
 const tabsNodeWith = (page, tabText) => page.locator('.neo-dashboard-dock-tabs', {
     has: page.locator(`.neo-tab-header-button:has-text("${tabText}")`)
 });
@@ -53,29 +66,44 @@ test.describe('dock boot sweep — rendered chrome after a static first projecti
         await expect(actionButton(header, 'fa-times'), 'close still renders once').toHaveCount(1)
     });
 
-    test('every rendered engine action is a single node with a unique id', async ({page}) => {
-        const main = tabsNodeWith(page, 'Contract');
 
-        // The id-collision falsifier the registry cannot see: two nodes sharing one id report as a
-        // single instance in the worker, so identity is asserted again on ids read from Main. The
-        // message carries the rendered labels, because "expected 3, received 4" names nothing a
-        // reader can act on — a duplicate and an extra contribution look identical in a bare count.
-        const rendered = await main.locator('.neo-tab-header-toolbar .neo-toolbar-action').evaluateAll(
+    test('no rendered write until the tail that REPLACED the sample settles', async ({page}) => {
+        // The overlap the close target names, in the browser: a refresh begins AFTER the mount-time
+        // sample and BEFORE the deferred write. The fixture installs a tail that replaces itself from
+        // inside its own `then`, so the replacement lands while the sweep is already committed to
+        // awaiting — staging both promises up front cannot reach that state, because the deferral has
+        // not fired and the sweep would simply sample the replacement.
+        await page.goto('test/playwright/component/apps/dock-static-boot-overlap/index.html');
+        await page.waitForSelector('#dock-static-boot-workspace', {state: 'attached'});
+        await page.waitForSelector('.neo-tab-header-button',      {state: 'visible'});
+
+        const header = tabsNodeWith(page, 'Contract'),
+              reload = actionButton(header, 'fa-rotate-right');
+
+        // Poll the observable rather than a clock: `tailReplaced` flips the instant the sweep consumes
+        // its sampled tail, which is precisely when the contested state exists. No fixed sleep.
+        await expect.poll(async () => (await readWorkspace(page, ['tailReplaced']))[0],
+            {message: 'the sweep must reach its await and consume the sampled tail'}).toBe(true);
+
+        // The SAMPLED tail has now settled while a different promise owns the field. A sweep that
+        // trusts one snapshot writes here — this is the assertion the pre-fix method cannot pass.
+        expect((await readWorkspace(page, ['sweepCount']))[0],
+            'no sweep may run on a tail that no longer owns the field').toBe(0);
+        await expect(reload, 'and nothing may be rendered yet').toHaveCount(0);
+
+        // Release the CURRENT tail.
+        await setWorkspace(page, {releaseTailCount: 1});
+
+        await expect(reload, 'the sweep runs on the current tail and reveals reload').toHaveCount(1);
+        expect((await readWorkspace(page, ['sweepCount']))[0], 'exactly one sweep').toBe(1);
+
+        // Uniqueness is gated on the post-sweep outcome above, so it cannot pass by sampling
+        // pre-sweep DOM — the failure mode a standalone census has.
+        const rendered = await header.locator('.neo-tab-header-toolbar .neo-toolbar-action').evaluateAll(
             nodes => nodes.map(node => ({id: node.id, label: node.getAttribute('aria-label')}))
         );
 
-        const ids = rendered.map(entry => entry.id);
-
-        expect(new Set(ids).size, `no two action nodes share a DOM id — rendered: ${JSON.stringify(rendered)}`)
-            .toBe(ids.length);
-
-        // Nothing engine-owned appears twice. Deliberately not an equality against a fixed set: a
-        // host contribution may legally share this toolbar, and this arm is a duplication witness,
-        // not a census.
-        for (const {name} of ENGINE_ACTIONS) {
-            expect(rendered.filter(entry => entry.label === name).length,
-                `at most one ${name} — rendered: ${JSON.stringify(rendered)}`).toBeLessThanOrEqual(1)
-        }
+        expect(new Set(rendered.map(entry => entry.id)).size,
+            `no two action nodes share a DOM id — rendered: ${JSON.stringify(rendered)}`).toBe(rendered.length)
     });
-
 });

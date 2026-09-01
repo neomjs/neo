@@ -79,7 +79,87 @@ class StaticBootFixtureWorkspace extends DockWorkspace {
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * Arms the overlap: after the mount hook has taken its (empty) sample, install a tail that
+         * REPLACES itself from inside its own `then`. The replacement therefore lands while the
+         * deferred sweep is awaiting — the only moment the contested state exists. Staging both
+         * promises up front cannot reach it: the deferral has not fired, so the sweep would sample
+         * the replacement and never enter the race.
+         * @member {Boolean} armTailReplacement=false
+         */
+        armTailReplacement_: false,
+        /**
+         * Spec trigger: settles the replacement tail. Each bump releases it once.
+         * @member {Number} releaseTailCount=0
+         */
+        releaseTailCount_: 0,
+        /**
+         * Observable: how many times the boot sweep has actually run. The spec asserts this is
+         * still 0 after the sampled tail settles, which is exactly what a single-sample await
+         * cannot satisfy.
+         * @member {Number} sweepCount=0
+         */
+        sweepCount_: 0,
+        /**
+         * Observable: set the instant the sampled tail is consumed, i.e. the sweep has reached its
+         * await. The spec polls this instead of sleeping.
+         * @member {Boolean} tailReplaced=false
+         */
+        tailReplaced_: false
+    }
+
+    /**
+     * The resolver of the replacement tail, held until `releaseTailCount` bumps.
+     * @member {Function|null} releaseTail=null
+     */
+    releaseTail = null
+
+    /**
+     * Counts real sweeps so the spec can assert the absence of a write, not merely the absence of
+     * a rendered symptom — a hidden action and an un-run sweep look identical in the DOM.
+     * @param {Map|null} [tabs=null]
+     * @returns {*}
+     */
+    syncDockHeaderActions(tabs=null) {
+        this.sweepCount++;
+        return super.syncDockHeaderActions(tabs)
+    }
+
+    /**
+     * Installs the self-replacing tail AFTER the hook has sampled, so the sweep is already
+     * committed to awaiting when the replacement arrives.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @returns {Promise|null}
+     */
+    afterSetMounted(value, oldValue) {
+        const chain = super.afterSetMounted(value, oldValue);
+
+        if (value && this.armTailReplacement) {
+            const me          = this,
+                  replacement = new Promise(resolve => {me.releaseTail = resolve});
+
+            me.refreshPromise = {
+                then(onFulfilled) {
+                    me.refreshPromise = replacement;
+                    me.tailReplaced   = true;
+                    onFulfilled?.();
+                    return Promise.resolve()
+                }
+            }
+        }
+
+        return chain
+    }
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetReleaseTailCount(value, oldValue) {
+        oldValue !== undefined && value > 0 && this.releaseTail?.()
     }
 
     /**
@@ -106,11 +186,17 @@ class StaticBootFixtureWorkspace extends DockWorkspace {
 
 StaticBootFixtureWorkspace = Neo.setupClass(StaticBootFixtureWorkspace);
 
+// The overlap arm boots this SAME module from a sibling page whose `neo-config.json` sets
+// `dockStaticBootOverlap`, so one app serves both the plain static-boot witness and the
+// contested-tail witness. A URL query cannot carry it: this module runs in the App Worker, where
+// `location` is the worker script rather than the page.
+const overlapArmed = Neo.config.dockStaticBootOverlap === true;
+
 export const onStart = () => Neo.app({
     mainView: {
         module: Viewport,
         items : [
-            {module: StaticBootFixtureWorkspace, dockModel: staticDocument, flex: 1}
+            {module: StaticBootFixtureWorkspace, armTailReplacement: overlapArmed, dockModel: staticDocument, flex: 1}
         ]
     },
     name: 'Test.Playwright.DockStaticBoot'
