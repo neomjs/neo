@@ -321,10 +321,10 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         expect(captured.layout.captureScope).toBe('window');
         // the landed producer computes the fingerprint from the PERSISTED tree — a null
         // fingerprint would mean the tool bypassed Persistence.capturePerspective()
-        // Wire identity renamed by the v13.2 cut (#17837 / PR #17841): the `neo.harness.*` family
-        // carried pre-release history, and the landed vocabulary is `neo.dock.*`. The assertion is
-        // updated rather than the producer — this arm exists to prove the fingerprint comes from
-        // Persistence, and the schema string is how it proves it.
+        // The shipped wire family is `neo.dock.*`; the older `neo.harness.*` names are retired. This
+        // arm exists to prove the fingerprint is produced by `Persistence` rather than assembled by
+        // the caller, and the schema string is how it proves it — so the assertion tracks the
+        // producer's vocabulary rather than pinning a historical one.
         expect(captured.layout.windowFingerprint?.schema).toBe('neo.dock.shape.v1');
         expect(Persistence.restoreSavedLayout(captured.layout).errors).toEqual([])
     });
