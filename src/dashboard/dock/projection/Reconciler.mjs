@@ -511,18 +511,20 @@ class Reconciler extends Base {
             targetParent.remove(placeholder, true, true);
             sourceParent.remove(tab, false, true, true);
             tab.setSilent({
-                // Union, not replacement. The projected `cls` is the projection's own constant
-                // (`['neo-dashboard-dock-tabs']`) and knows nothing about the classes the COMPONENT
-                // derives from its own configs — `neo-<ntype>-<ui>` from `component.Base#afterSetUi`,
-                // the tab-bar-position class from `tab.Container`, and anything a subclass adds.
-                // Replacing the array dropped every one of them, so a retained container silently
-                // lost `ui: 'inline'` (its header jumped from the inline 32px density to 48px) while
-                // a freshly constructed sibling kept it, because construction re-runs those hooks.
+                // The projected `cls` is the projection's own constant and knows nothing about the
+                // class `component.Base#afterSetUi` derives from `ui`. Replacing the array dropped
+                // it, so a retained container silently lost `ui: 'inline'` — its header jumped from
+                // the inline 32px density to 48px — while a freshly constructed sibling kept it,
+                // because construction re-runs that hook.
                 //
-                // Safe as a union because the projected set is a literal that never shrinks; a
-                // projection that ever needs to REMOVE a class must do it explicitly rather than by
-                // omission, and this comment is the place that stops being true.
-                cls      : [...new Set([...(tab.cls || []), ...(plan.config.cls || [])])],
+                // Re-derived rather than unioned with the live `cls`. A union also preserves classes
+                // carrying STATE the projection is responsible for clearing — `Workspace` removes
+                // `neo-dock-maximized` by filtering `cls`, so keeping the live array made maximize
+                // sticky and broke its terminal-clear contract.
+                cls      : [
+                    ...(plan.config.cls || []),
+                    ...(tab.ui ? [`neo-${tab.ntype}-${tab.ui}`] : [])
+                ],
                 flex     : plan.config.flex,
                 listeners: plan.config.listeners,
                 style    : plan.config.style,
