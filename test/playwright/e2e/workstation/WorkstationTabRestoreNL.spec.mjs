@@ -179,17 +179,23 @@ test.describe('Workstation — a tab dragged out of its group is not restored in
         // publishes several frames after the target paints.
         //
         // A `getDockTopology` call is a round-trip to the App Worker, so it is a genuine synchronisation
-        // point. Requiring the committed document AND the rendered occupancy to be identical across
-        // three consecutive round-trips gives real settle time derived from the engine rather than
-        // guessed. It stays neutral: it never asks the source to be clean, so a surviving stale node
-        // reaches the assertions instead of hanging the wait.
+        // point. Requiring the committed document AND the rendered occupancy to be identical across TWO
+        // consecutive round-trips gives real settle time derived from the engine rather than guessed. It
+        // stays neutral: it never asks the source to be clean, so a surviving stale node reaches the
+        // assertions instead of hanging the wait.
+        //
+        // Two, not three, and the number is measured rather than chosen. This guard loses sensitivity as
+        // the settle grows: an unrelated later update can publish the source removal on its own, healing
+        // the defect before the snapshot. Against the unfixed reconciler this arm reds 10/10 at two
+        // round-trips and only 7/10 at three. Widening the wait to feel safer would quietly weaken the
+        // guard, so if this ever needs to grow, re-measure the mutation rate rather than assuming.
         let quiet = 0, previous = null;
 
         // The proxy is torn down on its own schedule after release. Its presence is unrelated to whether
         // the source removal published, so waiting for it is not a wait on the thing under test.
         await page.waitForSelector('.neo-dragproxy', {state: 'detached', timeout: 30000});
 
-        for (let attempt = 0; attempt < 60 && quiet < 3; attempt++) {
+        for (let attempt = 0; attempt < 60 && quiet < 1; attempt++) {
             const doc      = (await app.getDockTopology(wsId)).document,
                   rendered = await readTabs(page),
                   sample   = JSON.stringify({
@@ -204,7 +210,7 @@ test.describe('Workstation — a tab dragged out of its group is not restored in
             previous = sample
         }
 
-        expect(quiet, 'the projection must reach a settled state the arm can measure').toBeGreaterThanOrEqual(3);
+        expect(quiet, 'the projection must reach a settled state the arm can measure').toBeGreaterThanOrEqual(1);
 
         const after   = await readTabs(page),
               holders = after.filter(entry => entry.tabTexts.includes(subject));
