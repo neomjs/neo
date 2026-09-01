@@ -231,5 +231,105 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
 
         // The pane is the registered holder of its id — a zombie would have no worker instance.
         expect((await readConfigs(page, 'dock-lock-pane-railed', ['mounted']))?.[0]).toBe(true)
+    });
+
+    /**
+     * The content half of lock is delegable: a pane implementing `dockLock(locked)` decides what
+     * locked means for its content, the engine writes no `inert`, and the forbidding cursor stays
+     * with the inert default. The structural half — hidden close, suppressed drag source, the frame
+     * cue — is never delegated.
+     */
+    test('a pane implementing dockLock owns its content presentation without inert', async ({page}) => {
+        const main    = tabsNodeWith(page, 'Alpha'),
+              pane    = page.locator('#dock-lock-pane-delegated'),
+              control = page.locator('#dock-lock-pane-delegated-control'),
+              keep    = page.locator('#dock-lock-pane-delegated-keep'),
+              cursor  = locator => locator.evaluate(node => getComputedStyle(node).cursor),
+              calls   = async () => (await readConfigs(page, 'dock-lock-pane-delegated', ['lockCalls']))[0];
+
+        await tabButton(main, 'Delegated').click();
+        await awaitRefresh(page);
+        await expect(control).toBeEnabled();
+
+        await actionButton(main, 'fa-lock').click();
+        await awaitRefresh(page);
+
+        await expect(pane).toHaveClass(/neo-dock-pane-locked/);
+        await expect(pane).toHaveCSS('outline-style', 'solid');
+        await expect(control, 'the pane disabled the control it chose to').toBeDisabled();
+        expect(await pane.evaluate(node => node.inert), 'the engine wrote no inert').toBe(false);
+        expect(await readInertOwnership(page, 'dock-lock-pane-delegated')).toEqual({owned: false, value: undefined});
+        expect(await cursor(pane), 'the forbidding cursor belongs to the inert default').not.toBe('not-allowed');
+
+        await page.evaluate(() => {
+            window.__dockLockKeepClicks = 0;
+            document.getElementById('dock-lock-pane-delegated-keep')
+                .addEventListener('click', () => window.__dockLockKeepClicks++)
+        });
+        await keep.click();
+        expect(await page.evaluate(() => window.__dockLockKeepClicks), 'what the pane left live stays live').toBe(1);
+
+        await expect(tabButton(main, 'Delegated'), 'the drag source is still the engine\'s').not.toHaveClass(/neo-draggable/);
+        await expect(actionButton(main, 'fa-times'), 'and so is the hidden close').toBeHidden();
+
+        // The sweep runs on every active-item change; the hook must not.
+        await tabButton(main, 'Alpha').click();
+        await awaitRefresh(page);
+        await tabButton(main, 'Delegated').click();
+        await awaitRefresh(page);
+        expect(await calls(), 'once per transition').toEqual([true]);
+
+        await actionButton(main, 'fa-lock-open').click();
+        await awaitRefresh(page);
+
+        await expect(control).toBeEnabled();
+        await expect(pane).not.toHaveClass(/neo-dock-pane-locked/);
+        expect(await calls()).toEqual([true, false]);
+        expect(await readInertOwnership(page, 'dock-lock-pane-delegated')).toEqual({owned: false, value: undefined});
+
+        // Contrast on the same page: a pane without the hook keeps the inert default and its cursor.
+        await tabButton(main, 'Alpha').click();
+        await awaitRefresh(page);
+        await actionButton(main, 'fa-lock').click();
+        await awaitRefresh(page);
+
+        expect(await page.locator('#dock-lock-pane-alpha').evaluate(node => node.inert)).toBe(true);
+        expect(await cursor(page.locator('#dock-lock-pane-alpha'))).toBe('not-allowed')
+    });
+
+    /**
+     * The revealed rail pane resolves the hook through the same presentation seam as the in-flow
+     * card. The workspace here takes the reconciler's default full staged transaction on every
+     * commit, rails included, so a committed unlock re-materializes the reveal pane instead of
+     * restoring it: a fresh pane is never asked. The same-instance reversal on a retained overlay is
+     * the unit spec's rail-callback witness.
+     */
+    test('a delegating reveal pane receives the committed lock on the rail, never inert', async ({page}) => {
+        const railTab = page.locator('.neo-dashboard-dock-edge-rail').getByText('Reader'),
+              overlay = page.locator(
+                  '.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)'
+              ),
+              pane    = page.locator('#dock-lock-pane-reader'),
+              control = page.locator('#dock-lock-pane-reader-control'),
+              calls   = async () => (await readConfigs(page, 'dock-lock-pane-reader', ['lockCalls']))[0];
+
+        await railTab.click();
+        await expect(overlay).toHaveCount(1);
+        await expect(pane).toHaveClass(/neo-dock-pane-locked/);
+        await expect(control, 'the reveal pane was asked, not made inert').toBeDisabled();
+        expect(await pane.evaluate(node => node.inert)).toBe(false);
+        expect(await calls()).toEqual([true]);
+
+        await setWorkspace(page, {
+            operationJson: JSON.stringify({operation: 'setItemLocked', itemId: 'reader', locked: false, attempt: 4})
+        });
+        await awaitRefresh(page);
+
+        await railTab.click();
+        await expect(overlay).toHaveCount(1);
+        await expect(pane).not.toHaveClass(/neo-dock-pane-locked/);
+        await expect(control).toBeEnabled();
+        expect(await calls(), 'the re-materialized pane was never locked, so it is never asked').toEqual([]);
+        expect(await readInertOwnership(page, 'dock-lock-pane-reader')).toEqual({owned: false, value: undefined})
     })
 });

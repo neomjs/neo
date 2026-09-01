@@ -1,3 +1,4 @@
+import Component     from '../../../../../src/component/Base.mjs';
 import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
 import Viewport      from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
@@ -6,11 +7,19 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        alpha : {componentRef: 'alpha',  title: 'Alpha',  kind: 'panel'},
-        beta  : {componentRef: 'beta',   title: 'Beta',   kind: 'panel'},
-        railed: {
+        alpha    : {componentRef: 'alpha',     title: 'Alpha',     kind: 'panel'},
+        beta     : {componentRef: 'beta',      title: 'Beta',      kind: 'panel'},
+        delegated: {componentRef: 'delegated', title: 'Delegated', kind: 'panel'},
+        railed   : {
             componentRef: 'railed',
             title       : 'Railed',
+            kind        : 'panel',
+            autoHidden  : true,
+            locked      : true
+        },
+        reader: {
+            componentRef: 'reader',
+            title       : 'Reader',
             kind        : 'panel',
             autoHidden  : true,
             locked      : true
@@ -21,10 +30,70 @@ const fixtureDocument = {
             center: {nodeId: 'main-tabs'},
             right : {nodeId: 'edge-tabs', extent: 0.25}
         }},
-        'main-tabs': {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'},
-        'edge-tabs': {type: 'tabs', items: ['railed'], activeItemId: 'railed'}
+        'main-tabs': {type: 'tabs', items: ['alpha', 'beta', 'delegated'], activeItemId: 'alpha'},
+        'edge-tabs': {type: 'tabs', items: ['railed', 'reader'], activeItemId: 'railed'}
     }
 };
+
+/**
+ * @summary A pane that owns its lock presentation through `dockLock(locked)`: it disables one of its
+ * controls and leaves the other live, the read-only shape a form or grid would take.
+ */
+class DelegatingLockPane extends Component {
+    static config = {
+        /**
+         * @member {String} className='Test.Playwright.Component.DockLock.DelegatingPane'
+         * @protected
+         */
+        className: 'Test.Playwright.Component.DockLock.DelegatingPane',
+        /**
+         * @member {String[]} cls=['dock-lock-test-pane','dock-lock-delegating-pane']
+         */
+        cls: ['dock-lock-test-pane', 'dock-lock-delegating-pane']
+    }
+
+    /**
+     * Spec-readable log of every value the engine handed to the hook, in order.
+     * @member {Boolean[]} lockCalls=[]
+     */
+    lockCalls = []
+
+    /**
+     * Child ids derive from the pane id, so the in-flow and the rail-revealed instance never collide.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        const me = this;
+
+        me.vdom.cn = [
+            {tag: 'button', id: `${me.id}-control`, text: 'Delegated control'},
+            {tag: 'button', id: `${me.id}-keep`,    text: 'Stays live'}
+        ]
+    }
+
+    /**
+     * The engine's lock delegation contract: `true` on lock, `false` on unlock, once per transition.
+     * @param {Boolean} locked
+     */
+    dockLock(locked) {
+        const me      = this,
+              control = me.vdom.cn[0];
+
+        me.lockCalls.push(locked);
+
+        if (locked) {
+            control.disabled = true
+        } else {
+            delete control.disabled
+        }
+
+        me.update()
+    }
+}
+
+DelegatingLockPane = Neo.setupClass(DelegatingLockPane);
 
 /**
  * @summary Rendered-browser fixture for committed dock lock, inert restoration, source suppression,
@@ -144,12 +213,27 @@ class LockFixtureWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Resolves one test pane. Beta deliberately owns inert before dock lock touches it.
+     * @summary Resolves one test pane. Beta deliberately owns inert before dock lock touches it;
+     * delegated (in flow) and reader (on the rail) implement the `dockLock(locked)` hook.
      * @param {String} itemId
      * @param {Object} item
      * @returns {Object}
      */
     resolvePane(itemId, item) {
+        const style = {
+            alignItems    : 'center',
+            display       : 'flex',
+            justifyContent: 'center'
+        };
+
+        if (itemId === 'delegated' || itemId === 'reader') {
+            return {
+                module: DelegatingLockPane,
+                id    : `dock-lock-pane-${itemId}`,
+                style
+            }
+        }
+
         const vdom = {
             cn: [{
                 tag : 'button',
@@ -164,11 +248,7 @@ class LockFixtureWorkspace extends DockWorkspace {
             cls  : ['dock-lock-test-pane'],
             id   : `dock-lock-pane-${itemId}`,
             ntype: 'component',
-            style: {
-                alignItems    : 'center',
-                display       : 'flex',
-                justifyContent: 'center'
-            },
+            style,
             vdom
         }
     }
