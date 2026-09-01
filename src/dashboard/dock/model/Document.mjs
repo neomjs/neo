@@ -1000,9 +1000,11 @@ class Document extends Base {
      * Deterministic by construction: child arrays keep document order, edge zones walk in the
      * fixed {@link #dockZoneEdgeKeys} order.
      *
-     * Optional edge-zone slots may be absent. A present slot whose descriptor cannot resolve to a
-     * node id fails closed, so that corrupt descriptor cannot fingerprint identically to an omitted
-     * slot and pass downstream shape gates as a legitimate no-change result.
+     * An edge-zone must carry a JSON-record zones container; malformed containers fail closed
+     * instead of collapsing into the legitimate empty-record shape. Optional slots may be absent.
+     * A present slot whose descriptor cannot resolve to a node id also fails closed, so corrupt
+     * input cannot fingerprint identically to an omitted slot and pass downstream shape gates as a
+     * legitimate no-change result.
      * @param {Object} document The committed dock-zone document.
      * @returns {{fingerprint:(Object|null), errors:String[]}}
      * @static
@@ -1042,7 +1044,12 @@ class Document extends Base {
                 case 'tabs':
                     return `t${node.items?.length || 0}`;
                 case 'edge-zone': {
-                    const zones = node.zones || {};
+                    if (!Document.isJsonRecord(node.zones)) {
+                        errors.push(`fingerprint walk found a non-record zones container for edge-zone "${nodeId}"`);
+                        return '?'
+                    }
+
+                    const zones = node.zones;
 
                     return `e{${[...Document.dockZoneEdgeKeys]
                         .map(zone => {
