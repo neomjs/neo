@@ -235,7 +235,7 @@ class Reconciler extends Base {
             }
         });
 
-        const materializedBars = new Set();
+        const commitBars = new Set();
 
         if (reconcileItems) {
             this.reconcileTabChrome(
@@ -245,7 +245,7 @@ class Reconciler extends Base {
                 oldShell,
                 resolveItem,
                 preserveItemIds,
-                materializedBars
+                commitBars
             )
         }
 
@@ -254,7 +254,7 @@ class Reconciler extends Base {
         });
         placeholders.clear();
 
-        return {currentTabs, materializedBars, nextShell: oldShell, plans, reconciledItems: reconcileItems}
+        return {currentTabs, commitBars, nextShell: oldShell, plans, reconciledItems: reconcileItems}
     }
 
     /**
@@ -372,7 +372,7 @@ class Reconciler extends Base {
                     oldShell,
                     plans      : stableProjection.plans
                 });
-            await Promise.all([...stableProjection.materializedBars].map(bar => {
+            await Promise.all([...stableProjection.commitBars].map(bar => {
                 bar.sortZone?.adjustItemCls(true);
                 bar.updateDepth = -1;
                 return bar.promiseUpdate()
@@ -431,7 +431,7 @@ class Reconciler extends Base {
         host.update();
         await host.promiseUpdate();
 
-        const materializedBars = new Set();
+        const commitBars = new Set();
 
         this.reconcileTabChrome(
             plans,
@@ -440,7 +440,7 @@ class Reconciler extends Base {
             nextShell,
             resolveItem,
             preserveItemIds,
-            materializedBars
+            commitBars
         );
 
         // Existing pane/button pairs move through the host's common-ancestor transaction below.
@@ -450,7 +450,7 @@ class Reconciler extends Base {
         // leave the toolbar's VDOM change invisible to the main-thread delta boundary. Silent
         // insertion also bypasses the SortZone's insert listener, so restore its delegated marker
         // before that one owner commit.
-        await Promise.all([...materializedBars].map(bar => {
+        await Promise.all([...commitBars].map(bar => {
             bar.sortZone?.adjustItemCls(true);
             bar.updateDepth = -1;
             return bar.promiseUpdate()
@@ -579,8 +579,10 @@ class Reconciler extends Base {
      * @param {Neo.container.Base} nextShell
      * @param {Function} resolveItem Resolves one live pane or materializable config by dock item id.
      * @param {Iterable<String>} [preserveItemIds=[]] Owner-held panes to park instead of destroy.
-     * @param {Set<Neo.tab.header.Toolbar>} [materializedBars=new Set()] Output set for toolbars which
-     * created a fresh pane/button pair and therefore require one awaited direct-owner commit.
+     * @param {Set<Neo.tab.header.Toolbar>} [commitBars=new Set()] Output set for toolbars whose
+     * membership changed SILENTLY and therefore require one awaited direct-owner commit. Two kinds
+     * qualify: a bar that materialized a fresh pane/button pair, and both bars of a cross-bar move —
+     * the source's removal and the target's insertion are each silent, so neither publishes on its own.
      * @returns {Map<String,Object>}
      * @static
      */
@@ -591,7 +593,7 @@ class Reconciler extends Base {
         nextShell,
         resolveItem,
         preserveItemIds=[],
-        materializedBars=new Set()
+        commitBars=new Set()
     ) {
         const
             nextTabs       = this.collectProjectedTabs(nextShell),
@@ -698,14 +700,15 @@ class Reconciler extends Base {
                     // its already-mounted button leaves that DOM lifecycle coupled to the destroyed
                     // placeholder pane. Materialize the live pair together, then commit its toolbar
                     // explicitly through the direct-owner transaction above. Silent insertion skips
-                    // SortZone#onItemInsert, so the materializedBars commit below reapplies the same
-                    // semantic membership predicate used by every ordinary insert.
+                    // SortZone#onItemInsert, so the commitBars commit below reapplies the same
+                    // semantic membership predicate used by every ordinary insert. The commitBars set
+                    // below carries every bar whose membership changed silently, materialization included.
                     if (stagedButton) {
                         targetBar.remove(stagedButton, true, true)
                     }
 
                     targetBar.insertTab(targetIndex, buttonConfig, true);
-                    materializedBars.add(targetBar);
+                    commitBars.add(targetBar);
 
                     resolvedItems.set(itemId, inserted);
                     return
@@ -732,8 +735,8 @@ class Reconciler extends Base {
                 // header. Enrolling both bars in the awaited commit publishes the removal beside the
                 // insertion; the set makes it idempotent when several items move between the same pair.
                 if (state.bar !== targetBar) {
-                    materializedBars.add(state.bar);
-                    materializedBars.add(targetBar)
+                    commitBars.add(state.bar);
+                    commitBars.add(targetBar)
                 }
             })
         });

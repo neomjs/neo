@@ -40,7 +40,12 @@ import {test, expect} from '../../fixtures.mjs';
  */
 
 /** Rendered tab occupancy per container: which labels each header shows, and which read as active. */
-const readTabs = page => page.evaluate(() => [...document.querySelectorAll('.neo-tab-header-toolbar')].map(bar => {
+const readTabs = page => page.evaluate(() => [...document.querySelectorAll('.neo-tab-header-toolbar')]
+    // The DRAG PROXY also carries `.neo-tab-header-toolbar` — that is its whole point, it is a detached
+    // clone of a tab header. Counting it makes the proxy's own button look like a third container holding
+    // the subject, which is a defect in the instrument, not in the product.
+    .filter(bar => !bar.classList.contains('neo-dragproxy') && !bar.closest('.neo-dragproxy'))
+    .map(bar => {
     const container = bar.closest('[class*="neo-tab-container"]'),
           buttons   = [...bar.querySelectorAll('.neo-tab-header-button')];
 
@@ -80,13 +85,44 @@ test.describe('Workstation — a tab dragged out of its group is not restored in
 
             return host?.getBoundingClientRect().height > 300
         }, {timeout: 60000});
-        await page.waitForTimeout(1200);
+
+        // Readiness by predicate, not by clock: the gesture needs THIS subject's button rendered with a
+        // real box, and the workspace's other headers projected. A fixed wait either overshoots on a
+        // fast host or, worse, under-waits on a slow one and drags a button whose rect is still stale.
+        await page.waitForFunction(subject => {
+            const bars    = [...document.querySelectorAll('.neo-tab-header-toolbar')],
+                  buttons = bars.flatMap(bar => [...bar.querySelectorAll('.neo-tab-header-button')]),
+                  target  = buttons.find(button => button.textContent.trim() === subject);
+
+            // `neo-draggable` on THE SUBJECT is the armed-sensor signal. Waiting only for a box was the
+            // mistake an earlier revision made: the button paints before its sort zone is wired, so the
+            // gesture started against unarmed chrome and the drop committed nothing — which the
+            // non-vacuity guard then reported, correctly, as a test defect rather than a product one.
+            return bars.length > 2 && !!target
+                && target.getBoundingClientRect().width > 0
+                && target.classList.contains('neo-draggable')
+        }, 'Priority Alert Observatory', {timeout: 60000});
 
         const app        = await neuralLink.connectToApp('Workstation'),
               workspaces = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
         expect(wsId, 'the workstation Workspace must exist in the App Worker').toBeTruthy();
+
+        // Workspace-level settle, read from the engine rather than inferred from the DOM: every `tabs`
+        // node in the COMMITTED document must have a rendered header. That is what "the projection has
+        // caught up" means, and it is the condition the drop needs in order to resolve a target zone.
+        // DOM-only readiness is not sufficient — a button can paint, and even be draggable, while the
+        // workspace is still projecting, and the release then commits nothing.
+        await expect.poll(async () => {
+            const doc       = (await app.getDockTopology(wsId)).document,
+                  tabsNodes = Object.values(doc?.nodes || {}).filter(node => node.type === 'tabs').length,
+                  bars      = await page.locator('.neo-tab-header-toolbar').count();
+
+            return tabsNodes > 0 && bars === tabsNodes
+        }, {message: 'every committed tabs node must have a rendered header before the gesture', timeout: 60000})
+            .toBe(true);
+
 
         const before = await readTabs(page),
               // The dragged subject: the operator's own. Resolved from rendered text rather than a node
@@ -125,7 +161,50 @@ test.describe('Workstation — a tab dragged out of its group is not restored in
         await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 + 20, {steps: 8});
         await page.mouse.move(dropX, dropY, {steps: 24});
         await page.mouse.up();
-        await page.waitForTimeout(1200);
+
+        // Settle on projection STABILITY, which is the only predicate that is both semantic and neutral.
+        //
+        // "Wait until the source is clean" would mask the defect — that is the thing under test. "Wait
+        // until the re-home renders" resolves too early: the insertion paints before the source removal
+        // is published, so the snapshot catches an intermediate state and the non-vacuity guard fires on
+        // a gesture that did commit. Waiting for the rendered occupancy to stop changing settles on
+        // whatever the truth is: clean if the removal lands, duplicated if it never does.
+        // Settle across ENGINE ROUND-TRIPS, not rAF frames and not a duration.
+        //
+        // Three predicates were tried and each failed for an instructive reason. "Wait for the source to
+        // be clean" masks the defect under test. "Wait for the re-home to render" resolves while the
+        // transaction is still mid-flight. "Wait for three quiet rAF frames" resolves instantly, because
+        // the PRE-drop state is already quiet — quiescence cannot distinguish settled-after from
+        // not-started — and even gated behind the re-home it is too short, since the source removal
+        // publishes several frames after the target paints.
+        //
+        // A `getDockTopology` call is a round-trip to the App Worker, so it is a genuine synchronisation
+        // point. Requiring the committed document AND the rendered occupancy to be identical across
+        // three consecutive round-trips gives real settle time derived from the engine rather than
+        // guessed. It stays neutral: it never asks the source to be clean, so a surviving stale node
+        // reaches the assertions instead of hanging the wait.
+        let quiet = 0, previous = null;
+
+        // The proxy is torn down on its own schedule after release. Its presence is unrelated to whether
+        // the source removal published, so waiting for it is not a wait on the thing under test.
+        await page.waitForSelector('.neo-dragproxy', {state: 'detached', timeout: 30000});
+
+        for (let attempt = 0; attempt < 60 && quiet < 3; attempt++) {
+            const doc      = (await app.getDockTopology(wsId)).document,
+                  rendered = await readTabs(page),
+                  sample   = JSON.stringify({
+                      doc      : Object.entries(doc?.nodes || {})
+                          .filter(([, node]) => node.type === 'tabs')
+                          .map(([nodeId, node]) => [nodeId, [...(node.items || [])].sort()])
+                          .sort(),
+                      occupancy: rendered.map(entry => [entry.barId, [...entry.tabTexts].sort()]).sort()
+                  });
+
+            quiet    = sample === previous ? quiet + 1 : 0;
+            previous = sample
+        }
+
+        expect(quiet, 'the projection must reach a settled state the arm can measure').toBeGreaterThanOrEqual(3);
 
         const after   = await readTabs(page),
               holders = after.filter(entry => entry.tabTexts.includes(subject));
@@ -134,10 +213,14 @@ test.describe('Workstation — a tab dragged out of its group is not restored in
         // gesture that did nothing at all: if the release was a no-op the item never left its header,
         // occupancy stays at one, and the arm reports green against an untested code path. So prove the
         // move committed BEFORE trusting the occupancy result.
+        // Order-INDEPENDENT: an earlier revision asserted `holders[0] !== origin`, but `holders` is in
+        // DOM order, so with the defect present (both containers holding the subject) the origin could
+        // sort first and the guard then misreported a committed drag as "committed nothing". Ask whether
+        // the subject renders anywhere OTHER than its origin, which is the actual question.
         expect(
-            holders[0]?.containerId ?? '<the subject vanished>',
-            `the drag must actually re-home the item — it is still in its origin container ${origin.containerId}, so this gesture committed nothing and the assertions below prove nothing`
-        ).not.toBe(origin.containerId);
+            holders.map(entry => entry.containerId).filter(id => id !== origin.containerId),
+            `the drag must actually re-home the item — it renders only in its origin container ${origin.containerId}, so this gesture committed nothing and the assertions below prove nothing`
+        ).not.toEqual([]);
 
         // Engine truth for the SOURCE container specifically. The DOM says its header still renders the
         // re-homed item; this asks the App Worker whether that button is a live child of the source's

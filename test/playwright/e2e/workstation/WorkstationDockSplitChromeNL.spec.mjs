@@ -17,10 +17,14 @@ import {test, expect} from '../../fixtures.mjs';
  * class, and `plain` — because one projected `cls` replacement dropped all three, and an inline-only
  * assertion would pass a repair that restored just the visible one.
  *
- * This arm does NOT assert one active tab per container. A second, independent defect can render the
- * moved tab's button as a second `pressed` tab; it reproduces intermittently through this same cue
- * and belongs to the orphaned-DOM class, not to this projection repair. `pressedCount` is recorded
- * in the failure payload for forensics and deliberately left unasserted.
+ * This arm does NOT assert one active tab per container, and that is now a scope statement rather than
+ * an open question. The second `pressed` tab was a separate defect — a cross-bar move published its
+ * insertion but not its source removal, so the moved button's old DOM node survived and one element id
+ * rendered under two bars. It is FIXED, and its guard is `WorkstationTabRestoreNL.spec.mjs`, which
+ * drives a real pointer because this file's cue executor never reproduced it.
+ *
+ * `pressedCount` stays recorded-but-unasserted here for the same reason: this cue does not reach that
+ * path, so asserting it in this file would pin nothing. Assert it in the dedicated witness instead.
  *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> NEO_E2E_PORT=8151 \
  *      npx playwright test workstation/WorkstationDockSplitChromeNL -c test/playwright/playwright.config.e2e.mjs --workers=1
@@ -158,12 +162,14 @@ test.describe('Workstation — docking a tab to a grid edge leaves every other h
             'a retained container keeps its position class VALUE, not merely some position class'
         ).toEqual([]);
 
-        // NOT asserted here, deliberately: a second, independent defect makes the source header
-        // sometimes render the moved tab's button as a SECOND pressed tab. It reproduces through
-        // this exact cue but only intermittently, and the reconciler's own count guard does not
-        // fire on it — `getTabButtons()` cannot see the node — which places it in the orphaned-DOM
-        // class rather than in this projection repair. Asserting it here would make this guard
-        // flaky and would attribute someone else's defect to the fix it is protecting.
+        // The second-pressed-tab defect that used to be described here is FIXED: a cross-bar move
+        // published its insertion but not its source removal, so the moved button's old node survived
+        // and one element id rendered under two bars. Its guard is `WorkstationTabRestoreNL.spec.mjs`.
+        // `pressedCount` still is not asserted in THIS file, because this cue never reproduced that
+        // path — the observation that `getTabButtons()` could not see the stale node was in fact the
+        // tell, since the node had no component left in the source bar at all. The duplicate-id check
+        // below stays: it is scoped WITHIN one bar, and the fixed defect duplicated ACROSS bars, so it
+        // was never able to see it.
         expect(
             chrome.filter(entry => entry.duplicateIds.length).map(entry => ({id: entry.containerId, dupes: entry.duplicateIds})),
             `no header may render a duplicate DOM id — ${JSON.stringify(chrome)}`
