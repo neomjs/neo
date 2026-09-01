@@ -2349,18 +2349,28 @@ class Workspace extends Container {
             return
         }
 
-        let me      = this,
-            animate = me.dockMaximizeMotion !== 'instant',
-            steps   = [];
+        let me             = this,
+            animate        = me.dockMaximizeMotion !== 'instant',
+            transitionTail = me.dockMaximizeTransition?.catch(() => {}) || Promise.resolve();
 
         me.dockMaximizeMotion = 'animate';
 
-        oldValue && steps.push(me.clearDockMaximizePresentation({animate: animate && !value}));
-        value    && steps.push(me.applyDockMaximizePresentation(value, {animate}));
+        // Transitions are one ordered lane. A superseding value used to start its apply while the
+        // prior clear was still live; that clear could then remove the new presentation while the
+        // reactive id correctly survived. Clear first, then wait for the latest committed projection
+        // before resolving the live tabs instance the apply mutates. `syncDockMaximizeProjection`
+        // remains the refresh-owned idempotent reapply inside that projection.
+        me.dockMaximizeTransition = transitionTail.then(async () => {
+            oldValue && await me.clearDockMaximizePresentation({animate: animate && !value});
 
-        // The awaitable transition: the settled-surface contract (refreshPromise) and the
-        // continuity sync serialize on this instead of racing fire-and-forget presentation work.
-        me.dockMaximizeTransition = Promise.all(steps).catch(() => null)
+            if (value) {
+                await (me.refreshPromise?.catch(() => {}) || Promise.resolve());
+
+                if (me.maximizedNodeId === value && !me.isDestroyed) {
+                    await me.applyDockMaximizePresentation(value, {animate})
+                }
+            }
+        }).catch(() => null)
     }
 
     /**
@@ -2699,6 +2709,11 @@ class Workspace extends Container {
             tabContainer, zone;
 
         if (!restore) {
+            // A failed superseding apply can clear the reactive id after the prior clear already
+            // consumed the restore snapshot. The observer may still be live because its generation
+            // guard correctly refused to unregister while that superseding id was non-null. Once the
+            // id is null, this clear remains the lifecycle owner even without geometry left to restore.
+            !me.maximizedNodeId && await me.registerDockMaximizeResizeObserver(false);
             return
         }
 

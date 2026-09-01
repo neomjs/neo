@@ -238,6 +238,36 @@ test.describe('dock maximize — presentation, never topology', () => {
         await expect.poll(async () => (await readWorkspace(page, ['maximizedNodeId']))[0]).toBe(null)
     });
 
+    test('a superseding maximize waits for the prior clear and its refresh', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+        await expectMaximizedCount(page, 1);
+
+        await setWorkspace(page, {holdMaximizeClear: true});
+
+        // The outside operation clears maximize and opens a projection, while the fixture holds
+        // that clear before its presentation mutation.
+        await setWorkspace(page, {closeItemId: 'gamma'});
+        await expect.poll(async () => JSON.parse(
+            (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
+        )).toEqual(['clear:start']);
+
+        // Supersede the clear while it is held. The new apply must queue; starting it here races a
+        // stale presentation against both the prior clear and the operation's re-projection.
+        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+        expect(JSON.parse((await readWorkspace(page, ['maximizeTransitionLogJson']))[0]))
+            .toEqual(['clear:start']);
+
+        await setWorkspace(page, {releaseMaximizeClearCount: 1});
+        await expectMaximizedCount(page, 1);
+        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+        await expect.poll(async () => JSON.parse(
+            (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
+        )).toEqual(['clear:start', 'clear:apply', 'apply:main-tabs'])
+    });
+
     test('while maximized, the workspace resize observation re-measures the rect live', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 
