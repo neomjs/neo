@@ -1351,6 +1351,137 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         }
     };
 
+    test('lands path-owned DockFlip on Main before resize or proxy state and an immediate move', () => {
+        const
+            originalDockFlip = Neo.main.addon.DockFlip,
+            originalSend     = DomEvents.sendMessageToApp,
+            appEvents        = [],
+            order            = [],
+            host             = {id: 'dock-host'},
+            root             = {id: 'splitter-root'},
+            target           = {
+                getBoundingClientRect() {
+                    return {height: 6, left: 300, top: 0, width: 6}
+                }
+            };
+
+        let presentationActive = true;
+
+        const dragResize = {
+            active: false,
+            apply() {
+                expect(presentationActive, 'a native move cannot mutate while FLIP still owns geometry').toBe(false);
+                order.push('resize:apply')
+            },
+            start(path, data, dragZoneId) {
+                expect(presentationActive, 'presentation lands before Resize captures state').toBe(false);
+                expect(dragZoneId).toBe('splitter-zone');
+                this.active = true;
+                order.push('resize:start')
+            }
+        };
+
+        const addon = {
+            alwaysFireDragMove    : false,
+            boundaryContainerRect : null,
+            dragCancelled         : false,
+            dragProxyElement      : null,
+            dragProxyRect         : null,
+            dragResize,
+            getEventData          : () => ({}),
+            isWindowDragging      : false,
+            resolveDragZoneId     : () => 'splitter-zone',
+            scrollContainerElement: null
+        };
+
+        Neo.main.addon.DockFlip = {
+            landFromPath(path) {
+                expect(path).toEqual([target, root, host]);
+                presentationActive = false;
+                order.push('dockFlip:land');
+
+                return true
+            }
+        };
+        // Deliberately retain the App event: the physical owner must be correct without an ack.
+        DomEvents.sendMessageToApp = data => {
+            appEvents.push(data);
+            order.push('app:queued')
+        };
+
+        try {
+            DragDrop.prototype.onDragStart.call(addon, {
+                detail: {clientX: 300, clientY: 0},
+                path  : [target, root, host],
+                target
+            });
+            DragDrop.prototype.onDragMove.call(addon, {
+                detail: {
+                    clientX      : 340,
+                    clientY      : 0,
+                    originalEvent: {screenX: 340, screenY: 0}
+                }
+            })
+        } finally {
+            originalDockFlip === undefined
+                ? delete Neo.main.addon.DockFlip
+                : Neo.main.addon.DockFlip = originalDockFlip;
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(appEvents).toHaveLength(1);
+        expect(appEvents[0].type).toBe('drag:start');
+        expect(order).toEqual(['dockFlip:land', 'resize:start', 'app:queued', 'resize:apply'])
+    });
+
+    test('a missing DockFlip addon or path-owned host leaves native admission synchronous', () => {
+        const
+            originalDockFlip = Neo.main.addon.DockFlip,
+            originalSend     = DomEvents.sendMessageToApp,
+            scenarios        = [
+                {dockFlip: undefined, name: 'missing addon'},
+                {
+                    dockFlip: {
+                        landFromPath() {
+                            return false
+                        }
+                    },
+                    name: 'no path-owned host'
+                }
+            ];
+
+        try {
+            DomEvents.sendMessageToApp = () => {};
+
+            scenarios.forEach(({dockFlip, name}) => {
+                const
+                    starts = [],
+                    target = {getBoundingClientRect: () => ({height: 6, left: 0, top: 0, width: 6})},
+                    addon  = {
+                        dragResize       : {start: (...args) => starts.push(args)},
+                        getEventData     : () => ({}),
+                        resolveDragZoneId: () => 'splitter-zone'
+                    };
+
+                dockFlip === undefined
+                    ? delete Neo.main.addon.DockFlip
+                    : Neo.main.addon.DockFlip = dockFlip;
+
+                expect(() => DragDrop.prototype.onDragStart.call(addon, {
+                    detail: {clientX: 0, clientY: 0},
+                    path  : [target],
+                    target
+                }), name).not.toThrow();
+                expect(starts, name).toHaveLength(1)
+            })
+        } finally {
+            originalDockFlip === undefined
+                ? delete Neo.main.addon.DockFlip
+                : Neo.main.addon.DockFlip = originalDockFlip;
+            DomEvents.sendMessageToApp = originalSend
+        }
+    });
+
     test('live pointer frames resize the real target and terminal resolution keeps that DOM preview', () => {
         const {resize, style} = createState();
 

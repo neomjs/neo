@@ -41,7 +41,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
     test.beforeAll(async () => {
         Container     = (await import('../../../../src/container/Base.mjs')).default;
         DockSplitter  = (await import('../../../../src/dashboard/dock/interaction/DockSplitter.mjs')).default;
-        LayoutAdapter = (await import('../../../../src/dashboard/dock/projection/LayoutAdapter.mjs')).default
+        LayoutAdapter = (await import('../../../../src/dashboard/dock/projection/LayoutAdapter.mjs')).default;
     });
 
     const mount = (splitterConfig = {}) => {

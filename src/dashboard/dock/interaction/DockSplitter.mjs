@@ -1,6 +1,6 @@
-import Splitter   from '../../../component/Splitter.mjs';
-import Operations from '../model/Operations.mjs';
-import NeoArray   from '../../../util/Array.mjs';
+import Splitter     from '../../../component/Splitter.mjs';
+import Operations   from '../model/Operations.mjs';
+import NeoArray     from '../../../util/Array.mjs';
 
 /**
  * @summary Dock splitter affordance: generic Splitter mechanics, one dock-document semantic commit.
@@ -326,6 +326,8 @@ class DockSplitter extends Splitter {
     }
 
     /**
+     * @summary Builds the main-thread live-resize descriptor for one dock affordance.
+     *
      * Edge affordances use the inherited single-target descriptor: their band previews live under
      * CSS min/max bounds plus a 1px commit-domain floor (the extent the semantic commit accepts is
      * the open interval (0,1), so the preview must never paint the 0px frame the model refuses).
@@ -513,8 +515,15 @@ class DockSplitter extends Splitter {
     }
 
     /**
-     * Captures the adjacent-pair geometry and projects the proxy paint BEFORE the generic parent
-     * refreshes the zone and starts the gesture (the proxy is created inside the parent's start).
+     * @summary Captures dock semantics after Main has admitted physical resize.
+     *
+     * Captures adjacent-pair geometry and projects proxy paint before the generic parent refreshes
+     * the zone and opens the logical gesture. Physical live-resize admission happens earlier on
+     * the Main thread: DragDrop synchronously lands any DockFlip presentation on the native event
+     * path before Resize creates or applies geometry state. The App-side handler therefore remains
+     * semantic and never tries to serialize Main behind an unawaited cross-worker event.
+     *
+     * The proxy is created inside the parent's start.
      * The armed generation fences those awaits: the parent arms its own fence only inside
      * `super.onDragStart()`, so a cancel, destroy, terminal, or newer start landing during the
      * capture/projection awaits must invalidate the pending start here, before the real gesture
