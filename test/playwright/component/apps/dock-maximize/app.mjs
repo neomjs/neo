@@ -274,6 +274,25 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         refreshCount_: 0,
         /**
+         * Spec gate: holds the next maximize clear before it mutates presentation.
+         * @member {Boolean} holdMaximizeClear_=false
+         * @reactive
+         */
+        holdMaximizeClear_: false,
+        /**
+         * Spec trigger: releases the held maximize clear.
+         * @member {Number} releaseMaximizeClearCount_=0
+         * @reactive
+         */
+        releaseMaximizeClearCount_: 0,
+        /**
+         * Spec trigger: builds the refreshPromise ↔ dockMaximizeTransition cycle and records
+         * whether the refresh-owned sync can settle without its own promise being released first.
+         * @member {Number} maximizeCycleProbeCount_=0
+         * @reactive
+         */
+        maximizeCycleProbeCount_: 0,
+        /**
          * Debug trigger: each bump snapshots the main-tabs container's style surfaces into
          * {@link #styleProbeJson}.
          * @member {Number} styleProbeCount_=0
@@ -328,6 +347,30 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
     settleJson = null
 
     /**
+     * Resolver for the held maximize clear.
+     * @member {Function|null} maximizeClearRelease=null
+     */
+    maximizeClearRelease = null
+
+    /**
+     * Ordered fixture-only transition trace.
+     * @member {String[]} maximizeTransitionLog=[]
+     */
+    maximizeTransitionLog = []
+
+    /**
+     * Spec-readable transition trace.
+     * @member {String} maximizeTransitionLogJson='[]'
+     */
+    maximizeTransitionLogJson = '[]'
+
+    /**
+     * Spec-readable settlement of the refresh-owned maximize sync.
+     * @member {Boolean} maximizeCycleSyncSettled=false
+     */
+    maximizeCycleSyncSettled = false
+
+    /**
      * Spec-readable mirror of the PRODUCTION settlement channel: the fixture subscribes to the
      * engine's `dockReloadSettled` event like any application would — the mirror proves the
      * public surface, not a test-only override.
@@ -363,6 +406,47 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
 
         observerLog.push(`${register ? 'reg' : 'unreg'}:${this.dockMaximizeResizeObserved}`);
         syncObserverProbe()
+    }
+
+    /**
+     * Records when a maximize apply starts. The production method still owns every effect.
+     * @param {String} nodeId
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async applyDockMaximizePresentation(nodeId, options) {
+        this.holdMaximizeClear && this.recordMaximizeTransition(`apply:${nodeId}`);
+
+        return super.applyDockMaximizePresentation(nodeId, options)
+    }
+
+    /**
+     * Holds one clear before its destructive presentation mutation so the spec can issue a
+     * superseding maximize and observe whether the two transitions overlap.
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async clearDockMaximizePresentation(options) {
+        if (this.holdMaximizeClear) {
+            this.recordMaximizeTransition('clear:start');
+
+            await new Promise(resolve => {
+                this.maximizeClearRelease = resolve
+            });
+
+            this.recordMaximizeTransition('clear:apply')
+        }
+
+        return super.clearDockMaximizePresentation(options)
+    }
+
+    /**
+     * Appends one transition token and refreshes the spec-readable mirror.
+     * @param {String} token
+     */
+    recordMaximizeTransition(token) {
+        this.maximizeTransitionLog.push(token);
+        this.maximizeTransitionLogJson = JSON.stringify(this.maximizeTransitionLog)
     }
 
     /**
@@ -546,6 +630,47 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
 
         // Fire-and-forget: the continuity arm polls the DOM outcome.
         this.refreshDockWorkspace()
+    }
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetReleaseMaximizeClearCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        this.maximizeClearRelease?.();
+        this.maximizeClearRelease = null
+    }
+
+    /**
+     * Reproduces the two-lane dependency without timing: the apply transition waits on a held
+     * refresh promise; the refresh-owned sync encounters the unresolved node and may not wait on
+     * that transition before releasing the same refresh.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetMaximizeCycleProbeCount(value, oldValue) {
+        if (oldValue === undefined) {
+            return
+        }
+
+        let releaseRefresh;
+
+        this.maximizeCycleSyncSettled = false;
+        this.refreshPromise = new Promise(resolve => {
+            releaseRefresh = resolve
+        });
+        this.maximizedNodeId = 'ghost-tabs';
+
+        this.syncDockMaximizeProjection().then(() => {
+            this.maximizeCycleSyncSettled = true;
+            releaseRefresh()
+        })
     }
 
     /**
