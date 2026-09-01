@@ -58,10 +58,16 @@ try {
     process.exit(1);
 }
 
-// The corpus families the Data Sync pipeline emits. Named once because two different path shapes
-// are built from them below, and a family reaching only one of the two is the defect this list
-// exists to prevent.
-const syncFamilies = ['issues', 'discussions', 'pulls', 'release-notes'];
+// The corpus families that live under `resources/content/` in the FLAT layout. `release-notes` is
+// sourced separately from the three conversation facets and is listed here for its flat home only.
+const flatSyncFamilies = ['issues', 'discussions', 'pulls', 'release-notes'];
+
+// The families that gain a repository segment. DELIBERATELY NOT the flat list: only the three
+// emitted conversation facets move, and whether `release-notes` ever follows them is undecided.
+// Sharing one list across both grammars would silently answer that question here — accepting
+// `resources/content/<slug>/release-notes/…` as generated content on the strength of a variable
+// name. Two grammars whose accepted families differ get two lists, even when one is a subset.
+const qualifiedSyncFamilies = ['issues', 'discussions', 'pulls'];
 
 // Generated GitHub workflow content that should not leak into feature commits.
 //
@@ -82,7 +88,7 @@ const syncFamilies = ['issues', 'discussions', 'pulls', 'release-notes'];
 //     this guard at all. It is kept correct because a bypass that is wrong while unused is wrong
 //     the day something uses it — not because it fires today.
 const generatedSyncPaths = [
-    ...syncFamilies.map(family => `resources/content/${family}/`),
+    ...flatSyncFamilies.map(family => `resources/content/${family}/`),
     'resources/content/archive/',
     'resources/content/_index.json',
     'resources/content/.sync-metadata.json'
@@ -95,6 +101,12 @@ const generatedSyncPaths = [
  * not become another place to remember. The family segment is what makes a path generated content:
  * `resources/content/concepts/…` carries no family segment and is correctly not matched, which
  * keeps hand-authored material under the same root outside this guard's reach.
+ *
+ * Reads `qualifiedSyncFamilies`, NOT the flat list. A qualified `release-notes` path is left
+ * unrecognised on purpose: that family's home is undecided, and classifying it as generated would
+ * settle the question in a predicate rather than where it belongs. Unrecognised fails in the safe
+ * direction for an undecided shape — the autocommit arm rejects it loudly, and the leakage arm
+ * declines to bless a path nothing is supposed to emit.
  * @param {String} file Repository-relative staged path.
  * @returns {Boolean}
  */
@@ -102,7 +114,7 @@ const isRepoQualifiedSyncFile = file => {
     const segments = file.split('/');
 
     return segments.length > 4 && segments[0] === 'resources' && segments[1] === 'content' &&
-        syncFamilies.includes(segments[3])
+        qualifiedSyncFamilies.includes(segments[3])
 };
 
 const isGeneratedSyncFile = file => isRepoQualifiedSyncFile(file) || generatedSyncPaths.some(item =>

@@ -139,7 +139,7 @@ test.describe('check-chore-sync.mjs', () => {
         expect(result.output).toContain('resources/content/neo/issues/chunk-1/issue-1.md');
     });
 
-    test('repo-qualified + NEO_SYNC_AUTOCOMMIT=1: every family under a repoSlug is accepted as sync-only content', () => {
+    test('repo-qualified + NEO_SYNC_AUTOCOMMIT=1: the three EMITTED facets under a repoSlug are accepted as sync-only content', () => {
         // The inverted half. It is DORMANT today — nothing in either repository sets the variable and
         // the pipeline commits with `--no-verify` — so this arm is pinned because a bypass that is
         // wrong while unused is wrong the day something uses it, not because it fires now.
@@ -159,6 +159,23 @@ test.describe('check-chore-sync.mjs', () => {
         ].forEach(stageFile);
 
         expect(runScript(tempDir, { NEO_SYNC_AUTOCOMMIT: '1' }).status).toBe(0);
+    });
+
+    test('repo-qualified: a release-notes path under a repoSlug is NOT corpus data — the qualified grammar admits only the emitted facets', () => {
+        // The two grammars accept different family sets, so they get different lists. `release-notes`
+        // has a flat home and no decision about whether it ever gains a repository segment; a shared
+        // list would answer that here, by predicate, on the strength of a variable name.
+        //
+        // Unrecognised is the safe direction for an undecided shape: the autocommit arm rejects it
+        // loudly rather than blessing it as generated. This arm goes red the moment the qualified
+        // matcher is pointed back at the flat family list.
+        stageFile('resources/content/neo/release-notes/chunk-1/v1.0.0.md');
+
+        const result = runScript(tempDir, { NEO_SYNC_AUTOCOMMIT: '1' });
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Error: NEO_SYNC_AUTOCOMMIT bypass rejected.');
+        expect(result.output).toContain('resources/content/neo/release-notes/chunk-1/v1.0.0.md');
     });
 
     test('repo-qualified: a NON-family segment under a repoSlug is still not corpus data', () => {
