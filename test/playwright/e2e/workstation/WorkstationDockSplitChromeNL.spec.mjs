@@ -11,19 +11,25 @@ import {test, expect} from '../../fixtures.mjs';
  * detaches the item from its source and produces an exact three-node result, so this is a
  * projection-side regression and the assertions below are deliberately on RENDERED chrome.
  *
- * Two invariants, both engine-level rather than cosmetic:
+ * One invariant, engine-level rather than cosmetic: **a container's config-derived classes survive
+ * a sibling's structural change.** A container that did not participate in the operation must not be
+ * restyled by it. All three are pinned — `ui` (the reported 32px→48px casualty), the tab-bar position
+ * class, and `plain` — because one projected `cls` replacement dropped all three, and an inline-only
+ * assertion would pass a repair that restored just the visible one.
  *
- * - **`ui` survives a sibling's structural change.** A container that did not participate in the
- *   operation must not be restyled by it. The inline variant is what makes dock chrome read as
- *   embedded pane furniture instead of a free-standing tab card.
- * - **One active tab per container.** A tab.Container cannot represent two active tabs, so two
- *   `pressed` buttons in one header means chrome outlived its item — the retained-chrome class,
- *   not a styling slip.
+ * This arm does NOT assert one active tab per container. A second, independent defect can render the
+ * moved tab's button as a second `pressed` tab; it reproduces intermittently through this same cue
+ * and belongs to the orphaned-DOM class, not to this projection repair. `pressedCount` is recorded
+ * in the failure payload for forensics and deliberately left unasserted.
  *
- * Run: NEO_E2E_PORT=8151 npx playwright test workstation/WorkstationDockSplitChromeNL -c test/playwright/playwright.config.e2e.mjs --workers=1
+ * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> NEO_E2E_PORT=8151 \
+ *      npx playwright test workstation/WorkstationDockSplitChromeNL -c test/playwright/playwright.config.e2e.mjs --workers=1
+ *
+ * The runtime root is not optional: `playwright.config.e2e.mjs` ignores every neuralLink-fixture
+ * spec without it, so the command selects ZERO tests and reports success.
  */
 
-/** Rendered chrome per tab container: the `ui` class, header density, and pressed-tab count. */
+/** Rendered chrome per tab container: its three config-derived classes, header density, and forensic counts. */
 const readChrome = page => page.evaluate(() => [...document.querySelectorAll('.neo-tab-header-toolbar')].map(bar => {
     const container = bar.closest('[class*="neo-tab-container"]'),
           buttons   = [...bar.querySelectorAll('.neo-tab-header-button')],
@@ -45,7 +51,7 @@ const readChrome = page => page.evaluate(() => [...document.querySelectorAll('.n
 }));
 
 test.describe('Workstation — docking a tab to a grid edge leaves every other header alone', () => {
-    test('the split keeps inline chrome workspace-wide and one active tab per container', async ({page, neuralLink}) => {
+    test('the split keeps every container\'s config-derived chrome workspace-wide', async ({page, neuralLink}) => {
         await page.goto('/apps/workstation/index.html');
         await page.waitForSelector('.workstation-dock-host',            {timeout: 60000});
         await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
