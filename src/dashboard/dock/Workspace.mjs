@@ -130,6 +130,15 @@ class Workspace extends Container {
          * closed in the reducer. Workspace presentation mirrors that truth by making the pane
          * inert, hiding close, and suppressing the tab drag source while preserving exact prior
          * inert and drag-token ownership for unlock. Disabled by default.
+         *
+         * The content half is delegable, exactly like reload: a pane implementing
+         * `dockLock(locked: Boolean): void` owns what locked means for its content (a form
+         * disables its fields, a grid turns cell editing off, a read-only view keeps scrolling
+         * and selecting) and receives `true` on lock and `false` on unlock, once per transition,
+         * on the in-flow card and on the revealed rail pane alike; the engine then writes no
+         * `inert` at all. The probe is a pure `typeof` on the live card, never a resolver call.
+         * The structural half — the reducer's refusals, the hidden close action, the suppressed
+         * drag source, the `neo-dock-pane-locked` frame cue — is never delegated.
          * @member {Boolean} enableDockLockAction=false
          */
         enableDockLockAction: false,
@@ -1507,6 +1516,15 @@ class Workspace extends Container {
 
     /**
      * Applies or restores one item's lock presentation without changing model state.
+     *
+     * The content half is delegable, the reload precedent: a pane implementing
+     * `dockLock(locked)` owns what locked means for its content — a form disables its fields, a
+     * grid turns cell editing off, a stream keeps scrolling — and the engine writes no `inert` for
+     * it. The probe is a pure `typeof` on the live card, never a resolver call. The hook fires
+     * once per transition, recorded in the same per-pane state as the inert snapshot, so a sweep
+     * that runs on every active-item change never re-locks a pane its author already locked.
+     * Without the hook the engine's inert default stands, byte-identical, with its exact-restore
+     * clause.
      * @param {Object} data
      * @param {Neo.tab.header.Button|null} data.button
      * @param {Boolean} data.locked
@@ -1517,35 +1535,49 @@ class Workspace extends Container {
         let me = this;
 
         if (pane && !pane.isDestroyed) {
-            let cls     = Array.isArray(pane.cls) ? [...pane.cls] : pane.cls ? [pane.cls] : [],
-                hadCls  = cls.includes('neo-dock-pane-locked'),
-                changed = false,
+            let cls       = Array.isArray(pane.cls) ? [...pane.cls] : pane.cls ? [pane.cls] : [],
+                hadCls    = cls.includes('neo-dock-pane-locked'),
+                changed   = false,
+                delegated = typeof pane.dockLock === 'function',
                 prior,
-                vdom    = pane.vdom;
+                vdom      = pane.vdom;
 
             if (locked) {
-                if (!me.dockLockPaneState.has(pane)) {
-                    me.dockLockPaneState.set(pane, {
-                        owned: Object.hasOwn(vdom, 'inert'),
-                        value: vdom.inert
-                    })
-                }
+                if (delegated) {
+                    if (!me.dockLockPaneState.has(pane)) {
+                        me.dockLockPaneState.set(pane, {delegated: true});
+                        pane.dockLock(true)
+                    }
+                } else {
+                    if (!me.dockLockPaneState.has(pane)) {
+                        me.dockLockPaneState.set(pane, {
+                            owned: Object.hasOwn(vdom, 'inert'),
+                            value: vdom.inert
+                        })
+                    }
 
-                if (vdom.inert !== true) {
-                    vdom.inert = true;
-                    changed = true
+                    if (vdom.inert !== true) {
+                        vdom.inert = true;
+                        changed = true
+                    }
                 }
             } else if (me.dockLockPaneState.has(pane)) {
                 prior = me.dockLockPaneState.get(pane);
-
-                if (prior.owned) {
-                    vdom.inert = prior.value
-                } else {
-                    delete vdom.inert
-                }
-
                 me.dockLockPaneState.delete(pane);
-                changed = true
+
+                // Reverse along the path that locked: the record decides, never the current probe,
+                // so a pane cannot be handed an unlock it never received a lock for.
+                if (prior.delegated) {
+                    pane.dockLock(false)
+                } else {
+                    if (prior.owned) {
+                        vdom.inert = prior.value
+                    } else {
+                        delete vdom.inert
+                    }
+
+                    changed = true
+                }
             }
 
             NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
