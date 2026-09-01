@@ -207,6 +207,49 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
         expect(container.items[1].id).toBe('recreate-fresh')
     });
 
+    /**
+     * Teardown between the two phases — the AC that exists because the phases are separate calls.
+     *
+     * A caller holding a validated candidate is exactly the caller most likely to commit it into a
+     * corpse: Phase 1 said yes, so the natural next line is Phase 2. If a pane closed, a vessel tore
+     * down or a window disconnected in that gap, this must **refuse**, not throw and not half-mutate.
+     */
+    test('a teardown between the phases settles as a refusal, mutating nothing', () => {
+        const container = livePane.parent;
+
+        // Validated candidate in hand — the state a caller is in when teardown lands.
+        workspace.resolveFreshPane = () => ({module: Component, id: 'recreate-fresh'});
+
+        const prepared = workspace.prepareRecreateCandidate('editor', livePane);
+
+        expect(prepared.ok, 'the transaction must be mid-flight for this arm to mean anything').toBe(true);
+
+        const before = container.items.length;
+
+        livePane.destroy();
+
+        const result = workspace.commitRecreateCandidate(livePane, prepared.candidate);
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toBe('torn-down');
+
+        // The container is not mutated on the way out — no half-replaced slot, no orphan insert.
+        expect(container.items.length, 'a torn-down commit inserts nothing').toBe(before);
+        expect(container.items.some(item => item.id === 'recreate-fresh'), 'the candidate never landed').toBe(false)
+    });
+
+    test('a destroyed workspace refuses too — the transaction owner can vanish as well as the pane', () => {
+        workspace.destroy();
+
+        const result = workspace.commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'});
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toBe('torn-down');
+        expect(livePane.isDestroyed, 'a refusal never destroys the pane it declined to replace').toBeFalsy();
+
+        workspace = null
+    });
+
     test('a pane with no container, or one its container does not list, refuses without mutating', () => {
         const orphan = Neo.create(Component, {appName: 'DashboardDockRecreateCandidateTest'});
 
@@ -214,6 +257,95 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
         expect(orphan.isDestroyed, 'a refusal never destroys').toBeFalsy();
 
         orphan.destroy()
+    })
+});
+
+/**
+ * Settlement semantics: one named result event per invocation, single-flight per item.
+ *
+ * Mirrors the reload leaf's `dockReloadSettled` / `dockReloadInFlight` contract on purpose. **Every
+ * completion settles, including each refusal** — the action wire discards listener returns, so an
+ * unsettled early return is an invocation the event contract never saw. Absorption by the
+ * single-flight guard is the only silent path.
+ */
+test.describe('dock recreate — settles exactly once, one flight per item', () => {
+    let workspace, container, livePane, settlements;
+
+    test.beforeEach(() => {
+        workspace = buildWorkspace();
+        container = Neo.create(Container, {
+            appName: 'DashboardDockRecreateCandidateTest',
+            items  : [{module: Component, id: 'settle-live'}]
+        });
+        [livePane]  = container.items;
+        settlements = [];
+
+        workspace.on('dockRecreateSettled', data => settlements.push(data))
+    });
+
+    test.afterEach(() => {
+        container?.destroy?.();
+        workspace?.destroy?.();
+        workspace = container = livePane = settlements = null
+    });
+
+    test('a successful transaction settles once, with no errors', () => {
+        workspace.resolveFreshPane = () => ({module: Component, id: 'settle-fresh'});
+
+        const result = workspace.recreateDockPane('editor', livePane, {dockNodeId: 'node-1'});
+
+        expect(result.errors).toEqual([]);
+        expect(settlements.length, 'exactly one settlement').toBe(1);
+        expect(settlements[0]).toMatchObject({dockNodeId: 'node-1', itemId: 'editor'});
+        expect(container.items[0].id).toBe('settle-fresh')
+    });
+
+    test('every refusal settles too, and names WHICH refusal it was', () => {
+        // A caller that only learns "it failed" cannot tell a consumer that declined the capability
+        // from one whose factory returned the live instance — those need different fixes.
+        workspace.resolveFreshPane = () => null;
+        workspace.recreateDockPane('editor', livePane);
+
+        workspace.resolveFreshPane = () => livePane;
+        workspace.recreateDockPane('editor', livePane);
+
+        expect(settlements.length, 'a refusal is a completion, not a silent return').toBe(2);
+        expect(settlements[0].errors[0]).toContain('declined');
+        expect(settlements[1].errors[0]).toContain('live-instance');
+
+        expect(livePane.isDestroyed, 'and neither refusal destroyed anything').toBeFalsy()
+    });
+
+    test('a re-entrant invocation is absorbed — it neither runs nor settles', () => {
+        // Not hypothetical: `resolveFreshPane` is consumer code, and a consumer recreating from
+        // inside its own factory would recurse without the guard.
+        let reentrantResult = 'unset';
+
+        workspace.resolveFreshPane = () => {
+            reentrantResult = workspace.recreateDockPane('editor', livePane);
+            return {module: Component, id: 'settle-fresh'}
+        };
+
+        const result = workspace.recreateDockPane('editor', livePane);
+
+        expect(reentrantResult, 'the inner call is absorbed').toBeNull();
+        expect(result.errors).toEqual([]);
+        expect(settlements.length, 'absorption is the only silent path — one settlement, not two').toBe(1)
+    });
+
+    test('the in-flight set is released even when a phase throws', () => {
+        workspace.resolveFreshPane = () => { throw new Error('resolver exploded') };
+
+        workspace.recreateDockPane('editor', livePane);
+
+        // A leaked entry would silently absorb every future recreate for this item — a wedge that
+        // presents as "the button does nothing" with no error anywhere.
+        expect(workspace.dockRecreateInFlight.has('editor'), 'the flight must be released').toBe(false);
+
+        workspace.resolveFreshPane = () => ({module: Component, id: 'settle-fresh'});
+        workspace.recreateDockPane('editor', livePane);
+
+        expect(settlements.length, 'a later invocation still runs and settles').toBe(2)
     })
 });
 

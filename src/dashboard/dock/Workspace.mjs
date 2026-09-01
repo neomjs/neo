@@ -438,6 +438,14 @@ class Workspace extends Container {
     dockReloadInFlight = new Set()
 
     /**
+     * Item ids with a recreate transaction in flight — the same single-flight contract the reload
+     * guard above uses, for the same reason: one settlement per invocation.
+     * @member {Set<String>} dockRecreateInFlight=new Set()
+     * @protected
+     */
+    dockRecreateInFlight = new Set()
+
+    /**
      * The in-flight maximizedNodeId transition as an awaitable — every consumer that must
      * observe settled maximize presentation (the refresh chain, the continuity sync) awaits
      * this instead of racing the async clear/apply pair.
@@ -3480,9 +3488,21 @@ class Workspace extends Container {
      * @returns {{ok: Boolean, index: Number, reason: ?String}}
      */
     commitRecreateCandidate(livePane, candidate) {
-        const container = livePane?.parent;
+        // Teardown mid-transaction. Phase 1 and Phase 2 are separate calls, so a workspace or tab
+        // container can be destroyed in the gap between validating a candidate and committing it —
+        // a pane closed, a vessel torn down, a window disconnected. Every one of those must settle
+        // as a **refusal**, not as a throw and not as a partial mutation: by this point the caller
+        // holds a validated candidate and would otherwise commit it into a corpse.
+        //
+        // Checked before the container is touched, so a torn-down transaction mutates nothing at all
+        // rather than mutating and then failing.
+        if (!livePane || livePane.isDestroyed || this.isDestroyed) {
+            return {ok: false, index: -1, reason: 'torn-down'}
+        }
 
-        if (!container) {
+        const container = livePane.parent;
+
+        if (!container || container.isDestroyed) {
             return {ok: false, index: -1, reason: 'no-container'}
         }
 
@@ -3501,6 +3521,66 @@ class Workspace extends Container {
         livePane.destroy();
 
         return {ok: true, index, reason: null}
+    }
+
+    /**
+     * The two phases run as one transaction, settling exactly once through a named channel.
+     *
+     * Mirrors the reload leaf's contract deliberately — `dockReloadSettled` / `dockReloadInFlight` —
+     * because a second settlement channel with different semantics on the same header would be a
+     * worse cost than the duplication. **Every completion settles**, including each refusal: the
+     * action wire has no result channel (`Observable.fire` discards listener returns), so an
+     * unsettled early return is an invocation the event contract never saw.
+     *
+     * Unlike reload this is **synchronous** — both phases are — so there is no producer to trap and
+     * no async teardown race. Teardown is still handled, by
+     * {@link #commitRecreateCandidate}'s `torn-down` refusal, and it settles through this channel
+     * like everything else.
+     *
+     * **Single-flight per item, and absorption is the only silent path** — a re-entrant invocation
+     * during the window neither runs nor settles, exactly as reload's does. Re-entrancy is not
+     * hypothetical here: `resolveFreshPane` is consumer code, and a consumer that recreates from
+     * inside its own factory would otherwise recurse.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Neo.component.Base} livePane The mounted pane to replace.
+     * @param {Object} [options]
+     * @param {String|null} [options.dockNodeId=null] Carried through to the settlement payload.
+     * @returns {{errors: String[]}|null} `null` when an in-flight invocation absorbed this one.
+     * @protected
+     */
+    recreateDockPane(itemId, livePane, {dockNodeId=null}={}) {
+        const me     = this,
+              errors = [];
+
+        // Absorption: neither runs nor settles. The only silent path, by design.
+        if (me.dockRecreateInFlight.has(itemId)) {
+            return null
+        }
+
+        me.dockRecreateInFlight.add(itemId);
+
+        try {
+            const prepared = me.prepareRecreateCandidate(itemId, livePane);
+
+            if (!prepared.ok) {
+                // The refusal reason IS the error. A caller that only learns "it failed" cannot tell
+                // a consumer that declined the capability from one whose factory handed back the
+                // live instance — and those need different fixes.
+                errors.push(`Dock recreate refused for item "${itemId}": ${prepared.reason}`);
+
+                prepared.error && errors.push(prepared.error.message)
+            } else {
+                const committed = me.commitRecreateCandidate(livePane, prepared.candidate);
+
+                committed.ok || errors.push(`Dock recreate could not commit item "${itemId}": ${committed.reason}`)
+            }
+        } finally {
+            me.dockRecreateInFlight.delete(itemId)
+        }
+
+        !me.isDestroyed && me.fire('dockRecreateSettled', {dockNodeId, errors, itemId});
+
+        return {errors}
     }
 }
 
