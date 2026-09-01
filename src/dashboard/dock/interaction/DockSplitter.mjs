@@ -1,6 +1,5 @@
 import Splitter     from '../../../component/Splitter.mjs';
 import Operations   from '../model/Operations.mjs';
-import MotionSignal from '../projection/MotionSignal.mjs';
 import NeoArray     from '../../../util/Array.mjs';
 
 /**
@@ -119,15 +118,6 @@ class DockSplitter extends Splitter {
          */
         splitNodeId_: null
     }
-
-    /**
-     * Maximum time a direct-manipulation start waits for the main-thread FLIP landing receipt.
-     * A missing addon can leave remote calls pending forever, so admission fails open after the
-     * same 100ms horizon used by DockFlip's starvation-proof frame dam.
-     * @member {Number} dockFlipLandTimeout=100
-     * @protected
-     */
-    dockFlipLandTimeout = 100
 
     /**
      * @member {Object|null} dragStartState=null
@@ -336,6 +326,8 @@ class DockSplitter extends Splitter {
     }
 
     /**
+     * @summary Builds the main-thread live-resize descriptor for one dock affordance.
+     *
      * Edge affordances use the inherited single-target descriptor: their band previews live under
      * CSS min/max bounds plus a 1px commit-domain floor (the extent the semantic commit accepts is
      * the open interval (0,1), so the preview must never paint the 0px frame the model refuses).
@@ -523,45 +515,15 @@ class DockSplitter extends Splitter {
     }
 
     /**
-     * @summary Lands main-thread DockFlip presentation before live-resize geometry is captured.
+     * @summary Captures dock semantics after Main has admitted physical resize.
      *
-     * A structural dock commit may temporarily hoist retained descendants onto fixed old-pixel
-     * geometry. Resizing their new ancestor while that presentation still owns them makes the
-     * direct outer pair move while the descendants remain visually frozen. Direct manipulation
-     * wins: the main-thread addon restores committed layout authority first. A missing or degraded
-     * addon stays fail-open so presentation can never block the splitter gesture.
+     * Captures adjacent-pair geometry and projects proxy paint before the generic parent refreshes
+     * the zone and opens the logical gesture. Physical live-resize admission happens earlier on
+     * the Main thread: DragDrop synchronously lands any DockFlip presentation on the native event
+     * path before Resize creates or applies geometry state. The App-side handler therefore remains
+     * semantic and never tries to serialize Main behind an unawaited cross-worker event.
      *
-     * @returns {Boolean|Promise<Boolean>} Whether an active presentation was landed.
-     * @protected
-     */
-    landActiveDockMotion() {
-        const
-            workspace = this.up('dock-workspace'),
-            host      = workspace?.getDockHost?.();
-
-        if (!workspace || !MotionSignal.isAnimating(workspace.id) || !host?.id || host.windowId == null) return false;
-
-        try {
-            const result = Neo.main?.addon?.DockFlip?.land?.({
-                hostId  : host.id,
-                windowId: host.windowId
-            });
-
-            return typeof result?.then === 'function'
-                ? Promise.race([
-                    result.then(Boolean, () => false),
-                    this.timeout(this.dockFlipLandTimeout).then(() => false, () => false)
-                ])
-                : result ?? false
-        } catch {
-            return false
-        }
-    }
-
-    /**
-     * Lands competing FLIP presentation, captures the adjacent-pair geometry, and projects proxy
-     * paint BEFORE the generic parent refreshes the zone and starts the gesture (the proxy is
-     * created inside the parent's start).
+     * The proxy is created inside the parent's start.
      * The armed generation fences those awaits: the parent arms its own fence only inside
      * `super.onDragStart()`, so a cancel, destroy, terminal, or newer start landing during the
      * capture/projection awaits must invalidate the pending start here, before the real gesture
@@ -571,16 +533,7 @@ class DockSplitter extends Splitter {
      */
     async onDragStart(data={}) {
         let me         = this,
-            generation = ++me.dragGeneration,
-            landing    = me.landActiveDockMotion();
-
-        if (typeof landing?.then === 'function') {
-            await landing
-        }
-
-        if (generation !== me.dragGeneration || me.isDestroyed) {
-            return
-        }
+            generation = ++me.dragGeneration;
 
         await me.captureDragStart(data);
 

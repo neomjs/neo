@@ -645,6 +645,7 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Opens native drag and resize authority before publishing the App event.
      * @param {Event} event
      */
     onDragStart(event) {
@@ -665,6 +666,14 @@ class DragDrop extends Base {
             offsetX      : event.detail.clientX - rect.left,
             offsetY      : event.detail.clientY - rect.top
         });
+
+        // Physical resize admission is Main-owned. An App listener is delivered only after this
+        // resize admission and no acknowledgement is awaited, so App cannot fence the next native
+        // move. DockFlip resolves its own same-window host registry from the native path and lands
+        // synchronously before Resize captures geometry. Missing addon/host/motion is a cheap no-op.
+        try {
+            Neo.main?.addon?.DockFlip?.landFromPath?.(path)
+        } catch {/* presentation can never block direct manipulation */}
 
         me.dragResize?.start(path, event.detail, me.dragZoneId);
 

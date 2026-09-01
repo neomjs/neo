@@ -22,7 +22,7 @@ import * as core      from '../../../../src/core/_export.mjs';
  * (The sibling component spec pins the projected config/class contract on a rendered instance.)
  */
 test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivalence', () => {
-    let Container, DockSplitter, LayoutAdapter, MotionSignal, container, splitter;
+    let Container, DockSplitter, LayoutAdapter, container, splitter;
 
     const DOC = () => ({
         schema: 'neo.dock.zone.v1',
@@ -42,7 +42,6 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         Container     = (await import('../../../../src/container/Base.mjs')).default;
         DockSplitter  = (await import('../../../../src/dashboard/dock/interaction/DockSplitter.mjs')).default;
         LayoutAdapter = (await import('../../../../src/dashboard/dock/projection/LayoutAdapter.mjs')).default;
-        MotionSignal  = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default
     });
 
     const mount = (splitterConfig = {}) => {
@@ -195,94 +194,6 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
 
         expect(zoneStarts).toHaveLength(1);
         expect(splitter.dragStartState?.sizes).toEqual([300, 300])
-    });
-
-    test('lands an active main-thread DockFlip before capturing live-resize geometry', async () => {
-        mount();
-
-        const
-            original   = Neo.main.addon.DockFlip,
-            order      = [],
-            motionHost = {
-                addCls() {},
-                getDockHost: () => ({id: 'equiv-dock-host', windowId: 'equiv-window'}),
-                id         : 'equiv-motion-host',
-                removeCls() {}
-            };
-
-        Neo.main.addon.DockFlip = {
-            async land(data) {
-                order.push(`land:${data.hostId}:${data.windowId}`)
-            }
-        };
-        splitter.up = () => motionHost;
-        MotionSignal.enter(motionHost, () => 1, () => {});
-        container.getLayoutRect = async () => {
-            order.push('capture');
-            return [{width: 600}, {width: 300}, {width: 300}]
-        };
-        splitter.dragZone.dragStart = () => order.push('start');
-
-        try {
-            await splitter.onDragStart({clientX: 300, clientY: 150})
-        } finally {
-            MotionSignal.leave(motionHost, () => {});
-
-            if (original === undefined) {
-                delete Neo.main.addon.DockFlip
-            } else {
-                Neo.main.addon.DockFlip = original
-            }
-        }
-
-        expect(order, 'presentation authority lands before resize geometry is captured').toEqual([
-            'land:equiv-dock-host:equiv-window',
-            'capture',
-            'start'
-        ])
-    });
-
-    test('a never-settling remote landing fails open within the bounded admission horizon', async () => {
-        mount({dockFlipLandTimeout: 5});
-
-        const
-            original   = Neo.main.addon.DockFlip,
-            order      = [],
-            motionHost = {
-                addCls() {},
-                getDockHost: () => ({id: 'equiv-dock-host', windowId: 'equiv-window'}),
-                id         : 'equiv-motion-host',
-                removeCls() {}
-            };
-
-        Neo.main.addon.DockFlip = {land: () => new Promise(() => {})};
-        splitter.up = () => motionHost;
-        MotionSignal.enter(motionHost, () => 1, () => {});
-        container.getLayoutRect = async () => {
-            order.push('capture');
-            return [{width: 600}, {width: 300}, {width: 300}]
-        };
-        splitter.dragZone.dragStart = () => order.push('start');
-
-        let outcome;
-
-        try {
-            outcome = await Promise.race([
-                splitter.onDragStart({clientX: 300, clientY: 150}).then(() => 'opened'),
-                new Promise(resolve => setTimeout(() => resolve('wedged'), 250))
-            ])
-        } finally {
-            MotionSignal.leave(motionHost, () => {});
-
-            if (original === undefined) {
-                delete Neo.main.addon.DockFlip
-            } else {
-                Neo.main.addon.DockFlip = original
-            }
-        }
-
-        expect(outcome, 'an unloaded main-thread addon cannot wedge pointer admission').toBe('opened');
-        expect(order).toEqual(['capture', 'start'])
     });
 
     test('cancel during the capture awaits invalidates the pending start: zero zone starts, no throw', async () => {

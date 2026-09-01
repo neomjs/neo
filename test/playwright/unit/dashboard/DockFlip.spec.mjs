@@ -802,6 +802,41 @@ test.describe('Neo.main.addon.DockFlip', () => {
         await expect(playPromise).resolves.toBe(false)
     });
 
+    test('land retires a captured First before a later play can arm presentation', async () => {
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            host        = {
+                classList: createClassList(),
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+
+        let frames = 0;
+
+        globalThis.requestAnimationFrame = () => ++frames;
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+
+        expect(dockFlip.landFromPath([{id: 'splitter'}, {id: 'foreign-host'}])).toBe(false);
+        expect(dockFlip.landFromPath([{id: 'splitter'}, {id: 'dock-host'}])).toBe(true);
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-'
+        })).resolves.toBe(false);
+        expect(frames, 'a retired snapshot cannot open a pending frame wait').toBe(0)
+    });
+
     test('land interrupts an active fixed stage without destroying the addon', async () => {
         const
             markerClass     = 'dock-flip-item-alpha',
@@ -869,6 +904,8 @@ test.describe('Neo.main.addon.DockFlip', () => {
         expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(true);
         expect(DockFlip.config.remote.app).toContain('land');
 
+        expect(dockFlip.land(), 'the public remote refuses an unscoped all-host landing').toBe(false);
+        expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(true);
         expect(dockFlip.land({hostId: 'other-host'}), 'a foreign host cannot land this presentation').toBe(false);
         expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(true);
         expect(dockFlip.land({hostId: 'dock-host'}), 'the owning host lands its active presentation').toBe(true);
@@ -943,12 +980,126 @@ test.describe('Neo.main.addon.DockFlip', () => {
         marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
 
         expect(dockFlip.land({hostId: 'dock-host'}), 'pending host play is an admitted landing target').toBe(true);
-        frames.shift()();
-
         await expect(playPromise).resolves.toBe(false);
+        expect(frames, 'settlement does not need the held frame carrier to run').toHaveLength(1);
         expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false);
         expect(marker.style.position).toBeUndefined();
         expect(dockFlip.land({hostId: 'dock-host'}), 'the pending registration retires on settle').toBe(false)
+    });
+
+    test('a same-host successor lands its active predecessor before capturing inline authority', async () => {
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            sourceBody  = {parentElement: null},
+            middleBody  = {
+                parentElement        : null,
+                getBoundingClientRect: () => ({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100})
+            },
+            targetBody  = {
+                parentElement        : null,
+                getBoundingClientRect: () => ({bottom: 300, height: 100, left: 400, right: 500, top: 200, width: 100})
+            },
+            host = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            },
+            visibleStyle = {
+                contain    : 'none',
+                filter     : 'none',
+                overflowX  : 'visible',
+                overflowY  : 'visible',
+                perspective: 'none',
+                transform  : 'none',
+                willChange : 'auto',
+                getPropertyValue(name) {
+                    return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                }
+            },
+            inlineProperties = [
+                'bottom', 'boxSizing', 'height', 'left', 'margin', 'maxHeight', 'maxWidth',
+                'minHeight', 'minWidth', 'opacity', 'position', 'right', 'top', 'transform',
+                'transformOrigin', 'transition', 'width', 'zIndex'
+            ],
+            frames = new Map();
+
+        let frameId = 0;
+
+        sourceBody.parentElement = middleBody.parentElement = targetBody.parentElement = host;
+        marker.parentElement = sourceBody;
+        Object.assign(marker.style, {
+            position : 'relative',
+            transform: 'rotate(1deg)',
+            width    : '17%',
+            zIndex   : '9'
+        });
+
+        const originalInline = Object.fromEntries(inlineProperties.map(property => [
+            property,
+            marker.style[property] ?? ''
+        ]));
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = element => [middleBody, targetBody].includes(element)
+            ? {...visibleStyle, overflowX: 'hidden', overflowY: 'hidden'}
+            : visibleStyle;
+
+        const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+
+        globalThis.requestAnimationFrame = callback => {
+            const id = ++frameId;
+
+            frames.set(id, callback);
+
+            return id
+        };
+        globalThis.cancelAnimationFrame = id => frames.delete(id);
+
+        try {
+            dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+            marker.parentElement = middleBody;
+            marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
+
+            const firstPlay = dockFlip.play({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+
+            expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(true);
+
+            // The successor capture overlaps the active predecessor. It must land the old stage
+            // before recording First, otherwise its cleanup snapshot canonizes temporary fixed px.
+            dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+            await expect(firstPlay).resolves.toBe(false);
+            expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false);
+
+            marker.parentElement = targetBody;
+            marker.setRect({bottom: 300, height: 100, left: 400, right: 500, top: 200, width: 100});
+
+            const secondPlay = dockFlip.play({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+
+            expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(true);
+            expect(dockFlip.land({hostId: 'dock-host'})).toBe(true);
+            await expect(secondPlay).resolves.toBe(false)
+        } finally {
+            originalCancelAnimationFrame === undefined
+                ? delete globalThis.cancelAnimationFrame
+                : globalThis.cancelAnimationFrame = originalCancelAnimationFrame
+        }
+
+        expect(Object.fromEntries(inlineProperties.map(property => [
+            property,
+            marker.style[property] ?? ''
+        ]))).toEqual(originalInline);
+        expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false);
+        expect(frames.size, 'both interrupted frame carriers are retired').toBe(0)
     });
 
     test('instant-lands at entry in a hidden document without arming a single wait (#16425)', async () => {
