@@ -105,6 +105,58 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
         expect(addon.screenTop).toBe(window.screenTop)
     });
 
+    /**
+     * A pointer that leaves page content arms the poll and a pointer moving between elements clears
+     * it. That is the whole trigger contract without `observeMovement`, and it is why a titlebar
+     * grabbed from outside the content never publishes.
+     */
+    test('pointer-owned polling arms on a document-leaving mouseout and clears on element travel', () => {
+        const addon = {
+            checkMovement  : () => {},
+            intervalId     : null,
+            intervalTime   : 20,
+            observeMovement: false,
+            startPolling   : WindowPosition.prototype.startPolling,
+            stopPolling    : WindowPosition.prototype.stopPolling
+        };
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: {}});
+        expect(addon.intervalId, 'element travel never arms').toBeNull();
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: null});
+        expect(addon.intervalId, 'leaving the document arms').toBeTruthy();
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: {}});
+        expect(addon.intervalId, 'element travel clears').toBeNull()
+    });
+
+    test('observeMovement owns the poll: armed without any pointer event, immune to element travel', () => {
+        const addon = {
+            checkMovement  : () => {},
+            intervalId     : null,
+            intervalTime   : 20,
+            observeMovement: true,
+            startPolling   : WindowPosition.prototype.startPolling,
+            stopPolling    : WindowPosition.prototype.stopPolling
+        };
+
+        WindowPosition.prototype.afterSetObserveMovement.call(addon, true, false);
+
+        const armedId = addon.intervalId;
+
+        expect(armedId, 'the config arms the poll with no mouseout at all').toBeTruthy();
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: {}});
+        expect(addon.intervalId, 'element travel cannot clear a config-owned poll').toBe(armedId);
+
+        WindowPosition.prototype.onMouseOut.call(addon, {toElement: null});
+        expect(addon.intervalId, 'a document-leaving mouseout does not re-arm a second interval').toBe(armedId);
+
+        addon.observeMovement = false;
+        WindowPosition.prototype.afterSetObserveMovement.call(addon, false, true);
+        expect(addon.intervalId, 'switching off releases the poll').toBeNull()
+    });
+
     test('remote routing metadata is stripped before configs reach the addon', () => {
         let configs;
         const data  = {appName: 'WindowPositionTest', observeResize: true, windowId: 'popup-a'};

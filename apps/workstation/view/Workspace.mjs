@@ -428,8 +428,10 @@ class Workspace extends DockWorkspace {
 
         // Cross-window hit testing reads manager.Window as its one geometry authority. Movement
         // snapshots alone go stale after a main-window resize, so this render target publishes
-        // live extents from construction just like every admitted vessel does on connect.
-        Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId: me.windowId});
+        // live extents from construction just like every admitted vessel does on connect. The
+        // movement poll is owned by config rather than by pointer travel: a titlebar grabbed
+        // without the cursor crossing page content produces no `mouseout` to arm it.
+        Neo.main.addon.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId: me.windowId});
 
         me.tourRunner  = Neo.create(TourRunner, {
             componentId   : me.id,
@@ -3533,8 +3535,11 @@ class Workspace extends DockWorkspace {
         if (!itemId || flow !== 'tear-out' || !Number.isFinite(admissionToken)) return;
 
         // Geometry-ready is part of child admission: do not publish the connected vessel to any
-        // ownership branch until its Main realm has installed resize observation.
-        await Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId});
+        // ownership branch until its Main realm has installed resize AND movement observation. The
+        // header-action pop-out births this vessel with its titlebar under the pointer, so the
+        // native-titlebar drag never crosses page content and never emits the `mouseout` that
+        // would otherwise arm the poll.
+        await Neo.main.addon.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId});
 
         // Retirement authority is established before any awaited close. A connect continuation
         // that resumes after that boundary is cleanup-only. Consume its exact grant and retain

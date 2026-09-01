@@ -450,9 +450,12 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 targetId: targetWorkspaceId
             });
 
+            // Movement observation rides the same call: the main render target's poll is owned by
+            // config, so a titlebar grabbed from outside page content still publishes.
             expect(resizeCalls).toEqual([{
-                observeResize: true,
-                windowId     : workspace.windowId
+                observeMovement: true,
+                observeResize  : true,
+                windowId       : workspace.windowId
             }]);
             expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
             expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
