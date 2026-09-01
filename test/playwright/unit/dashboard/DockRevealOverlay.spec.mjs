@@ -46,7 +46,7 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         DockMotionSignal.activeMotions.clear()
     });
 
-    test('stays hidden while idle, composes header (label + pin) and pane slot as real children', () => {
+    test('stays hidden while idle, composes header (active tab + pin) and pane slot as real children', () => {
         overlay = Neo.create(DockRevealOverlay, {
             edge: 'right',
             id  : 'dock-reveal-render'
@@ -62,9 +62,22 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         expect(overlay.cls).not.toContain('neo-dashboard-dock-reveal-overlay-hidden');
 
         // Real composed children, not synthesized vdom.
-        expect(overlay.titleLabel.text).toBe('Terminal');
+        expect(overlay.titleTab.text).toBe('Terminal');
+        expect(overlay.titleTab.className).toBe('Neo.tab.header.Button');
+        expect(overlay.titleTab.pressed).toBe(true);
+        expect(overlay.titleTab.vdom.tabIndex).toBe(-1);
         expect(overlay.pinButton.disabled).toBe(false);
+        expect(overlay.items[0].className).toBe('Neo.tab.header.Toolbar');
+        expect(overlay.items[0].cls).toContain('neo-tab-header-toolbar');
+        expect(overlay.items[0].cls).toContain('neo-tab-container-inline');
         expect(overlay.pinButton.cls).toContain('neo-dashboard-dock-reveal-pin');
+        expect(overlay.pinButton.cls).toContain('neo-toolbar-action');
+        expect(overlay.pinButton.isToolbarAction, 'the preview uses the real tab-header action primitive').toBe(true);
+        expect(overlay.pinButton.showOnFocus, 'the revealed inverse stays persistently available').toBe(false);
+        expect(overlay.pinButton.ui, 'tab-header CSS, not a standalone Button ui, owns its chrome').toBeNull();
+        expect(overlay.pinButton.iconCls).toBe('fa fa-thumbtack');
+        expect(overlay.pinButton.text, 'pane chrome uses a compact icon control').toBeNull();
+        expect(overlay.pinButton.vdom['aria-label']).toBe('Pin');
         expect(overlay.paneSlot.cls).toContain('neo-dashboard-dock-reveal-pane-slot');
         expect(overlay.paneSlot.items).toHaveLength(0);
     });

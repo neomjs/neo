@@ -105,7 +105,7 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         // contextual sibling is exposed by this.
         await expect(unlock).not.toHaveClass(/neo-toolbar-action-context-inactive/);
         await expect(unlock).toHaveAttribute('aria-label', 'unlock');
-        expect(await unlock.evaluate(node => ({
+        await expect.poll(() => unlock.evaluate(node => ({
             ariaHidden: node.getAttribute('aria-hidden'),
             inert     : node.inert,
             tabIndex  : node.tabIndex
@@ -131,7 +131,10 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
 
         await expect(relock).toHaveClass(/neo-toolbar-action-context-inactive/);
         await expect(relock).toHaveAttribute('aria-label', 'lock');
-        expect(await relock.evaluate(node => ({
+        // Focus state crosses the App/Main render boundary. The class can become observable before
+        // the sibling accessibility deltas settle, so poll the semantic state itself rather than
+        // treating one DOM class as a settlement acknowledgement for unrelated VDOM properties.
+        await expect.poll(() => relock.evaluate(node => ({
             ariaHidden: node.getAttribute('aria-hidden'),
             inert     : node.inert,
             tabIndex  : node.tabIndex

@@ -99,10 +99,10 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
         // Wait for the gate to actually open before measuring. A collapsed action has no box at
         // all, so reading geometry while the reveal is still in flight yields null rather than a
         // stale-but-plausible rect — the race the previous box-preserving contract hid.
-        await expect(actionButton(edge, 'fa-thumbtack')).not.toHaveClass(/neo-toolbar-action-context-inactive/);
+        await expect(actionButton(edge, 'fa-thumbtack-slash')).not.toHaveClass(/neo-toolbar-action-context-inactive/);
 
         for (const [name, glyph] of [
-            ['pin',      'fa-thumbtack'],
+            ['pin',      'fa-thumbtack-slash'],
             ['popOut',   'fa-window-restore'],
             ['maximize', 'fa-window-maximize'],
             ['close',    'fa-times']

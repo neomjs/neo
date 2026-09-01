@@ -246,7 +246,7 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         await expect(reload).toBeEnabled()
     });
 
-    test('default-off is behaviorally inert: a host-owned reload action keeps consumer state', async ({page}) => {
+    test('explicit false is behaviorally inert: a host-owned reload action keeps consumer state', async ({page}) => {
         // Isolated fixture: two workspaces booting concurrently in one app interfere on CI
         // (double-rendered bar chrome) — the flag-off subject boots alone on its own page.
         await page.goto('test/playwright/component/apps/dock-hostreload/index.html');

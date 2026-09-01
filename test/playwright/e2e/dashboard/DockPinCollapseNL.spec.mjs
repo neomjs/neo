@@ -1,4 +1,16 @@
 import { test, expect } from '../../fixtures.mjs';
+import fs               from 'fs';
+import path             from 'path';
+import {fileURLToPath}  from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url)),
+      configPath = path.resolve(__dirname, '../../../../examples/dashboard/dock/neo-config.json'),
+      engineThemes = [
+          'neo-theme-dark',
+          'neo-theme-light',
+          'neo-theme-neo-dark',
+          'neo-theme-neo-light'
+      ];
 
 /**
  * Whitebox-e2e: the gesture proof for the pin/collapse ENTRY of the auto-hide round-trip
@@ -31,7 +43,14 @@ import { test, expect } from '../../fixtures.mjs';
  * port override isolates from any foreign dev-server squatting on 8080.
  */
 
-const bootDockExample = async ({ page, neuralLink }) => {
+const bootDockExample = async ({ page, neuralLink, theme }) => {
+    if (theme) {
+        const config = {...JSON.parse(fs.readFileSync(configPath, 'utf8')), themes: [theme]};
+
+        await page.route('**/examples/dashboard/dock/neo-config.json*', route =>
+            route.fulfill({contentType: 'application/json', body: JSON.stringify(config)}))
+    }
+
     await page.goto('/examples/dashboard/dock/');
     page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
@@ -68,8 +87,57 @@ const focusPane = async (app, page, dockItemId) => {
 
     expect(id, `the ${dockItemId} pane owns a live tab header button`).toBeTruthy();
     await page.locator(`#${id}`).click();
-    await page.waitForTimeout(400)
+    await page.waitForTimeout(400);
+
+    return id
 };
+
+/** @summary Reads active inline-tab title geometry and typography from its real button. */
+const readInlineTitleChrome = button => button.evaluate(node => {
+    const
+        title     = node.querySelector('.neo-button-text'),
+        buttonBox = node.getBoundingClientRect(),
+        titleBox  = title.getBoundingClientRect(),
+        rootStyle = getComputedStyle(node),
+        style     = getComputedStyle(title);
+
+    return {
+        backgroundColor: rootStyle.backgroundColor,
+        backgroundImage: rootStyle.backgroundImage,
+        border         : rootStyle.border,
+        borderRadius   : rootStyle.borderRadius,
+        color          : style.color,
+        fontFamily     : style.fontFamily,
+        fontSize       : style.fontSize,
+        fontWeight     : style.fontWeight,
+        height         : buttonBox.height,
+        inset          : titleBox.left - buttonBox.left,
+        lineHeight     : style.lineHeight,
+        padding        : rootStyle.padding,
+        textTransform: style.textTransform
+    }
+});
+
+/**
+ * @summary Reads target-specific reveal-pin paint and compact geometry from the browser.
+ * @param {import('@playwright/test').Locator} locator
+ * @returns {Promise<Object>}
+ */
+const readRevealPinStyle = locator => locator.evaluate(element => {
+    const
+        style      = getComputedStyle(element),
+        glyphStyle = getComputedStyle(element.querySelector('.neo-button-glyph'));
+
+    return {
+        backgroundColor: style.backgroundColor,
+        border         : style.border,
+        glyphColor     : glyphStyle.color,
+        height         : Number.parseFloat(style.height),
+        opacity        : Number.parseFloat(style.opacity),
+        text           : element.textContent.trim(),
+        width          : Number.parseFloat(style.width)
+    }
+});
 
 test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
     test.setTimeout(90000);
@@ -100,6 +168,9 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
 
         const pinAction = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']),
               pinButton = page.locator(`#${pinAction.id}`);
+
+        await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
+        await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
 
         // Product truth #4: §2.7's fail-safe reaches the real product — the center stack projects the
         // action too, but hidden, because main content never rails.
@@ -178,4 +249,70 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
             .toEqual({ ...before.items.inspector, pinned: undefined, autoHidden: undefined });
         expect(restored.nodes).toEqual(before.nodes)
     })
+
+    for (const theme of engineThemes) {
+        test(`the reveal pin is compact and legible under ${theme}`, async ({page, neuralLink}) => {
+            const {app, readModel} = await bootDockExample({page, neuralLink, theme});
+
+            const inspectorButtonId = await focusPane(app, page, 'inspector');
+
+            await page.mouse.move(0, 0);
+
+            const
+                inspectorTabsId = await tabsNodeId(app, 'inspector-tabs'),
+                pinAction        = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']),
+                pinButton        = page.locator(`#${pinAction.id}`),
+                inlineAction     = await readRevealPinStyle(pinButton),
+                inlineTitle      = await readInlineTitleChrome(page.locator(`#${inspectorButtonId}`));
+
+            await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
+            await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
+            await pinButton.click();
+            await expect.poll(async () => (await readModel()).items.inspector.autoHidden, {
+                timeout: 10000
+            }).toBe(true);
+
+            await page.locator('.neo-dashboard-dock-edge-rail-right .neo-dashboard-dock-rail-tab')
+                .filter({hasText: 'Inspector'})
+                .click();
+
+            const
+                overlay = page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)'),
+                header  = overlay.locator('.neo-dashboard-dock-reveal-header'),
+                restore = overlay.locator('.neo-dashboard-dock-reveal-pin'),
+                title   = overlay.locator('.neo-dashboard-dock-reveal-title');
+
+            await expect(overlay).toBeVisible({timeout: 10000});
+            await expect(restore).toHaveClass(/neo-toolbar-action/);
+            await expect(restore).not.toHaveClass(/neo-button-ghost/);
+            await expect(restore).toHaveAttribute('aria-label', 'Pin');
+
+            const enabled = await readRevealPinStyle(restore);
+
+            expect(enabled, `${theme} reveal and inline actions share exact chrome`).toEqual(inlineAction);
+            expect(await readInlineTitleChrome(title),
+                `${theme} reveal and active inline titles share inset, height and typography`).toEqual(inlineTitle);
+            expect(enabled.text, `${theme} keeps the control icon-only`).toBe('');
+            expect(enabled.width, `${theme} keeps compact width`).toBeLessThanOrEqual(48);
+            expect(enabled.height, `${theme} keeps compact height`).toBeLessThanOrEqual(48);
+            expect(enabled.glyphColor, `${theme} paints a legible glyph`).not.toBe('rgba(0, 0, 0, 0)');
+            expect(enabled.backgroundColor, `${theme} does not regress to the blue primary CTA`)
+                .not.toBe('rgb(67, 93, 177)');
+            await expect(header).toHaveScreenshot(`reveal-pin-${theme}-enabled.png`, {animations: 'disabled'});
+
+            const restoreId = await restore.getAttribute('id');
+
+            expect(restoreId).toBeTruthy();
+            await app.setProperties(restoreId, {disabled: true});
+            await expect(restore).toHaveAttribute('disabled', '');
+            await expect(restore).toHaveClass(/neo-disabled/);
+
+            const disabled = await readRevealPinStyle(restore);
+
+            expect(disabled.opacity, `${theme} disabled state remains visible`).toBeGreaterThan(0);
+            expect(disabled.opacity, `${theme} disabled state differs from enabled`).toBeLessThan(enabled.opacity);
+            expect(disabled.glyphColor, `${theme} disabled glyph remains painted`).not.toBe('rgba(0, 0, 0, 0)');
+            await expect(header).toHaveScreenshot(`reveal-pin-${theme}-disabled.png`, {animations: 'disabled'})
+        })
+    }
 });

@@ -119,11 +119,11 @@ class Workspace extends Container {
          */
         dockProjectionConfig: null,
         /**
-         * Projects one persistent close action into each Dock tab header. Disabled by default;
-         * applications opt into model-authoritative close semantics explicitly.
-         * @member {Boolean} enableDockCloseAction=false
+         * Projects one persistent close action into each Dock tab header. Enabled by default;
+         * explicit `false` retains the compatibility escape.
+         * @member {Boolean} enableDockCloseAction=true
          */
-        enableDockCloseAction: false,
+        enableDockCloseAction: true,
         /**
          * Projects one engine-owned lock toggle into each Dock tab header. The committed
          * `locked` item field is the hard boundary: close, detach and source movement fail
@@ -147,10 +147,10 @@ class Workspace extends Container {
          * Projects one persistent pin action into each Dock tab header — the entry half of the
          * collapse-to-rail round-trip (docking design record §2.7). Pressing it on an edge-owned pane
          * collapses that pane to its owning edge rail; the way back is the rail's existing reveal
-         * overlay and its pin control. Disabled by default; the projection is byte-identical while off.
-         * @member {Boolean} enableDockPinAction=false
+         * overlay and its pin control. Enabled by default; explicit `false` removes the action.
+         * @member {Boolean} enableDockPinAction=true
          */
-        enableDockPinAction: false,
+        enableDockPinAction: true,
         /**
          * Projects one engine-owned, delegation-only reload action into each Dock tab header —
          * runtime only: no operation is committed and the document never changes. A pane
@@ -163,15 +163,15 @@ class Workspace extends Container {
          * (`{dockNodeId, itemId, errors}`); a failing `dockReload()` keeps the pane, always.
          * Destroy-and-recreate is deliberately NOT here: resolved panes are moved, never
          * destroyed (docking design record §2.6) — the recreate capability lives with the
-         * two-phase transaction that can honestly promise rollback. Disabled by default; the
-         * projection is byte-identical while off.
-         * @member {Boolean} enableDockReloadAction=false
+         * two-phase transaction that can honestly promise rollback. Enabled by default; explicit
+         * `false` removes the action.
+         * @member {Boolean} enableDockReloadAction=true
          */
-        enableDockReloadAction: false,
+        enableDockReloadAction: true,
         /**
          * Projects one engine-owned maximize toggle into each Dock tab header — presentation
          * only: the committed document, perspectives and topology diffs never observe maximize
-         * state. Disabled by default.
+         * state. Enabled by default; explicit `false` removes the action.
          *
          * Input contract while a node is maximized: in-strip tab reordering stays live;
          * cross-zone drag sources and tear-out affordances of the maximized node are suppressed
@@ -182,19 +182,16 @@ class Workspace extends Container {
          * on {@link #maximizedNodeId}; operations confined to the node itself (activating one
          * of its tabs; closing, reordering or adding an item within it) defer to that rule
          * instead, which re-applies onto the surviving node and clears when the node collapsed.
-         * @member {Boolean} enableDockMaximizeAction=false
+         * @member {Boolean} enableDockMaximizeAction=true
          */
-        enableDockMaximizeAction: false,
+        enableDockMaximizeAction: true,
         /**
          * @summary Projects a `pop-out` header action that detaches the active pane into its own
          * vessel window, through the drag tear-out's own commit path.
          *
-         * **Double-gated:** the action projects only while {@link #enableDockTearOutLifecycle} is
-         * also armed. Without that lifecycle there are no tear-out handlers to dispatch into, so a
-         * projected button would be an affordance for a gesture the workspace cannot perform. The
-         * gate lives at the projection-context assembly rather than in the adapter, which keeps the
-         * adapter a pure projector keyed on one flag — and means `pop-out` is a reserved host-action
-         * name exactly when the action can actually render.
+         * The stable action projects by default, while availability derives from the one effective
+         * {@link #tearOutHandlers} bundle. A workspace with no handler keeps the action hidden; a
+         * host-owned handler is sufficient and must not force the base tear-out lifecycle beside it.
          *
          * **Focus and announcement stay host-owned, deliberately.** The pane moves; this workspace
          * makes no promise about where focus lands or what a screen reader hears. Both belong to the
@@ -203,9 +200,9 @@ class Workspace extends Container {
          * theater. A host wanting focus-follow implements it at the seam it already owns. If
          * focus-on-pop-out becomes family policy it arrives as its own leaf with the full a11y
          * story, not smuggled in here.
-         * @member {Boolean} enableDockPopOutAction=false
+         * @member {Boolean} enableDockPopOutAction=true
          */
-        enableDockPopOutAction: false,
+        enableDockPopOutAction: true,
         /**
          * Icon of the projected pop-out action.
          * @member {String} dockPopOutIconCls='far fa-window-restore'
@@ -1380,11 +1377,11 @@ class Workspace extends Container {
      * must be unique per node, and every engine-owned name is reserved while its own opt-in is on —
      * `close` under {@link #enableDockCloseAction}, `lock` under {@link #enableDockLockAction},
      * `maximize` under {@link #enableDockMaximizeAction}, `pin` under {@link #enableDockPinAction},
-     * `reload` under {@link #enableDockReloadAction}, `pop-out` while
-     * {@link #dockPopOutActionActive} holds — that one is a conjunction rather than a single opt-in,
-     * because the action dispatches into the tear-out lifecycle and is not projected without it;
-     * both violations throw at projection rather than silently unaddressing an action. Their intent
-     * surfaces on the `dockHeaderAction` event — see {@link #onDockHeaderAction}.
+     * `reload` under {@link #enableDockReloadAction}, and `pop-out` under
+     * {@link #enableDockPopOutAction}. Pop-out availability is a separate state derived from
+     * {@link #dockPopOutActionActive}; both violations throw at projection rather than silently
+     * unaddressing an action. Their intent surfaces on the `dockHeaderAction` event — see
+     * {@link #onDockHeaderAction}.
      * @returns {Object}
      */
     getDockProjectionOptions() {
@@ -1401,12 +1398,12 @@ class Workspace extends Container {
      * adapter free the name (it gates on both configs) while the router still swallowed the host's
      * intent (it gated on the action config alone). One reader, so they cannot drift.
      *
-     * `enableDockPopOutAction` alone is not sufficient: the handler dispatches into
-     * {@link #tearOutHandlers}, which only exist while {@link #enableDockTearOutLifecycle} is armed.
+     * `enableDockPopOutAction` alone is not sufficient: dispatch requires one effective
+     * {@link #tearOutHandlers} bundle, whether base-owned or supplied by the host.
      * @returns {Boolean}
      */
     get dockPopOutActionActive() {
-        return this.enableDockPopOutAction === true && this.enableDockTearOutLifecycle === true
+        return this.enableDockPopOutAction === true && !!this.tearOutHandlers
     }
 
     /**
@@ -1995,11 +1992,9 @@ class Workspace extends Container {
         }
 
         if (!me.tearOutHandlers) {
-            // Unreachable while the projection contract holds — the action is double-gated on
-            // `enableDockTearOutLifecycle`, which is what creates these handlers. Kept because the
-            // router is reachable by a host re-emitting the intent, and a missing pipeline must
-            // refuse rather than throw.
-            return {document: me.dockModel, errors: ['Dock pop-out action requires the tear-out lifecycle']}
+            // Unreachable while the availability contract holds. Kept because the router is
+            // directly callable, and a missing effective host pipeline must refuse rather than throw.
+            return {document: me.dockModel, errors: ['Dock pop-out action requires a tear-out handler bundle']}
         }
 
         const proxyRect = await me.measureDockPaneRect(tabContainer);
@@ -2012,7 +2007,7 @@ class Workspace extends Container {
         }
 
         // Admission-first. A refused vessel leaves the pane untouched and uncommitted.
-        const admitted = await me.tearOutHandlers.onDockTearOutExit({itemId, proxyRect, sortZone: null});
+        const admitted = await me.admitDockPopOut({itemId, proxyRect, sortZone: null});
 
         if (admitted === false) {
             return {document: me.dockModel, errors: ['Dock pop-out was refused by the host vessel seam']}
@@ -2049,6 +2044,20 @@ class Workspace extends Container {
         return detached
             ? {document: me.dockModel, errors: []}
             : {document: me.dockModel, errors: ['Dock pop-out was refused by the detach commit']}
+    }
+
+    /**
+     * @summary Enters the effective host tear-out admission path for a header-action pop-out.
+     *
+     * Pointer tear-out already reaches host-specific exit policy through projection callbacks. The
+     * header action must use the same policy rather than bypassing it through the raw handler bundle.
+     * Hosts with an augmented exit seam override this method; the base delegates to its one bundle.
+     * @param {Object} data
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async admitDockPopOut(data) {
+        return this.tearOutHandlers ? this.tearOutHandlers.onDockTearOutExit(data) : false
     }
 
     /**
@@ -3181,28 +3190,20 @@ class Workspace extends Container {
                 // Bound unconditionally: a host can project its OWN header actions without enabling
                 // the close action, and wiring the seam inside that opt-in left those intents with
                 // nowhere to arrive.
-                onDockHeaderAction     : me.onDockHeaderAction.bind(me),
-                ...(me.enableDockCloseAction && {enableDockCloseAction: true}),
+                onDockHeaderAction   : me.onDockHeaderAction.bind(me),
+                enableDockCloseAction: me.enableDockCloseAction,
                 ...(me.enableDockLockAction && {
                     dockLockIconCls     : me.dockLockIconCls,
                     dockUnlockIconCls   : me.dockUnlockIconCls,
                     enableDockLockAction: true
                 }),
-                ...(me.enableDockPinAction && {enableDockPinAction: true}),
-                ...(me.enableDockReloadAction && {enableDockReloadAction: true}),
-                // The double gate lives here rather than in the adapter: pop-out dispatches into
-                // `tearOutHandlers`, which only exist while the lifecycle is armed, so the action
-                // must not project without it. Collapsing both configs into the one flag the
-                // adapter reads keeps that projector pure — and keeps `pop-out` reserved as a host
-                // name exactly when it can actually render.
-                ...(me.dockPopOutActionActive && {
-                    dockPopOutIconCls     : me.dockPopOutIconCls,
-                    enableDockPopOutAction: true
-                }),
-                ...(me.enableDockMaximizeAction && {
-                    dockMaximizeIconCls     : me.dockMaximizeIconCls,
-                    enableDockMaximizeAction: true
-                }),
+                enableDockMaximizeAction : me.enableDockMaximizeAction,
+                enableDockPinAction      : me.enableDockPinAction,
+                enableDockPopOutAction   : me.enableDockPopOutAction,
+                enableDockReloadAction   : me.enableDockReloadAction,
+                dockMaximizeIconCls      : me.dockMaximizeIconCls,
+                dockPopOutActionAvailable: me.dockPopOutActionActive,
+                dockPopOutIconCls        : me.dockPopOutIconCls,
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
@@ -3543,7 +3544,7 @@ class Workspace extends Container {
      * @param {Neo.component.Base} livePane The mounted pane to replace.
      * @param {Object|Neo.component.Base} candidate A candidate validated by
      *     {@link #prepareRecreateCandidate} — never call this with an unvalidated one.
-     * @returns {{ok: Boolean, index: Number, reason: ?String}}
+     * @returns {{ok: Boolean, index: Number, pane: ?Neo.component.Base, reason: ?String}}
      */
     commitRecreateCandidate(livePane, candidate) {
         // Teardown mid-transaction. Phase 1 and Phase 2 are separate calls, so a workspace or tab
@@ -3555,19 +3556,19 @@ class Workspace extends Container {
         // Checked before the container is touched, so a torn-down transaction mutates nothing at all
         // rather than mutating and then failing.
         if (!livePane || livePane.isDestroyed || this.isDestroyed) {
-            return {ok: false, index: -1, reason: 'torn-down'}
+            return {ok: false, index: -1, pane: null, reason: 'torn-down'}
         }
 
         const container = livePane.parent;
 
         if (!container || container.isDestroyed) {
-            return {ok: false, index: -1, reason: 'no-container'}
+            return {ok: false, index: -1, pane: null, reason: 'no-container'}
         }
 
         const index = container.indexOf(livePane.id);
 
         if (index < 0) {
-            return {ok: false, index, reason: 'not-in-container'}
+            return {ok: false, index, pane: null, reason: 'not-in-container'}
         }
 
         // INSERT FIRST, then remove. The reverse order — remove, then insert — has a window between
@@ -3578,12 +3579,17 @@ class Workspace extends Container {
         //
         // Inserting at `index` shifts the predecessor to `index + 1`; nothing is removed until the
         // candidate is demonstrably in the container.
+        let pane;
+
         try {
-            container.insert(index, candidate)
+            // `candidate` may be a config; the container owns instantiation and returns the exact
+            // component that entered the live slot. Returning that identity is what lets a
+            // cache-backed consumer adopt the commit rather than the unmaterialized input.
+            pane = container.insert(index, candidate)
         } catch (error) {
             // Nothing was removed, so there is nothing to restore — rollback by construction here
             // too, not by repair.
-            return {ok: false, index, reason: 'insert-failed', error}
+            return {ok: false, index, pane: null, reason: 'insert-failed', error}
         }
 
         // `false`: the predecessor must outlive its own removal, so a failure here still leaves a
@@ -3594,7 +3600,7 @@ class Workspace extends Container {
         // contract, not an implementation detail.
         livePane.destroy();
 
-        return {ok: true, index, reason: null, error: null}
+        return {ok: true, index, pane, reason: null, error: null}
     }
 
     /**
@@ -3624,12 +3630,14 @@ class Workspace extends Container {
      * @param {Object} [options]
      * @param {String|null} [options.dockNodeId=null] Carried through to the settlement payload.
      * @param {Boolean} [options.settle=true] `false` when an outer channel settles this invocation.
-     * @returns {{errors: String[]}|null} `null` when an in-flight invocation absorbed this one.
+     * @returns {{errors: String[],pane: ?Neo.component.Base}|null} `pane` is the exact committed
+     *     component; `null` when the transaction refused or an in-flight invocation absorbed it.
      * @protected
      */
     recreateDockPane(itemId, livePane, {dockNodeId=null, settle=true}={}) {
         const me     = this,
               errors = [];
+        let pane = null;
 
         // Absorption: neither runs nor settles. The only silent path, by design.
         if (me.dockRecreateInFlight.has(itemId)) {
@@ -3655,6 +3663,8 @@ class Workspace extends Container {
                     errors.push(`Dock recreate could not commit item "${itemId}": ${committed.reason}`);
 
                     committed.error && errors.push(committed.error.message)
+                } else {
+                    pane = committed.pane
                 }
             }
         } finally {
@@ -3663,7 +3673,7 @@ class Workspace extends Container {
 
         settle && !me.isDestroyed && me.fire('dockRecreateSettled', {dockNodeId, errors, itemId});
 
-        return {errors}
+        return {errors, pane}
     }
 }
 

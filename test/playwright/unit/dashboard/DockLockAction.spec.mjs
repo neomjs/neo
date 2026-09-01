@@ -115,16 +115,18 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
             enableDockCloseAction   : true,
             enableDockLockAction    : true,
             enableDockMaximizeAction: true
-        })).headerActions.map(action => action.action)).toEqual(['lock', 'maximize', 'close']);
+        })).headerActions.map(action => action.action))
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
 
         expect(findTabsConfig(project({
             resolveDockHeaderActions: () => [{action: 'lock'}]
-        })).headerActions.map(action => action.action)).toEqual(['lock']);
+        })).headerActions.map(action => action.action))
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
 
         expect(() => project({
             enableDockLockAction    : true,
             resolveDockHeaderActions: () => [{action: 'lock'}]
-        })).toThrow(/"lock" is reserved while enableDockLockAction is on/)
+        })).toThrow(/"lock" is reserved by enableDockLockAction/)
     });
 
     test('derives initial icon, policy visibility, and locked close state from the committed item', () => {

@@ -1,8 +1,8 @@
-import Button       from '../../../button/Base.mjs';
-import Container    from '../../../container/Base.mjs';
-import MotionSignal from '../projection/MotionSignal.mjs';
-import Label        from '../../../component/Label.mjs';
-import NeoArray     from '../../../util/Array.mjs';
+import Container        from '../../../container/Base.mjs';
+import TabHeaderButton  from '../../../tab/header/Button.mjs';
+import TabHeaderToolbar from '../../../tab/header/Toolbar.mjs';
+import NeoArray         from '../../../util/Array.mjs';
+import MotionSignal     from '../projection/MotionSignal.mjs';
 
 /**
  * @summary Presentation host for the transient reveal of an auto-hidden dock item — an
@@ -14,10 +14,13 @@ import NeoArray     from '../../../util/Array.mjs';
  * `revealEscape`, `revealPinRequested`. It decides nothing itself: timing, focus-hold and policy
  * all live upstream. It has no write path to any document.
  *
- * Composition: a header row (`Neo.component.Label` title + `Neo.button.Base` pin control) above a
- * pane-slot `Neo.container.Base`. The consuming workspace mounts the revealed pane INTO the slot
- * container (`overlay.paneSlot.add(...)` / `removeAll()`) — pane resolution stays the workspace's
- * concern (same seam as the adapter's `resolveComponentRef`), keeping this overlay pane-blind.
+ * Composition: a real `Neo.tab.header.Toolbar` header row (one pressed
+ * `Neo.tab.header.Button` title + persistent `pin` action) above a pane-slot
+ * `Neo.container.Base`. Reusing both tab-header primitives keeps reveal chrome identical to the
+ * in-flow tab rail without pretending the runtime-only preview is itself a committed tabs node.
+ * The consuming workspace mounts the revealed pane INTO the slot container
+ * (`overlay.paneSlot.add(...)` / `removeAll()`) — pane resolution stays the workspace's concern
+ * (same seam as the adapter's `resolveComponentRef`), keeping this overlay pane-blind.
  * Root-level `domListeners` (focus, key, pointer) are the container-level interaction surface;
  * every interactive CHILD is a real component.
  *
@@ -134,31 +137,37 @@ class RevealOverlay extends Container {
     revealWasVisible = false
 
     /**
-     * Assembles the fixed child skeleton (header: title label + pin button; pane slot) with
-     * instance-bound handlers, wires the container-level interaction listeners, then applies the
-     * initial snapshot.
+     * Assembles the fixed child skeleton (tab-header toolbar: active title tab + pin action; pane slot)
+     * with instance-bound handlers, wires the container-level interaction listeners, then applies
+     * the initial snapshot.
      * @param {Object} config
      */
     construct(config={}) {
         let me = this;
 
         config.items = [{
-            module: Container,
-            cls   : ['neo-dashboard-dock-reveal-header'],
-            flex  : 'none',
-            layout: {ntype: 'hbox', align: 'center'},
-            items : [{
-                module: Label,
-                cls   : ['neo-dashboard-dock-reveal-title'],
-                flex  : 1,
-                text  : ''
-            }, {
-                module: Button,
+            module: TabHeaderToolbar,
+            actions: [{
+                action: 'pin',
                 cls   : ['neo-dashboard-dock-reveal-pin'],
                 // Explicitly bound: function-type button handlers run as plain calls.
-                handler        : me.onPinClick.bind(me),
-                text           : 'Pin',
-                useRippleEffect: false
+                handler    : me.onPinClick.bind(me),
+                iconCls    : 'fa fa-thumbtack',
+                showOnFocus: false,
+                text       : null,
+                vdom       : {'aria-label': 'Pin'}
+            }],
+            // The self-scoped variant class lets every theme resolve the same compact tokens as
+            // an inline TabContainer, even though this runtime-only toolbar has no container owner.
+            cls : ['neo-dashboard-dock-reveal-header', 'neo-tab-container-inline'],
+            flex: 'none',
+            items: [{
+                module: TabHeaderButton,
+                cls   : ['neo-dashboard-dock-reveal-title'],
+                pressed: true,
+                text   : '',
+                // A preview title is a visual active-tab identity, not another navigation stop.
+                vdom   : {tabIndex: -1}
             }]
         }, {
             module: Container,
@@ -336,13 +345,13 @@ class RevealOverlay extends Container {
      * @returns {Neo.button.Base}
      */
     get pinButton() {
-        return this.items[0].items[1]
+        return this.items[0].getActionItem('pin')
     }
 
     /**
-     * @returns {Neo.component.Label}
+     * @returns {Neo.tab.header.Button}
      */
-    get titleLabel() {
+    get titleTab() {
         return this.items[0].items[0]
     }
 
@@ -458,7 +467,7 @@ class RevealOverlay extends Container {
             }
         });
 
-        me.titleLabel.text = item ? (item.title || item.dockItemId) : '';
+        me.titleTab.text = item ? (item.title || item.dockItemId) : '';
 
         me.pinButton.set({
             disabled: item ? item.restorable === false : true
