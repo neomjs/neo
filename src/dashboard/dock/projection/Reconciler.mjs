@@ -722,7 +722,19 @@ class Reconciler extends Base {
                 state.body.removeAt(state.index, false, true, true);
                 state.bar.removeTabAt(state.index, false, true, true);
                 targetBody.insert(targetIndex, pane, true, false);
-                targetBar.insertTab(targetIndex, state.button, true, false)
+                targetBar.insertTab(targetIndex, state.button, true, false);
+
+                // Both sides of a cross-bar move are silent, so neither publishes on its own. The
+                // target renders anyway when it is freshly mounted, which leaves the SOURCE as the one
+                // side nothing flushes: its removal stays unpublished and the moved button's old node
+                // survives in the source header. One element id then renders under two bars, and the
+                // stale node keeps the `pressed` class it left with — the reported two-active-tabs
+                // header. Enrolling both bars in the awaited commit publishes the removal beside the
+                // insertion; the set makes it idempotent when several items move between the same pair.
+                if (state.bar !== targetBar) {
+                    materializedBars.add(state.bar);
+                    materializedBars.add(targetBar)
+                }
             })
         });
 
