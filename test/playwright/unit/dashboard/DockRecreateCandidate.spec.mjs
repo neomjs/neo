@@ -22,15 +22,16 @@ import DockWorkspace from '../../../../src/dashboard/dock/Workspace.mjs';
  * user-triggered recreate exception is conditioned on this phase: **without a validated candidate
  * the exception does not apply**, and the guarantee stands unmodified.
  *
- * @see ADR 0029 §2.6 — ticket-ref-ok: the record is what these arms enforce; naming it is the
- *      difference between a test and a rule with a source. So every refusal below is
- * load-bearing — each one is a case where the recovery click must leave the workspace untouched
- * rather than destroy the only copy of a pane.
+ * So every refusal below is load-bearing: each one is a case where the recovery click must leave
+ * the workspace untouched rather than destroy the only copy of a pane.
  *
  * The three refusals are not hypothetical shapes. They are what a cache-backed resolver actually
  * produces, and the `live-instance` one is why a factory seam alone is insufficient: a resolver
  * reading its own cache answers with the currently mounted instance, which *looks* like a
  * successful candidate.
+ *
+ * @see ADR 0029 §2.6 — ticket-ref-ok: the record is what these arms enforce; naming it is the
+ *      difference between a test and a rule with a source.
  */
 const buildWorkspace = (config = {}) => Neo.create(DockWorkspace, {
     appName  : 'DashboardDockRecreateCandidateTest',
