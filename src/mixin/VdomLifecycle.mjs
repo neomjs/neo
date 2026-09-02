@@ -895,10 +895,13 @@ class VdomLifecycle extends Base {
      * 1. **Update Visible Children:** We iterate over children found directly in the new VNode structure
      *    (via `ComponentManager.getChildren`). This preserves the baseline behavior where fully expanded
      *    VNode trees (e.g., from `Helper.create`) are synced without unnecessary "downgrading" to references.
-     * 2. **Unmount Missing Children:** We iterate over ALL logical children (via `ComponentManager.find`)
-     *    to detect any that are absent from the new VNode tree (e.g., `removeDom: true`).
-     *    Crucially, we use `VNodeUtil.find` to distinguish between a "Placeholder" (valid, do nothing)
-     *    and a "Removal" (invalid, unmount).
+     * 2. **Unmount Removed Children:** {@link #unmountRemovedChildren} runs for this component AND
+     *    for every component pass 1 synced: each direct logical child (via
+     *    `ComponentManager.getDirectChildren`) that is neither in the new VNode tree nor in its node
+     *    map (e.g., `removeDom: true`, or list rows that left) is unmounted, and the same test runs
+     *    on its own children. A pruned branch keeps its previous subtree in the returned vnode and a
+     *    moved node stays in the map, so only genuinely removed nodes are missing: that is the
+     *    "Placeholder" (valid, keep) vs "Removal" (unmount) distinction.
      *
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      */
@@ -952,30 +955,60 @@ class VdomLifecycle extends Base {
             }
         }
 
-        // New logic to handle unmounting of removed children
-        let directChildren = ComponentManager.getDirectChildren(me.id);
-        for (let i = 0, len = directChildren.length; i < len; i++) {
-            let component = directChildren[i];
-            if (!childComponentsSet.has(component)) {
-                childVnode = null;
+        // Unmount pass: every component whose node left the synced tree must know — at every depth
+        // the new vnode carries in full, not only one level below `me`. Pass 1 set `_vnode` silently
+        // for the components it found, so their own syncVnodeTree never runs; and a child whose
+        // payload a covering ancestor flight absorbed never receives a vnode at all. Without this,
+        // a pooled instance re-seated by reference after its rows left renders as a placeholder for
+        // a node the DOM no longer has.
+        me.unmountRemovedChildren(vnodeMap, childComponentsSet);
 
-                // Check if it exists in the tree (as placeholder)
-                // We use vnodeMap which resolves placeholders
-                if (me.vnode) {
-                    childVnode = vnodeMap.get(component.vdom.id);
-                }
-
-                if (!childVnode && !component.floating) {
-                    component._vnode = null;
-                    component.mounted = false
-                }
-            }
+        for (let i = 0, len = childComponents.length; i < len; i++) {
+            childComponents[i].unmountRemovedChildren(vnodeMap, childComponentsSet)
         }
 
         // silent update
         me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
 
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
+    }
+
+    /**
+     * Unmounts every direct logical child whose node is absent from a freshly synced vnode tree, and
+     * runs the same test on each removed child's own children — the removal half of
+     * {@link #syncVnodeTree}, which calls it for the receiver and for every component pass 1 synced.
+     *
+     * A child counts as present when pass 1 found it inside the tree, or when the tree's node map
+     * holds its root node (wrapper nodes included). Two cases keep a node in that map on purpose:
+     * a pruned branch, whose previous subtree the vdom worker keeps inside the returned vnode, and
+     * a node MOVED out of a removed parent in the same update — the worker emits its `removeNode`
+     * deltas after every `moveNode` for exactly that reuse, and here the test runs at every depth,
+     * so a moved descendant keeps its vnode and its mounted flag. Floating children (dialogs,
+     * popups) render outside their parent's node and are never tested.
+     *
+     * `mounted` is state tracking, not a DOM operation: the node is already gone, this records it.
+     * A class whose children track their own presence can override this to narrow or skip the pass.
+     * @param {Map<String, Object>} vnodeMap The node map of the synced vnode tree
+     * @param {Set<Neo.component.Base>} presentSet The components pass 1 found inside the tree
+     * @protected
+     */
+    unmountRemovedChildren(vnodeMap, presentSet) {
+        let children = ComponentManager.getDirectChildren(this.id),
+            i        = 0,
+            len      = children.length,
+            child;
+
+        for (; i < len; i++) {
+            child = children[i];
+
+            // cheapest test first: a present child (the common case) costs one Set lookup
+            if (!presentSet.has(child) && !vnodeMap.get(child.vdom.id) && !child.floating) {
+                child._vnode  = null;
+                child.mounted = false;
+
+                child.unmountRemovedChildren(vnodeMap, presentSet)
+            }
+        }
     }
 
     /**
