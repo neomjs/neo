@@ -131,11 +131,14 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
     });
 
     test('observeMovement owns the poll: armed without any pointer event, immune to element travel', () => {
+        let published = 0;
+
         const addon = {
             checkMovement  : () => {},
             intervalId     : null,
             intervalTime   : 20,
             observeMovement: true,
+            publishGeometry: () => published++,
             startPolling   : WindowPosition.prototype.startPolling,
             stopPolling    : WindowPosition.prototype.stopPolling
         };
@@ -145,16 +148,21 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
         const armedId = addon.intervalId;
 
         expect(armedId, 'the config arms the poll with no mouseout at all').toBeTruthy();
+        // The poll is change-driven against the origin captured at construction, so arming
+        // publishes the current snapshot once — a window that never moves is still known.
+        expect(published, 'arming opens the stream with its current value').toBe(1);
 
         WindowPosition.prototype.onMouseOut.call(addon, {toElement: {}});
         expect(addon.intervalId, 'element travel cannot clear a config-owned poll').toBe(armedId);
 
         WindowPosition.prototype.onMouseOut.call(addon, {toElement: null});
         expect(addon.intervalId, 'a document-leaving mouseout does not re-arm a second interval').toBe(armedId);
+        expect(published, 'pointer travel publishes nothing by itself').toBe(1);
 
         addon.observeMovement = false;
         WindowPosition.prototype.afterSetObserveMovement.call(addon, false, true);
-        expect(addon.intervalId, 'switching off releases the poll').toBeNull()
+        expect(addon.intervalId, 'switching off releases the poll').toBeNull();
+        expect(published, 'switching off publishes nothing').toBe(1)
     });
 
     /**

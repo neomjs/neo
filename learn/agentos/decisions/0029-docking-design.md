@@ -441,6 +441,10 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
   `{targetWindowId, ownerWindowId, opaqueHandleKey}` route plus generic capability facts
   (`focus`, `position`, `resize`, `close`);
   no dock document, workspace, vessel, reintegration, or persistence semantics enter the manager.
+  The manager only learns what a window's Main realm publishes, so the dock host
+  (`Neo.dashboard.dock.Workspace`) opens that stream itself — movement and resize observation for
+  its own render target at construction and for each admitted vessel before ownership publication
+  (`observeWindowGeometry`); adopters inherit it rather than arming `WindowPosition` by hand.
 - `Main` remains the physical-handle owner. On open, the opener mints a short-lived one-time capability and a separate
   opaque handle key against the exact `WindowProxy`. The target consumes that capability once during the existing
   `getWindowData()` handshake; only then does the opener bind the private key to the target runtime `windowId`. URL,

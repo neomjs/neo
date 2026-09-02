@@ -1,5 +1,6 @@
 import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
 import Viewport      from '../../../../../src/container/Viewport.mjs';
+import WindowManager from '../../../../../src/manager/Window.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 const fixtureDocument = {
@@ -106,6 +107,15 @@ class PopOutFixtureWorkspace extends DockWorkspace {
          */
         refuseVessel_: false,
         /**
+         * Spec trigger: any new tick mirrors this window's `Neo.manager.Window` row into
+         * {@link #windowGeometryJson} — the geometry-observation arm reads the manager through it
+         * after a viewport resize, which is the only way a component spec can witness that the
+         * host-armed stream reached the App Worker's geometry authority.
+         * @member {Number} readWindowGeometry_=0
+         * @reactive
+         */
+        readWindowGeometry_: 0,
+        /**
          * Spec trigger: an item id drives the engine's own dead-vessel compensation — release the
          * pane, retire the vessel, reintegrate. The reintegration arm asserts the item comes home
          * through THIS path, which is the drag path's path; a click-specific return branch would
@@ -145,6 +155,28 @@ class PopOutFixtureWorkspace extends DockWorkspace {
      * @member {Object[]} openedVessels=[]
      */
     openedVessels = []
+
+    /**
+     * Spec-readable mirror of this window's `Neo.manager.Window` row (`{innerRect, outerRect}`),
+     * refreshed on every {@link #readWindowGeometry} tick; `'null'` while no row exists.
+     * @member {String|null} windowGeometryJson=null
+     */
+    windowGeometryJson = null
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetReadWindowGeometry(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        const row = WindowManager.get(this.windowId);
+
+        this.windowGeometryJson = JSON.stringify(row ? {innerRect: row.innerRect, outerRect: row.outerRect} : null)
+    }
 
     /**
      * Refreshes {@link #vesselLogJson} from the two seam logs.
