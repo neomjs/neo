@@ -680,8 +680,10 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         const move = calls.find(call => call.type === 'move').data;
 
         expect(move.draggedItem).toBe(item);
-        expect(move.localX).toBe(100);
-        expect(move.localY).toBe(90);
+        // the anchor is the popup's OUTER top-left corner (150, 130) plus the 8px inset, in the
+        // target's local space — not the popup's centre
+        expect(move.localX).toBe(58);
+        expect(move.localY).toBe(38);
         expect(move.proxyRect.width).toBe(100);
         expect(move.proxyRect.height).toBe(80);
         expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)

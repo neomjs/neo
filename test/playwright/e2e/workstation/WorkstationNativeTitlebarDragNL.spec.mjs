@@ -16,7 +16,12 @@ import {expect, test} from '../../fixtures.mjs';
  * asserted at zero to prove the synthetic half stayed out of the gesture.
  */
 
-const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
+const
+    asArray = value => Array.isArray(value) ? value : value ? [value] : [],
+    readId  = result => result?.properties?.id ?? result?.id ?? (Array.isArray(result) ? readId(result[0]) : null),
+    // The zone the popup's corner is parked in: NOT Commit Stream's stored home (right-bottom-tabs),
+    // and the trailing child of a horizontal split, so its left band is a sibling insertion.
+    TARGET_NODE = 'heavy-tabs';
 
 /**
  * @summary Resolves one native CDP window handle for a page.
@@ -102,7 +107,7 @@ async function readManagerRect(app, managerId, windowId) {
 }
 
 test.describe('Workstation — native titlebar popup drag (#18029)', () => {
-    test('a popup moved by its OS titlebar previews over the main window and reintegrates under dwell', async ({page, neuralLink}) => {
+    test('a popup moved by its OS titlebar previews the zone under its corner and reintegrates there under dwell', async ({page, neuralLink}) => {
         const pageErrors = [];
         let popup;
 
@@ -219,16 +224,28 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
             }).toEqual({armed: true, mouseouts: 0, observeMovement: true});
 
             const
-                mainParticipationAtGrab = await readMainParticipationId(app),
-                mainRect                = await readManagerRect(app, managerId, (await app.getComponent(workspaceId, ['windowId'])).windowId),
-                popupBefore             = await readScreen(popup),
-                targetLeft              = Math.round(mainRect.x + mainRect.width  / 2 - popupBefore.innerWidth  / 2),
-                targetTop               = Math.round(mainRect.y + mainRect.height / 2 - popupBefore.innerHeight / 2);
+                mainParticipationAtGrab              = await readMainParticipationId(app),
+                mainRect                             = await readManagerRect(app, managerId, (await app.getComponent(workspaceId, ['windowId'])).windowId),
+                popupBefore                          = await readScreen(popup),
+                {nativeWindowDropAnchorInset: inset} = await app.getComponent(coordId, ['nativeWindowDropAnchorInset']),
+                zoneId                               = readId(await app.queryComponent({dockNodeId: TARGET_NODE}, ['id'])),
+                zoneBox                              = zoneId && await page.locator(`#${zoneId}`).boundingBox();
 
             expect(mainRect, 'manager.Window holds the main window rect').toBeTruthy();
+            expect(zoneBox, `${TARGET_NODE} is a measurable drop zone`).toBeTruthy();
 
-            // Walk the popup onto the main window's centre. After every step the manager rect must
-            // catch up through the production poll: no publishGeometry() call, no pointer event.
+            // The drop anchor is the popup's outer top-left corner, inset — the one point an opaque
+            // popup cannot hide. Aim it at the LEFT band of a zone that is not the pane's stored home,
+            // below the header carve-out and clear of the centre indicator chips: that zone sits in a
+            // horizontal split, so the band is a sibling insertion whose region overlay paints beside
+            // the corner. CDP bounds are the frame origin, so the requested origin IS the corner.
+            const
+                anchor     = {x: zoneBox.x + 10, y: zoneBox.y + zoneBox.height * 0.6},
+                targetLeft = Math.round(mainRect.x + anchor.x - inset),
+                targetTop  = Math.round(mainRect.y + anchor.y - inset);
+
+            // Walk the popup's corner onto that band. After every step the manager rect must catch
+            // up through the production poll: no publishGeometry() call, no pointer event.
             for (const step of [0.5, 1]) {
                 const
                     left   = Math.round(popupBefore.screenX + (targetLeft - popupBefore.screenX) * step),
@@ -246,12 +263,43 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                 }).toBeLessThanOrEqual(2)
             }
 
-            // The reported defect: previews must render in the target realm while the popup is over it.
-            await expect.poll(() => page.locator('.neo-dock-preview-affordance').count(), {
-                message  : 'the main window renders a drop-zone preview while the popup hovers it',
+            // Land the anchor exactly where the coordinator will read it: it anchors on the manager's
+            // OUTER rect, whose relation to the CDP frame origin is the platform's to define, so read
+            // that rect back and correct the residual once. The receipt is the coordinator's own
+            // arithmetic — outer corner + inset, in the main window's local space — at the aimed point.
+            const
+                readAnchor = async () => {
+                    const outer = (await app.callMethod(managerId, 'toJSON')).windows.find(win => win.id === popupWindowId)?.outerRect;
+
+                    return outer ? {x: outer.x + inset - mainRect.x, y: outer.y + inset - mainRect.y} : null
+                },
+                residual   = anchorNow => anchorNow ? Math.max(Math.abs(anchorNow.x - anchor.x), Math.abs(anchorNow.y - anchor.y)) : Infinity;
+
+            let anchorNow = await readAnchor();
+
+            if (residual(anchorNow) > 1) {
+                await moveNative(popupHandle, Math.round(targetLeft - (anchorNow.x - anchor.x)), Math.round(targetTop - (anchorNow.y - anchor.y)));
+
+                await expect.poll(async () => residual(anchorNow = await readAnchor()), {
+                    message  : 'the popup\'s corner anchor lands on the aimed band point',
+                    timeout  : 5000,
+                    intervals: [25, 50, 100]
+                }).toBeLessThanOrEqual(2)
+            }
+
+            // The reported defect: previews must render in the target realm while the popup is over
+            // it — and with the corner in a split band, as a REGION overlay, not only as indicator arrows.
+            await expect.poll(() => page.locator('.neo-dock-preview-region').count(), {
+                message  : 'the main window renders a region overlay while the popup\'s corner sits in a split band',
                 timeout  : 5000,
                 intervals: [50, 100, 250]
             }).toBeGreaterThan(0);
+
+            const snapshot = await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{targetWorkspaceId: 'workstation-main'}]);
+
+            expect(snapshot.rendered, 'the painted preview is the band\'s sibling insertion, not the stored home')
+                .toMatchObject({placement: {kind: 'split-before'}, target: {nodeId: TARGET_NODE}});
+            expect(snapshot.preview?.previewId, 'the semantic and painted previews agree').toBe(snapshot.rendered.previewId);
 
             expect(await popup.evaluate(() => globalThis.__nativeTitlebarMouseouts),
                 'no mouseout reached the popup realm during the gesture').toBe(0);
@@ -297,6 +345,17 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                 message: 'the committed reintegration retires the physical vessel',
                 timeout: 10000
             }).toBe(true);
+
+            // The drop lands where the corner pointed: a fresh tabs node inserted BEFORE the band's
+            // zone in a horizontal split — not at the pane's stored home.
+            const
+                {dockModel} = await app.getComponent(workspaceId, ['dockModel']),
+                landing     = Object.entries(dockModel.nodes).find(([, node]) => node.type === 'tabs' && node.items?.includes('commits'))?.[0],
+                split       = Object.values(dockModel.nodes).find(node => node.type === 'split' && node.children?.[0] === landing);
+
+            expect(landing, 'Commit Stream lands in a fresh tabs node, not its stored home').not.toBe('right-bottom-tabs');
+            expect(split, 'the landing node is the leading sibling of the band\'s zone')
+                .toMatchObject({orientation: 'horizontal', children: [landing, TARGET_NODE]});
 
             expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
                 'reintegration retains the exact live pane instance').toBe(paneId);

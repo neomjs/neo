@@ -51,6 +51,18 @@ class DragCoordinator extends Manager {
          */
         nativeWindowParkRetryLimit: 6,
         /**
+         * Inset, in px, from the moving popup's outer top-left corner to the point that is
+         * hit-tested against remote targets during a native-titlebar drag.
+         *
+         * No pointer event reaches the page while the OS drags a window, so the window's geometry
+         * is the only signal. The centre of an opaque window is the one point the window itself is
+         * guaranteed to cover, which hid every drop target under the popup; a corner exposes two
+         * sides of the selected region and tracks the hand on the titlebar. The inset keeps the
+         * point inside the popup's own frame rather than on its boundary pixel.
+         * @member {Number} nativeWindowDropAnchorInset=8
+         */
+        nativeWindowDropAnchorInset: 8,
+        /**
          * Quiescence delay after the last native window-position update before committing
          * a geometry-only drop. The browser has no mouseup during OS-titlebar drags.
          * @member {Number} nativeWindowDropSettleMs=250
@@ -581,6 +593,8 @@ class DragCoordinator extends Manager {
             {sourceSortZone} = sourceDrag,
             popupWindow      = Window.get(data.windowId),
             popupRect        = popupWindow?.innerRect,
+            anchorRect       = popupWindow?.outerRect ?? popupRect,
+            inset            = me.nativeWindowDropAnchorInset,
             {sortGroup}      = sourceSortZone,
             sourceWindowId   = sourceDrag.sourceWindowId ?? sourceSortZone.windowId,
             targetWindowId, targetSortZone, targetWindow, localX, localY, width, height, arbiter, claimed, excludedWindowIds;
@@ -589,8 +603,9 @@ class DragCoordinator extends Manager {
             return null
         }
 
-        localX = popupRect.x + popupRect.width  / 2;
-        localY = popupRect.y + popupRect.height / 2;
+        // The popup's outer top-left corner (inset) is the drop anchor — see nativeWindowDropAnchorInset.
+        localX = anchorRect.x + inset;
+        localY = anchorRect.y + inset;
 
         excludedWindowIds = new Set([data.windowId, sourceWindowId]);
         arbiter           = me.nativeClaimArbiters.get(data.windowId);
@@ -644,13 +659,22 @@ class DragCoordinator extends Manager {
         width  = popupRect.width;
         height = popupRect.height;
 
+        // The proxy stands where the popup's CONTENT is, in target-local coordinates; the offsets
+        // locate the anchor inside that proxy so an embodiment keeps the popup's own placement.
+        const proxyRect = new Rectangle(
+            popupRect.x - targetWindow.innerRect.x,
+            popupRect.y - targetWindow.innerRect.y,
+            width,
+            height
+        );
+
         return {
             ...sourceDrag,
             localX,
             localY,
-            offsetX  : width  / 2,
-            offsetY  : height / 2,
-            proxyRect: new Rectangle(localX - width / 2, localY - height / 2, width, height),
+            offsetX: localX - proxyRect.x,
+            offsetY: localY - proxyRect.y,
+            proxyRect,
             targetSortZone,
             targetWindowId
         }

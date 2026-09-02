@@ -49,6 +49,15 @@ class DragAffordances extends Base {
     dragGeometry = null
 
     /**
+     * The settled geometry of the live gesture — the synchronous mirror of {@link #dragGeometry},
+     * null until that promise resolves and again after {@link #invalidateGeometry}. A remote frame
+     * (the cross-window participation path) must resolve its preview on the frame it arrives and
+     * writes the renderer itself, so it reads this instead of awaiting.
+     * @member {Object|null} geometry=null
+     */
+    geometry = null
+
+    /**
      * The dock host container (the overlays' coordinate origin and the zone-measure root).
      * Assigned by the consumer after composition.
      * @member {Neo.container.Base|null} host=null
@@ -95,7 +104,7 @@ class DragAffordances extends Base {
     clear() {
         let me = this;
 
-        me.dragGeometry = null;
+        me.invalidateGeometry();
         me.indicators?.clear();
         me.preview && (me.preview.dockPreview = null)
     }
@@ -130,7 +139,7 @@ class DragAffordances extends Base {
                 ? (Document.getZoneNodeId(nodes[me.owner.dockModel.root].zones?.center) ?? me.owner.dockModel.root)
                 : me.owner.dockModel.root;
 
-        me.dragGeometry = host.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
+        const promise = host.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
             let geometry = hostRect?.width > 0 && hostRect?.height > 0 && {
                 hostRect,
                 root : {nodeId: rootId, rect: hostRect},
@@ -149,17 +158,31 @@ class DragAffordances extends Base {
             // A gesture's FIRST move can outrace measurability (fresh mount, mid-layout —
             // missing OR zero-area rects): a degenerate result must not latch for the whole
             // gesture — uncache so the next move frame re-measures and the session self-heals.
+            // A superseded generation (cleared or invalidated while in flight) touches nothing.
             if (!geometry || geometry.zones.length < 1) {
-                me.dragGeometry = null;
+                me.dragGeometry === promise && (me.dragGeometry = null);
                 return null
             }
 
-            me.indicators && (me.indicators.hostRect = geometry.hostRect);
+            if (me.dragGeometry === promise) {
+                me.geometry = geometry;
+                me.indicators && (me.indicators.hostRect = geometry.hostRect)
+            }
 
             return geometry
         });
 
-        return me.dragGeometry
+        return me.dragGeometry = promise
+    }
+
+    /**
+     * Drops the memoized geometry without ending the session: the next frame re-measures while the
+     * indicator menu and the renderer keep their current paint until it lands. A pointer drag cannot
+     * outlive a resize of its own window, but a remote (cross-window) gesture can — its consumer
+     * calls this when the host window's rect changes mid-gesture.
+     */
+    invalidateGeometry() {
+        this.dragGeometry = this.geometry = null
     }
 
     /**
@@ -172,6 +195,48 @@ class DragAffordances extends Base {
      */
     localRect(rect, hostRect) {
         return {x: rect.x - hostRect.x, y: rect.y - hostRect.y, width: rect.width, height: rect.height}
+    }
+
+    /**
+     * The measured rect a preview paints against: the host rect for a root-edge placement, the
+     * target zone's rect otherwise; null before the geometry settles or for an unmeasured target.
+     * @param {Object|null} preview a dockPreview
+     * @returns {Object|null} viewport-space {x, y, width, height}
+     */
+    previewTargetRect(preview) {
+        let {geometry} = this,
+            nodeId     = preview?.target?.nodeId;
+
+        if (!geometry || !nodeId) return null;
+
+        return nodeId === geometry.root.nodeId
+            ? geometry.root.rect
+            : geometry.zones.find(zone => zone.nodeId === nodeId)?.rect ?? null
+    }
+
+    /**
+     * Resolves the preview one pointer selects from the SETTLED geometry, in the §06 tier order — a
+     * hovered indicator's candidate first, pointer inference over every zone second — without
+     * touching the renderer. {@link #onDragMove} is the async, renderer-writing form of the same
+     * decision; the cross-window participation path calls this synchronously per remote frame
+     * because it owns the renderer write, and supplies its own fallback for a null.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} data.pointer {x, y} in the host window's client space
+     * @param {String|null} [data.groupNodeId=null]
+     * @param {String} [data.sourceNodeId]
+     * @returns {Object|null} the dockPreview, or null before the geometry settles or when nothing is under the pointer
+     */
+    resolvePreview({groupNodeId = null, itemId, pointer, sourceNodeId}) {
+        let me         = this,
+            {geometry} = me,
+            candidate  = geometry ? me.indicators?.hitTest(pointer) : null;
+
+        if (!geometry) return null;
+
+        if (candidate?.preview?.itemId === itemId) return candidate.preview;
+
+        return me.producer.produce({groupNodeId, itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones})
     }
 
     /**
@@ -226,13 +291,9 @@ class DragAffordances extends Base {
         if (preview && writeRenderer) {
             preview.dockPreview = dockPreview;
 
-            if (dockPreview) {
-                let targetRect = dockPreview.target.nodeId === geometry.root.nodeId
-                    ? geometry.root.rect
-                    : geometry.zones.find(entry => entry.nodeId === dockPreview.target.nodeId)?.rect;
+            let targetRect = me.previewTargetRect(dockPreview);
 
-                targetRect && preview.applyTargetGeometry(me.localRect(targetRect, geometry.hostRect))
-            }
+            targetRect && preview.applyTargetGeometry(me.localRect(targetRect, geometry.hostRect))
         }
     }
 

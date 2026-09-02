@@ -857,12 +857,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
         registerWindow('win-source', 2000,   0, 400, 400);
         registerWindow('win-popup',   500, 500, 300, 200);
-        registerWindow('win-target',  600, 550, 400, 300);
+        registerWindow('win-target',  400, 400, 400, 300);
 
         DragCoordinator.register(source);
         DragCoordinator.register(target);
 
-        // two geometry events while the popup's center (650, 600) sits over the target
+        // two geometry events while the popup's corner anchor (508, 508) sits over the target
         DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
         DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
 
@@ -873,8 +873,11 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(nativePayloads.every(payload => payload.embodyProxy === false)).toBe(true);
         expect(nativePayloads.every(payload => payload.sourceSortZone === source)).toBe(true);
 
-        // the popup leaves the target: the hover ends exact-once
-        WindowManager.get('win-popup').innerRect = new Rectangle(3000, 3000, 300, 200);
+        // the popup leaves the target: the hover ends exact-once (the anchor reads the OUTER rect)
+        Object.assign(WindowManager.get('win-popup'), {
+            innerRect: new Rectangle(3000, 3000, 300, 200),
+            outerRect: new Rectangle(3000, 3000, 300, 200)
+        });
 
         DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
 
@@ -887,6 +890,71 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
 
         expect(DragCoordinator.nativeClaimArbiters.size).toBe(0)
+    });
+
+    test('the NATIVE drop anchor is the popup\'s outer top-left corner, inset — the centre is the one point the popup always hides', () => {
+        const
+            nativePayloads = [],
+            draggedItem    = {id: 'tab-1'},
+            source         = {
+                sortGroup: 'dock',
+                windowId : 'win-source',
+                getNativeWindowDrag(windowId) {
+                    return windowId === 'win-popup' ? {draggedItem, widgetName: 'tab-1'} : null
+                },
+                async suspendWindowDrag(widgetName) {
+                    calls.push(['suspend', widgetName])
+                }
+            },
+            // the popup's content (inner) sits 30px below and 4px right of its frame (outer)
+            popupInner = new Rectangle(504, 530, 300, 200),
+            popupOuter = new Rectangle(500, 500, 308, 234),
+            centreOnly = createZone('workspace-centre', 'win-centre'),
+            cornerOnly = createZone('workspace-corner', 'win-corner'),
+            oldInset   = DragCoordinator.nativeWindowDropAnchorInset,
+            lastMove   = () => calls.filter(([name]) => name === 'move').at(-1);
+
+        cornerOnly.onRemoteDragMove = payload => {
+            nativePayloads.push(payload);
+            calls.push(['move', 'workspace-corner', payload.localX, payload.localY])
+        };
+
+        registerWindow('win-source', 2000,   0, 400, 400);
+        registerWindow('win-popup',     0,   0,   0,   0, {innerRect: popupInner, outerRect: popupOuter});
+        registerWindow('win-centre',  600, 600, 400, 300); // covers the popup's centre (654, 630), not its corner
+        registerWindow('win-corner',  400, 400, 180, 180); // covers the corner anchor (508, 508), not the centre
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(centreOnly);
+        DragCoordinator.register(cornerOnly);
+
+        try {
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+            // the corner's window previews, in ITS local space; the window under the centre is never asked
+            expect(calls.filter(([name]) => name === 'move')).toEqual([['move', 'workspace-corner', 108, 108]]);
+            expect(nativePayloads).toHaveLength(1);
+
+            const [payload] = nativePayloads;
+
+            // the proxy stands where the popup's CONTENT is, in the target's space, and the offsets
+            // locate the anchor inside it — 4px in from the frame, 22px above the content
+            expect(payload.proxyRect).toMatchObject({x: 104, y: 130, width: 300, height: 200});
+            expect([payload.offsetX, payload.offsetY]).toEqual([4, -22]);
+
+            // the inset is the config: at 0 the anchor is the frame's exact corner
+            DragCoordinator.nativeWindowDropAnchorInset = 0;
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            expect(lastMove()).toEqual(['move', 'workspace-corner', 100, 100]);
+
+            // without an outer rect the content rect's corner anchors, inset again
+            DragCoordinator.nativeWindowDropAnchorInset = oldInset;
+            WindowManager.get('win-popup').outerRect = null;
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+            expect(lastMove()).toEqual(['move', 'workspace-corner', 112, 138])
+        } finally {
+            DragCoordinator.nativeWindowDropAnchorInset = oldInset
+        }
     });
 
     test('a native source may name its physical popup separately so the originating main participation can claim', () => {
@@ -1102,7 +1170,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
         registerWindow('win-source', 2000,   0, 400, 400);
         registerWindow('win-popup',   500, 500, 300, 200);
-        registerWindow('win-target',  600, 550, 400, 300);
+        registerWindow('win-target',  400, 400, 400, 300); // covers the popup's corner anchor (508, 508)
 
         DragCoordinator.register(source);
         DragCoordinator.register(target);

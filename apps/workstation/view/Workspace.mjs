@@ -314,6 +314,15 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     crossWindowPreviewGeometries = new Map()
+
+    /**
+     * The main window's inner-rect signature at the last remote frame. A change mid-gesture means
+     * the main window was resized under a hovering popup, so the affordance geometry is re-measured
+     * (see {@link #renderMainCrossWindowPreview}). Reset when the main preview clears.
+     * @member {String|null} mainPreviewWindowSignature=null
+     * @protected
+     */
+    mainPreviewWindowSignature = null
     /**
      * Worker-owned vessel workspace records keyed by stable workspace identity. Entries carry
      * document ownership and render-target refs, never cached geometry.
@@ -1366,8 +1375,10 @@ class Workspace extends DockWorkspace {
 
     /**
      * Resolves the render host, exact semantic target component, and preview renderer for one
-     * cross-window workspace. A bare vessel has no projected tabs component yet, so its main view
-     * is the exact landing surface; projected main-workspace nodes always resolve by `dockNodeId`.
+     * VESSEL workspace. A bare vessel has no projected tabs component yet, so its main view is the
+     * exact landing surface; a projected vessel node resolves by `dockNodeId`. The main workspace
+     * does not come through here — it rides the affordance controller's own geometry
+     * ({@link #renderMainCrossWindowPreview}).
      * @summary Keeps semantic node identity paired with its actual rendered component.
      * @param {String} workspaceId
      * @param {String} targetNodeId
@@ -1377,12 +1388,11 @@ class Workspace extends DockWorkspace {
      */
     resolveCrossWindowPreviewSurface(workspaceId, targetNodeId) {
         let me       = this,
-            isMain   = workspaceId === Workspace.MAIN_WORKSPACE_ID,
-            state    = isMain ? null : me.vesselWorkspaces.get(workspaceId),
-            windowId = isMain ? me.windowId : state?.windowId,
-            host     = isMain ? me.dragAffordances?.host : state?.host ?? state?.app?.mainView,
+            state    = me.vesselWorkspaces.get(workspaceId),
+            windowId = state?.windowId,
+            host     = state?.host ?? state?.app?.mainView,
             target   = state && !state.host ? host : host?.down({dockNodeId: targetNodeId}),
-            renderer = isMain ? me.dragAffordances?.preview : state?.preview;
+            renderer = state?.preview;
 
         return windowId != null && host && target && renderer &&
             typeof host.getDomRect === 'function' && !host.isDestroyed && !target.isDestroyed
@@ -1474,9 +1484,10 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Computes and renders one remote preview from an exact live target-node measurement. A vessel
-     * uses its stable lazy landing surface; the main workspace returns a stack to its captured
-     * semantic home. A missing or in-flight measurement hides the preview for that frame.
+     * Computes and renders one remote preview. The main workspace resolves it the way an in-window
+     * gesture does ({@link #renderMainCrossWindowPreview}); a vessel uses its stable lazy landing
+     * surface from an exact live measurement. A missing or in-flight measurement hides the preview
+     * for that frame.
      * @param {String} workspaceId
      * @param {Object} data
      * @returns {Object|null}
@@ -1502,8 +1513,9 @@ class Workspace extends DockWorkspace {
                 : Workspace.vesselTabsNodeId(state?.itemId),
             pointer         = {x: data?.localX, y: data?.localY},
             renderer        = isMain ? me.dragAffordances?.preview : state?.preview,
-            indicators      = isMain ? null : state?.indicators,
+            indicators      = state?.indicators,
             producer        = me.dragAffordances.producer,
+            sourceNodeId    = data?.sourceNodeId,
             preview;
 
         if (
@@ -1513,6 +1525,10 @@ class Workspace extends DockWorkspace {
             renderer && (renderer.dockPreview = null);
             indicators?.clear();
             return null
+        }
+
+        if (isMain) {
+            return me.renderMainCrossWindowPreview({groupNodeId, itemId, pointer, renderer, sourceNodeId, targetNodeId})
         }
 
         me.ensureCrossWindowPreviewGeometry(workspaceId, targetNodeId);
@@ -1526,61 +1542,107 @@ class Workspace extends DockWorkspace {
             return null
         }
 
-        const
-            zone           = {nodeId: targetNodeId, rect: geometry.targetRect},
-            previewPointer = isMain
-                ? pointer
-                : {
-                    x: geometry.targetRect.x + geometry.targetRect.width / 2,
-                    y: geometry.targetRect.y + geometry.targetRect.height / 2
-                };
+        const zone = {nodeId: targetNodeId, rect: geometry.targetRect};
 
         if (indicators) {
             indicators.hostRect = geometry.hostRect;
             indicators.candidateSet = producer.produceCandidates({
-                containerId : geometry.host.id,
+                containerId: geometry.host.id,
                 groupNodeId,
                 itemId,
                 pointer,
-                root        : zone,
-                sourceNodeId: data?.sourceNodeId,
-                zones       : [zone]
+                root       : zone,
+                sourceNodeId,
+                zones      : [zone]
             });
             preview = indicators.updatePointer(pointer)?.preview ?? null
         }
 
+        // A vessel has one landing surface — the pane joins its stack — so the pointer-inference
+        // preview binds the zone's centre (the whole-zone tab-into) wherever inside the vessel the
+        // pointer is; only a hovered indicator chip above selects anything else.
         preview ??= producer.produce({
-            containerId : geometry.host.id,
+            containerId: geometry.host.id,
             groupNodeId,
             itemId,
-            pointer     : previewPointer,
-            sourceNodeId: data?.sourceNodeId,
-            zones       : [zone]
+            pointer    : {
+                x: geometry.targetRect.x + geometry.targetRect.width  / 2,
+                y: geometry.targetRect.y + geometry.targetRect.height / 2
+            },
+            sourceNodeId,
+            zones      : [zone]
         });
-
-        // Stored-home acquisition fallback: the window hit-test above already admitted the
-        // gesture, so a pointer that lands inside the window but outside every exact zone
-        // still acquires the stored-home semantic target — the preview (and its painting)
-        // binds the exact node rect, never the pointer's empty position. Real on-zone drags
-        // keep the full placement grammar (splits included); only the off-zone position
-        // resolves to the stored-home tab-into.
-        if (!preview && isMain) {
-            preview = producer.produce({
-                containerId: geometry.host.id,
-                groupNodeId,
-                itemId,
-                pointer    : {
-                    x: geometry.targetRect.x + geometry.targetRect.width  / 2,
-                    y: geometry.targetRect.y + geometry.targetRect.height / 2
-                },
-                sourceNodeId: data?.sourceNodeId,
-                zones       : [zone]
-            });
-        }
 
         if (geometry.renderer) {
             geometry.renderer.dockPreview = preview;
             preview && geometry.renderer.applyTargetGeometry(geometry.localTargetRect)
+        }
+
+        return preview
+    }
+
+    /**
+     * The main workspace's remote frame: the SAME once-per-gesture geometry and tier order the
+     * in-window gesture uses ({@link Neo.dashboard.dock.interaction.DragAffordances#resolvePreview} —
+     * every projected tabs zone, an indicator candidate first, pointer inference second), so a
+     * popup or remote pointer reads the full placement grammar wherever it points and the drop
+     * lands there. The measurement is warmed here and read synchronously — a frame before it
+     * settles hides the preview rather than guessing — and re-measured when the main window's
+     * rect changes mid-gesture, which a remote gesture can outlive and a pointer drag cannot.
+     * @param {Object} data
+     * @param {String|null} data.groupNodeId
+     * @param {String} data.itemId
+     * @param {Object} data.pointer {x, y} in main-window client space
+     * @param {Neo.dashboard.dock.interaction.Preview|null} data.renderer
+     * @param {String} [data.sourceNodeId]
+     * @param {String} data.targetNodeId the stored-home tabs node — the off-zone fallback target
+     * @returns {Object|null}
+     * @protected
+     */
+    renderMainCrossWindowPreview({groupNodeId, itemId, pointer, renderer, sourceNodeId, targetNodeId}) {
+        let me          = this,
+            affordances = me.dragAffordances,
+            inner       = Neo.manager?.Window?.get(me.windowId)?.innerRect,
+            signature   = inner ? [inner.x ?? 0, inner.y ?? 0, inner.width, inner.height].join(':') : null,
+            preview, targetRect;
+
+        if (me.mainPreviewWindowSignature && me.mainPreviewWindowSignature !== signature) {
+            affordances.invalidateGeometry()
+        }
+
+        me.mainPreviewWindowSignature = signature;
+        affordances.ensureGeometry();
+
+        const {geometry} = affordances;
+
+        if (!geometry) {
+            renderer && (renderer.dockPreview = null);
+            return null
+        }
+
+        preview = affordances.resolvePreview({groupNodeId, itemId, pointer, sourceNodeId});
+
+        // Stored-home acquisition fallback: the window hit-test already admitted the gesture, so a
+        // pointer inside the window but outside every zone still acquires the stored-home target —
+        // the preview (and its painting) binds that exact node rect, never the pointer's empty
+        // position. On-zone positions keep the full placement grammar resolved above.
+        if (!preview) {
+            const home = geometry.zones.find(zone => zone.nodeId === targetNodeId);
+
+            preview = home ? affordances.producer.produce({
+                groupNodeId,
+                itemId,
+                pointer: {x: home.rect.x + home.rect.width / 2, y: home.rect.y + home.rect.height / 2},
+                sourceNodeId,
+                zones  : [home]
+            }) : null
+        }
+
+        targetRect = affordances.previewTargetRect(preview);
+
+        if (renderer) {
+            renderer.dockPreview = preview;
+            preview && targetRect && renderer.applyTargetGeometry(affordances.localRect(targetRect, geometry.hostRect))
         }
 
         return preview
@@ -1595,6 +1657,7 @@ class Workspace extends DockWorkspace {
         this.crossWindowPreviewGeometries.delete(workspaceId);
 
         if (workspaceId === Workspace.MAIN_WORKSPACE_ID) {
+            this.mainPreviewWindowSignature = null;
             this.dragAffordances?.clear()
         } else {
             let state   = this.vesselWorkspaces.get(workspaceId),
