@@ -74,14 +74,10 @@
 
     // The preview renderer + indicator menu are absolute overlay SIBLINGS of the projection
     // (never inside it — the coarse refresh replaces only the projection child, so these keep
-    // their instances across every re-projection). The preview stays pointer-transparent for
-    // the same reason the indicator layer is: the sort-zone drag owns the pointer.
-    > .neo-dock-preview {
-        inset         : 0;
-        pointer-events: none;
-        position      : absolute;
-        z-index       : 25;
-    }
+    // their instances across every re-projection). `position: relative` above is the whole
+    // contract this example owes them: both overlays position themselves against it from the
+    // engine sheet. This file used to re-declare the preview's `inset`/`position`/`z-index`;
+    // the engine now owns that pair, so the copy is gone.
 }
 
 .agentos-dockdemo-pane {

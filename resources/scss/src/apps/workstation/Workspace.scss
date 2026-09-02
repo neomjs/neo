@@ -273,14 +273,10 @@
     padding : 12px;
     position: relative;
 
-    // Persistent drag affordances share this host's local geometry. The preview sits below the
-    // indicator menu and stays pointer-transparent so the sort-zone drag remains the sole owner.
-    > .neo-dock-preview {
-        inset         : 0;
-        pointer-events: none;
-        position      : absolute;
-        z-index       : 25;
-    }
+    // Persistent drag affordances share this host's local geometry. `position: relative` above is
+    // the whole contract this app owes them: the preview and the indicator layer both position
+    // themselves against it from the engine sheet. This app used to re-declare the preview's
+    // `inset`/`position`/`z-index` here — the engine now owns that pair, so the copy is gone.
 }
 
 // The generic overflow button is a floating direct-body child. Scope its cockpit skin to

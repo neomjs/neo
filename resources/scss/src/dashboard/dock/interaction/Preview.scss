@@ -4,8 +4,24 @@
     to   { transform: scaleY(1) }
 }
 
+// The preview's own geometry, owned here rather than by each consumer. A dock host lays out `fit`,
+// so an UNPOSITIONED preview is an in-flow `.neo-layout-fit-item` — `flex: 1 0 100%`, a second full
+// host width in the flex row. `overflow-x: hidden` hides the scrollbar but the host stays
+// programmatically scrollable, so any focus or scroll-into-view aimed past the first width shifts
+// the whole workspace out to the left, permanently: nothing scrolls it back once the re-projection
+// has retired the old shell. Lifting the preview out of the flow means the host has no overflow at
+// rest, and the transient two-shell width the reconciler stages during a swap clamps back to 0 on
+// its own.
+//
+// `z-index` sits between the reveal overlay (20) and the drop-indicator layer (30) — the value the
+// consumers that re-derived this rule had each arrived at. The sibling indicator layer already owns
+// its own `inset`/`position`/`z-index` in the engine sheet; this is the pair the preview was
+// missing. A consumer may still override the stacking value.
 .neo-dock-preview {
+    inset          : 0;
     pointer-events : none;
+    position       : absolute;
+    z-index        : 25;
 
     .neo-dock-preview-affordance {
         border-radius  : 3px;
