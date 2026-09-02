@@ -340,7 +340,7 @@ jobs:
         id: chromium-probe
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
         continue-on-error: true
-        run: node -e "require('playwright').chromium.launch().then(browser => browser.close())"
+        run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
 
       - name: Install Playwright system dependencies
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.chromium-probe.outcome == 'failure' }}
