@@ -181,8 +181,18 @@
 // it will stay, so its box never overlaps the rail strip mid-entry and never intercepts a
 // click meant for the strip — the geometry the tour's step-gated fast clicks and Playwright
 // actionability both convict. What slides is the root's CONTENT (the header and the pane
-// slot), a full box-width from the strip side, clipped by the root's own `overflow: hidden`:
-// the panel visibly emerges from under its strip while the strip stays untouched.
+// slot), the root's full extent from the strip side, clipped by the root's own
+// `overflow: hidden`: the panel visibly emerges from under its strip while the strip stays
+// untouched.
+//
+// The travel is a container-query length, not a percentage: a percentage `translate` resolves
+// against the transformed element's OWN box, and the two children only coincide on the inline
+// axis (both span the overlay's width); on the block axis the header is one toolbar tall and
+// the slot is the rest, so `translateY(100%)` would land the header while the slot is still
+// arriving — two parts, not one panel. `100cqw` / `100cqh` read the overlay root (the nearest
+// size container, declared with its box rule below), so both children travel the same
+// distance on every edge.
+//
 // The root's `animationend` listener settles the motion-signal window on the ROOT's own end
 // only (target identity); the children's ends bubble past it, and every animation here reads
 // the same token, so all three end on the same frame.
@@ -203,10 +213,10 @@
 }
 
 @keyframes neo-dock-reveal-fade        { from { opacity: 0 } }
-@keyframes neo-dock-reveal-from-left   { from { transform: translateX(-100%) } }
-@keyframes neo-dock-reveal-from-right  { from { transform: translateX(100%) } }
-@keyframes neo-dock-reveal-from-top    { from { transform: translateY(-100%) } }
-@keyframes neo-dock-reveal-from-bottom { from { transform: translateY(100%) } }
+@keyframes neo-dock-reveal-from-left   { from { transform: translateX(-100cqw) } }
+@keyframes neo-dock-reveal-from-right  { from { transform: translateX(100cqw) } }
+@keyframes neo-dock-reveal-from-top    { from { transform: translateY(-100cqh) } }
+@keyframes neo-dock-reveal-from-bottom { from { transform: translateY(100cqh) } }
 
 // Operation-correlated tab insertion. The adapter stamps this class on ONE recreated header only
 // when its item + target tabs node match the committed addTab descriptor carried by that projection.
@@ -522,6 +532,13 @@
     overflow     : hidden;
     position     : absolute;
     z-index      : 20;
+
+    // The reveal-entry travel reads `cqw` / `cqh` against THIS box (see the choreography block
+    // above): both children must move the overlay's extent, not their own. Size containment is
+    // safe here for the reason the dock query host states — the overlay has definite extents on
+    // both axes (the per-edge `inset` rules plus the free dimension the rail writes as a
+    // percentage), so nothing about its size ever depended on its content.
+    container-type: size;
 
     // The overlay is also a flex container. Keep the semantic visibility state above the generic
     // `.neo-flex-container {display:flex}` rule without depending on stylesheet load order.
