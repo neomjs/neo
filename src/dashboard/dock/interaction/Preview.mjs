@@ -83,6 +83,16 @@ class Preview extends Component {
          */
         dockPreview_: null,
         /**
+         * The hold clock of a native-titlebar hover — `{armedAt, durationMs}` — or null. While set,
+         * the affordance paints the hold running out (a rising fill over `durationMs`, starting from
+         * `armedAt`), so a user resting a popup on a zone sees that waiting is the gesture. The
+         * coordinator publishes it with every native hover frame and the writer sets it before the
+         * preview; the fill and the commit therefore read one clock. Runtime-only.
+         * @member {Object|null} dwell_=null
+         * @reactive
+         */
+        dwell_: null,
+        /**
          * Thickness in px of an edge-zone affordance band. The overlay clamps it to the target
          * rect, so an oversized value degrades gracefully; consumers tune it per instance for
          * their hardware / UI density (touch surfaces want wider bands).
@@ -377,6 +387,22 @@ class Preview extends Component {
     }
 
     /**
+     * @summary Re-renders the current affordance when the hold clock arrives, changes, or clears.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetDwell(value, oldValue) {
+        let me = this;
+
+        // The writer sets the clock before the preview, so the common case renders once through
+        // afterSetDockPreview; this covers a clock that arrives or leaves while a preview stands.
+        if (me.dockPreview && (value?.armedAt !== oldValue?.armedAt || value?.durationMs !== oldValue?.durationMs)) {
+            me.afterSetDockPreview(me.dockPreview, me.dockPreview)
+        }
+    }
+
+    /**
      * @summary Positions the current affordance over a supplied target rect (runtime-only).
      *
      * The producer / live-drag integration calls this with the target node's measured rect so the
@@ -465,7 +491,11 @@ class Preview extends Component {
     getAffordanceVdom(affordance) {
         let me      = this,
             region  = me.resultRegionPreviews && (affordance.group === 'split' || affordance.group === 'edge'),
-            cutSide = region ? Preview.cutSide(affordance) : null;
+            cutSide = region ? Preview.cutSide(affordance) : null,
+            // the hold clock paints only on an accepted zone: a rejected region is not a place the
+            // hold could land, so it must not look like a timer running towards a drop
+            dwell   = affordance.accepted && me.dwell?.durationMs > 0 ? me.dwell : null,
+            elapsed = dwell ? Math.max(0, Math.min(dwell.durationMs, Date.now() - (dwell.armedAt ?? Date.now()))) : 0;
 
         return {
             cls: [
@@ -477,10 +507,19 @@ class Preview extends Component {
                 // family; the cut-side class thickens the border on the region's inner edge,
                 // preserving the exact-cut information the insertion line used to carry
                 ...(region  ? ['neo-dock-preview-region'] : []),
-                ...(cutSide ? [`neo-dock-preview-cut-${cutSide}`] : [])
+                ...(cutSide ? [`neo-dock-preview-cut-${cutSide}`] : []),
+                ...(dwell   ? ['neo-dock-preview-dwelling'] : [])
             ],
             'data-dock-target': affordance.targetNodeId,
-            style             : {pointerEvents: 'none'}
+            style             : {
+                pointerEvents: 'none',
+                // the fill's duration and the time already spent, so a node rebuilt mid-hold resumes
+                // at the right height (the stylesheet applies the elapsed time as a negative delay)
+                ...(dwell ? {
+                    '--dock-native-dwell-ms'     : `${dwell.durationMs}ms`,
+                    '--dock-native-dwell-elapsed': `${elapsed}ms`
+                } : {})
+            }
         }
     }
 

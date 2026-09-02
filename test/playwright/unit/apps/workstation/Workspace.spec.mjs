@@ -1368,7 +1368,61 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('native-titlebar parking uses the exact native route; on the main target a refused refocus is recorded and the park stands', async () => {
+    test('a native-titlebar park onto the MAIN window is satisfied without a platform effect — the hold is the gesture', async () => {
+        // A drop INTO this main window lands when the dwell completes and retires the popup right after,
+        // so there is nothing to park; the focus step could never be granted on this path anyway (no
+        // user activation reaches a popup during an OS titlebar drag). The park answers `true` with no
+        // focus and no move, so the coordinator proceeds to embodiment and the commit — and the receipt
+        // says the park was not physical.
+        const
+            workspace           = Neo.create(Workspace, {}),
+            originalManagerGet  = Neo.manager.Window.get,
+            originalNativeFocus = Neo.Main.windowNativeFocus,
+            originalNativeMove  = Neo.Main.windowNativeMoveTo,
+            originalWindowFocus = Neo.Main.windowFocus,
+            platformCalls       = [],
+            ownerWindowId       = workspace.windowId,
+            sourceWindowId      = 'window-alerts',
+            sourceRect          = {height: 320, width: 480, x: 420, y: 240},
+            targetRect          = {height: 700, width: 1000, x: 30, y: 50};
+
+        try {
+            workspace.tearOutPanes.alerts = {windowId: sourceWindowId, windowName: 'tearout-alerts'};
+            workspace.vesselConversionTargetWindowId = ownerWindowId;
+
+            Neo.manager.Window.get = windowId => ({
+                [sourceWindowId]: {
+                    innerRect  : sourceRect,
+                    nativeRoute: {capabilities: {position: true}, nativeHandleKey: 'handle-alerts', ownerWindowId, targetWindowId: sourceWindowId}
+                },
+                [ownerWindowId]: {innerRect: targetRect, nativeRoute: null}
+            })[windowId] ?? null;
+            Neo.Main.windowFocus        = async data => { platformCalls.push(['focus', data]); return false };
+            Neo.Main.windowNativeFocus  = async data => { platformCalls.push(['nativeFocus', data]); return false };
+            Neo.Main.windowNativeMoveTo = async data => { platformCalls.push(['move', data]); return false };
+
+            await expect(workspace.parkTearOutVessel({
+                itemId        : 'alerts',
+                nativeTitlebar: true,
+                windowName    : 'tearout-alerts'
+            }), 'the park is satisfied without asking the platform').resolves.toBe(true);
+
+            expect(platformCalls, 'no focus, no move — nothing was parked').toEqual([]);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({parked: true, physical: false});
+            expect(workspace.lastVesselParkReceipt.authority.sourceHasHandle, 'the source route is still checked').toBe(true)
+        } finally {
+            Neo.manager.Window.get      = originalManagerGet;
+            Neo.Main.windowFocus        = originalWindowFocus;
+            Neo.Main.windowNativeFocus  = originalNativeFocus;
+            Neo.Main.windowNativeMoveTo = originalNativeMove;
+            workspace.destroy()
+        }
+    });
+
+    test('native-titlebar parking onto a POPUP target uses the exact native route and compensates without pointer drag state', async () => {
+        // The physical park path: a popup target is focused through its owner-minted route, the source
+        // moves behind it, the refocus decides the outcome. (A main-window target no longer parks
+        // physically — the arm above — so this arm targets a popup, where the choreography still runs.)
         const
             workspace           = Neo.create(Workspace, {}),
             originalDragDrop    = Neo.main.addon.DragDrop,
@@ -1383,7 +1437,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             pointerCalls        = [],
             ownerWindowId       = workspace.windowId,
             sourceWindowId      = 'window-alerts',
-            targetWindowId      = ownerWindowId,
+            targetWindowId      = 'window-target',
             sourceRect          = {height: 320, width: 480, x: 420, y: 240},
             targetRect          = {height: 700, width: 1000, x: 30, y: 50},
             routeFor            = (targetWindowId, capabilities) => ({
@@ -1407,16 +1461,16 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 },
                 [targetWindowId]: {
                     innerRect  : targetRect,
-                    nativeRoute: null
+                    nativeRoute: routeFor(targetWindowId, {focus: true})
                 }
             })[windowId] ?? null;
             Neo.Main.windowFocus = async data => {
                 focusCalls.push(data);
-                return focusResults.shift()
+                return true
             };
             Neo.Main.windowNativeFocus = async data => {
                 nativeFocusCalls.push(data);
-                return true
+                return focusResults.shift()
             };
             Neo.Main.windowNativeMoveTo = async data => {
                 nativeMoveCalls.push(data);
@@ -1448,34 +1502,29 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 y              : targetRect.y
             }]);
             expect(pointerCalls, 'a terminal titlebar drag has no live pointer DragDrop session').toEqual([]);
-            expect(focusCalls).toEqual([
-                {windowId: sourceWindowId},
-                {windowId: sourceWindowId}
-            ]);
-            expect(nativeFocusCalls,
-                'the root target has no opener-minted native route; the popup focuses its opener').toEqual([]);
+
+            const targetFocus = {nativeHandleKey: `handle-${targetWindowId}`, targetWindowId, windowId: ownerWindowId};
+
+            expect(nativeFocusCalls, 'focus then refocus, both through the target\'s owner-minted route').toEqual([targetFocus, targetFocus]);
+            expect(focusCalls, 'the opener verb is for a main-window target only').toEqual([]);
 
             nativeMoveCalls.length = 0;
 
-            // The second park sees its refocus refused. On the main target under a native titlebar
-            // drag that is recorded and nothing compensates: the popup is retired after the commit
-            // and the platform hands focus back on its close. No restore move, no live pointer session.
+            // The second park sees its refocus refused: on a popup target the source may still cover
+            // the target, so the move is compensated back to the source rect and the park is refused.
             await expect(workspace.parkTearOutVessel({
                 itemId        : 'alerts',
                 nativeTitlebar: true,
                 windowName    : 'tearout-alerts'
-            })).resolves.toBe(true);
+            })).resolves.toBe(false);
 
-            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: true, moved: true, refocused: false, parked: true});
-            expect(nativeMoveCalls.map(({x, y}) => ({x, y})), 'the park move only — no compensation').toEqual([
-                {x: targetRect.x, y: targetRect.y}
+            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: true, moved: true, refocused: false, compensated: true, refusedAt: 'refocus'});
+            expect(nativeMoveCalls.map(({x, y}) => ({x, y})), 'the park move, then the compensation').toEqual([
+                {x: targetRect.x, y: targetRect.y},
+                {x: sourceRect.x, y: sourceRect.y}
             ]);
-            expect(focusCalls).toEqual([
-                {windowId: sourceWindowId},
-                {windowId: sourceWindowId},
-                {windowId: sourceWindowId},
-                {windowId: sourceWindowId}
-            ]);
+            expect(nativeFocusCalls).toEqual([targetFocus, targetFocus, targetFocus, targetFocus]);
+            expect(focusCalls).toEqual([]);
             expect(pointerCalls).toEqual([])
         } finally {
             Neo.main.addon.DragDrop     = originalDragDrop;
@@ -1488,13 +1537,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     /**
-     * An OS titlebar drag delivers no DOM event to the popup, so the popup carries no user
-     * activation and `opener.focus()` is declined — every time, released or not. For a MAIN target
-     * on the native path the focus steps are therefore best-effort and recorded, and the MOVE is the
-     * strict gate: refused while the OS still holds the window, granted on release, and needing no
-     * activation because it runs from the owner through the popup's handle.
+     * The coordinator retries a refused park until the OS releases the popup; a stalled retry must
+     * read live as a rising attempt count with the same `refusedAt`, and a park that finally lands
+     * (or a main-window park, which is satisfied without a platform effect) resets the count.
      */
-    test('a native-titlebar drop onto the MAIN window parks on the move, not on a focus the platform never grants', async () => {
+    test('a refused park counts its attempts per vessel, and the count resets after a park', async () => {
         const
             workspace           = Neo.create(Workspace, {}),
             originalDragDrop    = Neo.main.addon.DragDrop,
@@ -1502,38 +1549,33 @@ test.describe.serial('Workstation.view.Workspace', () => {
             originalNativeFocus = Neo.Main.windowNativeFocus,
             originalNativeMove  = Neo.Main.windowNativeMoveTo,
             originalWindowFocus = Neo.Main.windowFocus,
-            moveResults         = [false, true], // the OS still holds the window, then the user lets go
-            focusCalls          = [],
+            focusResults        = [false, true, true, true, true], // the OS still holds the source, then the user lets go
             nativeMoveCalls     = [],
             ownerWindowId       = workspace.windowId,
             sourceWindowId      = 'window-alerts',
+            targetWindowId      = 'window-target',
             sourceRect          = {height: 320, width: 480, x: 420, y: 240},
-            targetRect          = {height: 700, width: 1000, x: 30, y: 50};
+            targetRect          = {height: 700, width: 1000, x: 30, y: 50},
+            routeFor            = (targetWindowId, capabilities) => ({
+                capabilities,
+                nativeHandleKey: `handle-${targetWindowId}`,
+                ownerWindowId,
+                targetWindowId
+            });
 
         try {
             workspace.tearOutPanes.alerts = {windowId: sourceWindowId, windowName: 'tearout-alerts'};
-            workspace.vesselConversionTargetWindowId = ownerWindowId;
+            workspace.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
-                [sourceWindowId]: {
-                    innerRect  : sourceRect,
-                    nativeRoute: {
-                        capabilities   : {position: true},
-                        nativeHandleKey: `handle-${sourceWindowId}`,
-                        ownerWindowId,
-                        targetWindowId : sourceWindowId
-                    }
-                },
-                [ownerWindowId]: {innerRect: targetRect, nativeRoute: null}
+                [sourceWindowId]: {innerRect: sourceRect, nativeRoute: routeFor(sourceWindowId, {position: true})},
+                [targetWindowId]: {innerRect: targetRect, nativeRoute: routeFor(targetWindowId, {focus: true})}
             })[windowId] ?? null;
-            Neo.Main.windowFocus = async data => {
-                focusCalls.push(data);
-                return false // no activation: the platform declines, released or not
-            };
-            Neo.Main.windowNativeFocus  = async () => true;
+            Neo.Main.windowFocus        = async () => true;
+            Neo.Main.windowNativeFocus  = async () => focusResults.shift();
             Neo.Main.windowNativeMoveTo = async data => {
                 nativeMoveCalls.push(data);
-                return moveResults.shift()
+                return true
             };
             Neo.main.addon.DragDrop = {
                 parkWindowDrag  : async () => true,
@@ -1542,31 +1584,32 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             const park = () => workspace.parkTearOutVessel({itemId: 'alerts', nativeTitlebar: true, windowName: 'tearout-alerts'});
 
-            // Attempt 1: the OS still holds the window — the move is refused, the park is refused
-            // at the move, and the receipt says so.
+            // Attempt 1: the OS still holds the source — the owner's focus of the target is refused,
+            // the park is refused at the focus, and the receipt counts the attempt.
             await expect(park(), 'refused while the OS holds the window').resolves.toBe(false);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: false, moved: false, parkAttempts: 1, refusedAt: 'move'});
-            expect(workspace.lastVesselParkReceipt.parked, 'not parked').not.toBe(true);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: false, parkAttempts: 1, refusedAt: 'focus'});
+            expect(nativeMoveCalls, 'nothing moved on a refused focus').toEqual([]);
 
-            // Attempt 2: released — the move is granted, the park succeeds with focus and refocus
-            // recorded as refused, and nothing compensates the move.
+            // Attempt 2: released — focus, move and refocus are granted; the park lands and the count
+            // reads the retry that got it there.
             await expect(park(), 'parks on release').resolves.toBe(true);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: false, moved: true, refocused: false, parked: true, parkAttempts: 2});
-            expect(workspace.lastVesselParkReceipt.compensated, 'a refused refocus compensates nothing on this path').toBeUndefined();
-            expect(nativeMoveCalls.map(({x, y}) => ({x, y})), 'two moves to the target frame origin, no restore').toEqual([
-                {x: targetRect.x, y: targetRect.y},
-                {x: targetRect.x, y: targetRect.y}
-            ]);
-            expect(focusCalls, 'focus was attempted on every step, never trusted').toEqual([
-                {windowId: sourceWindowId},
-                {windowId: sourceWindowId},
-                {windowId: sourceWindowId}
-            ]);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: true, moved: true, refocused: true, parked: true, parkAttempts: 2});
 
             // A later park starts a fresh count.
-            moveResults.push(true);
             await expect(park()).resolves.toBe(true);
-            expect(workspace.lastVesselParkReceipt.parkAttempts, 'the count resets after a park').toBe(1)
+            expect(workspace.lastVesselParkReceipt.parkAttempts, 'the count resets after a park').toBe(1);
+
+            // A main-window park is satisfied without a platform effect and resets the count as well.
+            workspace.tearOutParkAttempts.alerts = 3;
+            workspace.vesselConversionTargetWindowId = ownerWindowId;
+            Neo.manager.Window.get = windowId => ({
+                [sourceWindowId]: {innerRect: sourceRect, nativeRoute: routeFor(sourceWindowId, {position: true})},
+                [ownerWindowId] : {innerRect: targetRect, nativeRoute: null}
+            })[windowId] ?? null;
+
+            await expect(park()).resolves.toBe(true);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({parked: true, physical: false, parkAttempts: 4});
+            expect(workspace.tearOutParkAttempts.alerts, 'a satisfied main-window park clears the count').toBeUndefined()
         } finally {
             Neo.main.addon.DragDrop     = originalDragDrop;
             Neo.manager.Window.get      = originalManagerGet;

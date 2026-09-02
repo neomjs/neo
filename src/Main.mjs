@@ -963,20 +963,39 @@ class Main extends core.Base {
     }
 
     /**
-     * Closes an exact owner-granted native handle generation.
+     * Closes an exact owner-granted native handle generation and verifies the platform did it.
      * @param {Object} data
      * @param {String} data.nativeHandleKey
      * @param {String} data.targetWindowId
-     * @returns {Boolean}
+     * @returns {Promise<Boolean>} true once the popup is verifiably closed; false while it is not.
      */
-    windowNativeClose(data) {
+    async windowNativeClose(data) {
         const route = this.#getNativeWindowRoute(data, 'close');
 
         if (!route) return false;
 
-        const {entry} = route;
+        const {entry} = route,
+              {win}   = entry;
 
-        entry.win.close();
+        try {
+            win.close()
+        } catch {
+            return false
+        }
+
+        // The answer is the VERIFIED outcome, never the attempt — the discipline #focusWindow applies
+        // to focus. A popup the OS is still dragging by its titlebar may keep the close deferred; the
+        // caller (a native-titlebar drop's retirement) retries at a fixed cadence until the release
+        // lets it through, and it can only do that while the route is still here — so the entry is
+        // retired only once the window is gone.
+        for (let attempt = 0; attempt < 6 && !win.closed; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 50))
+        }
+
+        if (!win.closed) {
+            return false
+        }
+
         this.#invalidateNativeWindowEntry(entry);
 
         if (this.openWindows[entry.windowName] === entry) {

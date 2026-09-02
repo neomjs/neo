@@ -1,3 +1,9 @@
+// The hold's rising fill (see `.neo-dock-preview-dwelling` below): bottom to top over the dwell.
+@keyframes neo-dock-preview-dwell-fill {
+    from { transform: scaleY(0) }
+    to   { transform: scaleY(1) }
+}
+
 .neo-dock-preview {
     pointer-events : none;
 
@@ -12,6 +18,30 @@
         transition     : opacity var(--dock-transition-duration) var(--dock-transition-easing),
                          background-color var(--dock-transition-duration) var(--dock-transition-easing),
                          border-color var(--dock-transition-duration) var(--dock-transition-easing);
+    }
+
+    // The hold is the gesture (native titlebar drops): while a still popup rests on a claimed zone,
+    // the region fills from the bottom over the dwell the coordinator publishes with every hover
+    // frame, so the paint and the commit read ONE clock. `--dock-native-dwell-elapsed` is the time
+    // already spent when this node was (re)built, applied as a negative delay: a node the renderer
+    // replaces mid-hold resumes at the right height instead of starting over. Leaving the zone
+    // removes the node, which ends the fill. The fill is a shape, not only a colour, so the cue
+    // survives colour-vision deficits; reduced motion shows the armed state as a static tint.
+    .neo-dock-preview-dwelling {
+        overflow : hidden;
+
+        &::after {
+            animation        : neo-dock-preview-dwell-fill var(--dock-native-dwell-ms, 1200ms) linear
+                               calc(-1 * var(--dock-native-dwell-elapsed, 0ms)) 1 forwards;
+            background-color : var(--agent-dock-preview-accept, #58a6ff);
+            content          : '';
+            inset            : 0;
+            opacity          : 0.35;
+            pointer-events   : none;
+            position         : absolute;
+            transform        : scaleY(0);
+            transform-origin : bottom;
+        }
     }
 
     // Zone highlights — edge/split RESULT REGIONS and whole-node tab targets — read as a
@@ -67,6 +97,17 @@
 // Strictly additive: without the host modifier, the family above renders unchanged. NO
 // color fallbacks: a missing projection drops the variant visibly (the census pins this).
 // ─────────────────────────────────────────────────────────────────────────────────────
+// Reduced motion: the armed state is a static tint of the full region — the information (a hold is
+// running here) survives, the rising fill does not. Declared AFTER the fill rule it overrides: equal
+// specificity, so source order is the whole mechanism.
+@media (prefers-reduced-motion: reduce) {
+    .neo-dock-preview .neo-dock-preview-dwelling::after {
+        animation : none;
+        opacity   : 0.2;
+        transform : scaleY(1);
+    }
+}
+
 .neo-preview-lang-signal .neo-dock-preview {
     // Same boundary as the indicator variant: component-domain aliases only — the apps
     // project their palettes; this file never reaches for an app palette directly.
