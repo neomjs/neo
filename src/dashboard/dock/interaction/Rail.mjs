@@ -308,13 +308,14 @@ class Rail extends Container {
         me.revealOverlay = overlay;
 
         overlay.on({
-            revealEscape      : me.onOverlayEscape,
-            revealFocusEnter  : me.onOverlayFocusEnter,
-            revealFocusLeave  : me.onOverlayFocusLeave,
-            revealPinRequested: me.onRevealPinRequested,
-            revealPointerEnter: me.onOverlayPointerEnter,
-            revealPointerLeave: me.onOverlayPointerLeave,
-            scope             : me
+            revealEscape       : me.onOverlayEscape,
+            revealFocusEnter   : me.onOverlayFocusEnter,
+            revealFocusLeave   : me.onOverlayFocusLeave,
+            revealLeaveComplete: me.onOverlayLeaveComplete,
+            revealPinRequested : me.onRevealPinRequested,
+            revealPointerEnter : me.onOverlayPointerEnter,
+            revealPointerLeave : me.onOverlayPointerLeave,
+            scope              : me
         });
 
         me.syncRevealOverlay();
@@ -547,6 +548,21 @@ class Rail extends Container {
      */
     onOverlayFocusEnter() {
         this.revealMachine?.overlayFocusEnter()
+    }
+
+    /**
+     * @summary The exit has finished: detach the pane the leave was carrying.
+     *
+     * {@link #syncRevealPane} skips the detach while a leave is in flight, so the keyframes run over
+     * the real pane instead of an empty slot. This is the other half — without it the pane would
+     * stay parked in a hidden overlay. Re-running the sync rather than removing directly keeps ONE
+     * detach path: by the time this fires the machine has settled, so the sync sees the same rail
+     * item it would have seen on the dismissal frame and does exactly what it would have done then.
+     * A retarget mid-exit never reaches here — it cancels the leave and detaches on arrival.
+     * @protected
+     */
+    onOverlayLeaveComplete() {
+        this.syncRevealPane(this.currentRevealRailItem())
     }
 
     /**
@@ -795,6 +811,22 @@ class Rail extends Container {
     }
 
     /**
+     * @summary The rail item the machine currently reveals, or `null` once dismissed.
+     *
+     * One source for the lookup, because two readers now need the same answer at two different
+     * moments: {@link #syncRevealOverlay} on the transition frame, and
+     * {@link #onOverlayLeaveComplete} once the exit has finished. Deriving it twice would let the
+     * deferred detach act on a different item than the one the dismissal decided on.
+     * @returns {Object|null}
+     * @protected
+     */
+    currentRevealRailItem() {
+        const me = this;
+
+        return (me.railItems || []).find(item => item.dockItemId === me.revealMachine?.revealedItemId) || null
+    }
+
+    /**
      * Pushes the current reveal snapshot into the bound overlay, when one exists, and keeps the
      * overlay's pane slot in sync.
      * @protected
@@ -809,7 +841,7 @@ class Rail extends Container {
             return
         }
 
-        railItem = (me.railItems || []).find(item => item.dockItemId === machine.revealedItemId) || null;
+        railItem = me.currentRevealRailItem();
 
         overlay.set({
             edge        : me.getValidatedEdge(me.edge),
@@ -935,6 +967,19 @@ class Rail extends Container {
         currentId = me.revealOverlay.revealPaneItemId ?? null;
         nextId    = railItem?.dockItemId ?? null;
         child     = slot.items?.[0];
+
+        // A dismissal used to detach the pane on the transition frame, while the overlay's two-phase
+        // hide was still animating its root out — so the exit keyframes played over an EMPTY slot
+        // and the panel read as an instant hide. Defer to the overlay's own terminal instead: it
+        // fires `revealLeaveComplete` once the hidden class lands, and this sync runs again then.
+        //
+        // Only a DISMISSAL defers. A retarget carries a `nextId` and must swap immediately, so the
+        // incoming pane arrives with its own entry rather than after the outgoing one has finished
+        // leaving — and a cancelled leave never reaches the terminal, so a re-entry keeps its pane
+        // without a second guard here.
+        if (!nextId && me.revealOverlay.revealLeaving) {
+            return
+        }
 
         if (currentId === nextId) {
             child && nextId && me.syncDockLockPane?.(child, nextId);
