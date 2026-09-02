@@ -342,6 +342,10 @@ The table above guarantees a resolved instance is **moved / re-parented, never d
 
 **Retirement condition.** This exception exists only because `dockReload()` is optional. When the delegation contract becomes mandatory for embedded surfaces, or a pane-level error boundary makes a wedged pane recoverable without identity loss, this subsection retires with the leaf that makes it unnecessary and the table row returns to unconditional. Whoever lands that leaf should delete this block rather than qualify it further.
 
+#### Lazy first materialization (amendment, 2026-09-02 — #18062)
+
+The table's first row governs instances that **exist**. An item whose resolved config carries a lazy `module` function (`module: () => import('...')`, the tab-card shape) has no instance until its first activation: the tab flow creates it when its card activates (`Neo.layout.Card#loadModule`), and a rail creates it on first reveal (`Neo.dashboard.dock.interaction.Rail#loadRevealPane`) — a rail is the auto-hide analog of a tab strip with no active item, and reveal is its activation. That first creation is materialization, not recreation: the row is unaffected, and from that moment on the instance is moved / re-parented like any other. The never-recreate rule governs existing views; creating a new view on demand is ordinary component lifecycle, and it is what keeps a heavy pane behind a never-opened tab or rail tab from paying class loading, construction, `initAsync` and store `autoLoad` at app boot (operator ruling, 2026-09-02).
+
 ### §2.7 Auto-Hide UI Contract
 
 Grace's #13280 implements this section; it is written to be implementation-sufficient without further design decisions. Sequencing per the leaf owner's decision (2026-07-02): the leaf follows this record.

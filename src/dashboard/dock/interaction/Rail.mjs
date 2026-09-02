@@ -147,6 +147,17 @@ class Rail extends Container {
      */
     revealPaneCache = {}
     /**
+     * In-flight lazy pane loads, keyed by dock item id: the promise {@link #loadRevealPane} returns
+     * for a resolved config whose `module` is a loader function. The entry is the load's lease: it
+     * clears when the load settles (resolved or rejected) and when the item is released, and a
+     * destroyed rail has no map at all (`Neo.core.Base#destroy` deletes every own property) — a load
+     * whose lease is gone adds nothing. A release followed by a re-reveal can briefly overlap two
+     * loads; only the first to settle holds the lease, so only one pane lands.
+     * @member {Object} revealPaneLoads={}
+     * @protected
+     */
+    revealPaneLoads = {}
+    /**
      * The reveal/dismiss timing brain. Runtime-only; created per instance, torn down in `destroy()`.
      * @member {RevealStateMachine|null} revealMachine=null
      * @protected
@@ -391,6 +402,9 @@ class Rail extends Container {
         let me   = this,
             pane = me.revealPaneCache[itemId];
 
+        // an import still in flight for a released item must not land a pane afterwards
+        delete me.revealPaneLoads[itemId];
+
         if (!pane) {
             return
         }
@@ -434,6 +448,7 @@ class Rail extends Container {
             pane?.isDestroyed || pane?.destroy?.()
         });
         me.revealPaneCache = {};
+        me.revealPaneLoads = {};
 
         super.destroy(...args)
     }
@@ -734,10 +749,89 @@ class Rail extends Container {
     }
 
     /**
+     * The recoverable placeholder for an item whose pane cannot be materialized — the adapter's own
+     * policy, so a reveal never shows a silently empty overlay.
+     * @param {String} itemId
+     * @returns {Object} A component config
+     * @protected
+     */
+    createRevealPlaceholder(itemId) {
+        const item = this.dockZoneDocument?.items?.[itemId];
+
+        return Neo.dashboard?.dock?.projection?.LayoutAdapter?.createPlaceholder?.(itemId, item)
+            ?? {cls: ['neo-dashboard-dock-placeholder'], dockItemId: itemId, ntype: 'component'}
+    }
+
+    /**
+     * Loads the module of a lazy pane config — `module: () => import('...')`, the shape a tab
+     * container's card layout loads when the tab activates (`Neo.layout.Card#loadModule`) — and
+     * materializes the pane into the overlay's slot once the import settles. Reveal is the rail's
+     * activation: a lazy item has no instance before its first reveal, and creating it there is
+     * first materialization, not recreation — the never-recreate rule governs instances that exist.
+     *
+     * The item's `revealPaneLoads` entry is the load's lease. It clears however the load ends: a
+     * resolved import lands the pane if the reveal still names the item; a dismissed reveal lands
+     * nothing and the next reveal resolves again, immediately, from the module registry; a REJECTED
+     * import (a chunk that fails to fetch, a pane module that throws while evaluating) clears the
+     * lease so the next reveal retries, and the reveal that is still open gets the recoverable
+     * placeholder instead of an empty overlay — uncached and transient, so a retry is a real import;
+     * a released item or a destroyed rail leaves no lease to honour, and the guard reads the map
+     * optionally because destroy removes it.
+     * @param {String} itemId
+     * @param {Object} config The resolved pane config; `config.module` is the loader function
+     * @returns {Promise<Neo.component.Base|null>} The materialized pane, or `null` when the reveal left or the import failed
+     * @protected
+     */
+    async loadRevealPane(itemId, config) {
+        let me = this,
+            module, pane;
+
+        try {
+            module = (await config.module()).default
+        } catch (error) {
+            console.error(`Rail: the lazy pane module of item '${itemId}' failed to load`, error);
+
+            me.revealPaneLoads && delete me.revealPaneLoads[itemId];
+
+            if (me.revealOverlay?.revealPaneItemId === itemId) {
+                pane = me.revealOverlay.paneSlot.add(me.createRevealPlaceholder(itemId));
+                // transient: dismissal destroys it rather than parking it, so the next reveal retries
+                pane.revealLoadFailed = true
+            }
+
+            return null
+        }
+
+        // released, or the rail was destroyed (its maps are gone) while the import was in flight
+        if (!me.revealPaneLoads?.[itemId]) {
+            return null
+        }
+
+        delete me.revealPaneLoads[itemId];
+
+        // dismissed before the import settled
+        if (me.revealOverlay?.revealPaneItemId !== itemId) {
+            return null
+        }
+
+        pane = me.revealPaneCache[itemId] = me.revealOverlay.paneSlot.add({...config, module});
+
+        me.syncDockLockPane?.(pane, itemId);
+
+        return pane
+    }
+
+    /**
      * Materializes the revealed item's pane into the overlay's slot through the adapter's durable
      * reveal resolver, with the `componentRef` read from the committed document (the rail's copy
      * re-projects on every change). This resolver must outlive any transaction-only in-flow staging
      * resolver because the user can reveal the rail long after projection reconciliation settles.
+     *
+     * A resolved config whose `module` is a loader function takes the one asynchronous branch:
+     * {@link #loadRevealPane} awaits the import and adds the instance once it settles, exactly as a
+     * tab container's card layout loads a lazy card on activation — a plain slot add would park the
+     * loader as an unrendered object (`Neo.container.Base#createItem`), which nothing on the reveal
+     * path ever resolves.
      *
      * Live-instance contract: a resolver-returned Neo INSTANCE is added as-is and PARKED on
      * dismissal (removed without destroy — moved/re-parented, never destroyed), so its identity
@@ -774,7 +868,8 @@ class Rail extends Container {
         }
 
         if (child) {
-            slot.remove(child, false)
+            // park everything a reveal may show again; a failed-load placeholder is transient
+            slot.remove(child, child.revealLoadFailed === true)
         }
 
         if (nextId && typeof me.resolveComponentRef === 'function') {
@@ -791,14 +886,17 @@ class Rail extends Container {
                 if (Neo.typeOf(resolved) === 'NeoInstance') {
                     slot.add(resolved)
                 } else if (resolved) {
-                    me.revealPaneCache[nextId] = slot.add({...resolved})
+                    if (Neo.typeOf(resolved.module) === 'Function') {
+                        // the lazy shape (a loader, never a class — typeOf reads a class as 'NeoClass'):
+                        // loaded on activation, and reveal is the rail's activation
+                        me.revealPaneLoads[nextId] ??= me.loadRevealPane(nextId, resolved)
+                    } else {
+                        me.revealPaneCache[nextId] = slot.add({...resolved})
+                    }
                 } else if (item) {
                     // Neither live instance nor blueprint resolves: recoverable placeholder,
                     // never a silently empty overlay — the adapter's own policy.
-                    me.revealPaneCache[nextId] = slot.add(
-                        Neo.dashboard?.dock?.projection?.LayoutAdapter?.createPlaceholder?.(nextId, item) ??
-                        {cls: ['neo-dashboard-dock-placeholder'], dockItemId: nextId, ntype: 'component'}
-                    )
+                    me.revealPaneCache[nextId] = slot.add(me.createRevealPlaceholder(nextId))
                 }
             }
         }

@@ -491,6 +491,149 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         expect(pane._data?.missingComponentRef).toBe(true);
     });
 
+    test('a lazy module config materializes on reveal — the rail loads it as a card layout loads its active tab', async () => {
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-lazy-module',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => ({module: () => import('../../../../src/button/Base.mjs'), text: 'Lazy'})
+        });
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let slot = rail.revealOverlay.paneSlot;
+
+        // The import is in flight: the reveal already names the item and the slot holds nothing yet —
+        // and nothing threw (on dev the plain slot add threw `createVdomReference is not a function`).
+        expect(rail.revealOverlay.revealPaneItemId).toBe('terminal');
+        expect(slot.items).toHaveLength(0);
+        expect(rail.revealPaneLoads.terminal).toBeInstanceOf(Promise);
+
+        let pane = await rail.revealPaneLoads.terminal;
+
+        expect(pane instanceof Button).toBe(true);
+        expect(pane.text).toBe('Lazy');
+        expect(slot.items[0]).toBe(pane);
+        expect(rail.revealPaneCache.terminal).toBe(pane);
+        expect(rail.revealPaneLoads.terminal).toBeUndefined();
+
+        // Dismissal parks the loaded pane; the re-reveal re-parents the same instance — no second load.
+        rail.revealMachine.escape();
+
+        expect(slot.items).toHaveLength(0);
+        expect(pane.isDestroyed).not.toBe(true);
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        expect(slot.items[0]).toBe(pane);
+        expect(rail.revealPaneLoads.terminal).toBeUndefined();
+    });
+
+    test('a reveal dismissed before the import settles adds nothing; the next reveal materializes', async () => {
+        let release,
+            gate = new Promise(resolve => { release = resolve });
+
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-lazy-module-dismissed',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => ({module: () => gate.then(() => ({default: Button})), text: 'Lazy'})
+        });
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let slot = rail.revealOverlay.paneSlot,
+            load = rail.revealPaneLoads.terminal;
+
+        rail.revealMachine.escape();
+        release();
+
+        expect(await load).toBeNull();
+        expect(slot.items).toHaveLength(0);
+        expect(rail.revealPaneCache.terminal).toBeUndefined();
+        expect(rail.revealPaneLoads.terminal).toBeUndefined();
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let pane = await rail.revealPaneLoads.terminal;
+
+        expect(pane instanceof Button).toBe(true);
+        expect(slot.items[0]).toBe(pane);
+    });
+
+    test('a rejected import clears the lease, shows the recoverable placeholder, and the next reveal retries', async () => {
+        let attempts = 0;
+
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-lazy-module-rejected',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => ({
+                module: () => ++attempts === 1 ? Promise.reject(new Error('chunk failed to load')) : Promise.resolve({default: Button}),
+                text  : 'Lazy'
+            })
+        });
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let slot = rail.revealOverlay.paneSlot;
+
+        // The failed load settles to null, the lease clears (a second reveal is not short-circuited),
+        // nothing is cached, and the open reveal shows the recoverable placeholder — not an empty overlay.
+        expect(await rail.revealPaneLoads.terminal).toBeNull();
+        expect(rail.revealPaneLoads.terminal).toBeUndefined();
+        expect(rail.revealPaneCache.terminal).toBeUndefined();
+        expect(slot.items).toHaveLength(1);
+        expect(slot.items[0].cls).toContain('neo-dashboard-dock-placeholder');
+        expect(slot.items[0].dockItemId).toBe('terminal');
+        expect(slot.items[0].revealLoadFailed).toBe(true);
+
+        let placeholder = slot.items[0];
+
+        // The placeholder is transient: dismissal destroys it instead of parking it.
+        rail.revealMachine.escape();
+
+        expect(slot.items).toHaveLength(0);
+        expect(placeholder.isDestroyed).toBe(true);
+
+        // The next reveal retries the import and materializes the real pane.
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let pane = await rail.revealPaneLoads.terminal;
+
+        expect(attempts).toBe(2);
+        expect(pane instanceof Button).toBe(true);
+        expect(slot.items[0]).toBe(pane);
+        expect(rail.revealPaneCache.terminal).toBe(pane);
+    });
+
+    test('a rail destroyed while the import is in flight settles the load to null, never a throw', async () => {
+        let release,
+            gate = new Promise(resolve => { release = resolve });
+
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-lazy-module-destroyed',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => ({module: () => gate.then(() => ({default: Button})), text: 'Lazy'})
+        });
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let load = rail.revealPaneLoads.terminal;
+
+        // core.Base#destroy deletes every own property, the lease map included
+        rail.destroy();
+        rail = null;
+        release();
+
+        await expect(load).resolves.toBeNull();
+    });
+
     test('threads the workspace default reveal fraction into the bound overlay', () => {
         let overlay = createStubOverlay();
 
