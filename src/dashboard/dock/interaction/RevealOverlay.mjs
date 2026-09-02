@@ -157,6 +157,21 @@ class RevealOverlay extends Container {
      * @protected
      */
     revealLeaveTimer = null
+    /**
+     * The retarget swap generation while the overlay shows: `0` for an entry, then `1` and `2`
+     * alternating on every retarget so the content's entry keyframes restart (see `beginRevealSwap`).
+     * @member {Number} revealSwapGeneration=0
+     * @protected
+     */
+    revealSwapGeneration = 0
+    /**
+     * The dock item id last shown while visible. A re-entry after a leave compares against it: a
+     * different item is a retarget that happened to pass through hidden (a rail's pressed-button
+     * group releases the old tab before it presses the new one), the same item is a plain return.
+     * @member {String|null} revealShownItemId=null
+     * @protected
+     */
+    revealShownItemId = null
 
     /**
      * Assembles the fixed child skeleton (tab-header toolbar: active title tab + pin action; pane slot)
@@ -269,6 +284,7 @@ class RevealOverlay extends Container {
 
         if (me.revealLeaving) {
             me.cancelRevealLeave();
+            me.revealSwapGeneration = 0;
             !me.isDestroyed && me.syncSnapshot();
             me.finishRevealMotion()
         }
@@ -310,11 +326,19 @@ class RevealOverlay extends Container {
             me.revealWasVisible = visible;
 
             if (visible) {
+                // A re-entry cancels an in-flight leave. When it brings a DIFFERENT item than the
+                // one that was leaving, it is a retarget that passed through hidden — the incoming
+                // content gets its entry, exactly as a retarget that never hid.
+                let leaving  = me.revealLeaving,
+                    retarget = leaving && me.revealShownItemId && me.revealedItem?.dockItemId !== me.revealShownItemId;
+
                 me.cancelRevealLeave();
-                me.beginRevealMotion()
+                retarget ? me.beginRevealSwap() : me.beginRevealMotion()
             } else if (me.mounted) {
                 me.beginRevealLeave()
             } else {
+                // No DOM to animate: hidden at once, and the next entry runs the entry rules.
+                me.revealSwapGeneration = 0;
                 me.finishRevealMotion()
             }
         }
@@ -421,12 +445,35 @@ class RevealOverlay extends Container {
      * @protected
      */
     afterSetRevealedItem(value, oldValue) {
-        let me = this;
+        let me = this,
+            // A retarget: the reveal follows a click on another item of the same rail while it is
+            // open — visible before and after, a different item. Read before the motion sync moves
+            // the visibility bookkeeping on.
+            retarget = me.revealWasVisible && me.visible && value?.dockItemId !== oldValue?.dockItemId && !!oldValue;
 
         // `visible` requires an item, so item-only removal/re-addition crosses the same CSS
         // display boundary even when the machine state remains `revealed`.
         me.syncRevealMotion();
+        retarget && me.beginRevealSwap();
         me.isConstructed && me.syncSnapshot()
+    }
+
+    /**
+     * @summary A retarget re-runs the content's entry: the incoming header and pane emerge from
+     * under the strip over the old ones while the root stays where it is.
+     *
+     * A CSS animation restarts only when its name changes, so two swap generations alternate —
+     * one names a duplicate set of the entry keyframes, the other the entry's own — and the root
+     * runs a held keyframe of the same duration so its own `animationend` settles the motion
+     * window exactly as an entry's does. The generation clears when the overlay hides, so the next
+     * entry runs the entry rules.
+     * @protected
+     */
+    beginRevealSwap() {
+        let me = this;
+
+        me.revealSwapGeneration = me.revealSwapGeneration === 1 ? 2 : 1;
+        me.beginRevealMotion()
     }
 
     /**
@@ -559,6 +606,17 @@ class RevealOverlay extends Container {
         // `animationend` lands the hidden class (see `beginRevealLeave`).
         NeoArray[me.visible || leaving ? 'remove' : 'add'](cls, 'neo-dashboard-dock-reveal-overlay-hidden');
         NeoArray[leaving ? 'add' : 'remove'](cls, 'neo-dashboard-dock-reveal-overlay-leaving');
+
+        // The swap generation is stamped from the count alone. It survives a leave — a leave may be
+        // cancelled by a retarget, and the next swap has to alternate against the class that is
+        // still on the node — and resets only when a hide completes (see `completeRevealLeave` and
+        // the no-DOM hide in `syncRevealMotion`), so the next entry runs the entry rules.
+        if (me.visible) {
+            me.revealShownItemId = item?.dockItemId ?? null
+        }
+
+        NeoArray[me.revealSwapGeneration === 1 ? 'add' : 'remove'](cls, 'neo-dashboard-dock-reveal-overlay-swap-1');
+        NeoArray[me.revealSwapGeneration === 2 ? 'add' : 'remove'](cls, 'neo-dashboard-dock-reveal-overlay-swap-2');
 
         me.set({
             cls,

@@ -311,6 +311,109 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
     });
 
+    test('a retarget while visible flips the swap generation and opens one motion window; hidden retargets do not', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'right',
+            id  : 'dock-reveal-swap'
+        });
+
+        const rootId = overlay.vdom?.id || overlay.id,
+              swap1  = 'neo-dashboard-dock-reveal-overlay-swap-1',
+              swap2  = 'neo-dashboard-dock-reveal-overlay-swap-2';
+
+        // An entry is generation 0: no swap class.
+        overlay.set({revealState: 'revealed', revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(overlay.revealSwapGeneration).toBe(0);
+        expect(overlay.cls).not.toContain(swap1);
+
+        // Retarget to another item while visible: generation 1, one motion window.
+        overlay.set({revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealSwapGeneration).toBe(1);
+        expect(overlay.cls).toContain(swap1);
+        expect(overlay.cls).not.toContain(swap2);
+        expect(overlay.titleTab.text).toBe('Beta');
+        expect(DockMotionSignal.isAnimating(overlay.id), 'the swap is motion').toBe(true);
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count, 'one window, not two').toBe(1);
+
+        // The root's own end settles it, like an entry.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // The same item again is not a retarget.
+        overlay.set({revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealSwapGeneration).toBe(1);
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // The next retarget alternates.
+        overlay.set({revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        expect(overlay.revealSwapGeneration).toBe(2);
+        expect(overlay.cls).toContain(swap2);
+        expect(overlay.cls).not.toContain(swap1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+
+        // Hiding clears the generation; a retarget while hidden opens nothing.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealSwapGeneration).toBe(0);
+        expect(overlay.cls).not.toContain(swap2);
+        overlay.revealedItem = createItem({dockItemId: 'beta', title: 'Beta'});
+        expect(overlay.revealSwapGeneration, 'no swap while hidden').toBe(0);
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
+    });
+
+    test('a retarget that passes through hidden on a mounted overlay is still a retarget: the leave is cancelled and the incoming item gets its entry', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'right',
+            id  : 'dock-reveal-swap-via-leave'
+        });
+
+        const rootId  = overlay.vdom?.id || overlay.id,
+              swap1   = 'neo-dashboard-dock-reveal-overlay-swap-1',
+              leaving = 'neo-dashboard-dock-reveal-overlay-leaving';
+
+        overlay.mounted = true;
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+
+        // A pressed-button rail releases the old tab before it presses the new one: idle, then the
+        // other item — within one tick, so the leave never reaches the DOM.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealLeaving).toBe(true);
+        expect(overlay.cls).toContain(leaving);
+
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealLeaving, 'the leave is cancelled').toBe(false);
+        expect(overlay.cls).not.toContain(leaving);
+        expect(overlay.revealSwapGeneration, 'the incoming item gets its entry').toBe(1);
+        expect(overlay.cls).toContain(swap1);
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count, 'one window across leave, cancel and swap').toBe(1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // The same item returning after a cancelled leave is a plain re-entry, not a retarget: the
+        // generation is neither advanced nor reset — the class still on the node is the one the
+        // NEXT retarget has to alternate against.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealSwapGeneration, 'a leave keeps the generation').toBe(1);
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'beta', title: 'Beta'})});
+        expect(overlay.revealSwapGeneration, 'a return of the same item is not a swap').toBe(1);
+        expect(overlay.cls).toContain(swap1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // A retarget after that alternates, and a completed leave resets to the entry rules.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed-focused', revealedItem: createItem({dockItemId: 'alpha', title: 'Alpha'})});
+        expect(overlay.revealSwapGeneration, 'the next retarget alternates').toBe(2);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.revealSwapGeneration, 'a completed leave resets the generation').toBe(0);
+        expect(overlay.cls).not.toContain(swap1);
+        expect(overlay.cls).not.toContain('neo-dashboard-dock-reveal-overlay-swap-2')
+    });
+
     test('early dismissal, rapid re-reveal and destroy each settle exactly their owned motion entry', () => {
         overlay = Neo.create(DockRevealOverlay, {
             edge: 'left',
