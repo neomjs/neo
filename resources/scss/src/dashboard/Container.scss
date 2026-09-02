@@ -19,6 +19,13 @@
     // read the token, the motion-standards vocabulary owns the value through the indirection.
     --dock-transition-duration-fast: var(--motion-fast, 120ms);
 
+    // The auto-hide reveal's own alias of the panel tier: a reveal IS panel movement, so it
+    // defaults to the same vocabulary word — but it is the one dock motion a consumer tunes
+    // apart from snaps and FLIP (a drawer that reads slower than a splitter settle), so it
+    // gets its own name. Same governance: no literal at the call site, reduced motion
+    // collapses it with its siblings below.
+    --dock-transition-duration-reveal: var(--motion-panel, 280ms);
+
     // ── Splitter affordance floor ────────────────────────────────────────────────────────
     // The engine's duty here is DISCOVERABILITY; aesthetics are the consumer's. A host that
     // sets nothing must still get a findable drag target — an invisible splitter is the
@@ -155,8 +162,9 @@
 @media (prefers-reduced-motion: reduce) {
     .neo-dashboard {
         // Token-layer collapse: every dock motion goes instant HERE — never per call site.
-        --dock-transition-duration     : 0ms;
-        --dock-transition-duration-fast: 0ms;
+        --dock-transition-duration       : 0ms;
+        --dock-transition-duration-fast  : 0ms;
+        --dock-transition-duration-reveal: 0ms;
     }
 }
 
@@ -166,27 +174,39 @@
 // through the token, by construction.
 // ─────────────────────────────────────────────────────────────────────────────────────
 
-// Auto-hide reveal slide: the overlay enters FROM its owning edge — the per-edge cls the
-// rail already stamps (`neo-dashboard-dock-reveal-overlay-<edge>`) picks the direction.
+// Auto-hide reveal slide: the pane enters FROM its owning edge — the per-edge cls the rail
+// already stamps (`neo-dashboard-dock-reveal-overlay-<edge>`) picks the direction.
+//
+// Two elements carry the motion, on purpose. The overlay ROOT never moves: it fades in where
+// it will stay, so its box never overlaps the rail strip mid-entry and never intercepts a
+// click meant for the strip — the geometry the tour's step-gated fast clicks and Playwright
+// actionability both convict. What slides is the root's CONTENT (the header and the pane
+// slot), a full box-width from the strip side, clipped by the root's own `overflow: hidden`:
+// the panel visibly emerges from under its strip while the strip stays untouched.
+// The root's `animationend` listener settles the motion-signal window on the ROOT's own end
+// only (target identity); the children's ends bubble past it, and every animation here reads
+// the same token, so all three end on the same frame.
 .neo-dashboard-dock-reveal-overlay {
-    animation: neo-dock-reveal-fade var(--dock-transition-duration) var(--dock-transition-easing);
+    animation: neo-dock-reveal-fade var(--dock-transition-duration-reveal) var(--dock-transition-easing);
 
-    &-left   { animation-name: neo-dock-reveal-from-left }
-    &-right  { animation-name: neo-dock-reveal-from-right }
-    &-top    { animation-name: neo-dock-reveal-from-top }
-    &-bottom { animation-name: neo-dock-reveal-from-bottom }
+    > .neo-dashboard-dock-reveal-header,
+    > .neo-dashboard-dock-reveal-pane-slot {
+        animation: neo-dock-reveal-from-left var(--dock-transition-duration-reveal) var(--dock-transition-easing);
+    }
+
+    &-right  > .neo-dashboard-dock-reveal-header,
+    &-right  > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-right }
+    &-top    > .neo-dashboard-dock-reveal-header,
+    &-top    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-top }
+    &-bottom > .neo-dashboard-dock-reveal-header,
+    &-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-bottom }
 }
 
-// The slide SETTLES TOWARD the owning edge (workspace-side origin): an edge-ward origin
-// would overlap the rail strip mid-entry and intercept clicks meant for it — geometry the
-// tour's step-gated fast clicks and Playwright actionability both convict. Inward-origin
-// motion never touches the rail, needs no pointer guard, and still reads as the panel
-// seating itself into its edge.
-@keyframes neo-dock-reveal-fade        { from { opacity: 0.4 } }
-@keyframes neo-dock-reveal-from-left   { from { opacity: 0.4; transform: translateX(8px) } }
-@keyframes neo-dock-reveal-from-right  { from { opacity: 0.4; transform: translateX(-8px) } }
-@keyframes neo-dock-reveal-from-top    { from { opacity: 0.4; transform: translateY(8px) } }
-@keyframes neo-dock-reveal-from-bottom { from { opacity: 0.4; transform: translateY(-8px) } }
+@keyframes neo-dock-reveal-fade        { from { opacity: 0 } }
+@keyframes neo-dock-reveal-from-left   { from { transform: translateX(-100%) } }
+@keyframes neo-dock-reveal-from-right  { from { transform: translateX(100%) } }
+@keyframes neo-dock-reveal-from-top    { from { transform: translateY(-100%) } }
+@keyframes neo-dock-reveal-from-bottom { from { transform: translateY(100%) } }
 
 // Operation-correlated tab insertion. The adapter stamps this class on ONE recreated header only
 // when its item + target tabs node match the committed addTab descriptor carried by that projection.
