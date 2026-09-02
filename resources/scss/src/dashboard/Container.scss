@@ -514,6 +514,18 @@
     &-bottom { inset: auto 0 var(--dock-edge-rail-size) 0; }
 }
 
+// While a reveal is open, every iframe OUTSIDE its overlay stops taking the pointer. A nested
+// document is opaque to this one — no `mousedown`, `click` or `focusin` crosses its boundary, and a
+// document that cancels the `mousedown` default (an editor managing its own caret) takes no focus
+// either — so a click into such a frame would leave the reveal open with nothing to dismiss it.
+// Without pointer events the click lands on the parent element beneath the frame, where the rail's
+// outside-pointer listener reads it as leaving. Frames INSIDE the overlay keep their pointer events:
+// a click into the revealed pane is inside, whatever it lands on. The same boundary idiom as the
+// drag shield (`body.neo-drag-active iframe`).
+.neo-dashboard:has(.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)) iframe:not(.neo-dashboard-dock-reveal-overlay iframe) {
+    pointer-events: none;
+}
+
 .neo-dashboard-dock-reveal-header {
     gap: 4px;
 }
