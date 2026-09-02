@@ -144,6 +144,31 @@ test.describe('dock header action tooltips', () => {
         expect(tipText(action)).toBe('Lock pane')
     });
 
+    test('a null key on one half of a toggle clears the tooltip in that state, and the other half restores it', () => {
+        create({dockActionTooltips: {restore: null, unlock: null}});
+
+        const main     = tabsOf('main-tabs'),
+              lock     = main.getActionItem('lock'),
+              maximize = main.getActionItem('maximize');
+
+        expect(tipText(lock)).toBe('Lock pane');
+        expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
+        expect(lock.iconCls, 'the icon follows the toggle').toBe(workspace.dockUnlockIconCls);
+        expect(tipText(lock), 'the opted-out state has no tooltip — not the one the button just left').toBeNull();
+        expect(lock.cls, 'and no longer joins the shared tooltip').not.toContain('neo-uses-shared-tooltip');
+
+        expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
+        expect(tipText(lock), 'the other half restores its text').toBe('Lock pane');
+
+        expect(tipText(maximize)).toBe('Maximize');
+        workspace.syncDockMaximizeActionPresentation(main, true);
+        expect(maximize.iconCls).toBe(workspace.dockMinimizeIconCls);
+        expect(tipText(maximize), 'restore opted out: no tooltip while maximized').toBeNull();
+
+        workspace.syncDockMaximizeActionPresentation(main, false);
+        expect(tipText(maximize)).toBe('Maximize')
+    });
+
     test('maximize ↔ restore flips tooltip, icon and accessible name on the retained instance', () => {
         create();
 

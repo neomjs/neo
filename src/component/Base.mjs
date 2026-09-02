@@ -871,16 +871,22 @@ class Component extends Abstract {
      * @protected
      */
     afterSetTooltip(value, oldValue) {
+        let me = this;
+
         oldValue?.destroy?.();
 
         if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
-                this.createTooltip(value)
+                me.createTooltip(value)
             } else {
                 import('../tooltip/Base.mjs').then(() => {
-                    this.createTooltip(value)
+                    me.createTooltip(value)
                 })
             }
+        } else if (oldValue) {
+            // Retiring a tooltip: an own instance is destroyed above; a shared-tooltip owner must
+            // also leave the singleton's delegate set, or hovering it would open an empty tooltip.
+            me.removeCls('neo-uses-shared-tooltip')
         }
     }
 

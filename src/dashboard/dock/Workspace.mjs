@@ -233,9 +233,11 @@ class Workspace extends Container {
          * Tooltip texts of the engine-owned header actions and the rail's reveal pin, keyed by
          * action state: `lock` / `unlock`, `reload`, `unpin`, `popOut`, `maximize` / `restore`,
          * `close`, `revealPin`. A consumer restates wording or language per key: the map deep-merges
-         * over these defaults, and a key set to `null` leaves that action without a tooltip. Toggles
-         * keep text, icon and accessible name coherent on the retained action instance
-         * ({@link #syncDockLockAction}, {@link #syncDockMaximizeActionPresentation}).
+         * over these defaults, and a key set to `null` leaves that action without a tooltip — for a
+         * toggle, in the state that key names: a `null` `unlock` clears the tooltip while the pane is
+         * locked and `lock` restores it on unlock. Toggles keep text, icon and accessible name
+         * coherent on the retained action instance ({@link #syncDockLockAction},
+         * {@link #syncDockMaximizeActionPresentation}, both through {@link #syncDockActionTooltip}).
          * @member {Object} dockActionTooltips_
          * @reactive
          */
@@ -1534,7 +1536,7 @@ class Workspace extends Container {
             hidden       = !activeItemId || activeItem?.lockable === false,
             iconCls      = activeItem?.locked === true ? me.dockUnlockIconCls : me.dockLockIconCls,
             ariaLabel    = activeItem?.locked === true ? 'unlock' : 'lock',
-            tooltip      = me.dockActionTooltips?.[activeItem?.locked === true ? 'unlock' : 'lock'] ?? null,
+            tooltipKey   = activeItem?.locked === true ? 'unlock' : 'lock',
             showOnFocus  = activeItem?.locked !== true,
             changes      = {};
 
@@ -1544,8 +1546,7 @@ class Workspace extends Container {
             action.hidden  !== hidden  && (changes.hidden  = hidden);
             action.iconCls !== iconCls && (changes.iconCls = iconCls);
             action.showOnFocus !== showOnFocus && (changes.showOnFocus = showOnFocus);
-            // An absent key leaves whatever the projection gave the action — never a null write.
-            tooltip != null && me.readDockActionTooltip(action) !== tooltip && (changes.tooltip = tooltip);
+            me.syncDockActionTooltip(action, tooltipKey, changes);
 
             if (Object.keys(changes).length || ariaLabelChanged) {
                 // `setSilent()` consumes non-config class-field keys from its input, so remember
@@ -2929,12 +2930,11 @@ class Workspace extends Container {
 
         let iconCls          = maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls,
             ariaLabel        = maximized ? 'restore' : 'maximize',
-            tooltip          = me.dockActionTooltips?.[maximized ? 'restore' : 'maximize'] ?? null,
             ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel,
             changes          = {};
 
         action.iconCls !== iconCls && (changes.iconCls = iconCls);
-        tooltip != null && me.readDockActionTooltip(action) !== tooltip && (changes.tooltip = tooltip);
+        me.syncDockActionTooltip(action, maximized ? 'restore' : 'maximize', changes);
 
         if (Object.keys(changes).length || ariaLabelChanged) {
             Object.keys(changes).length && action.setSilent(changes);
@@ -2955,6 +2955,28 @@ class Workspace extends Container {
         let {tooltip} = action || {};
 
         return typeof tooltip === 'string' ? tooltip : (tooltip?.text ?? null)
+    }
+
+    /**
+     * Stages the tooltip a toggle state owes its retained action into one batched change set.
+     *
+     * The map distinguishes two things the projection also keeps apart: a key that is ABSENT
+     * leaves whatever the projection gave the action, and a key set to `null` is the documented
+     * opt-out — it clears the tooltip in that state, so a toggle never keeps naming the state it
+     * just left. The opposite half of the pair restores its own text on the way back.
+     * @param {Neo.component.Base} action
+     * @param {String} key One of the map's keys (`lock`, `unlock`, `maximize`, `restore`).
+     * @param {Object} changes The batch handed to `setSilent()`.
+     * @protected
+     */
+    syncDockActionTooltip(action, key, changes) {
+        let tips = this.dockActionTooltips || {};
+
+        if (key in tips) {
+            let tooltip = tips[key] ?? null;
+
+            this.readDockActionTooltip(action) !== tooltip && (changes.tooltip = tooltip)
+        }
     }
 
     /**
