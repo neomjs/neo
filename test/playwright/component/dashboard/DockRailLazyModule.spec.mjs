@@ -27,6 +27,11 @@ const readWorkspace = async (page, keys) => {
     return reply?.data ?? reply
 };
 
+const setWorkspace = (page, configs) => page.evaluate(
+    data => Neo.worker.App.setConfigs(data),
+    {id: WORKSPACE_ID, ...configs}
+);
+
 const lazyTab = page => page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Lazy'});
 
 const visibleOverlay = page => page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
@@ -80,5 +85,59 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         const [instances] = await readWorkspace(page, ['lazyPaneInstances']);
 
         expect(instances).toBe(1)
+    });
+
+    test('un-hidden into a tabs node behind an active sibling, the lazy item parks in the tab flow and loads when its tab activates', async ({page}) => {
+        // The commit a consumer's own control makes: the item leaves the rail and the projection
+        // places it into its tabs node. The reconciler swaps the staged placeholder through
+        // container.insert(), which has to PARK a lazy config — and, this tab not being the active
+        // one, must not load it: the header is there, the module is not, until the tab activates.
+        await setWorkspace(page, {applyOperationJson: JSON.stringify({operation: 'setItemAutoHidden', itemId: 'lazy', autoHidden: false})});
+
+        const
+            tabsNode   = page.locator('.neo-dashboard-dock-tabs', {has: page.locator('.neo-tab-header-button', {hasText: 'Lazy'})}),
+            lazyHeader = tabsNode.locator('.neo-tab-header-button', {hasText: 'Lazy'});
+
+        await expect(tabsNode, 'the item is projected as a tab').toHaveCount(1);
+        await expect(lazyTab(page), 'it left the rail').toHaveCount(0);
+        await expect(visibleOverlay(page), 'no reveal overlay was involved').toHaveCount(0);
+        await expect(tabsNode.locator('#dock-lazy-rail-pane-pinned'), 'the eager sibling stays the active card').toBeVisible();
+
+        let [loaded] = await readWorkspace(page, ['lazyPaneModuleLoaded']);
+
+        expect(loaded, 'parked: an inactive tab loads nothing').toBe(false);
+
+        await lazyHeader.click();
+
+        await expect(tabsNode.locator('.dock-lazy-rail-pane'), 'activation loads the module and the pane is the tab\'s card').toBeVisible();
+        await expect(tabsNode.locator('.dock-lazy-rail-pane')).toHaveText('Lazy pane');
+
+        const [loadedAfter, instances] = await readWorkspace(page, ['lazyPaneModuleLoaded', 'lazyPaneInstances']);
+
+        expect(loadedAfter).toBe(true);
+        expect(instances, 'one construction').toBe(1)
+    });
+
+    test('un-hidden as the only visible item of its tabs node, the lazy item is the active card and loads at once', async ({page}) => {
+        // The Fleet cockpit's shape: a node whose every item is railed, then one un-hidden by the
+        // bootstrap CTA — the projected tab is active from the first frame, and the reconciler's
+        // insert lands on the layout's active index, where nothing else would ever trigger the load.
+        await setWorkspace(page, {applyOperationJson: JSON.stringify({operation: 'setItemAutoHidden', itemId: 'pinned', autoHidden: true})});
+        await expect(page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Pinned'})).toHaveCount(1);
+
+        await setWorkspace(page, {applyOperationJson: JSON.stringify({operation: 'setItemAutoHidden', itemId: 'lazy', autoHidden: false})});
+
+        const tabsNode = page.locator('.neo-dashboard-dock-tabs', {has: page.locator('.neo-tab-header-button', {hasText: 'Lazy'})});
+
+        await expect(tabsNode, 'the item is projected as a tab').toHaveCount(1);
+        await expect(tabsNode.locator('.dock-lazy-rail-pane'), 'the active index loads on insert; the pane is the card').toBeVisible();
+        await expect(tabsNode.locator('.dock-lazy-rail-pane')).toHaveText('Lazy pane');
+        await expect(lazyTab(page), 'it left the rail').toHaveCount(0);
+        await expect(visibleOverlay(page), 'no reveal overlay was involved').toHaveCount(0);
+
+        const [loaded, instances] = await readWorkspace(page, ['lazyPaneModuleLoaded', 'lazyPaneInstances']);
+
+        expect(loaded).toBe(true);
+        expect(instances, 'one construction').toBe(1)
     });
 });
