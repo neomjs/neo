@@ -79,7 +79,16 @@ class GridDragScroll extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.bindMethods(this, ['onDragStart', 'onMonitorEnd', 'onMonitorMove'])
+
+        let me = this;
+
+        Neo.bindMethods(me, ['onDragStart', 'onMonitorEnd', 'onMonitorMove', 'onNativeDragStart']);
+
+        // A native HTML5 drag ends the mouse-event stream of the gesture it grew out of: from
+        // `dragstart` on, the browser delivers only `drag*` events, so the `mouseup` a monitor or an
+        // active drag waits for never arrives. Document level, capture, once for the page — the drag
+        // may start on a registered row or on any foreign draggable node.
+        document.addEventListener('dragstart', me.onNativeDragStart, {capture: true})
     }
 
     /**
@@ -314,6 +323,46 @@ class GridDragScroll extends Base {
         document.removeEventListener('mouseup',   me.onMonitorEnd,  {capture: true});
         document.removeEventListener('touchmove', me.onMonitorMove, {capture: true, passive: false});
         document.removeEventListener('touchend',  me.onMonitorEnd,  {capture: true})
+    }
+
+    /**
+     * A native HTML5 drag has begun somewhere in the document — `Neo.main.addon.NativeDragSource`
+     * arms grid rows for one, and any foreign `draggable` node qualifies too. The gesture this addon
+     * was tracking is over at this moment: the browser will not deliver the `mousemove` that would
+     * feed it or the `mouseup` that would end it. A monitor left armed would qualify on the next
+     * button-less pointer move (elapsed time and distance from the original press both pass) and
+     * start a drag-scroll nobody is holding, with the grabbing cursor stuck on the body; an active
+     * drag would keep scrolling under the pointer for the same reason. Both end here — the active
+     * drag without a kinetic tail, since nothing was released.
+     * @param {DragEvent} event
+     */
+    onNativeDragStart(event) {
+        let me = this;
+
+        me.monitorDrag && me.onMonitorEnd(event);
+        me.activeDrag  && me.cancelActiveDrag()
+    }
+
+    /**
+     * Drops an active drag on the floor: no fling, cursor restored, listeners and a running kinetic
+     * frame removed. Tolerates both shapes `activeDrag` takes — the tracked gesture from
+     * {@link #startDrag} and the `{id, animation}` handle {@link #autoScroll} leaves behind.
+     */
+    cancelActiveDrag() {
+        let me                     = this,
+            {animation, listeners} = me.activeDrag;
+
+        animation && cancelAnimationFrame(animation);
+
+        if (listeners) {
+            document.removeEventListener('mousemove', listeners.move, {capture: true});
+            document.removeEventListener('mouseup',   listeners.end,  {capture: true});
+            document.removeEventListener('touchmove', listeners.move, {capture: true, passive: false});
+            document.removeEventListener('touchend',  listeners.end,  {capture: true})
+        }
+
+        document.body.style.removeProperty('cursor');
+        me.activeDrag = null
     }
 
     /**
