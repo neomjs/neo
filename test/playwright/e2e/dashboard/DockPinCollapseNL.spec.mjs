@@ -166,11 +166,14 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
             timeout: 10000
         }).toBeTruthy();
 
+        // The instance is worker truth from the first projection. Its NODE is not: a focus-gated
+        // action that is withdrawn has no DOM node at all (the toolbar withholds it rather than
+        // hiding it, so no stylesheet can resurrect it), and this header holds no focus yet. The
+        // accessible name and glyph are read below, once the gate is open.
         const pinAction = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']),
               pinButton = page.locator(`#${pinAction.id}`);
 
-        await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
-        await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
+        await expect(pinButton, 'a withdrawn action has no node before its header has focus').toHaveCount(0);
 
         // Product truth #4: §2.7's fail-safe reaches the real product — the center stack projects the
         // action too, but hidden, because main content never rails.
@@ -196,6 +199,8 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
         // Native gesture: collapse the inspector from its OWN header, once that pane holds focus.
         await focusPane(app, page, 'inspector');
         await expect(pinButton, 'a focused edge-owned pane offers the collapse').toBeVisible({ timeout: 10000 });
+        await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
+        await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
         await pinButton.click();
 
         // Product truth #2: worker truth carries the collapse, committed through the semantic path.
