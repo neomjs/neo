@@ -2815,7 +2815,7 @@ test.describe('Workspace — the theme toggle reveals from the pointer (#18125)'
      * @param {Object} config {data, startResult, startingTheme}
      * @returns {Promise<Object>} {calls, themeAtCall, themeAfter, threw}
      */
-    async function toggleWithStubbedTransition({data, startResult = true, startingTheme = 'neo-theme-neo-light'} = {}) {
+    async function toggleWithStubbedTransition({data, startResult = true, reject = false, startingTheme = 'neo-theme-neo-light'} = {}) {
         const
             originalDomAccess = Neo.main.DomAccess,
             domAccess         = originalDomAccess ?? Neo.ns('Neo.main.DomAccess', true),
@@ -2827,6 +2827,11 @@ test.describe('Workspace — the theme toggle reveals from the pointer (#18125)'
         domAccess.startViewTransition = async payload => {
             calls.push(payload);
             themeAtCall = workspace.theme;
+
+            if (reject) {
+                throw new Error('remote round trip rejected')
+            }
+
             return startResult
         };
 
@@ -2882,6 +2887,17 @@ test.describe('Workspace — the theme toggle reveals from the pointer (#18125)'
 
         // The reveal is decorative: today's instant flip is the floor this change must not regress.
         expect(themeAfter, 'the theme flips whether or not the transition ran').toBe('neo-theme-neo-dark')
+    });
+
+    test('a rejected remote round trip still flips the theme', async () => {
+        // The engine resolves rather than rejects, but this is a REMOTE method and the transport can
+        // fail for reasons the callee never sees. Before this method awaited anything it was
+        // infallible; without the guard a rejected round trip would skip the flip and leave the
+        // button doing nothing — a worse outcome than the animation it was meant to protect.
+        const {themeAfter, threw} = await toggleWithStubbedTransition({reject: true});
+
+        expect(threw, 'a decorative reveal must never take the flip down with it').toBeNull();
+        expect(themeAfter, 'the theme flips even when the transition never happened').toBe('neo-theme-neo-dark')
     });
 
     test('a toggle with no event neither throws nor invents a reveal origin', async () => {

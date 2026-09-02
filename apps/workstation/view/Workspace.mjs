@@ -2631,8 +2631,10 @@ class Workspace extends DockWorkspace {
      * before the new state is captured. Flipping first would let the transition capture the
      * already-changed DOM as both states and the reveal would play over no visible difference.
      *
-     * The reveal is decorative. Without the View Transition API the engine returns false and the
-     * flip still runs, so a browser that lacks the feature behaves exactly as before.
+     * The reveal is decorative, and that holds for every way it can fail: no View Transition API
+     * returns false, a failed reveal is caught inside the engine, and a rejected remote round trip
+     * is caught here. The flip runs in all three cases, so a browser or a transport that cannot
+     * deliver the animation still behaves exactly as before.
      *
      * Raw pointer coordinates go to the engine rather than a radius computed here: the App worker
      * knows where the pointer was, not how a pseudo-element resolves a length, so the unit decision
@@ -2645,11 +2647,16 @@ class Workspace extends DockWorkspace {
     async toggleWorkspaceTheme(data) {
         const me = this;
 
+        // The catch is the decorative promise kept. The engine resolves rather than rejects — no API
+        // returns false, a failed reveal is caught inside — but this is a REMOTE method, and the
+        // transport can reject for reasons the callee never sees. Without this, a rejected round trip
+        // would skip the flip entirely and leave the button doing nothing at all, which is a worse
+        // outcome than the missing animation it was supposed to guard.
         await Neo.main.DomAccess.startViewTransition({
             delay   : 100,
             reveal  : {x: data?.clientX, y: data?.clientY},
             windowId: me.windowId
-        });
+        }).catch(() => {});
 
         return me.setWorkspaceTheme(me.theme === 'neo-theme-neo-light'
             ? 'neo-theme-neo-dark'
