@@ -39,7 +39,31 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * Spec trigger: a JSON operation descriptor commits through the REAL reducer + refresh loop
+         * (`applyDockZoneOperation` → `onDockZoneDocumentChange`), the way a consumer's own
+         * controls commit — the tab-flow arm un-hides the lazy item with it, so the projection has
+         * to materialize the lazily resolved pane through the card layout, not the reveal overlay.
+         * @member {String|null} applyOperationJson_=null
+         * @reactive
+         */
+        applyOperationJson_: null
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetApplyOperationJson(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        const result = this.applyDockZoneOperation(JSON.parse(value));
+
+        result && !result.errors?.length && this.onDockZoneDocumentChange(result.document)
     }
 
     /**

@@ -635,6 +635,12 @@ class Container extends Component {
      * 4. The `DeltaUpdates` system detects the existing DOM node and moves it physically, preserving
      *    DOM state such as focus, input values, and iframe content.
      *
+     * A lazy config (`{module: () => import('...')}`) PARKS, exactly as it does at construction:
+     * the config itself takes the items slot and a `removeDom` placeholder vnode holds its index
+     * in the vdom, so a card layout can replace both with the loaded instance. A card layout loads a
+     * parked item when its index activates; when the inserted index is already the active one, this
+     * method starts that load itself. The parked config is what gets returned in that case.
+     *
      * @param {Number} index
      * @param {Array|Object|Neo.component.Base} item
      * @param {Boolean} [silent=false]
@@ -645,7 +651,7 @@ class Container extends Component {
         let me      = this,
             {items} = me,
             lca     = null,
-            i, itemParent, itemType, len, oldParent, parentsA, parentsB, returnArray;
+            i, itemParent, itemType, len, oldParent, parentsA, parentsB, parked, returnArray, vdom;
 
         if (Array.isArray(item)) {
             i           = 0;
@@ -685,17 +691,39 @@ class Container extends Component {
                 }
             }
 
-            item = me.createItem(item, index, removeFromPreviousParent);
+            item   = me.createItem(item, index, removeFromPreviousParent);
+            parked = !(item instanceof Neo.core.Base);
 
-            // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
-            // since it will most likely get activated right away
-            me.layout?.applyChildAttributes(item, index, true);
+            if (parked) {
+                // A lazy `module` config parks, exactly as construction parks it (see createItems()):
+                // the config takes the slot and its `removeDom` placeholder vnode keeps the indices
+                // aligned for the card layout's later loadModule() replacement.
+                vdom = item.vdom
+            } else {
+                // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
+                // since it will most likely get activated right away
+                me.layout?.applyChildAttributes(item, index, true);
+                vdom = item.createVdomReference()
+            }
 
             items.splice(index, 0, item);
 
             me.items = items;
 
-            me.getVdomItemsRoot().cn.splice(index, 0, item.createVdomReference())
+            me.getVdomItemsRoot().cn.splice(index, 0, vdom);
+
+            // A card layout loads a parked item when its index ACTIVATES. An index that is already
+            // active fired that hook long before this insert, so the inserter starts the load itself;
+            // the settled instance publishes through its own update, independent of the caller's
+            // (possibly silent) transaction. A parked item at any other index loads on activation.
+            if (parked && me.layout?.loadModule && me.layout.activeIndex === index) {
+                me.layout.loadModule(item, index).then(() => {
+                    if (!me.isDestroyed) {
+                        me.updateDepth = -1;
+                        me.update()
+                    }
+                })
+            }
         }
 
         if (!silent) {
