@@ -1105,6 +1105,88 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect'])
         });
 
+        test.describe('#18077 the host opens the geometry stream for its window and for every admitted vessel', () => {
+            let calls, originalSetConfigs, originalWindowPosition, windowPosition;
+
+            test.beforeEach(() => {
+                originalWindowPosition = Neo.main?.addon?.WindowPosition;
+                windowPosition         = originalWindowPosition ?? Neo.ns('Neo.main.addon.WindowPosition', true);
+                originalSetConfigs     = windowPosition.setConfigs;
+                calls                  = [];
+
+                windowPosition.setConfigs = data => {
+                    calls.push(data);
+                    return Promise.resolve()
+                }
+            });
+
+            test.afterEach(() => {
+                if (originalWindowPosition) {
+                    originalSetConfigs
+                        ? windowPosition.setConfigs = originalSetConfigs
+                        : delete windowPosition.setConfigs
+                } else {
+                    delete Neo.main.addon.WindowPosition
+                }
+            });
+
+            test('construction opens movement AND resize for the host render target; a realm without the addon opens nothing and throws nothing', () => {
+                workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
+
+                expect(calls, 'one stream, both observations, the host window').toEqual([
+                    {observeMovement: true, observeResize: true, windowId: 'host-window'}
+                ]);
+
+                // A host running its own admission (no engine lifecycle) docks across windows too:
+                // the arming is not gated on the lifecycle flag.
+                const plain = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'plain-window'});
+
+                try {
+                    expect(calls.at(-1), 'every dock host opens its stream').toEqual(
+                        {observeMovement: true, observeResize: true, windowId: 'plain-window'}
+                    )
+                } finally {
+                    plain.destroy()
+                }
+
+                // The app's opt-in is the addon itself: without it the call is a no-op, never a throw.
+                const addon = Neo.main.addon.WindowPosition;
+
+                delete Neo.main.addon.WindowPosition;
+
+                try {
+                    const bare = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'bare-window'});
+
+                    bare.destroy();
+                    expect(calls, 'no addon, no stream').toHaveLength(2)
+                } finally {
+                    Neo.main.addon.WindowPosition = addon
+                }
+            });
+
+            test('an admitted vessel opens its stream before the connection reaches any ownership branch', async () => {
+                workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument(), windowId: 'host-window'});
+
+                const {request, zone} = await beginExit('preview');
+
+                expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+                await workspace.refreshPromise;
+
+                const mainView = addWindow('vessel-window', vesselUrl(request, 'preview'));
+
+                workspace.afterTearOutWindowConnect = () => calls.push('afterTearOutWindowConnect');
+
+                await workspace.onWindowConnect({windowId: 'vessel-window'});
+
+                expect(calls, 'host at construction, vessel on admission, observers last').toEqual([
+                    {observeMovement: true, observeResize: true, windowId: 'host-window'},
+                    {observeMovement: true, observeResize: true, windowId: 'vessel-window'},
+                    'afterTearOutWindowConnect'
+                ]);
+                expect(mainView.items, 'the pane entered its vessel after the stream opened').toHaveLength(1)
+            });
+        });
+
         test('connect-first keeps exact admission identity until the detached terminal consumes it', async () => {
             workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
 

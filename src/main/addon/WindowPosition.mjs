@@ -96,12 +96,22 @@ class WindowPosition extends Base {
      * While on, the config owns the poll: {@link #onMouseOut} neither arms nor clears it.
      * Switching off releases the poll back to pointer ownership; the next document-leaving
      * `mouseout` re-arms it.
+     *
+     * Arming also publishes the current snapshot once: the poll is change-driven against the
+     * origin captured at construction, so a window that never moves would otherwise stay unknown
+     * to `Neo.manager.Window` in a dedicated-worker app, where no connect handshake registers it.
+     * A stream opens with its current value.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetObserveMovement(value, oldValue) {
-        value ? this.startPolling() : this.stopPolling()
+        if (value) {
+            this.startPolling();
+            this.publishGeometry()
+        } else {
+            this.stopPolling()
+        }
     }
 
     /**

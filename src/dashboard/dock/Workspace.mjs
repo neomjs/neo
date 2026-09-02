@@ -498,6 +498,14 @@ class Workspace extends Container {
                 scope     : this
             })
         }
+
+        // Cross-window hit testing reads manager.Window as its one geometry authority, and the
+        // manager only learns what the Main realm publishes. The host's own render target publishes
+        // live extents from construction — the same stream every admitted vessel opens on connect —
+        // so a moved or resized main window never claims with a stale frame. Not gated on the
+        // engine lifecycle flag: a host may run its own admission (the Workstation does) and still
+        // dock across windows; the app's opt-in is loading the `WindowPosition` addon at all.
+        this.observeWindowGeometry(this.windowId)
     }
 
     /**
@@ -932,6 +940,25 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Opens one render target's live geometry stream into `Neo.manager.Window`.
+     *
+     * `Neo.main.addon.WindowPosition` publishes `windowPositionChange` only behind two configs it
+     * defaults off: `observeMovement` (the config-owned poll — pointer travel alone cannot arm it
+     * for a titlebar grabbed from outside page content) and `observeResize` (a fixed-origin resize
+     * is a geometry change the poll never sees). Without both, the manager's row for that window
+     * stays the connect-time snapshot and every cross-window claim hit-tests a stale frame. The
+     * engine host arms both — for its own window at construction, for each admitted vessel before
+     * ownership publication — so no adopter has to know the addon exists. Overridable for a
+     * realm that publishes geometry another way.
+     * @param {String} windowId The render target whose Main realm publishes
+     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` off the browser
+     * @protected
+     */
+    observeWindowGeometry(windowId) {
+        return Neo.main?.addon?.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId})
+    }
+
+    /**
      * Hook: optional product grant policy after engine host/flow/token admission. Fleet's zero-grant
      * consumer inherits true; rich hosts override without exporting a grant format to the engine.
      * @param {Object} context
@@ -1026,8 +1053,14 @@ class Workspace extends Container {
             throw error
         }
 
-        // The grant hook is an async boundary. Retirement, timeout or a successor admission may
-        // have replaced this exact record while policy was deciding.
+        // Geometry-ready is part of admission: the vessel's Main realm publishes movement AND
+        // resize before the connection reaches any ownership branch. A header-action pop-out births
+        // the vessel with its titlebar under the pointer, so the native-titlebar drag never crosses
+        // page content and never emits the `mouseout` that would otherwise arm the poll.
+        await me.observeWindowGeometry(windowId);
+
+        // The grant hook and the geometry arming are async boundaries. Retirement, timeout or a
+        // successor admission may have replaced this exact record while they were pending.
         if (
             me.isDestroyed || me.tearOutAdmissions.get(itemId) !== admission ||
             admission.connectingWindowId !== windowId || !Neo.apps[windowId]
