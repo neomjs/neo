@@ -318,13 +318,18 @@ body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
 // same values: a tooltip and that menu are both transient label chrome and should not disagree
 // about what floating chrome looks like here.
 //
-// The `body:has()` scope is doing real work, not decoration. The theme ships its own
-// `:root .neo-theme-neo-* { --tooltip-bg: … }` at (0,2,0), so a projection written at that same
-// weight — the shape the `--agent-dock-preview-*` block above uses — LOSES the tie on load order,
-// because `theme-neo-*/tooltip/Base.css` is appended after this app's sheets. Those projections
-// work only because nothing else declares them. Naming the floating element directly reaches
-// (0,2,1) and sets the tokens on the node that reads them, so no ancestor has to be guessed —
-// the tooltip is one lazily created instance bound to the main view, not a workspace descendant.
+// The `body:has()` scope is doing real work, not decoration, and the reason is a weight the two
+// engine sheets do not share. The dock values layer declares its defaults at `:where(.neo-theme-*)`
+// — zero specificity by design — so the `--agent-dock-preview-*` projections in this app's theme
+// files win outright at `:root .neo-theme-*` (0,2,0). The tooltip theme sheet declares at that SAME
+// (0,2,0), so a projection written the same way only ties, and `theme-neo-*/tooltip/Base.css` is
+// appended after this app's sheets, so the tie goes to the theme. Naming the floating element
+// reaches (0,2,1) and wins on weight rather than on order.
+//
+// It also has to be the element rather than an ancestor: the shared singleton stamps the hovered
+// target's theme onto ITSELF, so after this app's runtime light/dark toggle the tooltip carries
+// `neo-theme-neo-light` while `body` still carries `neo-theme-neo-dark`. A body-inherited
+// projection could not follow that; an own-element declaration does.
 body:has(.workstation-viewport) .neo-tooltip {
     --tooltip-bg       : var(--workstation-panel-2);
     --tooltip-border   : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
