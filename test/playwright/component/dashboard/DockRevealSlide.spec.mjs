@@ -48,7 +48,20 @@ const readEntryMotion = (page, edge) => page.evaluate(({edge, overlaySelector, r
                 duration: animation.effect.getTiming().duration,
                 from    : animation.effect.getKeyframes()[0]
             })),
-            rect     = element => element ? element.getBoundingClientRect().toJSON() : null;
+            rect     = element => element ? element.getBoundingClientRect().toJSON() : null,
+            // Container-query units resolve against the size container's CONTENT box. The root is
+            // `box-sizing: border-box` and carries the reveal chrome floor's 1px border, so its
+            // bounding rect (the border box) is 2px wider than the box `cqw` reads — the yardstick
+            // for the declared travel has to be the content box, or every chrome the root gains
+            // reads as travel drift.
+            content  = element => {
+                const cs = getComputedStyle(element), px = v => parseFloat(cs[v]) || 0, box = element.getBoundingClientRect();
+
+                return {
+                    width : box.width  - px('borderLeftWidth') - px('borderRightWidth')  - px('paddingLeft') - px('paddingRight'),
+                    height: box.height - px('borderTopWidth')  - px('borderBottomWidth') - px('paddingTop')  - px('paddingBottom')
+                }
+            };
 
         // Read the declarations while the animations are live — a finished CSS animation leaves
         // `getAnimations()` — then freeze every entry animation at the same progress, read the
@@ -67,9 +80,10 @@ const readEntryMotion = (page, edge) => page.evaluate(({edge, overlaySelector, r
         resolve({
             declared,
             midFlight,
-            settled: {header: rect(header), slot: rect(slot), root: rect(root)},
-            rail   : rect(rail),
-            styles : {
+            settled    : {header: rect(header), slot: rect(slot), root: rect(root)},
+            rootContent: content(root),
+            rail       : rect(rail),
+            styles     : {
                 rootContainerType: getComputedStyle(root).containerType,
                 rootOpacity      : getComputedStyle(root).opacity,
                 slotTransform    : getComputedStyle(slot).transform
@@ -120,10 +134,11 @@ test.describe('dock reveal entry motion', () => {
 
             // The content: the owning edge's keyframe, the root's extent as its distance, the same
             // token. `getKeyframes()` hands back the container-query length already resolved
-            // (`translateX(-320px)` for a 320px overlay), which is the assertion that matters: the
-            // declared travel IS the root's extent along the axis, signed toward the strip — a
-            // percentage would come back unresolved (`-100%`), because it is not a length of the root.
-            const rootExtent = motion.settled.root[extent];
+            // (`translateX(-318px)` for a 320px overlay with a 1px border each side), which is the
+            // assertion that matters: the declared travel IS the root's CONTENT extent along the axis
+            // — the box `cqw` / `cqh` read — signed toward the strip; a percentage would come back
+            // unresolved (`-100%`), because it is not a length of the root.
+            const rootExtent = motion.rootContent[extent];
 
             for (const part of ['header', 'slot']) {
                 expect(motion.declared[part], `${edge}: ${part} carries the slide`).toHaveLength(1);
