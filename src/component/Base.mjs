@@ -1508,32 +1508,34 @@ class Component extends Abstract {
     }
 
     /**
-     * Walks up the vdom tree and returns the closest theme found
+     * @summary Returns the closest theme: this component's own, then the nearest ancestor's along
+     * the component chain, then the window's or app's default.
+     *
+     * The inherited theme travels as a config (`container.Base#afterSetTheme` propagates it), and a
+     * child inside a themed scope carries no theme class of its own by design, so the theme config
+     * is the first thing to read at every level; a class is read as well, for a component that
+     * carries a theme class without the config. The walk follows components, not vdom nodes: a
+     * parent's vdom holds its children as component references whose `cls` says nothing about the
+     * theme, so a vdom walk sees a nested scope as empty and answers the app default instead.
      * @returns {String}
      */
     getTheme() {
         let me         = this,
             themeMatch = 'neo-theme-',
-            mainView, parentNodes;
+            component  = me;
 
-        for (const item of me.cls || []) {
-            if (item.startsWith(themeMatch)) {
-                return item
+        while (component) {
+            if (component.theme) {
+                return component.theme
             }
-        }
 
-        mainView = me.app?.mainView;
-
-        if (mainView) {
-            parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
-
-            for (const node of parentNodes || []) {
-                for (const item of node.cls || []) {
-                    if (item.startsWith(themeMatch)) {
-                        return item
-                    }
+            for (const item of component.cls || []) {
+                if (item.startsWith(themeMatch)) {
+                    return item
                 }
             }
+
+            component = component.parent
         }
 
         return (Neo.windowConfigs?.[me.windowId] || Neo.config).themes?.[0]
