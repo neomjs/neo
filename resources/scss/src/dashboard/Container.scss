@@ -218,6 +218,49 @@
 @keyframes neo-dock-reveal-from-top    { from { transform: translateY(-100cqh) } }
 @keyframes neo-dock-reveal-from-bottom { from { transform: translateY(100cqh) } }
 
+// A retarget — the reveal follows a click on another item of the same rail while it is open — is an
+// entry for the incoming content with no exit for the root: the panel stays where it is, the new
+// header and pane emerge from under the strip over the old ones. A CSS animation restarts only
+// when its name changes, so the overlay alternates two swap generations: one names a duplicate
+// set of the entry keyframes, the other the entry's own. The root runs a held keyframe of the same
+// duration so its own `animationend` fires and settles the motion window, exactly as an entry does.
+// The generation clears when the overlay hides, so the next entry runs the entry rules above; the
+// leaving rules below outrank both generations, so a dismissal mid-swap still leaves.
+.neo-dashboard-dock-reveal-overlay-swap-1 {
+    animation-name: neo-dock-reveal-hold-b;
+
+    > .neo-dashboard-dock-reveal-header,
+    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-left-b }
+
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-right-b }
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-top-b }
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-bottom-b }
+}
+
+.neo-dashboard-dock-reveal-overlay-swap-2 {
+    animation-name: neo-dock-reveal-hold-a;
+
+    > .neo-dashboard-dock-reveal-header,
+    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-left }
+
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-right }
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-top }
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-bottom }
+}
+
+@keyframes neo-dock-reveal-hold-a        { to { opacity: 1 } }
+@keyframes neo-dock-reveal-hold-b        { to { opacity: 1 } }
+@keyframes neo-dock-reveal-from-left-b   { from { transform: translateX(-100cqw) } }
+@keyframes neo-dock-reveal-from-right-b  { from { transform: translateX(100cqw) } }
+@keyframes neo-dock-reveal-from-top-b    { from { transform: translateY(-100cqh) } }
+@keyframes neo-dock-reveal-from-bottom-b { from { transform: translateY(100cqh) } }
+
 // The exit, the entry's mirror: the overlay is dismissed but not yet hidden — the same two
 // elements travel back, the root fading out where it stands, the content sliding back under its
 // strip. `forwards` holds the end state until the hidden class lands one vdom round trip after
