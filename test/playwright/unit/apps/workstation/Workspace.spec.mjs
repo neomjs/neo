@@ -564,14 +564,19 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 ownerWindowId  : workspace.windowId,
                 targetWindowId : 'target-window'
             },
+            // Real-chrome shapes: each window's viewport sits below its frame by the published chrome.
+            // The park lands the source FRAME on the target's frame origin; a re-show takes the
+            // source's own chrome off the content rect it is handed.
             records = new Map([
                 ['source-window', {
-                    innerRect  : {height: 479, width: 640, x: 44, y: 128},
+                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
+                    innerRect  : {height: 479, width: 640, x: 40, y: 127},
                     nativeRoute: sourceRoute,
                     outerRect  : {height: 546, width: 640, x: 40, y: 60}
                 }],
                 ['target-window', {
-                    innerRect  : {height: 260, width: 360, x: 800, y: 120},
+                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
+                    innerRect  : {height: 260, width: 360, x: 800, y: 187},
                     nativeRoute: targetRoute,
                     outerRect  : {height: 327, width: 360, x: 800, y: 120}
                 }]
@@ -640,14 +645,19 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 rect      : {height: 120, width: 200, x: 420, y: 240},
                 windowName: 'tearout-audit'
             })).resolves.toBe(true);
+            // the content re-shows at (420, 240): the frame goes 67 px higher, under the title bar
             expect(resumeCalls).toEqual([{
                 nativeHandleKey: 'handle-source',
                 targetWindowId : 'source-window',
                 windowId       : workspace.windowId,
                 windowName     : 'tearout-audit',
                 x              : 420,
-                y              : 240
+                y              : 173
             }]);
+            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
+                frame: {x: 420, y: 173},
+                rect : {height: 120, width: 200, x: 420, y: 240}
+            });
             expect(workspace.tearOutParkGeometries.audit).toBeUndefined();
 
             sourceRoute.capabilities.resize = false;
@@ -808,14 +818,19 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 ownerWindowId  : workspace.windowId,
                 targetWindowId : 'target-window'
             },
+            // Real-chrome shapes: each window's viewport sits below its frame by the published chrome.
+            // The park lands the source FRAME on the target's frame origin; a re-show takes the
+            // source's own chrome off the content rect it is handed.
             records = new Map([
                 ['source-window', {
-                    innerRect  : {height: 479, width: 640, x: 44, y: 128},
+                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
+                    innerRect  : {height: 479, width: 640, x: 40, y: 127},
                     nativeRoute: sourceRoute,
                     outerRect  : {height: 546, width: 640, x: 40, y: 60}
                 }],
                 ['target-window', {
-                    innerRect  : {height: 260, width: 360, x: 800, y: 120},
+                    chrome     : {bottom: 0, left: 0, right: 0, top: 67},
+                    innerRect  : {height: 260, width: 360, x: 800, y: 187},
                     nativeRoute: targetRoute,
                     outerRect  : {height: 327, width: 360, x: 800, y: 120}
                 }]
