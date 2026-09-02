@@ -458,6 +458,23 @@
     }
 }
 
+// The reveal overlay's containing block, and the only reason this rule exists.
+//
+// An absolutely positioned overlay resolves its insets against the nearest positioned ancestor's
+// PADDING box, which starts before that element's own padding. The rail it must clear is laid out
+// in normal flow, inside the CONTENT box, which starts after it. Leave the containing block to the
+// dashboard host and those two origins differ by exactly the host's padding: the per-edge insets
+// below land short by that much and the overlay covers the strip it is supposed to begin at. A
+// consumer padding its dock host is ordinary, so the precondition has to be established here rather
+// than assumed — on the box the rails themselves lay out in, where both readers start from the same
+// origin whether the host is padded or not.
+//
+// Scoped deliberately to this element: the drop-indicator layer and `.neo-dock-preview` are
+// siblings of the edge zone, not descendants, so their containing block is unchanged.
+.neo-dashboard-dock-edge-zone {
+    position: relative;
+}
+
 .neo-dashboard-dock-reveal-overlay {
     background   : var(--dock-reveal-background);
     border       : var(--dock-reveal-border);
@@ -476,6 +493,11 @@
     // The reserved edge is the RAIL's extent, read from the rail's own token rather than
     // restated — the overlay must start exactly where the strip ends, and a second literal
     // here is how those two silently disagree.
+    //
+    // Sharing the token's VALUE is only half of that promise: these insets also have to be
+    // measured from the same ORIGIN the rail is laid out from, which is what the edge zone's
+    // `position: relative` above establishes. Two readers agreeing on a length still disagree
+    // if they start counting from different boxes.
     &-left,
     &-right {
         min-inline-size: min(var(--dock-reveal-min-inline-size), calc(100% - var(--dock-edge-rail-size)));
