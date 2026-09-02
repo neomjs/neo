@@ -1272,7 +1272,11 @@ class Component extends Abstract {
             })
         } else {
             me._tooltip = value;
-            Neo.tooltip.Base.createSingleton(me.app);
+
+            // The shared instance delegates from the app's main view. The unit harness runs without
+            // one, so the singleton is skipped there and the config stays readable on the owner —
+            // the same deliberate no-op `updateVdom()` takes in unit-test mode.
+            !Neo.config.unitTestMode && Neo.tooltip.Base.createSingleton(me.app);
             me.addCls('neo-uses-shared-tooltip');
             me.update()
         }

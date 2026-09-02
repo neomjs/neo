@@ -85,6 +85,12 @@ class RevealOverlay extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * Tooltip text of the overlay's pin control, threaded by the rail from the workspace's
+         * `dockActionTooltips.revealPin`. `null` leaves the control without a tooltip.
+         * @member {String|null} pinTooltip=null
+         */
+        pinTooltip: null,
+        /**
          * Committed extent fraction for the free dimension, or `null` for the default fraction.
          * Resolved by the rail from the live document — never computed from DOM geometry.
          * @member {Number|null} revealExtent_=null
@@ -157,7 +163,8 @@ class RevealOverlay extends Container {
                 iconCls    : 'fa fa-thumbtack',
                 showOnFocus: false,
                 text       : null,
-                vdom       : {'aria-label': 'Pin'}
+                vdom       : {'aria-label': 'Pin'},
+                ...(config.pinTooltip != null && {tooltip: config.pinTooltip})
             }],
             // The self-scoped variant class lets every theme resolve the same compact tokens as
             // an inline TabContainer, even though this runtime-only toolbar has no container owner.

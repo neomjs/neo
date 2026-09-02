@@ -1,6 +1,7 @@
 import Component                   from '../../component/Base.mjs';
 import Container                   from '../../container/Base.mjs';
 import NeoArray                    from '../../util/Array.mjs';
+import {isDescriptor}              from '../../core/ConfigSymbols.mjs';
 import LayoutAdapter               from './projection/LayoutAdapter.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
@@ -228,6 +229,32 @@ class Workspace extends Container {
          * @member {String} dockMinimizeIconCls='far fa-window-minimize'
          */
         dockMinimizeIconCls: 'far fa-window-minimize',
+        /**
+         * Tooltip texts of the engine-owned header actions and the rail's reveal pin, keyed by
+         * action state: `lock` / `unlock`, `reload`, `unpin`, `popOut`, `maximize` / `restore`,
+         * `close`, `revealPin`. A consumer restates wording or language per key: the map deep-merges
+         * over these defaults, and a key set to `null` leaves that action without a tooltip. Toggles
+         * keep text, icon and accessible name coherent on the retained action instance
+         * ({@link #syncDockLockAction}, {@link #syncDockMaximizeActionPresentation}).
+         * @member {Object} dockActionTooltips_
+         * @reactive
+         */
+        dockActionTooltips_: {
+            [isDescriptor]: true,
+            clone         : 'deep',
+            merge         : 'deep',
+            value         : {
+                close    : 'Close',
+                lock     : 'Lock pane',
+                maximize : 'Maximize',
+                popOut   : 'Pop out into a window',
+                reload   : 'Reload pane',
+                restore  : 'Restore',
+                revealPin: 'Pin back into the layout',
+                unlock   : 'Unlock pane',
+                unpin    : 'Unpin into the rail'
+            }
+        },
         /**
          * Enables the engine-owned dock tear-out admission/document/window lifecycle. Disabled
          * by default so ordinary workspaces and hosts carrying their own legacy lifecycle remain
@@ -1507,6 +1534,7 @@ class Workspace extends Container {
             hidden       = !activeItemId || activeItem?.lockable === false,
             iconCls      = activeItem?.locked === true ? me.dockUnlockIconCls : me.dockLockIconCls,
             ariaLabel    = activeItem?.locked === true ? 'unlock' : 'lock',
+            tooltip      = me.dockActionTooltips?.[activeItem?.locked === true ? 'unlock' : 'lock'] ?? null,
             showOnFocus  = activeItem?.locked !== true,
             changes      = {};
 
@@ -1516,6 +1544,8 @@ class Workspace extends Container {
             action.hidden  !== hidden  && (changes.hidden  = hidden);
             action.iconCls !== iconCls && (changes.iconCls = iconCls);
             action.showOnFocus !== showOnFocus && (changes.showOnFocus = showOnFocus);
+            // An absent key leaves whatever the projection gave the action — never a null write.
+            tooltip != null && me.readDockActionTooltip(action) !== tooltip && (changes.tooltip = tooltip);
 
             if (Object.keys(changes).length || ariaLabelChanged) {
                 // `setSilent()` consumes non-config class-field keys from its input, so remember
@@ -2802,7 +2832,7 @@ class Workspace extends Container {
             me.playDockMaximizeFlip(host)
         }
 
-        me.syncDockMaximizeActionIcon(tabContainer, true);
+        me.syncDockMaximizeActionPresentation(tabContainer, true);
         await me.registerDockMaximizeResizeObserver(true)
     }
 
@@ -2875,24 +2905,56 @@ class Workspace extends Container {
                 })
             }
 
-            me.syncDockMaximizeActionIcon(tabContainer, false)
+            me.syncDockMaximizeActionPresentation(tabContainer, false)
         }
 
         await me.registerDockMaximizeResizeObserver(false)
     }
 
     /**
-     * Flips the node's projected maximize action between its maximize and restore icons — on
-     * the stable action instance, the same discipline every action consumer relies on.
+     * Flips the node's projected maximize action between its maximize and restore presentation —
+     * icon, accessible name and tooltip together, on the stable action instance, the same
+     * discipline every action consumer relies on. The glyph names the NEXT action, so the name and
+     * the tooltip follow it: `restore` while the node is maximized. One batched update, like
+     * {@link #syncDockLockAction}.
      * @param {Neo.tab.Container|null} tabContainer
      * @param {Boolean} maximized
      * @protected
      */
-    syncDockMaximizeActionIcon(tabContainer, maximized) {
+    syncDockMaximizeActionPresentation(tabContainer, maximized) {
         let me     = this,
             action = tabContainer?.getActionItem?.('maximize');
 
-        action && (action.iconCls = maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls)
+        if (!action) return;
+
+        let iconCls          = maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls,
+            ariaLabel        = maximized ? 'restore' : 'maximize',
+            tooltip          = me.dockActionTooltips?.[maximized ? 'restore' : 'maximize'] ?? null,
+            ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel,
+            changes          = {};
+
+        action.iconCls !== iconCls && (changes.iconCls = iconCls);
+        tooltip != null && me.readDockActionTooltip(action) !== tooltip && (changes.tooltip = tooltip);
+
+        if (Object.keys(changes).length || ariaLabelChanged) {
+            Object.keys(changes).length && action.setSilent(changes);
+            ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
+            action.update()
+        }
+    }
+
+    /**
+     * The text a projected action currently offers as its tooltip. `component.Base#tooltip` reads
+     * back the shared-instance config object once the tooltip module has loaded and the plain
+     * string before that, so a sync compares text, never the container.
+     * @param {Neo.component.Base|null} action
+     * @returns {String|null}
+     * @protected
+     */
+    readDockActionTooltip(action) {
+        let {tooltip} = action || {};
+
+        return typeof tooltip === 'string' ? tooltip : (tooltip?.text ?? null)
     }
 
     /**
@@ -3306,6 +3368,7 @@ class Workspace extends Container {
                 enableDockPinAction      : me.enableDockPinAction,
                 enableDockPopOutAction   : me.enableDockPopOutAction,
                 enableDockReloadAction   : me.enableDockReloadAction,
+                dockActionTooltips       : me.dockActionTooltips,
                 dockMaximizeIconCls      : me.dockMaximizeIconCls,
                 dockPopOutActionAvailable: me.dockPopOutActionActive,
                 dockPopOutIconCls        : me.dockPopOutIconCls,
