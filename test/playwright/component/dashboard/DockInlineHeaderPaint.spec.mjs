@@ -20,7 +20,12 @@ const INLINE_HEADER = '.neo-tab-container-inline > .neo-tab-header-toolbar';
 let controlId;
 
 test.beforeEach(async ({page}) => {
-    await page.goto('test/playwright/component/apps/dock-lock/index.html');
+    // `dock-theme-nesting` reuses `dock-lock`'s app with a four-theme config, following the
+    // `dock-static-boot` / `-overlap` pattern. The nested arms below need the classic theme
+    // stylesheets in the document — a theme class declares nothing if no sheet defines it — and that
+    // requirement belongs to THIS spec. Configuring it on the shared `dock-lock` fixture would make
+    // every other consumer of it boot two stylesheets it never reads.
+    await page.goto('test/playwright/component/apps/dock-theme-nesting/index.html');
     await page.waitForSelector('#dock-lock-workspace', {state: 'attached'});
     await page.waitForSelector(INLINE_HEADER, {state: 'visible'});
 
