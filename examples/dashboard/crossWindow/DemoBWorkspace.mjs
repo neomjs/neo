@@ -506,10 +506,13 @@ class DemoBWorkspace extends Container {
         me.popupDocument    = DemoBWorkspace.createPopupDocument();
         me.popup2Document   = DemoBWorkspace.createPopupDocument();
 
-        // Live-rect authority: every Demo-B render target publishes resize geometry into
-        // manager.Window. Movement-only snapshots make a post-resize conversion compare against
-        // stale extents, violating the metric before threshold calibration even begins.
-        Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId: me.windowId});
+        // Live-rect authority: every Demo-B render target publishes movement AND resize geometry
+        // into manager.Window. Resize alone left the row where the window was born: the pointer path
+        // arms the movement poll only on a document-leaving `mouseout`, which a titlebar placed under
+        // the pointer never produces, so a native titlebar drag ran its claims against a stale rect.
+        // A host that EXTENDS the engine's dock host inherits this pair; one composed from the dock
+        // pieces, as this one is, arms it itself.
+        Neo.main.addon.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId: me.windowId});
 
         // Both workspaces register under their STABLE semantic ids — the seams read/write the
         // live owner fields, so registry resolution always answers with committed truth.
@@ -2984,8 +2987,9 @@ class DemoBWorkspace extends Container {
         if (params.get('hostId') !== me.id) return;
 
         // Geometry-ready is part of child admission: do not publish the connected vessel to any
-        // ownership branch until its Main realm has installed resize observation.
-        await Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId});
+        // ownership branch until its Main realm has installed movement and resize observation — the
+        // same pair the host window armed at construction, for the same reason.
+        await Neo.main.addon.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId});
 
         if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID || workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID) {
             if (flow !== 'workspace-target') return;

@@ -427,6 +427,46 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         }
     });
 
+    test('the composition host arms BOTH geometry streams: its own window at construction, each admitted vessel before publication', async () => {
+        // A host composed from the dock pieces never runs the engine host's constructor, so it does
+        // not inherit `observeWindowGeometry` and has to arm the addon itself — and half of the pair
+        // is the defect: resize alone leaves manager.Window's row where the vessel was born, so a
+        // native titlebar drag of a popup runs its claim against a rect that never follows it. The
+        // pointer path cannot stand in: a titlebar placed under the pointer never produces the
+        // document-leaving `mouseout` that arms the poll.
+        const previous = Neo.main.addon.WindowPosition,
+              calls    = [];
+
+        Neo.main.addon.WindowPosition = {setConfigs: async data => { calls.push(data) }};
+
+        // The stub has to be in place before construction, which is where the host arms its own window.
+        workspace.destroy();
+        workspace = Neo.create(DemoBWorkspace, {});
+
+        const harness = installWindowConnectHarness(workspace);
+        let clickUrl;
+
+        Neo.Main.windowOpen = async data => {
+            clickUrl = data.url;
+            await harness.connect('geometry-child', clickUrl);
+            return true
+        };
+
+        try {
+            expect(calls, 'construction arms the host window for movement and resize')
+                .toContainEqual({observeMovement: true, observeResize: true, windowId: workspace.windowId});
+
+            expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
+
+            expect(calls, 'admission arms the vessel for movement and resize')
+                .toContainEqual({observeMovement: true, observeResize: true, windowId: 'geometry-child'});
+            expect(calls.filter(call => call.observeMovement !== true), 'never half of the pair').toEqual([])
+        } finally {
+            harness.restore();
+            Neo.main.addon.WindowPosition = previous
+        }
+    });
+
     test('tear-out connect-before-terminal consumes its grant and a replay stays inert', async () => {
         const harness      = installWindowConnectHarness(workspace),
               pane         = workspace.resolvePane('timeline', initialDocument.items.timeline),

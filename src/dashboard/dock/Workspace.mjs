@@ -977,7 +977,10 @@ class Workspace extends Container {
      * is a geometry change the poll never sees). Without both, the manager's row for that window
      * stays the connect-time snapshot and every cross-window claim hit-tests a stale frame. The
      * engine host arms both — for its own window at construction, for each admitted vessel before
-     * ownership publication — so no adopter has to know the addon exists. Overridable for a
+     * ownership publication — so an adopter that EXTENDS this host never has to know the addon
+     * exists. A host COMPOSED from the dock pieces onto a plain container never runs this
+     * constructor and must arm the same pair itself; half of it (resize only) leaves the row blind
+     * to a titlebar drag, which is the defect the composition example carried. Overridable for a
      * realm that publishes geometry another way.
      * @param {String} windowId The render target whose Main realm publishes
      * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` off the browser
