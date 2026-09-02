@@ -125,12 +125,31 @@
     // A reveal is an overlay, so opacity and elevation are functional rather than decorative:
     // covered pane chrome must not bleed through, and the overlap boundary must remain visible.
     // Consumers can supply identity values without re-declaring the structure.
+    //
+    // ── Reveal chrome floor ──────────────────────────────────────────────────────────────
+    // The surface deliberately stays the host's, so the overlay and the pane it covers are the
+    // same colour BY DESIGN and the boundary above can only come from the chrome. A `0` border
+    // plus a black drop shadow supplied that boundary on a light ground and nothing at all on a
+    // dark one, where 28%-black over a near-black surface is not an edge — the revealed pane read
+    // as the pane beneath it with a title line floating in it. Both flagship hosts had already
+    // written their own border and shadow to escape that, which is the tell: a default every
+    // serious consumer overrides is a gap wearing a default's clothes.
+    //
+    // Same resolution strategy as the splitter floor above, and for the same reason: values go
+    // through `currentColor` because the engine cannot know a host's palette, and a literal grey
+    // would read wrong on half of them. Mixing against inherited ink gives a hairline on any
+    // ground. The halo layer carries the elevation where a black shadow cannot — it brightens on
+    // dark skins and stays subordinate to the drop shadow on light ones.
+    //
+    // This is a FLOOR: both values are plain token defaults, so a consumer that sets either one
+    // wins on the cascade exactly as before. Identity remains theirs; discoverability is ours.
     --dock-reveal-background          : var(--neo-background-color, #fff);
-    --dock-reveal-border              : 0;
+    --dock-reveal-border              : 1px solid color-mix(in srgb, currentColor 22%, transparent);
     --dock-reveal-min-block-size      : 10rem;
     --dock-reveal-min-inline-size     : 12rem;
     --dock-reveal-radius              : 0;
-    --dock-reveal-shadow              : 0 12px 32px rgb(0 0 0 / 28%);
+    --dock-reveal-shadow              : 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent),
+                                        0 12px 32px rgb(0 0 0 / 28%);
 }
 
 @media (prefers-reduced-motion: reduce) {
