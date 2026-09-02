@@ -239,6 +239,78 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
     });
 
+    test('a dismissal on a MOUNTED overlay leaves in two phases: the leaving class first, hidden on the root\'s own animationend', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'right',
+            id  : 'dock-reveal-leave'
+        });
+
+        const rootId  = overlay.vdom?.id || overlay.id,
+              hidden  = 'neo-dashboard-dock-reveal-overlay-hidden',
+              leaving = 'neo-dashboard-dock-reveal-overlay-leaving';
+
+        overlay.mounted = true;
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id), 'the entry settled').toBe(false);
+
+        // The dismissal keeps the DOM: leaving, not hidden, and the motion window re-opens for
+        // the exit keyframes — a hosted pane's bubbled end still cannot close it.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.visible).toBe(false);
+        expect(overlay.revealLeaving).toBe(true);
+        expect(overlay.cls).toContain(leaving);
+        expect(overlay.cls, 'not hidden while the exit runs').not.toContain(hidden);
+        expect(DockMotionSignal.isAnimating(overlay.id), 'the exit is motion too').toBe(true);
+
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd('hosted-pane-animation', ['hosted-pane-animation', rootId]));
+        expect(overlay.revealLeaving).toBe(true);
+
+        // The root's own end lands the hidden class and settles.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.cls).toContain(hidden);
+        expect(overlay.cls).not.toContain(leaving);
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // A re-entry during a leave cancels it and stays visible; the window stays open for the
+        // entry keyframes the class change restarts, and their end settles it.
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.cls).toContain(leaving);
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.cls).not.toContain(leaving);
+        expect(overlay.cls).not.toContain(hidden);
+        expect(DockMotionSignal.isAnimating(overlay.id), 'still one open window').toBe(true);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Teardown mid-leave settles without an end event and releases the fail-safe timer.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(overlay.revealLeaving).toBe(true);
+        expect(overlay.revealLeaveTimer).not.toBeNull();
+        overlay.destroy();
+        expect(DockMotionSignal.activeMotions.has(overlay)).toBe(false);
+        overlay = null
+    });
+
+    test('an unmounted overlay hides at once: nothing to animate, the producer settles synchronously', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-unmounted-hide'
+        });
+
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.set({revealState: 'idle', revealedItem: null});
+
+        expect(overlay.revealLeaving).toBe(false);
+        expect(overlay.cls).toContain('neo-dashboard-dock-reveal-overlay-hidden');
+        expect(overlay.cls).not.toContain('neo-dashboard-dock-reveal-overlay-leaving');
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
+    });
+
     test('early dismissal, rapid re-reveal and destroy each settle exactly their owned motion entry', () => {
         overlay = Neo.create(DockRevealOverlay, {
             edge: 'left',

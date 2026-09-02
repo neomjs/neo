@@ -143,6 +143,20 @@ class RevealOverlay extends Container {
      * @protected
      */
     revealWasVisible = false
+    /**
+     * Whether the overlay is between its dismissal and the hidden class: the DOM stays while the
+     * exit keyframes run, and the root's `animationend` (or the fail-safe) ends the leave.
+     * @member {Boolean} revealLeaving=false
+     * @protected
+     */
+    revealLeaving = false
+    /**
+     * The fail-safe timer of an in-flight leave — the wedge backstop for an exit whose end event
+     * never comes, never the exit's duration (the CSS token owns that).
+     * @member {Number|null} revealLeaveTimer=null
+     * @protected
+     */
+    revealLeaveTimer = null
 
     /**
      * Assembles the fixed child skeleton (tab-header toolbar: active title tab + pin action; pane slot)
@@ -223,8 +237,69 @@ class RevealOverlay extends Container {
     }
 
     /**
+     * @summary Starts the two-phase hide: the DOM stays, the exit keyframes run, and the hidden
+     * class lands on the root's `animationend`.
+     *
+     * The exit is motion too: the leave opens the producer's motion window (a no-op while the
+     * entry's is still open), and the same end event that settles an entry settles it. A stuck
+     * exit (a consumer sheet that sets `animation: none` never fires an end event) hides after
+     * the motion signal's fail-safe horizon instead of never; that timer is the wedge backstop,
+     * not a duration.
+     * @protected
+     */
+    beginRevealLeave() {
+        let me = this;
+
+        me.revealLeaving = true;
+        me.beginRevealMotion();
+
+        me.revealLeaveTimer = setTimeout(() => {
+            me.revealLeaveTimer = null;
+            me.completeRevealLeave()
+        }, MotionSignal.FAIL_SAFE_MS)
+    }
+
+    /**
+     * @summary Ends the leave: the hidden class lands, the leaving class goes, the motion window
+     * settles. A no-op unless a leave is in flight.
+     * @protected
+     */
+    completeRevealLeave() {
+        let me = this;
+
+        if (me.revealLeaving) {
+            me.cancelRevealLeave();
+            !me.isDestroyed && me.syncSnapshot();
+            me.finishRevealMotion()
+        }
+    }
+
+    /**
+     * @summary Drops an in-flight leave without settling the motion window — the caller decides
+     * whether the overlay re-enters (the window stays open for the entry's end event) or is torn
+     * down (the window settles).
+     * @protected
+     */
+    cancelRevealLeave() {
+        let me = this;
+
+        me.revealLeaving = false;
+
+        if (me.revealLeaveTimer) {
+            clearTimeout(me.revealLeaveTimer);
+            me.revealLeaveTimer = null
+        }
+    }
+
+    /**
      * Reconciles the reveal producer with the overlay's computed visibility. Both state and item
      * changes can cross this boundary because `visible` requires a visible state AND an item.
+     *
+     * A visible→hidden flip on a mounted overlay does not hide: it leaves (see
+     * {@link #beginRevealLeave}), so the exit keyframes get a DOM to run on. Without a DOM there
+     * is nothing to animate and the producer settles at once. A hidden→visible flip during a leave
+     * cancels it — dropping the leaving class restarts the entry keyframes, whose end event then
+     * settles the still-open window.
      * @protected
      */
     syncRevealMotion() {
@@ -233,21 +308,31 @@ class RevealOverlay extends Container {
 
         if (visible !== me.revealWasVisible) {
             me.revealWasVisible = visible;
-            me[visible ? 'beginRevealMotion' : 'finishRevealMotion']()
+
+            if (visible) {
+                me.cancelRevealLeave();
+                me.beginRevealMotion()
+            } else if (me.mounted) {
+                me.beginRevealLeave()
+            } else {
+                me.finishRevealMotion()
+            }
         }
     }
 
     /**
      * Teardown may interrupt the CSS animation without an `animationend`; settle the producer's
-     * entry before the component lifecycle removes its remaining runtime state.
+     * entry — or its leave — before the component lifecycle removes its remaining runtime state.
      */
     destroy() {
+        this.cancelRevealLeave();
         this.finishRevealMotion();
         super.destroy()
     }
 
     /**
-     * The reveal-slide settle: closes the motion-signal window a visible-state flip opened.
+     * The reveal-slide settle: closes the motion-signal window a visible-state flip opened — or,
+     * during a leave, lands the hidden class first and then closes it.
      * Local DOM-event serialization preserves the config-aware browser target id but omits
      * `AnimationEvent.animationName`. Root-target identity therefore owns settlement: an
      * overlay animation matches, while a hosted pane's bubbled animation keeps its child id and
@@ -255,8 +340,10 @@ class RevealOverlay extends Container {
      * @param {Object} data
      */
     onMotionAnimationEnd(data) {
-        if (data?.target?.id === (this.vdom?.id || this.id)) {
-            this.finishRevealMotion()
+        let me = this;
+
+        if (data?.target?.id === (me.vdom?.id || me.id)) {
+            me.revealLeaving ? me.completeRevealLeave() : me.finishRevealMotion()
         }
     }
 
@@ -465,9 +552,13 @@ class RevealOverlay extends Container {
                 : me.defaultRevealFraction,
             item       = me.revealedItem,
             pct        = `${Math.round(fraction * 10000) / 100}%`,
-            cls        = me.cls || [];
+            cls        = me.cls || [],
+            leaving    = me.revealLeaving;
 
-        NeoArray[me.visible ? 'remove' : 'add'](cls, 'neo-dashboard-dock-reveal-overlay-hidden');
+        // A leaving overlay is not hidden yet: the exit keyframes need its DOM until the root's
+        // `animationend` lands the hidden class (see `beginRevealLeave`).
+        NeoArray[me.visible || leaving ? 'remove' : 'add'](cls, 'neo-dashboard-dock-reveal-overlay-hidden');
+        NeoArray[leaving ? 'add' : 'remove'](cls, 'neo-dashboard-dock-reveal-overlay-leaving');
 
         me.set({
             cls,
