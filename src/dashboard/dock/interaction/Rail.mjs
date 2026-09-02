@@ -886,8 +886,9 @@ class Rail extends Container {
                 if (Neo.typeOf(resolved) === 'NeoInstance') {
                     slot.add(resolved)
                 } else if (resolved) {
-                    if (Neo.isFunction(resolved.module) && !resolved.module.isClass) {
-                        // the lazy shape: loaded on activation — reveal is the rail's activation
+                    if (Neo.typeOf(resolved.module) === 'Function') {
+                        // the lazy shape (a loader, never a class — typeOf reads a class as 'NeoClass'):
+                        // loaded on activation, and reveal is the rail's activation
                         me.revealPaneLoads[nextId] ??= me.loadRevealPane(nextId, resolved)
                     } else {
                         me.revealPaneCache[nextId] = slot.add({...resolved})
