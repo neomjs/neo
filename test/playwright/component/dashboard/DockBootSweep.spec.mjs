@@ -44,6 +44,21 @@ const tabsNodeWith = (page, tabText) => page.locator('.neo-dashboard-dock-tabs',
 
 const actionButton = (node, glyph) => node.locator(`.neo-tab-header-toolbar .neo-button:has([class*="${glyph}"])`);
 
+/**
+ * Opens one header's focus gate through the same reactive config the focus wiring writes. A
+ * withdrawn action has no DOM node at all, so the sweep's reveal — `hidden` flipped on the
+ * retained instance — is observable on rendered chrome only once the gate is open. Driving the
+ * config keeps this a boot witness: no pane is activated and no focus moves.
+ * @param {Object} page
+ * @param {Object} node The tabs-node locator.
+ * @returns {Promise<void>}
+ */
+const openActionGate = async (page, node) => {
+    const toolbarId = await node.locator('.neo-tab-header-toolbar').first().getAttribute('id');
+
+    await page.evaluate(id => Neo.worker.App.setConfigs({id, contextualActionsVisible: true}), toolbarId)
+};
+
 test.describe('dock boot sweep — rendered chrome after a static first projection', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('test/playwright/component/apps/dock-static-boot/index.html');
@@ -53,6 +68,8 @@ test.describe('dock boot sweep — rendered chrome after a static first projecti
 
     test('the sweep reaches live chrome and REVEALS an action the projection defaulted hidden', async ({page}) => {
         const header = tabsNodeWith(page, 'Contract');
+
+        await openActionGate(page, header);
 
         // The projection hardcodes reload to `hidden: true`, so its ABSENCE proves nothing — that is
         // the default, and an arm asserting it stays green with the sweep deleted. The discriminating
@@ -79,6 +96,8 @@ test.describe('dock boot sweep — rendered chrome after a static first projecti
 
         const header = tabsNodeWith(page, 'Contract'),
               reload = actionButton(header, 'fa-rotate-right');
+
+        await openActionGate(page, header);
 
         // Poll the observable rather than a clock: `tailReplaced` flips the instant the sweep consumes
         // its sampled tail, which is precisely when the contested state exists. No fixed sleep.
