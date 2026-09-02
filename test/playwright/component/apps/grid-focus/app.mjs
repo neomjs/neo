@@ -11,6 +11,12 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
  * store's last row — must land DOM focus on the grid View (the single focus anchor), and a real
  * drag inside a body tall enough to scroll must still scroll it without selecting any text.
  * `#grid-focus-outside` in index.html is the focusable target the leave arm moves focus to.
+ *
+ * The long grid's first three rows are also native HTML5 drag sources (`nativeDragZone`), the way
+ * a consumer grid hands rows to an iframe or another window: a press on one of them turns into a
+ * browser drag after a few pixels, which ends the mouse-event stream the drag-to-scroll addon's
+ * monitor waits on. Rows further down stay plain, so the same body still proves ordinary
+ * drag-to-scroll.
  * @class Neo.test.playwright.GridFocusModel
  * @extends Neo.data.Model
  */
@@ -75,11 +81,15 @@ export const onStart = () => Neo.app({
             store : ShortStore,
             columns
         }, {
-            module: GridContainer,
-            id    : 'grid-focus-long',
-            flex  : 1,
-            store : LongStore,
-            columns
+            module        : GridContainer,
+            id            : 'grid-focus-long',
+            flex          : 1,
+            store         : LongStore,
+            columns,
+            nativeDragZone: {
+                delegate: '.neo-grid-row:nth-child(-n+3)',
+                types   : {'text/plain': '{data-record-id}'}
+            }
         }]
     },
     name: 'Test.Playwright.GridFocus'
