@@ -154,6 +154,13 @@ export async function assertAffordanceContainment(app, {dockHostId, indicatorIds
  * after the default became region mode, so the demo's own witness reported a red that named no
  * defect. A size contract belongs in one place, and this is not it.
  *
+ * Known bound of the instrument: "a sub-region, not the whole zone" is expressed against the same
+ * `tolerance` as every other comparison, so a placement occupying more than `1 - tolerance/extent`
+ * of its zone reads as the whole thing — above roughly 0.993 on a 300px zone. `Preview` derives
+ * that share from the affordance's own `ratio`, so a legitimate region near the extreme would be
+ * refused here. Widening it means asserting the share, which is the size contract this helper
+ * deliberately does not hold a copy of; raise the caller's `tolerance` for such a case instead.
+ *
  * @param {Object} app the connected neuralLink app wrapper
  * @param {Object} geometry {zoneId, previewRect, kind: 'tab-into' | 'edge-top' | 'edge-right' | 'edge-bottom' | 'edge-left'}
  * @param {Number} [tolerance=2]
