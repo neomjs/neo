@@ -83,7 +83,8 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * lost the field on precisely the failures it exists to explain. Verdicts are computed from the RAW
  * observation before normalization, so the admitted/rejected population is unchanged by it.
  * @param {Object} data
- * @param {Number|undefined} data.observedBarItemCount Rendered tab-bar child count.
+ * @param {Number|undefined} data.observedBarItemCount Semantic tab-button count of the source bar —
+ * `tab.header.Toolbar#getTabButtons()`, never `items.length`. See the `barItemCount` note below.
  * @param {String|undefined} data.observedNodeId Live `dockNodeId` of the source tabs node.
  * @param {String[]} [data.observedProjectedItemIds=[]] Live projected dock item ids.
  * @param {String|undefined} data.observedWorkspaceId Live `dockWorkspaceId` of the source sort zone.
@@ -101,9 +102,12 @@ export const describeCrossWindowChromeMismatch = ({
     sourceNodeId,
     sourceWorkspaceId
 }={}) => {
-    // `barItemCount` compares the tab bar's rendered children against the DOCUMENT's item count, so any
-    // header-action chrome the bar carries that is not a projected dock item makes the two disagree —
-    // the first term to suspect while header actions keep landing on that surface.
+    // `barItemCount` compares the source bar's SEMANTIC tab buttons against the DOCUMENT's item count.
+    // It must never be fed `bar.items.length`: the action group and the spacer share that array with the
+    // tab buttons, so a raw child count disagrees with the document by the number of header actions the
+    // bar happens to carry — measured, not supposed. `tab.header.Toolbar#getTabButtons()` is the single
+    // membership answer the tab SortZone already shares, which is why `projectedItemIds` agreed with the
+    // document on the very run where this term did not.
     let chromeMismatch = {
         dockNodeId      : {expected: sourceNodeId,           actual: observedNodeId,                 mismatch: observedNodeId          !== sourceNodeId},
         dockWorkspaceId : {expected: sourceWorkspaceId,      actual: observedWorkspaceId,            mismatch: observedWorkspaceId     !== sourceWorkspaceId},
@@ -2113,7 +2117,7 @@ class DemoBWorkspace extends Container {
             }
 
             let {chromeMismatch, error: chromeError} = describeCrossWindowChromeMismatch({
-                observedBarItemCount    : sourceBar?.items?.length,
+                observedBarItemCount    : sourceBar?.getTabButtons()?.length,
                 observedNodeId          : sourceTabs?.dockNodeId,
                 observedProjectedItemIds: projectedItems,
                 observedWorkspaceId     : sourceZone?.dockWorkspaceId,
