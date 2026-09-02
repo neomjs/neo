@@ -129,16 +129,9 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         await outside.focus();
         const relock = actionButton(main, 'fa-lock');
 
-        await expect(relock).toHaveClass(/neo-toolbar-action-context-inactive/);
-        await expect(relock).toHaveAttribute('aria-label', 'lock');
-        // Focus state crosses the App/Main render boundary. The class can become observable before
-        // the sibling accessibility deltas settle, so poll the semantic state itself rather than
-        // treating one DOM class as a settlement acknowledgement for unrelated VDOM properties.
-        await expect.poll(() => relock.evaluate(node => ({
-            ariaHidden: node.getAttribute('aria-hidden'),
-            inert     : node.inert,
-            tabIndex  : node.tabIndex
-        }))).toEqual({ariaHidden: 'true', inert: true, tabIndex: -1});
+        // Back under the focus gate, a withdrawn action has no node at all — the collapse is DOM
+        // absence on the retained instance, so there is no class or attribute left to observe.
+        await expect(relock, 'lock is withdrawn again once the protective state ends').toHaveCount(0);
 
         await tabButton(main, 'Beta').focus();
         await tabButton(main, 'Beta').click();

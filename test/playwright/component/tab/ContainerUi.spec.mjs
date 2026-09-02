@@ -265,9 +265,11 @@ test.describe('Neo.tab.Container — ui variants', () => {
                 closeAction   = inlineToolbar.locator('.neo-toolbar-action[aria-label="close"]'),
                 ordinary     = page.locator('#tab-ui-ordinary-toolbar .neo-toolbar-action');
 
-            await expect(gatedAction).toHaveClass(/neo-toolbar-action-context-inactive/);
-
-            const gatedBox = await gatedAction.boundingBox();
+            // A gated action is collapsed OUT of the DOM while quiet, so there is no node and no
+            // box. The superseded contract preserved the box and left a hole in the rail between
+            // the actions actually on offer; revealing an action now grows the cluster instead of
+            // filling a slot that was already paid for.
+            await expect(gatedAction, 'a gated action occupies no space: it has no node').toHaveCount(0);
 
             await inlineToolbar.locator('.neo-tab-header-button').first().focus();
             await expect(gatedAction).not.toHaveClass(/neo-toolbar-action-context-inactive/);
@@ -276,11 +278,6 @@ test.describe('Neo.tab.Container — ui variants', () => {
 
             const exposedBox = await gatedAction.boundingBox();
 
-            // A gated action is collapsed OUT of the layout, so while quiet it has no box at all.
-            // The superseded contract preserved the box and left a hole in the rail between the
-            // actions actually on offer; revealing an action now grows the cluster instead of
-            // filling a slot that was already paid for.
-            expect(gatedBox,   'a gated action occupies no space').toBeNull();
             expect(exposedBox, 'revealing it gives it a box').not.toBeNull();
 
             const measured = {

@@ -77,10 +77,10 @@ test.describe('dock pop-out — the click is the drag terminal', () => {
     test('pop-out holds the frozen family slot, focus-gated beside an always-visible close', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 
-        // Focus-gated: collapsed out of the layout entirely until the container holds focus, so a
-        // withdrawn action costs no rail space. Close's `contextual: false` exemption is the
-        // visible contrast — it is the one action that is always on offer.
-        await expect(actionButton(main, 'fa-window-restore')).toHaveClass(/neo-toolbar-action-context-inactive/);
+        // Focus-gated: absent from the DOM entirely until the container holds focus, so a withdrawn
+        // action costs no rail space and no consumer rule can give it one. Close's
+        // `contextual: false` exemption is the visible contrast — the one action always on offer.
+        await expect(actionButton(main, 'fa-window-restore')).toHaveCount(0);
         await expect(actionButton(main, 'fa-times')).not.toHaveClass(/neo-toolbar-action-context-inactive/);
 
         await tabButton(main, 'Alpha').click();

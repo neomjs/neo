@@ -57,8 +57,10 @@ class Toolbar extends Container {
          */
         baseCls: ['neo-toolbar'],
         /**
-         * Whether focus-gated actions are currently exposed. Inactive actions keep their layout
-         * extent but leave pointer, keyboard, and accessibility navigation.
+         * Whether focus-gated actions are currently exposed. An inactive action keeps its instance,
+         * its listeners and its place in the actions array, but has no DOM node: it occupies no
+         * layout, and no consumer stylesheet can give it a box back. See
+         * {@link #applyContextualActionState} for the invariant and its mechanism.
          *
          * Driven by {@link #focusSubjectId}; a composition may still set it directly when its
          * exposing signal is not a focus event.
@@ -213,13 +215,34 @@ class Toolbar extends Container {
     }
 
     /**
-     * Offers or withdraws the contextual actions. A withdrawn action is removed from the layout,
-     * not merely made invisible — the rail must not encode absent affordances as empty space.
-     * @param {Boolean} [silent=false]
+     * Offers or withdraws the contextual actions. A withdrawn action is removed from the DOM, not
+     * merely made invisible: the rail must not encode absent affordances as empty space, and the
+     * removal has to hold against consumer CSS of any weight.
+     *
+     * The invariant: a context-inactive action occupies no layout, and consumer CSS cannot make it
+     * occupy layout again. A class-driven `display: none` cannot promise that — any viewport-scoped
+     * consumer rule on `.neo-toolbar-action` outranks it silently, and escalating specificity only
+     * moves the tie to the next consumer. So the collapse is expressed through the component's own
+     * absence primitive, the `vdom.removeDom` marker that `hidden` uses under
+     * `hideMode: 'removeDom'`, on the retained instance: same instance, same listeners, same place
+     * in the actions array, no node. A consumer may style `.neo-toolbar-action` freely — hit areas,
+     * rest and hover paint — without knowing the collapse exists. The
+     * `neo-toolbar-action-context-inactive` class stays on the instance as the measurement marker
+     * `Neo.tab.plugin.Overflow` filters by; it never reaches a rendered node.
+     *
+     * DOM presence is layered, never shared. The toolbar owns the presence of a WITHDRAWN action
+     * and hands it back to the consumer's own `hidden` on reveal, so a `hidden: true` action stays
+     * absent when focus arrives and a `hidden: false` one returns. The hold is the component's own
+     * `domWithheld`: `show()` leaves the marker in place while it is raised, on every un-hide path —
+     * including the second `show()` a batched `set()` runs after its silent pass, which fires past
+     * any `hiddenChange` listener and is why a re-stamp from the toolbar could never be the last
+     * writer.
+     * @param {Boolean} [silent=false] Stamp the vdom only; the caller owns the update.
      */
     applyContextualActionState(silent=false) {
         let me      = this,
-            visible = me.contextualActionsVisible;
+            visible = me.contextualActionsVisible,
+            touched = false;
 
         me.getActionItems().forEach(item => {
             let focusGated      = me.isFocusGatedAction(item),
@@ -247,7 +270,9 @@ class Toolbar extends Container {
 
                 vdom['aria-hidden'] = 'true';
                 vdom.inert         = true;
-                vdom.tabIndex      = -1
+                vdom.tabIndex      = -1;
+                item.domWithheld   = true;
+                vdom.removeDom     = true
             } else {
                 delete vdom['aria-hidden'];
                 delete vdom.inert;
@@ -261,10 +286,34 @@ class Toolbar extends Container {
 
                     delete item._toolbarActionTabIndex
                 }
+
+                item.domWithheld = false;
+                me.syncActionDomPresence(item)
             }
 
-            !silent && item.update()
-        })
+            touched = true
+        });
+
+        // One update at the owner: a child cannot re-insert its own removed node, and the parent
+        // diff is what carries the removals and the returns alike.
+        if (touched && !silent) {
+            me.updateDepth = -1;
+            me.update()
+        }
+    }
+
+    /**
+     * Restores a revealed action's DOM presence to what its consumer decided: `hidden` under
+     * `hideMode: 'removeDom'` keeps the node out, anything else brings it back.
+     * @param {Neo.component.Base} item
+     * @protected
+     */
+    syncActionDomPresence(item) {
+        if (item.hidden && item.hideMode !== 'visibility') {
+            item.vdom.removeDom = true
+        } else {
+            delete item.vdom.removeDom
+        }
     }
 
     /**

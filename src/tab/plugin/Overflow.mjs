@@ -297,10 +297,10 @@ class Overflow extends Plugin {
     /**
      * Actions which actually reduce the tab strip's main-axis extent.
      *
-     * A contextually inactive action is collapsed out of the layout, so it must be excluded here
-     * rather than measured: a collapsed node reports an all-zero rect, and this measurement reads
-     * the rect's POSITION as well as its size. Measuring one would place the action cluster at
-     * offset 0 and consume the entire strip, collapsing every tab into the overflow menu.
+     * A contextually inactive action has no DOM node (`toolbar.Base#applyContextualActionState`
+     * withholds it), so it must be excluded here rather than measured: this measurement reads each
+     * rect's POSITION as well as its size, and a missing or all-zero rect would place the action
+     * cluster at offset 0 and consume the entire strip, collapsing every tab into the overflow menu.
      * @returns {Neo.component.Base[]}
      */
     getActionItems() {

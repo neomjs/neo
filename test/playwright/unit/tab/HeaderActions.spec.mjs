@@ -182,6 +182,7 @@ test.describe.serial('Neo tab header actions', () => {
         expect(action.vdom['aria-hidden']).toBe('true');
         expect(action.vdom['aria-label']).toBe('contextual');
         expect(action.vdom.tabIndex).toBe(-1);
+        expect(action.vdom.removeDom, 'withdrawn = no DOM node, not a styled one').toBe(true);
 
         toolbar.contextualActionsVisible = true;
 
@@ -191,6 +192,7 @@ test.describe.serial('Neo tab header actions', () => {
         expect(action.vdom.inert).toBeUndefined();
         expect(action.vdom['aria-hidden']).toBeUndefined();
         expect(action.vdom.tabIndex).toBeUndefined();
+        expect(action.vdom.removeDom, 'revealed = the node returns').toBeUndefined();
 
         action.vdom.tabIndex = 4;
         toolbar.contextualActionsVisible = false;
@@ -214,7 +216,58 @@ test.describe.serial('Neo tab header actions', () => {
         toolbar.contextualActionsVisible = true;
 
         expect(action.hidden, 'focus context cannot overwrite consumer-owned availability').toBe(true);
-        expect(removeDomAtVisibilitySignal, 'geometry invalidation follows the hidden DOM-state commit').toBe(true)
+        expect(removeDomAtVisibilitySignal, 'geometry invalidation follows the hidden DOM-state commit').toBe(true);
+        expect(action.vdom.removeDom, 'reveal hands presence back to the consumer: hidden keeps the node out').toBe(true);
+
+        action.hidden = false;
+        expect(action.vdom.removeDom, 'un-hiding while revealed brings the node back').toBeUndefined();
+
+        // The consumer un-hides while the action is WITHDRAWN. Availability stays the consumer's;
+        // presence stays the toolbar's until the gate opens: the toolbar holds the DOM through the
+        // component's own `domWithheld`, so `show()` leaves the marker in place.
+        toolbar.contextualActionsVisible = false;
+        action.hidden = true;
+        action.hidden = false;
+
+        expect(action.hidden).toBe(false);
+        expect(action.domWithheld, 'the toolbar holds the DOM of a withdrawn action').toBe(true);
+        expect(action.vdom.removeDom, 'a withdrawn action stays absent through a consumer un-hide').toBe(true);
+
+        // The batched path is the one no listener can win: `component.Abstract#set()` runs a second
+        // `show()` after its silent pass, past every `hiddenChange` listener. This is the dock's own
+        // shape — `Workspace#syncDockReloadAction` un-hides through `set({disabled, hidden})`.
+        action.hidden = true;
+        action.set({disabled: false, hidden: false});
+
+        expect(action.hidden).toBe(false);
+        expect(action.vdom.removeDom, 'a batched un-hide cannot re-insert a withdrawn action').toBe(true);
+
+        toolbar.contextualActionsVisible = true;
+
+        expect(action.domWithheld, 'reveal releases the hold').toBe(false);
+        expect(action.vdom.removeDom).toBeUndefined()
+    });
+
+    test('actions arriving while withdrawn are absent before their first render', () => {
+        const toolbar = own(Neo.create(Toolbar, {
+                  actions: [{action: 'first', contextual: true, iconCls: 'fa fa-eye'}]
+              })),
+              late    = toolbar.addActionContribution({action: 'late', iconCls: 'fa fa-clock', showOnFocus: true});
+
+        expect(late.cls).toContain('neo-toolbar-action-context-inactive');
+        expect(late.vdom.removeDom, 'a contributed gated action is withdrawn before it renders').toBe(true);
+
+        toolbar.actions = [{action: 'replaced', contextual: true, iconCls: 'fa fa-x'}];
+
+        const replaced = toolbar.getActionItem('replaced');
+
+        expect(replaced.vdom.removeDom, 'a replaced gated action is withdrawn before it renders').toBe(true);
+        expect(late.vdom.removeDom, 'the contribution survives the replacement, still withdrawn').toBe(true);
+
+        toolbar.contextualActionsVisible = true;
+
+        expect(late.vdom.removeDom).toBeUndefined();
+        expect(replaced.vdom.removeDom).toBeUndefined()
     });
 
     test('Dialog header order and headerAction payload stay compatible', () => {

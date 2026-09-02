@@ -82,8 +82,8 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
               maximize = actionButton(main, 'fa-window-maximize'),
               close    = actionButton(main, 'fa-times');
 
-        await soleAction(reload, 'reload');
-        await expect(reload).toHaveClass(/neo-toolbar-action-context-inactive/);
+        // Withdrawn = absent: a focus-gated action has no node until the container holds focus.
+        await expect(reload, 'reload is withdrawn until focus arrives').toHaveCount(0);
 
         await tabButton(main, 'Alpha').click();
         await soleAction(reload, 'reload');
@@ -105,9 +105,11 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         const edge   = tabsNodeWith(page, 'Pinned'),
               reload = actionButton(edge, 'fa-rotate-right');
 
-        // The edge node's carrier offers reload from the first projection on.
-        await soleAction(reload, 'reload');
+        // Withdrawn until the container holds focus — no node. The edge node's carrier offers reload
+        // from the first projection on, so focus reveals it at once.
+        await expect(reload).toHaveCount(0);
         await tabButton(edge, 'Pinned').click();
+        await soleAction(reload, 'reload');
         await expect(reload).not.toHaveClass(/neo-toolbar-action-context-inactive/);
 
         // The one-way unpin rails the pane. `railed` is committed auto-hidden already, so the
@@ -132,10 +134,12 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         // The action is projected `hidden: true` by the stable-instance rule and only the
         // post-settle sweep reveals it — a sweep that never reaches the fresh node leaves the
         // returned pane without the one action the round trip owes it.
-        await soleAction(reloadBack, 'reload');
-        await expect(reloadBack).toHaveClass(/neo-toolbar-action-context-inactive/);
+        // Absent while withdrawn — whether by the projection's `hidden: true` or by the focus gate,
+        // so the discriminating read is the one after focus: a node only exists if the sweep un-hid it.
+        await expect(reloadBack).toHaveCount(0);
 
         await tabButton(returned, 'Pinned').click();
+        await soleAction(reloadBack, 'reload');
         await expect(reloadBack).not.toHaveClass(/neo-toolbar-action-context-inactive/)
     });
 

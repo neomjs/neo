@@ -350,6 +350,17 @@ class Component extends Abstract {
     nativeDragZoneWindowId = null
 
     /**
+     * Whether an owner withholds this component's DOM while its own `hidden` is false. A container
+     * that layers a second presence axis over a child's availability — `Neo.toolbar.Base` withdrawing
+     * a focus-gated action, see `applyContextualActionState` — stamps `vdom.removeDom` and raises this
+     * flag together; {@link #show} then leaves the marker in place on every path that un-hides the
+     * child, including the second `show()` a batched `set()` runs after its silent pass. The owner
+     * drops the flag and restores the marker to what `hidden` says.
+     * @member {Boolean} domWithheld=false
+     */
+    domWithheld = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -1787,12 +1798,16 @@ class Component extends Abstract {
      * Show the component.
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
+     * While {@link #domWithheld} is set, the `removeDom` marker stays: the owner holding the DOM back
+     * decides presence, and this call only records the consumer's `hidden: false`.
      */
     show() {
         let me = this;
 
         if (me.hideMode !== 'visibility') {
-            delete me.vdom.removeDom;
+            if (!me.domWithheld) {
+                delete me.vdom.removeDom
+            }
 
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
