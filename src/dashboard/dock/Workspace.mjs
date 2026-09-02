@@ -890,13 +890,31 @@ class Workspace extends Container {
     afterTearOutPaneAdopt(data) {}
 
     /**
-     * Hook: resolves the app-owned live pane that a vessel should embody.
+     * @summary Resolves the live pane a vessel should embody, defaulting to the engine's own projection.
+     *
+     * This was a hook whose default declined, and the decline was not survivable: `captureTearOutPane`
+     * stores nothing, so `reparentTearOutPane` finds no pane, returns `false`, and
+     * `compensateFailedTearOutAdoption` CLOSES the vessel the consumer was just asked to open. A host
+     * that writes no pane resolver therefore gets a pop-out that opens a window and kills it — measured
+     * at ~530ms on a real consumer, with no signal anywhere.
+     *
+     * The engine does not need to be told: `projection.LayoutAdapter` stamps `dockItemId` on every
+     * projected pane it emits, so the live component is a lookup away.
+     *
+     * **The lookup excludes tab header buttons deliberately.** The adapter stamps the SAME identity on
+     * the header it builds from the pane's config, so the button carries `dockItemId` structurally too
+     * (that is what makes keyboard identity work). An unqualified `down()` returns whichever comes
+     * first, and a header button reparented into a vessel is a defect that would look like a success.
+     *
+     * A consumer that owns its pane lifecycle still overrides this; the override remains authoritative.
      * @param {String} itemId
      * @returns {Neo.component.Base|null}
      * @protected
      */
     resolveTearOutPane(itemId) {
-        return null
+        const matches = this.getDockHost()?.down({dockItemId: itemId}, false) || [];
+
+        return matches.find(component => component.ntype !== 'tab-header-button') || null
     }
 
     /**

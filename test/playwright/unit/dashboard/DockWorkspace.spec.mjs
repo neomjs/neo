@@ -2997,5 +2997,53 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(() => workspace.onDockProjectionFailed(foreign, createDocument(), null, {})).toThrow(foreign);
             expect(workspace.repairLog).toEqual([])
         })
+    });
+
+    test.describe('#18153 the engine resolves its own tear-out pane', () => {
+        test('a workspace that overrides nothing resolves the live projected pane', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const pane = workspace.resolveTearOutPane('editor');
+
+            // Before this default the hook returned null, and the decline was not survivable:
+            // captureTearOutPane stores nothing, reparentTearOutPane finds no pane and returns false,
+            // and compensateFailedTearOutAdoption CLOSES the vessel the consumer was asked to open.
+            expect(pane, 'the engine finds the projected pane without a consumer hook').toBeTruthy();
+            expect(pane.dockItemId, 'and it is the pane for the requested item').toBe('editor')
+        });
+
+        test('it returns the PANE, never the tab header button that carries the same identity', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            // LayoutAdapter stamps dockItemId on the header it builds from the pane's own config, so
+            // the button carries the identity structurally too. An unqualified down() can return it,
+            // and a header button reparented into a vessel would look like a success.
+            const host    = workspace.getDockHost(),
+                  matches = host?.down({dockItemId: 'editor'}, false) || [],
+                  buttons = matches.filter(component => component.ntype === 'tab-header-button');
+
+            expect(matches.length, 'the identity is stamped on more than one component').toBeGreaterThan(1);
+            expect(buttons.length, 'and one of them is a tab header button — the arm is not vacuous').toBeGreaterThan(0);
+
+            expect(workspace.resolveTearOutPane('editor').ntype,
+                'the resolver skips the button').not.toBe('tab-header-button')
+        });
+
+        test('captureTearOutPane now retains a handle, which is what makes the vessel survivable', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            workspace.captureTearOutPane('editor');
+
+            // The whole failure chain starts here: an empty handle map is what makes the reparent
+            // fail and the engine close its own vessel.
+            expect(workspace.tearOutPaneHandles.editor, 'the handle map is populated').toBeTruthy();
+            expect(workspace.releaseTearOutPane('editor'), 'and the pane is releasable for return').toBeTruthy()
+        });
+
+        test('an unknown itemId still resolves to null rather than an arbitrary component', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            expect(workspace.resolveTearOutPane('no-such-item')).toBeNull()
+        })
     })
 });
