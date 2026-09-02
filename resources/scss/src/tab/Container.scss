@@ -1,9 +1,19 @@
 .neo-tab-container {
-    // The public inline-header hook belongs to the variant selector, not the generic toolbar. A
-    // consumer may set the token on any ancestor; ui:null and standalone containers never match
-    // this rule and therefore keep their established flat paint.
+    // The public inline-header hooks belong to the variant selector, not the generic toolbar. A
+    // consumer may set the tokens on any ancestor; ui:null and standalone containers never match
+    // this rule and therefore keep their established paint. Every fallback is transparent / none,
+    // so a theme that values nothing (the legacy themes) paints exactly what it painted before.
+    //
+    // Longhands only: a `background` shorthand carries an implicit `background-image: none` that
+    // fights any consumer valuing the image hook. The hairline is an INSET shadow rather than a
+    // `border-bottom`: it paints the same line at zero layout cost, so the header's box does not
+    // grow by a pixel under the zero-gap focus geometry and no height-asserting spec moves. The
+    // shadow is one whole-value token (not a colour inside a fixed shadow), so a theme that values
+    // nothing computes exactly `none` rather than a transparent shadow string.
     &.neo-tab-container-inline > .neo-tab-header-toolbar {
+        background-color: var(--tab-header-inline-background-color, transparent);
         background-image: var(--tab-header-inline-background-image, none);
+        box-shadow      : var(--tab-header-inline-box-shadow, none);
     }
 
     &.neo-bottom {
