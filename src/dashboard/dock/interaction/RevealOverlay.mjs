@@ -286,7 +286,15 @@ class RevealOverlay extends Container {
             me.cancelRevealLeave();
             me.revealSwapGeneration = 0;
             !me.isDestroyed && me.syncSnapshot();
-            me.finishRevealMotion()
+            me.finishRevealMotion();
+
+            // The terminal is announced, because the overlay is not the only owner of what the exit
+            // shows. It controls when its own DOM goes; the rail controls when the revealed PANE
+            // goes, and until this event existed the rail had no way to learn an exit was running —
+            // so it detached the pane on the dismissal frame and the keyframes played over an empty
+            // slot. A cancelled leave never reaches here (`cancelRevealLeave` clears the flag
+            // first), so a re-entry mid-exit keeps its pane by construction, not by a second guard.
+            !me.isDestroyed && me.fire('revealLeaveComplete', {overlay: me})
         }
     }
 
