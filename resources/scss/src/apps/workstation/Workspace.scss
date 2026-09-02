@@ -11,6 +11,10 @@
 //
 // Every consumer that calls `Neo.main.DomAccess#startViewTransition()` needs this today; the
 // engine owns the animation but not the cancellation that makes it visible.
+//
+// It MUST stay at file top level. These are DOCUMENT pseudo-elements: nesting them under
+// `.workstation-workspace` for tidiness would not scope them, it would make them never match —
+// silently, with a black reveal as the only symptom and nothing to connect it to the refactor.
 ::view-transition-old(root),
 ::view-transition-new(root) {
     animation     : none;
