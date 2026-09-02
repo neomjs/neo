@@ -37,7 +37,7 @@
  * | `revealed` / `dismiss-pending` | `overlayFocusEnter()` | `revealed-focused` | Focus rescues and holds. |
  * | `revealed-focused` | `overlayPointerLeave()` | `revealed-focused` | FOCUS-HOLD: a focused reveal never auto-dismisses. |
  * | `revealed-focused` | `overlayFocusLeave()` | `idle` | Focus leaving the overlay dismisses. |
- * | `revealed*` / `dismiss-pending` | `escape()` / `outsideClick()` | `idle` | Explicit dismissal. |
+ * | `revealed*` / `dismiss-pending` | `escape()` / `outsideClick()` | `idle` | Explicit dismissal. `outsideClick()` arrives from the rail's outside-pointer listener on the app main view (a `mousedown` outside the rail's subtree, iframes included — the stylesheet withdraws their pointer events while a reveal is open) and from the maximize path. |
  * | any | `itemCleared(item)` | `idle` | Fail-closed sync: the item left auto-hidden state (pin, restore, transfer, policy) — a reveal of it cannot survive. |
  *
  * Dismissal in every form discards runtime state only; no operation descriptor exists for it.

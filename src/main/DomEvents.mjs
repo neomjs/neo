@@ -140,6 +140,7 @@ class DomEvents extends Base {
         document.addEventListener('visibilitychange',  me.onVisibilitychange .bind(me));
         window  .addEventListener('orientationchange', me.onOrientationChange.bind(me));
         window  .addEventListener('hashchange',        me.onHashChange       .bind(me));
+        window  .addEventListener('blur',              me.onWindowBlur       .bind(me));
 
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
@@ -522,6 +523,40 @@ class DomEvents extends Base {
      */
     onFocusOut(event) {
         this.sendMessageToApp(this.getEventData(event))
+    }
+
+    /**
+     * Focus crossing into a nested document is invisible to the focus events this document forwards:
+     * the element losing focus fires `focusout` with no `relatedTarget`, the `<iframe>` element that
+     * now holds it fires no `focusin`, and only the window's `blur` says anything happened. Without a
+     * `focusin` the app worker's focus manager reads the `focusout` as a leave after its gap — a
+     * click into an iframe INSIDE a focus-holding subtree looks like leaving it. This forwards the
+     * frame element as the focus target, so the worker sees a move to the component that hosts the
+     * frame. `activeElement` settles after `blur`, hence the deferral; a blur that leaves the
+     * document altogether (another window) has no iframe at the active element and forwards nothing.
+     */
+    onWindowBlur() {
+        let me = this;
+
+        setTimeout(() => {
+            let node = document.activeElement,
+                path = [];
+
+            if (node?.tagName !== 'IFRAME') {
+                return
+            }
+
+            for (let current = node; current; current = current.parentNode) {
+                path.push(current)
+            }
+
+            me.sendMessageToApp(me.getEventData({
+                composedPath: () => path,
+                target      : node,
+                timeStamp   : performance.now(),
+                type        : 'focusin'
+            }))
+        }, 0)
     }
 
     /**

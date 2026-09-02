@@ -169,6 +169,20 @@ class Rail extends Container {
      * @protected
      */
     revealOverlay = null
+    /**
+     * One retained `mousedown` config on the app main view while a reveal is open — the outside
+     * pointer reading (`Neo.form.field.Picker`'s idiom). A pointer landing anywhere the reveal does
+     * not own is leaving it, whether or not that target can take focus.
+     * @member {Object|null} outsidePointerListener=null
+     * @protected
+     */
+    outsidePointerListener = null
+    /**
+     * The main view currently carrying {@link #outsidePointerListener}.
+     * @member {Neo.component.Base|null} outsidePointerListenerOwner=null
+     * @protected
+     */
+    outsidePointerListenerOwner = null
 
     /**
      * Seeds the initial button set from `railItems` before the container creates its items —
@@ -440,6 +454,7 @@ class Rail extends Container {
     destroy(...args) {
         let me = this;
 
+        me.syncOutsidePointerListener(false);
         me.revealMachine?.destroy();
         me.revealMachine = null;
         me.revealOverlay = null;
@@ -460,6 +475,57 @@ class Rail extends Container {
      */
     getValidatedEdge(edge) {
         return ['top', 'right', 'bottom', 'left'].includes(edge) ? edge : 'left'
+    }
+
+    /**
+     * Adds or removes the one retained `mousedown` config on the owning app main view. Attached for
+     * as long as a reveal is open (any machine state but `idle`), detached on dismissal and destroy.
+     * @param {Boolean} attach
+     * @protected
+     */
+    syncOutsidePointerListener(attach) {
+        let me    = this,
+            owner = me.outsidePointerListenerOwner;
+
+        if (attach && !owner) {
+            owner = me.app?.mainView;
+
+            if (owner) {
+                me.outsidePointerListener ||= {mousedown: me.onAppMouseDown, scope: me};
+                owner.addDomListeners(me.outsidePointerListener);
+                me.outsidePointerListenerOwner = owner
+            }
+        } else if (!attach && owner) {
+            owner.removeDomListeners(me.outsidePointerListener);
+            me.outsidePointerListenerOwner = null
+        }
+    }
+
+    /**
+     * A `mousedown` on the app main view while a reveal is open. Anything outside this rail's own
+     * subtree — the overlay is a child of the rail — is leaving the reveal, so the machine gets the
+     * explicit dismissal input the maximize path already uses. The reveal's own tabs and its
+     * overlay stay with their own handlers: a tab click is a retarget or a toggle, an inside click
+     * refocuses the root.
+     *
+     * This is what a nested document needs. Nothing inside an iframe reaches the parent, and a frame
+     * whose document cancels the `mousedown` default takes no focus either — so the stylesheet
+     * withdraws pointer events from every frame outside an open reveal, the click lands on the
+     * parent element beneath the frame, and it arrives here.
+     * @param {Object} data
+     * @param {Object[]} [data.path]
+     * @protected
+     */
+    onAppMouseDown(data) {
+        let me = this;
+
+        if (!me.revealMachine || me.revealMachine.state === 'idle') {
+            return
+        }
+
+        if (!(data.path || []).some(item => item.id === me.id)) {
+            me.revealMachine.outsideClick()
+        }
     }
 
     /**
@@ -584,6 +650,7 @@ class Rail extends Container {
 
         me.syncRevealOverlay();
         me.syncRevealedTabState(next.revealedItemId);
+        me.syncOutsidePointerListener(next.state !== 'idle');
 
         // Embodied focus-hold: a click-born reveal moves REAL browser focus into the overlay.
         // Focus-rescue transitions (revealed / dismiss-pending -> focused) already hold focus
