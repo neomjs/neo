@@ -222,10 +222,28 @@
 }
 
 @keyframes neo-dock-reveal-fade        { from { opacity: 0 } }
-@keyframes neo-dock-reveal-from-left   { from { transform: translateX(-100cqw) } }
-@keyframes neo-dock-reveal-from-right  { from { transform: translateX(100cqw) } }
-@keyframes neo-dock-reveal-from-top    { from { transform: translateY(-100cqh) } }
-@keyframes neo-dock-reveal-from-bottom { from { transform: translateY(100cqh) } }
+
+// The per-edge entry travel, emitted once per SWAP GENERATION. The retarget rules below need a
+// second `animation-name` per direction — a CSS animation restarts only when its name changes —
+// but the two generations have to stay geometrically IDENTICAL. Maintained by hand they could
+// drift apart silently, and the symptom is peculiarly hard to read: alternating retargets would
+// render differently from each other, one sliding the tuned distance and the next the old one, on
+// every second interaction. It looks like a rendering glitch rather than a CSS error, and an arm
+// that asserts each generation runs an animation cannot see it. Both names therefore come from
+// this single declaration; `DockRailRevealRetarget.spec.mjs` asserts the two generations' keyframes
+// are equal, so a future edit cannot reach one twin without the other (#18129).
+$dock-reveal-entry-travel: (
+    left  : translateX(-100cqw),
+    right : translateX(100cqw),
+    top   : translateY(-100cqh),
+    bottom: translateY(100cqh)
+);
+
+@each $generation in ('', '-b') {
+    @each $edge, $travel in $dock-reveal-entry-travel {
+        @keyframes neo-dock-reveal-from-#{$edge}#{$generation} { from { transform: $travel } }
+    }
+}
 
 // A retarget — the reveal follows a click on another item of the same rail while it is open — is an
 // entry for the incoming content with no exit for the root: the panel stays where it is, the new
@@ -263,12 +281,15 @@
     &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-bottom }
 }
 
-@keyframes neo-dock-reveal-hold-a        { to { opacity: 1 } }
-@keyframes neo-dock-reveal-hold-b        { to { opacity: 1 } }
-@keyframes neo-dock-reveal-from-left-b   { from { transform: translateX(-100cqw) } }
-@keyframes neo-dock-reveal-from-right-b  { from { transform: translateX(100cqw) } }
-@keyframes neo-dock-reveal-from-top-b    { from { transform: translateY(-100cqh) } }
-@keyframes neo-dock-reveal-from-bottom-b { from { transform: translateY(100cqh) } }
+// One held frame per generation. The root must fire its OWN `animationend` to settle the motion
+// window — `onMotionAnimationEnd` matches on root target identity, and the children's ends bubble
+// past it — while staying exactly where it is, since an edge-ward root would overlap the rail strip
+// mid-entry and intercept clicks (#18074). A no-op opacity keyframe of the same token duration is
+// what buys the end event without the movement. Emitted from one declaration for the same reason
+// the travel above is: the two generations must not drift.
+@each $generation in ('a', 'b') {
+    @keyframes neo-dock-reveal-hold-#{$generation} { to { opacity: 1 } }
+}
 
 // The exit, the entry's mirror: the overlay is dismissed but not yet hidden — the same two
 // elements travel back, the root fading out where it stands, the content sliding back under its

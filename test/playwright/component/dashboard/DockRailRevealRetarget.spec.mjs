@@ -74,5 +74,66 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
         await page.keyboard.press('Escape');
         await expect(overlay).toHaveClass(/neo-dashboard-dock-reveal-overlay-hidden/, {timeout: 10000});
         await expect(overlay).not.toHaveClass(/neo-dashboard-dock-reveal-overlay-swap-/)
+    });
+
+    /**
+     * The arm above proves each generation RUNS an animation. That is not enough, and the gap is
+     * the reason this one exists: the two generations exist only so the `animation-name` differs —
+     * a CSS animation restarts on nothing else — while the geometry they animate must stay equal.
+     * Emitted from one SCSS declaration they cannot diverge; maintained as twins they could, and
+     * the symptom is a rendering glitch nobody would read as a CSS error: alternating retargets
+     * travelling different distances, wrong on every second interaction. Presence is identical in
+     * both worlds, so only a comparison of the two generations' own keyframes discriminates.
+     *
+     * Read from the running animation rather than the sheet, so what is compared is what the
+     * browser will actually interpolate — `100cqw` resolved against the live container, on the same
+     * element at the same size for both generations.
+     */
+    test('the two swap generations differ in NAME and agree in GEOMETRY', async ({page}) => {
+        const
+            overlay = page.locator(OVERLAY),
+            // The slot's own running entry animation, with its keyframes as the browser computed
+            // them. Null rather than a throw if nothing runs — an absent animation is a failure the
+            // assertions below should report, not a stack trace here.
+            readGeometry = () => overlay.evaluate(node => {
+                const
+                    slot = node.querySelector('.neo-dashboard-dock-reveal-pane-slot'),
+                    anim = slot?.getAnimations().find(a => a.animationName?.startsWith('neo-dock-reveal-from-'));
+
+                return anim ? {
+                    name     : anim.animationName,
+                    keyframes: anim.effect.getKeyframes().map(({offset, transform}) => ({offset, transform}))
+                } : null
+            });
+
+        await page.locator(TAB('Alpha')).click();
+        await expect(overlay).toBeVisible({timeout: 10000});
+        await settleAnimations(overlay);
+
+        await page.locator(TAB('Beta')).click();
+        await expect(overlay).toHaveClass(/neo-dashboard-dock-reveal-overlay-swap-1/);
+
+        const generationOne = await readGeometry();
+
+        await settleAnimations(overlay);
+
+        await page.locator(TAB('Alpha')).click();
+        await expect(overlay).toHaveClass(/neo-dashboard-dock-reveal-overlay-swap-2/);
+
+        const generationTwo = await readGeometry();
+
+        // Non-vacuity: a null read on either side would make the equality below trivially true.
+        expect(generationOne, 'generation 1 must actually be animating the slot').not.toBeNull();
+        expect(generationTwo, 'generation 2 must actually be animating the slot').not.toBeNull();
+        expect(generationOne.keyframes.length, 'and the keyframes must have been readable').toBeGreaterThan(0);
+
+        // The mechanism: different names are the ONLY reason the animation restarts.
+        expect(generationTwo.name, 'the generations must name different keyframes, or nothing restarts')
+            .not.toBe(generationOne.name);
+
+        // The invariant: and yet they must travel identically.
+        expect(generationTwo.keyframes,
+            `the two generations must animate the same geometry — ${generationOne.name} vs ${generationTwo.name}`)
+            .toEqual(generationOne.keyframes)
     })
 });
