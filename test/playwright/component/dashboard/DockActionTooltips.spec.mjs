@@ -21,8 +21,11 @@ const actionButton = (node, glyph) => node.locator(`.neo-tab-header-toolbar .neo
 
 /**
  * Hovers one control and waits for the app's shared tooltip — one node, mounted on show — to carry
- * the expected text. The pointer parks on a neutral spot first, so hovering the same control twice
- * (before and after a toggle) re-enters it and the singleton reconfigures.
+ * the expected text. The pointer parks on a neutral spot first and the previous tooltip is waited
+ * OUT (it lingers for the singleton's hide delay after a leave), so hovering the same control twice
+ * (before and after a toggle) re-enters it and the singleton reconfigures — a lingering tooltip over
+ * a control that moved with its pane (maximize insets the pane by a gap) would otherwise take the
+ * hover itself and keep its stale text.
  * @param {Object} page
  * @param {Object} locator
  * @param {String} text
@@ -30,6 +33,7 @@ const actionButton = (node, glyph) => node.locator(`.neo-tab-header-toolbar .neo
  */
 const expectTooltip = async (page, locator, text) => {
     await page.mouse.move(0, 0);
+    await expect(page.locator('.neo-tooltip'), 'the previous tooltip is gone before the next hover').toBeHidden();
     await locator.hover();
     await expect(page.locator('.neo-tooltip'), `hovering shows "${text}"`).toHaveText(text)
 };

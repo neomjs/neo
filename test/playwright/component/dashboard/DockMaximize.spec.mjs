@@ -75,17 +75,32 @@ const expectMaximizedCount = async (page, count) => {
     }
 };
 
-const maximizedRectMatchesWorkspace = page => page.waitForFunction(() => {
+/**
+ * The maximized node fills the DOCK HOST inset by the gap token on every side — not the workspace
+ * root, not the viewport. The expected rect is derived from the rendered host and the token's
+ * computed value, so a host framed by other chrome, or a consumer that tunes the gap, both
+ * measure against the same contract.
+ */
+const maximizedRectMatchesHost = page => page.waitForFunction(() => {
+    const el   = document.querySelector('.neo-dock-maximized'),
+          host = document.querySelector('#dock-maximize-workspace .neo-dashboard');
+
+    if (!el || !host) return false;
+
+    const a   = el.getBoundingClientRect(),
+          b   = host.getBoundingClientRect(),
+          gap = parseFloat(getComputedStyle(host).getPropertyValue('--dock-maximize-gap')) || 0;
+
+    return Math.abs(a.top - (b.top + gap)) < 1.5 && Math.abs(a.left - (b.left + gap)) < 1.5
+        && Math.abs(a.width - (b.width - 2 * gap)) < 1.5 && Math.abs(a.height - (b.height - 2 * gap)) < 1.5
+});
+
+/** The rendered maximize chrome: the shadow token applied, no residual band cap. */
+const readMaximizedChrome = page => page.evaluate(() => {
     const el = document.querySelector('.neo-dock-maximized'),
-          ws = document.getElementById('dock-maximize-workspace');
+          cs = getComputedStyle(el);
 
-    if (!el || !ws) return false;
-
-    const a = el.getBoundingClientRect(),
-          b = ws.getBoundingClientRect();
-
-    return Math.abs(a.top - b.top) < 1.5 && Math.abs(a.left - b.left) < 1.5
-        && Math.abs(a.width - b.width) < 1.5 && Math.abs(a.height - b.height) < 1.5
+    return {boxShadow: cs.boxShadow, maxInlineSize: cs.maxInlineSize, maxBlockSize: cs.maxBlockSize}
 });
 
 test.beforeEach(async ({page}) => {
@@ -115,7 +130,7 @@ test.describe('dock maximize — presentation, never topology', () => {
         expect(maxBox.x).toBeLessThan(closeBox.x)
     });
 
-    test('maximize paints the measured workspace rect on the SAME node — iframe intact — and Escape restores with focus return', async ({page}) => {
+    test('maximize paints the dock host\'s rect, inset by the gap, on the SAME node — iframe intact — and Escape restores with focus return', async ({page}) => {
         const side = tabsNodeWith(page, 'Frame');
 
         await page.evaluate(() => {
@@ -130,7 +145,11 @@ test.describe('dock maximize — presentation, never topology', () => {
         await actionButton(side, 'fa-window-maximize').click();
 
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
-        await maximizedRectMatchesWorkspace(page);
+        await maximizedRectMatchesHost(page);
+
+        const chrome = await readMaximizedChrome(page);
+
+        expect(chrome.boxShadow, 'the maximized pane floats on the shadow token').not.toBe('none');
 
         expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['side-tabs']);
 
@@ -166,6 +185,31 @@ test.describe('dock maximize — presentation, never topology', () => {
             document.activeElement?.classList?.contains('neo-tab-header-button')
             && document.activeElement.textContent.includes('Frame')
         )
+    });
+
+    test('an edge-band node maximizes to the same host rect as a center node — the band caps lift for the duration', async ({page}) => {
+        const edge = tabsNodeWith(page, 'Pinned');
+
+        await tabButton(edge, 'Pinned').click();
+        await actionButton(edge, 'fa-window-maximize').click();
+
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['edge-tabs']);
+
+        // The band's `max-inline-size: 50%` used to survive the maximize class and cap the written
+        // rect at half the host; the host-rect match below is the regression, the cap read the cause.
+        await maximizedRectMatchesHost(page);
+
+        const chrome = await readMaximizedChrome(page);
+
+        expect(chrome.maxInlineSize, 'no band cap on the inline axis while maximized').toBe('none');
+        expect(chrome.maxBlockSize,  'no band cap on the block axis while maximized').toBe('none');
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
+
+        // Restored: the band measure applies again.
+        expect(await edge.evaluate(node => getComputedStyle(node).maxInlineSize), 'the band cap returns on restore').not.toBe('none')
     });
 
     test('the committed document and captured perspectives never observe maximize', async ({page}) => {
@@ -289,7 +333,7 @@ test.describe('dock maximize — presentation, never topology', () => {
 
         await tabButton(main, 'Alpha').click();
         await actionButton(main, 'fa-window-maximize').click();
-        await maximizedRectMatchesWorkspace(page);
+        await maximizedRectMatchesHost(page);
 
         // The observation exists exactly as long as the presentation does.
         await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(true);
@@ -300,7 +344,7 @@ test.describe('dock maximize — presentation, never topology', () => {
 
         // Delivery witnessed, then the re-measured rect re-applied.
         await expect.poll(async () => (await readWorkspace(page, ['resizeEventCount']))[0], {timeout: 10_000}).toBeGreaterThan(0);
-        await maximizedRectMatchesWorkspace(page)
+        await maximizedRectMatchesHost(page)
     });
 
     test('while maximized, cross-zone and tear-out drag flags suppress and lift exactly on restore', async ({page}) => {
@@ -455,7 +499,7 @@ test.describe('dock maximize — presentation, never topology', () => {
 
             return el && el.style.transform === ''
         });
-        await maximizedRectMatchesWorkspace(page);
+        await maximizedRectMatchesHost(page);
 
         // The restore glide: the workspace holds `neo-dock-maximize-restoring` (the paint-order
         // hold) for exactly the motion window — it must appear with the gesture and leave when

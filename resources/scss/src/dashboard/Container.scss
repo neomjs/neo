@@ -26,6 +26,15 @@
     // collapses it with its siblings below.
     --dock-transition-duration-reveal: var(--motion-panel, 280ms);
 
+    // ── Maximize presentation ────────────────────────────────────────────────────────────
+    // A maximized pane fills the DOCK HOST inset by a gap, and floats on a shadow. Both are
+    // paint-contract values a consumer tunes, never worker literals: the workspace writes the
+    // measured host rect as `calc()` against the gap token, so the token resolves in CSS. A
+    // `0px` gap and `none` are the byte-identical opt-outs. The shadow is neutral on purpose,
+    // like the drop chips' — the engine cannot know a host's palette.
+    --dock-maximize-gap   : 8px;
+    --dock-maximize-shadow: 0 16px 40px rgb(0 0 0 / 35%);
+
     // ── Splitter affordance floor ────────────────────────────────────────────────────────
     // The engine's duty here is DISCOVERABILITY; aesthetics are the consumer's. A host that
     // sets nothing must still get a findable drag target — an invisible splitter is the
@@ -654,9 +663,21 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
     // An opaque surface is part of the contract: the committed layout reflows underneath the
     // fixed pane, and a transparent header band would ghost the covered nodes' chrome through.
     background: var(--dock-maximize-background, var(--neo-background-color, #fff));
+    box-shadow: var(--dock-maximize-shadow);
     margin    : 0;
     position  : fixed;
     z-index   : var(--dock-maximize-z-index, 40);
+}
+
+// An edge-band node keeps its band measure while maximized — `max-inline-size: 50%` and its
+// block-axis twin cap the inline rect the workspace wrote, so a left or right band stopped at
+// half the host while a center node filled it. The maximized node is not a band for the
+// duration: the caps lift on the node itself, at a weight above the per-edge band rules.
+.neo-dashboard-dock-tabs.neo-dock-maximized {
+    max-block-size : none;
+    max-inline-size: none;
+    min-block-size : 0;
+    min-inline-size: 0;
 }
 
 // While a restore FLIP glides the pane from the workspace rect back into its flow slot, the

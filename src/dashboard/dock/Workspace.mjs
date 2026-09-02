@@ -2571,19 +2571,22 @@ class Workspace extends Container {
     }
 
     /**
-     * Measures the workspace root's live viewport rect — the geometry authority for the
-     * maximize presentation. The workspace measures ITSELF: `inset: 0` would answer to the
-     * viewport or an incidental fixed containing block instead of the workspace. `null` is the
-     * fail-safe trigger (unmounted mid-gesture, zero-area rect).
+     * Measures the dock host's live viewport rect — the geometry authority for the maximize
+     * presentation. A maximized pane fills the DOCK AREA, not the app view: a workspace that
+     * frames its host with a tour bar or a status bar keeps them in sight. The host is measured
+     * explicitly (the workspace root stands in while no host is mounted): `inset: 0` would answer
+     * to the viewport or an incidental fixed containing block instead. `null` is the fail-safe
+     * trigger (unmounted mid-gesture, zero-area rect).
      * @returns {Promise<Object|null>}
      * @protected
      */
     async measureDockMaximizeRect() {
         let me   = this,
+            id   = me.getDockHost()?.id || me.id,
             rect = null;
 
         try {
-            rect = await Neo.main.DomAccess.getBoundingClientRect({id: me.id, windowId: me.windowId})
+            rect = await Neo.main.DomAccess.getBoundingClientRect({id, windowId: me.windowId})
         } catch (error) {
             rect = null
         }
@@ -2591,6 +2594,29 @@ class Workspace extends Container {
         Array.isArray(rect) && (rect = rect[0]);
 
         return (rect?.width > 0 && rect?.height > 0) ? rect : null
+    }
+
+    /**
+     * @summary The four inline rect values of a maximized node: the measured host rect inset by
+     * the gap token on every side.
+     *
+     * The gap is a paint-contract value (`--dock-maximize-gap` on `.neo-dashboard`), never a
+     * worker literal, so the rect is written as `calc()` against the token and resolves in CSS —
+     * a consumer tunes the gap without a worker round trip. The FLIP measures the DOM and is
+     * unaffected by how the values are expressed.
+     * @param {Object} rect The host's live viewport rect
+     * @returns {Object} `{height, left, top, width}`
+     * @protected
+     */
+    dockMaximizeRectStyle(rect) {
+        const gap = 'var(--dock-maximize-gap, 0px)';
+
+        return {
+            height: `calc(${rect.height}px - 2 * ${gap})`,
+            left  : `calc(${rect.left}px + ${gap})`,
+            top   : `calc(${rect.top}px + ${gap})`,
+            width : `calc(${rect.width}px - 2 * ${gap})`
+        }
     }
 
     /**
@@ -2817,12 +2843,7 @@ class Workspace extends Container {
                 ...tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'),
                 'neo-dock-maximized'
             ])],
-            wrapperStyle: {
-                height: `${rect.height}px`,
-                left  : `${rect.left}px`,
-                top   : `${rect.top}px`,
-                width : `${rect.width}px`
-            }
+            wrapperStyle: me.dockMaximizeRectStyle(rect)
         });
 
         if (animate) {
@@ -3133,12 +3154,7 @@ class Workspace extends Container {
         tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
 
         tabContainer && !tabContainer.isDestroyed && tabContainer.set({
-            wrapperStyle: {
-                height: `${rect.height}px`,
-                left  : `${rect.left}px`,
-                top   : `${rect.top}px`,
-                width : `${rect.width}px`
-            }
+            wrapperStyle: me.dockMaximizeRectStyle(rect)
         })
     }
 
