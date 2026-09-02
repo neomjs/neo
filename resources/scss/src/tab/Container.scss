@@ -1,8 +1,15 @@
 .neo-tab-container {
     // The public inline-header hooks belong to the variant selector, not the generic toolbar. A
     // consumer may set the tokens on any ancestor; ui:null and standalone containers never match
-    // this rule and therefore keep their established paint. Every fallback is transparent / none,
-    // so a theme that values nothing (the legacy themes) paints exactly what it painted before.
+    // this rule and therefore keep their established paint.
+    //
+    // Every fallback is transparent / none, but a FALLBACK IS A DEFAULT, NEVER A RESET: `var()`
+    // reaches it only when the property is unset on the element AND every ancestor. Custom
+    // properties inherit, and themes value them at `:root .neo-theme-*` — so a theme scope nested
+    // inside another (component.Base#getTheme walks the component chain precisely to support that)
+    // keeps the OUTER theme's value wherever it declares nothing of its own. Every theme therefore
+    // states all three hooks explicitly, including the flat classic values; omitting one does not
+    // opt out of a surface, it opts in to whichever ancestor decided last.
     //
     // Longhands only: a `background` shorthand carries an implicit `background-image: none` that
     // fights any consumer valuing the image hook. The hairline is an INSET shadow rather than a
