@@ -17,6 +17,12 @@
 // consumers that re-derived this rule had each arrived at. The sibling indicator layer already owns
 // its own `inset`/`position`/`z-index` in the engine sheet; this is the pair the preview was
 // missing. A consumer may still override the stacking value.
+//
+// Known bound: `inset: 0` resolves against the host's PADDING box, while `DragAffordances#localRect`
+// derives affordance coordinates from `getBoundingClientRect` — the BORDER box. The two coincide
+// only while the dock host has no border, which is true of every consumer today; a bordered host
+// would offset every affordance by its border width. The host's contract is `position: relative`
+// and no border until one of the two reads the other's box.
 .neo-dock-preview {
     inset          : 0;
     pointer-events : none;
