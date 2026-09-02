@@ -218,6 +218,38 @@
 @keyframes neo-dock-reveal-from-top    { from { transform: translateY(-100cqh) } }
 @keyframes neo-dock-reveal-from-bottom { from { transform: translateY(100cqh) } }
 
+// The exit, the entry's mirror: the overlay is dismissed but not yet hidden — the same two
+// elements travel back, the root fading out where it stands, the content sliding back under its
+// strip. `forwards` holds the end state until the hidden class lands one vdom round trip after
+// the root's `animationend` (the overlay lands it itself, on the same end event that settles an
+// entry), so nothing snaps back to rest in between. A departing panel takes no pointer: the click
+// that dismissed it must land on what is under it, never on the ghost. Reduced motion collapses
+// this through the duration token like the entry; a `0ms` animation still fires its end event.
+.neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving {
+    animation-fill-mode: forwards;
+    animation-name     : neo-dock-reveal-fade-out;
+    pointer-events     : none;
+
+    > .neo-dashboard-dock-reveal-header,
+    > .neo-dashboard-dock-reveal-pane-slot {
+        animation-fill-mode: forwards;
+        animation-name     : neo-dock-reveal-to-left;
+    }
+
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-to-right }
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-to-top }
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-to-bottom }
+}
+
+@keyframes neo-dock-reveal-fade-out  { to { opacity: 0 } }
+@keyframes neo-dock-reveal-to-left   { to { transform: translateX(-100cqw) } }
+@keyframes neo-dock-reveal-to-right  { to { transform: translateX(100cqw) } }
+@keyframes neo-dock-reveal-to-top    { to { transform: translateY(-100cqh) } }
+@keyframes neo-dock-reveal-to-bottom { to { transform: translateY(100cqh) } }
+
 // Operation-correlated tab insertion. The adapter stamps this class on ONE recreated header only
 // when its item + target tabs node match the committed addTab descriptor carried by that projection.
 // No broad tab selector: boot, restore, reorder and unrelated coarse refreshes remain motion-free.
@@ -587,7 +619,9 @@
 // at `dragend`. Measured before it was written — the press that starts a drag outside the reveal does
 // dismiss it, but the overlay hides one vdom round trip later, and by then the drop had been hit-tested
 // onto the parent beneath the frame. The rail-iframe component arms keep the two shields in step.
-body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)) iframe:not(.neo-dashboard-dock-reveal-overlay iframe) {
+// A LEAVING overlay is dismissed and only animating out, so it no longer shields: the click that
+// dismissed it has been read, and the next one belongs to whatever is under the departing panel.
+body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden):not(.neo-dashboard-dock-reveal-overlay-leaving)) iframe:not(.neo-dashboard-dock-reveal-overlay iframe) {
     pointer-events: none;
 }
 
