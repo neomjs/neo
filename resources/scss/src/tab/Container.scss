@@ -3,13 +3,18 @@
     // consumer may set the tokens on any ancestor; ui:null and standalone containers never match
     // this rule and therefore keep their established paint.
     //
-    // Every fallback is transparent / none, but a FALLBACK IS A DEFAULT, NEVER A RESET: `var()`
-    // reaches it only when the property is unset on the element AND every ancestor. Custom
-    // properties inherit, and themes value them at `:root .neo-theme-*` — so a theme scope nested
-    // inside another (component.Base#getTheme walks the component chain precisely to support that)
-    // keeps the OUTER theme's value wherever it declares nothing of its own. Every theme therefore
-    // states all three hooks explicitly, including the flat classic values; omitting one does not
-    // opt out of a surface, it opts in to whichever ancestor decided last.
+    // Every fallback is transparent / none, and it is load-bearing for a theme that ships no `tab/`
+    // sheet at all — but a FALLBACK IS A DEFAULT, NEVER A RESET: `var()` reaches it only when the
+    // property is unset on the element AND every ancestor. Custom properties inherit, and themes
+    // value them at `:root .neo-theme-*` — so a theme scope nested inside another
+    // (component.Base#getTheme walks the component chain precisely to support that) keeps the OUTER
+    // theme's value wherever it declares nothing of its own. Omitting a hook does not opt out of a
+    // surface; it opts in to whichever ancestor decided last.
+    //
+    // So every theme that OWNS a `tab/` sheet states all three hooks explicitly, including the flat
+    // classic values. Four do. `theme-cyberpunk` builds with no `tab/` directory, so a cyberpunk
+    // scope nested inside a neo one still inherits the neo surface — a known gap in the wider
+    // "not every theme styles every widget" family, not something this rule can reach.
     //
     // Longhands only: a `background` shorthand carries an implicit `background-image: none` that
     // fights any consumer valuing the image hook. The hairline is an INSET shadow rather than a
