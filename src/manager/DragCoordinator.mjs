@@ -21,11 +21,14 @@ class DragCoordinator extends Manager {
          */
         singleton: true,
         /**
-         * Minimum time a native popup must remain over a remote dashboard target before
-         * geometry-only reintegration can commit.
-         * @member {Number} nativeWindowDropDwellMs=450
+         * How long a native popup must rest over one remote dashboard target before the
+         * geometry-only drop commits — the hold IS the gesture on this path, since no pointer event
+         * and no release ever reach the page during an OS titlebar drag. The same clock is handed to
+         * the target with every hover frame (`dwell` on the `onRemoteDragMove` payload), so the drop
+         * area can paint the hold running out over exactly this duration.
+         * @member {Number} nativeWindowDropDwellMs=1200
          */
-        nativeWindowDropDwellMs: 450,
+        nativeWindowDropDwellMs: 1200,
         /**
          * Retained target-local embodiment interval after native settle and before semantic commit.
          * This guarantees at least one painted handoff frame without inventing a browser mouseup.
@@ -38,6 +41,22 @@ class DragCoordinator extends Manager {
          * @member {Number} nativeWindowDispositionRetryMs=250
          */
         nativeWindowDispositionRetryMs: 250,
+        /**
+         * Fixed cadence for retrying the retirement (close) of a source popup after a COMMITTED
+         * native drop. The pane is already home at that point; only the popup's close is outstanding,
+         * and the platform may defer it while the OS still drags the window by its titlebar. The close
+         * that finally succeeds is the release signal, so it is polled at a steady interval — backoff
+         * would leave a released popup on screen for seconds.
+         * @member {Number} nativeWindowRetireRetryMs=250
+         */
+        nativeWindowRetireRetryMs: 250,
+        /**
+         * How many retirement retries a committed native drop makes before giving up on the close.
+         * At the default cadence this is 20 s of holding; past it the pane stays home and the popup
+         * simply remains for the user to close.
+         * @member {Number} nativeWindowRetireRetryLimit=80
+         */
+        nativeWindowRetireRetryLimit: 80,
         /**
          * How many times a refused strict native park is retried before the gesture ends.
          *
@@ -284,11 +303,22 @@ class DragCoordinator extends Manager {
             return true
         }
 
-        const delay = Math.min(
-            5000,
-            Math.max(1, me.nativeWindowDispositionRetryMs) *
-                2 ** Math.min(candidate.dispositionAttempts - 1, 4)
-        );
+        // A committed drop retries its close at a fixed cadence, bounded: the pane is home, the popup
+        // is all that is left, and a release is expected within seconds (see nativeWindowRetireRetryMs).
+        // A rejected drop keeps the backoff for its restore.
+        if (committed && candidate.dispositionAttempts > me.nativeWindowRetireRetryLimit) {
+            me.nativeWindowDropCandidates.delete(windowId);
+            me.endNativeGesture(windowId);
+            return false
+        }
+
+        const delay = committed
+            ? Math.max(1, me.nativeWindowRetireRetryMs)
+            : Math.min(
+                5000,
+                Math.max(1, me.nativeWindowDispositionRetryMs) *
+                    2 ** Math.min(candidate.dispositionAttempts - 1, 4)
+            );
 
         candidate.timeoutId = setTimeout(() => {
             me.settleNativeWindowDisposition(windowId, candidate, committed).catch(error => {
@@ -1090,6 +1120,12 @@ class DragCoordinator extends Manager {
 
             next.onRemoteDragMove({
                 draggedItem: candidate.draggedItem,
+                // The hold is the gesture: the target receives the dwell clock the commit below is
+                // scheduled from — same start, same duration — so it can paint the hold running out.
+                dwell: {
+                    armedAt   : candidate.firstSeenAt ?? Date.now(),
+                    durationMs: me.nativeWindowDropDwellMs
+                },
                 // Native titlebar geometry does not ride the pointer conversion resolver. Keep
                 // its source popup visible during dwell; only commitNativeWindowDrop may stage
                 // an embodiment, after suspendWindowDrag has strictly settled.
@@ -1144,9 +1180,8 @@ class DragCoordinator extends Manager {
 
         candidate = me.getNativeWindowDropCandidate(data, sourceDrag);
 
-        me.updateNativeHover(windowId, candidate);
-
         if (!candidate) {
+            me.updateNativeHover(windowId, null);
             me.clearNativeWindowDropCandidate(windowId);
             return
         }
@@ -1159,13 +1194,17 @@ class DragCoordinator extends Manager {
                 ? current.firstSeenAt
                 : now;
 
+        // The dwell clock is fixed before the hover frame goes out, so the target paints the hold
+        // from the same start the commit below is scheduled from.
+        candidate.firstSeenAt = firstSeenAt;
+
+        me.updateNativeHover(windowId, candidate);
         me.clearNativeWindowDropCandidate(windowId);
 
         dwellRemaining = Math.max(0, me.nativeWindowDropDwellMs - (now - firstSeenAt));
         delay          = Math.max(me.nativeWindowDropSettleMs, dwellRemaining);
 
-        candidate.firstSeenAt = firstSeenAt;
-        candidate.timeoutId   = setTimeout(() => {
+        candidate.timeoutId = setTimeout(() => {
             me.commitNativeWindowDrop(windowId, candidate).catch(error => {
                 (Neo.logError || console.error)('Native window drop failed', error)
             })

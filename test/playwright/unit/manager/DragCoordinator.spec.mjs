@@ -678,6 +678,52 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(DragCoordinator.pointerClaimArbiter).toBeNull()
     });
 
+    test('a NATIVE hover frame carries the dwell clock the commit is scheduled from — the hold is the gesture', () => {
+        // No pointer event and no release reach the page while the OS drags a popup, so the target
+        // paints the hold from the same start and duration the coordinator commits on. A second frame
+        // over the same target keeps the start: the clock belongs to the hold, not to the frame.
+        const
+            draggedItem = {id: 'tab-1'},
+            payloads    = [],
+            target      = {
+                ...createZone('workspace-main', 'win-main'),
+                onRemoteDragMove(payload) { payloads.push(payload) }
+            },
+            source = {
+                ...createSource(),
+                windowId           : 'win-popup',
+                getNativeWindowDrag: windowId => windowId === 'win-popup'
+                    ? {draggedItem, embodyNativeHover: true, widgetName: 'tab-1'}
+                    : null
+            };
+
+        registerWindow('win-main',  0,   0,   800, 600);
+        registerWindow('win-popup', 100, 100, 300, 200);
+
+        DragCoordinator.register(target);
+        DragCoordinator.register(source);
+
+        try {
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+            const first = payloads.at(-1)?.dwell;
+
+            expect(first, 'the hover frame names the clock').toEqual({
+                armedAt   : expect.any(Number),
+                durationMs: DragCoordinator.nativeWindowDropDwellMs
+            });
+
+            DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+            expect(payloads).toHaveLength(2);
+            expect(payloads.at(-1).dwell.armedAt, 'the same hold keeps its start across frames').toBe(first.armedAt)
+        } finally {
+            // the commit timer is armed for the dwell — end the gesture before it can fire into a torn-down stage
+            DragCoordinator.clearNativeWindowDropCandidate('win-popup');
+            DragCoordinator.endNativeGesture?.('win-popup')
+        }
+    });
+
     test('THE OVERLAP FALSIFIER holds when the clock moves mid-pass — the winner is not the loop order', () => {
         const source = createSource();
 

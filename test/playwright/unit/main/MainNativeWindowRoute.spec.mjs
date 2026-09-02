@@ -488,6 +488,19 @@ async function runNativeWindowRouteProbe(scenario) {
                     })
                 };
                 exactCompletion = await Main.windowNativeMoveTo({...route, x: 420, y: 320})
+            } else if (scenario === 'native-close' || scenario === 'native-close-deferred') {
+                // The verified close: a platform that keeps the window (an OS titlebar drag still
+                // holding it) answers false and keeps the route for the caller's retry; one that closes
+                // answers true and retires the entry.
+                popup.close = () => {
+                    events.push('close');
+                    scenario === 'native-close' && (state.closed = true)
+                };
+                globalThis.setTimeout = callback => {
+                    callback();
+                    return 1
+                };
+                exactCompletion = await Main.windowNativeClose(route)
             } else if (
                 scenario === 'native-resize' ||
                 scenario === 'native-resize-default-denied' ||
@@ -732,6 +745,25 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.closed).toBe(true);
         expect(result.hasEntry).toBe(false);
         expect(result.route).toBeNull()
+    });
+
+    test('a native close is the VERIFIED outcome: a deferred close answers false and keeps the route, a done close retires the entry', async () => {
+        // Before this contract `windowNativeClose` returned true for the attempt and dropped the route at
+        // once, so a popup the OS still held by its titlebar read as closed while it stood on screen —
+        // and the retirement retry that relies on the route had nothing left to retry with.
+        const [deferred, done] = await Promise.all([
+            runNativeWindowRouteProbe('native-close-deferred'),
+            runNativeWindowRouteProbe('native-close')
+        ]);
+
+        expect(deferred.events, 'the close was asked for').toContain('close');
+        expect(deferred.exactCompletion, 'a window that is still there is not closed').toBe(false);
+        expect(deferred.closed).toBe(false);
+        expect(deferred.hasEntry, 'the route survives for the retry').toBe(true);
+
+        expect(done.exactCompletion).toBe(true);
+        expect(done.closed).toBe(true);
+        expect(done.hasEntry, 'a verified close retires the entry').toBe(false)
     });
 
     test('cross-origin open preserves direct browser navigation and exposes no native route', async () => {

@@ -196,6 +196,67 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
         }
     });
 
+    test('a native hold paints a rising fill over the published dwell — and only while the clock is set', async ({page}) => {
+        // The hold is the gesture on the native-titlebar path: the coordinator publishes `{armedAt,
+        // durationMs}` with every hover frame and the writer sets it on the renderer before the
+        // preview, so the affordance is built with the fill — duration from the clock, the time
+        // already spent as a negative delay, so a node rebuilt mid-hold resumes rather than restarts.
+        const read = () => page.evaluate(() => {
+            const node = document.querySelector('.neo-dock-preview-affordance');
+
+            if (!node) return {missing: true};
+
+            const after = getComputedStyle(node, '::after');
+
+            return {
+                animation: after.animationName,
+                cls      : node.className,
+                delay    : after.animationDelay,
+                duration : after.animationDuration,
+                dwellMs  : node.style.getPropertyValue('--dock-native-dwell-ms'),
+                elapsed  : node.style.getPropertyValue('--dock-native-dwell-elapsed')
+            }
+        });
+
+        // the clock first, then the preview — the writer's order
+        await page.evaluate(([id, previewObj]) => Neo.worker.App.setConfigs({
+            id,
+            dwell      : {armedAt: Date.now() - 400, durationMs: 1200},
+            dockPreview: previewObj
+        }), [previewId, buildPreview('edge-top')]);
+
+        await page.waitForSelector('.neo-dock-preview-dwelling', {state: 'attached', timeout: 4000});
+
+        const held = await read();
+
+        expect(held.cls).toContain('neo-dock-preview-dwelling');
+        expect(held.dwellMs, 'the fill runs for the published dwell').toBe('1200ms');
+        expect(parseInt(held.elapsed, 10), 'the time already spent rides along').toBeGreaterThanOrEqual(400);
+        expect(held.animation).toBe('neo-dock-preview-dwell-fill');
+        expect(held.duration).toBe('1.2s');
+        expect(parseFloat(held.delay), 'the elapsed time is applied as a negative delay').toBeLessThanOrEqual(-0.4);
+
+        // reduced motion keeps the information and drops the motion
+        await page.emulateMedia({reducedMotion: 'reduce'});
+
+        const reduced = await read();
+
+        expect(reduced.animation, 'reduced motion paints a static armed state').toBe('none');
+
+        await page.emulateMedia({reducedMotion: 'no-preference'});
+
+        // the clock clears: the same preview paints without the fill
+        await page.evaluate(([id, previewObj]) => Neo.worker.App.setConfigs({id, dwell: null, dockPreview: previewObj}),
+            [previewId, buildPreview('edge-left')]);
+
+        await page.waitForSelector('.neo-dock-preview-edge-left', {state: 'attached', timeout: 4000});
+
+        const released = await read();
+
+        expect(released.cls).not.toContain('neo-dock-preview-dwelling');
+        expect(released.animation).toBe('none')
+    });
+
     test('each edge carries its own kind and cut classes', async ({page}) => {
         // Guards the fill assertions above: identical colours read off a node that never received
         // the per-edge classes would be a green that means nothing. The cut side is the INVERSE of
