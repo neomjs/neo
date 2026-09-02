@@ -254,6 +254,13 @@ class Workspace extends DockWorkspace {
      */
     tearOutParkGeometries = {}
     /**
+     * Park attempts per vessel item id since that vessel last parked. The coordinator retries a
+     * refused park; a stalled retry reads live as a rising count with the same `refusedAt`.
+     * @member {Object} tearOutParkAttempts={}
+     * @protected
+     */
+    tearOutParkAttempts = {}
+    /**
      * Exact `{tabsNodeId, index}` placement captured at each detach commit — the return truth.
      * @member {Object} tearOutPlacements={}
      * @protected
@@ -3055,6 +3062,7 @@ class Workspace extends DockWorkspace {
 
         if (disposed) {
             delete me.tearOutParkGeometries[itemId];
+            delete me.tearOutParkAttempts[itemId];
 
             route?.nativeHandleKey && await Neo.main.addon.DragDrop.retireWindowDragOrphanRecovery({
                 nativeHandleKey: route.nativeHandleKey,
@@ -3075,8 +3083,12 @@ class Workspace extends DockWorkspace {
      * resize / move / refocus chain is the platform-law choreography (z-order hides the parked
      * vessel). A source whose outer frame cannot fit behind the target first shrinks through its
      * exact native route; a refocus refusal compensates to the original extent and source rect.
+     * On the native-titlebar path to the MAIN window the focus and refocus steps are best-effort
+     * and recorded, and only the move gates — the platform never grants a popup an opener focus
+     * without a user activation, and an OS titlebar drag carries none (see the focus verb below).
      * @param {Object} vessel
      * @param {String} vessel.itemId
+     * @param {Boolean} [vessel.nativeTitlebar=false] The park follows an OS titlebar drag terminal
      * @param {String} vessel.windowName
      * @returns {Promise<Boolean>}
      * @protected
@@ -3145,6 +3157,8 @@ class Workspace extends DockWorkspace {
         };
         me.lastVesselRestoreReceipt = null;
 
+        me.lastVesselParkReceipt.parkAttempts = me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1;
+
         if (
             !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
             route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
@@ -3163,10 +3177,17 @@ class Workspace extends DockWorkspace {
             return false
         }
 
-        const focusTarget = () => targetIsMain
-            // The root window has no opener-minted nativeRoute. Route the focus verb through the
-            // exact popup Main actor instead: a popup may focus its opener under the user
-            // activation carried by the titlebar gesture.
+        // The root window has no opener-minted nativeRoute, so a main target is focused through the
+        // popup's own Main actor: `opener.focus()`, which the platform grants only under a user
+        // activation. A keyboard command carries one; an OS titlebar drag delivers no DOM event to
+        // the popup at all, so on the native path to a main target the focus steps are best-effort
+        // and recorded, and the MOVE is the gate — run from the owner through the popup's handle,
+        // it needs no activation, is refused while the OS still holds the window, and is granted
+        // the moment the user lets go. The popup is retired right after the commit, and the
+        // platform hands focus back to the remaining window on its close, which is what the
+        // refocus existed to arrange.
+        const bestEffortFocus = targetIsMain && nativeTitlebar,
+              focusTarget     = () => targetIsMain
             ? Neo.Main.windowFocus({windowId: entry.windowId})
             : Neo.Main.windowNativeFocus({
                 nativeHandleKey: targetRoute.nativeHandleKey,
@@ -3179,9 +3200,9 @@ class Workspace extends DockWorkspace {
 
             me.lastVesselParkReceipt.focused = focused;
 
-            if (!focused) {
-                // Expected while a native titlebar drag still holds the source popup: the dragged
-                // window keeps focus until the OS releases it. The coordinator retries the park.
+            if (!focused && !bestEffortFocus) {
+                // A popup target: the owner focuses a window it opened, which the platform grants
+                // once the OS releases the dragged source. The coordinator retries the park.
                 me.lastVesselParkReceipt.refusedAt = 'focus';
                 return false
             }
@@ -3217,7 +3238,7 @@ class Workspace extends DockWorkspace {
 
             me.lastVesselParkReceipt.refocused = refocused;
 
-            if (!refocused) {
+            if (!refocused && !bestEffortFocus) {
                 const restoreData = {
                     nativeHandleKey: route.nativeHandleKey,
                     targetWindowId : route.targetWindowId,
@@ -3241,6 +3262,7 @@ class Workspace extends DockWorkspace {
                 return false
             }
 
+            delete me.tearOutParkAttempts[itemId];
             me.lastVesselParkReceipt.parked = true;
 
             return true
