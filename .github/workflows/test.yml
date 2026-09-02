@@ -297,9 +297,42 @@ jobs:
 
       # The components suite launches real Chromium against the dev server; unit runs
       # browserless, so browser provisioning stays scoped to this suite.
-      - name: Install Playwright Chromium
+      #
+      # The browser binaries are cached across runs, keyed on the installed Playwright
+      # version: a new version ships a new browser build and misses on purpose. The
+      # download is network-bound — 20 to 40 seconds on a good day, five to eleven
+      # minutes on a bad one, which turned five-minute jobs into fifteen — while a
+      # restore takes seconds. The cache is saved right after a successful install,
+      # not at job end, so a red test run still leaves the browser behind for the next
+      # one. The apt libraries are not cached; `install-deps` puts them in place on a
+      # hit, from the runner's local mirror.
+      - name: Resolve Playwright version
+        id: playwright
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Chromium
+        id: playwright-cache
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright Chromium
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: npx playwright install --with-deps chromium
+
+      - name: Save Playwright Chromium
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      - name: Install Playwright system dependencies
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit == 'true' }}
+        run: npx playwright install-deps chromium
 
       - name: Skip ${{ matrix.suite }} tests
         if: ${{ matrix.run != 'true' || steps.head.outputs.current != 'true' }}
