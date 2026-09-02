@@ -280,6 +280,27 @@ test.describe('dataSyncPipeline guards (#17920)', () => {
     });
 
     test.describe('the refusal reaches the RUN path, not only the pure function', () => {
+        /**
+         * These arms reach the guard through `emitGeneratedData`, which calls
+         * `assertCorpusFreshness({facetCommitDates})` with no `now` — so the subject reads the REAL
+         * clock. The pinned `NOW` above is safe for the pure-function arms only because they hand
+         * that same constant to the subject; here there is nothing to hand it to.
+         *
+         * A fixture built from `hours()` therefore does not express an AGE, it expresses a fixed
+         * DATE that ages against wall time. `corpusAgeHours: 1` measured 48.4h on 2026-09-02 and
+         * turned the unit job red on every branch — the arm had not tested a fresh corpus since it
+         * was written, and passed only while the wall clock happened to sit inside the threshold of
+         * its own constant. The refusal arm degraded the same way in the other
+         * direction: still green, no longer discriminating, because by then it got a refusal
+         * whatever it injected.
+         *
+         * Live-relative by construction, so an injected age IS the measured age and no future date
+         * can re-arm this.
+         * @param {Number} n Hours before the real now.
+         * @returns {String} ISO date the guard will measure as exactly `n` hours old.
+         */
+        const liveHours = n => new Date(Date.now() - n * 3_600_000).toISOString();
+
         // A guard that only exists as an exported function nothing calls is the same silence this
         // ticket is about. These two witness the wiring inside `emitGeneratedData`.
         const runWith = ({corpusAgeHours}) => {
@@ -292,7 +313,7 @@ test.describe('dataSyncPipeline guards (#17920)', () => {
                     cwd    : '/repo',
                     execute: (command, args) => {
                         if (command === 'git') {
-                            return Promise.resolve({stderr: '', stdout: `${hours(corpusAgeHours)}\n`})
+                            return Promise.resolve({stderr: '', stdout: `${liveHours(corpusAgeHours)}\n`})
                         }
 
                         executed.push(args.join(' '));
