@@ -143,15 +143,22 @@ export async function assertAffordanceContainment(app, {dockHostId, indicatorIds
 
 /**
  * Family 3 — preview/zone alignment: the painted preview equals its target zone rect within
- * tolerance for `tab-into`, or forms a band at the named zone edge for edge previews. The
- * band height must not exceed `edgeBandMax` (the skin's 24px default at authoring time) and
- * must hug the zone's own edge — never float free and never extend past it.
+ * tolerance for `tab-into`, or occupies the named edge of the zone for edge previews — hugging
+ * that edge, spanning the zone across it, and never floating free or extending past it.
+ *
+ * These are the relationships that hold whatever the preview LANGUAGE is. How thick a directional
+ * placement paints is affordance policy: `Preview#resultRegionPreviews` paints the region the pane
+ * would occupy, its predecessor painted a fixed insertion band, and the exact rect for either is
+ * pinned per edge in `unit/dashboard/DockPreview.spec.mjs` against `affordanceGeometry`. This
+ * helper asserted a thickness too, and that copy is the one that rotted: it kept the band budget
+ * after the default became region mode, so the demo's own witness reported a red that named no
+ * defect. A size contract belongs in one place, and this is not it.
  *
  * @param {Object} app the connected neuralLink app wrapper
- * @param {Object} geometry {zoneId, previewRect, kind: 'tab-into' | 'edge-top' | 'edge-right' | 'edge-bottom' | 'edge-left', edgeBandMax?}
+ * @param {Object} geometry {zoneId, previewRect, kind: 'tab-into' | 'edge-top' | 'edge-right' | 'edge-bottom' | 'edge-left'}
  * @param {Number} [tolerance=2]
  */
-export async function assertPreviewZoneAlignment(app, {zoneId, previewRect, kind, edgeBandMax = 24}, tolerance = 2) {
+export async function assertPreviewZoneAlignment(app, {zoneId, previewRect, kind}, tolerance = 2) {
     const rects = await readComponentRects(app, [zoneId]),
           zone  = rects[zoneId];
 
@@ -168,21 +175,25 @@ export async function assertPreviewZoneAlignment(app, {zoneId, previewRect, kind
         expect(withinRect(previewRect, zone, tolerance),
             'an edge preview never extends past its zone').toBe(true);
 
-        if (edge === 'top' || edge === 'bottom') {
-            expect(previewRect.height, 'edge band height stays within the skin budget')
-                .toBeLessThanOrEqual(edgeBandMax + tolerance);
+        const vertical = edge === 'top' || edge === 'bottom',
+              // the axis the placement extends along, and the one it spans
+              along    = vertical ? 'height' : 'width',
+              across   = vertical ? 'width'  : 'height',
+              anchor   = edge;
 
-            const anchor = edge === 'top' ? 'top' : 'bottom';
-            expect(Math.abs(previewRect[anchor] - zone[anchor]),
-                `the ${edge} band hugs the zone's ${edge} edge`).toBeLessThanOrEqual(tolerance)
-        } else {
-            expect(previewRect.width, 'edge band width stays within the skin budget')
-                .toBeLessThanOrEqual(edgeBandMax + tolerance);
+        // Spanning the zone across the edge is what makes it an EDGE placement rather than a box
+        // that happens to sit near one. Neither preview language has ever painted less.
+        expect(Math.abs(previewRect[across] - zone[across]),
+            `the ${edge} placement spans the zone's ${across}`).toBeLessThanOrEqual(tolerance);
 
-            const anchor = edge;
-            expect(Math.abs(previewRect[anchor] - zone[anchor]),
-                `the ${edge} band hugs the zone's ${edge} edge`).toBeLessThanOrEqual(tolerance)
-        }
+        // A placement, not the whole zone: `tab-into` is the affordance that claims everything, and
+        // an edge preview that grew to fill its zone would be indistinguishable from it.
+        expect(previewRect[along], `the ${edge} placement has a visible ${along}`).toBeGreaterThan(tolerance);
+        expect(previewRect[along], `the ${edge} placement stays a sub-region of its zone`)
+            .toBeLessThan(zone[along] - tolerance);
+
+        expect(Math.abs(previewRect[anchor] - zone[anchor]),
+            `the ${edge} placement hugs the zone's ${edge} edge`).toBeLessThanOrEqual(tolerance)
     }
 
     return rects
