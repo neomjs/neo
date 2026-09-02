@@ -692,7 +692,7 @@ class Workspace extends DockWorkspace {
                 layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}
             }, {
                 cls      : ['workstation-theme-button'],
-                handler  : () => me.toggleWorkspaceTheme(),
+                handler  : data => me.toggleWorkspaceTheme(data),
                 iconCls  : isLight ? 'fa fa-moon' : 'fa fa-sun',
                 ntype    : 'button',
                 reference: 'theme-toggle',
@@ -2624,10 +2624,34 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @returns {String} The newly applied theme.
+     * @summary Flips the workspace theme, revealed from the pointer where the browser supports it.
+     *
+     * The flip happens AFTER the awaited call, deliberately: `startViewTransition()` resolves once
+     * the transition has started, and `delay` is the window this method has to mutate the DOM
+     * before the new state is captured. Flipping first would let the transition capture the
+     * already-changed DOM as both states and the reveal would play over no visible difference.
+     *
+     * The reveal is decorative. Without the View Transition API the engine returns false and the
+     * flip still runs, so a browser that lacks the feature behaves exactly as before.
+     *
+     * Raw pointer coordinates go to the engine rather than a radius computed here: the App worker
+     * knows where the pointer was, not how a pseudo-element resolves a length, so the unit decision
+     * stays in `DomUtils.createRevealAnimation()` instead of gaining a copy per app.
+     * @param {Object} [data] The click event. Absent coordinates yield NO circular reveal:
+     * `createRevealAnimation()` returns null, the transition still runs as the browser's default
+     * cross-fade, and the flip is unaffected. Nothing here throws on a missing event
+     * @returns {Promise<String>} The newly applied theme.
      */
-    toggleWorkspaceTheme() {
-        return this.setWorkspaceTheme(this.theme === 'neo-theme-neo-light'
+    async toggleWorkspaceTheme(data) {
+        const me = this;
+
+        await Neo.main.DomAccess.startViewTransition({
+            delay   : 100,
+            reveal  : {x: data?.clientX, y: data?.clientY},
+            windowId: me.windowId
+        });
+
+        return me.setWorkspaceTheme(me.theme === 'neo-theme-neo-light'
             ? 'neo-theme-neo-dark'
             : 'neo-theme-neo-light')
     }
