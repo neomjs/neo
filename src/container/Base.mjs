@@ -299,8 +299,12 @@ class Container extends Component {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
+        // Live items follow a theme change. A raw item config is left to `createItem`, which
+        // resolves its theme with the full precedence — the config's own theme, itemDefaults, the
+        // class default, then this container's; stamping this theme onto the config here would
+        // pre-empt the first three, since `itemDefaults` only fill what is absent.
         value && this.items?.forEach(item => {
-            if (!Neo.isString(item)) {
+            if (!Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
                 item.theme = value
             }
         })
@@ -449,7 +453,10 @@ class Container extends Component {
 
                 if (module && !lazyLoadItem) {
                     item.className = module.prototype.className;
-                    item.theme     = defaults.theme || module.config.theme || me.theme
+                    // The item config's own theme first — the precedence every other item config key
+                    // has — then itemDefaults, the class default, the parent. A nested theme is how
+                    // a light scope lives inside a dark host, and the shared tooltip reads it.
+                    item.theme     = item.theme || defaults.theme || module.config.theme || me.theme
                 }
 
                 if (item.handlerScope === 'this') {
