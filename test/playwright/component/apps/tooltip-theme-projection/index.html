@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo.mjs Tooltip Theme Projection Fixture</title>
+    <!--
+        The consumer's documented path: a host projects its palette into an engine token family
+        at theme-root. This sheet is in the document BEFORE the engine's per-class theme sheets,
+        which the Stylesheet addon appends as components mount — the load order a real app has.
+    -->
+    <style>
+        :root .neo-theme-neo-dark { --tooltip-bg: rgb(1, 2, 3); }
+    </style>
+</head>
+<body>
+    <script src="../../../../../src/MicroLoader.mjs" type="module"></script>
+</body>
+</html>

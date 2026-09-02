@@ -302,6 +302,26 @@ The dark theme provides a value for the border variable.
 ```
 The light theme explicitly sets the border variable to `0`. This is called **nullification**. It's critical for nesting. If a light-themed list is placed inside a dark-themed component, this rule ensures the list does not incorrectly inherit the dark theme's 1px border. It actively resets the property defined in the `src` structure.
 
+### Engine Value Sheets Declare at `:where()` Weight
+
+An application projects its own palette into an engine token family at theme-root — `:root .neo-theme-neo-dark { --tooltip-bg: var(--my-panel) }` — and expects to win. Whether it does is a specificity contest, not a load-order one, only if the engine's own value sheet weighs less than the projection. A value sheet that declares at `:root .neo-theme-neo-dark` has the same weight as the projection, (0,2,0), and the tie goes to whichever sheet the browser saw last; the engine appends its per-class theme sheets as components mount, after the application's own, so the engine wins and the projection appears to do nothing.
+
+The engine's value sheets therefore declare at `:where(.neo-theme-neo-dark)` weight — zero specificity — so a projection at theme-root outranks them wherever both match. A component that carries its own theme class (the shared tooltip stamps the hovered target's theme onto itself) is matched by both the engine sheet and the projection, so the contest is decided on that element as well, not left to inheritance.
+
+```scss readonly
+// engine: resources/scss/theme-neo-dark/tooltip/Base.scss
+:where(.neo-theme-neo-dark) {
+    --tooltip-bg: var(--sem-color-surface-primary-default);
+}
+
+// application: theme-neo-dark/apps/myapp/Viewport.scss
+:root .neo-theme-neo-dark {
+    --tooltip-bg: var(--myapp-panel-2);
+}
+```
+
+The dock layer and the tooltip sheets carry this weight today; the remaining value sheets move family by family, each one measured first, because a sheet's own rules may have relied on outranking an equal-weight structure rule. While a family still declares at theme-root weight, project into it with more specificity than the engine sheet — an element-scoped rule such as `body:has(.myapp-viewport) .neo-tooltip` — rather than relying on load order.
+
 ### Bad Practice & The Right Way Forward
 
 While you technically *can* add new selectors or structural overrides inside a theme file, it is considered **bad practice** if you want your theme to be nestable and composable with other themes. Doing so can lead to unpredictable side effects when themes are mixed and matched.
