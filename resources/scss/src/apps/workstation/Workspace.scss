@@ -312,6 +312,27 @@ body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
     }
 }
 
+// The third floating direct-body embodiment, and the newest: the dock header actions gained
+// tooltips, so the shared singleton now paints here — in the stock theme blue, the one piece of
+// chrome not speaking this palette. Same bridge as the overflow menu above, and deliberately the
+// same values: a tooltip and that menu are both transient label chrome and should not disagree
+// about what floating chrome looks like here.
+//
+// The `body:has()` scope is doing real work, not decoration. The theme ships its own
+// `:root .neo-theme-neo-* { --tooltip-bg: … }` at (0,2,0), so a projection written at that same
+// weight — the shape the `--agent-dock-preview-*` block above uses — LOSES the tie on load order,
+// because `theme-neo-*/tooltip/Base.css` is appended after this app's sheets. Those projections
+// work only because nothing else declares them. Naming the floating element directly reaches
+// (0,2,1) and sets the tokens on the node that reads them, so no ancestor has to be guessed —
+// the tooltip is one lazily created instance bound to the main view, not a workspace descendant.
+body:has(.workstation-viewport) .neo-tooltip {
+    --tooltip-bg       : var(--workstation-panel-2);
+    --tooltip-border   : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --tooltip-boxshadow: 0 12px 28px color-mix(in srgb, var(--workstation-ground) 58%, transparent);
+    --tooltip-color    : var(--workstation-ink);
+    --tooltip-fontsize : 12px;
+}
+
 // Pane skin — `.workstation-placeholder`, `.workstation-resident-*`, `.workstation-data-pane` and
 // `.workstation-heat-*` — moved to `Viewport.scss`. They are what the reported `?popout=` vessel
 // actually hosts, and this file's generated sheet never loads there.
