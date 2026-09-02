@@ -576,9 +576,18 @@
 // either — so a click into such a frame would leave the reveal open with nothing to dismiss it.
 // Without pointer events the click lands on the parent element beneath the frame, where the rail's
 // outside-pointer listener reads it as leaving. Frames INSIDE the overlay keep their pointer events:
-// a click into the revealed pane is inside, whatever it lands on. The same boundary idiom as the
-// drag shield (`body.neo-drag-active iframe`).
-.neo-dashboard:has(.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)) iframe:not(.neo-dashboard-dock-reveal-overlay iframe) {
+// a click into the revealed pane is inside, whatever it lands on.
+//
+// The same boundary idiom as the drag shield in `Global.scss` (`body.neo-drag-active iframe`), and
+// the same side effect that shield's comment calls load-bearing: `pointer-events: none` also removes
+// a frame as a NATIVE drop target, because one hit test governs pointer, dragover and drop. That
+// shield is scoped to sensor gestures, which never carry a native drag. An open reveal says nothing
+// about a drag in flight, so this one lifts for the lifetime of any native drag the document starts:
+// the `NativeDragSource` addon stamps `neo-native-drag-active` on `body` at `dragstart` and clears it
+// at `dragend`. Measured before it was written — the press that starts a drag outside the reveal does
+// dismiss it, but the overlay hides one vdom round trip later, and by then the drop had been hit-tested
+// onto the parent beneath the frame. The rail-iframe component arms keep the two shields in step.
+body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)) iframe:not(.neo-dashboard-dock-reveal-overlay iframe) {
     pointer-events: none;
 }
 

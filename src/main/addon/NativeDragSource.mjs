@@ -8,6 +8,14 @@ import Base from './Base.mjs';
 const templateToken = /\{([\w-]+)\}/g;
 
 /**
+ * The `body` class marking a native drag in flight, from `dragstart` to `dragend`. Frame shields
+ * that key on other state — the dock rail reveal's in `dashboard/Container.scss` — lift while it is
+ * present, so the drop can be hit-tested onto the frame it is aimed at.
+ * @type {String}
+ */
+const nativeDragCls = 'neo-native-drag-active';
+
+/**
  * @summary Declarative native HTML5 drag sources: `DataTransfer` filled from worker-declared config.
  *
  * The synthetic drag pipeline (DragDrop addon + the sensors) is right for the Neo world — records,
@@ -55,7 +63,10 @@ const templateToken = /\{([\w-]+)\}/g;
  * decline it. Declined-by-sensor also means the synthetic pipeline's `dragstart` suppression is
  * never installed and `neo-drag-active` (the iframe shield's hook) is never stamped for a native
  * drag — load-bearing, since the shield makes iframes hit-test-inert and a native drag's whole
- * purpose is to LAND on one.
+ * purpose is to LAND on one. What a native drag does stamp is `neo-native-drag-active` on `body`,
+ * from `dragstart` to `dragend`: a frame shield keyed on something other than the gesture — the
+ * dock rail reveal's — would otherwise hit-test the drop away from a frame that is not inside the
+ * reveal, and the reveal's dismissal (a worker round trip) cannot win a race against `dragover`.
  *
  * @class Neo.main.addon.NativeDragSource
  * @extends Neo.main.addon.Base
@@ -155,6 +166,12 @@ class NativeDragSource extends Base {
             {dataTransfer} = event,
             node, types;
 
+        // Every native drag this document starts lifts the frame shields for its lifetime, armed by
+        // this addon or not: `pointer-events: none` removes a frame as a drop target, and a drop has
+        // to be able to land in an editor frame whichever node carried the payload. The rail reveal's
+        // shield (`dashboard/Container.scss`) keys on this class; cleared in {@link #onGestureEnd}.
+        document.body.classList.add(nativeDragCls);
+
         if (!armed || event.target !== armed.node || !dataTransfer) {
             return
         }
@@ -177,6 +194,8 @@ class NativeDragSource extends Base {
     onGestureEnd() {
         let {armed} = this;
 
+        document.body.classList.remove(nativeDragCls);
+
         if (armed) {
             // restore only addon-owned DOM state: a node that was draggable before stays draggable
             armed.addedAttribute && armed.node.removeAttribute('draggable');
@@ -195,6 +214,10 @@ class NativeDragSource extends Base {
         if (event.button !== 0 || event.ctrlKey || event.metaKey) {
             return
         }
+
+        // A new press means any earlier drag is over. `dragend` never fires for a source node removed
+        // from the DOM mid-drag, and a lift that outlived its drag would keep the reveal shield down.
+        document.body.classList.remove(nativeDragCls);
 
         const source = this.sourceOf(event);
 
