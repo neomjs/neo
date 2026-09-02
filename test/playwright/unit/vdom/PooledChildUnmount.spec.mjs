@@ -46,6 +46,20 @@ class Card extends Container {
 Card = Neo.setupClass(Card);
 
 /**
+ * A pooled row WITHOUT a container cascade: a plain component whose nested component is a logical
+ * child by `parentId` and a reference in its vdom. The move arm needs a removed parent that does not
+ * itself flip its children's `mounted` flag, so the flag it observes is the unmount pass's own.
+ */
+class Slot extends Component {
+    static config = {
+        className: 'Test.PooledSlot',
+        ntype    : 'test-pooled-slot',
+        _vdom    : {tag: 'li', cls: ['pooled-slot']}
+    }
+}
+Slot = Neo.setupClass(Slot);
+
+/**
  * A container that renders pooled component instances by reference — the `list.Component`
  * shape: the instances are created once with `parentId` pointing at the pool and re-seated
  * into the vdom via `createVdomReference()`, never held in `items`.
@@ -201,5 +215,63 @@ test.describe('Pooled children removed inside a covering ancestor flight', () =>
         expect(inserted.length, JSON.stringify(deltas)).toBe(1);
         expect(cards[0].mounted).toBe(true);
         expect(cards[0].getReference('inner').mounted).toBe(true);
+    });
+
+    test('MOVE: a node moved out of a removed parent in the same update keeps its vnode and its mounted flag', async () => {
+        // a slot (no container cascade) holding one nested component by reference, plus a sibling
+        // node the flight moves that component into
+        host = Neo.create(Host, {
+            appName,
+            id   : `pool-host-${testRun}`,
+            items: [
+                {module: Component, id: `pool-title-${testRun}`, text: 'title'},
+                {module: Pool,      id: `pool-${testRun}`},
+                {module: Component, id: `pool-keep-${testRun}`, cls: ['keep']}
+            ]
+        });
+
+        pool = host.items[1];
+
+        let keep  = host.items[2],
+            slot  = Neo.create(Slot,      {appName, id: `pool-slot-${testRun}`,  parentId: pool.id, windowId: pool.windowId}),
+            inner = Neo.create(Component, {appName, id: `pool-inner-${testRun}`, parentId: slot.id, windowId: pool.windowId, text: 'inner'});
+
+        cards = [slot, inner];
+
+        slot.vdom.cn = [inner.createVdomReference()];
+        pool.vdom.cn = [slot.createVdomReference()];
+
+        await host.initVnode(true);
+        host.mounted = true;
+
+        expect([slot.mounted, inner.mounted]).toEqual([true, true]);
+
+        // one covering flight: the pool drops the slot while `keep` takes the slot's inner node
+        host.setSilent({style: {color: 'blue'}});
+        host.updateDepth = -1;
+
+        pool.vdom.cn = [];
+        keep.vdom.cn = [inner.createVdomReference()];
+        pool.update();
+        keep.update();
+
+        const {deltas} = await host.promiseUpdate();
+
+        await settle();
+
+        // the worker moves the reused node BEFORE it removes the node that held it
+        const moveIndex   = deltas.findIndex(delta => delta.action === 'moveNode'   && delta.id === inner.id),
+              removeIndex = deltas.findIndex(delta => delta.action === 'removeNode' && delta.id === slot.id);
+
+        expect(moveIndex,   JSON.stringify(deltas)).toBeGreaterThan(-1);
+        expect(removeIndex, JSON.stringify(deltas)).toBeGreaterThan(-1);
+        expect(moveIndex).toBeLessThan(removeIndex);
+
+        // the removed slot is unmounted; the moved node — still in the synced tree — is not
+        expect(slot.mounted).toBe(false);
+        expect(slot.vnode).toBeNull();
+        expect(inner.mounted).toBe(true);
+        expect(inner.vnode).not.toBeNull();
+        expect(inner.parentId).toBe(slot.id);
     });
 });
