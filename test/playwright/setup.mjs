@@ -45,6 +45,40 @@ let priorNeoConfigOverrides = null;
  * @param {Boolean} options.mockMain=true True installs a minimal `Neo.Main.setRoute()` method.
  * @param {Object} options.neoConfig={} Neo.config overrides.
  */
+// The worker mock lives at module top level, not inside `setup()`: a spec's static imports are hoisted
+// and evaluate before its `setup()` call runs, and an engine module that constructs a singleton at
+// import — `manager/Window` registers `Neo.currentWorker.on(...)` in its constructor — needs the
+// worker to exist by then. This file is every spec's first import, so its top level is the one place
+// that runs before any engine module. `??=` keeps a spec's own later assignment authoritative.
+Neo.currentWorker ??= {
+    getAddon: async () => ({
+        register  : () => {},
+        unregister: () => {}
+    }),
+    insertThemeFiles: () => {},
+    isSharedWorker  : false,
+    on              : () => {},
+    un              : () => {},
+    promiseMessage  : async (dest, msg) => {
+        if (msg?.action === 'readDom') {
+            if (msg.attributes?.includes('offsetHeight')) {
+                 return { attributes: { offsetHeight: 600, offsetWidth: 800 } };
+            }
+            if (msg.functions?.[0]?.returnFnName === 'transform') {
+                 return { functions: { transform: 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)' } };
+            }
+            // Fallback for general bounding client rect reads
+            return {
+                attributes: {},
+                functions : {},
+                rects     : [{width: 1000, height: 1000, x: 0, y: 0}]
+            };
+        }
+        return {};
+    },
+    sendMessage     : () => {}
+};
+
 export function setup(options = {}) {
     const {
         appConfig        = {},
@@ -166,35 +200,6 @@ export function setup(options = {}) {
         });
         localStorage.updateLocalStorageItem  ??= async () => {};
     }
-
-    Neo.currentWorker ??= {
-        getAddon: async () => ({
-            register  : () => {},
-            unregister: () => {}
-        }),
-        insertThemeFiles: () => {},
-        isSharedWorker  : false,
-        on              : () => {},
-        un              : () => {},
-        promiseMessage  : async (dest, msg) => {
-            if (msg?.action === 'readDom') {
-                if (msg.attributes?.includes('offsetHeight')) {
-                     return { attributes: { offsetHeight: 600, offsetWidth: 800 } };
-                }
-                if (msg.functions?.[0]?.returnFnName === 'transform') {
-                     return { functions: { transform: 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)' } };
-                }
-                // Fallback for general bounding client rect reads
-                return {
-                    attributes: {},
-                    functions : {},
-                    rects     : [{width: 1000, height: 1000, x: 0, y: 0}]
-                };
-            }
-            return {};
-        },
-        sendMessage     : () => {}
-    };
 
     Neo.worker ??= {
         App: {
