@@ -2806,3 +2806,110 @@ test.describe('refreshDockWorkspace — DockFlip is told the OUTCOME, not the re
         expect(options.geometryOnly, 'a proven in-place landing keeps its admission').toBe(true)
     })
 });
+
+test.describe('Workspace — the theme toggle reveals from the pointer (#18125)', () => {
+    /**
+     * Runs `toggleWorkspaceTheme` against a stubbed engine, capturing the theme as it stood at the
+     * moment the transition was requested. That snapshot is the whole point: the reveal only shows a
+     * difference if the flip lands INSIDE the transition's capture window, i.e. after this call.
+     * @param {Object} config {data, startResult, startingTheme}
+     * @returns {Promise<Object>} {calls, themeAtCall, themeAfter, threw}
+     */
+    async function toggleWithStubbedTransition({data, startResult = true, reject = false, startingTheme = 'neo-theme-neo-light'} = {}) {
+        const
+            originalDomAccess = Neo.main.DomAccess,
+            domAccess         = originalDomAccess ?? Neo.ns('Neo.main.DomAccess', true),
+            originalStart     = domAccess.startViewTransition,
+            calls             = [];
+
+        let workspace, themeAtCall = null, themeAfter = null, threw = null;
+
+        domAccess.startViewTransition = async payload => {
+            calls.push(payload);
+            themeAtCall = workspace.theme;
+
+            if (reject) {
+                throw new Error('remote round trip rejected')
+            }
+
+            return startResult
+        };
+
+        try {
+            workspace = Neo.create(Workspace, {theme: startingTheme});
+
+            try {
+                themeAfter = await workspace.toggleWorkspaceTheme(data)
+            } catch (error) {
+                threw = error
+            }
+
+            return {calls, themeAtCall, themeAfter, threw}
+        } finally {
+            originalStart
+                ? domAccess.startViewTransition = originalStart
+                : delete domAccess.startViewTransition;
+
+            workspace?.destroy()
+        }
+    }
+
+    test('the flip lands inside the capture window, not before the transition starts', async () => {
+        const {calls, themeAtCall, themeAfter} = await toggleWithStubbedTransition({
+            data: {clientX: 120, clientY: 40}
+        });
+
+        expect(calls, 'the engine transition must actually have been requested').toHaveLength(1);
+
+        // The discriminating assertion. Flipping first would leave the transition capturing the
+        // already-dark DOM as both states — a reveal playing over no visible difference, which no
+        // end-state check can tell apart from a working one.
+        expect(themeAtCall, 'the OLD theme must still be applied when the transition is requested')
+            .toBe('neo-theme-neo-light');
+
+        expect(themeAfter, 'and the new theme is applied once the window is open').toBe('neo-theme-neo-dark')
+    });
+
+    test('the pointer and window reach the engine, which owns the reveal geometry', async () => {
+        const {calls} = await toggleWithStubbedTransition({data: {clientX: 120, clientY: 40}});
+
+        expect(calls[0].reveal, 'raw coordinates travel; no radius is computed in the app')
+            .toEqual({x: 120, y: 40});
+
+        expect(calls[0].delay, 'the caller declares its own capture window').toBe(100);
+        expect(calls[0]).toHaveProperty('windowId')
+    });
+
+    test('a browser without the View Transition API still flips the theme', async () => {
+        const {themeAfter, threw} = await toggleWithStubbedTransition({startResult: false});
+
+        expect(threw, 'a false return is the documented no-API answer, not a failure').toBeNull();
+
+        // The reveal is decorative: today's instant flip is the floor this change must not regress.
+        expect(themeAfter, 'the theme flips whether or not the transition ran').toBe('neo-theme-neo-dark')
+    });
+
+    test('a rejected remote round trip still flips the theme', async () => {
+        // The engine resolves rather than rejects, but this is a REMOTE method and the transport can
+        // fail for reasons the callee never sees. Before this method awaited anything it was
+        // infallible; without the guard a rejected round trip would skip the flip and leave the
+        // button doing nothing — a worse outcome than the animation it was meant to protect.
+        const {themeAfter, threw} = await toggleWithStubbedTransition({reject: true});
+
+        expect(threw, 'a decorative reveal must never take the flip down with it').toBeNull();
+        expect(themeAfter, 'the theme flips even when the transition never happened').toBe('neo-theme-neo-dark')
+    });
+
+    test('a toggle with no event neither throws nor invents a reveal origin', async () => {
+        const {calls, themeAfter, threw} = await toggleWithStubbedTransition({data: undefined});
+
+        expect(threw, 'a missing event must not reach the engine as a crash').toBeNull();
+
+        // Undefined coordinates are how `createRevealAnimation` is told there is no origin — it
+        // returns null and the transition runs as the browser's default cross-fade. Passing a
+        // made-up origin here would paint a circle from a place the user never clicked.
+        expect(calls[0].reveal, 'no origin is fabricated').toEqual({x: undefined, y: undefined});
+
+        expect(themeAfter, 'and the flip still happens').toBe('neo-theme-neo-dark')
+    })
+});
