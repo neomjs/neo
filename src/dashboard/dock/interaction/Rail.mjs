@@ -135,7 +135,13 @@ class Rail extends Container {
          * @member {Number|null} revealDwellMs_=null
          * @reactive
          */
-        revealDwellMs_: null
+        revealDwellMs_: null,
+        /**
+         * Tooltip text handed to the reveal overlay's pin control at construction, from the
+         * workspace's `dockActionTooltips.revealPin`. `null` leaves the control without a tooltip.
+         * @member {String|null} revealPinTooltip=null
+         */
+        revealPinTooltip: null
     }
 
     /**
@@ -197,8 +203,9 @@ class Rail extends Container {
             config.items = [
                 ...(config.railItems || []).map(railItem => this.createTabConfig(railItem, config.edge)),
                 {
-                    module: RevealOverlay,
-                    edge  : this.getValidatedEdge(config.edge)
+                    module    : RevealOverlay,
+                    edge      : this.getValidatedEdge(config.edge),
+                    pinTooltip: config.revealPinTooltip ?? null
                 }
             ]
         }

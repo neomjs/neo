@@ -430,6 +430,10 @@ class LayoutAdapter extends Base {
      *     capability changes its hidden state rather than node-level action membership.
      * @param {String} [options.dockPopOutIconCls='far fa-window-restore'] Icon of the projected
      *     pop-out action.
+     * @param {Object} [options.dockActionTooltips] Tooltip texts of the engine actions and the
+     *     rail's reveal pin, keyed by action state (`lock` / `unlock`, `reload`, `unpin`, `popOut`,
+     *     `maximize` / `restore`, `close`, `revealPin`); a missing key projects no tooltip for that
+     *     action. The workspace threads its `dockActionTooltips` map here.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
      * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
@@ -500,6 +504,7 @@ class LayoutAdapter extends Base {
             dockTabSortBoundaryContainerId   : options.dockTearOutBoundaryContainerId
                 || options.dockWorkspaceBoundaryContainerId
                 || null,
+            dockActionTooltips               : options.dockActionTooltips || null,
             dockLockIconCls                  : options.dockLockIconCls || 'fa fa-lock',
             dockMaximizeIconCls              : options.dockMaximizeIconCls || 'far fa-window-maximize',
             dockPopOutActionAvailable        : options.dockPopOutActionAvailable === true,
@@ -647,6 +652,7 @@ class LayoutAdapter extends Base {
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
             resolveComponentRef     : context.resolveRevealComponentRef,
+            revealPinTooltip        : context.dockActionTooltips?.revealPin ?? null,
             syncDockLockPane        : context.syncDockLockPane
         }
     }
@@ -1100,6 +1106,10 @@ class LayoutAdapter extends Base {
             seen.add(name)
         }
 
+        const tips = context.dockActionTooltips || {},
+              // Only a present key becomes a config: an absent tooltip must not write `tooltip: undefined`.
+              tip  = key => tips[key] != null ? {tooltip: tips[key]} : {};
+
         const headerActions = [
             ...hostActions,
             // Lock leads the frozen engine set. The ordinary lock gesture inherits focus gating;
@@ -1114,7 +1124,8 @@ class LayoutAdapter extends Base {
                 showOnFocus: context.items[activeItemId]?.locked !== true,
                 vdom       : {
                     'aria-label': context.items[activeItemId]?.locked === true ? 'unlock' : 'lock'
-                }
+                },
+                ...tip(context.items[activeItemId]?.locked === true ? 'unlock' : 'lock')
             }] : []),
             // Reload follows lock in the frozen family order (lock · reload · pin · maximize — close
             // always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
@@ -1127,7 +1138,8 @@ class LayoutAdapter extends Base {
             ...(context.enableDockReloadAction ? [{
                 action : 'reload',
                 hidden : true,
-                iconCls: 'fa fa-rotate-right'
+                iconCls: 'fa fa-rotate-right',
+                ...tip('reload')
             }] : []),
             ...(context.enableDockPinAction ? [{
                 action    : 'pin',
@@ -1148,8 +1160,9 @@ class LayoutAdapter extends Base {
                 // Like maximize → minimize, the glyph names the NEXT action, not current state:
                 // this one-way command unpins into the rail; the reveal toolbar owns the inverse
                 // thumbtack that pins the pane back into flow.
-                iconCls   : 'fa fa-thumbtack-slash',
-                vdom      : {'aria-label': 'unpin'}
+                iconCls: 'fa fa-thumbtack-slash',
+                vdom   : {'aria-label': 'unpin'},
+                ...tip('unpin')
             }] : []),
             // Pop-out sits between pin and maximize per the family's frozen ordering. Same
             // focus-gating default as the rest of the engine set — no `contextual` key.
@@ -1161,13 +1174,15 @@ class LayoutAdapter extends Base {
             ...(context.enableDockPopOutAction ? [{
                 action : 'pop-out',
                 hidden : !activeItemId || !context.dockPopOutActionAvailable,
-                iconCls: context.dockPopOutIconCls
+                iconCls: context.dockPopOutIconCls,
+                ...tip('popOut')
             }] : []),
             // Maximize inherits the same focus-gating default; the family ordering contract keeps
             // the engine set between host actions and the always-visible, always-last `close`.
             ...(context.enableDockMaximizeAction ? [{
                 action : 'maximize',
-                iconCls: context.dockMaximizeIconCls
+                iconCls: context.dockMaximizeIconCls,
+                ...tip('maximize')
             }] : []),
             ...(context.enableDockCloseAction ? [{
                 action    : 'close',
@@ -1175,7 +1190,8 @@ class LayoutAdapter extends Base {
                 hidden    : !activeItemId
                     || context.items[activeItemId]?.closable === false
                     || context.items[activeItemId]?.locked === true,
-                iconCls   : 'fa fa-times'
+                iconCls   : 'fa fa-times',
+                ...tip('close')
             }] : [])
         ];
 

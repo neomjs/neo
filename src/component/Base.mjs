@@ -882,16 +882,22 @@ class Component extends Abstract {
      * @protected
      */
     afterSetTooltip(value, oldValue) {
+        let me = this;
+
         oldValue?.destroy?.();
 
         if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
-                this.createTooltip(value)
+                me.createTooltip(value)
             } else {
                 import('../tooltip/Base.mjs').then(() => {
-                    this.createTooltip(value)
+                    me.createTooltip(value)
                 })
             }
+        } else if (oldValue) {
+            // Retiring a tooltip: an own instance is destroyed above; a shared-tooltip owner must
+            // also leave the singleton's delegate set, or hovering it would open an empty tooltip.
+            me.removeCls('neo-uses-shared-tooltip')
         }
     }
 
@@ -1283,7 +1289,11 @@ class Component extends Abstract {
             })
         } else {
             me._tooltip = value;
-            Neo.tooltip.Base.createSingleton(me.app);
+
+            // The shared instance delegates from the app's main view. The unit harness runs without
+            // one, so the singleton is skipped there and the config stays readable on the owner —
+            // the same deliberate no-op `updateVdom()` takes in unit-test mode.
+            !Neo.config.unitTestMode && Neo.tooltip.Base.createSingleton(me.app);
             me.addCls('neo-uses-shared-tooltip');
             me.update()
         }
