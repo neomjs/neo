@@ -89,7 +89,7 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
      * browser will actually interpolate — `100cqw` resolved against the live container, on the same
      * element at the same size for both generations.
      */
-    test('the two swap generations differ in NAME and agree in GEOMETRY', async ({page}) => {
+    test('the running generations differ in NAME and agree in GEOMETRY on the rail under test', async ({page}) => {
         const
             overlay = page.locator(OVERLAY),
             // The slot's own running entry animation, with its keyframes as the browser computed
@@ -135,5 +135,57 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
         expect(generationTwo.keyframes,
             `the two generations must animate the same geometry — ${generationOne.name} vs ${generationTwo.name}`)
             .toEqual(generationOne.keyframes)
+    });
+
+    /**
+     * The arm above reads what the browser will actually interpolate, which is the stronger claim —
+     * but it can only reach the ONE edge this fixture's rail uses. A hand-written `from-top-b` with
+     * different geometry would emit, build, and pass it. The `@each` is what makes that structurally
+     * impossible; this arm is the backstop for a loop someone later unwinds in part, so it has to
+     * cover all four pairs rather than the one on screen.
+     *
+     * Read from the live stylesheets, so what is compared is the SHIPPED CSS — the same artifact the
+     * browser resolves — rather than the SCSS source, which is the thing under suspicion.
+     */
+    test('every generation pair is emitted identically — the backstop covers all four edges, not only the rail under test', async ({page}) => {
+        const pairs = await page.evaluate(() => {
+            const bodies = {};
+
+            for (const sheet of document.styleSheets) {
+                let rules;
+
+                // A cross-origin sheet throws on access and is never ours.
+                try { rules = sheet.cssRules } catch { continue }
+
+                for (const rule of rules ?? []) {
+                    if (rule.type === CSSRule.KEYFRAMES_RULE && rule.name.startsWith('neo-dock-reveal-')) {
+                        // Last definition wins in CSS, so a later override must overwrite here too —
+                        // otherwise a drifted twin appended after the loop would be invisible.
+                        bodies[rule.name] = [...rule.cssRules].map(frame => `${frame.keyText}{${frame.style.cssText}}`).join('')
+                    }
+                }
+            }
+
+            return [
+                ...['left', 'right', 'top', 'bottom'].map(edge => ({
+                    pair: edge,
+                    base: bodies[`neo-dock-reveal-from-${edge}`],
+                    twin: bodies[`neo-dock-reveal-from-${edge}-b`]
+                })),
+                {pair: 'hold', base: bodies['neo-dock-reveal-hold-a'], twin: bodies['neo-dock-reveal-hold-b']}
+            ]
+        });
+
+        // Non-vacuity: an empty or partial read would make every equality below trivially true.
+        expect(pairs, 'four directional pairs plus the hold pair').toHaveLength(5);
+
+        for (const {pair, base, twin} of pairs) {
+            expect(base, `the ${pair} base keyframe must exist in the shipped CSS`).toBeTruthy();
+            expect(twin, `the ${pair} twin keyframe must exist in the shipped CSS`).toBeTruthy()
+        }
+
+        for (const {pair, base, twin} of pairs) {
+            expect(twin, `the ${pair} generations must be emitted identically`).toBe(base)
+        }
     })
 });
