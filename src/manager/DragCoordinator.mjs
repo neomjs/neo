@@ -39,6 +39,18 @@ class DragCoordinator extends Manager {
          */
         nativeWindowDispositionRetryMs: 250,
         /**
+         * How many times a refused strict native park is retried before the gesture ends.
+         *
+         * A native-titlebar drop settles while the user may still hold the popup's titlebar, and a
+         * window the OS is dragging can neither hand focus to the target nor be moved, so the first
+         * park attempt legitimately fails. There is no release event on this path; a park that
+         * succeeds IS the release signal. Each retry waits the disposition backoff (250 ms doubling,
+         * capped at 5 s): the default six retries wait 250 + 500 + 1000 + 2000 + 4000 + 5000 ms, so a
+         * popup may stay held for about 12.75 s after the terminal fires before the gesture ends.
+         * @member {Number} nativeWindowParkRetryLimit=6
+         */
+        nativeWindowParkRetryLimit: 6,
+        /**
          * Quiescence delay after the last native window-position update before committing
          * a geometry-only drop. The browser has no mouseup during OS-titlebar drags.
          * @member {Number} nativeWindowDropSettleMs=250
@@ -276,6 +288,53 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * @summary Retries a refused strict native park with the disposition backoff, bounded.
+     *
+     * The candidate stays retained in phase `park-retry` while it waits. It is NOT shielded from
+     * geometry: a position update for the source means the user moved on, and the ordinary
+     * {@link #onWindowPositionChange} path then replaces this candidate and clears the pending retry
+     * with it. Only the `parking` / `embodied` / `settling-*` phases, whose geometry the app itself
+     * publishes, are shielded. Past {@link #nativeWindowParkRetryLimit} the gesture ends exactly as
+     * a refusal did before retries existed.
+     * @param {String} windowId The moving popup's window id.
+     * @param {Object} candidate The retained native candidate whose park was refused.
+     * @returns {Boolean} `true` when a retry was scheduled, `false` when the gesture ended.
+     * @protected
+     */
+    retryNativeWindowPark(windowId, candidate) {
+        let me = this;
+
+        if (me.nativeWindowDropCandidates.get(windowId) !== candidate || candidate.cancelled) {
+            return false
+        }
+
+        // parkAttempts counts refusals; the limit counts RETRIES, so the last refusal admitted still
+        // schedules one more attempt (six retries = seven park attempts).
+        candidate.parkAttempts = (candidate.parkAttempts || 0) + 1;
+
+        if (candidate.parkAttempts > me.nativeWindowParkRetryLimit) {
+            me.clearNativeWindowDropCandidate(windowId);
+            me.endNativeGesture(windowId);
+            return false
+        }
+
+        const delay = Math.min(
+            5000,
+            Math.max(1, me.nativeWindowDispositionRetryMs) * 2 ** (candidate.parkAttempts - 1)
+        );
+
+        candidate.phase = 'park-retry';
+        clearTimeout(candidate.timeoutId);
+        candidate.timeoutId = setTimeout(() => {
+            me.commitNativeWindowDrop(windowId, candidate).catch(error => {
+                (Neo.logError || console.error)('Native window park retry failed', error)
+            })
+        }, delay);
+
+        return true
+    }
+
+    /**
      * @summary Commits an inferred native-titlebar popup drop into the remote dashboard path.
      *
      * Commits a conservative geometry-only native titlebar drop into the existing remote
@@ -339,8 +398,11 @@ class DragCoordinator extends Manager {
             }
 
             if (embodyNativeHover === true && suspended !== true) {
-                me.clearNativeWindowDropCandidate(windowId);
-                me.endNativeGesture(windowId);
+                // The strict route refused to park. During a live OS titlebar drag that is the
+                // expected first answer, not a verdict: the dragged window holds focus and the
+                // window server owns its position until the user lets go. Keep the candidate and
+                // try again; the release has no event, so a park that succeeds is how we learn of it.
+                me.retryNativeWindowPark(windowId, candidate);
                 return
             }
 
@@ -1362,7 +1424,7 @@ class DragCoordinator extends Manager {
             // produced any given retained entry. Each entry carries its own `gestureToken` for that;
             // filter by it before reading, because the ring is a session tail and spans gestures.
             claimTrace: [...me.claimTrace],
-            sortZones                 : Array.from(me.sortZones.entries()).map(([group, map]) => ({
+            sortZones : Array.from(me.sortZones.entries()).map(([group, map]) => ({
                 group,
                 windows: Array.from(map.keys())
             }))

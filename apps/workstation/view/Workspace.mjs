@@ -3117,7 +3117,12 @@ class Workspace extends DockWorkspace {
 
             me.lastVesselParkReceipt.focused = focused;
 
-            if (!focused) return false;
+            if (!focused) {
+                // Expected while a native titlebar drag still holds the source popup: the dragged
+                // window keeps focus until the OS releases it. The coordinator retries the park.
+                me.lastVesselParkReceipt.refusedAt = 'focus';
+                return false
+            }
 
             const moveData = {
                 nativeHandleKey: route.nativeHandleKey,
@@ -3139,7 +3144,10 @@ class Workspace extends DockWorkspace {
 
             me.lastVesselParkReceipt.moved = moved;
 
-            if (!moved) return false;
+            if (!moved) {
+                me.lastVesselParkReceipt.refusedAt = 'move';
+                return false
+            }
 
             parkGeometry && (me.tearOutParkGeometries[itemId] = parkGeometry);
 
@@ -3162,6 +3170,7 @@ class Workspace extends DockWorkspace {
 
                 me.lastVesselParkReceipt.compensated = compensated;
                 me.lastVesselParkReceipt.parked      = !compensated;
+                me.lastVesselParkReceipt.refusedAt   = 'refocus';
                 compensated && delete me.tearOutParkGeometries[itemId];
 
                 // Recovery ownership and visual admission are separate: if target refocus failed,
