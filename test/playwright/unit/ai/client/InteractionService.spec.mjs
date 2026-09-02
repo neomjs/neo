@@ -98,7 +98,10 @@ test.describe('Neo.ai.client.InteractionService', () => {
         const resolved = await InteractionService.prototype.resolveWindow('source-window');
 
         expect(resolved.id).toBe('source-window');
-        expect(resolved.innerRect).toMatchObject({height: 500, width: 800, x: 300, y: 400})
+        // `screenLeft/Top` is the frame origin; the viewport sits inside the 10 px side border and
+        // the 30 px title bar this report carries (820−800 → 10 each side; 540−500−10 → 30 on top)
+        expect(resolved.innerRect).toMatchObject({height: 500, width: 800, x: 310, y: 430});
+        expect(resolved.outerRect).toMatchObject({height: 540, width: 820, x: 300, y: 400})
     });
 
     test('driveDrag resolves target-local geometry into one source-window atomic plan', async () => {

@@ -88,7 +88,8 @@ async function readMainParticipationId(app) {
 }
 
 /**
- * @summary Reads one window's manager-owned inner rect from the App Worker.
+ * @summary Reads one window's manager-owned FRAME rect (`outerRect`) from the App Worker — the basis
+ * `window.screenX/Y` and CDP window bounds share, so parity with a screen read is exact.
  * @param {Object} app
  * @param {String} managerId
  * @param {String} windowId
@@ -97,7 +98,7 @@ async function readMainParticipationId(app) {
 async function readManagerRect(app, managerId, windowId) {
     const state = await app.callMethod(managerId, 'toJSON');
 
-    return state.windows.find(win => win.id === windowId)?.innerRect ?? null
+    return state.windows.find(win => win.id === windowId)?.outerRect ?? null
 }
 
 test.describe('Workstation — native titlebar popup drag (#18029)', () => {

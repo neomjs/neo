@@ -100,16 +100,33 @@ async function setBounds(handle, bounds) {
 }
 
 /**
- * @summary Reads one window's manager-owned inner rect from the App Worker.
+ * @summary Reads one window's manager-owned rect from the App Worker — the FRAME (`outerRect`) by
+ * default, which is the basis `window.screenX/Y` and CDP window bounds share; `innerRect` is the
+ * viewport inside the chrome, for size comparisons against `innerWidth/Height`.
  * @param {Object} app
  * @param {String} managerId
  * @param {String} windowId
+ * @param {String} [key='outerRect']
  * @returns {Promise<Object|null>}
  */
-async function readManagerRect(app, managerId, windowId) {
+async function readManagerRect(app, managerId, windowId, key='outerRect') {
     const state = await app.callMethod(managerId, 'toJSON');
 
-    return state.windows.find(win => win.id === windowId)?.innerRect ?? null
+    return state.windows.find(win => win.id === windowId)?.[key] ?? null
+}
+
+/**
+ * @summary Reads one window's manager-owned chrome (`{top, left, right, bottom}`) — the offset between
+ * its frame and its viewport, so a frame move can be aimed at a viewport target.
+ * @param {Object} app
+ * @param {String} managerId
+ * @param {String} windowId
+ * @returns {Promise<Object>}
+ */
+async function readManagerChrome(app, managerId, windowId) {
+    const state = await app.callMethod(managerId, 'toJSON');
+
+    return state.windows.find(win => win.id === windowId)?.chrome ?? {bottom: 0, left: 0, right: 0, top: 0}
 }
 
 /**
@@ -288,7 +305,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             // manager.Window to publish the new extents (observeResize on the main render target).
             const shrunk = await setBounds(mainHandle, {height: 300});
 
-            await expect.poll(async () => (await readManagerRect(app, managerId, mainWinId))?.height ?? Infinity, {
+            await expect.poll(async () => (await readManagerRect(app, managerId, mainWinId, 'innerRect'))?.height ?? Infinity, {
                 message  : 'manager.Window follows the main window resize',
                 timeout  : 5000,
                 intervals: [25, 50, 100]
@@ -308,7 +325,11 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             await awaitOriginParity(app, managerId, target.windowId, targetScreen, 'manager.Window follows the target vessel');
 
             const
-                targetRect   = await readManagerRect(app, managerId, target.windowId),
+                // the drop anchor is the source's VIEWPORT centre and the claim tests the target's
+                // VIEWPORT, so the aim is viewport-on-viewport; the frame move subtracts the source's
+                // own chrome to put its viewport there
+                targetInner  = await readManagerRect(app, managerId, target.windowId, 'innerRect'),
+                sourceChrome = await readManagerChrome(app, managerId, source.windowId),
                 sourceScreen = await readScreen(source.popup),
                 armed        = await source.popup.evaluate(() => ({
                     intervalArmed  : Boolean(globalThis.Neo.main.addon.WindowPosition.intervalId),
@@ -326,8 +347,8 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             // window — the first update over an unmeasured target only starts the preview
             // measurement, the following updates render it, and each update re-arms the commit.
             const
-                goalLeft = Math.round(targetRect.x + targetRect.width  / 2 - sourceScreen.innerWidth  / 2),
-                goalTop  = Math.round(targetRect.y + targetRect.height / 2 - sourceScreen.innerHeight / 2);
+                goalLeft = Math.round(targetInner.x + targetInner.width  / 2 - sourceScreen.innerWidth  / 2 - sourceChrome.left),
+                goalTop  = Math.round(targetInner.y + targetInner.height / 2 - sourceScreen.innerHeight / 2 - sourceChrome.top);
 
             for (const [dx, dy] of [[0, 0], [3, 2], [6, 4]]) {
                 const moved = await setBounds(sourceHandle, {left: goalLeft + dx, top: goalTop + dy});

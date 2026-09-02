@@ -23,11 +23,6 @@ class Window extends Manager {
          */
         className: 'Neo.manager.Window',
         /**
-         * @member {Boolean} isSafari
-         * @protected
-         */
-        isSafari: /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -63,7 +58,17 @@ class Window extends Manager {
     }
 
     /**
-     * @param {Object} data
+     * Interprets one raw window report into the manager's two rectangles and the chrome between them.
+     *
+     * `screenLeft` / `screenTop` name the window FRAME's origin — the top-left of the OS window
+     * including its title bar — in every engine except Firefox, which publishes the viewport origin
+     * itself (`mozInnerScreenX/Y`). Measured, not assumed: a Chromium frame placed at `top: 120`
+     * reports `screenY 120` with 87 px of chrome, and a Chrome window filling a display under the
+     * macOS menu bar reports `screenTop 33` — a viewport reading would put its frame at y = −54,
+     * above the screen. `outerRect` is therefore the frame itself and `innerRect` the frame shifted
+     * by the chrome. The chrome split assumes symmetric side borders and a bottom border equal to a
+     * side border, so the remaining height difference is the title bar.
+     * @param {Object} data The raw report: `innerHeight`, `innerWidth`, `outerHeight`, `outerWidth`, `screenLeft`, `screenTop`, and Firefox's `mozInnerScreenX/Y`
      * @returns {Object} {chrome, innerRect, outerRect}
      */
     calculateGeometry(data) {
@@ -92,17 +97,13 @@ class Window extends Manager {
         let viewportLeft, viewportTop;
 
         if (typeof mozInnerScreenX === 'number') {
-            // Firefox: explicit viewport coordinates
+            // Firefox publishes the viewport origin directly
             viewportLeft = mozInnerScreenX;
             viewportTop  = mozInnerScreenY
-        } else if (this.isSafari) {
-            // Safari: screenLeft/Top is Frame position. Add chrome to get Viewport.
+        } else {
+            // Chrome, Edge and Safari report the frame origin: the viewport sits inside the chrome
             viewportLeft = screenLeft + sideBorder;
             viewportTop  = screenTop  + topChrome
-        } else {
-            // Chrome/Edge: screenLeft/Top is Viewport position.
-            viewportLeft = screenLeft;
-            viewportTop  = screenTop
         }
 
         const innerRect = new Rectangle(viewportLeft, viewportTop, innerWidth, innerHeight);

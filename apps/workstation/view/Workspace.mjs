@@ -3033,11 +3033,14 @@ class Workspace extends DockWorkspace {
             targetWindow = Neo.manager?.Window?.get(me.vesselConversionTargetWindowId),
             targetRoute  = targetWindow?.nativeRoute,
             targetIsMain = me.vesselConversionTargetWindowId === me.windowId,
-            // The cover geometry and the authority check both speak published inner-window
-            // geometry; a child omitting outerRect never rejects an authorized live vessel.
+            // The size check and the authority check speak published inner-window geometry (a child
+            // omitting outerRect never rejects an authorized live vessel); the park POSITION is a
+            // frame: `moveTo` places the source frame on the target's frame origin, so the parked
+            // window lies behind the target's chrome and content alike.
             sourceRect   = sourceWindow?.innerRect,
             sourceOuter  = sourceWindow?.outerRect ?? sourceRect,
             targetRect   = targetWindow?.innerRect,
+            targetOuter  = targetWindow?.outerRect ?? targetRect,
             needsResize  = !nativeTitlebar && Boolean(sourceOuter && targetRect && (
                 sourceOuter.width > targetRect.width || sourceOuter.height > targetRect.height
             )),
@@ -3052,7 +3055,7 @@ class Workspace extends DockWorkspace {
                 y     : sourceOuter.y
             } : null,
             parkGeometry  = needsResize ? {
-                park   : {...parkSize, x: targetRect?.x, y: targetRect?.y},
+                park   : {...parkSize, x: targetOuter?.x, y: targetOuter?.y},
                 restore: restoreRect
             } : null;
 
@@ -3079,6 +3082,9 @@ class Workspace extends DockWorkspace {
             },
             targetInner: targetRect && {
                 height: targetRect.height, width: targetRect.width, x: targetRect.x, y: targetRect.y
+            },
+            targetOuter: targetOuter && {
+                height: targetOuter.height, width: targetOuter.width, x: targetOuter.x, y: targetOuter.y
             }
         };
         me.lastVesselRestoreReceipt = null;
@@ -3129,8 +3135,8 @@ class Workspace extends DockWorkspace {
                 targetWindowId : route.targetWindowId,
                 windowId       : me.windowId,
                 windowName,
-                x              : targetRect.x,
-                y              : targetRect.y
+                x              : targetOuter.x,
+                y              : targetOuter.y
             };
 
             if (!nativeTitlebar) {
@@ -3206,9 +3212,19 @@ class Workspace extends DockWorkspace {
         let me       = this,
             entry    = me.resolveTearOutVessel(itemId),
             route    = entry?.nativeRoute,
-            geometry = me.tearOutParkGeometries[itemId] ?? null;
+            geometry = me.tearOutParkGeometries[itemId] ?? null,
+            // `rect` is where the pane's CONTENT re-shows — the proxy's logical rect, or the
+            // viewport rect captured at conversion-in. `moveTo` places the FRAME, so the window's
+            // own chrome comes off the content origin; a window that never published chrome
+            // re-shows content-on-frame, the pre-chrome behaviour.
+            chrome   = Neo.manager?.Window?.get(entry?.windowId)?.chrome,
+            frame    = Number.isFinite(rect?.x) && Number.isFinite(rect?.y) ? {
+                x: rect.x - (chrome?.left ?? 0),
+                y: rect.y - (chrome?.top  ?? 0)
+            } : null;
 
         me.lastVesselRestoreReceipt = {
+            frame,
             geometry,
             rect: rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y},
             terminal
@@ -3230,8 +3246,8 @@ class Workspace extends DockWorkspace {
             targetWindowId : route.targetWindowId,
             windowId       : me.windowId,
             windowName,
-            x              : rect.x,
-            y              : rect.y
+            x              : frame.x,
+            y              : frame.y
         };
 
         try {

@@ -113,8 +113,12 @@ test.describe.serial('Neo.manager.Window connection ordering (#15396)', () => {
         expect(WindowManager.items).toHaveLength(1);
         expect(connected.nativeRoute).toBe(nativeRoute);
         expect(connected.capabilities).toBe(nativeRoute.capabilities);
-        expect(connected.innerRect.x).toBe(420);
-        expect(connected.innerRect.y).toBe(240)
+        // `screenLeft/Top` is the frame origin; the viewport sits inside the 10 px side border and
+        // the 30 px title bar this geometry reports (620−600 → 10 each side; 540−500−10 → 30 on top)
+        expect(connected.outerRect.x).toBe(420);
+        expect(connected.outerRect.y).toBe(240);
+        expect(connected.innerRect.x).toBe(430);
+        expect(connected.innerRect.y).toBe(270)
     });
 
     test('a route-less reconnect revokes authority instead of inheriting the previous document route', () => {
