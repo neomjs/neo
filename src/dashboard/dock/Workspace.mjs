@@ -3664,10 +3664,39 @@ class Workspace extends Container {
                         isDockProjectionRetry: true
                     })
                 }
-            })
+            }).then(() => me.retireStrandedShell(error.retiredShell))
         }
 
         return null
+    }
+
+    /**
+     * @summary Destroys a shell the failed projection detached, once the repair has emptied it.
+     *
+     * `settleFailedProjection` detaches a retired staged shell without destroying it, because at that
+     * moment it still holds the live panes the repair has yet to re-parent out. Detached is not
+     * unreferenced: `Neo.manager.Instance.unregister` is reached only from `core.Base#destroy`, so a
+     * merely-detached component stays registered and the manager holds it for the life of the app.
+     * One leaked container per failure, permanently, unless someone finishes the job.
+     *
+     * The repair is what makes finishing safe — it re-parents the panes out by identity, after which
+     * the shell holds nothing and destroying it takes nothing with it.
+     *
+     * **Emptiness is asserted, not assumed.** A repair that itself failed re-enters the handler as a
+     * retry and still resolves, so reaching this point is not proof the panes moved. A shell that
+     * still has items is left alone: leaking one container is cheap, and destroying live panes is the
+     * one outcome this whole failure path exists to prevent.
+     * @param {Neo.component.Base|null} shell
+     * @returns {Boolean} true when the shell was destroyed
+     * @protected
+     */
+    retireStrandedShell(shell) {
+        if (!shell || shell.isDestroyed || shell.items?.length > 0) {
+            return false
+        }
+
+        shell.destroy();
+        return true
     }
 
     /**

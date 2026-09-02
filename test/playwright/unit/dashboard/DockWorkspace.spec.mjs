@@ -2996,6 +2996,41 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // genuine projection bug into a silent re-projection loop.
             expect(() => workspace.onDockProjectionFailed(foreign, createDocument(), null, {})).toThrow(foreign);
             expect(workspace.repairLog).toEqual([])
+        });
+
+        test('the shell the recovery detached is destroyed once the repair has emptied it', async () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const shell = Neo.create(Container, {items: []}),
+                  error = Object.assign(failure('retired-staged'), {retiredShell: shell});
+
+            workspace.onDockProjectionFailed(error, createDocument(), null, {});
+
+            await workspace.refreshPromise;
+
+            // Detached is not unreferenced: `manager.Instance.unregister` is reached only from
+            // `core.Base#destroy`, so a shell merely removed from the host stays registered for the
+            // life of the app. Leaving it is a permanent leak per failure, not a GC-able orphan.
+            expect(shell.isDestroyed, 'the emptied shell is destroyed, not merely detached').toBe(true)
+        });
+
+        test('a shell that still holds panes is left alone, however the repair went', () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const pane  = Neo.create(Container, {items: []}),
+                  shell = Neo.create(Container, {items: [pane]});
+
+            // Reaching the cleanup is NOT proof the repair moved the panes: a repair that failed
+            // re-enters as a retry and still resolves. Emptiness is the checkable condition, and
+            // leaking one container is cheap next to destroying live panes — the single outcome
+            // this whole failure path exists to prevent.
+            expect(workspace.retireStrandedShell(shell), 'a populated shell is refused').toBe(false);
+            expect(shell.isDestroyed).toBeFalsy();
+            expect(pane.isDestroyed, 'and its panes are untouched').toBeFalsy();
+
+            expect(workspace.retireStrandedShell(null), 'nothing detached is not an error').toBe(false);
+
+            shell.destroy()
         })
     })
 });

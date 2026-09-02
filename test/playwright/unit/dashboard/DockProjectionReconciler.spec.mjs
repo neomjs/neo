@@ -845,6 +845,18 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                 expect(error.isDockProjectionFailure, 'the failure is typed so the workspace can route it').toBe(true);
                 expect(error.projectionRecovery).toBe(expectedRecovery);
 
+                // The detached shell is HANDED BACK, because detached is not unreferenced: only
+                // `core.Base#destroy` reaches `manager.Instance.unregister`, so a shell dropped here
+                // would stay registered for the life of the app. The caller destroys it once the
+                // repair has emptied it. A landed swap destroyed its casualty already, so it hands
+                // back nothing — the two cases must not report the same thing.
+                expectedRecovery === 'retired-staged'
+                    ? expect(error.retiredShell, 'the detached staged shell is handed to the caller').toBeTruthy()
+                    : expect(error.retiredShell, 'a landed swap leaves nothing detached').toBeNull();
+
+                error.retiredShell && expect(error.retiredShell.isDestroyed,
+                    'and it is handed back ALIVE — it still holds panes at this moment').toBeFalsy();
+
                 // The invariant every later commit depends on: ONE shell, at shellIndex, visible.
                 expect(host.items.length, 'the host holds exactly one shell').toBe(1);
                 expect(host.items[0].hidden, 'the surviving shell is visible').not.toBe(true);

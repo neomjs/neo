@@ -511,10 +511,15 @@ class Reconciler extends Base {
                 await host.promiseUpdate()
             }
         } catch (error) {
-            error.isDockProjectionFailure = true;
-            error.projectionRecovery      = await this.settleFailedProjection({
+            const settlement = await this.settleFailedProjection({
                 host, nextShell, oldShell, retainedRoot, shellIndex, swapped
             });
+
+            error.isDockProjectionFailure = true;
+            error.projectionRecovery      = settlement.recovery;
+            // Handed to the caller because only IT knows when the shell is safe to destroy: not
+            // here, where it still holds the panes the repair has yet to re-parent out.
+            error.retiredShell            = settlement.retiredShell;
 
             // Re-thrown rather than wrapped: the original message and stack ARE the diagnostic (the
             // live report that produced this guard read `Component not found for id: …` out of
@@ -559,9 +564,11 @@ class Reconciler extends Base {
      * commits, the staged shell is the survivor and the swap is simply finished.
      *
      * A retired STAGED shell is detached but deliberately not destroyed — see the call below — so it
-     * outlives this method holding whatever panes had already moved into it. That is intentional and
-     * temporary: the repair re-projection re-parents those panes by identity and leaves the detached
-     * shell empty and unreferenced.
+     * outlives this method holding whatever panes had already moved into it. **Detached is not
+     * unreferenced:** `Neo.manager.Instance.unregister` is reached only from `core.Base#destroy`, so
+     * the manager keeps a strong reference to a merely-detached component for the life of the app.
+     * That is why the shell is RETURNED rather than dropped — the caller destroys it once the repair
+     * re-projection has re-parented the panes out and it demonstrably holds nothing.
      *
      * The recovery commits too, so it can reject in turn. That is reported, never thrown: the caller
      * re-throws the ORIGINAL failure, whose message names the actual cause.
@@ -572,12 +579,14 @@ class Reconciler extends Base {
      * @param {Boolean} data.retainedRoot The projected root was the retained tab; nothing was staged.
      * @param {Number}  data.shellIndex Index the surviving shell must occupy.
      * @param {Boolean} data.swapped The visibility swap LANDED, so the staged shell is on screen.
-     * @returns {Promise<String>} `retained-root` | `retired-staged` | `completed-swap` | `unrecoverable`
+     * @returns {Promise<Object>} `{recovery, retiredShell}` — recovery is `retained-root` |
+     * `retired-staged` | `completed-swap` | `unrecoverable`; `retiredShell` is the detached-but-alive
+     * staged shell awaiting the caller's post-repair destroy, or `null` when nothing outlives this call.
      * @static
      */
     static async settleFailedProjection({host, nextShell, oldShell, retainedRoot, shellIndex, swapped}) {
         // A retained root never staged a second shell, so the host was never in the two-shell window.
-        if (retainedRoot) return 'retained-root';
+        if (retainedRoot) return {recovery: 'retained-root', retiredShell: null};
 
         const survivor = swapped ? nextShell : oldShell,
               casualty = swapped ? oldShell  : nextShell;
@@ -604,10 +613,14 @@ class Reconciler extends Base {
 
             // Positional, not incidental: every later commit reconciles against `host.items[shellIndex]`,
             // so a survivor that settled anywhere else would send the next projection at the wrong node.
-            return host.items?.[shellIndex] === survivor ? (swapped ? 'completed-swap' : 'retired-staged') : 'unrecoverable'
+            return {
+                recovery    : host.items?.[shellIndex] === survivor ? (swapped ? 'completed-swap' : 'retired-staged') : 'unrecoverable',
+                // Only the un-swapped case detaches a live shell; the swapped case destroyed it above.
+                retiredShell: swapped ? null : (casualty?.isDestroyed ? null : casualty ?? null)
+            }
         } catch (recoveryError) {
             console.warn('Dock projection recovery failed; the host may still hold two shells', host?.id, recoveryError);
-            return 'unrecoverable'
+            return {recovery: 'unrecoverable', retiredShell: null}
         }
     }
 
