@@ -433,15 +433,31 @@ class Reconciler extends Base {
 
         const commitBars = new Set();
 
-        this.reconcileTabChrome(
-            plans,
-            placeholders,
-            currentTabs,
-            nextShell,
-            resolveItem,
-            preserveItemIds,
-            commitBars
-        );
+        // Phases 2-4 are the window in which the host holds TWO shells, and every one of them ends in
+        // an awaited flight that can reject: a landing ancestor update whose stored vnode still
+        // references chrome a phase destroyed silently is enough (`util.VNode.getVnode` throws on a
+        // reference whose component has left the registry). Without this guard the rejection unwinds
+        // out of the whole method and the host keeps both shells — the outgoing one visible and
+        // populated, the staged one hidden and half-built — and since every later commit reconciles
+        // against `host.items[shellIndex]` again, that state never self-heals.
+        //
+        // `VdomLifecycle#executeVdomUpdate` already promises the half this method needs: a rejected
+        // flight adopts no vnode and rejects every parked promise, "so the next cycle re-diffs
+        // cleanly". The dock is the caller that has to USE that cleanliness — settle the host back to
+        // exactly one shell, then let the workspace re-project from the committed document.
+        let retainedRoot = false,
+            swapped      = false;
+
+        try {
+            this.reconcileTabChrome(
+                plans,
+                placeholders,
+                currentTabs,
+                nextShell,
+                resolveItem,
+                preserveItemIds,
+                commitBars
+            );
 
         // Existing pane/button pairs move through the host's common-ancestor transaction below.
         // A parked pane has no surviving button DOM to move, so its newly materialized pair needs
@@ -450,45 +466,60 @@ class Reconciler extends Base {
         // leave the toolbar's VDOM change invisible to the main-thread delta boundary. Silent
         // insertion also bypasses the SortZone's insert listener, so restore its delegated marker
         // before that one owner commit.
-        await Promise.all([...commitBars].map(bar => {
-            bar.sortZone?.adjustItemCls(true);
-            bar.updateDepth = -1;
-            return bar.promiseUpdate()
-        }));
+            await Promise.all([...commitBars].map(bar => {
+                bar.sortZone?.adjustItemCls(true);
+                bar.updateDepth = -1;
+                return bar.promiseUpdate()
+            }));
 
-        // A removed logical tab can be the source of a returning pane. Hide that now-empty source in
-        // the descendant commit; the ancestor/cleanup phases destroy it with its retiring shell once.
-        currentTabs.forEach((tab, nodeId) => {
-            if (!plans.has(nodeId)) {
-                tab.setSilent({hideMode: 'visibility', hidden: true})
-            }
-        });
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        this.moveRetainedTabChrome(plans);
-
-        // A tabs node may itself be the projected root. In that case its staging placeholder has
-        // disappeared and the retained tab is both old and new shell; never retire it as source chrome.
-        nextShell = nextShell.isDestroyed ? host.items[shellIndex] : nextShell;
-
-        const retainedRoot = oldShell === nextShell;
-
-        if (!retainedRoot) {
-            oldShell.setSilent({hideMode: 'visibility', hidden: true});
-            nextShell.setSilent({hidden: false})
-        }
-
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        if (!retainedRoot) {
-            host.remove(oldShell, true, true);
+            // A removed logical tab can be the source of a returning pane. Hide that now-empty source in
+            // the descendant commit; the ancestor/cleanup phases destroy it with its retiring shell once.
+            currentTabs.forEach((tab, nodeId) => {
+                if (!plans.has(nodeId)) {
+                    tab.setSilent({hideMode: 'visibility', hidden: true})
+                }
+            });
             host.updateDepth = -1;
             host.update();
-            await host.promiseUpdate()
+            await host.promiseUpdate();
+
+            this.moveRetainedTabChrome(plans);
+
+            // A tabs node may itself be the projected root. In that case its staging placeholder has
+            // disappeared and the retained tab is both old and new shell; never retire it as source chrome.
+            nextShell = nextShell.isDestroyed ? host.items[shellIndex] : nextShell;
+
+            retainedRoot = oldShell === nextShell;
+
+            if (!retainedRoot) {
+                oldShell.setSilent({hideMode: 'visibility', hidden: true});
+                nextShell.setSilent({hidden: false})
+            }
+
+            host.updateDepth = -1;
+            host.update();
+            // The swap is only true once this flight LANDS: a rejection here leaves the visibility
+            // change unadopted, so recovery must treat the outgoing shell as the one still on screen.
+            await host.promiseUpdate();
+
+            swapped = !retainedRoot;
+
+            if (!retainedRoot) {
+                host.remove(oldShell, true, true);
+                host.updateDepth = -1;
+                host.update();
+                await host.promiseUpdate()
+            }
+        } catch (error) {
+            error.isDockProjectionFailure = true;
+            error.projectionRecovery      = await this.settleFailedProjection({
+                host, nextShell, oldShell, retainedRoot, shellIndex, swapped
+            });
+
+            // Re-thrown rather than wrapped: the original message and stack ARE the diagnostic (the
+            // live report that produced this guard read `Component not found for id: …` out of
+            // `syncVnodeTree`), and a wrapper buries the one line that names the stale reference.
+            throw error
         }
 
         const overflowPlugins = [...new Set([...plans.values()]
@@ -510,6 +541,74 @@ class Reconciler extends Base {
         // "no topology swap can be pending" must NOT be told otherwise, however the call was
         // admitted. See the in-place return above.
         return {currentTabs, landedInPlace: false, nextShell, overflowPlugins, plans}
+    }
+
+    /**
+     * @summary Settles a host back to exactly one visible shell after a projection phase rejected.
+     *
+     * The transaction's whole hazard is the interval where the host holds two shells. This does NOT
+     * try to restore the outgoing shell's contents — chrome has already moved and leavers are already
+     * destroyed by the time most rejections land, and reconstructing that by hand would be a second
+     * unaudited projection. It restores the only invariant later commits depend on: **one shell, at
+     * `shellIndex`, visible.** Recovering the CONTENT is the follow-up re-projection's job, which is
+     * sound because a rejected flight adopts no vnode, the committed document is untouched by a
+     * failed projection, and a consumer's `resolveItem` re-materializes a pane whose instance is gone.
+     *
+     * Which shell survives follows the last landed flight rather than intent: before the visibility
+     * swap commits, the outgoing shell is the one on screen and the staged one is retired; after it
+     * commits, the staged shell is the survivor and the swap is simply finished.
+     *
+     * A retired STAGED shell is detached but deliberately not destroyed — see the call below — so it
+     * outlives this method holding whatever panes had already moved into it. That is intentional and
+     * temporary: the repair re-projection re-parents those panes by identity and leaves the detached
+     * shell empty and unreferenced.
+     *
+     * The recovery commits too, so it can reject in turn. That is reported, never thrown: the caller
+     * re-throws the ORIGINAL failure, whose message names the actual cause.
+     * @param {Object}  data
+     * @param {Neo.container.Base} data.host The dock host holding both shells.
+     * @param {Neo.component.Base} data.nextShell The staged shell inserted at `shellIndex + 1`.
+     * @param {Neo.component.Base} data.oldShell The outgoing shell at `shellIndex`.
+     * @param {Boolean} data.retainedRoot The projected root was the retained tab; nothing was staged.
+     * @param {Number}  data.shellIndex Index the surviving shell must occupy.
+     * @param {Boolean} data.swapped The visibility swap LANDED, so the staged shell is on screen.
+     * @returns {Promise<String>} `retained-root` | `retired-staged` | `completed-swap` | `unrecoverable`
+     * @static
+     */
+    static async settleFailedProjection({host, nextShell, oldShell, retainedRoot, shellIndex, swapped}) {
+        // A retained root never staged a second shell, so the host was never in the two-shell window.
+        if (retainedRoot) return 'retained-root';
+
+        const survivor = swapped ? nextShell : oldShell,
+              casualty = swapped ? oldShell  : nextShell;
+
+        try {
+            if (casualty && !casualty.isDestroyed && host.indexOf(casualty) > -1) {
+                // Destroy ONLY the outgoing shell, which the success path destroys anyway. The staged
+                // shell must be detached WITHOUT destroying it: by the time most rejections land,
+                // `reconcileTabChrome` has already moved live pane/button pairs into it, and
+                // destroying it would take them with it — the precise opposite of the
+                // reparent-never-recreate promise this transaction exists to keep. Detached, those
+                // panes stay alive and the repair re-projection re-parents them out by identity,
+                // because `resolveItem` returns the consumer's own instances.
+                host.remove(casualty, swapped, true)
+            }
+
+            if (survivor && !survivor.isDestroyed) {
+                survivor.setSilent({hidden: false})
+            }
+
+            host.updateDepth = -1;
+            host.update();
+            await host.promiseUpdate();
+
+            // Positional, not incidental: every later commit reconciles against `host.items[shellIndex]`,
+            // so a survivor that settled anywhere else would send the next projection at the wrong node.
+            return host.items?.[shellIndex] === survivor ? (swapped ? 'completed-swap' : 'retired-staged') : 'unrecoverable'
+        } catch (recoveryError) {
+            console.warn('Dock projection recovery failed; the host may still hold two shells', host?.id, recoveryError);
+            return 'unrecoverable'
+        }
     }
 
     /**

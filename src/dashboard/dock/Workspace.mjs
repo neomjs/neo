@@ -3522,7 +3522,7 @@ class Workspace extends Container {
         const {onProjectionStaged, retainTopology: forcedRetainTopology, waitForOverflowProjection} =
             me.getReconcileOptions(document, refreshOptions) || {};
 
-        const result = await Reconciler.reconcileProjection({
+        const projection = {
             geometryOnly,
             host,
             nextConfig,
@@ -3549,7 +3549,24 @@ class Workspace extends Container {
             retainTopology: forcedRetainTopology ?? retainTopology,
             shellIndex    : me.dockShellIndex,
             waitForOverflowProjection
-        });
+        };
+
+        // `try`/`await` rather than a `.catch()` on the call: the reconciler is the seam consumers and
+        // specs substitute, and a double is free to return a plain result rather than a promise.
+        // Chaining `.catch()` onto the return would make this method require a thenable that the
+        // contract never promised — a pre-existing spec double proved it by throwing here.
+        let result;
+
+        try {
+            result = await Reconciler.reconcileProjection(projection)
+        } catch (error) {
+            result = me.onDockProjectionFailed(error, document, tabInsertDescriptor, refreshOptions)
+        }
+
+        // The failure path owns the remainder of this cycle. Running the maximize sync and the FLIP
+        // over a shell the committed document does not describe would animate the recovery itself,
+        // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
+        if (result === null) return;
 
         // Awaited on purpose: refreshPromise is the settled-surface contract, and a maximize
         // presentation that re-applies after it settles is a surface nobody can await.
@@ -3593,6 +3610,64 @@ class Workspace extends Container {
             // change-guarded, so re-running it on settled chrome is idempotent.
             me.syncDockHeaderActions()
         }
+    }
+
+    /**
+     * @summary Surfaces a failed dock projection and spends ONE clean re-projection repairing it.
+     *
+     * A projection phase that rejects has already settled the host back to a single visible shell
+     * ({@link Neo.dashboard.dock.projection.Reconciler#settleFailedProjection}), so what is left is
+     * a shell whose CONTENT may lag the committed document. The document itself is untouched by a
+     * failed projection and a rejected vdom flight adopts no vnode, so re-projecting from that same
+     * document is the repair — this is the caller-side half of the reject-then-re-diff contract that
+     * `VdomLifecycle#executeVdomUpdate` provides.
+     *
+     * Observability is the other half of the fix. Before this, the rejection escaped as an unhandled
+     * rejection: `onDockZoneDocumentChange` attaches its `.catch` to the PREVIOUS refresh, never the
+     * one it is starting, so nothing on the live path ever saw the failure.
+     *
+     * **Exactly one retry.** A deterministic failure must not hot-loop, so the re-projection carries
+     * `isDockProjectionRetry` and a second failure surfaces without scheduling a third attempt. The
+     * retry replaces `refreshPromise` rather than chaining onto it — the current value IS this cycle,
+     * and awaiting it from inside itself would never settle.
+     * @param {Error} error The failure, marked `isDockProjectionFailure` with a `projectionRecovery` verdict.
+     * @param {Object} document The committed dock document the repair re-projects from.
+     * @param {Object} tabInsertDescriptor
+     * @param {Object} [refreshOptions={}]
+     * @returns {null} Signals the caller that this cycle is over and was handled.
+     * @protected
+     */
+    onDockProjectionFailed(error, document, tabInsertDescriptor, refreshOptions={}) {
+        const me = this;
+
+        // Only the transaction's own typed failure is recoverable this way. Anything else is a bug
+        // in the projection inputs and must keep its original loud path.
+        if (!error?.isDockProjectionFailure) {
+            throw error
+        }
+
+        const isRetry  = refreshOptions.isDockProjectionRetry === true,
+              recovery = error.projectionRecovery;
+
+        console.warn(
+            `Dock projection failed (${recovery}); ${isRetry ? 'the repair attempt failed too, not retrying again' : 'scheduling one clean re-projection'}`,
+            me.id, error
+        );
+
+        me.fire('dockProjectionFailed', {component: me, error, isRetry, recovery});
+
+        if (!isRetry && !me.isDestroyed) {
+            me.refreshPromise = me.timeout(0).then(() => {
+                if (!me.isDestroyed) {
+                    return me.refreshDockWorkspace(tabInsertDescriptor, document, {
+                        ...refreshOptions,
+                        isDockProjectionRetry: true
+                    })
+                }
+            })
+        }
+
+        return null
     }
 
     /**

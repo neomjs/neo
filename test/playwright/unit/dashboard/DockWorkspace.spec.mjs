@@ -322,6 +322,25 @@ class SweepWitnessWorkspace extends PlainWorkspace {
 Neo.setupClass(SweepWitnessWorkspace);
 
 /**
+ * Records the scheduled projection repair instead of running it. The contract under test is WHAT gets
+ * scheduled and how often, not what a second projection then does — the reconciler's own spec owns that.
+ */
+class RepairWitnessWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.RepairWitnessWorkspace'
+    }
+
+    repairLog = []
+
+    refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions) {
+        this.repairLog.push(refreshOptions);
+        return Promise.resolve()
+    }
+}
+
+Neo.setupClass(RepairWitnessWorkspace);
+
+/**
  * The recreate fallback wired (`resolveFreshPane` overridden), so `reload` is offered on every node
  * with an active item while no pane carries `dockReload()` — the Workstation's shape. Which nodes the
  * post-settle sweep REACHES is then the only thing deciding whether the action shows.
@@ -2919,5 +2938,64 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         expect(workspace.afterSetMounted(true, false)).toBe(null);
         expect(workspace.sweepLog).toEqual([])
+    });
+
+    test.describe('#18143 a failed projection is observable and repaired exactly once', () => {
+        const failure = recovery => Object.assign(
+            new Error('util.VNode.getVnode: Component not found for id: neo-tab-header-button-10'),
+            {isDockProjectionFailure: true, projectionRecovery: recovery}
+        );
+
+        test('it warns, fires dockProjectionFailed, and schedules ONE repair carrying the retry flag', async () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const events = [];
+
+            workspace.on('dockProjectionFailed', event => events.push(event));
+
+            const error  = failure('retired-staged'),
+                  result = workspace.onDockProjectionFailed(error, createDocument(), null, {});
+
+            // null is the caller's signal that this cycle is over and handled — the maximize sync and
+            // the FLIP must not run over a shell the committed document does not describe.
+            expect(result, 'the caller is told the cycle was handled').toBe(null);
+
+            expect(events.length, 'the failure reaches consumers as an event').toBe(1);
+            expect(events[0]).toMatchObject({component: workspace, error, isRetry: false, recovery: 'retired-staged'});
+
+            await workspace.refreshPromise;
+
+            expect(workspace.repairLog.length, 'exactly one repair is scheduled').toBe(1);
+            expect(workspace.repairLog[0].isDockProjectionRetry, 'the repair is marked so it cannot recurse').toBe(true)
+        });
+
+        test('a failure DURING the repair surfaces without scheduling a third attempt', async () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const events = [];
+
+            workspace.on('dockProjectionFailed', event => events.push(event));
+
+            workspace.onDockProjectionFailed(failure('completed-swap'), createDocument(), null, {isDockProjectionRetry: true});
+
+            await workspace.refreshPromise;
+
+            // The hot-loop guard: a deterministic fault would otherwise re-project forever, and the
+            // symptom of that is far worse than the stranded shell this whole path exists to fix.
+            expect(events.length, 'the second failure is still reported').toBe(1);
+            expect(events[0].isRetry, 'and is reported AS a retry').toBe(true);
+            expect(workspace.repairLog, 'no third attempt is scheduled').toEqual([])
+        });
+
+        test('an error that is not the transaction\'s own failure keeps its loud path', () => {
+            workspace = Neo.create(RepairWitnessWorkspace, {dockModel: createDocument()});
+
+            const foreign = new Error('a bug in the projection inputs');
+
+            // Only the typed failure is recoverable this way. Swallowing anything else would turn a
+            // genuine projection bug into a silent re-projection loop.
+            expect(() => workspace.onDockProjectionFailed(foreign, createDocument(), null, {})).toThrow(foreign);
+            expect(workspace.repairLog).toEqual([])
+        })
     })
 });

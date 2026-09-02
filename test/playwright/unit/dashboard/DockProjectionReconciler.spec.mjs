@@ -754,5 +754,151 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         } finally {
             host.destroy()
         }
+    });
+
+    /**
+     * The transaction's failure path. Phases 2-4 each end in an awaited host flight, and the host
+     * holds TWO shells for that whole window — so a rejection anywhere in it used to unwind out of
+     * the method and leave both shells in place, the outgoing one visible and the staged one hidden,
+     * with every later commit reconciling against `host.items[shellIndex]` forever.
+     *
+     * A rejecting flight is injected by counting `host.promiseUpdate` calls, which is what the phases
+     * ARE: #1 stages the shell, #2 closes tab chrome, #3 swaps visibility, #4 retires the old shell.
+     * Rejecting #2 and #3 leaves the swap unlanded (the outgoing shell must survive); rejecting #4
+     * happens after it landed (the staged shell must survive and the swap simply finishes) — so the
+     * two recovery verdicts are both reachable and are asserted by name rather than inferred.
+     */
+    const reconcileWithRejectedFlight = async rejectOnCall => {
+        const
+            model = createSplitModel(),
+            panes = Object.fromEntries(Object.entries(model.items)
+                .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
+            host  = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                })]
+            }),
+            oldShell     = host.items[0],
+            nextModel    = structuredClone(model),
+            placeholders = new Map();
+
+        // Any topology change that stages a second shell; the failure is about the transaction, not
+        // about which mutation asked for it.
+        nextModel.nodes['root-split'].sizes = [0.3, 0.7];
+        nextModel.nodes['root-split'].children.reverse();
+
+        const nextConfig = DockLayoutAdapter.project(nextModel, {
+            resolveComponentRef(_componentRef, item, itemId) {
+                const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                placeholders.set(itemId, placeholder);
+
+                return placeholder
+            }
+        });
+
+        const original = host.promiseUpdate.bind(host);
+
+        let calls = 0;
+
+        host.promiseUpdate = function() {
+            calls++;
+
+            return calls === rejectOnCall
+                // The shape the live report carried: a landing ancestor flight whose stored vnode
+                // still references chrome an earlier phase destroyed silently.
+                ? Promise.reject(new Error('util.VNode.getVnode: Component not found for id: neo-tab-header-button-10'))
+                : original()
+        };
+
+        let error = null;
+
+        try {
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            })
+        } catch (e) {
+            error = e
+        }
+
+        host.promiseUpdate = original;
+
+        return {calls, error, host, model, oldShell, panes}
+    };
+
+    for (const [phase, rejectOnCall, expectedRecovery, expectedSurvivor] of [
+        ['2 (tab chrome)',      2, 'retired-staged', 'old'],
+        ['3 (visibility swap)', 3, 'retired-staged', 'old'],
+        ['4 (retire outgoing)', 4, 'completed-swap', 'staged']
+    ]) {
+        test(`a rejected flight in phase ${phase} leaves exactly one visible shell and reports it`, async () => {
+            const {error, host, oldShell, panes} = await reconcileWithRejectedFlight(rejectOnCall);
+
+            try {
+                // The failure must still reach the caller — the recovery repairs the host, it never
+                // swallows the cause. Its message is the diagnostic and must survive unwrapped.
+                expect(error, 'the projection failure reaches the caller').toBeTruthy();
+                expect(error.message).toContain('Component not found for id');
+                expect(error.isDockProjectionFailure, 'the failure is typed so the workspace can route it').toBe(true);
+                expect(error.projectionRecovery).toBe(expectedRecovery);
+
+                // The invariant every later commit depends on: ONE shell, at shellIndex, visible.
+                expect(host.items.length, 'the host holds exactly one shell').toBe(1);
+                expect(host.items[0].hidden, 'the surviving shell is visible').not.toBe(true);
+
+                expectedSurvivor === 'old'
+                    ? expect(host.items[0], 'the outgoing shell survives an unlanded swap').toBe(oldShell)
+                    : expect(host.items[0], 'the staged shell survives a landed swap').not.toBe(oldShell);
+
+                // Reparent-never-recreate holds THROUGH the failure: a recovery that destroyed the
+                // retired staged shell would take the panes already moved into it, which is the exact
+                // promise the transaction exists to keep.
+                Object.entries(panes).forEach(([itemId, pane]) => {
+                    expect(pane.isDestroyed, `pane "${itemId}" survives the failed projection`).toBeFalsy()
+                })
+            } finally {
+                host.destroy()
+            }
+        })
+    }
+
+    test('the next projection after a failure reconciles normally onto the surviving shell', async () => {
+        const {host, model, panes} = await reconcileWithRejectedFlight(2);
+
+        try {
+            const placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(structuredClone(model), {
+                      resolveComponentRef(_componentRef, item, itemId) {
+                          const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, placeholder);
+
+                          return placeholder
+                      }
+                  });
+
+            // No injected rejection this time: the repair the workspace schedules, run by hand. The
+            // committed document is untouched by a failed projection, so re-projecting from it is the
+            // whole repair — and it must find one shell to reconcile against, not two.
+            const result = await DockProjectionReconciler.reconcileProjection({
+                host, nextConfig, placeholders, resolveItem: itemId => panes[itemId]
+            });
+
+            expect(result, 'the repair projection completes').toBeTruthy();
+            expect(host.items.length, 'the repair leaves one shell behind').toBe(1);
+            expect(host.items[0].hidden, 'the repaired shell is visible').not.toBe(true);
+
+            // Identity, not just presence: the repair re-parented the SAME pane instances out of the
+            // detached staged shell rather than re-creating them.
+            Object.entries(panes).forEach(([itemId, pane]) => {
+                expect(pane.isDestroyed, `pane "${itemId}" survives the repair`).toBeFalsy();
+                expect(Boolean(pane.parent), `pane "${itemId}" is parented again`).toBe(true)
+            })
+        } finally {
+            host.destroy()
+        }
     })
 });
