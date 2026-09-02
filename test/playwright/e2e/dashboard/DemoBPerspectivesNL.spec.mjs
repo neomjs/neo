@@ -2,6 +2,13 @@ import {test, expect}    from '../../fixtures.mjs';
 import {demoBTourScript} from '../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
 /**
+ * Success sentinel for the popup-hosting poll below. The poll returns either this string or the
+ * executor's own cross-window receipt, so the failure diff carries the refused precondition.
+ * @type {String}
+ */
+const HOSTED = 'the popup hosts the live workbench pane';
+
+/**
  * @summary Moves only the real headless-Chrome popup vessel outside the source viewport.
  * Product browsers honor the app-owned placement request; CDP supplies the missing window-manager
  * behavior in headless Chrome without bypassing Neo's pointer, preview, or commit path.
@@ -136,8 +143,28 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
             // finish before Playwright samples the transient vessel; its structured receipt and
             // final document/log assertions below are the zero-pause correctness witness.
             if (run === 0) {
-                await expect(popup.locator('.agentos-dockdemo-counter-pane'), 'the real popup hosts the live workbench pane')
-                    .toBeVisible({timeout: 10000});
+                // A bare visibility wait reports "element(s) not found" and stops there, while the
+                // reason sits one call away: a cross-window step the executor refuses records its
+                // own error string on the TourRunner log. Polling the receipt beside the pane makes
+                // a failure name the refused precondition instead of only its symptom — the same
+                // reason `DemoBWorkspace#describeCrossWindowChromeMismatch` reports every term
+                // separately rather than collapsing a conjunction into one string.
+                await expect.poll(async () => {
+                    if (await popup.locator('.agentos-dockdemo-counter-pane').isVisible()) {
+                        return HOSTED
+                    }
+
+                    let log         = (await app.getComponent(wsId, ['tourRunner.log']))['tourRunner.log'] || [],
+                        crossWindow = log.filter(entry => entry.type === 'cross-window');
+
+                    return crossWindow.length > 0
+                        ? `cross-window receipt: ${JSON.stringify(crossWindow)}`
+                        : 'the pane is not hosted, and the tour has not reached its cross-window step'
+                }, {
+                    message  : 'the real popup hosts the live workbench pane',
+                    timeout  : 10000,
+                    intervals: [250]
+                }).toBe(HOSTED);
 
                 await expect.poll(readCounter, {
                     message  : 'worker truth must show the original instance mounted once into the popup',
