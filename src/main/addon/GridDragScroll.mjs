@@ -98,7 +98,11 @@ class GridDragScroll extends Base {
         let me                                 = this,
             {friction, registration, velocity} = data;
 
+        // The tail has died: the addon holds no gesture any more. Leaving the last frame handle in
+        // `activeDrag` would make every later reader — `unregister`, a witness, a peer addon — see a
+        // drag that is not there.
         if (Math.abs(velocity.x) < 0.1 && Math.abs(velocity.y) < 0.1) {
+            me.activeDrag = null;
             return
         }
 
@@ -411,6 +415,10 @@ class GridDragScroll extends Base {
     startDrag(monitor, x, y, inputType) {
         let me = this;
 
+        // A press during a kinetic tail takes the grid over: the tail's frame must not keep scrolling
+        // the registration underneath the new gesture.
+        me.activeDrag?.animation && cancelAnimationFrame(me.activeDrag.animation);
+
         me.activeDrag = {
             id          : monitor.id,
             registration: monitor.registration,
@@ -454,9 +462,11 @@ class GridDragScroll extends Base {
                 }
             }
 
-            // If this registration was active, cancel the drag
+            // A grid that is leaving ends its gesture on the floor: no fling for elements about to go,
+            // and `activeDrag` may be the kinetic tail's `{id, animation}` handle rather than a tracked
+            // drag — `cancelActiveDrag` handles both shapes, `onDragEnd` only the tracked one.
             if (me.activeDrag?.id === id) {
-                me.onDragEnd({type: Neo.config.hasTouchEvents ? 'touchend' : 'mouseup'})
+                me.cancelActiveDrag()
             }
 
             me.registrations.delete(id)
