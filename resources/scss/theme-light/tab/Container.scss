@@ -7,9 +7,11 @@
     --tab-header-action-glyph-color-active         : #1c60a0;
     --tab-header-action-glyph-color-hover          : #1c60a0;
     --tab-header-action-size                       : 20px;
-    // Classic chrome remains intentionally flat; this explicit value must not decay into reliance
-    // on the structural fallback.
+    // Classic chrome is intentionally flat, stated rather than omitted: an omitted custom property
+    // inherits the enclosing theme's value instead of resetting. Separation is the content border.
+    --tab-header-inline-background-color           : transparent;
     --tab-header-inline-background-image           : none;
+    --tab-header-inline-box-shadow                 : none;
 
     // Inline inherits the classic theme's established 25px / square geometry and tightens only what
     // a dock header cannot afford: horizontal padding and the title's weight — beside an action

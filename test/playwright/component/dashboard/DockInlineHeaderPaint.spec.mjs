@@ -20,7 +20,12 @@ const INLINE_HEADER = '.neo-tab-container-inline > .neo-tab-header-toolbar';
 let controlId;
 
 test.beforeEach(async ({page}) => {
-    await page.goto('test/playwright/component/apps/dock-lock/index.html');
+    // `dock-theme-nesting` reuses `dock-lock`'s app with a four-theme config, following the
+    // `dock-static-boot` / `-overlap` pattern. The nested arms below need the classic theme
+    // stylesheets in the document — a theme class declares nothing if no sheet defines it — and that
+    // requirement belongs to THIS spec. Configuring it on the shared `dock-lock` fixture would make
+    // every other consumer of it boot two stylesheets it never reads.
+    await page.goto('test/playwright/component/apps/dock-theme-nesting/index.html');
     await page.waitForSelector('#dock-lock-workspace', {state: 'attached'});
     await page.waitForSelector(INLINE_HEADER, {state: 'visible'});
 
@@ -140,5 +145,39 @@ test.describe('Neo.tab.Container — the inline header paints a flat surface wit
         expect(tier, 'the semantic large height must resolve').toBeGreaterThan(0);
         // An inset shadow paints inside the box; a border-bottom would have added a pixel here.
         expect(Math.abs(measured.inline.height - tier), 'the inline header is exactly the density tier tall').toBeLessThanOrEqual(1)
-    })
+    });
+
+    for (const classic of ['neo-theme-light', 'neo-theme-dark']) {
+        test(`${classic} nested inside a neo scope resets the surface rather than inheriting it`, async ({page}) => {
+            // The discriminating arm, and the nesting is what makes it one. A classic theme applied
+            // to the document ALONE would read transparent even while broken, because no ancestor
+            // declares the token and the structural fallback covers it — so a non-nested arm cannot
+            // fail on this defect. Custom properties inherit, so only an outer scope that DOES value
+            // the token proves the inner one resets it. `component.Base#getTheme` walks the component
+            // chain to support exactly this shape, and theme classes land on several elements at once
+            // in a live app, so a nested scope is ordinary rather than contrived.
+            await applyTheme(page, 'neo-theme-neo-dark');
+
+            const nested = await page.evaluate(name => {
+                const container = document.querySelector('.neo-tab-container-inline');
+
+                if (!container) throw new Error('no inline tab container to nest a theme on');
+
+                container.classList.add(name);
+                return container.className
+            }, classic);
+
+            expect(nested, `the inline container carries the nested ${classic} scope`).toContain(classic);
+
+            const measured = await measure(page, controlId);
+
+            // The outer scope must genuinely value the token, or the arm proves nothing: without
+            // this, an inner reset and an inner nothing are indistinguishable.
+            expect(measured.surfaceToken, 'the outer neo scope still values the highlighted surface').toMatch(/^rgb/);
+
+            expect(measured.inline.backgroundColor, `${classic} paints no surface inside a neo scope`).toBe('rgba(0, 0, 0, 0)');
+            expect(measured.inline.backgroundImage, `${classic} paints no image inside a neo scope`).toBe('none');
+            expect(measured.inline.boxShadow, `${classic} carries no hairline inside a neo scope`).toBe('none')
+        })
+    }
 });

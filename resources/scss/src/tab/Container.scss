@@ -1,8 +1,11 @@
 .neo-tab-container {
     // The public inline-header hooks belong to the variant selector, not the generic toolbar. A
     // consumer may set the tokens on any ancestor; ui:null and standalone containers never match
-    // this rule and therefore keep their established paint. Every fallback is transparent / none,
-    // so a theme that values nothing (the legacy themes) paints exactly what it painted before.
+    // this rule and therefore keep their established paint.
+    //
+    // A fallback is a default, never a reset: custom properties inherit, so a theme that declares
+    // nothing keeps the enclosing theme's value instead of falling back. Each theme with a `tab/`
+    // sheet therefore states all three hooks, the flat classic values included.
     //
     // Longhands only: a `background` shorthand carries an implicit `background-image: none` that
     // fights any consumer valuing the image hook. The hairline is an INSET shadow rather than a
