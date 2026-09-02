@@ -71,8 +71,8 @@
     --tab-header-action-glyph-color            : var(--workstation-ink-dim);
     --tab-header-action-glyph-color-active     : var(--workstation-signal);
     --tab-header-action-glyph-color-hover      : var(--workstation-signal);
-    // The inline variant's band. The neo themes value this hook with a neutral olive ramp; painted
-    // over this instrument's blue-slate panel it read as a foreign surface, because
+    // The inline variant's band. The neo themes paint a flat semantic surface with a hairline; this
+    // instrument keeps its own two-panel ramp so the header stays inside its blue-slate palette —
     // `background-image` covers the `background-color` the header rule sets below.
     --tab-header-inline-background-image       : linear-gradient(
         180deg,

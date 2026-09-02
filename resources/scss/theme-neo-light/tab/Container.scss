@@ -7,11 +7,12 @@
     --tab-header-action-glyph-color-active         : var(--sem-color-icon-neutral-contrast);
     --tab-header-action-glyph-color-hover          : var(--sem-color-icon-neutral-contrast);
     --tab-header-action-size                       : 24px;
-    --tab-header-inline-background-image           : linear-gradient(
-        180deg,
-        var(--sem-color-surface-neutral-highlighted),
-        var(--sem-color-surface-neutral-default)
-    );
+    // The inline header is a flat panel surface with a hairline under it — the chrome a dock pane
+    // header shares with its neighbours, not a gradient band that reads as its own object. The
+    // image hook stays public and defaults to none; a consumer that wants a ramp values it.
+    --tab-header-inline-background-color           : var(--sem-color-surface-neutral-highlighted);
+    --tab-header-inline-background-image           : none;
+    --tab-header-inline-box-shadow                 : inset 0 -1px 0 var(--sem-color-border-default);
 
     // Embedded pane chrome uses the semantic 32px density tier and releases the free-standing
     // radius. The theme's ui:null contract remains the established 48px / 8px treatment.

@@ -14,7 +14,7 @@ const THEMES = [
 const EXPECTED = {
     'neo-theme-light': {
         actionSize: '20px',
-        gradient  : false,
+        band      : 'none',
         inline    : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
         null      : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
         standalone: {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
@@ -22,7 +22,7 @@ const EXPECTED = {
     },
     'neo-theme-dark': {
         actionSize: '20px',
-        gradient  : false,
+        band      : 'none',
         inline    : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
         null      : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
         standalone: {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
@@ -30,7 +30,7 @@ const EXPECTED = {
     },
     'neo-theme-neo-light': {
         actionSize: '24px',
-        gradient  : true,
+        band      : 'surface',
         inline    : {fontSize: '12px', fontWeight: '400', height: '32px', padding: '4px 8px 3px',  radius: '0px'},
         null      : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
         standalone: {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
@@ -38,7 +38,7 @@ const EXPECTED = {
     },
     'neo-theme-neo-dark': {
         actionSize: '24px',
-        gradient  : true,
+        band      : 'surface',
         inline    : {fontSize: '12px', fontWeight: '400', height: '32px', padding: '4px 8px 3px',  radius: '0px'},
         null      : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
         standalone: {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
@@ -191,7 +191,9 @@ const readVariant = (page, id) => page.evaluate(componentId => {
           text    = getComputedStyle(button.querySelector('.neo-button-text'));
 
     return {
+        backgroundColor: getComputedStyle(toolbar).backgroundColor,
         backgroundImage: getComputedStyle(toolbar).backgroundImage,
+        boxShadow      : getComputedStyle(toolbar).boxShadow,
         cls            : [...root.classList],
         fontSize       : text.fontSize,
         fontWeight     : text.fontWeight,
@@ -338,9 +340,20 @@ test.describe('Neo.tab.Container — ui variants', () => {
             expect(ordinaryChrome.padding, 'ordinary toolbar actions keep stock button chrome')
                 .not.toBe('0px');
 
-            EXPECTED[theme].gradient
-                ? expect(measured.inline.backgroundImage).toContain('linear-gradient')
-                : expect(measured.inline.backgroundImage).toBe('none');
+            // The inline header's band. The neo themes paint a flat semantic surface with an inset
+            // hairline and value the public image hook `none`; the legacy themes value none of the
+            // inline hooks and keep a transparent header. Neither paints a gradient any more.
+            expect(measured.inline.backgroundImage, 'no theme paints the inline header as a gradient').toBe('none');
+
+            if (EXPECTED[theme].band === 'surface') {
+                expect(measured.inline.backgroundColor, 'the inline header is a theme surface').not.toBe('rgba(0, 0, 0, 0)');
+                expect(measured.inline.boxShadow, 'with a hairline under it').toContain('inset')
+            } else {
+                expect(measured.inline.backgroundColor, 'a theme without inline hooks keeps the header transparent').toBe('rgba(0, 0, 0, 0)');
+                expect(measured.inline.boxShadow).toBe('none')
+            }
+
+            expect(measured.null.boxShadow, 'the hairline belongs to the inline variant alone').toBe('none');
 
             await closeAction.hover();
             expect((await readActionChrome(closeAction)).backgroundColor)
@@ -408,7 +421,7 @@ test.describe('Neo.tab.Container — ui variants', () => {
         }
     });
 
-    test('the inline gradient hook is theme-valued, overridable and cannot leak to ui:null', async ({page}) => {
+    test('the inline header hooks are theme-valued, the image hook overridable, and none of it leaks to ui:null', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-light');
 
         const before = {
@@ -418,14 +431,21 @@ test.describe('Neo.tab.Container — ui variants', () => {
             null   : await readVariant(page, 'tab-ui-null')
         };
 
+        // Theme-valued: the inline header is a flat surface with a hairline and no gradient …
         expect(before.default.backgroundImage).toBe('none');
-        expect(before.inline.backgroundImage).toContain('linear-gradient');
+        expect(before.inline.backgroundImage, 'the theme values the image hook none').toBe('none');
+        expect(before.inline.backgroundColor, 'the theme values the surface hook').not.toBe('rgba(0, 0, 0, 0)');
+        expect(before.inline.boxShadow, 'the theme values the hairline hook').toContain('inset');
+        // … and a nested ui:null header inside the inline container inherits the tokens as CSS
+        // variables but not the paint: the direct-child variant selector is the only consumer.
         expect(before.nested).toMatchObject({
             backgroundImage: 'none',
+            boxShadow      : 'none',
             height         : '48px',
             radius         : '8px'
         });
         expect(before.null.backgroundImage).toBe('none');
+        expect(before.null.boxShadow).toBe('none');
 
         const after = await page.evaluate(() => {
             const gradient = 'linear-gradient(rgb(1, 2, 3), rgb(4, 5, 6))';
