@@ -143,3 +143,116 @@ test.describe('Neo.dashboard.dock.interaction.Rail — a reveal and the frame bo
         await expect(page.locator(overlaySel)).toHaveCount(0)
     })
 });
+
+/**
+ * The shield that routes an outside click to the dismissal also removes an outside frame as a
+ * NATIVE drop target: one hit test governs pointer, dragover and drop, which is the side effect the
+ * drag shield's comment in `Global.scss` calls load-bearing. A row native-dragged from the main
+ * document into an outside editor frame while a reveal is open therefore races the dismissal: the
+ * press fires the rail's outside listener, but the overlay hides one vdom round trip later, and
+ * `dragstart` / `dragover` do not wait for that.
+ *
+ * The control proves the instrument with no reveal open. The reveal arm records the ORDER of the
+ * parent's signals — press, drag start, the frame's pointer state at that instant, the overlay
+ * hiding — beside what the frame document received, so the verdict below rests on a measured
+ * sequence rather than on the event model's reputation. Measured at the shield as first written,
+ * the overlay hid AFTER `dragend`, with the frame still shielded at `dragstart` and the drop lost to
+ * the parent; the shield now lifts for a native drag's lifetime (`body.neo-native-drag-active`,
+ * stamped by the `NativeDragSource` addon), which the receipt's `framePointer` at `dragstart` shows.
+ */
+test.describe('Neo.dashboard.dock.interaction.Rail — a native drag across the frame boundary', () => {
+    const
+        SOURCE_SEL = '#dock-rail-iframe-pane-source .dock-rail-iframe-entity',
+        TARGET_SEL = '#dock-rail-iframe-pane-plain',
+        HIDDEN_CLS = 'neo-dashboard-dock-reveal-overlay-hidden';
+
+    /**
+     * Installs the parent-side clocks BEFORE the gesture: the capture-phase drag lifecycle with the
+     * outside frame's computed pointer state at each event, a `drop` reaching the parent (the sign a
+     * shielded frame was hit-tested away), and the overlay's hidden class landing in the DOM.
+     */
+    const traceDrag = (page, overlayId) => page.evaluate(({overlayId, targetSel, hiddenCls}) => {
+        const trace  = window.__railDragTrace = {events: []},
+              target = document.querySelector(targetSel),
+              stamp  = (type, extra={}) => trace.events.push({type, at: Date.now(), framePointer: getComputedStyle(target).pointerEvents, ...extra}),
+              label  = node => `${node.tagName?.toLowerCase()}#${node.id || ''}`;
+
+        ['mousedown', 'dragstart', 'dragend', 'drop'].forEach(type =>
+            document.addEventListener(type, event => stamp(type, {target: label(event.target)}), true));
+
+        const overlay = overlayId && document.getElementById(overlayId);
+
+        if (overlay) {
+            const observer = new MutationObserver(() => {
+                if (!document.contains(overlay) || overlay.classList.contains(hiddenCls)) {
+                    stamp('overlay-hidden');
+                    observer.disconnect()
+                }
+            });
+
+            observer.observe(overlay, {attributes: true, attributeFilter: ['class']});
+            observer.observe(overlay.parentNode, {childList: true})
+        }
+    }, {overlayId, targetSel: TARGET_SEL, hiddenCls: HIDDEN_CLS});
+
+    /**
+     * A real browser drag from the source row to the centre of the plain frame, driven as raw pointer
+     * input: Chromium starts the native drag on the first move after the press and delivers
+     * dragover / drop by hit-testing the target point, exactly as a user's gesture would. A locator
+     * drag would first wait for the frame to become a pointer target, which is the very thing the
+     * shield denies while a reveal is open.
+     */
+    const dragRowIntoPlainFrame = async page => {
+        const source = await page.locator(SOURCE_SEL).boundingBox(),
+              target = await page.locator(TARGET_SEL).boundingBox();
+
+        await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, {steps: 4});
+        await page.mouse.up()
+    };
+
+    /** What the plain frame's own document recorded from the live drag store. */
+    const readFrameDrop = page => page.frameLocator(TARGET_SEL).locator('body').evaluate(() => window.__nativeDrop || null);
+
+    /** The lift is a body class for the drag's lifetime; a stuck one would keep the reveal shield down. */
+    const liftResidue = page => page.evaluate(() => document.body.classList.contains('neo-native-drag-active'));
+
+    test('control: with no reveal open, the row drops into the plain frame', async ({page}) => {
+        await traceDrag(page, null);
+        await dragRowIntoPlainFrame(page);
+
+        await expect.poll(() => readFrameDrop(page), {message: 'the frame document received the drop'}).toMatchObject({plain: 'entity:row-7'});
+        expect(await liftResidue(page), 'the drag lift leaves no residue').toBe(false)
+    });
+
+    test('a native drag into an outside frame while a reveal is open: the drop lands, and the press still dismisses', async ({page}, testInfo) => {
+        const overlayId = await reveal(page);
+
+        expect(await page.locator(TARGET_SEL).evaluate(node => getComputedStyle(node).pointerEvents), 'the outside frame is shielded before the press').toBe('none');
+
+        await traceDrag(page, overlayId);
+        await dragRowIntoPlainFrame(page);
+        await page.waitForTimeout(400);
+
+        const trace = await page.evaluate(() => window.__railDragTrace),
+              drop  = await readFrameDrop(page),
+              state = await stateOf(page, overlayId),
+              order = {...trace, frameDrop: drop, revealState: state};
+
+        // The measurement is the receipt, whatever the verdict below says.
+        testInfo.annotations.push({type: 'native-drag-order', description: JSON.stringify(order)});
+        console.log('[#18087 native drag]', JSON.stringify(order));
+
+        expect(drop, 'the frame document received the drop').toMatchObject({plain: 'entity:row-7'});
+        expect(trace.events.find(event => event.type === 'dragstart')?.framePointer, 'the shield had lifted by dragstart').toBe('auto');
+        expect(await liftResidue(page), 'the drag lift leaves no residue').toBe(false);
+
+        await expect.poll(() => stateOf(page, overlayId), {message: 'the press outside the reveal still dismisses it'}).toBe('idle');
+        await expect(page.locator(overlaySel)).toHaveCount(0);
+
+        // The shield is back once the drag is over and the reveal gone: a fresh reveal shields again.
+        await reveal(page);
+        expect(await page.locator(TARGET_SEL).evaluate(node => getComputedStyle(node).pointerEvents), 'the next reveal shields the frame again').toBe('none')
+    })
+});

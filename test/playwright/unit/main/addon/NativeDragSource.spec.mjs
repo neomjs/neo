@@ -16,7 +16,15 @@ const
     documentRef      = new EventTarget(),
     owners           = {};
 
-documentRef.body           = {};
+// `body` carries the class list the addon stamps for a native drag's lifetime.
+documentRef.body = {
+    classList: {
+        list: new Set(),
+        add(cls)      { this.list.add(cls) },
+        remove(cls)   { this.list.delete(cls) },
+        contains(cls) { return this.list.has(cls) }
+    }
+};
 documentRef.getElementById = id => owners[id] ?? null;
 documentRef.querySelector  = () => null;
 globalThis.document        = documentRef;
@@ -105,6 +113,28 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
         addon.onGestureEnd();
         expect(node.draggable).toBe(false);
         expect(addon.armed).toBe(null)
+    });
+
+    test('a native drag lifts the frame shields for its lifetime: stamped at dragstart, cleared at dragend and by the next press', () => {
+        const node   = registerGrid(),
+              lifted = () => document.body.classList.contains('neo-native-drag-active');
+
+        addon.onMouseDown(press(node));
+        expect(lifted(), 'a press alone lifts nothing').toBe(false);
+
+        addon.onDragStart({target: node, dataTransfer: fakeDataTransfer()});
+        expect(lifted(), 'a drag in flight lifts').toBe(true);
+
+        addon.onGestureEnd();
+        expect(lifted(), 'dragend clears').toBe(false);
+
+        // Any native drag the document starts lifts, armed by this addon or not: a link, an image.
+        addon.onDragStart({target: fakeNode(), dataTransfer: fakeDataTransfer()});
+        expect(lifted(), 'a drag this addon did not arm lifts too').toBe(true);
+
+        // dragend never fires for a source removed mid-drag, so the next press ends a lift instead.
+        addon.onMouseDown(press(fakeNode()));
+        expect(lifted(), 'the next press clears a lift its dragend never ended').toBe(false)
     });
 
     test('secondary presses never arm: context menus and macOS secondary clicks stay menus', () => {

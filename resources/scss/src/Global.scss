@@ -72,7 +72,10 @@ html, .neo-body-viewport {
 // `pointer-events: none` also removes an element as a NATIVE drag-and-drop target, because the same
 // hit-testing governs dragover/drop. This class is stamped only inside sensor-driven synthetic
 // gestures and never for a native drag, so the shield can never suppress a real HTML5 drop. A drag
-// whose legitimate target IS the iframe opts out per element.
+// whose legitimate target IS the iframe opts out per element. The rail reveal's frame shield in
+// `dashboard/Container.scss` rests on this same side effect with the opposite scope (an open reveal,
+// not a gesture), so it lifts while `body.neo-native-drag-active` marks a native drag in flight; the
+// rail-iframe component arms witness both — a change to either scope is a change to both.
 //
 // This covers a window nothing else does. Once a DragZone session is live,
 // `draggable/DragProxyComponent.scss` shields the whole page with
