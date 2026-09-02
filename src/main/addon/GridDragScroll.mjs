@@ -250,9 +250,12 @@ class GridDragScroll extends Base {
             return
         }
 
-        if (event.type === 'mousedown') {
-            event.preventDefault() // Prevent text selection
-        }
+        // The mousedown default MUST survive here: it is the browser's focus move to the nearest
+        // focusable ancestor — the grid View, the single focus anchor (`tabIndex: '-1'`) that the
+        // focus-gated dock header actions, the rail reveal's focus-leave dismissal and the cell
+        // editing key registry all depend on. Cancelling it "to prevent text selection" kept DOM
+        // focus wherever it was before every grid click. Selection suppression belongs to CSS and
+        // already lives there: `.neo-grid-body.neo-mouse-drag-scroll {user-select: none}`.
 
         let {x, y} = me.getEventCoordinates(event);
 
