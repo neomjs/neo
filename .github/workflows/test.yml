@@ -297,9 +297,54 @@ jobs:
 
       # The components suite launches real Chromium against the dev server; unit runs
       # browserless, so browser provisioning stays scoped to this suite.
-      - name: Install Playwright Chromium
+      #
+      # Browser provisioning has two network tails, and each has turned a five-minute
+      # job into a fifteen-minute one: the browser download (20 to 40 seconds on a good
+      # day, five to eleven minutes on a bad one) and the apt install of its system
+      # libraries (seconds when the mirror answers, five minutes when it does not).
+      #
+      # The browser binaries are cached across runs, keyed on the installed Playwright
+      # version: a new version ships a new browser build and misses on purpose. The
+      # cache is saved right after a successful download, not at job end, so a red test
+      # run still leaves the browser behind for the next one. The system libraries are
+      # not installed on a schedule: a launch probe asks the browser whether anything is
+      # missing, and apt runs only when it is — on the runner image that ships Chrome,
+      # it is not.
+      - name: Resolve Playwright version
+        id: playwright
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
-        run: npx playwright install --with-deps chromium
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Chromium
+        id: playwright-cache
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright Chromium
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: npx playwright install chromium
+
+      - name: Save Playwright Chromium
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      # A failed launch names the missing libraries in its output and hands the job to
+      # the apt step below; a job that still cannot launch after it fails in the tests.
+      - name: Verify Chromium launches
+        id: chromium-probe
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
+        continue-on-error: true
+        run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
+
+      - name: Install Playwright system dependencies
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.chromium-probe.outcome == 'failure' }}
+        run: npx playwright install-deps chromium
 
       - name: Skip ${{ matrix.suite }} tests
         if: ${{ matrix.run != 'true' || steps.head.outputs.current != 'true' }}
