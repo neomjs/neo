@@ -145,9 +145,9 @@ test.describe('grid drag-to-scroll — a native drag out of the grid ends the tr
         await drag(page, from, {x: from.x, y: from.y - 160});
 
         await expect.poll(() => maxScrollTop(page, 'grid-focus-long'), {message: 'the drag scrolled the long grid'}).toBeGreaterThan(before);
-        // a real release restores the cursor and retires the monitor; `activeDrag` itself lives on as
-        // the kinetic tail's frame handle after a fling, which is the addon's established behaviour
+        // a real release restores the cursor, retires the monitor, and once the kinetic tail has
+        // died the addon holds no drag state at all — the poll outlives the tail
         await expect.poll(() => readAddon(page), {message: 'the release ended the gesture cleanly'})
-            .toMatchObject({monitorDrag: false, bodyCursor: ''})
+            .toEqual({activeDrag: false, monitorDrag: false, bodyCursor: ''})
     })
 });
