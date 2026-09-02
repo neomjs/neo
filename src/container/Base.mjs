@@ -722,6 +722,14 @@ class Container extends Component {
                         me.updateDepth = -1;
                         me.update()
                     }
+                }).catch(error => {
+                    // The failure route this call site owes: loadModule() flags the item `isLoading`
+                    // before its await and has no catch of its own, so a rejected import (a chunk that
+                    // fails to fetch, a module that throws while evaluating) would otherwise leave an
+                    // unhandled rejection and an item flagged loading forever. The config stays parked
+                    // behind its placeholder, unflagged, so the next activation retries the load.
+                    delete item.isLoading;
+                    console.error(`${me.id}: the lazy module inserted at index ${index} failed to load`, error)
                 })
             }
         }

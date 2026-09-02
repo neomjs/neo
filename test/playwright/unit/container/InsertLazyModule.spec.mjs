@@ -116,6 +116,45 @@ test.describe('Neo.container.Base#insert — a lazy module config parks, then lo
         expect(loaded.text).toBe('added')
     });
 
+    test('a rejected import at the active index logs with the container identity, clears the loading flag, and leaves the item parked so the next activation retries', async () => {
+        const
+            errors        = [],
+            originalError = console.error;
+
+        console.error = (...args) => errors.push(args);
+
+        try {
+            container = cardContainer();
+
+            const broken = container.insert(0, {module: () => Promise.reject(new Error('chunk failed to load')), text: 'broken'});
+
+            expect(broken.isLoading, 'the load started').toBe(true);
+
+            // Let the rejection reach the call site's failure route.
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            expect(container.items[0], 'the config stays parked').toBe(broken);
+            expect(container.vdom.cn[0].removeDom, 'behind its placeholder').toBe(true);
+            expect(broken.isLoading, 'and is not flagged loading forever').toBeUndefined();
+            expect(errors, 'one diagnosable line').toHaveLength(1);
+            expect(errors[0][0]).toContain(container.id);
+            expect(errors[0][0]).toContain('index 0');
+            expect(errors[0][1]).toBeInstanceOf(Error);
+
+            // The retry: a repaired loader loads on the next activation of that index.
+            broken.module = () => Promise.resolve({default: Button});
+            container.layout.activeIndex = 1;
+            container.layout.activeIndex = 0;
+
+            const loaded = await untilLoaded(container, 0);
+
+            expect(loaded).toBeInstanceOf(Button);
+            expect(loaded.text).toBe('broken')
+        } finally {
+            console.error = originalError
+        }
+    });
+
     test('a plain container without a card layout parks the config and leaves it parked (construction parity)', () => {
         container = Neo.create(Container, {appName, items: [{module: Button, text: 'eager'}]});
 
