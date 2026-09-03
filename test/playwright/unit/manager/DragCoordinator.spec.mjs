@@ -734,11 +734,23 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
          */
         const runFrames = previewIds => {
             const
-                draggedItem = {id: 'tab-1'},
-                payloads    = [],
-                delays      = [],
-                originalNow = Date.now,
-                originalST  = globalThis.setTimeout;
+                draggedItem   = {id: 'tab-1'},
+                payloads      = [],
+                delays        = [],
+                originalNow   = Date.now,
+                originalST    = globalThis.setTimeout,
+                originalDwell = DragCoordinator.nativeWindowDropDwellMs,
+                // PINNED, never read from the live config. `DragCoordinator` is a singleton shared
+                // across spec FILES in one worker, and `draggable/dashboard/SortZone.spec.mjs`
+                // leaves `nativeWindowDropDwellMs` at 450 in its own afterEach. An expectation
+                // derived from the ambient value therefore passes when this file runs alone and
+                // fails in a full run — which is exactly what it did, and why it reproduced for
+                // nobody who ran the spec on its own.
+                //
+                // The arithmetic also has to stay clear of `nativeWindowDropSettleMs` (250): the
+                // scheduled delay is `Math.max(settle, remaining)`, so at 450 the third frame's
+                // remainder went NEGATIVE and the floor answered instead of the hold.
+                DWELL_MS      = 1200;
 
             let clock = 10_000,
                 frame = 0;
@@ -770,6 +782,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             Date.now = () => clock;
             globalThis.setTimeout = (fn, delay) => { delays.push(delay); return 0 };
+            DragCoordinator.nativeWindowDropDwellMs = DWELL_MS;
 
             try {
                 for (frame = 0; frame < previewIds.length; frame++) {
@@ -777,8 +790,9 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
                     clock += 300   // the user travels; well inside the 1200ms hold
                 }
             } finally {
-                Date.now              = originalNow;
-                globalThis.setTimeout = originalST;
+                Date.now                                = originalNow;
+                globalThis.setTimeout                   = originalST;
+                DragCoordinator.nativeWindowDropDwellMs = originalDwell;
                 DragCoordinator.clearNativeWindowDropCandidate('win-popup');
                 DragCoordinator.endNativeGesture?.('win-popup')
             }
@@ -792,8 +806,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             // Frame 2 resolves a different zone 300ms in. Without the re-arm the commit stays
             // scheduled 300ms earlier and fires while the user is still choosing — the operator's
             // report: a main window always has a valid drop area, so the clock never restarted.
-            expect(delays.at(-1), 'the hold starts over, it does not run down')
-                .toBe(DragCoordinator.nativeWindowDropDwellMs);
+            expect(delays.at(-1), 'the hold starts over, it does not run down').toBe(1200);
 
             // AC-5: the target paints from the same start the commit was scheduled from, so the ring
             // does not drain against a timer that has just been pushed out.
@@ -806,7 +819,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             // Same node, different placement. `previewId` carries both, which is why keying on a
             // node id alone would miss this one.
-            expect(delays.at(-1)).toBe(DragCoordinator.nativeWindowDropDwellMs)
+            expect(delays.at(-1)).toBe(1200)
         });
 
         test('AC-4 holding STILL keeps one clock — the hold is completable', () => {
@@ -814,7 +827,9 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             // 600ms elapsed over three frames on one zone, so the remaining hold has shrunk by that
             // much. A re-arm here would make the gesture impossible to finish.
-            expect(delays.at(-1)).toBe(DragCoordinator.nativeWindowDropDwellMs - 600);
+            // 600 elapsed, 600 remain — comfortably above the 250ms settle floor, so this asserts
+            // the remaining hold rather than the floor.
+            expect(delays.at(-1)).toBe(600);
             expect(payloads.at(-1).dwell.armedAt, 'one start, all three frames').toBe(payloads[0].dwell.armedAt)
         });
 
@@ -823,7 +838,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
             // The middle frame resolves nothing while the sort zone still accepts the drag. Treating
             // that as a change would restart a hold the user is legitimately completing.
-            expect(delays.at(-1)).toBe(DragCoordinator.nativeWindowDropDwellMs - 600)
+            expect(delays.at(-1)).toBe(600)
         });
 
         test('the hover frame is re-sent on a re-arm, and NOT re-sent otherwise', () => {
