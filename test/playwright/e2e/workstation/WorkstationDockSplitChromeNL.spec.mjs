@@ -34,8 +34,10 @@ import {test, expect} from '../../fixtures.mjs';
  */
 
 /** Rendered chrome per tab container: its three config-derived classes, header density, and forensic counts. */
-const readChrome = page => page.evaluate(() => [...document.querySelectorAll('.neo-tab-header-toolbar')].map(bar => {
-    const container = bar.closest('[class*="neo-tab-container"]'),
+const readChrome = page => page.evaluate(() => [...document.querySelectorAll('.neo-tab-header-toolbar')].filter(bar => {
+    return !!bar.closest('.neo-tab-container')
+}).map(bar => {
+    const container = bar.closest('.neo-tab-container'),
           buttons   = [...bar.querySelectorAll('.neo-tab-header-button')],
           ids       = [...bar.querySelectorAll('[id]')].map(node => node.id);
 
