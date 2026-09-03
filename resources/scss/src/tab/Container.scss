@@ -52,3 +52,50 @@
         overflow: hidden;
     }
 }
+
+// WHICH elements get variant geometry is a structural question, so the selector list lives here
+// once and every theme answers only "what value" by declaring the tokens flat. Repeated per theme,
+// the same list had to be re-answered identically four times and any one copy could drift — the
+// failure #18141 shipped.
+//
+// These rules are at FILE scope rather than nested under `.neo-tab-container` on purpose: a drag
+// proxy is a detached toolbar at `document.body` with the container's ui-derived class copied onto
+// it (draggable.tab.header.toolbar.SortZone), so it has no container ancestor to nest under. The
+// second selector in each pair is that proxy; without it a dragged header would resolve different
+// tokens than the header it was lifted from.
+//
+// Two selectors replace the eight the themes emitted. Each theme needed a `&`-prefixed form (theme
+// class ON the element) beside a descendant form (theme class on an ancestor), doubling the list;
+// with no theme class in the selector both cases collapse into one. The theme scope survives in the
+// TOKENS, which inherit from the nearest `.neo-theme-*` ancestor — which is also why this resolves
+// a nested theme correctly, where two theme-prefixed rules could both match and source order decided.
+//
+// The `:root` prefix is WEIGHT, not scope, and it is load-bearing. On a drag proxy the theme class
+// lands on the toolbar element ITSELF, so the theme's root block (`:root .neo-theme-*`, two class
+// units) declares the BASE `--tab-button-*` on the very element this rule targets. Without `:root`
+// these selectors also measure two class units, the tie goes to source order, and the proxy renders
+// at base density instead of its variant — measured, not reasoned: `tab/DragProxyDensity` caught it
+// with `7px 12px 6px` where the inline variant is `7px 8px 6px`. Three units settle it, and this is
+// the same weight the theme files were already carrying.
+:root .neo-tab-container-inline > .neo-tab-header-toolbar,
+:root .neo-tab-header-toolbar.neo-tab-container-inline {
+    --tab-button-border-radius   : var(--tab-inline-button-border-radius);
+    --tab-button-gap             : var(--tab-inline-button-gap);
+    --tab-button-height          : var(--tab-inline-button-height);
+    --tab-button-height-pressed  : var(--tab-inline-button-height-pressed);
+    --tab-button-padding         : var(--tab-inline-button-padding);
+    --tab-button-text-font-size  : var(--tab-inline-button-text-font-size);
+    --tab-button-text-font-weight: var(--tab-inline-button-text-font-weight);
+}
+
+// Standalone names five tokens, not seven: type size and weight are inherited from the theme's
+// ui:null contract in every theme today, and adding hooks nothing values would invite exactly the
+// partial declaration #18141 punishes.
+:root .neo-tab-container-standalone > .neo-tab-header-toolbar,
+:root .neo-tab-header-toolbar.neo-tab-container-standalone {
+    --tab-button-border-radius : var(--tab-standalone-button-border-radius);
+    --tab-button-gap           : var(--tab-standalone-button-gap);
+    --tab-button-height        : var(--tab-standalone-button-height);
+    --tab-button-height-pressed: var(--tab-standalone-button-height-pressed);
+    --tab-button-padding       : var(--tab-standalone-button-padding);
+}
