@@ -117,28 +117,27 @@ class Lock extends Plugin {
             hidden       = !activeItemId || activeItem?.lockable === false,
             iconCls      = locked ? owner.dockUnlockIconCls : owner.dockLockIconCls,
             // Names the control for what it does NEXT — accessible name and tooltip key are one word.
-            label        = locked ? 'unlock' : 'lock',
-            changes      = {};
+            label        = locked ? 'unlock' : 'lock';
 
         if (action) {
-            let ariaLabelChanged = action.vdom?.['aria-label'] !== label;
+            let ariaLabelChanged = action.vdom?.['aria-label'] !== label,
+                focusGateChanged = action.showOnFocus === locked,
+                values           = {hidden, iconCls};
 
-            action.hidden      !== hidden  && (changes.hidden      = hidden);
-            action.iconCls     !== iconCls && (changes.iconCls     = iconCls);
-            action.showOnFocus === locked  && (changes.showOnFocus = !locked);
-            owner.syncDockActionTooltip(action, label, changes);
+            owner.syncDockActionTooltip(action, label, values);
 
-            if (Object.keys(changes).length || ariaLabelChanged) {
-                // `setSilent()` consumes non-config class-field keys from its input, so remember
-                // this transition BEFORE handing the batch over.
-                let focusGateChanged = Object.hasOwn(changes, 'showOnFocus');
+            // `hidden`, `iconCls` and `tooltip` are reactive configs: `set()` runs each hook only
+            // when that config's own `isEqual` reports a change, so guarding them by hand here
+            // would re-derive `core.Config` and an unchanged sync is already a no-op.
+            action.set(values);
 
-                Object.keys(changes).length && action.setSilent(changes);
+            if (focusGateChanged || ariaLabelChanged) {
+                // `showOnFocus` is a plain class field rather than a reactive config, so it takes
+                // the silent path — a stable-instance policy flip, not an action-list rebuild. The
+                // toolbar owns the inert/aria/tab-index presentation it gates and must re-arm
+                // before this one update publishes.
+                focusGateChanged && action.setSilent({showOnFocus: !locked});
                 ariaLabelChanged && (action.vdom['aria-label'] = label);
-
-                // `showOnFocus` is a stable-instance policy flip, not an action-list rebuild. The
-                // toolbar owns the inert/aria/tab-index presentation and must release/re-arm it
-                // before this one update publishes the changed action.
                 focusGateChanged && tabContainer?.getTabBar?.()?.applyContextualActionState(true);
 
                 action.update()
