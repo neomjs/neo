@@ -202,11 +202,29 @@ test.describe('Neo.menu.List spawn animation', () => {
 
         // Positive match on purpose, above: `.not.toBeNull()` is satisfied by `undefined`, so against
         // an absent node it passes instantly and waits for nothing — a poll that cannot poll.
-        const animationName = await page.evaluate(
-            id => getComputedStyle(document.getElementById(id)).animationName, menuId
-        );
 
-        expect(animationName).not.toBe('none')
+        // The entrance is polled on its OWN state, not inferred from the alignment above.
+        //
+        // `List.scss` keys the animation on TWO classes at once — `.neo-animate-spawn` and a
+        // specific `.neo-aligned-*` — so alignment landing is necessary and not sufficient. Reading
+        // `animationName` once, after a poll that gated on the other settlement, meant the read
+        // could land in the window between them and see `none`. That is what made this arm fail
+        // about one run in eight while the feature was working.
+        //
+        // Polling this value is legitimate where polling a count was not: the transition is
+        // one-way. `animation-fill-mode: both` holds the end state, and `DomAccess` swaps the
+        // aligned class only on a REAL zone change behind a `contains()` guard, so the name does
+        // not return to `none` once resolved.
+        //
+        // Matched POSITIVELY against the four keyframe names the stylesheet can produce, rather
+        // than `not.toBe('none')` — which any string satisfies, including a `neo-aligned-` class
+        // the stylesheet has no rule for. Same reasoning as the note above, one assertion over.
+        await expect.poll(async () => page.evaluate(id => {
+            const node = document.getElementById(id);
+
+            return node ? getComputedStyle(node).animationName : '';
+        }, menuId), {message: 'the entrance animation is armed on the reopened instance'})
+            .toMatch(/^neo-menu-spawn-from-(top|bottom|left|right)$/)
     });
 
     test('propagates a later animateSpawn change to an already-cached submenu, both ways', async ({page}) => {
