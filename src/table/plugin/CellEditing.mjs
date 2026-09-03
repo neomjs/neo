@@ -70,11 +70,43 @@ class CellEditing extends Plugin {
             me.onSelectionModelChange({value: selectionModel})
         }
 
-        owner.body.keys.add({
+        me.getKeyRegistryOwner().keys.add({
             Enter: 'onTableKeyDown',
             Space: 'onTableKeyDown',
             scope: me
         })
+    }
+
+    /**
+     * @summary Hook: the component whose `keys` registry the activation keystrokes belong on.
+     *
+     * The body, because a `table.Body`'s `tbody` carries `tabIndex:-1` and is therefore the element
+     * that holds focus when a keystroke arrives. `Neo.manager.DomEvent` routes by walking the event
+     * path UPWARD, so a listener only ever fires for a component on the target's ancestor path —
+     * which makes "where focus lives" and "where the keys belong" the same question.
+     *
+     * A subclass whose focus owner is NOT the body must say so; `Neo.grid.plugin.CellEditing` does.
+     * @returns {Neo.component.Base}
+     * @protected
+     */
+    getKeyRegistryOwner() {
+        return this.owner.body
+    }
+
+    /**
+     * @summary Hook: the id of the DOM cell an editor must be mounted over.
+     *
+     * Deliberately asked of the plugin rather than read straight off the body, because
+     * `getCellId()` does not mean the same thing in both Body classes: `table.Body#getCellId()`
+     * takes a **record**, while `grid.Body#getCellId()` takes a **row index** (its cell ids are
+     * pool-slot based). Calling one contract on the other yields an id that resolves to no node.
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {String}
+     * @protected
+     */
+    getEditorCellId(record, dataField) {
+        return this.owner.body.getCellId(record, dataField)
     }
 
     /**
@@ -111,12 +143,21 @@ class CellEditing extends Plugin {
         let me                  = this,
             {appName, windowId} = me,
             {body}              = me.owner,
-            cellId              = body.getCellId(record, dataField),
-            cellNode            = VdomUtil.find(body.vdom, cellId).vdom,
+            cellId              = me.getEditorCellId(record, dataField),
+            cellNode            = VdomUtil.find(body.vdom, cellId)?.vdom,
             column              = me.owner.headerToolbar.getColumn(dataField),
             editor              = me.editors[dataField],
             value               = record[dataField],
             keys;
+
+        // A cell id that resolves to no node is the failure this plugin used to have and could not
+        // report: the editor simply never appeared. Surfaced rather than thrown, matching the
+        // engine's own boundary idiom — an unmountable editor must not take the gesture down with
+        // it, but it must stop being invisible.
+        if (!cellNode) {
+            console.error(`${me.className}: no cell node for "${cellId}" — getEditorCellId() disagrees with the body's id scheme`, {dataField, record});
+            return
+        }
 
         if (me.mountedEditor) {
             await me.unmountEditor();
