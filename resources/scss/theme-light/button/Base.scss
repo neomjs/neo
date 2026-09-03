@@ -117,4 +117,10 @@ $text-color      : #1c60a0;
     --button-tertiary-text-color-active         : var(--button-text-color);
     --button-tertiary-text-color-disabled       : inherit;
     --button-tertiary-text-color-hover          : var(--button-text-color);
+
+    // Moved out of a selector block: the rule is structural, only these values are the theme's.
+    --button-min-width                          : auto;
+    --button-tertiary-text-decoration           : none;
+    --button-tertiary-text-decoration-color     : currentColor;
+    --button-tertiary-text-underline-offset     : auto;
 }
