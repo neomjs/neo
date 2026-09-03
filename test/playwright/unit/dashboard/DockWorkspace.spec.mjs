@@ -3046,6 +3046,27 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.resolveTearOutPane('no-such-item')).toBeNull()
         });
 
+        test('a projection PLACEHOLDER is never torn out, however it carries the identity', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            // LayoutAdapter.createPlaceholder mints ntype 'dashboard-panel' carrying the same
+            // dockItemId, so it passes an exclusion that only names the header button. A placeholder
+            // exists exactly when a pane could NOT be materialized — the ordinary state for a host
+            // that writes no resolveFreshPane — so tearing one out opens a vessel holding a titled
+            // blank and loses the pane, silently.
+            expect(workspace.isDockTearOutCandidate({cls: ['neo-dashboard-dock-placeholder'], ntype: 'dashboard-panel'}),
+                'a placeholder is not a tear-out candidate').toBe(false);
+
+            expect(workspace.isDockTearOutCandidate({data: {missingComponentRef: true}, ntype: 'dashboard-panel'}),
+                'nor is one identified by its unresolved componentRef').toBe(false);
+
+            expect(workspace.isDockTearOutCandidate({ntype: 'tab-header-button'}),
+                'the header button stays excluded').toBe(false);
+
+            expect(workspace.isDockTearOutCandidate({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
+                'a real pane still qualifies — the guard is not simply refusing everything').toBe(true)
+        });
+
         test('the engine opens its own vessel, carrying the four params onWindowConnect parses', async () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 

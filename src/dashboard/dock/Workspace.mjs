@@ -984,7 +984,33 @@ class Workspace extends Container {
     resolveTearOutPane(itemId) {
         const matches = this.getDockHost()?.down({dockItemId: itemId}, false) || [];
 
-        return matches.find(component => component.ntype !== 'tab-header-button') || null
+        return matches.find(component => this.isDockTearOutCandidate(component)) || null
+    }
+
+    /**
+     * @summary Whether one component carrying a dock item's identity is the PANE, not a stand-in.
+     *
+     * `dockItemId` is stamped on more than the pane, and every stand-in that carries it would
+     * reparent into a vessel and report success while the real content stayed behind:
+     *
+     * - **the tab header button** — `LayoutAdapter` stamps the pane's identity onto the header it
+     *   builds from the pane's own config, which is what makes keyboard identity work;
+     * - **the projection placeholder** — `LayoutAdapter.createPlaceholder` mints an
+     *   `ntype: 'dashboard-panel'` node carrying the same `dockItemId`, so it passes any check that
+     *   only excludes the button.
+     *
+     * The placeholder is the dangerous one, and not as an edge case: a placeholder exists exactly
+     * when a pane could not be materialized, and for a host that writes no `resolveFreshPane` that
+     * is the ORDINARY state — the same epic's row 2. Tearing one out would open a vessel holding a
+     * titled blank and lose the pane, silently.
+     * @param {Neo.component.Base} component
+     * @returns {Boolean}
+     * @protected
+     */
+    isDockTearOutCandidate(component) {
+        return component?.ntype !== 'tab-header-button'
+            && !component?.cls?.includes('neo-dashboard-dock-placeholder')
+            && component?.data?.missingComponentRef !== true
     }
 
     /**
