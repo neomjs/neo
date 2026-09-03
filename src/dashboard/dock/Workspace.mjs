@@ -1645,6 +1645,18 @@ class Workspace extends Container {
      * {@link #dockPopOutActionActive}; both violations throw at projection rather than silently
      * unaddressing an action. Their intent surfaces on the `dockHeaderAction` event — see
      * {@link #onDockHeaderAction}.
+     *
+     * **An override MUST spread `super.getDockProjectionOptions()`.** This method is the only
+     * carrier of the tear-out opt-ins into the projection context: `enableDockTearOut` is what
+     * arms `allowOverdrag` and `enableProxyToPopup` on every tab sort zone, and the handler bundle
+     * rides beside it. A host that returns its own object instead of extending this one drops both,
+     * so dragging a tab out of the dock becomes unreachable and a dragged popup finds no target.
+     *
+     * **The pop-out action is not evidence the options arrived.** `dockPopOutActionActive` derives
+     * from `tearOutHandlers` on the instance rather than from the context, so the button renders,
+     * the vessel opens and the pane comes home while both drag gestures are dead — the failure hides
+     * behind a working sibling. `projectDockModel` therefore refuses a projection whose context
+     * lacks `enableDockTearOut` while the lifecycle is on, rather than trusting a host to notice.
      * @returns {Object}
      */
     getDockProjectionOptions() {
@@ -3684,14 +3696,33 @@ class Workspace extends Container {
      */
     projectDockModel(tabInsertDescriptor=null, itemResolver=null, document=this.dockModel) {
         let me = this,
-            config;
+            config, options;
 
         if (!document) {
             config = {ntype: 'container', cls: ['neo-dashboard'], items: []}
         } else {
+            options = me.getDockProjectionOptions();
+
+            // A host override that returns its own object without spreading `super` drops the
+            // tear-out opt-ins, and nothing downstream can tell. The projection succeeds, the dock
+            // renders, and the pop-out ACTION still appears — `dockPopOutActionActive` reads
+            // `tearOutHandlers` on the INSTANCE, not this context — so two gestures die behind a
+            // working button: dragging a tab out becomes unreachable (without `allowOverdrag` the
+            // proxy stays clamped to its strip, so the boundary exit can never fire) and a dragged
+            // popup finds no target (without a `sortGroup` the zone never registers with the
+            // coordinator). Measured on a consumer whose multi-window dock looked finished.
+            //
+            // Refusing here is the discipline the reserved-name violations already apply: a host
+            // that meant to enable tear-out learns at once, and one that meant to disable it turns
+            // the lifecycle off rather than silently dropping what the lifecycle promised. The
+            // action rendering is not evidence the options arrived.
+            if (me.enableDockTearOutLifecycle && options?.enableDockTearOut !== true) {
+                throw new Error(`Workspace ${me.id}: getDockProjectionOptions() returned no enableDockTearOut while enableDockTearOutLifecycle is on — an override must spread super.getDockProjectionOptions()`)
+            }
+
             config = LayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
-                ...me.getDockProjectionOptions(),
+                ...options,
                 // The Workspace component is the DOM-root authority for ordinary cross-zone tab
                 // motion. An explicit dockTearOutBoundaryContainerId from the hook still wins in
                 // LayoutAdapter; direct adapter consumers must supply this field themselves.

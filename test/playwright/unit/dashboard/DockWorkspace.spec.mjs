@@ -146,6 +146,71 @@ class PlainWorkspace extends DockWorkspace {
 }
 
 /**
+ * The mistake this guard exists for: the tear-out lifecycle on, and `getDockProjectionOptions`
+ * replaced rather than extended. Every real host writes this shape by accident, because returning
+ * an object literal is the obvious way to answer a hook.
+ */
+class DroppedOptInsWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.DroppedOptInsWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {onDockActiveIndexChange: () => {}}
+    }
+}
+
+/**
+ * The same override with the lifecycle OFF. Nothing was promised, so nothing was dropped and the
+ * guard must stay silent — a host that never wanted tear-out is not misconfigured.
+ */
+class NoLifecycleWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.NoLifecycleWorkspace',
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {onDockActiveIndexChange: () => {}}
+    }
+}
+
+/**
+ * The correct shape: `super` first, then the host's own additions.
+ */
+class KeptOptInsWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.KeptOptInsWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            ...super.getDockProjectionOptions(),
+            crossWindowSortGroup: 'test-cross-window'
+        }
+    }
+}
+
+/**
  * A consumer with app chrome ahead of the shell and every hook overridden.
  */
 class ChromeWorkspace extends DockWorkspace {
@@ -287,6 +352,9 @@ class TearOutWorkspace extends DockWorkspace {
     }
 }
 
+Neo.setupClass(DroppedOptInsWorkspace);
+Neo.setupClass(NoLifecycleWorkspace);
+Neo.setupClass(KeptOptInsWorkspace);
 Neo.setupClass(PlainWorkspace);
 Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
@@ -652,6 +720,36 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 boundaryContainerId: workspace.id,
                 enableProxyToPopup : false
             })
+        })
+    });
+
+    test('an override that drops the tear-out opt-ins is refused at projection', () => {
+        // The failure this guard replaces was silent AND masked. `dockPopOutActionActive` reads
+        // `tearOutHandlers` on the instance rather than the projection context, so a host that
+        // dropped the options still saw the pop-out button render, the vessel open and the pane
+        // come home — while dragging a tab out was unreachable and a dragged popup lit nothing.
+        // Measured on a real consumer before this arm existed.
+        expect(() => Neo.create(DroppedOptInsWorkspace, {dockModel: createDocument()}))
+            .toThrow(/returned no enableDockTearOut while enableDockTearOutLifecycle is on/);
+
+        // The guard must not fire on a host that never asked for tear-out; the same override with
+        // the lifecycle off promised nothing.
+        workspace = Neo.create(NoLifecycleWorkspace, {dockModel: createDocument()});
+        expect(workspace.enableDockTearOutLifecycle).toBe(false);
+        workspace.destroy();
+
+        // And the correct shape projects, with the opt-ins reaching the zone rather than merely
+        // surviving the guard — `allowOverdrag` is what lets the proxy leave its strip at all, and
+        // `sortGroup` is what registers the zone with the coordinator.
+        workspace = Neo.create(KeptOptInsWorkspace, {dockModel: createDocument()});
+
+        const tabs = collect(workspace.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+        expect(tabs, 'the fixture must project a tabs node, or these assertions prove nothing').toBeTruthy();
+        expect(tabs.headerToolbar.sortZoneConfig).toMatchObject({
+            allowOverdrag     : true,
+            enableProxyToPopup: true,
+            sortGroup         : 'test-cross-window'
         })
     });
 
