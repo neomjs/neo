@@ -822,12 +822,11 @@ class GridBody extends Component {
 
         me.gridContainer.isLoading = false;
 
-        // The native drag payload's field map is keyed by ROW NODE id, and `getRowId` is
-        // pool-index based — the same node id carries a different record after a scroll. So the
-        // map is refreshed here, at the single funnel every row change goes through, rather than
-        // captured at registration where it would go stale on the first scroll and put the wrong
-        // record's id on the clipboard with no error anywhere. A no-op unless this body actually
-        // declares a `nativeDragZone` naming a field.
+        // Refresh the native drag payload's field map here, at the single funnel every row change
+        // goes through, so a record becomes draggable in the same pass that renders it. This is a
+        // COVERAGE concern rather than a correctness one: the map is keyed by record, so one that
+        // has not caught up simply has no entry and the token resolves to the empty string. A
+        // no-op unless this body actually declares a `nativeDragZone` naming a field.
         me.updateNativeDragFields();
 
         me.updateScrollHeight(true); // silent
@@ -1166,7 +1165,7 @@ class GridBody extends Component {
 
     /**
      * The record fields backing this body's `{field:name}` native drag payload tokens, keyed by
-     * row node id.
+     * the same `data-record-id` that {@link Neo.grid.Row} already renders.
      *
      * This is the override that decouples `nativeDragZone` from `useInternalId`: the payload no
      * longer needs the business id to be IN the DOM, because the value is read from the store here
@@ -1174,11 +1173,19 @@ class GridBody extends Component {
      * gesture. `getRecordId` can keep writing `neo-record-N` into the row's own identity while the
      * clipboard carries `record.id`.
      *
+     * **Keyed by record, not by row slot.** `getRecordId` is exactly what `grid.Row` writes into
+     * `data-record-id` on the row and on every cell, so the key the addon reads off a node and the
+     * key written here are the same value by construction. A row node id would key by POOL SLOT,
+     * and a slot belongs to a different record after every scroll — so a map that had not caught
+     * up would resolve confidently to the previous occupant. Keyed by record, the same lag yields
+     * no entry and the token resolves to `''`: fail-safe rather than fail-wrong, which is what
+     * makes the per-render refresh a matter of coverage rather than of correctness.
+     *
      * Scoped to the MOUNTED range, which is the whole set a gesture can start on: an unmounted row
      * has no node to drag. That also bounds the map to the pool rather than the store, so a
      * million-row grid pushes the same handful of entries a ten-row one does.
      * @param {String[]} fieldNames The fields this body's templates reference
-     * @returns {Object|null} `{rowNodeId: {field: value}}`, or null when there is nothing to map
+     * @returns {Object|null} `{recordId: {field: value}}`, or null when there is nothing to map
      * @protected
      */
     getNativeDragFields(fieldNames) {
@@ -1202,7 +1209,7 @@ class GridBody extends Component {
                 // a missing value becomes the empty string.
                 fieldNames.forEach(name => {values[name] = record[name]});
 
-                fields[me.getRowId(i)] = values
+                fields[me.getRecordId(record)] = values
             }
         }
 

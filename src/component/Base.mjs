@@ -731,16 +731,20 @@ class Component extends Abstract {
 
     /**
      * Hook: the values backing this component's `{field:name}` payload tokens, as
-     * `{nodeId: {field: value}}`.
+     * `{recordId: {field: value}}`.
      *
      * The base cannot answer this — a component has no store and no rows — so the default
      * contributes nothing and every attribute-only declaration keeps its exact behaviour. A
      * data-bound surface overrides it; see `Neo.grid.Body#getNativeDragFields`.
      *
+     * **Key by the record identity the delegate node itself carries** (`data-record-id` for a
+     * grid), never by the node's own id. A record key cannot resolve to a record the node does not
+     * name, so a map that has not caught up yields no entry and the token becomes `''`. A node key
+     * would resolve — to whatever record that node held before a pooled surface recycled it.
+     *
      * Called at registration and again from {@link #updateNativeDragFields} on every render that
-     * can change the mapping, because the map is keyed by node id and a pooled surface recycles
-     * those ids across records. Returning a value captured once would go stale on the first
-     * scroll, silently, with the payload naming a record the user is no longer dragging.
+     * can add records to the mapping. With a record key that refresh is about COVERAGE — how soon
+     * a newly rendered record is draggable — rather than about correctness.
      * @param {String[]} fieldNames The fields the templates actually reference
      * @returns {Object|null}
      * @protected

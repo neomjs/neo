@@ -59,14 +59,17 @@ const nativeDragCls = 'neo-native-drag-active';
  * `DataTransfer` exists only synchronously inside a native `dragstart` on this thread, so there is
  * no moment at which the app worker can be asked anything. Attribute templates were the original
  * answer precisely because the DOM is the one authority already present. The field map keeps that
- * property by inverting the direction: the owning component sends `{nodeId: {field: value}}` with
+ * property by inverting the direction: the owning component sends `{recordId: {field: value}}` with
  * the registration and refreshes it whenever its rows change, so resolution reads memory that was
  * already there before the gesture began. Anything that made `dragstart` await is the defect this
  * design exists to avoid.
  *
- * Node ids are the map's keys because a delegate node is what a gesture starts on. Pooled surfaces
- * recycle those ids across records as they scroll, which is exactly why the map is refreshed per
- * render rather than captured once at registration.
+ * **The map is keyed by `data-record-id` — the record identity the delegate node already carries.**
+ * That choice is what makes staleness safe rather than dangerous: a key naming a record cannot
+ * resolve to a different one, so a map that has not caught up yields NO entry and the token
+ * resolves to `''`. Keying by node id would instead resolve confidently to whatever record that
+ * node held before a pooled surface recycled it. The per-render refresh is therefore about
+ * COVERAGE — how soon a newly rendered record becomes draggable — and never about correctness.
  *
  * ## The gesture lifecycle mirrors what a node needs, not what is convenient
  *
@@ -184,10 +187,16 @@ class NativeDragSource extends Base {
     /**
      * The field values registered for one delegate node — the `{field:name}` resolution source.
      *
-     * Reads BOTH DOM identity modes for the same reason {@link #sourceOf} resolves owners through
-     * `DomAccess.getElement()`: `useDomIds: false` puts the node's id in `data-neo-id` and leaves
-     * `id` empty, so keying on `node.id` alone would silently resolve nothing for half the
-     * supported apps — and silently is how this whole class of defect hurts.
+     * Keyed by `data-record-id`, the RECORD identity the node already carries, never by the node's
+     * own id. That is what makes a stale map fail SAFE instead of fail WRONG: a key that names a
+     * record cannot resolve to a record the node does not name, so the worst case is a missing
+     * entry and the empty string. Keying by node id would resolve — to the record that node held
+     * before a pooled surface recycled it, putting a record the user is not dragging on the
+     * clipboard with nothing anywhere to notice.
+     *
+     * `data-*` is also identity-mode agnostic, so this needs no `useDomIds` branch: `data-record-id`
+     * is present under both modes, on the row and on every cell, so whichever node a gesture starts
+     * on carries it.
      *
      * Returns an empty object rather than null, so the caller's `?? ''` stays the single place a
      * missing value becomes the empty string.
@@ -197,9 +206,9 @@ class NativeDragSource extends Base {
      * @protected
      */
     fieldsFor(registration, node) {
-        const nodeId = node.id || node.dataset?.neoId;
+        const recordId = node.dataset?.recordId;
 
-        return (nodeId && registration.fields?.[nodeId]) || {}
+        return (recordId && registration.fields?.[recordId]) || {}
     }
 
     /**

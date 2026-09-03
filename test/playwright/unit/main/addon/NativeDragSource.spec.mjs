@@ -320,13 +320,16 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
         function registerWithFields(config = {}) {
             const node = fakeNode({'data-record-id': 'neo-record-7'});
 
-            node.id = 'grid-1__row-0';
+            // The map's key is the RECORD identity the node already carries, so the fixture keys
+            // by it too. `grid.Row` renders this from `getRecordId`, which is the internal id
+            // while `useInternalId` is true — stable per record either way, never a pool slot.
+            node.dataset = {recordId: 'neo-record-7'};
             node.closestMap['.grid [data-record-id]'] = node;
             owners['grid-1'] = {contains: candidate => candidate === node};
 
             addon.register({
                 delegate: '.grid [data-record-id]',
-                fields  : {'grid-1__row-0': {id: 'CNET-1234', title: 'Concept'}},
+                fields  : {'neo-record-7': {id: 'CNET-1234', title: 'Concept'}},
                 ownerId : 'grid-1',
                 types   : {
                     'application/x-entity-id': '{field:id}',
@@ -384,29 +387,38 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
             expect(dataTransfer.data['text/plain']).toBe('entity:cid-42')
         });
 
-        test('a node keyed by data-neo-id resolves too, because half the apps have no id attribute', () => {
-            // `useDomIds: false` leaves `id` empty and puts identity in `data-neo-id`. Keying on
-            // `node.id` alone would resolve nothing for those apps — silently, which is the
-            // failure mode this whole ticket is about.
-            const node = fakeNode({});
+        test('a recycled node NEVER resolves to the record it used to hold', () => {
+            // The property the record key exists for. A pooled surface reuses one node for a
+            // different record on every scroll, so the interesting moment is a node whose record
+            // has changed while the map has not caught up. The answer must be the new record, or
+            // nothing — never the previous occupant, which is the one wrong answer that would
+            // reach a real clipboard and look like a receiver bug.
+            const node = registerWithFields();
 
-            node.dataset = {neoId: 'grid-2__row-3'};
-            node.closestMap['.grid-2 .row'] = node;
-            owners['grid-2'] = {contains: candidate => candidate === node};
+            // The node now shows a different record. The map still holds only the old one.
+            node.dataset.recordId       = 'neo-record-8';
+            node.attributes['data-record-id'] = 'neo-record-8';
 
-            addon.register({
-                delegate: '.grid-2 .row',
-                fields  : {'grid-2__row-3': {id: 'CNET-99'}},
-                ownerId : 'grid-2',
-                types   : {'text/plain': '{field:id}'}
-            });
-
-            const dataTransfer = fakeDataTransfer();
+            const stale = fakeDataTransfer();
 
             addon.onMouseDown(press(node));
-            addon.onDragStart({target: node, dataTransfer});
+            addon.onDragStart({target: node, dataTransfer: stale});
 
-            expect(dataTransfer.data['text/plain']).toBe('CNET-99')
+            expect(stale.data['application/x-entity-id'],
+                'a lagging map yields nothing, not the previous record').toBe('');
+            expect(stale.data['text/plain']).toBe('cnet:');
+
+            // Non-vacuity: the same node resolves once the map covers its new record, so the
+            // empty answer above was the KEY missing and not the mechanism being broken.
+            addon.onGestureEnd();
+            addon.updateFields({ownerId: 'grid-1', fields: {'neo-record-8': {id: 'CNET-8888'}}});
+
+            const fresh = fakeDataTransfer();
+
+            addon.onMouseDown(press(node));
+            addon.onDragStart({target: node, dataTransfer: fresh});
+
+            expect(fresh.data['application/x-entity-id'], 'and the new record once covered').toBe('CNET-8888')
         });
 
         test('updateFields replaces the map on a live registration, so a re-render is not stale', () => {
@@ -415,7 +427,7 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
             // Pooled rows recycle node ids across records as they scroll, so the SAME node id
             // must be able to mean a different record after a render. A map captured once at
             // registration is the defect this path exists to prevent.
-            addon.updateFields({ownerId: 'grid-1', fields: {'grid-1__row-0': {id: 'CNET-5678'}}});
+            addon.updateFields({ownerId: 'grid-1', fields: {'neo-record-7': {id: 'CNET-5678'}}});
 
             const dataTransfer = fakeDataTransfer();
 
@@ -449,7 +461,7 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
             // And the values are present BEFORE the gesture, which is what makes that possible.
             const node = registerWithFields();
 
-            expect(addon.sources.get('grid-1').fields['grid-1__row-0'].id,
+            expect(addon.sources.get('grid-1').fields['neo-record-7'].id,
                 'the map is in memory ahead of any dragstart').toBe('CNET-1234');
             expect(addon.fieldsFor(addon.sources.get('grid-1'), node).id).toBe('CNET-1234')
         })

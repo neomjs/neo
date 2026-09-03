@@ -11,7 +11,8 @@ import Body           from '../../../../src/grid/Body.mjs';
 import Store          from '../../../../src/data/Store.mjs';
 
 /**
- * @summary The record values a native drag payload reads, keyed by row node id.
+ * @summary The record values a native drag payload reads, keyed by the record identity the rows
+ * already render.
  *
  * `nativeDragZone` payload templates could only read DOM attributes, so putting a business id on
  * the clipboard meant putting it in the DOM first — which for a grid meant `useInternalId: false`,
@@ -21,9 +22,15 @@ import Store          from '../../../../src/data/Store.mjs';
  * feature. These arms are the decoupling: the value is read from the STORE, in the worker where
  * the record lives, and pushed to the addon ahead of any gesture.
  *
+ * **The key is the record, not the row slot.** `grid.Row` renders `getRecordId(record)` into
+ * `data-record-id` on the row and on every cell, and the addon reads the map by that attribute, so
+ * both ends agree by construction. Keying by a pooled row node id would instead make a map that
+ * has not caught up resolve to the slot's PREVIOUS occupant — the one wrong answer that reaches a
+ * real clipboard. Keyed by record, the same lag yields no entry and the token becomes `''`.
+ *
  * The methods are borrowed onto a plain object for the reason `BodyCellMapping.spec.mjs` gives —
  * `Object.create(Body.prototype)` trips the reactive config system's private-brand check, and
- * these methods only read `mountedRows`, `store` and `getRowId`.
+ * these methods only read `mountedRows`, `store` and `useInternalId`.
  *
  * @see https://github.com/neomjs/neo/issues/18113
  */
@@ -56,21 +63,19 @@ test.describe('Neo.grid.Body#getNativeDragFields', () => {
     });
 
     /**
-     * A body stand-in over the real store, with the pooled row-id scheme the live class uses.
+     * A body stand-in over the real store.
      * @param {Number[]} mountedRows
-     * @param {Number} [rowPoolSize=12]
+     * @param {Boolean} [useInternalId=true]
      * @returns {Object}
      */
-    function bodyFake(mountedRows, rowPoolSize = 12) {
+    function bodyFake(mountedRows, useInternalId = true) {
         return {
             id                 : 'grid-body-1',
             mountedRows,
-            rowPoolSize,
             store,
-            useInternalId      : true,
+            useInternalId,
             getNativeDragFields: Body.prototype.getNativeDragFields,
-            getRecordId        : Body.prototype.getRecordId,
-            getRowId           : Body.prototype.getRowId
+            getRecordId        : Body.prototype.getRecordId
         }
     }
 
@@ -78,57 +83,76 @@ test.describe('Neo.grid.Body#getNativeDragFields', () => {
         const body   = bodyFake([0, 3]),
               fields = body.getNativeDragFields(['id', 'name']);
 
-        // AC-6: `useInternalId` is untouched and still true, and the row's OWN identity is still
-        // neo's. That is the decoupling — the two settings no longer have to agree.
+        // The decoupling: `useInternalId` is untouched and still true, so the row's own identity
+        // is still neo's — and the payload carries the business id regardless.
         expect(body.useInternalId).toBe(true);
-        expect(body.getRecordId(store.getAt(0)), 'the DOM identity is still neo\'s')
-            .toBe(store.getInternalId(store.getAt(0)));
 
-        expect(fields).toEqual({
-            'grid-body-1__row-0': {id: 'CNET-0', name: 'Concept 0'},
-            'grid-body-1__row-1': {id: 'CNET-1', name: 'Concept 1'},
-            'grid-body-1__row-2': {id: 'CNET-2', name: 'Concept 2'}
-        })
+        const firstKey = store.getInternalId(store.getAt(0));
+
+        expect(firstKey, 'the key is neo\'s internal id, not the business one').not.toBe('CNET-0');
+        expect(fields[firstKey]).toEqual({id: 'CNET-0', name: 'Concept 0'});
+        expect(Object.keys(fields)).toHaveLength(3)
+    });
+
+    test('the key is exactly what grid.Row renders into data-record-id', () => {
+        // The by-construction claim, asserted rather than trusted: the addon looks the map up by
+        // `data-record-id`, `grid.Row` writes that from `getRecordId`, and this map is keyed by
+        // the same call. If they ever diverge every field token silently resolves to `''`.
+        const body = bodyFake([0, 4]);
+
+        const expected = [0, 1, 2, 3].map(i => body.getRecordId(store.getAt(i)));
+
+        expect(Object.keys(body.getNativeDragFields(['id']))).toEqual(expected)
+    });
+
+    test('the business key is the map key when a host opts out of internal ids', () => {
+        // The other identity mode must work too, since `useInternalId: false` is what consumers
+        // were forced into before this existed and nobody has to migrate off it.
+        const fields = bodyFake([0, 2], false).getNativeDragFields(['id']);
+
+        expect(Object.keys(fields)).toEqual(['CNET-0', 'CNET-1']);
+        expect(fields['CNET-0']).toEqual({id: 'CNET-0'})
     });
 
     test('the map is bounded by the MOUNTED window, not the store', () => {
         // A pooled surface renders a window over an arbitrarily large store, and a gesture can
         // only start on a node that exists. Keying the map by store size would push 40 entries
         // here and a million on a real dataset, for rows nobody can grab.
-        const fields = bodyFake([10, 13]).getNativeDragFields(['id']);
+        const body   = bodyFake([10, 13]),
+              fields = body.getNativeDragFields(['id']);
 
         expect(store.getCount(), 'the store is much larger than the window').toBe(40);
         expect(Object.keys(fields)).toHaveLength(3);
-        expect(fields['grid-body-1__row-10']).toEqual({id: 'CNET-10'})
+        expect(fields[body.getRecordId(store.getAt(10))]).toEqual({id: 'CNET-10'})
     });
 
-    test('the same node id maps a DIFFERENT record after the window moves', () => {
-        // `getRowId` is pool-index based, so node ids recycle across records as the user scrolls.
-        // This is why the map is refreshed per render rather than captured at registration: a
-        // stale map puts a record the user is not dragging onto the clipboard, with no error.
-        const poolSize = 12,
-              first    = bodyFake([0, 1], poolSize).getNativeDragFields(['id']),
-              // index 12 lands on the same pool slot as index 0
-              second   = bodyFake([12, 13], poolSize).getNativeDragFields(['id']);
+    test('two different windows never collide on one key, which a pool slot would', () => {
+        // The hazard the record key removes. `getRowId` is pool-index based, so index 0 and index
+        // 12 share a slot at pool size 12 — a slot-keyed map would have the later window's record
+        // overwrite the earlier one's entry, and a node showing either would resolve to whichever
+        // wrote last. Record keys cannot alias.
+        const body   = bodyFake([0, 1]),
+              first  = Object.keys(body.getNativeDragFields(['id'])),
+              second = Object.keys(bodyFake([12, 13]).getNativeDragFields(['id']));
 
-        expect(Object.keys(first)).toEqual(['grid-body-1__row-0']);
-        expect(Object.keys(second), 'the same pooled node id').toEqual(['grid-body-1__row-0']);
-
-        expect(first['grid-body-1__row-0']).toEqual({id: 'CNET-0'});
-        expect(second['grid-body-1__row-0'], 'now carries a different record').toEqual({id: 'CNET-12'})
+        expect(first).toHaveLength(1);
+        expect(second).toHaveLength(1);
+        expect(second[0], 'a different record gets a different key').not.toBe(first[0])
     });
 
     test('an undeclared field stays undefined, so one place turns a miss into the empty string', () => {
-        const fields = bodyFake([0, 1]).getNativeDragFields(['id', 'nonexistent']);
+        const body   = bodyFake([0, 1]),
+              key    = body.getRecordId(store.getAt(0)),
+              fields = body.getNativeDragFields(['id', 'nonexistent']);
 
-        expect(fields['grid-body-1__row-0'].id).toBe('CNET-0');
-        expect(fields['grid-body-1__row-0'].nonexistent,
+        expect(fields[key].id).toBe('CNET-0');
+        expect(fields[key].nonexistent,
             'the addon\'s `?? \'\'` is the single fallback site').toBeUndefined()
     });
 
     test('nothing to map yields null rather than an empty object', () => {
-        // `null` is what makes the addon's no-field path identical to its behaviour before
-        // fields existed, so the distinction is contractual rather than cosmetic.
+        // `null` is what makes the addon's no-field path identical to its behaviour before fields
+        // existed, so the distinction is contractual rather than cosmetic.
         expect(bodyFake([0, 3]).getNativeDragFields([]), 'no template named a field').toBeNull();
 
         const storeless = bodyFake([0, 3]);
@@ -140,10 +164,11 @@ test.describe('Neo.grid.Body#getNativeDragFields', () => {
     test('a window running past the end of the store maps only the records that exist', () => {
         // Filtering and the store's tail both leave the mounted window pointing past the data.
         // A row with no record must be absent from the map, not present holding undefined.
-        const fields = bodyFake([38, 45]).getNativeDragFields(['id']);
+        const body   = bodyFake([38, 45]),
+              fields = body.getNativeDragFields(['id']);
 
         expect(Object.keys(fields)).toHaveLength(2);
-        expect(fields['grid-body-1__row-2']).toEqual({id: 'CNET-38'});
-        expect(fields['grid-body-1__row-3']).toEqual({id: 'CNET-39'})
+        expect(fields[body.getRecordId(store.getAt(38))]).toEqual({id: 'CNET-38'});
+        expect(fields[body.getRecordId(store.getAt(39))]).toEqual({id: 'CNET-39'})
     })
 });
