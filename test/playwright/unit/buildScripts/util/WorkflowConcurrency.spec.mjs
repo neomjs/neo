@@ -59,7 +59,9 @@ import * as yaml         from 'js-yaml';
  * every expensive step` carried a hardcoded list of eight step names, three of which no longer
  * exist. A name list cannot see a *newly added* ungated step, which is the regression that matters,
  * so the assertion is derived from the workflow instead — every step positioned after `id: head`
- * must reference `steps.head.outputs.current`.
+ * must carry the *positive* form `steps.head.outputs.current == 'true'`, the skip notice excepted.
+ * Requiring the polarity rather than a mention of the output matters: a step gated on `!= 'true'`
+ * runs only when the head is already superseded, and a containment check reads that as gated.
  *
  * Saying all of this out loud is the point: a restored spec that quietly sheds assertions is
  * indistinguishable from one trimmed to make the suite green — which is the argument of the census
@@ -405,9 +407,21 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         // Derived rather than enumerated: a hardcoded list of step names passes by coincidence and
         // is blind to a NEW expensive step added without the gate, which is the regression that
         // costs a runner on a head that no longer exists.
-        const ungated = steps
-            .slice(headIndex + 1)
-            .filter(step => !String(step.if || '').includes('steps.head.outputs.current'));
+        //
+        // The positive form is required rather than a mention of the output, because a containment
+        // check standing in for a polarity check is the same coincidence one notch narrower: a step
+        // gated `steps.head.outputs.current != 'true'` runs ONLY on a superseded head — precisely the
+        // cost this gate exists to avoid, inverted — and reads as gated to `.includes()`.
+        //
+        // `Skip ${{ matrix.suite }} tests` is the one legitimate negative arm and is exempt here; it
+        // is asserted on its own line below, so exempting it drops no coverage. Every other step
+        // after the gate uses the positive form today, so this cannot false-positive on the live
+        // workflow — enumerated, not sampled.
+        const skipNotice = 'Skip ${{ matrix.suite }} tests',
+              ungated    = steps
+                  .slice(headIndex + 1)
+                  .filter(step => step.name !== skipNotice)
+                  .filter(step => !String(step.if || '').includes("steps.head.outputs.current == 'true'"));
 
         expect(ungated.map(step => step.name)).toEqual([]);
 
@@ -415,7 +429,7 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         expect(headIndex).toBeLessThan(steps.findIndex(step => step.name === 'Checkout repository'));
 
         // And the skip notice is the one step that must run on the negative arm.
-        expect(steps.find(step => step.name === 'Skip ${{ matrix.suite }} tests').if)
+        expect(steps.find(step => step.name === skipNotice).if)
             .toContain("steps.head.outputs.current != 'true'");
     });
 
