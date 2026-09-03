@@ -1,10 +1,11 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Component from '../component/Base.mjs';
-import Collection from '../collection/Base.mjs';
-import Performance from '../util/Performance.mjs';
-import Row from './Row.mjs';
-import RowModel from '../selection/grid/RowModel.mjs';
-import VDomUtil from '../util/VDom.mjs';
+import Component       from '../component/Base.mjs';
+import Collection      from '../collection/Base.mjs';
+import Performance     from '../util/Performance.mjs';
+import Row             from './Row.mjs';
+import RowModel        from '../selection/grid/RowModel.mjs';
+import VDomUtil        from '../util/VDom.mjs';
+import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
 /**
  * @summary Manages the scrollable viewport and row rendering for the Grid.
@@ -148,11 +149,28 @@ class GridBody extends Component {
          */
         mountedColumns_: [0, 0],
         /**
-         * Stores the indexes of the first & last mounted rows, including bufferRowRange
-         * @member {Number[]} mountedRows=[0,0]
+         * Stores the indexes of the first & last mounted rows, including bufferRowRange.
+         *
+         * Reactive, and both descriptor keys are behaviour-critical rather than tuning:
+         *
+         * `clone: 'shallow'` gives each body its own array. A non-reactive config has no clone
+         * path at all, so every grid on a page would share one window and the last body to
+         * measure would decide what all the others believe is mounted.
+         *
+         * `cloneOnGet: 'none'` is what makes an index-write land. The engine's default copies
+         * arrays on every read, so `me.mountedRows[0] = x` would write into a discarded copy and
+         * the window would never move — silently, and in the same direction as the bug above.
+         *
+         * @member {Number[]} mountedRows_=[0,0]
          * @protected
+         * @reactive
          */
-        mountedRows: [0, 0],
+        mountedRows_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
          * Optional config values for Neo.grid.plugin.AnimateRows
          * @member {Object} pluginAnimateRowsConfig=null
@@ -210,17 +228,31 @@ class GridBody extends Component {
          */
         stripedRows_: true,
         /**
-         * Stores the indexes of the first & last painted columns
-         * @member {Number[]} visibleColumns=[0,0]
+         * Stores the indexes of the first & last painted columns.
+         * Written through by index; see `mountedRows_` for why both descriptor keys are required.
+         * @member {Number[]} visibleColumns_=[0,0]
          * @protected
+         * @reactive
          */
-        visibleColumns: [0, 0],
+        visibleColumns_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
-         * Stores the indexes of the first & last visible rows, excluding bufferRowRange
-         * @member {Number[]} visibleRows=[0,0]
+         * Stores the indexes of the first & last visible rows, excluding bufferRowRange.
+         * Written through by index; see `mountedRows_` for why both descriptor keys are required.
+         * @member {Number[]} visibleRows_=[0,0]
          * @protected
+         * @reactive
          */
-        visibleRows: [0, 0],
+        visibleRows_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
          * @member {String[]|null} wrapperCls=null
          * @reactive
