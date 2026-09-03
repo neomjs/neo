@@ -100,8 +100,12 @@ class Operations extends Base {
         // placement-neutral, which is what lets it keep the item-only path.
         setItemPinned    : 'topology',
         setItemAutoHidden: 'topology',
-        transferItem     : 'topology',
-        transferNode     : 'topology'
+        // Structural on BOTH branches, which is why the name alone does not settle it: it delegates
+        // to `addTab` when the home node survives, and otherwise mints a node outright
+        // (`doc.nodes[nodeId] = {type: 'tabs', …}`, id-collision-safe via `Document.genId`).
+        restoreTab  : 'topology',
+        transferItem: 'topology',
+        transferNode: 'topology'
     })
 
     /**
