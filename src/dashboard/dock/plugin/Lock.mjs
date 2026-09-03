@@ -1,34 +1,14 @@
 import NeoArray from '../../../util/Array.mjs';
 import Plugin   from '../../../plugin/Base.mjs';
 
+const LOCKED_CLS = 'neo-dock-pane-locked',
+      DRAG_CLS   = 'neo-draggable';
+
 /**
- * @summary The dock's lock concern: one committed item flag, its action, and the presentation that
- * follows from it.
+ * @summary The dock's lock concern: the `setItemLocked` commit, its action, and the presentation.
  *
- * Locking is a complete vertical — a toggle on the action rail, a `setItemLocked` commit against the
- * document, and a presentation pass that makes the locked state visible on the pane, its tab button
- * and any rail-revealed copy. All three lived on the dock workspace, which owns neither the pane's
- * `inert` attribute nor the tab button's drag token.
- *
- * The workspace keeps what only it can answer — whether the feature is on, which item is active, and
- * how to commit an operation — and this plugin owns the rest. Its two `WeakMap`s exist solely for the
- * exact-restore contract below and have no other reader.
- *
- * ## Presentation is a second layer beneath the model guards
- *
- * Lock stamps `vdom.inert` plus `neo-dock-pane-locked` in one pane update and removes only the tab
- * button's `neo-draggable` source token. Unlock restores the exact prior inert ownership/value and the
- * exact prior drag-token ownership: the recorded state decides the reversal, never the current probe,
- * so a pane cannot be handed an unlock it never received a lock for. Locked headers remain legal drop
- * targets.
- *
- * ## The content half is delegable
- *
- * A pane implementing `dockLock(locked)` owns what locked means for its content — a form disables its
- * fields, a grid turns cell editing off, a stream keeps scrolling — and the engine writes no `inert`
- * for it. The probe is a pure `typeof` on the live card, never a resolver call, and the hook fires
- * once per transition, recorded in the same per-pane state as the inert snapshot, so a sweep running
- * on every active-item change never re-locks a pane its author already locked.
+ * Unlock reverses along the path that locked — the recorded state decides, never the current probe.
+ * A pane implementing `dockLock(locked)` owns what locked means for its content and gets no `inert`.
  *
  * @class Neo.dashboard.dock.plugin.Lock
  * @extends Neo.plugin.Base
@@ -48,224 +28,192 @@ class Lock extends Plugin {
     }
 
     /**
-     * Per-button record of the drag token this plugin removed, so unlock restores the exact prior
-     * ownership rather than assuming the button was draggable.
+     * `neo-draggable` ownership per button before lock removed it.
      * @member {WeakMap<Neo.tab.header.Button,Boolean>} dragState=new WeakMap()
      */
     dragState = new WeakMap()
     /**
-     * Per-pane record of how the lock was applied — delegated to the pane's own `dockLock()`, or the
-     * engine's `inert` default with the prior ownership and value it replaced.
+     * How each pane was locked: `{delegated}` or `{owned, value}` for the replaced `inert`.
      * @member {WeakMap<Neo.component.Base,Object>} paneState=new WeakMap()
      */
     paneState = new WeakMap()
 
     /**
-     * @summary Commits the lock toggle for the active item and re-syncs the actions that depend on it.
      * @param {Object} data
-     * @param {String} data.dockNodeId
      * @param {Neo.tab.Container|null} data.tabContainer
-     * @returns {Object} The reducer result, or an errors envelope when there is nothing to commit.
+     * @returns {Object} The reducer result, or an errors envelope.
      */
-    handleAction({dockNodeId, tabContainer} = {}) {
-        let me      = this,
-            {owner} = me,
-            itemId  = owner.getActiveDockItemId(tabContainer);
+    handleAction({tabContainer} = {}) {
+        let {owner}     = this,
+            {dockModel} = owner,
+            itemId      = owner.getActiveDockItemId(tabContainer),
+            missing     = !itemId ? 'an active item' : !dockModel ? 'a committed document' : null;
 
-        if (!itemId) {
-            return {document: owner.dockModel, errors: ['Dock lock action requires an active item']}
+        if (missing) {
+            return {document: dockModel, errors: [`Dock lock action requires ${missing}`]}
         }
 
-        if (!owner.dockModel) {
-            return {document: owner.dockModel, errors: ['Dock lock action requires a committed document']}
-        }
+        let descriptor = {operation: 'setItemLocked', itemId, locked: dockModel.items[itemId]?.locked !== true},
+            result     = owner.applyDockZoneOperation(descriptor);
 
-        let descriptor = {
-                operation: 'setItemLocked',
-                itemId,
-                locked   : owner.dockModel.items[itemId]?.locked !== true
-            },
-            result = owner.applyDockZoneOperation(descriptor);
-
-        if (result && !result.errors?.length && result.document) {
+        if (result?.document && !result.errors?.length) {
             owner.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
             owner.syncDockCloseAction(tabContainer);
-            me.syncAction(tabContainer)
+            this.syncAction(tabContainer)
         }
 
         return result
     }
 
     /**
-     * @summary Re-projects the lock action and every visible item's lock presentation against item truth.
-     *
-     * The action stays one stable instance; per-item hidden/icon state moves on it. The ordinary lock
-     * gesture is focus-gated; once the protective state persists, its unlock reversal becomes persistent
-     * too, so discoverability never depends on re-entering a transient focus context.
+     * Re-projects the action and every visible item against committed truth.
      * @param {Neo.tab.Container|null} tabContainer
      */
     syncAction(tabContainer) {
-        let me      = this,
-            {owner} = me;
+        let {owner} = this;
 
         if (!owner.enableDockLockAction) return;
 
-        let action       = tabContainer?.getActionItem?.('lock'),
-            activeItemId = owner.getActiveDockItemId(tabContainer),
-            activeItem   = owner.dockModel?.items?.[activeItemId],
-            locked       = activeItem?.locked === true,
-            hidden       = !activeItemId || activeItem?.lockable === false,
-            iconCls      = locked ? owner.dockUnlockIconCls : owner.dockLockIconCls,
+        let bar    = tabContainer?.getTabBar?.(),
+            action = tabContainer?.getActionItem?.('lock'),
+            itemId = owner.getActiveDockItemId(tabContainer),
+            item   = owner.dockModel?.items?.[itemId],
+            locked = item?.locked === true,
             // Names the control for what it does NEXT — accessible name and tooltip key are one word.
-            label        = locked ? 'unlock' : 'lock';
+            label    = locked ? 'unlock' : 'lock';
 
         if (action) {
-            let ariaLabelChanged = action.vdom?.['aria-label'] !== label,
-                focusGateChanged = action.showOnFocus === locked,
-                values           = {hidden, iconCls};
+            let labelChanged = action.vdom?.['aria-label'] !== label,
+                gateChanged  = action.showOnFocus === locked,
+                values       = {
+                    hidden : !itemId || item?.lockable === false,
+                    iconCls: locked ? owner.dockUnlockIconCls : owner.dockLockIconCls
+                };
 
             owner.syncDockActionTooltip(action, label, values);
-
-            // `hidden`, `iconCls` and `tooltip` are reactive configs: `set()` runs each hook only
-            // when that config's own `isEqual` reports a change, so guarding them by hand here
-            // would re-derive `core.Config` and an unchanged sync is already a no-op.
             action.set(values);
 
-            if (focusGateChanged || ariaLabelChanged) {
-                // `showOnFocus` is a plain class field rather than a reactive config, so it takes
-                // the silent path — a stable-instance policy flip, not an action-list rebuild. The
-                // toolbar owns the inert/aria/tab-index presentation it gates and must re-arm
-                // before this one update publishes.
-                focusGateChanged && action.setSilent({showOnFocus: !locked});
-                ariaLabelChanged && (action.vdom['aria-label'] = label);
-                focusGateChanged && tabContainer?.getTabBar?.()?.applyContextualActionState(true);
+            if (gateChanged || labelChanged) {
+                // `showOnFocus` is a plain class field, so it takes the silent path; the toolbar
+                // owns the inert/aria/tab-index presentation it gates and must re-arm first.
+                gateChanged  && action.setSilent({showOnFocus: !locked});
+                labelChanged && (action.vdom['aria-label'] = label);
+                gateChanged  && bar?.applyContextualActionState(true);
 
                 action.update()
             }
         }
 
-        let itemIds = tabContainer?.getTabBar?.()?.sortZoneConfig?.dockItemIds || [],
-            panes   = tabContainer?.getCardContainer?.()?.items || [],
+        let panes   = tabContainer?.getCardContainer?.()?.items || [],
             buttons = tabContainer?.getTabButtons?.() || [];
 
-        itemIds.forEach((itemId, index) => {
-            me.syncItemPresentation({
+        (bar?.sortZoneConfig?.dockItemIds || []).forEach((id, index) => {
+            this.syncItemPresentation({
                 button: buttons[index],
-                locked: owner.dockModel?.items?.[itemId]?.locked === true,
+                locked: owner.dockModel?.items?.[id]?.locked === true,
                 pane  : panes[index]
             })
         })
     }
 
     /**
-     * @summary Synchronizes the currently materialized rail-reveal panes against committed lock truth.
-     *
-     * Rails are synthetic affordances retained across stable-topology reconciliation, so their
-     * projection config is not a state-update channel. The materialization callback covers first
-     * reveal; this sweep covers a lock transition while the same overlay remains open. Dismissed
-     * cached panes restore on their next materialization callback.
+     * Re-applies lock truth to rail-reveal panes materialized while the overlay stayed open.
      */
     syncRails() {
-        let me      = this,
-            {owner} = me;
+        let {owner} = this;
 
         if (!owner.enableDockLockAction) return;
 
         owner.forEachDockRail(rail => {
-            let itemId = rail.revealOverlay?.revealPaneItemId,
-                pane   = rail.revealOverlay?.paneSlot?.items?.[0];
+            let {revealOverlay} = rail,
+                pane            = revealOverlay?.paneSlot?.items?.[0];
 
-            if (itemId && pane) {
-                me.syncItemPresentation({
-                    locked: owner.dockModel?.items?.[itemId]?.locked === true,
-                    pane
-                })
-            }
+            pane && this.syncItemPresentation({
+                locked: owner.dockModel?.items?.[revealOverlay.revealPaneItemId]?.locked === true,
+                pane
+            })
         })
     }
 
     /**
-     * @summary Applies or restores one item's lock presentation without changing model state.
+     * Applies or restores one item's lock presentation without changing model state.
      * @param {Object} data
-     * @param {Neo.tab.header.Button|null} data.button
+     * @param {Neo.tab.header.Button|null} [data.button]
      * @param {Boolean} data.locked
-     * @param {Neo.component.Base|null} data.pane
+     * @param {Neo.component.Base|null} [data.pane]
      */
     syncItemPresentation({button, locked, pane} = {}) {
-        let me = this;
+        this.syncPane(pane, locked);
+        this.syncButton(button, locked)
+    }
 
-        if (pane && !pane.isDestroyed) {
-            let cls       = Array.isArray(pane.cls) ? [...pane.cls] : pane.cls ? [pane.cls] : [],
-                hadCls    = cls.includes('neo-dock-pane-locked'),
-                changed   = false,
-                delegated = typeof pane.dockLock === 'function',
-                prior,
-                vdom      = pane.vdom;
+    /**
+     * @param {Neo.tab.header.Button|null} button
+     * @param {Boolean} locked
+     * @protected
+     */
+    syncButton(button, locked) {
+        if (!button || button.isDestroyed) return;
 
-            if (locked) {
-                if (delegated) {
-                    if (!me.paneState.has(pane)) {
-                        me.paneState.set(pane, {delegated: true});
-                        pane.dockLock(true)
-                    }
-                } else {
-                    if (!me.paneState.has(pane)) {
-                        me.paneState.set(pane, {
-                            owned: Object.hasOwn(vdom, 'inert'),
-                            value: vdom.inert
-                        })
-                    }
+        let {dragState} = this,
+            cls         = [...button.wrapperCls || []],
+            was         = cls.includes(DRAG_CLS);
 
-                    if (vdom.inert !== true) {
-                        vdom.inert = true;
-                        changed = true
-                    }
-                }
-            } else if (me.paneState.has(pane)) {
-                prior = me.paneState.get(pane);
-                me.paneState.delete(pane);
+        if (locked) {
+            !dragState.has(button) && dragState.set(button, was);
+            NeoArray.remove(cls, DRAG_CLS)
+        } else if (dragState.has(button)) {
+            NeoArray.toggle(cls, DRAG_CLS, dragState.get(button));
+            dragState.delete(button)
+        }
 
-                // Reverse along the path that locked: the record decides, never the current probe,
-                // so a pane cannot be handed an unlock it never received a lock for.
-                if (prior.delegated) {
-                    pane.dockLock(false)
-                } else {
-                    if (prior.owned) {
-                        vdom.inert = prior.value
-                    } else {
-                        delete vdom.inert
-                    }
+        was !== cls.includes(DRAG_CLS) && (button.wrapperCls = cls)
+    }
 
-                    changed = true
-                }
+    /**
+     * @param {Neo.component.Base|null} pane
+     * @param {Boolean} locked
+     * @protected
+     */
+    syncPane(pane, locked) {
+        if (!pane || pane.isDestroyed) return;
+
+        let {paneState} = this,
+            {vdom}      = pane,
+            cls         = [...pane.cls || []],
+            was         = cls.includes(LOCKED_CLS),
+            changed     = false,
+            prior;
+
+        if (locked && !paneState.has(pane)) {
+            if (typeof pane.dockLock === 'function') {
+                paneState.set(pane, {delegated: true});
+                pane.dockLock(true)
+            } else {
+                paneState.set(pane, {owned: Object.hasOwn(vdom, 'inert'), value: vdom.inert});
+                changed    = vdom.inert !== true;
+                vdom.inert = true
             }
+        } else if (!locked && paneState.has(pane)) {
+            prior = paneState.get(pane);
+            paneState.delete(pane);
 
-            NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
-
-            if (hadCls !== locked) {
-                pane.setSilent({cls});
+            if (prior.delegated) {
+                pane.dockLock(false)
+            } else {
+                prior.owned ? (vdom.inert = prior.value) : delete vdom.inert;
                 changed = true
             }
-
-            changed && pane.update()
         }
 
-        if (button && !button.isDestroyed) {
-            let cls       = Array.isArray(button.wrapperCls) ? [...button.wrapperCls] : [],
-                draggable = cls.includes('neo-draggable'),
-                restore;
+        NeoArray.toggle(cls, LOCKED_CLS, locked);
 
-            if (locked) {
-                !me.dragState.has(button) && me.dragState.set(button, draggable);
-                NeoArray.remove(cls, 'neo-draggable')
-            } else if (me.dragState.has(button)) {
-                restore = me.dragState.get(button);
-                me.dragState.delete(button);
-                NeoArray.toggle(cls, 'neo-draggable', restore)
-            }
-
-            draggable !== cls.includes('neo-draggable') && (button.wrapperCls = cls)
+        if (was !== locked) {
+            pane.setSilent({cls});
+            changed = true
         }
+
+        changed && pane.update()
     }
 }
 
