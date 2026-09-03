@@ -104,13 +104,37 @@ test.describe('Release-note orphan prevention', () => {
         }
     });
 
+    /**
+     * The double-listing witness: an orphaned top-level note reaches the reader through this index, so
+     * the index is where the defect becomes visible.
+     *
+     * **This arm is repaired, and the repair is not split drift — it was vacuous when it was deleted.**
+     * As written it selected `node.isLeaf`, and `buildScripts/docs/index/release.mjs:138` deliberately
+     * omits that field on release nodes (`// release.isLeaf = true; // Default value in model is true`),
+     * so the tree's leaves carry `undefined` and only the major-version group nodes carry `false`. The
+     * filter matched **zero** nodes here and also at `c623b2f63c~1` — measured in both trees — which
+     * means the arm has never been able to fail. A selector that matches nothing reads exactly like a
+     * selector that found nothing wrong.
+     *
+     * A release leaf is identified by the property that actually distinguishes it: it points at a
+     * release-note file. The population is asserted non-empty first, so the arm cannot quietly return
+     * to being vacuous if the generator's shape changes again, and `path` is checked alongside `id`
+     * because two nodes carrying distinct ids for the same file is the same double-listing defect.
+     */
     test('the release index lists each release leaf exactly once', () => {
         const
-            releases = JSON.parse(fs.readFileSync(path.join(root, 'apps/portal/resources/data/releases.json'), 'utf8')),
-            leafIds  = releases.filter(node => node.isLeaf).map(node => node.id),
-            dupes    = leafIds.filter((id, index) => leafIds.indexOf(id) !== index);
+            releases  = JSON.parse(fs.readFileSync(path.join(root, 'apps/portal/resources/data/releases.json'), 'utf8')),
+            leaves    = releases.filter(node => node.path),
+            leafIds   = leaves.map(node => node.id),
+            leafPaths = leaves.map(node => node.path),
+            dupeIds   = leafIds.filter((id, index) => leafIds.indexOf(id) !== index),
+            dupePaths = leafPaths.filter((item, index) => leafPaths.indexOf(item) !== index);
 
-        expect(dupes).toEqual([]);
+        expect(leaves.length, 'the release index must carry release leaves for this arm to mean anything')
+            .toBeGreaterThan(0);
+
+        expect(dupeIds).toEqual([]);
+        expect(dupePaths).toEqual([]);
     });
 
     /**
