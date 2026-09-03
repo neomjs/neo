@@ -4086,41 +4086,53 @@ class Workspace extends Container {
     /**
      * Hook: produces a **fresh** candidate pane for an item, bypassing any live-instance cache.
      *
-     * Deliberately a separate hook rather than an option on {@link #resolvePane}. Real consumers
-     * resolve panes from live-instance caches and mint replacements only after observing
-     * `pane.isDestroyed`; an option those consumers do not implement would be silently ignored and
-     * hand back **the very instance the recreate is meant to replace**. A distinct hook cannot be
-     * accidentally satisfied by a cache, and its default says the honest thing: this consumer does
-     * not support recreate.
+     * Deliberately a separate **hook** rather than an option on {@link #resolvePane}: a consumer
+     * that resolves from a live-instance cache needs somewhere to mint a replacement that its cache
+     * does not answer, and an option such a consumer never implemented would be silently ignored.
+     * `apps/workstation` is exactly that shape.
      *
-     * Returning `null` is a legitimate answer, not a failure of contract — it declines the
-     * capability, and {@link #prepareRecreateCandidate} reports that as a named refusal with the
-     * live pane untouched.
+     * Its **default delegates** to {@link #resolvePane}, because only the consumer knows how to
+     * build its own pane — the engine knows how to build a placeholder, which for any host that
+     * resolves real panes would be a downgrade rather than a recreate. Delegation therefore serves
+     * the host's own shape where one exists, and the engine's labelled placeholder where nothing
+     * else does.
+     *
+     * Delegation is safe even against a cache-backed `resolvePane`, which is why it can be the
+     * default at all: {@link #prepareRecreateCandidate} compares the candidate to the live pane by
+     * **identity** and reports `live-instance` with the live pane untouched. The worst case is a
+     * named refusal behind a visible action, never a swap of a pane for itself.
+     *
+     * Returning `null` stays a legitimate answer — it declines for that item, reported as
+     * `declined` with the live pane untouched.
      * @param {String} itemId The stable workspace identity from the item catalog.
      * @param {Object} item The persisted item record.
      * @returns {Object|Neo.component.Base|null}
      */
     resolveFreshPane(itemId, item) {
-        return null
+        return this.resolvePane(itemId, item)
     }
 
     /**
-     * Whether this workspace can serve a recreate at all — i.e. whether a consumer overrode
-     * {@link #resolveFreshPane}.
+     * Whether this workspace can serve a recreate at all.
      *
-     * Derived from the prototype rather than by calling the factory, because this is consulted by
-     * {@link #syncDockReloadAction} on every active-item change and a visibility sync must not have
-     * side effects: invoking a consumer factory to decide whether to show a button would mint panes
-     * nobody asked for.
+     * **Never calls the factory.** {@link #syncDockReloadAction} consults this on every active-item
+     * change, so a visibility sync must not have side effects: invoking a resolver to decide whether
+     * to show a button would mint panes nobody asked for.
      *
-     * It answers "is the capability wired", not "will this particular item succeed". A consumer that
-     * overrides the hook and then declines a specific item still gets a **visible** action that
-     * settles with a named refusal — which is the honest behaviour: hiding it would leave a wedged
-     * pane with no affordance and no explanation.
+     * It answers "is a recreate path wired", not "will this particular item succeed" — and since
+     * {@link #resolveFreshPane} now delegates to {@link #resolvePane}, which every workspace answers,
+     * a path always is. An item that cannot be served still gets a **visible** action settling with a
+     * named refusal, which is the honest outcome: hiding it leaves a wedged pane with no affordance
+     * and no explanation.
+     *
+     * This used to compare `this.resolveFreshPane` against the prototype, which asked "did a consumer
+     * override the hook?" — so the engine could never be its own fallback, because a base class
+     * cannot override itself. Overriding this method to return `false` is the remaining way for a host
+     * to declare it does not serve recreate at all.
      * @returns {Boolean}
      */
     hasDockRecreateFallback() {
-        return this.resolveFreshPane !== Workspace.prototype.resolveFreshPane
+        return true
     }
 
     /**
