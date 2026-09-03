@@ -35,6 +35,28 @@ test.describe('Neo.core.Compare — functions compare by identity', () => {
         expect(Neo.core.Compare.isEqual(first, second)).toBe(false)
     });
 
+    test('one method bound to two different owners is not equal — it compares equal ACROSS INSTANCES', () => {
+        // The sharpest case, and the one a real consumer hits: `me.fireAction.bind(me)` from two
+        // owners shares `name` and `toString()`, so a config whose handlers were re-bound to a
+        // different owner reports unchanged and drops the update while pointing at the old owner.
+        class Owner {
+            constructor(id) { this.id = id }
+            fireAction() { return this.id }
+        }
+
+        const first       = new Owner('first'),
+              second      = new Owner('second'),
+              boundFirst  = first.fireAction.bind(first),
+              boundSecond = second.fireAction.bind(second);
+
+        expect(boundFirst.name).toBe(boundSecond.name);
+        expect(boundFirst.toString()).toBe(boundSecond.toString());
+        expect(boundFirst()).toBe('first');
+        expect(boundSecond(), 'they answer for different owners').toBe('second');
+
+        expect(Neo.core.Compare.isEqual(boundFirst, boundSecond)).toBe(false)
+    });
+
     test('two closures from one factory are not equal, though their source text is identical', () => {
         const make   = x => () => x,
               first  = make(1),
