@@ -119,18 +119,28 @@ test.describe('Neo.grid.Body — one grid cannot resize another grid\'s window (
         expect(feed.mountedRows,  'short grid, measured last').toEqual([0, 5])
     });
 
-    test('an index-write through the window is observable on the instance', () => {
-        // The other half of the descriptor, and the one with no visible symptom when it breaks.
-        // Both calculators write by index rather than reassigning, and the engine's default copies
-        // arrays on every read — so without `cloneOnGet: 'none'` this write lands in a discarded
-        // copy and the window silently never moves. That failure looks exactly like the sharing
-        // bug from the outside, so it needs its own arm rather than being covered by the ones above.
-        scale.mountedRows[0] = 3;
-        scale.mountedRows[1] = 9;
+    // The other half of the descriptor, and the one with no visible symptom when it breaks. Every
+    // window here is written BY INDEX rather than reassigned, and the engine's default copies
+    // arrays on every read — so without `cloneOnGet: 'none'` the write lands in a discarded copy
+    // and the window silently never moves. That failure looks exactly like the sharing bug from
+    // the outside, which is why it is armed rather than left to the arms above.
+    //
+    // One arm PER CONFIG, because a passing suite is not evidence that a config is covered: with
+    // `cloneOnGet` dropped from `visibleColumns_` alone, all 80 specs across `unit/grid` and
+    // `component/grid` stayed green. The writers that would have caught it live in other classes —
+    // `grid/Container.mjs` destructures `visibleColumns` off the body and does `+= step` through
+    // the reference, and `grid/View.mjs` index-writes `_body.visibleRows` — and neither path is
+    // exercised by those suites. Covering one config and inferring the rest is what left that hole.
+    for (const key of ['mountedRows', 'visibleRows', 'visibleColumns']) {
+        test(`an index-write through ${key} is observable on the instance`, () => {
+            scale[key][0] = 3;
+            scale[key][1] = 9;
 
-        expect(scale.mountedRows, 'the write reached the stored array').toEqual([3, 9]);
+            expect(scale[key], 'the write reached the stored array').toEqual([3, 9]);
 
-        // And it must not have reached anything else, which is what pairs it with `clone: 'shallow'`.
-        expect(feed.mountedRows, 'without touching the other body').toEqual([0, 0])
-    })
+            // And it must not have reached anything else, which is what pairs `cloneOnGet: 'none'`
+            // with `clone: 'shallow'`: a live reference per instance, not one shared live reference.
+            expect(feed[key], 'without touching the other body').toEqual([0, 0])
+        })
+    }
 });
