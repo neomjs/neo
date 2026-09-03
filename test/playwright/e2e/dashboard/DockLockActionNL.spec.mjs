@@ -73,7 +73,15 @@ test.describe('dock lock action — Whitebox gesture contract', () => {
         await app.getDragTrace(true);
         await dragAfter(page, tabButton(main, 'Alpha'), tabButton(main, 'Beta'));
 
-        expect((await readDocument()).nodes['main-tabs'].items).toEqual(['alpha', 'beta']);
+        // Compared against the captured baseline rather than a literal, exactly as the close
+        // refusal above is. A hardcoded `['alpha', 'beta']` is what rotted here: the fixture gained
+        // a third pane (`delegated`, the lock-delegation host) and this arm started failing on the
+        // fixture rather than on the gesture — while the property it names, "a locked header
+        // refuses the drag", was never violated. The invariant is that the drag changed NOTHING,
+        // and only the baseline states that.
+        expect((await readDocument()).nodes['main-tabs'].items,
+            'a locked header refuses the drag, so the tabs node is untouched')
+            .toEqual(before.nodes['main-tabs'].items);
         expect((await app.getDragTrace()).traces || [],
             'a locked header never arms the SortZone').toEqual([]);
 
@@ -106,8 +114,16 @@ test.describe('dock lock action — Whitebox gesture contract', () => {
 
         expect(unlockedEnd.noop).not.toBe(true);
 
+        // Derived from the baseline and the reorder the trace above just asserted (`from: 0, to: 1`)
+        // rather than hardcoded, for the same reason as the refusal arm: a literal states the
+        // fixture, and the invariant is "the SortZone moved slot 0 to slot 1 and touched nothing
+        // else". Any pane the fixture gains rides along untouched instead of reddening the arm.
+        const expectedOrder = [...before.nodes['main-tabs'].items];
+
+        [expectedOrder[0], expectedOrder[1]] = [expectedOrder[1], expectedOrder[0]];
+
         await expect.poll(async () => (await readDocument()).nodes['main-tabs'].items)
-            .toEqual(['beta', 'alpha']);
+            .toEqual(expectedOrder);
         await awaitRefresh(1);
 
         await actionButton(main, 'fa-times').click();
