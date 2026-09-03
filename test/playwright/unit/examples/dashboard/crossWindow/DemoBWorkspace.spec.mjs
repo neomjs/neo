@@ -1619,7 +1619,9 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
 
         expect(result.errors).toEqual([]);
-        expect(workspace.tearOutPlacements.timeline).toEqual({tabsNodeId: 'side-tabs', index: 1});
+        // `home` carries the tabs node's OWN position, so the record can rebuild a zone the detach
+        // collapsed rather than only find one that survived.
+        expect(workspace.tearOutPlacements.timeline).toEqual({tabsNodeId: 'side-tabs', index: 1, home: {parentId: 'root', slot: 'right'}});
 
         workspace.onWorkspaceDocumentChange('demo-b-main', result.document);
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['inspector', 'console']);

@@ -778,6 +778,146 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(workspace.getDockProjectionOptions()).toEqual({})
     });
 
+    test.describe('#18164 a pane whose home collapsed comes home anyway', () => {
+        /**
+         * Drives the real detach through `applyTearOutOperation` — the wrapper that records the
+         * placement — and commits it, so reintegration reads exactly the state a closed vessel
+         * leaves behind. Anything less (hand-writing `tearOutPlacements`) would test the record I
+         * wrote rather than the one the engine keeps.
+         * @param {String} itemId
+         * @returns {Object} the committed post-detach document
+         */
+        const detach = itemId => {
+            const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId});
+
+            expect(result.errors).toEqual([]);
+            workspace.onDockZoneDocumentChange(result.document);
+
+            return result.document
+        };
+
+        test('AC-1/AC-4 a pane ALONE in its split child returns to that side, not to the first tabs node', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            // `editor` is alone in `editor-tabs`, the left child of a two-child split — the exact
+            // shape the operator's consumer reported, and the common tear-out rather than the rare one.
+            const detached = detach('editor');
+
+            expect(detached.nodes['editor-tabs'], 'the emptied home is gone').toBeUndefined();
+            expect(detached.nodes['root-split'],  'and the split collapsed with it').toBeUndefined();
+
+            expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
+
+            const doc     = workspace.dockModel,
+                  splitId = Object.keys(doc.nodes).find(id => doc.nodes[id].type === 'split'),
+                  split   = doc.nodes[splitId];
+
+            expect(split, 'the split was rebuilt').toBeTruthy();
+            expect(split.orientation).toBe('horizontal');
+            expect(doc.nodes[split.children[0]].items, 'back on the LEFT, where it left from').toEqual(['editor']);
+            expect(split.children[1]).toBe('side-tabs');
+
+            // Reading tab order would pass on a wrong zone: `side-tabs` holds the same two items
+            // either way. The node topology is the only witness that distinguishes them.
+            expect(doc.nodes['side-tabs'].items).toEqual(['preview', 'terminal']);
+            expect(Document.validate(doc)).toEqual([])
+        });
+
+        test('AC-3 a pane with SIBLINGS returns to its own node at its own index', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const detached = detach('preview');
+
+            expect(detached.nodes['side-tabs'], 'the home survived — terminal held it open').toBeTruthy();
+
+            expect(await workspace.reintegrateTearOutItem('preview', null)).toBe(true);
+            expect(workspace.dockModel.nodes['side-tabs'].items, 'index 0, not appended').toEqual(['preview', 'terminal'])
+        });
+
+        test('AC-5 the SAME pane instance comes home — asserted on the component id', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const pane   = Neo.create(Container, {}),
+                  paneId = pane.id,
+                  seen   = [];
+
+            workspace.afterTearOutPaneReturn = data => seen.push(data);
+
+            detach('editor');
+
+            expect(await workspace.reintegrateTearOutItem('editor', pane)).toBe(true);
+
+            // A node moved between documents is necessarily re-created, so DOM identity cannot carry
+            // this. The instance is what survives, and its id is how that is honestly read.
+            expect(seen).toHaveLength(1);
+            expect(seen[0].returned).toBe(true);
+            expect(seen[0].pane.id).toBe(paneId);
+            expect(pane.isDestroyed, 'a returned pane is never settled').toBeFalsy();
+
+            pane.destroy()
+        });
+
+        test('AC-6 an item with NO recorded placement still lands somewhere valid', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const detached = detach('editor');
+
+            // The record is the thing being taken away here: without it there is no home to rebuild,
+            // and the first tabs node in document order is a last resort rather than a placement.
+            delete workspace.tearOutPlacements.editor;
+
+            expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
+
+            expect(Document.findContainingTabsId(workspace.dockModel, 'editor'), 'somewhere beats nowhere').toBeTruthy();
+            expect(Document.validate(workspace.dockModel)).toEqual([]);
+            expect(detached.nodes['editor-tabs']).toBeUndefined()
+        });
+
+        test('a pane docked into the recorded home while the vessel is open is NOT displaced', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
+
+            const placement = Document.captureItemPlacement(workspace.dockModel, 'inspector'),
+                  detached  = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'inspector'});
+
+            expect(detached.errors).toEqual([]);
+            workspace.onDockZoneDocumentChange(detached.document);
+            expect(detached.document.nodes[placement.tabsNodeId], 'the home is gone').toBeUndefined();
+
+            // A vessel window is long-lived, so this interleaving is ordinary: while the pane is
+            // out, something else takes the edge it left. The occupant must survive — losing a pane
+            // the user never touched is strictly worse than the misplacement this seam fixes.
+            const occupied = Document.clone(workspace.dockModel);
+
+            occupied.items['late']       = {componentRef: 'Late', title: 'Late', kind: 'panel'};
+            occupied.nodes['late-right']  = {type: 'tabs', items: ['late'], activeItemId: 'late'};
+            Document.setZoneNodeId(occupied.nodes[placement.home.parentId], placement.home.slot, 'late-right');
+            workspace.onDockZoneDocumentChange(occupied);
+
+            expect(await workspace.reintegrateTearOutItem('inspector', null)).toBe(true);
+
+            const doc = workspace.dockModel;
+
+            expect(Document.getZoneNodeId(doc.nodes[placement.home.parentId].zones[placement.home.slot]),
+                'the occupant kept the slot').toBe('late-right');
+            expect(doc.nodes['late-right'].items, 'and kept its item').toEqual(['late']);
+            expect(Document.findContainingTabsId(doc, 'inspector'), 'the returner still landed somewhere').toBeTruthy();
+            expect(Document.validate(doc)).toEqual([])
+        });
+
+        test('a recorded home that resolves to NOTHING falls back rather than dropping the pane', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            detach('editor');
+
+            // Both halves of the record point at nodes that no longer exist — the zone AND the
+            // sibling its split collapsed into. The restore fails closed; the return path must not.
+            Object.assign(workspace.tearOutPlacements.editor.home, {parentId: 'gone', siblingId: 'gone-too'});
+
+            expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
+            expect(Document.findContainingTabsId(workspace.dockModel, 'editor')).toBeTruthy()
+        })
+    });
+
     test.describe('#17681 engine tear-out lifecycle matrix', () => {
         let previousApps, previousGetByPath, urls;
 

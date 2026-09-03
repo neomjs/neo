@@ -1873,11 +1873,238 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         }
     });
 
+    test.describe('restoreTab — a home that no longer exists (#18164)', () => {
+        /**
+         * Detaching the LAST item of a zone is the common tear-out, not the rare one: the emptied
+         * tabs node is dropped on commit and a two-child split collapses behind it. Every arm here
+         * starts from that state, so `tabsNodeId` names a node that is genuinely gone.
+         * @param {Object} source
+         * @param {String} itemId
+         * @returns {{document:Object, placement:Object}}
+         */
+        function detachAlone(source, itemId) {
+            const placement          = Document.captureItemPlacement(source, itemId),
+                  {document, errors} = Operations.applyOperation(source, {operation: 'detachItem', itemId});
+
+            expect(errors).toEqual([]);
+            expect(document.nodes[placement.tabsNodeId], 'the home is gone — that is the premise').toBeUndefined();
+
+            return {document, placement}
+        }
+
+        test('AC-1 a pane ALONE in an edge zone returns to THAT zone, asserted on the node topology', () => {
+            const {document: detached, placement} = detachAlone(doc(), 'terminal');
+
+            expect(detached.nodes.root.zones.right, 'the emptied zone collapsed').toBeUndefined();
+
+            const {document: restored, errors} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors).toEqual([]);
+
+            const zoneId = Document.getZoneNodeId(restored.nodes.root.zones.right);
+
+            expect(zoneId, 'the right zone exists again').toBeTruthy();
+            expect(restored.nodes[zoneId].items).toEqual(['terminal']);
+
+            // The tab ORDER of main-tabs would read identically whether or not this worked, which is
+            // why the assertion is on the zone and never on a tab sequence.
+            expect(restored.nodes['main-tabs'].items).toEqual(['strategy', 'swarm'])
+        });
+
+        test('AC-2 RED: the pre-fix record — a tabsNodeId with no home — cannot rebuild it', () => {
+            const {document: detached, placement} = detachAlone(doc(), 'terminal');
+
+            // Exactly what `captureItemPlacement` used to return: the id of a node that is
+            // guaranteed absent by the time it is read, and nothing to reconstruct it from.
+            const {errors} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'terminal', tabsNodeId: placement.tabsNodeId, index: placement.index
+            });
+
+            expect(errors.length, 'fails closed rather than inventing a home').toBeGreaterThan(0);
+
+            // And the old resolution's actual outcome: the FIRST tabs node in document order, which
+            // is the centre — the wrong zone, reported as a successful return.
+            const fallback = Object.entries(detached.nodes).find(([, node]) => node.type === 'tabs')?.[0];
+
+            expect(fallback, 'document order hands back the CENTRE, not the right edge').toBe('main-tabs')
+        });
+
+        test('AC-3 a pane that SHARED its node returns to that node at its index — the surviving path is untouched', () => {
+            const source    = doc(),
+                  placement = Document.captureItemPlacement(source, 'strategy');
+
+            const {document: detached} = Operations.applyOperation(source, {operation: 'detachItem', itemId: 'strategy'});
+
+            expect(detached.nodes['main-tabs'], 'the home survived — it had a sibling').toBeTruthy();
+
+            const {document: restored, errors} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'strategy', ...placement
+            });
+
+            expect(errors).toEqual([]);
+            expect(restored.nodes['main-tabs'].items, 'back at index 0, not appended').toEqual(['strategy', 'swarm'])
+        });
+
+        test('AC-4 a pane alone in a SPLIT child returns to that side of the split, with its ratio', () => {
+            const source = splitDoc([0.7, 0.3]);
+
+            const {document: detached, placement} = detachAlone(source, 'terminal');
+
+            expect(placement.home).toEqual({
+                parentId: 'main-split', slot: 1, orientation: 'horizontal', size: 0.3, siblingId: 'main-tabs', position: 'after'
+            });
+
+            // The split lost a child and collapsed into the survivor, so the recorded PARENT is gone
+            // too — the sibling anchor is the only thing left pointing at where this belonged.
+            expect(detached.nodes['main-split'], 'the split collapsed with it').toBeUndefined();
+
+            const {document: restored, errors} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors).toEqual([]);
+
+            const splitId = Object.keys(restored.nodes).find(id => restored.nodes[id].type === 'split'),
+                  split   = restored.nodes[splitId];
+
+            expect(split.orientation).toBe('horizontal');
+            expect(split.children[0], 'the sibling keeps the near side').toBe('main-tabs');
+            expect(restored.nodes[split.children[1]].items, 'the returner keeps the far side').toEqual(['terminal']);
+            expect(split.sizes[0]).toBeCloseTo(0.7, 6);
+            expect(split.sizes[1]).toBeCloseTo(0.3, 6)
+        });
+
+        test('a split that KEPT other children takes the node back at its slot, scaling the survivors', () => {
+            const source = splitDoc([0.5, 0.25]);
+
+            source.nodes['main-split'].children.push('extra-tabs');
+            source.nodes['main-split'].sizes = [0.5, 0.25, 0.25];
+            source.nodes['extra-tabs']       = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
+
+            const {document: detached, placement} = detachAlone(source, 'terminal');
+
+            expect(detached.nodes['main-split'], 'three children minus one still splits').toBeTruthy();
+            expect(detached.nodes['main-split'].children).toEqual(['main-tabs', 'extra-tabs']);
+
+            const {document: restored, errors} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors).toEqual([]);
+
+            const split = restored.nodes['main-split'];
+
+            expect(split.children[1], 'back in the MIDDLE slot, not appended').toBe(placement.tabsNodeId);
+            expect(split.sizes[1], 'it reclaims the share it recorded').toBeCloseTo(0.25, 6);
+            expect(split.sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6);
+
+            // The survivors' ratio TO EACH OTHER is what is preserved — not the split's pre-detach
+            // geometry, which `normalizeTree` already reset to equal when the child collapsed.
+            // Restoring position is the contract here; geometry is explicitly out of its scope.
+            expect(split.sizes[0] / split.sizes[2]).toBeCloseTo(
+                detached.nodes['main-split'].sizes[0] / detached.nodes['main-split'].sizes[1], 6
+            )
+        });
+
+        test('an OCCUPIED home is not a home — the new occupant survives, the returner goes elsewhere', () => {
+            const {document: detached, placement} = detachAlone(doc(), 'terminal');
+
+            expect(detached.nodes.root.zones.right).toBeUndefined();
+
+            // A vessel is long-lived. While the pane is out, the user docks something else to the
+            // very edge it left — an ordinary sequence, not an exotic one.
+            const occupied = Document.clone(detached);
+
+            occupied.nodes['new-right'] = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
+            Document.setZoneNodeId(occupied.nodes.root, 'right', 'new-right');
+
+            const {document: restored, errors} = Operations.applyOperation(occupied, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            // The recorded coordinate is VALID and NOT MINE. Writing it would orphan `new-right`:
+            // an edge zone holds one node per key, so the occupant would be referenced by nothing —
+            // a lost pane, and not the one being restored.
+            expect(errors.length, 'an occupied slot resolves to nothing, rather than being taken').toBeGreaterThan(0);
+            expect(restored, 'and the document is returned untouched').toEqual(occupied);
+
+            // The occupant is what this arm exists for: it must still be reachable from the root.
+            expect(Document.getZoneNodeId(occupied.nodes.root.zones.right)).toBe('new-right');
+            expect(Document.reachableNodeIds(occupied).has('new-right')).toBe(true)
+        });
+
+        test('a slot holding the returner ITSELF is still its own — re-entry is not an overwrite', () => {
+            const source    = doc(),
+                  placement = Document.captureItemPlacement(source, 'terminal');
+
+            // The ownership guard must not refuse the node its own slot: `side-tabs` is still in
+            // `zones.right` here, so an occupancy check that only asked "is anything there?" would
+            // send a pane away from the home it never lost.
+            const {document: restored, errors} = Operations.applyOperation(source, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors).toEqual([]);
+            expect(Document.getZoneNodeId(restored.nodes.root.zones.right)).toBe('side-tabs');
+            expect(restored.nodes['side-tabs'].items).toEqual(['terminal'])
+        });
+
+        test('AC-6 with NO recorded placement the item still lands somewhere valid', () => {
+            const {document: detached} = detachAlone(doc(), 'terminal');
+
+            const fallback = Object.entries(detached.nodes).find(([, node]) => node.type === 'tabs')?.[0];
+
+            const {document: restored, errors} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'terminal', tabsNodeId: fallback
+            });
+
+            expect(errors).toEqual([]);
+            expect(restored.nodes['main-tabs'].items).toContain('terminal');
+            expect(Document.validate(restored)).toEqual([])
+        });
+
+        test('the restored node reclaims its ORIGINAL id, so a round trip lands on the document it left', () => {
+            const source = doc();
+
+            const {document: detached, placement} = detachAlone(source, 'terminal');
+
+            const {document: restored} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(restored.nodes['side-tabs'], 'the id is free, so it is reused').toBeTruthy();
+            expect(restored).toEqual(source)
+        });
+
+        test('fails closed on an unknown item, and on a home whose sibling ALSO went away', () => {
+            expect(Operations.applyOperation(doc(), {operation: 'restoreTab', itemId: 'ghost', tabsNodeId: 'main-tabs'}).errors)
+                .toEqual(['unknown item "ghost"']);
+
+            const {document: detached, placement} = detachAlone(splitDoc(), 'terminal');
+
+            placement.home.parentId  = 'vanished-split';
+            placement.home.siblingId = 'vanished-tabs';
+
+            const {document: unchanged, errors} = Operations.applyOperation(detached, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors.length).toBeGreaterThan(0);
+            expect(unchanged, 'a failed restore returns the input untouched').toEqual(detached)
+        });
+
+        test('restoreTab joins the derived vocabulary, so the dispatch table and Operations.operations agree', () => {
+            expect(Operations.operations).toContain('restoreTab')
+        })
+    });
+
     test.describe('captureItemPlacement (exact-position return, stored half)', () => {
         test('captures the holding tabs node and the exact index', () => {
-            expect(Document.captureItemPlacement(doc(), 'strategy')).toEqual({tabsNodeId: 'main-tabs', index: 0});
-            expect(Document.captureItemPlacement(doc(), 'swarm')).toEqual({tabsNodeId: 'main-tabs', index: 1});
-            expect(Document.captureItemPlacement(doc(), 'terminal')).toEqual({tabsNodeId: 'side-tabs', index: 0})
+            expect(Document.captureItemPlacement(doc(), 'strategy')).toEqual({tabsNodeId: 'main-tabs', index: 0, home: {parentId: 'root', slot: 'center'}});
+            expect(Document.captureItemPlacement(doc(), 'swarm')).toEqual({tabsNodeId: 'main-tabs', index: 1, home: {parentId: 'root', slot: 'center'}});
+            expect(Document.captureItemPlacement(doc(), 'terminal')).toEqual({tabsNodeId: 'side-tabs', index: 0, home: {parentId: 'root', slot: 'right'}})
         });
 
         test('fails closed when no tabs node holds the item — catalog presence is not placement', () => {
@@ -1898,7 +2125,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             // put it BACK at index 1, which is exactly the defect the stored pair compensates
             const placement = Document.captureItemPlacement(source, 'strategy');
 
-            expect(placement).toEqual({tabsNodeId: 'main-tabs', index: 0});
+            expect(placement).toEqual({tabsNodeId: 'main-tabs', index: 0, home: {parentId: 'root', slot: 'center'}});
 
             const {document: detached} = Operations.applyOperation(source, {operation: 'detachItem', itemId: 'strategy'});
 
