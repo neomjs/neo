@@ -3393,6 +3393,36 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             }
         });
 
+        test('a failed adoption returns the item to the document, not only the pane handle', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const pane = workspace.resolveTearOutPane('editor');
+
+            expect(pane, 'the fixture must project the pane, or this proves nothing').toBeTruthy();
+
+            workspace.captureTearOutPane('editor');
+
+            // Commit the detach the tear-out gesture commits, so the item is out of every tabs node
+            // exactly as it is when an adoption then fails.
+            const detached = workspace.applyDockZoneOperation({itemId: 'editor', operation: 'detachItem'});
+
+            expect(detached.errors, 'the detach must commit, or the compensation has nothing to undo').toEqual([]);
+            workspace.onDockZoneDocumentChange(detached.document);
+
+            expect(Document.findContainingTabsId(workspace.dockModel, 'editor'),
+                'the item is genuinely out of the tree at this point').toBeFalsy();
+
+            // The vessel died. compensateFailedTearOutAdoption is what must put it back — the user
+            // is left with a pane that vanished from the shell otherwise.
+            workspace.compensateFailedTearOutAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+
+            await workspace.refreshPromise;
+
+            expect(Document.findContainingTabsId(workspace.dockModel, 'editor'),
+                'the item is back in a tabs node').toBeTruthy();
+            expect(workspace.dockModel.items.editor, 'and its record survived the round trip').toBeTruthy()
+        });
+
         test('a rail tab is not the pane either, and the whole button category is refused', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
