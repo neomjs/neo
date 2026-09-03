@@ -724,6 +724,117 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         }
     });
 
+    test.describe('#18173 the hold restarts when the drop zone changes', () => {
+        /**
+         * Drives native geometry frames against ONE window whose target returns a controllable
+         * preview. A real clock cannot express this: consecutive frames land in the same
+         * millisecond, so a re-arm would be indistinguishable from a carry-over.
+         * @param {String[]} previewIds One per frame; null means the frame resolved no preview.
+         * @returns {{payloads: Object[], delays: Number[]}}
+         */
+        const runFrames = previewIds => {
+            const
+                draggedItem = {id: 'tab-1'},
+                payloads    = [],
+                delays      = [],
+                originalNow = Date.now,
+                originalST  = globalThis.setTimeout;
+
+            let clock = 10_000,
+                frame = 0;
+
+            const target = {
+                ...createZone('workspace-main', 'win-main'),
+                onRemoteDragMove(payload) {
+                    payloads.push(payload);
+                    // The frame index advances per COORDINATOR frame, not per call: a re-arm re-sends
+                    // the hover, and both sends belong to the same frame and the same resolved zone.
+                    const id = previewIds[Math.min(frame, previewIds.length - 1)];
+                    return id ? {previewId: id} : null
+                }
+            };
+
+            const source = {
+                ...createSource(),
+                windowId           : 'win-popup',
+                getNativeWindowDrag: windowId => windowId === 'win-popup'
+                    ? {draggedItem, embodyNativeHover: true, widgetName: 'tab-1'}
+                    : null
+            };
+
+            registerWindow('win-main',  0,   0,   800, 600);
+            registerWindow('win-popup', 100, 100, 300, 200);
+
+            DragCoordinator.register(target);
+            DragCoordinator.register(source);
+
+            Date.now = () => clock;
+            globalThis.setTimeout = (fn, delay) => { delays.push(delay); return 0 };
+
+            try {
+                for (frame = 0; frame < previewIds.length; frame++) {
+                    DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+                    clock += 300   // the user travels; well inside the 1200ms hold
+                }
+            } finally {
+                Date.now              = originalNow;
+                globalThis.setTimeout = originalST;
+                DragCoordinator.clearNativeWindowDropCandidate('win-popup');
+                DragCoordinator.endNativeGesture?.('win-popup')
+            }
+
+            return {delays, payloads}
+        };
+
+        test('AC-1/AC-2 a NEW zone restarts the hold — the commit is pushed out by the full duration', () => {
+            const {delays, payloads} = runFrames(['preview:tab-1:node-a:tab-into', 'preview:tab-1:node-b:split-left']);
+
+            // Frame 2 resolves a different zone 300ms in. Without the re-arm the commit stays
+            // scheduled 300ms earlier and fires while the user is still choosing — the operator's
+            // report: a main window always has a valid drop area, so the clock never restarted.
+            expect(delays.at(-1), 'the hold starts over, it does not run down')
+                .toBe(DragCoordinator.nativeWindowDropDwellMs);
+
+            // AC-5: the target paints from the same start the commit was scheduled from, so the ring
+            // does not drain against a timer that has just been pushed out.
+            expect(payloads.at(-1).dwell.armedAt).toBe(10_300);
+            expect(payloads.at(-1).dwell.armedAt).toBeGreaterThan(payloads[0].dwell.armedAt)
+        });
+
+        test('AC-3 a PLACEMENT change over one node restarts it too — that is a different drop', () => {
+            const {delays} = runFrames(['preview:tab-1:node-a:tab-into', 'preview:tab-1:node-a:split-left']);
+
+            // Same node, different placement. `previewId` carries both, which is why keying on a
+            // node id alone would miss this one.
+            expect(delays.at(-1)).toBe(DragCoordinator.nativeWindowDropDwellMs)
+        });
+
+        test('AC-4 holding STILL keeps one clock — the hold is completable', () => {
+            const {delays, payloads} = runFrames(Array(3).fill('preview:tab-1:node-a:tab-into'));
+
+            // 600ms elapsed over three frames on one zone, so the remaining hold has shrunk by that
+            // much. A re-arm here would make the gesture impossible to finish.
+            expect(delays.at(-1)).toBe(DragCoordinator.nativeWindowDropDwellMs - 600);
+            expect(payloads.at(-1).dwell.armedAt, 'one start, all three frames').toBe(payloads[0].dwell.armedAt)
+        });
+
+        test('AC-6 a frame resolving NO preview is a gap, not a new zone', () => {
+            const {delays} = runFrames(['preview:tab-1:node-a:tab-into', null, 'preview:tab-1:node-a:tab-into']);
+
+            // The middle frame resolves nothing while the sort zone still accepts the drag. Treating
+            // that as a change would restart a hold the user is legitimately completing.
+            expect(delays.at(-1)).toBe(DragCoordinator.nativeWindowDropDwellMs - 600)
+        });
+
+        test('the hover frame is re-sent on a re-arm, and NOT re-sent otherwise', () => {
+            expect(runFrames(['preview:tab-1:node-a:tab-into', 'preview:tab-1:node-b:tab-into']).payloads,
+                'a zone change repaints the ring from its new start').toHaveLength(3);
+
+            expect(runFrames(['preview:tab-1:node-a:tab-into', 'preview:tab-1:node-a:tab-into']).payloads,
+                'a steady hold costs exactly one frame each').toHaveLength(2)
+        })
+    });
+
     test('THE OVERLAP FALSIFIER holds when the clock moves mid-pass — the winner is not the loop order', () => {
         const source = createSource();
 
