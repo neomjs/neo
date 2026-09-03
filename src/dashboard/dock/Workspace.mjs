@@ -1063,7 +1063,43 @@ class Workspace extends Container {
         Promise.resolve(me.retireTearOutVessel(vessel)).then(closed => {
             closed && me.tearOutHandlers?.onVesselRetired(vessel)
         });
-        me.reintegrateTearOutItem(itemId, pane)
+        me.reintegrateTearOutItem(itemId, pane);
+
+        // Reported HERE because this is the one place both failing paths already meet: the
+        // document-change adoption and the window-connect adoption each call it before throwing.
+        // Their throws do not reach anyone — `onWindowConnect` is registered as a worker event
+        // listener, so an async throw becomes a rejected promise the emitter drops, which is why a
+        // vessel could die with nothing but an unattributed unhandled rejection in the console.
+        me.onTearOutAdoptionFailed({entry, itemId, pane, reintegrated: !!pane})
+    }
+
+    /**
+     * @summary Reports an adoption that could not embody its pane, on the lifecycle's own channel.
+     *
+     * The engine opened a window, moved a pane out of the shell, failed to place it, closed the
+     * window again and put the pane back — a full round trip the user sees as "pop-out does
+     * nothing". That sequence must be attributable, and a throw into an event listener is not:
+     * it names no item, reaches no consumer, and cannot be told from an unrelated rejection.
+     *
+     * Fires `dockTearOutAdoptionFailed` and warns. A consumer that wants to surface it in its own
+     * UI listens; one that wants silence overrides. `reintegrated` distinguishes the recoverable
+     * case (the pane came home) from the one worth alarming on (it did not).
+     * @param {Object} data
+     * @param {Object} data.entry The vessel record the adoption was attempting.
+     * @param {String} data.itemId
+     * @param {Neo.component.Base|null} data.pane The released pane, or null when none was held.
+     * @param {Boolean} data.reintegrated
+     * @protected
+     */
+    onTearOutAdoptionFailed(data) {
+        const me = this;
+
+        console.warn(
+            `Dock tear-out: "${data.itemId}" could not enter its admitted vessel; the vessel was retired and the pane ${data.reintegrated ? 'returned' : 'was NOT returned'}`,
+            me.id
+        );
+
+        me.fire('dockTearOutAdoptionFailed', {component: me, ...data})
     }
 
     /**

@@ -3277,6 +3277,25 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(resolved.isDestroyed).toBeFalsy()
         });
 
+        test('a failed adoption is reported on the lifecycle channel, not thrown into a listener', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const events = [];
+
+            workspace.on('dockTearOutAdoptionFailed', event => events.push(event));
+
+            workspace.compensateFailedTearOutAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+
+            // Both failing paths throw AFTER compensating, and neither throw reaches anyone:
+            // onWindowConnect is registered as a worker event listener, so its async throw becomes
+            // a rejected promise the emitter drops — a vessel could die leaving nothing but an
+            // unattributed unhandled rejection. Reporting from the shared compensation path means
+            // the signal fires once, wherever the failure originated.
+            expect(events.length, 'the failure reaches consumers exactly once').toBe(1);
+            expect(events[0]).toMatchObject({component: workspace, itemId: 'editor'});
+            expect(events[0], 'and it says whether the pane came home').toHaveProperty('reintegrated')
+        });
+
         test('a rail tab is not the pane either, and the whole button category is refused', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
