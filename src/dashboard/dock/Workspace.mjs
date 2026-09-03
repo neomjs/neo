@@ -982,6 +982,17 @@ class Workspace extends Container {
      * @protected
      */
     resolveTearOutPane(itemId) {
+        const held = this.tearOutPaneHandles[itemId];
+
+        // The held handle FIRST, and this is what makes the default actually adopt. The tear-out
+        // sequence is capture → re-project → adopt: `captureTearOutPane` stores the pane while it is
+        // still in the tree, the detach re-projection then removes it, and adoption runs afterwards.
+        // A tree-only lookup therefore succeeds at capture and returns null at the moment it matters,
+        // so a hook-free consumer got a vessel window that opened and never received its pane.
+        if (held && !held.isDestroyed) {
+            return held
+        }
+
         const matches = this.getDockHost()?.down({dockItemId: itemId}, false) || [];
 
         return matches.find(component => this.isDockTearOutCandidate(component)) || null
@@ -1638,6 +1649,31 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Re-evaluates the retained pop-out action against current truth after every commit.
+     *
+     * Pop-out was the one engine action with no sync. Its `hidden` is projected once as
+     * `!activeItemId || !dockPopOutActionAvailable` and then lives on a RETAINED action instance
+     * that survives re-projection, so nothing ever recomputed it: the control was correct at boot
+     * and silently gone after the first layout commit. For a consumer whose reason to be here is
+     * multi-window, the feature disappeared until reload.
+     *
+     * Mirrors the projected expression from the same reader (`dockPopOutActionActive`), so the
+     * projected and the synced answer cannot drift. Change-guarded like its siblings, so re-walking
+     * retained nodes stays idempotent.
+     * @param {Neo.tab.Container} tabContainer
+     * @protected
+     */
+    syncDockPopOutAction(tabContainer) {
+        if (!this.enableDockPopOutAction) return;
+
+        let action = tabContainer?.getActionItem?.('pop-out'),
+            itemId = this.getActiveDockItemId(tabContainer),
+            hidden = !itemId || !this.dockPopOutActionActive;
+
+        action && action.hidden !== hidden && (action.hidden = hidden)
+    }
+
+    /**
      * Synchronizes the retained lock action and every projected pane/button against committed
      * item truth. The action stays one stable instance; per-item hidden/icon state moves on it.
      *
@@ -2002,6 +2038,7 @@ class Workspace extends Container {
             me.syncDockCloseAction(tab);
             me.syncDockLockAction(tab);
             me.syncDockPinAction(tab);
+            me.syncDockPopOutAction(tab);
             me.syncDockReloadAction(tab)
         });
 
