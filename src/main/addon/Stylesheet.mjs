@@ -91,6 +91,15 @@ class Stylesheet extends Base {
     }
 
     /**
+     * Loads one file per class per declared theme. The fan-out is intentional and bundling is not
+     * an available alternative: any component tree, at any nesting depth, can be moved from the
+     * main window into another one, so a second window's class set is not knowable ahead of time.
+     * Pre-bundling would mean shipping every possible combination of those trees — which costs more
+     * than it saves and still cannot cover a combination nobody anticipated.
+     *
+     * File granularity is what makes the delta work instead: a window fetches exactly the classes
+     * it ends up rendering, and a single changed class is swapped in every open window without
+     * rebuilding anything. The per-class request count is the price of that, deliberately paid.
      * @param {Object} data
      * @param {String} data.appName
      * @param {String} data.className
