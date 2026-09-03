@@ -3351,11 +3351,16 @@ class Workspace extends Container {
         //
         // An operation with no declared class falls through to `topology`, i.e. exactly the old
         // behaviour, so a vocabulary that outgrows the map degrades to slow rather than to wrong.
-        switch (Operations.changeClassFor(descriptor?.operation)) {
-            case 'geometry' : return {geometryOnly: true};
-            case 'itemFlags': return this.isDockRailedItem(descriptor?.itemId) ? {} : {retainTopology: true};
-            default         : return {}
+        // Only the item-flag class is wired. `geometry` is declared honestly in the class map but
+        // deliberately NOT emitted yet: on `dev` a resize takes the full transaction, this ticket
+        // measured only the lock flicker, and its AC-4 requires resize to keep its current
+        // behaviour. Putting every drag-resize on an unmeasured fast path is a separate change with
+        // its own evidence, not a free rider on this one.
+        if (Operations.changeClassFor(descriptor?.operation) === 'itemFlags') {
+            return this.isDockRailedItem(descriptor?.itemId) ? {} : {retainTopology: true}
         }
+
+        return {}
     }
 
     /**

@@ -105,8 +105,11 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
             expect(workspace.getRefreshOptions({operation: 'setItemLocked', itemId: 'panel'}),
                 'an item-flag delta reconciles items in place').toEqual({retainTopology: true});
 
+            // `geometry` is declared in the class map but deliberately not wired yet: on `dev` a
+            // resize takes the full transaction, and this ticket measured only the lock flicker.
+            // Emitting `geometryOnly` here would put every drag-resize on an unmeasured fast path.
             expect(workspace.getRefreshOptions({operation: 'resizeSplit'}),
-                'a boundary move is geometry-only').toEqual({geometryOnly: true});
+                'a boundary move keeps its current full transaction').toEqual({});
 
             expect(workspace.getRefreshOptions({operation: 'moveItem', itemId: 'panel'}),
                 'a restructuring operation still takes the full transaction').toEqual({});
