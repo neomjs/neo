@@ -52,7 +52,21 @@ const readGeometry = page => page.evaluate(host => {
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/dock-preview-geometry/index.html');
     await page.waitForSelector('#dock-preview-geometry-workspace', {state: 'attached'});
-    await expect(page.locator(`${HOST} .neo-dock-preview`)).toBeAttached({timeout: 10000})
+    await expect(page.locator(`${HOST} .neo-dock-preview`)).toBeAttached({timeout: 10000});
+
+    // Wait for the projection to SETTLE, not merely for the preview to attach. The reconciler
+    // stages the next shell as a hidden sibling before retiring the old one, so for the duration of
+    // that transaction the host legitimately holds two full-width shells — and `scrollWidth` is
+    // then 2x `clientWidth` for a correct reason. Measuring inside that window reads a transient as
+    // the defect: it never reproduced locally and failed on CI, which is a race against a slower
+    // machine rather than a flaky suite.
+    //
+    // The settle signal is deliberately NOT `scrollWidth`, which is the property under test — that
+    // would make the arms below vacuous, waiting for exactly what they claim to prove. Child count
+    // is independent: the host holds its shell plus the two persistent overlays at rest, and one
+    // more while a second shell is staged.
+    await expect.poll(async () => page.evaluate(host =>
+        document.querySelector(host)?.childElementCount ?? 0, HOST), {timeout: 10000}).toBe(3)
 });
 
 test.describe('Neo.dashboard.dock.interaction.Preview — the overlay carries its own geometry (#18142)', () => {
