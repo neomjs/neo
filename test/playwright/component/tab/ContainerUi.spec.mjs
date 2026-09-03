@@ -16,35 +16,35 @@ const EXPECTED = {
         actionSize: '20px',
         // `flat`, not `none`: the family states its own header grey and carries no hairline. The
         // old name described the value it happened to have, which stopped being true.
-        band      : 'flat',
-        inline    : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
-        null      : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
-        standalone: {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
-        textColor : 'rgb(43, 43, 43)'
+        band            : 'flat',
+        inline          : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
+        null            : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
+        standalone      : {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
+        pressedTextColor: 'rgb(43, 43, 43)'
     },
     'neo-theme-dark': {
-        actionSize: '20px',
-        band      : 'flat',
-        inline    : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
-        null      : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
-        standalone: {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
-        textColor : 'rgb(187, 187, 187)'
+        actionSize      : '20px',
+        band            : 'flat',
+        inline          : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
+        null            : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
+        standalone      : {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
+        pressedTextColor: 'rgb(187, 187, 187)'
     },
     'neo-theme-neo-light': {
-        actionSize: '24px',
-        band      : 'surface',
-        inline    : {fontSize: '12px', fontWeight: '400', height: '32px', padding: '4px 8px 3px',  radius: '0px'},
-        null      : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
-        standalone: {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
-        textColor : 'rgb(69, 75, 66)'
+        actionSize      : '24px',
+        band            : 'surface',
+        inline          : {fontSize: '12px', fontWeight: '400', height: '32px', padding: '4px 8px 3px',  radius: '0px'},
+        null            : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
+        standalone      : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
+        pressedTextColor: 'rgb(0, 0, 0)'
     },
     'neo-theme-neo-dark': {
-        actionSize: '24px',
-        band      : 'surface',
-        inline    : {fontSize: '12px', fontWeight: '400', height: '32px', padding: '4px 8px 3px',  radius: '0px'},
-        null      : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
-        standalone: {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
-        textColor : 'rgb(153, 162, 149)'
+        actionSize      : '24px',
+        band            : 'surface',
+        inline          : {fontSize: '12px', fontWeight: '400', height: '32px', padding: '4px 8px 3px',  radius: '0px'},
+        null            : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
+        standalone      : {fontSize: '16px', fontWeight: '600', height: '48px', padding: '7px 16px 6px', radius: '8px'},
+        pressedTextColor: 'rgb(255, 255, 255)'
     }
 };
 
@@ -201,8 +201,9 @@ const readVariant = (page, id) => page.evaluate(componentId => {
         fontWeight     : text.fontWeight,
         height         : style.height,
         padding        : style.padding,
-        radius         : style.borderRadius,
-        textColor      : text.color
+        pressed  : button.classList.contains('pressed'),
+        radius   : style.borderRadius,
+        textColor: text.color
     }
 }, id);
 
@@ -311,16 +312,20 @@ test.describe('Neo.tab.Container — ui variants', () => {
             expect(measured.inline.cls).toContain('neo-tab-container-inline');
             expect(measured.standalone.cls).toContain('neo-tab-container-standalone');
 
+            for (const variant of ['default', 'inline', 'null', 'standalone']) {
+                expect(measured[variant].pressed, `${variant}'s first tab button is the active one`).toBe(true)
+            }
+
             for (const variant of ['inline', 'null', 'standalone']) {
                 expect(measured[variant]).toMatchObject({
                     ...EXPECTED[theme][variant],
-                    textColor: EXPECTED[theme].textColor
+                    textColor: EXPECTED[theme].pressedTextColor
                 })
             }
 
             expect(measured.default).toMatchObject({
                 ...EXPECTED[theme].null,
-                textColor: EXPECTED[theme].textColor
+                textColor: EXPECTED[theme].pressedTextColor
             });
             expect(await readDomSignature(page, 'tab-ui-null'))
                 .toEqual(await readDomSignature(page, 'tab-ui-default'));
