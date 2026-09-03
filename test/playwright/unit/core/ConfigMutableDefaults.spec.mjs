@@ -114,6 +114,19 @@ test.describe('core.Base — mutable static config defaults', () => {
         // `clone: 'deep'` — copied on set, so each instance owns its value.
         expect(a.isolatedReactive, 'clone:deep gives each instance its own').not.toBe(b.isolatedReactive);
 
+        // The isolated half's `cloneOnGet: 'none'` is asserted HERE, on its own, because otherwise
+        // it is individually harmless and jointly fatal. @neo-opus-grace probed each pin separately:
+        // dropping it from the shared half fails an arm immediately, dropping it from the isolated
+        // half left the file green — and dropping it TOGETHER with `clone: 'deep'` made the clone
+        // regression itself undetectable. So someone tidying it as redundant would have got a
+        // passing suite and a dead control.
+        //
+        // Stable identity across two reads of ONE instance is the property only this pin provides;
+        // the arm above shows a bare reactive array failing exactly that check. With this assertion
+        // the pin reddens on its own removal, which is what a load-bearing pin has to do.
+        expect(a.isolatedReactive, 'cloneOnGet:none makes the stored reference readable at all')
+            .toBe(a.isolatedReactive);
+
         // The behavioural consequence of each, which is what the identity checks are shorthand for.
         a.sharedReactive[0]   = 99;
         a.isolatedReactive[0] = 99;
