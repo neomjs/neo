@@ -73,7 +73,9 @@ test.describe('dock lock action — Whitebox gesture contract', () => {
         await app.getDragTrace(true);
         await dragAfter(page, tabButton(main, 'Alpha'), tabButton(main, 'Beta'));
 
-        expect((await readDocument()).nodes['main-tabs'].items).toEqual(['alpha', 'beta']);
+        expect((await readDocument()).nodes['main-tabs'].items,
+            'a locked header refuses the drag, so the tabs node is untouched')
+            .toEqual(before.nodes['main-tabs'].items);
         expect((await app.getDragTrace()).traces || [],
             'a locked header never arms the SortZone').toEqual([]);
 
@@ -106,8 +108,12 @@ test.describe('dock lock action — Whitebox gesture contract', () => {
 
         expect(unlockedEnd.noop).not.toBe(true);
 
+        const expectedOrder = [...before.nodes['main-tabs'].items];
+
+        [expectedOrder[0], expectedOrder[1]] = [expectedOrder[1], expectedOrder[0]];
+
         await expect.poll(async () => (await readDocument()).nodes['main-tabs'].items)
-            .toEqual(['beta', 'alpha']);
+            .toEqual(expectedOrder);
         await awaitRefresh(1);
 
         await actionButton(main, 'fa-times').click();
