@@ -3372,6 +3372,14 @@ class Workspace extends Container {
      * So placement is the workspace's half of the answer: `Operations` cannot know it, and the
      * document alone does not carry it. Reconciling rail surfaces inside the stable-topology path
      * would let this guard retire; until then a railed item takes the full transaction.
+     *
+     * **This reads the PRE-COMMIT document, and that is only sound because it is reached solely for
+     * placement-NEUTRAL operations.** `getRefreshOptions` runs before `dockModel` is reassigned, so
+     * for an operation that moves a pane the answer here would describe where the item *was*, not
+     * where it is going — `setItemAutoHidden(true)` would read "not railed" on the very commit that
+     * rails it. That is why `setItemPinned` and `setItemAutoHidden` are classed `topology` rather
+     * than guarded here: a placement change cannot be rescued by asking about placement beforehand.
+     * `setItemLocked` never moves a pane, so before and after agree by construction.
      * @param {String|null} itemId
      * @returns {Boolean}
      * @protected

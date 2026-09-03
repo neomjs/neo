@@ -66,8 +66,13 @@ test.describe('Neo.dashboard.dock.model.Operations — the change-class beside t
         // Verifiable rather than asserted: each of these clones the document and assigns exactly one
         // field under `items`, touching `nodes` nowhere — which is what makes an item-only refresh
         // sound for them in the first place.
-        for (const op of ['setItemLocked', 'setItemPinned', 'setItemAutoHidden']) {
-            expect(Operations.changeClassFor(op), `${op} writes one item field`).toBe('itemFlags')
+        // Only `setItemLocked` is placement-NEUTRAL. Pinned and auto-hidden write one item field
+        // each, exactly like lock, but they move a pane between the shell and an edge rail — a
+        // placement change wearing an item flag, and the rail is projected outside the shell.
+        expect(Operations.changeClassFor('setItemLocked'), 'lock never moves a pane').toBe('itemFlags');
+
+        for (const op of ['setItemPinned', 'setItemAutoHidden']) {
+            expect(Operations.changeClassFor(op), `${op} relocates the pane`).toBe('topology')
         }
 
         for (const op of ['resizeSplit', 'resizeEdgeZone']) {
@@ -138,6 +143,81 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
 
             expect(workspace.getRefreshOptions({operation: 'setItemLocked', itemId: 'pinned'}),
                 'a pinned item renders in the shell, so it keeps the fast path').toEqual({retainTopology: true})
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('a placement-changing flag cannot take the item-only path, through the REAL commit path', async () => {
+        // The arms above call `getRefreshOptions` directly, which tests the predicate and NOT the
+        // feature: `onDockZoneDocumentChange` computes the options BEFORE it reassigns `dockModel`
+        // (`Workspace.mjs:3383` vs `:3386`), so a guard that asks "is this item railed?" sees where
+        // the item WAS. For `setItemAutoHidden(true)` — the commit that rails it — that reads "not
+        // railed" and would admit the fast path on the exact operation that moves the pane.
+        //
+        // The class map answers it rather than the guard: a placement change cannot be rescued by
+        // asking about placement beforehand, so pinned/autoHidden are `topology` and only the
+        // placement-neutral `setItemLocked` keeps the item-only path.
+        const captured = [];
+
+        class CommitPathWorkspace extends DockWorkspace {
+            static config = {
+                className: 'Test.Unit.Dashboard.DockOperationChangeClass.CommitPathWorkspace',
+                layout   : {ntype: 'vbox', align: 'stretch'}
+            }
+
+            construct(config) {
+                super.construct(config);
+                this.add(this.projectDockModel())
+            }
+
+            beforeRefreshDockWorkspace(document, refreshOptions) {
+                captured.push(refreshOptions)
+            }
+
+            resolvePane(itemId, item) {
+                return {ntype: 'component', text: item?.title || itemId}
+            }
+        }
+
+        Neo.setupClass(CommitPathWorkspace);
+
+        const base = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : {alpha: {title: 'Alpha'}, beta: {title: 'Beta'}},
+            nodes : {root: {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'}}
+        };
+
+        const workspace = Neo.create(CommitPathWorkspace, {});
+
+        try {
+            workspace.onDockZoneDocumentChange(structuredClone(base));
+            await workspace.refreshPromise;
+            captured.length = 0;
+
+            // Collapse to rail: the pre-commit document still says `autoHidden` is absent.
+            const railed = Operations.setItemAutoHidden(workspace.dockModel, {itemId: 'alpha', autoHidden: true});
+
+            expect(railed.errors, 'the fixture document must actually commit').toEqual([]);
+
+            workspace.onDockZoneDocumentChange(railed.document, {operation: 'setItemAutoHidden', itemId: 'alpha'});
+            await workspace.refreshPromise;
+
+            expect(captured.at(-1), 'railing a pane takes the full transaction, pre-commit read or not')
+                .toEqual({});
+
+            // And the placement-neutral sibling still gets its fast path through the same path.
+            const locked = Operations.setItemLocked(workspace.dockModel, {itemId: 'beta', locked: true});
+
+            expect(locked.errors).toEqual([]);
+            captured.length = 0;
+
+            workspace.onDockZoneDocumentChange(locked.document, {operation: 'setItemLocked', itemId: 'beta'});
+            await workspace.refreshPromise;
+
+            expect(captured.at(-1), 'locking a shell pane keeps the item-only refresh')
+                .toEqual({retainTopology: true})
         } finally {
             workspace.destroy()
         }

@@ -92,8 +92,13 @@ class Operations extends Base {
         detachItem       : 'topology',
         closeItem        : 'topology',
         setItemLocked    : 'itemFlags',
-        setItemPinned    : 'itemFlags',
-        setItemAutoHidden: 'itemFlags',
+        // Pinned and auto-hidden write one item field each, exactly like `setItemLocked` — but they
+        // are the two operations that MOVE a pane between the shell and an edge rail, and the rail
+        // is projected outside the shell. They are placement changes wearing an item flag, so they
+        // take the full transaction. `setItemLocked` is the only one of the three that is genuinely
+        // placement-neutral, which is what lets it keep the item-only path.
+        setItemPinned    : 'topology',
+        setItemAutoHidden: 'topology',
         transferItem     : 'topology',
         transferNode     : 'topology'
     })
