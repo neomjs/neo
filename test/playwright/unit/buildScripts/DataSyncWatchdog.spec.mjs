@@ -492,7 +492,21 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         });
 
         expect(both).toContain('runs are failing on schedule (18 consecutive)');
-        expect(both).toContain('the committed corpus is frozen')
+        expect(both).toContain('the committed corpus is frozen');
+
+        // Neither axis: a forced `workflow_dispatch` dry run on a healthy pipeline. Reachable and
+        // intentional, and the one quadrant where claiming degradation asserts what neither axis read.
+        const neither = buildAlarmBody({
+            consecutiveFailures: 0,
+            lastSuccess        : run('success', '2026-07-26T18:00:00Z'),
+            latestFailure      : null,
+            reasons            : ['forced breach evaluation (workflow_dispatch dry run)'],
+            corpusFacets       : [{facet: 'issues', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0, stale: false}],
+            forced             : true
+        });
+
+        expect(neither).toContain('none — neither axis measured a breach');
+        expect(neither).not.toContain('degrading silently')
     });
 
     test('forced dispatch dry-run alarm body discloses its own provenance', () => {

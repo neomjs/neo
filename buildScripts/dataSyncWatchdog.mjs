@@ -414,7 +414,9 @@ export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure,
         '',
         breachedAxes.length > 0
             ? `**Breached axes:** ${breachedAxes.join('; and ')}. The two are measured separately and neither implies the other.`
-            : 'The pipeline is degrading silently and nothing else surfaces it.',
+            : forced
+                ? '**Breached axes:** none — neither axis measured a breach.'
+                : 'The pipeline is degrading silently and nothing else surfaces it.',
         'Root-cause work (if any) is tracked elsewhere; this issue only carries the alarm.',
         forced ? '\n> This alarm was opened by a forced `workflow_dispatch` dry run — close it manually if the pipeline is in fact healthy.' : ''
     ].filter(line => line !== '').join('\n')
