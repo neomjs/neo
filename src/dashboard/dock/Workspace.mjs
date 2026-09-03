@@ -1281,17 +1281,20 @@ class Workspace extends Container {
      * @protected
      */
     async reintegrateTearOutItem(itemId, pane) {
-        let me         = this,
-            placement  = me.tearOutPlacements[itemId],
-            doc        = me.dockModel,
-            storedHome = placement && doc?.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
-            fallback   = storedHome || Object.entries(doc?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+        let me        = this,
+            placement = me.tearOutPlacements[itemId],
+            doc       = me.dockModel,
+            // The first tabs node in document order is not a placement — it is wherever enumeration
+            // happens to start. It stands in only for an item with NO record at all, because a pane
+            // somewhere valid beats a pane dropped out of the tree.
+            lastResort = () => Object.entries(doc?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+            target     = placement || {tabsNodeId: lastResort()},
             live       = pane && !pane.isDestroyed,
             result;
 
         delete me.tearOutPlacements[itemId];
 
-        if (!doc?.items?.[itemId] || !fallback) {
+        if (!doc?.items?.[itemId] || !target.tabsNodeId) {
             me.settleTearOutPane(pane);
             me.afterTearOutPaneReturn({itemId, pane, returned: false});
             return false
@@ -1317,12 +1320,13 @@ class Workspace extends Container {
             }
         }
 
-        result = me.applyDockZoneOperation({
-            operation : 'addTab',
-            itemId,
-            tabsNodeId: fallback,
-            ...(storedHome ? {index: placement.index} : {})
-        });
+        result = me.applyDockZoneOperation({operation: 'restoreTab', itemId, ...target});
+
+        if (result?.errors?.length > 0 && placement) {
+            // The recorded home resolved to nothing — its zone AND the sibling it collapsed into are
+            // both gone. Losing the position is bad; losing the pane is worse.
+            result = me.applyDockZoneOperation({operation: 'restoreTab', itemId, tabsNodeId: lastResort()})
+        }
 
         if (result?.errors?.length === 0) {
             me.onDockZoneDocumentChange(result.document);

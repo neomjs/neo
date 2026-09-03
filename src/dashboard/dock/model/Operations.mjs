@@ -42,6 +42,7 @@ class Operations extends Base {
                 ? Operations.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
                 : Operations.addTab(document, descriptor),
         applyDocument    : (document, descriptor) => Operations.applyDocument(document, descriptor),
+        restoreTab       : (document, descriptor) => Operations.restoreTab(document, descriptor),
         setActiveItem    : (document, descriptor) => Operations.setActiveItem(document, descriptor),
         moveItem         : (document, descriptor) => Operations.moveItem(document, descriptor),
         splitNode        : (document, descriptor) => Operations.splitNode(document, descriptor),
@@ -112,6 +113,47 @@ class Operations extends Base {
         node.activeItemId = itemId;
 
         return Document.commit(document, doc)
+    }
+
+    /**
+     * @summary Returns `itemId` to `tabsNodeId` at `index`, REBUILDING that node from `home` when
+     * the detach removed it.
+     *
+     * `addTab` requires its target to exist, which is the one thing a returning pane cannot count
+     * on: a pane alone in its zone empties the node on the way out, the node is dropped on commit,
+     * and a two-child split collapses behind it. That is the common tear-out, not the rare one — a
+     * pane with siblings is the case whose home survives.
+     *
+     * Distinct from `addTab` because the precondition is inverted, so neither has to carry the
+     * other's branch: this one only reaches its rebuild path when the node is absent, and delegates
+     * verbatim when it is present.
+     * @param {Object} document
+     * @param {Object} args {home, index, itemId, tabsNodeId}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static restoreTab(document, {home, index, itemId, tabsNodeId} = {}) {
+        if (!document.items?.[itemId]) return {document, errors: [`unknown item "${itemId}"`]};
+
+        if (document.nodes?.[tabsNodeId]?.type === 'tabs') {
+            return Operations.addTab(document, {itemId, index, tabsNodeId})
+        }
+
+        if (!tabsNodeId) return {document, errors: ['restoreTab requires a tabsNodeId']};
+
+        let doc = Document.clone(document),
+            // Reuse the recorded id when nothing has claimed it, so a round trip leaves the document
+            // it started from rather than one that merely looks like it.
+            nodeId = doc.nodes[tabsNodeId] ? Document.genId(doc, tabsNodeId) : tabsNodeId,
+            errors;
+
+        Document.detachFromTabs(doc, itemId);
+
+        doc.nodes[nodeId] = {activeItemId: itemId, items: [itemId], type: 'tabs'};
+
+        errors = Document.restoreNodeHome(doc, nodeId, home);
+
+        return errors.length > 0 ? {document, errors} : Document.commit(document, doc)
     }
 
     /**

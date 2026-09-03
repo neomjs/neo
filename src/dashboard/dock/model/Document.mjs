@@ -478,16 +478,130 @@ class Document extends Base {
      * BEFORE the detach commit, restore passes the pair straight into `addTab`'s clamped
      * `index`. Fail-closed: an item no tabs node currently holds captures `null` (catalog
      * presence is not placement; there is nothing to restore to).
+     *
+     * `home` carries the tabs node's OWN position, because a `tabsNodeId` is only restorable
+     * while that node still exists — and for the commonest tear-out (a pane alone in its zone)
+     * it never does: the emptied node is removed on commit and an emptied split collapses with
+     * it. The id alone therefore describes a home that is guaranteed to be gone exactly when it
+     * is needed. See {@link Neo.dashboard.dock.model.Document.captureNodeHome}.
      * @param {Object} document
      * @param {String} itemId
-     * @returns {{tabsNodeId: String, index: Number}|null}
+     * @returns {{tabsNodeId: String, index: Number, home: Object|null}|null}
      * @static
      */
     static captureItemPlacement(document, itemId) {
         let tabsNodeId = Document.findContainingTabsId(document, itemId),
             index      = tabsNodeId ? document.nodes[tabsNodeId].items.indexOf(itemId) : -1;
 
-        return index >= 0 ? {tabsNodeId, index} : null
+        return index >= 0 ? {tabsNodeId, index, home: Document.captureNodeHome(document, tabsNodeId)} : null
+    }
+
+    /**
+     * @summary Captures a node's own position well enough to REBUILD it, not merely to find it.
+     *
+     * Records the parent slot plus, for a split parent, the orientation, the node's size share and
+     * a sibling anchor. The sibling is what makes the record survive its own parent: removing a
+     * node from a two-child split leaves one child, and `normalizeTree` collapses that split away
+     * too — so `parentId` is unresolvable in precisely the case this record exists for. The sibling
+     * is the node that split collapsed INTO, so it is still there.
+     *
+     * An edge-zone parent needs no anchor: an edge-zone node survives losing every zone, so its id
+     * and the zone key remain resolvable.
+     * @param {Object} document
+     * @param {String} nodeId
+     * @returns {{parentId:String, slot:(Number|String), orientation:String, size:Number, siblingId:String, position:String}|null}
+     * @static
+     */
+    static captureNodeHome(document, nodeId) {
+        let slot = Document.findParentSlot(document, nodeId);
+
+        if (!slot) return null;
+
+        let parent = document.nodes[slot.parentId],
+            home   = {parentId: slot.parentId, slot: slot.slot};
+
+        if (parent?.type === 'split' && typeof slot.slot === 'number') {
+            let children = parent.children || [],
+                sizes    = Array.isArray(parent.sizes) ? parent.sizes : [],
+                size     = sizes[slot.slot],
+                before   = children[slot.slot - 1],
+                after    = children[slot.slot + 1];
+
+            home.orientation = parent.orientation;
+            home.size        = typeof size === 'number' && size > 0 && size < 1 ? size : 0.5;
+
+            if (before || after) {
+                home.siblingId = before || after;
+                home.position  = before ? 'after' : 'before'
+            }
+        }
+
+        return home
+    }
+
+    /**
+     * @summary Mutating helper: grafts an already-present node back into the home
+     * {@link Neo.dashboard.dock.model.Document.captureNodeHome} recorded for it.
+     *
+     * Three resolutions, most faithful first: the recorded parent still holds the slot (an
+     * edge-zone that lost the key, or a split that kept ≥ 2 other children); otherwise the sibling
+     * the collapsed split folded into is re-split against, restoring orientation, side and ratio;
+     * otherwise nothing resolves and this fails closed rather than guessing a home.
+     *
+     * Fails closed on purpose: choosing an arbitrary node here would look like a restoration and be
+     * a relocation. Deciding that somewhere beats nowhere belongs to the caller, which knows whether
+     * a pane is otherwise about to be dropped.
+     * @param {Object} document the working (already-cloned) document
+     * @param {String} nodeId
+     * @param {Object} home
+     * @returns {String[]} the (possibly empty) errors — empty means it mutated `document`
+     * @protected
+     * @static
+     */
+    static restoreNodeHome(document, nodeId, home) {
+        if (!document.nodes[nodeId]) return [`unknown node "${nodeId}"`];
+        if (!home)                   return [`no recorded home for "${nodeId}"`];
+
+        let parent = document.nodes[home.parentId];
+
+        if (parent?.type === 'edge-zone' && typeof home.slot === 'string') {
+            Document.setZoneNodeId(parent, home.slot, nodeId);
+            return []
+        }
+
+        if (parent?.type === 'split' && typeof home.slot === 'number') {
+            let children = parent.children || (parent.children = []),
+                at       = Math.max(0, Math.min(home.slot, children.length)),
+                size     = typeof home.size === 'number' ? home.size : 1 / (children.length + 1);
+
+            children.splice(at, 0, nodeId);
+
+            if (Array.isArray(parent.sizes)) {
+                // Whatever the survivors' ratios are now, they sum to 1, so scaling them by the share
+                // being reclaimed frees exactly that share and leaves their ratios TO EACH OTHER
+                // untouched. It does not recover the split's pre-detach geometry: `normalizeTree`
+                // resets a split's sizes to equal when a child collapses, so that is already gone
+                // before this runs. This helper restores POSITION; geometry is not recoverable here.
+                parent.sizes = parent.sizes.map(value => value * (1 - size));
+                parent.sizes.splice(at, 0, size)
+            }
+
+            return []
+        }
+
+        if (home.siblingId && document.nodes[home.siblingId]) {
+            // The split that held both is gone, so it had exactly two children — the sibling's share
+            // is the remainder, exactly rather than approximately.
+            let sizes = home.position === 'before' ? [home.size, 1 - home.size] : [1 - home.size, home.size];
+
+            return Document.attachNode(document, nodeId, home.siblingId, {
+                orientation: home.orientation,
+                position   : home.position,
+                sizes
+            })
+        }
+
+        return [`the recorded home of "${nodeId}" no longer resolves`]
     }
 
     /**
