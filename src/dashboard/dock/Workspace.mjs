@@ -788,12 +788,8 @@ class Workspace extends Container {
     /**
      * @summary Opens the tear-out vessel, defaulting to the engine's own connect vocabulary.
      *
-     * This hook used to return `null`, so pop-out and drag tear-out were both inert for any host
-     * that wrote no window code: the action rendered, the click opened nothing, and no signal said
-     * why. The engine was asking each consumer to re-implement a SENDER for a protocol only the
-     * engine defines — `onWindowConnect` parses `tearout`, the host param, `vesselFlow` and
-     * `vesselAdmission` off the vessel's own URL — from a specification that existed nowhere but
-     * one app's source.
+     * `onWindowConnect` parses `tearout`, the host param, `vesselFlow` and `vesselAdmission` off the
+     * vessel's own URL — a protocol only the engine defines, so only the engine can send it.
      *
      * Nothing in those four parameters is app-specific, so the default constructs them and reopens
      * the host's own document. A consumer that wants a dedicated vessel shell, its own routing or
@@ -1674,9 +1670,8 @@ class Workspace extends Container {
      *
      * `enableDockPopOutAction` alone is not sufficient: dispatch requires one effective
      * {@link #tearOutHandlers} bundle, whether base-owned or supplied by the host, AND a realm that
-     * can actually produce a vessel — see {@link #canOpenTearOutVessel}. An action a consumer
-     * enabled, the engine rendered, and the platform then refuses is the defect this whole seam
-     * exists to remove: the user clicks and nothing happens.
+     * can actually produce a vessel — see {@link #canOpenTearOutVessel}. Any one of the three
+     * missing renders a control that opens nothing.
      * @returns {Boolean}
      */
     get dockPopOutActionActive() {
@@ -1753,11 +1748,8 @@ class Workspace extends Container {
     /**
      * @summary Re-evaluates the retained pop-out action against current truth after every commit.
      *
-     * Pop-out was the one engine action with no sync. Its `hidden` is projected once as
-     * `!activeItemId || !dockPopOutActionAvailable` and then lives on a RETAINED action instance
-     * that survives re-projection, so nothing ever recomputed it: the control was correct at boot
-     * and silently gone after the first layout commit. For a consumer whose reason to be here is
-     * multi-window, the feature disappeared until reload.
+     * `hidden` is projected once and then lives on a RETAINED action instance that survives
+     * re-projection, so without this sync nothing recomputes it after a commit.
      *
      * Mirrors the projected expression from the same reader (`dockPopOutActionActive`), so the
      * projected and the synced answer cannot drift. Change-guarded like its siblings, so re-walking
@@ -3980,9 +3972,8 @@ class Workspace extends Container {
      * document is the repair — this is the caller-side half of the reject-then-re-diff contract that
      * `VdomLifecycle#executeVdomUpdate` provides.
      *
-     * Observability is the other half of the fix. Before this, the rejection escaped as an unhandled
-     * rejection: `onDockZoneDocumentChange` attaches its `.catch` to the PREVIOUS refresh, never the
-     * one it is starting, so nothing on the live path ever saw the failure.
+     * The failure must be caught HERE: `onDockZoneDocumentChange` attaches its `.catch` to the
+     * PREVIOUS refresh, never the one it is starting, so nothing else on the live path sees it.
      *
      * **Exactly one retry.** A deterministic failure must not hot-loop, so the re-projection carries
      * `isDockProjectionRetry` and a second failure surfaces without scheduling a third attempt. The
