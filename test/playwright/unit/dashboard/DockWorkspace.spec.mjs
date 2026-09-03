@@ -3067,6 +3067,76 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 'a real pane still qualifies — the guard is not simply refusing everything').toBe(true)
         });
 
+        test('the held handle wins, so adoption still finds the pane after the detach re-projection', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const treePane = workspace.resolveTearOutPane('editor');
+
+            expect(treePane, 'the pane is in the tree before the detach').toBeTruthy();
+
+            // The held handle is a DISTINCT instance on purpose. My first version of this arm
+            // detached the pane to simulate the re-projection and passed against the unfixed
+            // engine — `pane.parent` was undefined, so `remove` silently did nothing and the tree
+            // still answered. A control that quietly does nothing reads exactly like a control that
+            // passed. Asserting the handle wins over a live tree answer cannot no-op.
+            const held = Neo.create(Container, {items: []});
+
+            workspace.tearOutPaneHandles.editor = held;
+
+            // The sequence is capture -> re-project -> adopt: the capture stores the pane while it
+            // is still in the tree, the detach re-projection removes it, adoption runs afterwards.
+            // A tree-only resolver therefore succeeds at capture and returns null when it matters —
+            // measured on a real consumer as adopted=NULL with the vessel window open.
+            expect(workspace.resolveTearOutPane('editor'), 'the held handle answers first').toBe(held);
+            expect(workspace.resolveTearOutPane('editor')).not.toBe(treePane);
+
+            expect(workspace.releaseTearOutPane('editor'), 'and it is releasable for return').toBe(held);
+
+            held.destroy()
+        });
+
+        test('the post-commit sweep re-evaluates pop-out, so it survives a layout commit', () => {
+            class PopOutSweepWitness extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.PopOutSweepWitness'}
+
+                popOutSyncLog = []
+
+                // Deliberately does NOT call super: the defect is that the SWEEP never reached this
+                // action at all, so the witness is whether it is invoked — not what it computes.
+                // Calling super would make the arm red on the base class missing the method, which
+                // is a different (and weaker) claim.
+                syncDockPopOutAction(tabContainer) {
+                    this.popOutSyncLog.push(tabContainer)
+                }
+            }
+
+            Neo.setupClass(PopOutSweepWitness);
+
+            workspace = Neo.create(PopOutSweepWitness, {dockModel: createDocument()});
+
+            workspace.syncDockHeaderActions();
+
+            // close, lock, pin and reload were all swept; pop-out was the one engine action with no
+            // sync. Its hidden state is projected once and then lives on a RETAINED instance, so it
+            // was correct at boot and silently gone after the first commit — measured on a real
+            // consumer as the control disappearing from the header after one addTab plus one close.
+            expect(workspace.popOutSyncLog.length, 'the sweep reaches pop-out like every sibling action')
+                .toBeGreaterThan(0)
+        });
+
+        test('a destroyed handle does not shadow the tree', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            // A stale handle must not win over a live pane, or a re-created pane would be
+            // unreachable behind a corpse.
+            workspace.tearOutPaneHandles.editor = {isDestroyed: true};
+
+            const resolved = workspace.resolveTearOutPane('editor');
+
+            expect(resolved, 'the tree answers instead').toBeTruthy();
+            expect(resolved.isDestroyed).toBeFalsy()
+        });
+
         test('a rail tab is not the pane either, and the whole button category is refused', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
