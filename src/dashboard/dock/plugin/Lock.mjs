@@ -155,18 +155,25 @@ class Lock extends Plugin {
         if (!button || button.isDestroyed) return;
 
         let {dragState} = this,
-            cls         = [...button.wrapperCls || []],
-            was         = cls.includes('neo-draggable');
+            was         = button.wrapperCls?.includes('neo-draggable'),
+            next;
 
         if (locked) {
             !dragState.has(button) && dragState.set(button, was);
-            NeoArray.remove(cls, 'neo-draggable')
+            next = false
         } else if (dragState.has(button)) {
-            NeoArray.toggle(cls, 'neo-draggable', dragState.get(button));
+            next = dragState.get(button);
             dragState.delete(button)
+        } else {
+            return
         }
 
-        was !== cls.includes('neo-draggable') && (button.wrapperCls = cls)
+        if (was !== next) {
+            let cls = [...button.wrapperCls];
+
+            NeoArray.toggle(cls, 'neo-draggable', next);
+            button.wrapperCls = cls
+        }
     }
 
     /**
@@ -179,12 +186,11 @@ class Lock extends Plugin {
 
         let {paneState} = this,
             {vdom}      = pane,
-            cls         = [...pane.cls || []],
-            was         = cls.includes('neo-dock-pane-locked'),
+            held        = paneState.get(pane),
             changed     = false,
             prior;
 
-        if (locked && !paneState.has(pane)) {
+        if (locked && !held) {
             if (typeof pane.dockLock === 'function') {
                 paneState.set(pane, {delegated: true});
                 pane.dockLock(true)
@@ -193,10 +199,11 @@ class Lock extends Plugin {
                 changed    = vdom.inert !== true;
                 vdom.inert = true
             }
-        } else if (!locked && paneState.has(pane)) {
-            prior = paneState.get(pane);
+        } else if (!locked && held) {
+            prior = held;
             paneState.delete(pane);
 
+            // Reverse along the path that locked — the record decides, never the current probe.
             if (prior.delegated) {
                 pane.dockLock(false)
             } else {
@@ -205,9 +212,10 @@ class Lock extends Plugin {
             }
         }
 
-        NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
+        if (pane.cls?.includes('neo-dock-pane-locked') !== locked) {
+            let cls = [...pane.cls || []];
 
-        if (was !== locked) {
+            NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
             pane.setSilent({cls});
             changed = true
         }
