@@ -413,6 +413,12 @@ class Workspace extends DockWorkspace {
     lastTourReceipt = null
     /**
      * Most recent exact-handle park admission receipt.
+     *
+     * `parked` and `physical` are separate answers, and the pair is the point: `parked: true` says
+     * the park was SATISFIED, `physical: false` that it performed no platform effect. A main-window
+     * target under a native titlebar is exactly that case — there is nothing to move, so the park
+     * succeeds having done nothing. A reader taking `parked` as proof of a platform call would go
+     * looking for a move that never happened.
      * @member {Object|null} lastVesselParkReceipt=null
      * @protected
      */
@@ -3234,6 +3240,10 @@ class Workspace extends DockWorkspace {
         // popup's own Main actor (`opener.focus()`, granted under the user activation a keyboard
         // command carries — the pointer conversion path); a popup target is focused by its owner
         // through the handle it minted.
+        //
+        // A main-window target under a native titlebar never arrives here: it returns satisfied
+        // above, having nothing to park. So the main branch below serves the pointer conversion
+        // path alone — there is no native-titlebar main case to find.
         const focusTarget = () => targetIsMain
             ? Neo.Main.windowFocus({windowId: entry.windowId})
             : Neo.Main.windowNativeFocus({

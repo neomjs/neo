@@ -52,8 +52,15 @@ class DragCoordinator extends Manager {
         nativeWindowRetireRetryMs: 250,
         /**
          * How many retirement retries a committed native drop makes before giving up on the close.
-         * At the default cadence this is 20 s of holding; past it the pane stays home and the popup
-         * simply remains for the user to close.
+         * Past it the pane stays home and the popup simply remains for the user to close.
+         *
+         * The budget is a RANGE, not `limit × cadence`, because each attempt also awaits the close
+         * verification: `Neo.Main#windowNativeClose` polls `win.closed` up to 6 × 50 ms before
+         * reporting failure, and the next attempt is scheduled only after that resolves. So a cycle
+         * costs the cadence plus up to 300 ms — **20 s of holding when every close verifies at once,
+         * up to ≈ 44 s when each attempt exhausts its poll**. Erring long is the safe direction here
+         * (a released popup left on screen is the worse outcome), but the range is stated because
+         * this is where someone goes to shorten the budget and `80 × 250 ms` is the wrong answer.
          * @member {Number} nativeWindowRetireRetryLimit=80
          */
         nativeWindowRetireRetryLimit: 80,
