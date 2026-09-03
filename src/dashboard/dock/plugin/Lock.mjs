@@ -1,9 +1,6 @@
 import NeoArray from '../../../util/Array.mjs';
 import Plugin   from '../../../plugin/Base.mjs';
 
-const LOCKED_CLS = 'neo-dock-pane-locked',
-      DRAG_CLS   = 'neo-draggable';
-
 /**
  * @summary The dock's lock concern: the `setItemLocked` commit, its action, and the presentation.
  *
@@ -157,17 +154,17 @@ class Lock extends Plugin {
 
         let {dragState} = this,
             cls         = [...button.wrapperCls || []],
-            was         = cls.includes(DRAG_CLS);
+            was         = cls.includes('neo-draggable');
 
         if (locked) {
             !dragState.has(button) && dragState.set(button, was);
-            NeoArray.remove(cls, DRAG_CLS)
+            NeoArray.remove(cls, 'neo-draggable')
         } else if (dragState.has(button)) {
-            NeoArray.toggle(cls, DRAG_CLS, dragState.get(button));
+            NeoArray.toggle(cls, 'neo-draggable', dragState.get(button));
             dragState.delete(button)
         }
 
-        was !== cls.includes(DRAG_CLS) && (button.wrapperCls = cls)
+        was !== cls.includes('neo-draggable') && (button.wrapperCls = cls)
     }
 
     /**
@@ -181,7 +178,7 @@ class Lock extends Plugin {
         let {paneState} = this,
             {vdom}      = pane,
             cls         = [...pane.cls || []],
-            was         = cls.includes(LOCKED_CLS),
+            was         = cls.includes('neo-dock-pane-locked'),
             changed     = false,
             prior;
 
@@ -206,7 +203,7 @@ class Lock extends Plugin {
             }
         }
 
-        NeoArray.toggle(cls, LOCKED_CLS, locked);
+        NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
 
         if (was !== locked) {
             pane.setSilent({cls});
