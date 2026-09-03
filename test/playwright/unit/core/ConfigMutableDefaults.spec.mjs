@@ -15,19 +15,24 @@ import {isDescriptor} from '../../../../src/core/ConfigSymbols.mjs';
  * prototype. And for a non-reactive key that value is the class's own `static config` object:
  * `core.Base#mergeConfig()` returns `{...staticConfig, ...config}`, a shallow spread, and
  * `processConfigs()` then assigns `me[key] = me[configSymbol][key]`. Each instance gets its own
- * property slot holding the same reference.
+ * property slot holding the same reference, so the first in-place write edits `ctor.config` and
+ * every instance created afterwards starts from the mutated value.
  *
- * So the first in-place write does not merely leak to sibling instances — it edits `ctor.config`,
- * and every instance created afterwards starts from the mutated value.
+ * The asymmetry is **not** that a `clone` descriptor works on one side and not the other. `clone`
+ * defaults to `'deep'` on `Config.prototype`, so a reactive config deep-clones its value on set
+ * whether or not a descriptor says so — writing `clone: 'deep'` on a reactive key changes nothing.
+ * The real asymmetry is that **reactive keys have a clone path at all and non-reactive keys have
+ * none**: the switch honouring `clone` lives inside the generated setter, which a key without a
+ * trailing underscore never reaches. So the descriptor is redundant on one side and inert on the
+ * other, and inert silently — no error, no warning, no effect.
  *
- * Reactive configs are protected: the `clone` switch in the generated setter (`src/Neo.mjs`) gives
- * each instance its own value, and the getter copies arrays on the way out. The documented remedy
- * for the non-reactive case (`learn/guides/fundamentals/DeclarativeConfigMerging.md`, "always use
- * `clone: 'deep'`") does not reach it: the descriptor is accepted without error and does nothing,
- * because a key with no trailing underscore never reaches a setter.
- *
- * The reactive arms are the positive control. Without them a config system that simply did nothing
- * at all would satisfy every other assertion in this file.
+ * **Identity is not observable on a bare reactive config.** The getter copies arrays on every read
+ * (`src/Neo.mjs`, the `cloneOnGet` branch and its legacy array fallback), so `a.someArray !==
+ * a.someArray` for a *single* instance. Any `not.toBe` between two reads is therefore trivially
+ * true and witnesses the getter, not per-instance storage — and mutating a fetched reference writes
+ * into a discarded copy, so a sibling staying untouched proves nothing either. Every reactive arm
+ * below pins `cloneOnGet: 'none'` to make the underlying reference observable, which is the only
+ * way these assertions mean what they say.
  */
 
 class PlainDefaults extends core.Base {
@@ -50,10 +55,18 @@ class DescribedDefaults extends core.Base {
             clone         : 'deep',
             value         : [0, 0]
         },
-        // The identical descriptor on a reactive key, as the control.
-        clonedReactive_: {
+        // The control pair. Both pin `cloneOnGet: 'none'` so the stored reference is observable;
+        // they differ only in the clone strategy, which is the mechanism under test.
+        sharedReactive_: {
+            [isDescriptor]: true,
+            clone         : 'none',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
+        isolatedReactive_: {
             [isDescriptor]: true,
             clone         : 'deep',
+            cloneOnGet    : 'none',
             value         : [0, 0]
         }
     }
@@ -76,16 +89,37 @@ test.describe('core.Base — mutable static config defaults', () => {
         expect(instance.reactiveArray, 'and also carries its declared default').toEqual([0, 0])
     });
 
-    test('a reactive mutable default is per instance, and writing through one cannot reach another', () => {
-        const a   = Neo.create(PlainDefaults),
-              b   = Neo.create(PlainDefaults),
-              ref = a.reactiveArray;
+    test('a bare reactive array config returns a fresh copy on every read, so identity proves nothing', () => {
+        const instance = Neo.create(PlainDefaults);
 
-        expect(ref, 'the two instances hold different objects').not.toBe(b.reactiveArray);
+        // This arm exists to make a trap explicit rather than to test a feature. A single instance
+        // fails an identity check against itself, so `expect(a.x).not.toBe(b.x)` on such a config
+        // passes no matter what the engine does with instances. Anyone reaching for that assertion
+        // should land here first.
+        expect(instance.reactiveArray, 'two reads of ONE instance already differ')
+            .not.toBe(instance.reactiveArray)
+    });
 
-        ref[0] = 99;
+    test('the clone strategy is what separates reactive instances, and removing it collapses them', () => {
+        const a = Neo.create(DescribedDefaults),
+              b = Neo.create(DescribedDefaults);
 
-        expect(b.reactiveArray, 'the sibling is untouched').toEqual([0, 0])
+        // `clone: 'none'` — no copy on set, so both instances hold the class default itself.
+        // This half must SHARE. If it ever stops sharing, the pairing below is no longer measuring
+        // the clone strategy and this file needs revisiting.
+        expect(a.sharedReactive, 'clone:none leaves both instances on one object').toBe(b.sharedReactive);
+        expect(a.sharedReactive, 'which is the class default itself')
+            .toBe(DescribedDefaults.config.sharedReactive);
+
+        // `clone: 'deep'` — copied on set, so each instance owns its value.
+        expect(a.isolatedReactive, 'clone:deep gives each instance its own').not.toBe(b.isolatedReactive);
+
+        // The behavioural consequence of each, which is what the identity checks are shorthand for.
+        a.sharedReactive[0]   = 99;
+        a.isolatedReactive[0] = 99;
+
+        expect(b.sharedReactive,   'the shared half leaks to the sibling').toEqual([99, 0]);
+        expect(b.isolatedReactive, 'the isolated half does not').toEqual([0, 0])
     });
 
     // `test.fail()` rather than a skip or an inverted assertion. The arms below state the contract
@@ -93,6 +127,9 @@ test.describe('core.Base — mutable static config defaults', () => {
     // behaviour would go red when the defect is FIXED, which is precisely backwards. Playwright
     // reports an expected failure as a pass, so this lands green and flips the day someone repairs
     // the config system, at which point the annotation comes off.
+    //
+    // Nothing that serves as a control lives in here: an assertion inside an expected-failure block
+    // can never go red, so it can never discriminate. The control is the arm above.
     test.describe('the contract the guide promises, not yet met', () => {
         test.fail();
 
@@ -118,11 +155,8 @@ test.describe('core.Base — mutable static config defaults', () => {
             const a = Neo.create(DescribedDefaults),
                   b = Neo.create(DescribedDefaults);
 
-            // The control first: the identical descriptor on a reactive key does work, so this is
-            // about where the descriptor is honoured, not about whether it is understood.
-            expect(a.clonedReactive, 'the descriptor works on a reactive key').not.toBe(b.clonedReactive);
-
-            expect(a.clonedPlain, 'and must not be silently inert on a non-reactive one').not.toBe(b.clonedPlain)
+            expect(a.clonedPlain, 'clone:deep must not be silently inert on a non-reactive key')
+                .not.toBe(b.clonedPlain)
         })
     })
 });
