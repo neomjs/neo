@@ -655,6 +655,40 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         })
     });
 
+    test('lock is in the default engine set, and explicit false is still the escape', () => {
+        // Asserted on a workspace that configures NOTHING, which is the only shape that can witness
+        // a default. Every other lock spec passes `enableDockLockAction: true` explicitly, so the
+        // default itself was uncovered and could have been flipped either way unnoticed.
+        //
+        // The `LayoutAdapter` arm pairing `project({})` with `project({enableDockLockAction: false})`
+        // is a different claim and stays true: that is a projector, it takes explicit context, and
+        // an absent key there is not a request. The host-facing default lives here.
+        const projectedAction = (ws, name) => {
+            const tabs = collect(ws.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+            expect(tabs, 'the fixture must project a tabs node, or these assertions prove nothing').toBeTruthy();
+
+            return (tabs.headerActions || []).find(action => action.action === name)
+        };
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+        expect(workspace.enableDockLockAction).toBe(true);
+        expect(projectedAction(workspace, 'lock')).toMatchObject({action: 'lock'});
+        workspace.destroy();
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockLockAction: false});
+        expect(projectedAction(workspace, 'lock')).toBeUndefined();
+        workspace.destroy();
+
+        // The frozen order holds with lock present by default rather than by request.
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const tabs = collect(workspace.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+        expect((tabs.headerActions || []).map(action => action.action))
+            .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close'])
+    });
+
     test('an action the workspace does not own is re-emitted to the host with its node id', () => {
         workspace = Neo.create(PlainWorkspace, {
             dockModel          : createDocument(),

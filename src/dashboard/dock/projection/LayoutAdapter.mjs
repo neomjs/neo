@@ -1056,9 +1056,11 @@ class LayoutAdapter extends Base {
         // Host actions precede the ENGINE SET, and `close` stays the rightmost control. The frozen
         // order is
         // `[tab overflow] → [host actions] → [lock · reload · pin · pop-out · maximize] → [close]`;
-        // lock remains opt-in, while the five greenfield rail identities default on and retain an
-        // explicit-false compatibility escape. Per-item and host capability changes their state,
-        // never this node-static array.
+        // all six default on for a HOST, and each retains an explicit-false escape. Lock alone is
+        // read here as a strict `=== true` where the other five accept anything but `false` — this
+        // is a projector, so it takes explicit context and an absent key is not a request; the
+        // default that matters to a host lives on `dashboard.dock.Workspace`. Per-item and host
+        // capability changes their state, never this node-static array.
         //
         // The resolver receives the node id ALONE, deliberately. Handing it the active item would
         // invite a per-item action LIST, and a list that changes between projections replaces the
