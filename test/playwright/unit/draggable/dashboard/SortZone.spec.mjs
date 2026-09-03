@@ -18,7 +18,10 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
  */
 test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () => {
     let DashboardContainer, DashboardSortZone, Rectangle, realApplyDeltas, realDragCoordinatorOnDragEnd,
-        realDragCoordinatorOnWindowPositionChange, sortZone;
+        realDragCoordinatorOnWindowPositionChange, sortZone,
+        // Captured from the engine rather than written as literals, so `afterEach` restores what
+        // the coordinator actually declares and cannot drift when a default moves.
+        engineDwellMs, engineSettleMs;
 
     test.beforeAll(async () => {
         const containerModule = await import('../../../../../src/dashboard/Container.mjs');
@@ -29,6 +32,12 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         const rectModule = await import('../../../../../src/util/Rectangle.mjs');
         Rectangle = rectModule.default;
+
+        // Captured HERE, not at the top of this hook: `Neo.manager.DragCoordinator` does not exist
+        // until the imports above pull it in, so an earlier read yields `undefined` and any restore
+        // guarded on it silently does nothing — which is how the leak below survived its own fix.
+        engineDwellMs  = Neo.manager.DragCoordinator.nativeWindowDropDwellMs;
+        engineSettleMs = Neo.manager.DragCoordinator.nativeWindowDropSettleMs;
 
         realDragCoordinatorOnDragEnd = Object.getPrototypeOf(Neo.manager.DragCoordinator).onDragEnd;
         realDragCoordinatorOnWindowPositionChange = Object.getPrototypeOf(Neo.manager.DragCoordinator).onWindowPositionChange;
@@ -67,8 +76,19 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
             DragCoordinator.nativeWindowDropCandidates.clear()
         }
         if (DragCoordinator) {
-            DragCoordinator.nativeWindowDropDwellMs  = 450;
-            DragCoordinator.nativeWindowDropSettleMs = 250;
+            // RESTORE, not configure. These were literals — `450` / `250` — written where the
+            // engine's own values belong. `250` happened to match its default and was harmless;
+            // `1200` did not, so every later spec in this worker inherited a HALVED drag dwell.
+            //
+            // It surfaced as `1 flaky` rather than a failure, because a Playwright retry runs in a
+            // fresh worker and a cross-file isolation leak heals there by construction — the job
+            // still exits 1. It cost a peer half an hour of unreproducible debugging, because the
+            // file that fails is never the file that leaks.
+            //
+            // Same lesson the stub-deletion block below already records: a mutation that survives
+            // its suite is indistinguishable from the engine simply behaving differently.
+            DragCoordinator.nativeWindowDropDwellMs  = engineDwellMs;
+            DragCoordinator.nativeWindowDropSettleMs = engineSettleMs;
             DragCoordinator.sortZones = new Map();
             DragCoordinator.activeTargetZone = null;
 
@@ -762,6 +782,18 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(calls).toEqual(['move']);
         expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)
     });
+
+    // Placed LAST in a `describe.serial`, so the preceding `afterEach` has already run: this asserts
+    // the suite hands the shared singleton back the way it found it. It is the only arm here that
+    // protects OTHER files — a config literal written where a restore belongs leaked a halved drag
+    // dwell into every later spec in the worker, and the file that failed was never this one.
+    test('the suite leaves the coordinator carrying the ENGINE defaults, not this fixture\'s', () => {
+        const {nativeWindowDropDwellMs, nativeWindowDropSettleMs} = Neo.manager.DragCoordinator;
+
+        expect(nativeWindowDropDwellMs,  'dwell restored').toBe(engineDwellMs);
+        expect(nativeWindowDropSettleMs, 'settle restored').toBe(engineSettleMs)
+    });
+
 });
 
 /**
