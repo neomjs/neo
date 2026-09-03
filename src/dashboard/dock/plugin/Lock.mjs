@@ -69,18 +69,19 @@ class Lock extends Plugin {
     syncAction(tabContainer) {
         let {owner} = this;
 
-        if (!owner.enableDockLockAction) return;
+        if (!owner.enableDockLockAction || !tabContainer) return;
 
-        let bar    = tabContainer?.getTabBar?.(),
-            action = tabContainer?.getActionItem?.('lock'),
-            itemId = owner.getActiveDockItemId(tabContainer),
-            item   = owner.dockModel?.items?.[itemId],
-            locked = item?.locked === true,
+        let {items} = owner.dockModel || {},
+            bar     = tabContainer.getTabBar(),
+            action  = tabContainer.getActionItem('lock'),
+            itemId  = owner.getActiveDockItemId(tabContainer),
+            item    = items?.[itemId],
+            locked  = item?.locked === true,
             // Names the control for what it does NEXT — accessible name and tooltip key are one word.
-            label    = locked ? 'unlock' : 'lock';
+            label   = locked ? 'unlock' : 'lock';
 
         if (action) {
-            let labelChanged = action.vdom?.['aria-label'] !== label,
+            let labelChanged = action.vdom['aria-label'] !== label,
                 gateChanged  = action.showOnFocus === locked,
                 values       = {
                     hidden : !itemId || item?.lockable === false,
@@ -95,19 +96,19 @@ class Lock extends Plugin {
                 // owns the inert/aria/tab-index presentation it gates and must re-arm first.
                 gateChanged  && action.setSilent({showOnFocus: !locked});
                 labelChanged && (action.vdom['aria-label'] = label);
-                gateChanged  && bar?.applyContextualActionState(true);
+                gateChanged  && bar.applyContextualActionState(true);
 
                 action.update()
             }
         }
 
-        let panes   = tabContainer?.getCardContainer?.()?.items || [],
-            buttons = tabContainer?.getTabButtons?.() || [];
+        let buttons = tabContainer.getTabButtons(),
+            panes   = tabContainer.getCardContainer().items;
 
-        (bar?.sortZoneConfig?.dockItemIds || []).forEach((id, index) => {
+        bar.sortZoneConfig?.dockItemIds?.forEach((id, index) => {
             this.syncItemPresentation({
                 button: buttons[index],
-                locked: owner.dockModel?.items?.[id]?.locked === true,
+                locked: items?.[id]?.locked === true,
                 pane  : panes[index]
             })
         })
@@ -121,12 +122,13 @@ class Lock extends Plugin {
 
         if (!owner.enableDockLockAction) return;
 
-        owner.forEachDockRail(rail => {
-            let {revealOverlay} = rail,
-                pane            = revealOverlay?.paneSlot?.items?.[0];
+        let {items} = owner.dockModel || {};
+
+        owner.forEachDockRail(({revealOverlay}) => {
+            let pane = revealOverlay?.paneSlot.items[0];
 
             pane && this.syncItemPresentation({
-                locked: owner.dockModel?.items?.[revealOverlay.revealPaneItemId]?.locked === true,
+                locked: items?.[revealOverlay.revealPaneItemId]?.locked === true,
                 pane
             })
         })
