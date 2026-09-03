@@ -385,6 +385,19 @@ export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure,
         ].join('\n')
         : `**Corpus axis:** last \`resources/content/**\` commit on \`${branch}\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`${branch}\` — a green pipeline cannot attest to this backlog.`;
 
+    // The two axes breach independently, so the closing line is derived from the ones that fired
+    // rather than asserted. A sentence claiming failing runs describes the wrong outage whenever
+    // the corpus axis breaches alone: a zero streak reading above prose about failing runs sends
+    // the reader after a broken workflow instead of a dead producer.
+    //
+    // Read from the structured inputs, never by matching `reasons` prose — a containment check over
+    // sentences is a coincidence of wording standing in for a measurement.
+    const staleFacets  = (corpusFacets ?? []).filter(({stale}) => stale).map(({facet}) => `\`${facet}\``),
+          breachedAxes = [
+              consecutiveFailures > 0 && `runs are failing on schedule (${consecutiveFailures} consecutive)`,
+              staleFacets.length  > 0 && `the committed corpus is frozen (${staleFacets.join(', ')})`
+          ].filter(Boolean);
+
     return [
         ALARM_MARKER,
         '',
@@ -399,7 +412,11 @@ export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure,
         '**Breach reasons:**',
         ...reasons.map(reason => `- ${reason}`),
         '',
-        'The pipeline is degrading silently: runs fail on schedule and nothing else surfaces it.',
+        breachedAxes.length > 0
+            ? `**Breached axes:** ${breachedAxes.join('; and ')}. The two are measured separately and neither implies the other.`
+            : forced
+                ? '**Breached axes:** none — neither axis measured a breach.'
+                : 'The pipeline is degrading silently and nothing else surfaces it.',
         'Root-cause work (if any) is tracked elsewhere; this issue only carries the alarm.',
         forced ? '\n> This alarm was opened by a forced `workflow_dispatch` dry run — close it manually if the pipeline is in fact healthy.' : ''
     ].filter(line => line !== '').join('\n')

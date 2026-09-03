@@ -443,6 +443,72 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(body).toContain('| `discussions` | none visible | — | **STALE** |')
     });
 
+    test('buildAlarmBody: the closing line names the axes that fired, and never asserts failing runs on a zero streak (#17920)', () => {
+        // The corpus-only breach: a zero streak, and a frozen producer. The streak is the
+        // instrument, and the prose must not contradict it — a reader who trusts a sentence about
+        // failing runs goes looking for a broken workflow that is in fact green.
+        const corpusOnly = buildAlarmBody({
+            consecutiveFailures: 0,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : null,
+            reasons            : ['corpus facet `issues` is 190.9h old (threshold 48h)'],
+            corpusFacets       : [
+                {facet: 'issues', lastCommitAt: '2026-07-18T05:13:29Z', ageHours: 190.9, stale: true},
+                {facet: 'pulls', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0, stale: false}
+            ]
+        });
+
+        // The shipped sentence is named literally, not paraphrased. A negative arm written only
+        // against the NEW wording goes green on the old source by wording mismatch rather than by
+        // axis-correctness — red for the wrong reason, and no guard against the regression at all.
+        expect(corpusOnly).not.toContain('runs fail on schedule');
+        expect(corpusOnly).not.toContain('runs are failing on schedule');
+        expect(corpusOnly).toContain('the committed corpus is frozen');
+        // Named, not merely counted: a fresh facet must not be swept into the breach.
+        expect(corpusOnly).toContain('`issues`');
+        expect(corpusOnly).not.toContain('frozen (`issues`, `pulls`)');
+
+        // The run-only breach. The mirror case, and the one the fixed sentence used to get right by
+        // luck: no corpus axis fired, so nothing may claim the corpus is frozen.
+        const runOnly = buildAlarmBody({
+            consecutiveFailures: 18,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : run('failure', '2026-07-26T18:26:19Z', 33790494207),
+            reasons            : ['18 consecutive failures (threshold 3)'],
+            corpusFacets       : [{facet: 'issues', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0, stale: false}]
+        });
+
+        expect(runOnly).toContain('runs are failing on schedule (18 consecutive)');
+        expect(runOnly).not.toContain('the committed corpus is frozen');
+
+        // Both axes. They are measured separately and neither implies the other, so both must
+        // survive into the body rather than one standing in for the pair.
+        const both = buildAlarmBody({
+            consecutiveFailures: 18,
+            lastSuccess        : run('success', '2026-07-18T00:17:01Z'),
+            latestFailure      : run('failure', '2026-07-26T18:26:19Z', 33790494207),
+            reasons            : ['18 consecutive failures (threshold 3)', 'corpus facet `issues` is 190.9h old (threshold 48h)'],
+            corpusFacets       : [{facet: 'issues', lastCommitAt: '2026-07-18T05:13:29Z', ageHours: 190.9, stale: true}]
+        });
+
+        expect(both).toContain('runs are failing on schedule (18 consecutive)');
+        expect(both).toContain('the committed corpus is frozen');
+
+        // Neither axis: a forced `workflow_dispatch` dry run on a healthy pipeline. Reachable and
+        // intentional, and the one quadrant where claiming degradation asserts what neither axis read.
+        const neither = buildAlarmBody({
+            consecutiveFailures: 0,
+            lastSuccess        : run('success', '2026-07-26T18:00:00Z'),
+            latestFailure      : null,
+            reasons            : ['forced breach evaluation (workflow_dispatch dry run)'],
+            corpusFacets       : [{facet: 'issues', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0, stale: false}],
+            forced             : true
+        });
+
+        expect(neither).toContain('none — neither axis measured a breach');
+        expect(neither).not.toContain('degrading silently')
+    });
+
     test('forced dispatch dry-run alarm body discloses its own provenance', () => {
         const body = buildAlarmBody({
             consecutiveFailures: 0,
