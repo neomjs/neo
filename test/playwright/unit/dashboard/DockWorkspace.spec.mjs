@@ -3277,6 +3277,47 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(resolved.isDestroyed).toBeFalsy()
         });
 
+        test('a failed adoption is reported on the lifecycle channel, not thrown into a listener', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const events = [];
+
+            workspace.on('dockTearOutAdoptionFailed', event => events.push(event));
+
+            await workspace.compensateFailedTearOutAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+
+            // Both failing paths throw AFTER compensating, and neither throw reaches anyone:
+            // onWindowConnect is registered as a worker event listener, so its async throw becomes
+            // a rejected promise the emitter drops — a vessel could die leaving nothing but an
+            // unattributed unhandled rejection. Reporting from the shared compensation path means
+            // the signal fires once, wherever the failure originated.
+            expect(events.length, 'the failure reaches consumers exactly once').toBe(1);
+            expect(events[0]).toMatchObject({component: workspace, itemId: 'editor', reintegrated: true})
+        });
+
+        test('`reintegrated` reports the RETURN, not that a pane handle existed', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const events = [],
+                  pane   = Neo.create(Container, {});
+
+            workspace.tearOutPaneHandles.editor = pane;
+            workspace.on('dockTearOutAdoptionFailed', event => events.push(event));
+
+            // The distinguishing case, and the one a handle check cannot see: a held pane whose
+            // return then FAILS. `!!pane` answers true here — and a failed adoption is precisely
+            // when a pane was held, so the field would have read `true` on every firing it has.
+            workspace.reintegrateTearOutItem = async () => false;
+
+            await workspace.compensateFailedTearOutAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+
+            expect(events.length).toBe(1);
+            expect(events[0].pane, 'the pane is still reported — it was held').toBeTruthy();
+            expect(events[0].reintegrated, 'but it did not come home, and the field says so').toBe(false);
+
+            pane.destroy()
+        });
+
         test('a rail tab is not the pane either, and the whole button category is refused', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
