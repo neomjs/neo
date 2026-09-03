@@ -113,20 +113,20 @@ class Lock extends Plugin {
         let action       = tabContainer?.getActionItem?.('lock'),
             activeItemId = owner.getActiveDockItemId(tabContainer),
             activeItem   = owner.dockModel?.items?.[activeItemId],
+            locked       = activeItem?.locked === true,
             hidden       = !activeItemId || activeItem?.lockable === false,
-            iconCls      = activeItem?.locked === true ? owner.dockUnlockIconCls : owner.dockLockIconCls,
-            ariaLabel    = activeItem?.locked === true ? 'unlock' : 'lock',
-            tooltipKey   = activeItem?.locked === true ? 'unlock' : 'lock',
-            showOnFocus  = activeItem?.locked !== true,
+            iconCls      = locked ? owner.dockUnlockIconCls : owner.dockLockIconCls,
+            // Names the control for what it does NEXT — accessible name and tooltip key are one word.
+            label        = locked ? 'unlock' : 'lock',
             changes      = {};
 
         if (action) {
-            let ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel;
+            let ariaLabelChanged = action.vdom?.['aria-label'] !== label;
 
-            action.hidden  !== hidden  && (changes.hidden  = hidden);
-            action.iconCls !== iconCls && (changes.iconCls = iconCls);
-            action.showOnFocus !== showOnFocus && (changes.showOnFocus = showOnFocus);
-            owner.syncDockActionTooltip(action, tooltipKey, changes);
+            action.hidden      !== hidden  && (changes.hidden      = hidden);
+            action.iconCls     !== iconCls && (changes.iconCls     = iconCls);
+            action.showOnFocus === locked  && (changes.showOnFocus = !locked);
+            owner.syncDockActionTooltip(action, label, changes);
 
             if (Object.keys(changes).length || ariaLabelChanged) {
                 // `setSilent()` consumes non-config class-field keys from its input, so remember
@@ -134,7 +134,7 @@ class Lock extends Plugin {
                 let focusGateChanged = Object.hasOwn(changes, 'showOnFocus');
 
                 Object.keys(changes).length && action.setSilent(changes);
-                ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
+                ariaLabelChanged && (action.vdom['aria-label'] = label);
 
                 // `showOnFocus` is a stable-instance policy flip, not an action-list rebuild. The
                 // toolbar owns the inert/aria/tab-index presentation and must release/re-arm it
