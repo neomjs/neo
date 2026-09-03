@@ -1017,12 +1017,8 @@ class Workspace extends Container {
      *   only excludes the button.
      *
      * The placeholder is the dangerous one, and not as an edge case: a placeholder exists exactly
-     * when a pane could not be materialized, and for a host that writes no {@link #resolvePane}
-     * that is the ORDINARY state — the engine's own default resolves a labelled placeholder.
-     * Tearing one out would open a vessel holding a titled blank and lose the pane, silently.
-     *
-     * The hook named here is `resolvePane`, not `resolveFreshPane`: the latter now delegates to the
-     * former, so writing no recreate hook no longer implies an unresolvable pane.
+     * when a pane could not be materialized, which is the ordinary state for a host that writes no
+     * {@link #resolvePane}. Tearing one out would open a vessel holding a titled blank.
      * @param {Neo.component.Base} component
      * @returns {Boolean}
      * @protected
@@ -1708,15 +1704,9 @@ class Workspace extends Container {
      * a vessel without one, and demanding the config from it would withhold an action that works.
      *
      * So the default asks whether the engine's own opener is the one that will run. That is a
-     * prototype comparison, and the cost of one is on record in this file's own history:
-     * `hasDockRecreateFallback` used to compare `resolveFreshPane` against the prototype, which
-     * made it answer always-false the moment the base gained a default — the engine could not be
-     * its own fallback, because a base class cannot override itself. That comparison is gone; the
-     * lesson is not.
-     *
-     * It is sound *here* for the opposite reason: the base already HAS a working implementation, so
-     * "is it still the base one" is a stable question rather than a proxy for "did anyone implement
-     * this". A host may still override this getter directly when its answer is neither.
+     * prototype comparison, sound here because the base already has a working implementation — so
+     * it asks "is it still the base one", not "did anyone implement this". Override this getter
+     * directly when the answer is neither.
      * @returns {Boolean}
      * @protected
      */
@@ -4093,24 +4083,11 @@ class Workspace extends Container {
     /**
      * Hook: produces a **fresh** candidate pane for an item, bypassing any live-instance cache.
      *
-     * Deliberately a separate **hook** rather than an option on {@link #resolvePane}: a consumer
-     * that resolves from a live-instance cache needs somewhere to mint a replacement that its cache
-     * does not answer, and an option such a consumer never implemented would be silently ignored.
-     * `apps/workstation` is exactly that shape.
+     * Defaults to {@link #resolvePane} — only the consumer knows how to build its own pane. A
+     * cache-backed `resolvePane` is safe here: {@link #prepareRecreateCandidate} compares by
+     * identity and refuses with `live-instance`, leaving the live pane untouched.
      *
-     * Its **default delegates** to {@link #resolvePane}, because only the consumer knows how to
-     * build its own pane — the engine knows how to build a placeholder, which for any host that
-     * resolves real panes would be a downgrade rather than a recreate. Delegation therefore serves
-     * the host's own shape where one exists, and the engine's labelled placeholder where nothing
-     * else does.
-     *
-     * Delegation is safe even against a cache-backed `resolvePane`, which is why it can be the
-     * default at all: {@link #prepareRecreateCandidate} compares the candidate to the live pane by
-     * **identity** and reports `live-instance` with the live pane untouched. The worst case is a
-     * named refusal behind a visible action, never a swap of a pane for itself.
-     *
-     * Returning `null` stays a legitimate answer — it declines for that item, reported as
-     * `declined` with the live pane untouched.
+     * `null` declines for that item.
      * @param {String} itemId The stable workspace identity from the item catalog.
      * @param {Object} item The persisted item record.
      * @returns {Object|Neo.component.Base|null}
@@ -4120,22 +4097,12 @@ class Workspace extends Container {
     }
 
     /**
-     * Whether this workspace can serve a recreate at all.
+     * Whether a recreate path is wired — not whether a given item will succeed.
      *
-     * **Never calls the factory.** {@link #syncDockReloadAction} consults this on every active-item
-     * change, so a visibility sync must not have side effects: invoking a resolver to decide whether
-     * to show a button would mint panes nobody asked for.
+     * Never calls the factory: {@link #syncDockReloadAction} consults this on every active-item
+     * change, and minting a pane to decide whether to show a button would be a side effect.
      *
-     * It answers "is a recreate path wired", not "will this particular item succeed" — and since
-     * {@link #resolveFreshPane} now delegates to {@link #resolvePane}, which every workspace answers,
-     * a path always is. An item that cannot be served still gets a **visible** action settling with a
-     * named refusal, which is the honest outcome: hiding it leaves a wedged pane with no affordance
-     * and no explanation.
-     *
-     * This used to compare `this.resolveFreshPane` against the prototype, which asked "did a consumer
-     * override the hook?" — so the engine could never be its own fallback, because a base class
-     * cannot override itself. Overriding this method to return `false` is the remaining way for a host
-     * to declare it does not serve recreate at all.
+     * Override to `false` to declare this host serves no recreate.
      * @returns {Boolean}
      */
     hasDockRecreateFallback() {
