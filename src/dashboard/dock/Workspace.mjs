@@ -1049,8 +1049,13 @@ class Workspace extends Container {
 
     /**
      * @summary Compensates an admitted connection that cannot embody its live pane.
+     *
+     * Returns the reporting promise. Both callers throw immediately after and ignore it, but the
+     * compensation's own completion is otherwise unobservable — and an outcome nothing can await is
+     * an outcome nothing can assert.
      * @param {String} itemId
      * @param {Object} entry
+     * @returns {Promise<void>}
      * @protected
      */
     compensateFailedTearOutAdoption(itemId, entry={}) {
@@ -1063,14 +1068,19 @@ class Workspace extends Container {
         Promise.resolve(me.retireTearOutVessel(vessel)).then(closed => {
             closed && me.tearOutHandlers?.onVesselRetired(vessel)
         });
-        me.reintegrateTearOutItem(itemId, pane);
-
         // Reported HERE because this is the one place both failing paths already meet: the
         // document-change adoption and the window-connect adoption each call it before throwing.
         // Their throws do not reach anyone — `onWindowConnect` is registered as a worker event
         // listener, so an async throw becomes a rejected promise the emitter drops, which is why a
         // vessel could die with nothing but an unattributed unhandled rejection in the console.
-        me.onTearOutAdoptionFailed({entry, itemId, pane, reintegrated: !!pane})
+        //
+        // The report waits for the return to actually resolve, matching the `retireTearOutVessel`
+        // line above. Reading a pane HANDLE instead would answer a different question — one that is
+        // true in exactly the case worth alarming on, since a failed adoption is precisely when a
+        // pane was held and could still fail to come home.
+        return Promise.resolve(me.reintegrateTearOutItem(itemId, pane)).then(reintegrated => {
+            me.onTearOutAdoptionFailed({entry, itemId, pane, reintegrated})
+        })
     }
 
     /**
