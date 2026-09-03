@@ -1017,9 +1017,12 @@ class Workspace extends Container {
      *   only excludes the button.
      *
      * The placeholder is the dangerous one, and not as an edge case: a placeholder exists exactly
-     * when a pane could not be materialized, and for a host that writes no `resolveFreshPane` that
-     * is the ORDINARY state — the same epic's row 2. Tearing one out would open a vessel holding a
-     * titled blank and lose the pane, silently.
+     * when a pane could not be materialized, and for a host that writes no {@link #resolvePane}
+     * that is the ORDINARY state — the engine's own default resolves a labelled placeholder.
+     * Tearing one out would open a vessel holding a titled blank and lose the pane, silently.
+     *
+     * The hook named here is `resolvePane`, not `resolveFreshPane`: the latter now delegates to the
+     * former, so writing no recreate hook no longer implies an unresolvable pane.
      * @param {Neo.component.Base} component
      * @returns {Boolean}
      * @protected
@@ -1705,11 +1708,15 @@ class Workspace extends Container {
      * a vessel without one, and demanding the config from it would withhold an action that works.
      *
      * So the default asks whether the engine's own opener is the one that will run. That is a
-     * prototype comparison, which this file elsewhere shows the cost of (`hasDockRecreateFallback`
-     * inverts to always-false the moment its base gains a default). It is sound *here* for the
-     * opposite reason: the base already HAS a working implementation, so "is it still the base one"
-     * is a stable question rather than a proxy for "did anyone implement this". A host may still
-     * override this getter directly when its answer is neither.
+     * prototype comparison, and the cost of one is on record in this file's own history:
+     * `hasDockRecreateFallback` used to compare `resolveFreshPane` against the prototype, which
+     * made it answer always-false the moment the base gained a default — the engine could not be
+     * its own fallback, because a base class cannot override itself. That comparison is gone; the
+     * lesson is not.
+     *
+     * It is sound *here* for the opposite reason: the base already HAS a working implementation, so
+     * "is it still the base one" is a stable question rather than a proxy for "did anyone implement
+     * this". A host may still override this getter directly when its answer is neither.
      * @returns {Boolean}
      * @protected
      */

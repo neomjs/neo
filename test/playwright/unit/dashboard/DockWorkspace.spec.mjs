@@ -3369,8 +3369,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // LayoutAdapter.createPlaceholder mints ntype 'dashboard-panel' carrying the same
             // dockItemId, so it passes an exclusion that only names the header button. A placeholder
             // exists exactly when a pane could NOT be materialized — the ordinary state for a host
-            // that writes no resolveFreshPane — so tearing one out opens a vessel holding a titled
-            // blank and loses the pane, silently.
+            // that writes no resolvePane — so tearing one out opens a vessel holding a titled
+            // blank and loses the pane, silently. The hook is `resolvePane`, not `resolveFreshPane`:
+            // the recreate hook now delegates to it, so writing no recreate hook no longer implies
+            // an unresolvable pane.
             expect(workspace.isDockTearOutCandidate({cls: ['neo-dashboard-dock-placeholder'], ntype: 'dashboard-panel'}),
                 'a placeholder is not a tear-out candidate').toBe(false);
 
