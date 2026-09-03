@@ -69,6 +69,33 @@ const soleAction = async (locator, subject) => {
     return locator
 };
 
+/**
+ * Asserts a locator's node count in its SETTLED state, by requiring two consecutive reads to agree.
+ *
+ * A plain `toHaveCount(n)` retries until it sees `n` once, so it is satisfied by a value the
+ * timeline merely passes THROUGH. That is not hypothetical here: switching to a contract-free pane
+ * leaves the reload action briefly mounted before the visibility sync settles it, so
+ * `toHaveCount(1)` succeeds on the transient while `toHaveCount(0)` succeeds on the settled state —
+ * both "pass", and only one describes the app. This caught a false green on my own arm.
+ * @param {Object} locator
+ * @param {Number} expected
+ * @param {String} subject for the failure message
+ * @returns {Promise<void>}
+ */
+const settledCount = async (locator, expected, subject) => {
+    let previous = -1;
+
+    await expect.poll(async () => {
+        const now    = await locator.count(),
+              stable = now === previous;
+
+        previous = now;
+
+        // -1 is never an expected count, so an unstable sample can never satisfy the assertion.
+        return stable ? now : -1
+    }, {message: `${subject}: settled node count`}).toBe(expected)
+};
+
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/dock-maximize/index.html');
     await page.waitForSelector('#dock-maximize-workspace', {state: 'attached'});
@@ -236,21 +263,43 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
         expect((await readInstance(page, WORKSPACE_ID, ['docJson']))[0]).toBe(docBefore)
     });
 
-    test('a pane without the contract hides the action — pure probe, no resolver call', async ({page}) => {
+    test('a pane without the contract is OFFERED the action, because the engine serves the recreate', async ({page}) => {
+        // This arm asserted the opposite until the engine gained its own recreate fallback: a
+        // contract-free pane hid its action, and `frame` existed in the fixture as that hiding
+        // witness. The hiding was a construction artefact, not a policy — the capability used to
+        // be derived by comparing
+        // `resolveFreshPane` against the prototype, so the engine could never be its own fallback
+        // and the action vanished for exactly the panes whose only recovery is a recreate.
+        // `syncDockReloadAction`'s own comment already stated the intended rule: "hidden only when
+        // NEITHER path can serve the item."
+        //
+        // The probe is still pure — `hasDockRecreateFallback()` returns without touching a
+        // resolver, which is what keeps a visibility sync from minting panes nobody asked for.
+        // That property is asserted where it can be isolated from the projection's own legitimate
+        // resolver calls, in `unit/dashboard/DockRecreateCandidate.spec.mjs`.
         const side   = tabsNodeWith(page, 'Frame'),
               reload = actionButton(side, 'fa-rotate-right');
 
-        // gamma (contract, throwing or not) active: present in the DOM.
+        // Every count here is a SETTLED count. A plain `toHaveCount(1)` passes on this fixture
+        // whether or not the engine change is present, because switching to a contract-free pane
+        // leaves the action briefly mounted before the sync settles it — so the transient satisfies
+        // the assertion and the arm reports green against `dev`. That false green was this arm's
+        // first draft.
         await tabButton(side, 'Gamma').click();
-        await expect(reload).toHaveCount(1);
+        await settledCount(reload, 1, 'gamma owns the contract');
 
-        // frame (contract-free) active: hidden means removeDom — the control leaves entirely.
+        // frame is contract-free, and the engine's delegated `resolveFreshPane` can serve it — the
+        // fixture resolves `frame` as a real iframe, so a recreate rebuilds THAT rather than
+        // downgrading it to a placeholder. The action belongs on screen, and stays.
         await tabButton(side, 'Frame').click();
-        await expect(reload).toHaveCount(0);
+        await settledCount(reload, 1, 'frame is served by the engine fallback');
+        await expect(reload).toBeEnabled();
 
-        // and returns with gamma.
+        // and it survives the round trip rather than appearing once.
         await tabButton(side, 'Gamma').click();
-        await expect(reload).toHaveCount(1)
+        await settledCount(reload, 1, 'gamma again');
+        await tabButton(side, 'Frame').click();
+        await settledCount(reload, 1, 'frame again')
     });
 
     test('single-flight is per item: switching panes re-derives both axes from the active item', async ({page}) => {

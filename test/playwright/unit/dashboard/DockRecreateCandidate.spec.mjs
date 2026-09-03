@@ -68,16 +68,71 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
         workspace = livePane = null
     });
 
-    test('the default hook declines, so recreate is opt-in rather than assumed', () => {
-        // A consumer that has not implemented the factory must not silently get a destructive
-        // capability. `null` is a legitimate answer — "this surface does not support recreate".
-        expect(workspace.resolveFreshPane('editor', null)).toBeNull();
+    test('the default hook delegates, and for a placeholder host that is not a downgrade', () => {
+        // This arm used to assert `null` — "recreate is opt-in rather than assumed" — on the
+        // reasoning that a consumer which implemented no factory must not silently get a
+        // DESTRUCTIVE capability. That fear was right and the mechanism was inverted: because the
+        // capability was derived from whether the hook was overridden, the engine could never be
+        // its own fallback, and the reload action was hidden for exactly the panes whose only
+        // recovery is a recreate.
+        //
+        // The default now delegates to `resolvePane`, which is what keeps it non-destructive.
+        // Minting the engine placeholder UNCONDITIONALLY would have been destructive — a host
+        // resolving a real pane would have had it replaced by a labelled box. Delegation instead
+        // returns whatever that host already resolves: here the engine placeholder, which is the
+        // pane this workspace is already showing, so the recreate swaps a placeholder for an
+        // equivalent placeholder and downgrades nothing.
+        const candidate = workspace.resolveFreshPane('editor', null);
+
+        expect(candidate, 'the default answers with a config').toBeTruthy();
+        expect(candidate.cls, 'and it is the engine placeholder this host already resolves')
+            .toContain('neo-dock-workspace-placeholder');
+
+        // Not the live pane, so the identity guard passes and phase 1 admits it.
+        const result = workspace.prepareRecreateCandidate('editor', livePane);
+
+        expect(result.ok).toBe(true);
+        expect(result.reason).toBeNull();
+        expect(result.candidate, 'the candidate is a config, never the mounted instance')
+            .not.toBe(livePane)
+    });
+
+    test('hasDockRecreateFallback constructs nothing, however often it is consulted', () => {
+        // AC-3, and the reason the old implementation compared prototypes rather than calling the
+        // factory: `syncDockReloadAction` consults this on every active-item change, so a
+        // visibility sync that invoked a resolver would mint panes nobody asked for. Delegation
+        // changed what `resolveFreshPane` returns; it must not have changed WHEN it runs.
+        let resolverCalls = 0;
+
+        workspace.resolvePane = (itemId, item) => {
+            resolverCalls++;
+            return {ntype: 'component'}
+        };
+
+        for (let i = 0; i < 5; i++) {
+            expect(workspace.hasDockRecreateFallback(), 'a path is wired').toBe(true)
+        }
+
+        expect(resolverCalls, 'consulting the predicate never reached the resolver').toBe(0);
+
+        // Non-vacuity: the counter can move, so zero above is a measurement rather than a
+        // resolver that was never wired up.
+        workspace.resolveFreshPane('editor', null);
+        expect(resolverCalls, 'and the resolver is genuinely reachable').toBe(1)
+    });
+
+    test('a host that declines for an item still declines, with the live pane untouched', () => {
+        // Delegation does not remove the refusal path, it just stops it being the default. A host
+        // whose resolver answers `null` for a particular item is the case AC-6 names, and the
+        // action stays visible so the refusal can be reported rather than hidden.
+        workspace.resolveFreshPane = () => null;
 
         const result = workspace.prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(false);
         expect(result.reason).toBe('declined');
-        expect(result.candidate).toBeNull()
+        expect(result.candidate).toBeNull();
+        expect(livePane.isDestroyed, 'the live pane is untouched by a refusal').toBeFalsy()
     });
 
     test('a factory that throws refuses with the error carried, never swallowed', () => {
@@ -539,14 +594,24 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         tabContainer.getActionItem  = () => action;
         workspace.getActiveDockItemId = () => 'editor';
 
-        // No fallback wired: hiding is correct — the item has no recovery at all.
+        // "No fallback" is no longer a state a workspace reaches by writing nothing — the default
+        // delegates, so a path is always wired. It is now reached only by a host declaring it
+        // outright, which is the remaining purpose of overriding this predicate. Stated explicitly
+        // rather than relying on the base default, which is what this half used to lean on.
+        workspace.hasDockRecreateFallback = () => false;
         workspace.syncDockReloadAction(tabContainer);
-        expect(action.hidden, 'no delegation, no fallback → hidden').toBe(true);
+        expect(action.hidden, 'no delegation, and recreate declared unavailable → hidden').toBe(true);
 
-        // Fallback wired: the action must appear, because it is now the pane's ONLY recovery.
+        // The engine's own default is enough on its own: no host factory, no declared refusal.
+        delete workspace.hasDockRecreateFallback;
+        workspace.syncDockReloadAction(tabContainer);
+        expect(action.hidden, 'the engine default alone un-hides it').toBe(false);
+
+        // And a host factory on top is still honoured — the original half of this arm, now the
+        // third state rather than the second.
         workspace.resolveFreshPane = () => ({module: Component});
         workspace.syncDockReloadAction(tabContainer);
-        expect(action.hidden, 'no delegation but a fallback → visible').toBe(false)
+        expect(action.hidden, 'no delegation but a host fallback → visible').toBe(false)
     })
 });
 

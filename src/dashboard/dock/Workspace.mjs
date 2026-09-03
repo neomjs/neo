@@ -1017,9 +1017,8 @@ class Workspace extends Container {
      *   only excludes the button.
      *
      * The placeholder is the dangerous one, and not as an edge case: a placeholder exists exactly
-     * when a pane could not be materialized, and for a host that writes no `resolveFreshPane` that
-     * is the ORDINARY state — the same epic's row 2. Tearing one out would open a vessel holding a
-     * titled blank and lose the pane, silently.
+     * when a pane could not be materialized, which is the ordinary state for a host that writes no
+     * {@link #resolvePane}. Tearing one out would open a vessel holding a titled blank.
      * @param {Neo.component.Base} component
      * @returns {Boolean}
      * @protected
@@ -1705,11 +1704,9 @@ class Workspace extends Container {
      * a vessel without one, and demanding the config from it would withhold an action that works.
      *
      * So the default asks whether the engine's own opener is the one that will run. That is a
-     * prototype comparison, which this file elsewhere shows the cost of (`hasDockRecreateFallback`
-     * inverts to always-false the moment its base gains a default). It is sound *here* for the
-     * opposite reason: the base already HAS a working implementation, so "is it still the base one"
-     * is a stable question rather than a proxy for "did anyone implement this". A host may still
-     * override this getter directly when its answer is neither.
+     * prototype comparison, sound here because the base already has a working implementation — so
+     * it asks "is it still the base one", not "did anyone implement this". Override this getter
+     * directly when the answer is neither.
      * @returns {Boolean}
      * @protected
      */
@@ -4086,41 +4083,30 @@ class Workspace extends Container {
     /**
      * Hook: produces a **fresh** candidate pane for an item, bypassing any live-instance cache.
      *
-     * Deliberately a separate hook rather than an option on {@link #resolvePane}. Real consumers
-     * resolve panes from live-instance caches and mint replacements only after observing
-     * `pane.isDestroyed`; an option those consumers do not implement would be silently ignored and
-     * hand back **the very instance the recreate is meant to replace**. A distinct hook cannot be
-     * accidentally satisfied by a cache, and its default says the honest thing: this consumer does
-     * not support recreate.
+     * Defaults to {@link #resolvePane} — only the consumer knows how to build its own pane. A
+     * cache-backed `resolvePane` is safe here: {@link #prepareRecreateCandidate} compares by
+     * identity and refuses with `live-instance`, leaving the live pane untouched.
      *
-     * Returning `null` is a legitimate answer, not a failure of contract — it declines the
-     * capability, and {@link #prepareRecreateCandidate} reports that as a named refusal with the
-     * live pane untouched.
+     * `null` declines for that item.
      * @param {String} itemId The stable workspace identity from the item catalog.
      * @param {Object} item The persisted item record.
      * @returns {Object|Neo.component.Base|null}
      */
     resolveFreshPane(itemId, item) {
-        return null
+        return this.resolvePane(itemId, item)
     }
 
     /**
-     * Whether this workspace can serve a recreate at all — i.e. whether a consumer overrode
-     * {@link #resolveFreshPane}.
+     * Whether a recreate path is wired — not whether a given item will succeed.
      *
-     * Derived from the prototype rather than by calling the factory, because this is consulted by
-     * {@link #syncDockReloadAction} on every active-item change and a visibility sync must not have
-     * side effects: invoking a consumer factory to decide whether to show a button would mint panes
-     * nobody asked for.
+     * Never calls the factory: {@link #syncDockReloadAction} consults this on every active-item
+     * change, and minting a pane to decide whether to show a button would be a side effect.
      *
-     * It answers "is the capability wired", not "will this particular item succeed". A consumer that
-     * overrides the hook and then declines a specific item still gets a **visible** action that
-     * settles with a named refusal — which is the honest behaviour: hiding it would leave a wedged
-     * pane with no affordance and no explanation.
+     * Override to `false` to declare this host serves no recreate.
      * @returns {Boolean}
      */
     hasDockRecreateFallback() {
-        return this.resolveFreshPane !== Workspace.prototype.resolveFreshPane
+        return true
     }
 
     /**
