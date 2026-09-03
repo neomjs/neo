@@ -19,6 +19,9 @@ const GUIDE       = '/apps/portal/index.html#/learn/guides/uibuildingblocks/Dock
 /** The content component's own class, so the assertions cannot drift onto sidebar or chrome links. */
 const CONTENT = '.neo-app-content-component';
 
+/** The sidebar tree, whose navigation owes nothing to the rewrite — see the control arm below. */
+const TREE = '.neo-app-content-tree-list';
+
 test.describe('learn link routing', () => {
     test('a relative guide link is rendered as a route, not a file path', async ({page}) => {
         await page.goto(GUIDE);
@@ -47,16 +50,40 @@ test.describe('learn link routing', () => {
         ).toHaveCount(1)
     });
 
-});
+    /**
+     * Ordered before the click arm on purpose, and kept even though it asserts nothing about the
+     * rewrite: the sidebar tree is the app's own navigation. If a click stops working in this tier,
+     * this arm reddens too and names the harness as the subject. Without it a harness regression
+     * reads as "the rewrite is broken", which is the misreading that got an earlier click arm
+     * written and reverted.
+     */
+    test('control: the harness can click the app\'s own navigation', async ({page}) => {
+        await page.goto(GUIDE);
 
-/*
- * Not covered here, and deliberately not asserted: that CLICKING one of these links arrives at the
- * destination. A click arm was written and reverted, because its own control — clicking the sidebar
- * tree, which is the app's own navigation and owes nothing to this feature — failed in the same
- * harness. A red assertion whose control is also red measures the harness, not the subject, and
- * shipping it would have read as "routing is broken" on this evidence.
- *
- * So the arms above prove the href a reader is given, and stop there. What remains open is whether an
- * in-content route link re-renders on click in a real session; that needs the navigation question
- * settled in this tier first, and it is not something the rewrite can answer.
- */
+        const content = page.locator(CONTENT);
+        await expect(content.locator('h1')).toContainText('Dock');
+
+        await page.locator(`${TREE} .neo-list-item-leaf`).filter({hasText: 'Using These Topics'}).first().click();
+
+        await expect(content.locator('h1')).toContainText('Using These Topics')
+    });
+
+    /**
+     * The question the href arms structurally cannot answer: not "is the href well-formed" but
+     * "does clicking it arrive". Neutering `MainContainerController#onRouteLearnItem` leaves every
+     * href above correct and reddens only this arm.
+     */
+    test('clicking a rewritten link arrives at its destination', async ({page}) => {
+        await page.goto(GUIDE);
+
+        const content = page.locator(CONTENT);
+        await expect(content.locator('h1')).toContainText('Dock Layouts:');
+
+        await content.locator(`a[href="#/learn/${ADOPTION_ID}"]`).first().click();
+
+        // The source page is 'Dock Layouts: One Application, Many Windows', so the destination's own
+        // subtitle is the discriminator — 'Dock Layouts:' alone would pass without navigating.
+        await expect(content.locator('h1')).toContainText('Adopting in Your App')
+    });
+
+});
