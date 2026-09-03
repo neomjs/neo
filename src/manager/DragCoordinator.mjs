@@ -1103,8 +1103,11 @@ class DragCoordinator extends Manager {
      * renders its own affordances through `onRemoteDragMove` on EVERY position update — per
      * frame, not only after the dwell timer — while the dwell/settle contract keeps gating the
      * COMMIT. Target switches and hover loss end the previous target's preview exact-once.
+     * Returns the target's resolved preview so the caller can tell WHICH drop this frame landed on.
+     * A sort zone is one object per window, so it cannot answer that — see `onWindowPositionChange`.
      * @param {String} windowId The MOVING popup's window id.
      * @param {Object|null} candidate The current drop candidate, or null when nothing claims.
+     * @returns {Object|null} The owner-computed preview, or null when no target claims the drag.
      */
     updateNativeHover(windowId, candidate) {
         let me       = this,
@@ -1118,7 +1121,7 @@ class DragCoordinator extends Manager {
         if (next) {
             me.nativeHoverTargets.set(windowId, next);
 
-            next.onRemoteDragMove({
+            return next.onRemoteDragMove({
                 draggedItem: candidate.draggedItem,
                 // The hold is the gesture: the target receives the dwell clock the commit below is
                 // scheduled from — same start, same duration — so it can paint the hold running out.
@@ -1137,9 +1140,11 @@ class DragCoordinator extends Manager {
                 proxyRect     : candidate.proxyRect,
                 sourceSortZone: candidate.sourceSortZone
             })
-        } else {
-            me.nativeHoverTargets.delete(windowId)
         }
+
+        me.nativeHoverTargets.delete(windowId);
+
+        return null
     }
 
     /**
@@ -1157,7 +1162,7 @@ class DragCoordinator extends Manager {
         let me         = this,
             {windowId} = data,
             current    = me.nativeWindowDropCandidates.get(windowId),
-            sourceDrag, candidate, dwellRemaining, firstSeenAt, delay, now;
+            sourceDrag, candidate, dwellRemaining, firstSeenAt, delay, now, preview, previewId;
 
         // Parking, embodiment, target settlement, and strict source retry can all publish geometry
         // of their own. Their retained generation owns the terminal; never reinterpret those
@@ -1198,7 +1203,32 @@ class DragCoordinator extends Manager {
         // from the same start the commit below is scheduled from.
         candidate.firstSeenAt = firstSeenAt;
 
-        me.updateNativeHover(windowId, candidate);
+        preview = me.updateNativeHover(windowId, candidate);
+
+        // A sort zone is ONE object per window, so the carry-over above cannot see the user moving
+        // between zones INSIDE a window — every split child, edge band and tab strip shares it. A
+        // main window always has a valid drop area, so the clock armed on entry and never restarted,
+        // and the commit fired on whichever zone happened to resolve first while the user was still
+        // choosing. The resolved preview is the identity that actually changes: `previewId` carries
+        // node AND placement kind, so a tab-into → split-left switch over one node re-arms too,
+        // because it is a different drop.
+        previewId = preview?.previewId ?? null;
+
+        // A frame that resolves NO preview is a momentary gap, not a new zone: re-arming there would
+        // restart a hold the user is legitimately completing.
+        if (previewId && current && previewId !== current.dropPreviewId && firstSeenAt !== now) {
+            firstSeenAt = candidate.firstSeenAt = now;
+
+            // Re-sent, not merely rescheduled: the target paints the ring from `armedAt`, so leaving
+            // the stale clock in place would drain a ring whose commit has just been pushed out.
+            me.updateNativeHover(windowId, candidate)
+        }
+
+        // The last zone that actually RESOLVED, carried across gaps. Storing the gap itself would
+        // erase that memory and make the next resolving frame look like a change — re-arming a hold
+        // the user never left.
+        candidate.dropPreviewId = previewId ?? current?.dropPreviewId ?? null;
+
         me.clearNativeWindowDropCandidate(windowId);
 
         dwellRemaining = Math.max(0, me.nativeWindowDropDwellMs - (now - firstSeenAt));
