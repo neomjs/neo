@@ -194,11 +194,21 @@ test.describe('Neo.menu.List spawn animation', () => {
         await expect.poll(async () => page.evaluate(id => !!document.getElementById(id), menuId)).toBe(false);
 
         await page.evaluate(id => Neo.worker.App.setConfigs({id, hidden: false}), menuId);
+
+        // The sentinel distinguishes ABSENT from UNALIGNED, because those are different failures
+        // with different causes and the previous `''` returned the same value for both. Measured
+        // while diagnosing the intermittency this arm carries: at the failure the node is
+        // `absent` — `document.querySelectorAll('.neo-menu-list').length` is 0 — so the reopened
+        // menu has left the DOM rather than arrived unaligned. Three diagnostic passes read that
+        // as an alignment problem because the sentinel could not say otherwise.
         await expect.poll(async () => page.evaluate(id => {
             const node = document.getElementById(id);
 
-            return node ? [...node.classList].find(cls => cls.startsWith('neo-aligned-')) ?? '' : '';
-        }, menuId)).toMatch(/^neo-aligned-/);
+            if (!node) return 'absent';
+
+            return [...node.classList].find(cls => cls.startsWith('neo-aligned-')) ?? 'unaligned';
+        }, menuId), {message: 'the reopened menu is mounted and has resolved a zone'})
+            .toMatch(/^neo-aligned-/);
 
         // Positive match on purpose, above: `.not.toBeNull()` is satisfied by `undefined`, so against
         // an absent node it passes instantly and waits for nothing — a poll that cannot poll.
