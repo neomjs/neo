@@ -232,7 +232,12 @@ test.describe('Neo.menu.List spawn animation', () => {
         await expect.poll(async () => page.evaluate(id => {
             const node = document.getElementById(id);
 
-            return node ? getComputedStyle(node).animationName : '';
+            // Three separable states, for the same reason the alignment sentinel above names two:
+            // `absent` (no node), `none` (mounted but unarmed) and a keyframe name. Reporting
+            // absence as `''` here would have undone this file's own fix one assertion later — and
+            // it is the likeliest failure, because absence is what the remaining intermittency
+            // actually produces.
+            return node ? getComputedStyle(node).animationName : 'absent';
         }, menuId), {message: 'the entrance animation is armed on the reopened instance'})
             .toMatch(/^neo-menu-spawn-from-(top|bottom|left|right)$/)
     });
