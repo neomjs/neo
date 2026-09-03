@@ -3,6 +3,7 @@ import Container                   from '../../container/Base.mjs';
 import NeoArray                    from '../../util/Array.mjs';
 import {isDescriptor}              from '../../core/ConfigSymbols.mjs';
 import LayoutAdapter               from './projection/LayoutAdapter.mjs';
+import LockPlugin                  from './plugin/Lock.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
 import Reconciler                  from './projection/Reconciler.mjs';
@@ -446,20 +447,32 @@ class Workspace extends Container {
     dockMaximizeResizeWired = false
 
     /**
-     * Exact pre-lock root-inert snapshots keyed by the live pane instance:
-     * `{owned:Boolean, value:*}`. A WeakMap cannot prolong a retired pane's lifetime.
-     * @member {WeakMap<Neo.component.Base,Object>} dockLockPaneState=new WeakMap()
+     * The lock concern's own instance, created on first use so a workspace with
+     * `enableDockLockAction: false` never builds one.
+     * @member {Neo.dashboard.dock.plugin.Lock|null} _dockLockPlugin=null
      * @protected
      */
-    dockLockPaneState = new WeakMap()
+    _dockLockPlugin = null
 
     /**
-     * Whether each live tab button owned the SortZone's `neo-draggable` token before lock
-     * suppressed it. Unlock restores that exact ownership instead of globally arming drag.
-     * @member {WeakMap<Neo.component.Base,Boolean>} dockLockDragState=new WeakMap()
+     * The lock concern, built on first use.
+     *
+     * Deliberately NOT registered through `plugins_`: that path would construct one for every
+     * workspace including those with the feature off, which is the declinability this vehicle is
+     * chosen for. The cost is that `component.Base`'s owned-plugin disposal does not reach it, so
+     * {@link #destroy} retires it explicitly.
+     * @member {Neo.dashboard.dock.plugin.Lock}
      * @protected
      */
-    dockLockDragState = new WeakMap()
+    get dockLockPlugin() {
+        const me = this;
+
+        return me._dockLockPlugin ??= Neo.create(LockPlugin, {
+            appName : me.appName,
+            owner   : me,
+            windowId: me.windowId
+        })
+    }
 
     /**
      * Restoration snapshot while a maximize presentation is applied:
@@ -1590,6 +1603,10 @@ class Workspace extends Container {
     destroy(...args) {
         let me = this;
 
+        // Lazily built, so `component.Base`'s owned-plugin disposal never saw it.
+        me._dockLockPlugin?.destroy();
+        me._dockLockPlugin = null;
+
         if (me.enableDockTearOutLifecycle) {
             Neo.currentWorker.un({
                 connect   : me.onWindowConnect,
@@ -1776,190 +1793,29 @@ class Workspace extends Container {
     }
 
     /**
-     * Synchronizes the retained lock action and every projected pane/button against committed
-     * item truth. The action stays one stable instance; per-item hidden/icon state moves on it.
-     *
-     * Presentation is deliberately a second layer beneath the model guards. Lock stamps
-     * `vdom.inert` plus `neo-dock-pane-locked` in one pane update and removes only the tab
-     * button's `neo-draggable` source token. Unlock restores the exact prior inert ownership/value
-     * and exact prior drag-token ownership. Locked headers remain legal drop targets. The ordinary
-     * lock gesture is focus-gated; once the protective state persists, its unlock reversal becomes
-     * persistent too, so discoverability never depends on re-entering a transient focus context.
      * @param {Neo.tab.Container|null} tabContainer
+     * @see Neo.dashboard.dock.plugin.Lock#syncAction
      * @protected
      */
     syncDockLockAction(tabContainer) {
-        let me = this;
-
-        if (!me.enableDockLockAction) return;
-
-        let action       = tabContainer?.getActionItem?.('lock'),
-            activeItemId = me.getActiveDockItemId(tabContainer),
-            activeItem   = me.dockModel?.items?.[activeItemId],
-            hidden       = !activeItemId || activeItem?.lockable === false,
-            iconCls      = activeItem?.locked === true ? me.dockUnlockIconCls : me.dockLockIconCls,
-            ariaLabel    = activeItem?.locked === true ? 'unlock' : 'lock',
-            tooltipKey   = activeItem?.locked === true ? 'unlock' : 'lock',
-            showOnFocus  = activeItem?.locked !== true,
-            changes      = {};
-
-        if (action) {
-            let ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel;
-
-            action.hidden  !== hidden  && (changes.hidden  = hidden);
-            action.iconCls !== iconCls && (changes.iconCls = iconCls);
-            action.showOnFocus !== showOnFocus && (changes.showOnFocus = showOnFocus);
-            me.syncDockActionTooltip(action, tooltipKey, changes);
-
-            if (Object.keys(changes).length || ariaLabelChanged) {
-                // `setSilent()` consumes non-config class-field keys from its input, so remember
-                // this transition BEFORE handing the batch over.
-                let focusGateChanged = Object.hasOwn(changes, 'showOnFocus');
-
-                Object.keys(changes).length && action.setSilent(changes);
-                ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
-
-                // `showOnFocus` is a stable-instance policy flip, not an action-list rebuild. The
-                // toolbar owns the inert/aria/tab-index presentation and must release/re-arm it
-                // before this one update publishes the changed action.
-                focusGateChanged && tabContainer?.getTabBar?.()?.applyContextualActionState(true);
-
-                action.update()
-            }
-        }
-
-        let itemIds = tabContainer?.getTabBar?.()?.sortZoneConfig?.dockItemIds || [],
-            panes   = tabContainer?.getCardContainer?.()?.items || [],
-            buttons = tabContainer?.getTabButtons?.() || [];
-
-        itemIds.forEach((itemId, index) => {
-            me.syncDockLockItemPresentation({
-                button: buttons[index],
-                locked: me.dockModel?.items?.[itemId]?.locked === true,
-                pane  : panes[index]
-            })
-        })
+        this.enableDockLockAction && this.dockLockPlugin.syncAction(tabContainer)
     }
 
     /**
-     * Applies or restores one item's lock presentation without changing model state.
-     *
-     * The content half is delegable, the reload precedent: a pane implementing
-     * `dockLock(locked)` owns what locked means for its content — a form disables its fields, a
-     * grid turns cell editing off, a stream keeps scrolling — and the engine writes no `inert` for
-     * it. The probe is a pure `typeof` on the live card, never a resolver call. The hook fires
-     * once per transition, recorded in the same per-pane state as the inert snapshot, so a sweep
-     * that runs on every active-item change never re-locks a pane its author already locked.
-     * Without the hook the engine's inert default stands, byte-identical, with its exact-restore
-     * clause.
      * @param {Object} data
-     * @param {Neo.tab.header.Button|null} data.button
-     * @param {Boolean} data.locked
-     * @param {Neo.component.Base|null} data.pane
+     * @see Neo.dashboard.dock.plugin.Lock#syncItemPresentation
      * @protected
      */
-    syncDockLockItemPresentation({button, locked, pane}={}) {
-        let me = this;
-
-        if (pane && !pane.isDestroyed) {
-            let cls       = Array.isArray(pane.cls) ? [...pane.cls] : pane.cls ? [pane.cls] : [],
-                hadCls    = cls.includes('neo-dock-pane-locked'),
-                changed   = false,
-                delegated = typeof pane.dockLock === 'function',
-                prior,
-                vdom      = pane.vdom;
-
-            if (locked) {
-                if (delegated) {
-                    if (!me.dockLockPaneState.has(pane)) {
-                        me.dockLockPaneState.set(pane, {delegated: true});
-                        pane.dockLock(true)
-                    }
-                } else {
-                    if (!me.dockLockPaneState.has(pane)) {
-                        me.dockLockPaneState.set(pane, {
-                            owned: Object.hasOwn(vdom, 'inert'),
-                            value: vdom.inert
-                        })
-                    }
-
-                    if (vdom.inert !== true) {
-                        vdom.inert = true;
-                        changed = true
-                    }
-                }
-            } else if (me.dockLockPaneState.has(pane)) {
-                prior = me.dockLockPaneState.get(pane);
-                me.dockLockPaneState.delete(pane);
-
-                // Reverse along the path that locked: the record decides, never the current probe,
-                // so a pane cannot be handed an unlock it never received a lock for.
-                if (prior.delegated) {
-                    pane.dockLock(false)
-                } else {
-                    if (prior.owned) {
-                        vdom.inert = prior.value
-                    } else {
-                        delete vdom.inert
-                    }
-
-                    changed = true
-                }
-            }
-
-            NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
-
-            if (hadCls !== locked) {
-                pane.setSilent({cls});
-                changed = true
-            }
-
-            changed && pane.update()
-        }
-
-        if (button && !button.isDestroyed) {
-            let cls       = Array.isArray(button.wrapperCls) ? [...button.wrapperCls] : [],
-                draggable = cls.includes('neo-draggable'),
-                restore;
-
-            if (locked) {
-                !me.dockLockDragState.has(button) && me.dockLockDragState.set(button, draggable);
-                NeoArray.remove(cls, 'neo-draggable')
-            } else if (me.dockLockDragState.has(button)) {
-                restore = me.dockLockDragState.get(button);
-                me.dockLockDragState.delete(button);
-                NeoArray.toggle(cls, 'neo-draggable', restore)
-            }
-
-            draggable !== cls.includes('neo-draggable') && (button.wrapperCls = cls)
-        }
+    syncDockLockItemPresentation(data) {
+        this.dockLockPlugin.syncItemPresentation(data)
     }
 
     /**
-     * Synchronizes the currently materialized rail-reveal panes against committed lock truth.
-     *
-     * Rails are synthetic affordances retained across stable-topology reconciliation, so their
-     * projection config is not a state-update channel. The materialization callback covers first
-     * reveal; this sweep covers a lock transition while the same overlay remains open. Dismissed
-     * cached panes restore on their next materialization callback.
+     * @see Neo.dashboard.dock.plugin.Lock#syncRails
      * @protected
      */
     syncDockLockRails() {
-        let me = this;
-
-        if (!me.enableDockLockAction) return;
-
-        me.forEachDockRail(rail => {
-            let itemId = rail.revealOverlay?.revealPaneItemId,
-                pane   = rail.revealOverlay?.paneSlot?.items?.[0];
-
-            if (itemId && pane) {
-                me.syncDockLockItemPresentation({
-                    locked: me.dockModel?.items?.[itemId]?.locked === true,
-                    pane
-                })
-            }
-        })
+        this.enableDockLockAction && this.dockLockPlugin.syncRails()
     }
 
     /**
@@ -2312,43 +2168,13 @@ class Workspace extends Container {
     }
 
     /**
-     * @summary Toggles the active item's committed lock state through the reducer.
-     *
-     * On success the committed document advances through the ordinary holder seam, then current
-     * chrome receives the derived presentation immediately; reconciliation repeats the same sync
-     * on retained/new instances. The reducer owns every refusal, including `lockable:false`.
      * @param {Object} data
-     * @param {String} data.dockNodeId
-     * @param {Neo.tab.Container|null} data.tabContainer
      * @returns {{document:Object,errors:String[]}|null}
+     * @see Neo.dashboard.dock.plugin.Lock#handleAction
      * @protected
      */
-    handleDockLockAction({dockNodeId, tabContainer}={}) {
-        let me     = this,
-            itemId = me.getActiveDockItemId(tabContainer);
-
-        if (!itemId) {
-            return {document: me.dockModel, errors: ['Dock lock action requires an active item']}
-        }
-
-        if (!me.dockModel) {
-            return {document: me.dockModel, errors: ['Dock lock action requires a committed document']}
-        }
-
-        let descriptor = {
-                operation: 'setItemLocked',
-                itemId,
-                locked   : me.dockModel.items[itemId]?.locked !== true
-            },
-            result = me.applyDockZoneOperation(descriptor);
-
-        if (result && !result.errors?.length && result.document) {
-            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
-            me.syncDockCloseAction(tabContainer);
-            me.syncDockLockAction(tabContainer)
-        }
-
-        return result
+    handleDockLockAction(data) {
+        return this.dockLockPlugin.handleAction(data)
     }
 
     /**

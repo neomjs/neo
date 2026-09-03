@@ -241,6 +241,42 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(rail.syncDockLockPane).toBe(syncPane)
     });
 
+    test('a declined lock concern builds no plugin instance, and an accepted one is retired on destroy', () => {
+        const document = createDocument();
+
+        // OFF: every entry point gates on the flag before reaching the getter, so the concern is
+        // not merely inert — it is never constructed. Declinability is the property being
+        // witnessed, not the flag's effect on behaviour.
+        workspace = Neo.create(LockWorkspace, {
+            dockModel           : document,
+            enableDockLockAction: false
+        });
+
+        workspace.syncDockHeaderActions();
+
+        expect(workspace._dockLockPlugin, 'a declined concern leaves zero instances').toBe(null);
+
+        workspace.destroy();
+
+        // ON: one instance, and `destroy()` retires it. The plugin is created lazily, so
+        // `component.Base`'s owned-plugin disposal never sees it and the workspace owes it.
+        workspace = Neo.create(LockWorkspace, {
+            dockModel           : createDocument(),
+            enableDockLockAction: true
+        });
+
+        workspace.syncDockHeaderActions();
+
+        const plugin = workspace._dockLockPlugin;
+
+        expect(plugin, 'an accepted concern builds exactly one instance').not.toBe(null);
+        expect(workspace.dockLockPlugin, 'and the getter is idempotent').toBe(plugin);
+
+        workspace.destroy();
+
+        expect(plugin.isDestroyed, 'destroy retires the lazily-built plugin').toBe(true)
+    });
+
     test('an empty retained-tabs map falls back to the fresh projected shell', () => {
         const document = createDocument();
 
