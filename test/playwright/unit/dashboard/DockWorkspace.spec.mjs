@@ -168,6 +168,29 @@ class DroppedOptInsWorkspace extends DockWorkspace {
 }
 
 /**
+ * The subtler mistake, and the one a flag-only check would certify: the host writes
+ * `enableDockTearOut` by hand, so the obvious predicate is satisfied while none of the gesture
+ * handlers `super` contributes are present. `apps/workstation` writes the flag by hand, so this is
+ * a shape the codebase already contains rather than an invented one.
+ */
+class HandWrittenFlagWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.HandWrittenFlagWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {enableDockTearOut: true}
+    }
+}
+
+/**
  * The same override with the lifecycle OFF. Nothing was promised, so nothing was dropped and the
  * guard must stay silent — a host that never wanted tear-out is not misconfigured.
  */
@@ -353,6 +376,7 @@ class TearOutWorkspace extends DockWorkspace {
 }
 
 Neo.setupClass(DroppedOptInsWorkspace);
+Neo.setupClass(HandWrittenFlagWorkspace);
 Neo.setupClass(NoLifecycleWorkspace);
 Neo.setupClass(KeptOptInsWorkspace);
 Neo.setupClass(PlainWorkspace);
@@ -730,7 +754,17 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // come home — while dragging a tab out was unreachable and a dragged popup lit nothing.
         // Measured on a real consumer before this arm existed.
         expect(() => Neo.create(DroppedOptInsWorkspace, {dockModel: createDocument()}))
-            .toThrow(/returned no enableDockTearOut while enableDockTearOutLifecycle is on/);
+            .toThrow(/dropped .*enableDockTearOut.* while enableDockTearOutLifecycle is on/);
+
+        // The subtler shape, and the one a flag-only predicate would have certified: the flag is
+        // written by hand, so `enableDockTearOut === true` holds while none of the gesture handlers
+        // `super` contributes are present. `apps/workstation` writes the flag by hand, so this is a
+        // shape the codebase contains — the check therefore asks what `super` WOULD have given.
+        // The message must NAME what was dropped, which a flag-only predicate could not do: it knew
+        // only one key. Asserted on a handler rather than on the flag, because the flag is the one
+        // thing this host DID supply.
+        expect(() => Neo.create(HandWrittenFlagWorkspace, {dockModel: createDocument()}))
+            .toThrow(/onDockTearOutCancel/);
 
         // The guard must not fire on a host that never asked for tear-out; the same override with
         // the lifecycle off promised nothing.

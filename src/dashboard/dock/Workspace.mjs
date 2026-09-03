@@ -3716,8 +3716,21 @@ class Workspace extends Container {
             // that meant to enable tear-out learns at once, and one that meant to disable it turns
             // the lifecycle off rather than silently dropping what the lifecycle promised. The
             // action rendering is not evidence the options arrived.
-            if (me.enableDockTearOutLifecycle && options?.enableDockTearOut !== true) {
-                throw new Error(`Workspace ${me.id}: getDockProjectionOptions() returned no enableDockTearOut while enableDockTearOutLifecycle is on — an override must spread super.getDockProjectionOptions()`)
+            //
+            // The check compares against the WHOLE bundle, not against `enableDockTearOut` alone.
+            // The flag is one of eight keys `super` contributes — the rest are the tear-out gesture
+            // handlers `LayoutAdapter.project` reads — so testing the flag would make it a proxy for
+            // the bundle, and a host that writes the flag by hand (which `apps/workstation` does)
+            // would pass with none of the handlers present. That is this same failure one key
+            // deeper, and asking what `super` would have contributed keeps the check true as the
+            // bundle grows. It also lets the error name what was dropped.
+            if (me.enableDockTearOutLifecycle) {
+                const base = Workspace.prototype.getDockProjectionOptions.call(me),
+                      lost = Object.keys(base).filter(key => !(key in options));
+
+                if (lost.length) {
+                    throw new Error(`Workspace ${me.id}: getDockProjectionOptions() dropped ${lost.join(', ')} while enableDockTearOutLifecycle is on — an override must spread super.getDockProjectionOptions()`)
+                }
             }
 
             config = LayoutAdapter.project(document, {
