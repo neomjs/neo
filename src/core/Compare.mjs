@@ -46,16 +46,19 @@ class Compare {
     }
 
     /**
+     * @summary Functions compare by reference, because source text cannot see captured state.
+     *
+     * Two functions built from one source are routinely NOT interchangeable: `fn.bind({id: 1})` and
+     * `fn.bind({id: 2})` share a `name` and a `toString()`, as do two closures from one factory.
+     * Comparing those two properties therefore answers "equal" for functions that behave
+     * differently, so a reactive config carrying handlers would drop a genuine replacement without
+     * ever firing its change hooks.
      * @param {Function} item1
      * @param {Function} item2
      * @returns {Boolean}
      */
     static compareFunctions(item1, item2) {
-        if (item1.name !== item2.name) {
-            return false
-        }
-
-        return item1.toString() === item2.toString()
+        return item1 === item2
     }
 
     /**
