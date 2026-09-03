@@ -31,12 +31,7 @@ class CellEditing extends BaseCellEditing {
     }
 
     /**
-     * @summary The id of the DOM cell an editor must cover, translated into the grid's contract.
-     *
-     * `grid.Body#getCellId()` takes a **row index**, not a record: a grid's cell ids are pool-slot
-     * based (`…__row-{index % poolSize}`), because rows are recycled as the viewport moves. The
-     * inherited call passed the table's record straight through, so the modulo produced `NaN`, the
-     * id matched no node, and no editor could mount by ANY gesture.
+     * `grid.Body#getCellId()` takes a row INDEX, not a record — grid cell ids are pool-slot based.
      * @param {Object} record
      * @param {String} dataField
      * @returns {String}
@@ -49,13 +44,7 @@ class CellEditing extends BaseCellEditing {
     }
 
     /**
-     * @summary The View, which is where a grid's keys belong.
-     *
-     * `grid.View` is the single focus anchor — the only element in a grid that declares `tabindex` —
-     * and its own docs name it "the single key registry, the keyboard half of" that contract.
-     * `selection.grid.CellModel` and `ColumnModel` already register there. The inherited body
-     * registration could never fire: `Neo.manager.DomEvent` walks the event path UPWARD, and the
-     * bodies are the View's descendants, so a keydown targeted at the View never reaches them.
+     * `grid.View` is the grid's key registry, as `selection.grid.CellModel` and `ColumnModel` use.
      * @returns {Neo.component.Base}
      * @protected
      */
@@ -64,17 +53,8 @@ class CellEditing extends BaseCellEditing {
     }
 
     /**
-     * @summary Opens an editor over the SELECTED cell, resolved from the selection model.
-     *
-     * The inherited implementation guards on `data.target.cls?.includes('neo-selected')` — the
-     * keydown's target, i.e. whatever holds focus. On a grid that is always the View, and
-     * `neo-selected` is on the CELL, so the guard could never hold. Selection is the question being
-     * asked, so it is asked of the selection model: the same `hasSelection()` / `items[0]` /
-     * `getRecord()` / `getDataField()` accessors `CellModel#onNavKeyColumn` navigates with.
-     *
-     * The base's own `onSelectionChange` carries a `todo` anticipating this — "Once we separate
-     * cell selections & focus, we can use this event to mount editors" — and that separation is
-     * what made `grid.View` the single focus anchor in the first place.
+     * Opens an editor over the selected cell. The base reads the keydown target, which on a grid is
+     * always the View; `neo-selected` is on the cell, so selection is asked of the selection model.
      * @param {Object} data
      * @returns {Promise<void>}
      */
@@ -84,8 +64,6 @@ class CellEditing extends BaseCellEditing {
             selectionModel = view?.selectionModel,
             cellId, dataField, record;
 
-        // A row/column model marks no cell, so there is nothing for an editor to cover. Declining is
-        // correct; it is the SILENT decline that was the defect.
         if (me.mountedEditor || !selectionModel?.hasSelection?.()) {
             return
         }

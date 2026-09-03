@@ -32,15 +32,8 @@ class CellEditing extends Plugin {
          */
         editorCls: ['neo-table-editor'],
         /**
-         * @summary Whether dismissing an editor hands focus back to the cell it covered.
-         *
-         * The post-dismissal RESTORE only — it does not establish focus, and nothing consults it
-         * before an editor mounts. Its single use is in {@link #selectCell}, which runs from
-         * {@link #onEditorKeyEnter} and {@link #onEditorKeyEscape}, i.e. after an editor closes.
-         *
-         * Spelled out because the name reads like the opposite. On a surface whose cells are not
-         * focusable at all — a grid, where the View is the sole element declaring `tabindex` — this
-         * config being `true` says nothing about where a keystroke will land.
+         * Restores focus to the cell after an editor is dismissed (`selectCell`). It does NOT
+         * establish focus, and nothing reads it before an editor mounts.
          * @member {Boolean} focusCells=true
          */
         focusCells: true
@@ -87,14 +80,9 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * @summary Hook: the component whose `keys` registry the activation keystrokes belong on.
-     *
-     * The body, because a `table.Body`'s `tbody` carries `tabIndex:-1` and is therefore the element
-     * that holds focus when a keystroke arrives. `Neo.manager.DomEvent` routes by walking the event
-     * path UPWARD, so a listener only ever fires for a component on the target's ancestor path —
-     * which makes "where focus lives" and "where the keys belong" the same question.
-     *
-     * A subclass whose focus owner is NOT the body must say so; `Neo.grid.plugin.CellEditing` does.
+     * Hook: the component whose `keys` registry the activation keystrokes belong on — the body,
+     * because `table.Body`'s `tbody` is the focus owner. A subclass whose focus owner differs
+     * overrides this; `Neo.grid.plugin.CellEditing` does.
      * @returns {Neo.component.Base}
      * @protected
      */
@@ -103,12 +91,8 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * @summary Hook: the id of the DOM cell an editor must be mounted over.
-     *
-     * Deliberately asked of the plugin rather than read straight off the body, because
-     * `getCellId()` does not mean the same thing in both Body classes: `table.Body#getCellId()`
-     * takes a **record**, while `grid.Body#getCellId()` takes a **row index** (its cell ids are
-     * pool-slot based). Calling one contract on the other yields an id that resolves to no node.
+     * Hook: the id of the DOM cell an editor must cover. Asked of the plugin because `getCellId()`
+     * takes a record in `table.Body` and a row index in `grid.Body`.
      * @param {Object} record
      * @param {String} dataField
      * @returns {String}
@@ -159,10 +143,8 @@ class CellEditing extends Plugin {
             value               = record[dataField],
             keys;
 
-        // A cell id that resolves to no node is the failure this plugin used to have and could not
-        // report: the editor simply never appeared. Surfaced rather than thrown, matching the
-        // engine's own boundary idiom — an unmountable editor must not take the gesture down with
-        // it, but it must stop being invisible.
+        // An unresolvable cell id means the hook and the body's id scheme disagree — report it
+        // rather than continue into an editor that never appears.
         if (!cellNode) {
             console.error(`${me.className}: no cell node for "${cellId}" — getEditorCellId() disagrees with the body's id scheme`, {dataField, record});
             return
