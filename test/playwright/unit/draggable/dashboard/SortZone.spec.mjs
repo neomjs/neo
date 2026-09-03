@@ -17,8 +17,8 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
  * @summary Tests for Neo.draggable.dashboard.SortZone directional thresholds
  */
 test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () => {
-    let DashboardContainer, DashboardSortZone, Rectangle, realApplyDeltas, realDragCoordinatorOnDragEnd,
-        realDragCoordinatorOnWindowPositionChange, sortZone;
+    let DashboardContainer, DashboardSortZone, Rectangle, dwellConfigOnEntry, realApplyDeltas,
+        realDragCoordinatorOnDragEnd, realDragCoordinatorOnWindowPositionChange, sortZone;
 
     test.beforeAll(async () => {
         const containerModule = await import('../../../../../src/dashboard/Container.mjs');
@@ -38,6 +38,31 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         // files, so an unrestored override runs THIS file's fixture against a later spec's
         // components — the tell is a SortZone stack frame surfacing inside an unrelated spec.
         realApplyDeltas = Neo.applyDeltas;
+
+        // Captured before the suite mutates anything, because two tests below `Object.assign` a
+        // dwell of 0 straight onto the coordinator to make the hold commit synchronously. That is a
+        // legitimate fixture need; handing 0 to the next spec is not.
+        //
+        // These are non-reactive configs, so they live as OWN properties on the shared singleton
+        // with no prototype value underneath — once a spec overwrites one there is nothing left to
+        // fall back to, which is why the original has to be carried rather than re-derived.
+        dwellConfigOnEntry = {
+            dwellMs : Neo.manager.DragCoordinator.nativeWindowDropDwellMs,
+            settleMs: Neo.manager.DragCoordinator.nativeWindowDropSettleMs
+        };
+    });
+
+    // The leak witness. Asserting equality with what we found — rather than the literals 1200/250 —
+    // keeps the engine defaults at `src/manager/DragCoordinator.mjs` the only place they are stated,
+    // so moving a default can never make this file wrong. A cross-file leak is invisible from inside
+    // the file it lands in; the only place it is observable is here, at the boundary the leak crosses.
+    test.afterAll(() => {
+        const DragCoordinator = Neo.manager?.DragCoordinator;
+
+        expect(DragCoordinator.nativeWindowDropDwellMs, 'the suite hands the next spec the dwell it was given')
+            .toBe(dwellConfigOnEntry.dwellMs);
+        expect(DragCoordinator.nativeWindowDropSettleMs, 'the suite hands the next spec the settle it was given')
+            .toBe(dwellConfigOnEntry.settleMs)
     });
 
     test.beforeEach(() => {
@@ -67,8 +92,13 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
             DragCoordinator.nativeWindowDropCandidates.clear()
         }
         if (DragCoordinator) {
-            DragCoordinator.nativeWindowDropDwellMs  = 450;
-            DragCoordinator.nativeWindowDropSettleMs = 250;
+            // Restoring what the suite was handed, not the literals this fixture happens to like.
+            // The previous `= 450` here was an assignment wearing a restore's clothing: it neither
+            // matched the engine default (1200) nor anything this file had saved, so it published a
+            // halved dwell to every later spec in the worker — while masking the 0 the two
+            // `Object.assign` tests below leave behind, which is worse.
+            DragCoordinator.nativeWindowDropDwellMs  = dwellConfigOnEntry.dwellMs;
+            DragCoordinator.nativeWindowDropSettleMs = dwellConfigOnEntry.settleMs;
             DragCoordinator.sortZones = new Map();
             DragCoordinator.activeTargetZone = null;
 
