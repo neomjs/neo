@@ -1656,11 +1656,48 @@ class Workspace extends Container {
      * intent (it gated on the action config alone). One reader, so they cannot drift.
      *
      * `enableDockPopOutAction` alone is not sufficient: dispatch requires one effective
-     * {@link #tearOutHandlers} bundle, whether base-owned or supplied by the host.
+     * {@link #tearOutHandlers} bundle, whether base-owned or supplied by the host, AND a realm that
+     * can actually produce a vessel — see {@link #canOpenTearOutVessel}. An action a consumer
+     * enabled, the engine rendered, and the platform then refuses is the defect this whole seam
+     * exists to remove: the user clicks and nothing happens.
      * @returns {Boolean}
      */
     get dockPopOutActionActive() {
-        return this.enableDockPopOutAction === true && !!this.tearOutHandlers
+        const me = this;
+
+        // The capability gates the ENGINE-owned path only. A host that supplies its own
+        // `tearOutHandlers` with the lifecycle off has already asserted it can open a vessel — by
+        // implementing one — and `Neo.config` is not entitled to contradict it. Gating both routes
+        // alike is the tempting shape and it is wrong.
+        return me.enableDockPopOutAction === true
+            && !!me.tearOutHandlers
+            && (!me.enableDockTearOutLifecycle || me.canOpenTearOutVessel)
+    }
+
+    /**
+     * @summary Whether this realm can produce a tear-out vessel at all.
+     *
+     * A vessel adopts a LIVE pane from this workspace's app worker, and only a shared worker can
+     * serve one worker's components to a second window — so `useSharedWorkers` is the capability,
+     * not a preference. The engine's own {@link #openTearOutVessel} declines without it, and an
+     * enabled action that renders and then declines is exactly the silence this seam removes.
+     *
+     * **But the shared worker is only the ENGINE opener's requirement.** A host that supplies its
+     * own `openTearOutVessel` — a native shell, a test harness, any non-worker transport — can open
+     * a vessel without one, and demanding the config from it would withhold an action that works.
+     *
+     * So the default asks whether the engine's own opener is the one that will run. That is a
+     * prototype comparison, which this file elsewhere shows the cost of (`hasDockRecreateFallback`
+     * inverts to always-false the moment its base gains a default). It is sound *here* for the
+     * opposite reason: the base already HAS a working implementation, so "is it still the base one"
+     * is a stable question rather than a proxy for "did anyone implement this". A host may still
+     * override this getter directly when its answer is neither.
+     * @returns {Boolean}
+     * @protected
+     */
+    get canOpenTearOutVessel() {
+        return Neo.config.useSharedWorkers === true
+            || this.openTearOutVessel !== Workspace.prototype.openTearOutVessel
     }
 
     /**
