@@ -2198,18 +2198,30 @@ class Workspace extends DockWorkspace {
 
     /**
      * Maps both commit shapes onto the reconciler's fast paths — engine surfaces pass the semantic
-     * descriptor, this host's own paths pass their options object. The geometry admission is the
-     * ENGINE's now: it derives `geometryOnly` from the operation's declared change class, so this
-     * override adds only the one thing the engine cannot see — an explicit `geometryOnly` on this
-     * host's own options-object commits. Either way it is an admission REQUEST for the in-place
-     * projection path, never a claim that the topology is stable: the reconciler validates it,
-     * falls back to the staged transaction on any structural delta, and `DockFlip` is told the
-     * resulting `landedInPlace`, not this request. `detachItem` / `transferNode` admit the
-     * stable-topology fast path (a transferNode
-     * adoption keeps the structural shell — one tabs node's items grow — and the validator still
-     * rejects any transfer that does mutate structure). A commit-scoped `preserveItemIds` parks
-     * owner-held panes instead of destroying them (a terminal-first tear-out vessel owns its pane
-     * before it connects).
+     * descriptor, this host's own paths pass their options object.
+     *
+     * **Both admissions are the ENGINE's, and this override only ADDS to them.** It derives them
+     * from the operation's declared change class, so this host contributes exactly the two things
+     * the engine cannot see: an explicit `geometryOnly` on this host's own options-object commits,
+     * and the `detachItem` / `transferNode` stable-topology mapping (a transferNode adoption keeps
+     * the structural shell — one tabs node's items grow — and the validator still rejects any
+     * transfer that does mutate structure).
+     *
+     * Writing either key unconditionally is what made the engine's derivation unreachable here:
+     * `retainTopology` evaluated to `false` for an item-flag commit and OVERWROTE the engine's
+     * `true`, so a lock click in this host still restaged the whole shell after the engine had
+     * stopped doing that for every other consumer. Deriving means a class the engine learns to
+     * emit next arrives here without another edit.
+     *
+     * The railed guard survives the merge without being restated: the engine expresses it by
+     * WITHHOLDING `retainTopology` for a railed pane rather than by setting it false, so an
+     * or-merge cannot resurrect it — measured, not assumed.
+     *
+     * Either way these are admission REQUESTS for the in-place projection path, never claims that
+     * the topology is stable: the reconciler validates them, falls back to the staged transaction
+     * on any structural delta, and `DockFlip` is told the resulting `landedInPlace`, not the
+     * request. A commit-scoped `preserveItemIds` parks owner-held panes instead of destroying them
+     * (a terminal-first tear-out vessel owns its pane before it connects).
      * @param {Object|null} descriptor The committing surface's identification — a semantic
      *     descriptor or this host's options object.
      * @param {Object|null} source The committing surface, when it identifies itself.
@@ -2221,7 +2233,7 @@ class Workspace extends DockWorkspace {
 
         return {
             geometryOnly  : geometryOnly === true || base.geometryOnly === true,
-            retainTopology: operation === 'detachItem' || operation === 'transferNode',
+            retainTopology: base.retainTopology === true || operation === 'detachItem' || operation === 'transferNode',
             ...(Array.isArray(preserveItemIds) && preserveItemIds.length > 0 ? {preserveItemIds} : {})
         }
     }

@@ -2925,13 +2925,17 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
      * difference. Neutering the engine can: a private list survives it, delegation does not.
      * @param {Object|null} descriptor
      * @param {Boolean} [neuterEngine=false] Make the engine's default contribute nothing
+     * @param {Object|null} [items=null] Item records for the document, so the engine's railed
+     *     guard has something to read — it resolves placement off `dockModel.items`
      * @returns {Object}
      */
-    function refreshOptionsFor(descriptor, neuterEngine=false) {
+    function refreshOptionsFor(descriptor, neuterEngine=false, items=null) {
         const
             enginePrototype = Object.getPrototypeOf(Workspace.prototype),
             original        = enginePrototype.getRefreshOptions,
             workspace       = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest'});
+
+        items && (workspace.dockModel = {schema: 'neo.dock.zone.v1', root: 'root', items, nodes: {}});
 
         neuterEngine && (enginePrototype.getRefreshOptions = () => ({}));
 
@@ -2974,5 +2978,57 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
         expect(refreshOptionsFor({operation: 'moveItem', preserveItemIds: ['editor']}),
             'and a commit-scoped park still rides along')
             .toEqual({geometryOnly: false, retainTopology: false, preserveItemIds: ['editor']})
+    });
+
+    /**
+     * The item-flag admission had the same shape as the geometry one, one key over.
+     *
+     * `retainTopology` was written unconditionally, so for an item-flag commit it evaluated to
+     * `false` and OVERWROTE the engine's `true`. The engine stopped restaging the shell on a lock
+     * click for every consumer that writes no hook; this host kept doing it, which is the app the
+     * multi-window dock is demoed with.
+     *
+     * @see https://github.com/neomjs/neo/issues/18208
+     */
+    const SHELL_AND_RAIL = {
+        panel : {},
+        pinned: {autoHidden: true, pinned: true},
+        railed: {autoHidden: true}
+    };
+
+    test('a lock click reaches the engine\'s item-only refresh instead of being overwritten', () => {
+        // Red-first: on the parent commit this answers `retainTopology: false`, because the
+        // host's own expression is false for `setItemLocked` and it wrote the key regardless.
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'panel'}, false, SHELL_AND_RAIL),
+            'the engine\'s item-only path is no longer shadowed')
+            .toEqual({geometryOnly: false, retainTopology: true});
+
+        // The delegation half, same instrument as the geometry arm: with the engine contributing
+        // nothing, this host has no item-flag answer of its own and must not invent one.
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'panel'}, true, SHELL_AND_RAIL),
+            'the answer is the engine\'s, not a second private list')
+            .toEqual({geometryOnly: false, retainTopology: false})
+    });
+
+    test('a RAILED pane still takes the full transaction, and the or-merge cannot resurrect it', () => {
+        // The trap this ticket named. The engine expresses its railed guard by WITHHOLDING
+        // `retainTopology`, not by setting it false — so an or-merge preserves the guard rather
+        // than defeating it. Measured, because the ticket asserted the opposite as a risk and a
+        // risk I reasoned my way to is exactly the kind that deserves an arm.
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'railed'}, false, SHELL_AND_RAIL),
+            'an auto-hidden pane projects outside the shell, so no item-only path')
+            .toEqual({geometryOnly: false, retainTopology: false});
+
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'pinned'}, false, SHELL_AND_RAIL),
+            'a pinned pane renders IN the shell, so it keeps the fast path')
+            .toEqual({geometryOnly: false, retainTopology: true});
+
+        // The placement-changing flags stay `topology` in the class map, so neither reaches the
+        // fast path through this host either.
+        for (const operation of ['setItemPinned', 'setItemAutoHidden']) {
+            expect(refreshOptionsFor({operation, itemId: 'panel'}, false, SHELL_AND_RAIL),
+                `${operation} relocates the pane, so it takes the full transaction`)
+                .toEqual({geometryOnly: false, retainTopology: false})
+        }
     })
 });
