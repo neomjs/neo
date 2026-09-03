@@ -144,8 +144,12 @@ test.describe('Release-note orphan prevention', () => {
      *
      * The anchor is the runtime print, not the module docblock — matching documentation instead of the
      * print is how the deleted arm once shipped green while asserting nothing, and the fix then was to
-     * take the LAST occurrence. That trick is kept: `lastIndexOf` means a refactor that deletes the
-     * print cannot be rescued by a surviving prose mention of the same beat elsewhere in the file.
+     * take the LAST occurrence. `lastIndexOf` closes that rescue hole ABOVE the print; it says nothing
+     * about what sits below it, and an open-ended `slice(handoffIdx)` re-opened the same hole in the
+     * other direction — a `neo-agent-brain` mention appended anywhere further down the file (a `catch`
+     * handler, a later beat) satisfied an assertion that is about this print. The naming window is
+     * therefore bounded to the print STATEMENT, so both directions are closed structurally rather than
+     * by where the print happens to sit in the file.
      *
      * The deleted arm additionally required `package.json` to carry `ai:post-release-sync` resolving to
      * `ai/scripts/lifecycle/postReleaseSync.mjs`. Both departed with the extraction and that half is
@@ -154,6 +158,7 @@ test.describe('Release-note orphan prevention', () => {
     test('the engine half hands off to the Brain-side lifecycle, ordered after release and note removal', () => {
         const
             src        = fs.readFileSync(path.join(root, 'buildScripts/release/publish.mjs'), 'utf8'),
+            lines      = src.split('\n'),
             handoffIdx = src.lastIndexOf('Next runbook step'),
             releaseIdx = src.indexOf('gh release create'),
             cleanupIdx = src.indexOf('fs.removeSync(releaseNotePath)');
@@ -163,9 +168,21 @@ test.describe('Release-note orphan prevention', () => {
         expect(handoffIdx).toBeGreaterThan(releaseIdx);
         expect(handoffIdx).toBeGreaterThan(cleanupIdx);
 
+        // The window is the print STATEMENT — the run of lines beginning at the handoff line and
+        // continuing while they are `console.log` calls or continuations of one. It deliberately does
+        // NOT extend to end-of-file: the file's tail is a neighbour, not the subject, and anything
+        // appended below the print would otherwise stand in for the print's own wording. A print
+        // refactored into a shape this run does not recognise ends the window early and reddens the
+        // arm, which is the safe direction for a claim about what the operator is told.
+        const
+            handoffLine = lines.findLastIndex(line => line.includes('Next runbook step')),
+            printEnd    = lines.findIndex((line, index) =>
+                index > handoffLine && !/^\s*(console\.log\(|['"`)])/.test(line)),
+            handoffPrint = lines.slice(handoffLine, printEnd === -1 ? lines.length : printEnd).join('\n');
+
         // A beat that does not say WHERE the next step runs is not a handoff. The print must name the
         // Brain-side half, so an Engine-only checkout cannot mistake the release for complete.
-        expect(src.slice(handoffIdx), 'the handoff must name the Brain-side checkout')
+        expect(handoffPrint, 'the handoff print itself must name the Brain-side checkout')
             .toMatch(/neo-agent-brain/);
     });
 
@@ -177,8 +194,8 @@ test.describe('Release-note orphan prevention', () => {
      * colliding artifacts.
      *
      * This is a source-ORDERING claim, not a behavioural one, which is what makes a source assertion
-     * the right instrument: the guard must appear immediately BEFORE the broad stage. Proving it
-     * behaviourally would require cutting a release.
+     * the right instrument: the guard must appear BEFORE the broad stage with nothing that runs a
+     * command in between. Proving it behaviourally would require cutting a release.
      *
      * The population is pinned per file rather than counted in total, deliberately: a mere total would
      * let a second broad stage arrive in an unguarded file and still pass. The deleted arm pinned two
@@ -207,16 +224,28 @@ test.describe('Release-note orphan prevention', () => {
                 .toBe(expectedBroadStages);
 
             for (const {index} of broadStageLines) {
-                // The guard must be the immediately-preceding executable statement, so a later edit cannot
-                // slip a stage in between and still pass.
-                const preceding = lines
-                    .slice(0, index)
-                    .map(line => line.trim())
-                    .filter(line => line && !line.startsWith('//'))
-                    .pop();
+                // The guard must precede the stage with NOTHING that runs a command in between, so a
+                // later edit cannot slip work between the verdict and the stage it protects.
+                //
+                // Anchored on statements, not on the single preceding LINE: reading `lines[index - 1]`
+                // reported "unguarded" the moment the guard's own call was wrapped across lines, which
+                // sends the next author hunting a guard that is sitting right above the stage. Deleting
+                // the call still fails closed, and says so directly: the declaration is excluded from
+                // the search, so a deleted call reports a missing guard rather than a distant one.
+                const
+                    stageIdx   = lines.slice(0, index).reduce((sum, line) => sum + line.length + 1, 0),
+                    guardCalls = [...source.matchAll(/(?<!function\s)assertNoArchiveLogicalIdentityCollisions\(/g)]
+                        .map(match => match.index)
+                        .filter(offset => offset < stageIdx),
+                    guardIdx   = guardCalls.at(-1) ?? -1,
+                    between    = guardIdx > -1 ? source.slice(guardIdx, stageIdx) : '';
 
-                expect(preceding, `${file}: broad stage at line ${index + 1} is unguarded`)
-                    .toMatch(/assertNoArchiveLogicalIdentityCollisions\(/);
+                expect(guardIdx, `${file}: broad stage at line ${index + 1} has no guard above it`)
+                    .toBeGreaterThan(-1);
+
+                expect(between.match(/\b(runCommand|execSync)\(/g),
+                    `${file}: broad stage at line ${index + 1} is separated from its guard by a command`)
+                    .toBeNull();
             }
 
             // And the guard must actually consult the shared predicate rather than reimplementing it,
