@@ -69,6 +69,15 @@ class Card extends Base {
     }
 
     /**
+     * In-flight {@link #loadModule} calls, keyed by the parked item config so a second caller joins
+     * the first load instead of starting its own. Keyed by the config rather than stored on it,
+     * because the config itself is handed to `Neo.create` once the module resolves.
+     * @member {WeakMap<Object,Promise>} loadingModules=new WeakMap()
+     * @protected
+     */
+    loadingModules = new WeakMap()
+
+    /**
      * Modifies the CSS classes of the container items this layout is bound to.
      * Automatically gets triggered after changing the value of activeIndex.
      * Lazy loads items which use a module config containing a function.
@@ -189,12 +198,51 @@ class Card extends Base {
     }
 
     /**
-     * Loads a component.Base module which is defined via module: () => import('...')
+     * @summary Loads a component.Base module which is defined via module: () => import('...')
+     *
+     * **Idempotent per item, and the guard belongs here.** Two callers legitimately ask for the same
+     * parked item: a card layout loads it when its index activates, and `container.Base#insert`
+     * starts the load itself when the inserted index is already the active one. Both are correct,
+     * and neither can know about the other.
+     *
+     * `isLoading` below is NOT that guard. It is set for `form.Container` to read — its own comment
+     * says so — and this method never consulted it, so both callers crossed the `await` on the
+     * dynamic import and both reached `Neo.create`, the second overwriting the first instance and
+     * orphaning a live component. The window is exactly the import's duration, which is why it
+     * surfaced as an intermittent double construction under machine load rather than as a bug.
+     *
+     * A second call therefore joins the in-flight promise and settles on the same instance. The
+     * promise is keyed in a `WeakMap` by the parked config rather than stored on it, because that
+     * config is passed to `Neo.create` once it resolves.
      * @param {Object} item
      * @param {Number} [index]
-     * @returns {Neo.component.Base}
+     * @returns {Promise<Neo.component.Base>}
      */
-    async loadModule(item, index) {
+    loadModule(item, index) {
+        let me       = this,
+            inFlight = me.loadingModules.get(item);
+
+        if (inFlight) {
+            return inFlight
+        }
+
+        const load = me.#loadModuleOnce(item, index);
+
+        me.loadingModules.set(item, load);
+
+        // A rejected import must not leave the item unloadable: the entry goes whatever the outcome,
+        // so the next activation retries against a config that is still parked behind its placeholder.
+        return load.finally(() => me.loadingModules.delete(item))
+    }
+
+    /**
+     * The one-shot body of {@link #loadModule}, entered at most once per parked item at a time.
+     * @param {Object} item
+     * @param {Number} [index]
+     * @returns {Promise<Neo.component.Base>}
+     * @private
+     */
+    async #loadModuleOnce(item, index) {
         let me          = this,
             {container} = me,
             items       = container.items,
