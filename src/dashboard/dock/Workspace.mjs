@@ -780,14 +780,84 @@ class Workspace extends Container {
     }
 
     /**
-     * Hook: opens the consumer's platform-specific tear-out vessel. The engine owns gesture
-     * admission and passes its token; a consumer owns URL, shell and geometry.
+     * @summary Opens the tear-out vessel, defaulting to the engine's own connect vocabulary.
+     *
+     * This hook used to return `null`, so pop-out and drag tear-out were both inert for any host
+     * that wrote no window code: the action rendered, the click opened nothing, and no signal said
+     * why. The engine was asking each consumer to re-implement a SENDER for a protocol only the
+     * engine defines — `onWindowConnect` parses `tearout`, the host param, `vesselFlow` and
+     * `vesselAdmission` off the vessel's own URL — from a specification that existed nowhere but
+     * one app's source.
+     *
+     * Nothing in those four parameters is app-specific, so the default constructs them and reopens
+     * the host's own document. A consumer that wants a dedicated vessel shell, its own routing or
+     * staged theming still overrides, and the override remains authoritative.
      * @param {Object} request
-     * @returns {Promise<Object|null>|Object|null}
+     * @param {Number} request.admissionToken The engine's gesture token; echoed back in the URL.
+     * @param {String} request.itemId
+     * @param {Object} [request.proxyRect] Where the user released the drag proxy.
+     * @returns {Promise<Object|null>} `{admissionToken, windowName}`, or `null` when no vessel opened.
      * @protected
      */
-    openTearOutVessel(request) {
-        return null
+    async openTearOutVessel({admissionToken, itemId, proxyRect}={}) {
+        let me         = this,
+            {windowId} = me;
+
+        // `useSharedWorkers` is the real capability gate: a vessel window adopts a LIVE pane from
+        // this workspace's app worker, which only a shared worker can serve to a second window.
+        // Without it there is no vessel to open, and the action should not have rendered — see the
+        // `enableDockPopOutAction` guard rather than failing here.
+        if (!Neo.config.useSharedWorkers || !itemId) {
+            return null
+        }
+
+        try {
+            let [hostUrl, winData] = await Promise.all([
+                    Neo.Main.getByPath({path: 'document.URL', windowId}),
+                    Neo.Main.getWindowData({windowId})
+                ]),
+                url = new URL(hostUrl);
+
+            // The vessel boots the SAME document with the engine's own connect vocabulary — the
+            // exact four parameters `onWindowConnect` parses. Nothing about them is app-specific,
+            // which is why the engine can construct this and every consumer was re-deriving it.
+            // Stripping first matters: a vessel re-torn from a vessel would otherwise inherit the
+            // parent's item and admission and connect as the wrong pane.
+            ['tearout', 'vesselFlow', 'vesselAdmission', me.tearOutHostParam].forEach(param => url.searchParams.delete(param));
+
+            url.searchParams.set('tearout',         itemId);
+            url.searchParams.set(me.tearOutHostParam, me.id);
+            url.searchParams.set('vesselFlow',      'tear-out');
+            url.searchParams.set('vesselAdmission', String(admissionToken));
+
+            // The proxy rect is the pane the user dragged, so the vessel opens where they let go.
+            // Floors keep a degenerate rect (a collapsed rail tab) from opening an unusable window.
+            let height     = Math.max(Math.round(proxyRect?.height || 360), 240),
+                width      = Math.max(Math.round(proxyRect?.width  || 480), 320),
+                left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
+                top        = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
+                windowName = `neo-dock-tearout-${itemId}`;
+
+            const opened = await Neo.Main.windowOpen({
+                nativeCapabilities: {close: true, position: true, resize: true},
+                url               : url.href,
+                windowFeatures    : `height=${height},left=${left},top=${top},width=${width}`,
+                windowId,
+                windowName
+            });
+
+            if (opened === false) {
+                // A blocked popup is the one failure a user can act on, so it must not be silent —
+                // the whole class this seam exists to remove.
+                console.warn(`Dock tear-out: the platform refused a vessel window for "${itemId}"`, me.id);
+                return null
+            }
+
+            return {admissionToken, windowName}
+        } catch (error) {
+            console.warn(`Dock tear-out: opening a vessel for "${itemId}" threw`, me.id, error);
+            return null
+        }
     }
 
     /**

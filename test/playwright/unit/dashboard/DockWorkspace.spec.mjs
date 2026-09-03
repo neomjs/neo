@@ -3044,6 +3044,99 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
             expect(workspace.resolveTearOutPane('no-such-item')).toBeNull()
+        });
+
+        test('the engine opens its own vessel, carrying the four params onWindowConnect parses', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  MainStub           = {
+                      getByPath    : () => Promise.resolve('https://example.test/app/index.html?existing=keep'),
+                      getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 40, screenTop: 20}),
+                      windowOpen   : data => { opens.push(data); return Promise.resolve(true) }
+                  },
+                  originalMain   = Neo.Main;
+
+            Neo.Main         = MainStub;
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                const vessel = await workspace.openTearOutVessel({admissionToken: 7, itemId: 'editor', proxyRect: {height: 500, width: 640, x: 100, y: 60}});
+
+                expect(opens.length, 'the engine opened a window without any consumer hook').toBe(1);
+
+                const url = new URL(opens[0].url);
+
+                // The exact vocabulary onWindowConnect parses. A consumer re-deriving these from
+                // one app's source is the defect; the engine defines them, so it can write them.
+                expect(url.searchParams.get('tearout')).toBe('editor');
+                expect(url.searchParams.get(workspace.tearOutHostParam)).toBe(workspace.id);
+                expect(url.searchParams.get('vesselFlow')).toBe('tear-out');
+                expect(url.searchParams.get('vesselAdmission')).toBe('7');
+                expect(url.searchParams.get('existing'), 'the host document\'s own params survive').toBe('keep');
+
+                // The proxy rect is where the user let go, offset into screen space.
+                expect(opens[0].windowFeatures).toContain('width=640');
+                expect(opens[0].windowFeatures).toContain('height=500');
+
+                expect(vessel).toMatchObject({admissionToken: 7, windowName: 'neo-dock-tearout-editor'})
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a vessel re-torn from a vessel does not inherit the parent\'s item or admission', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  originalMain       = Neo.Main;
+
+            // The host document ALREADY carries vessel params — the case a re-tear produces.
+            Neo.Main = {
+                getByPath    : () => Promise.resolve(`https://example.test/i.html?tearout=preview&vesselFlow=tear-out&vesselAdmission=3&${workspace.tearOutHostParam}=stale-host`),
+                getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 0, screenTop: 0}),
+                windowOpen   : data => { opens.push(data); return Promise.resolve(true) }
+            };
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                await workspace.openTearOutVessel({admissionToken: 9, itemId: 'terminal'});
+
+                const url = new URL(opens[0].url);
+
+                // Without the strip, the vessel would connect as the PARENT's pane against a stale
+                // host id — a wrong pane in a real window, which reads as a success.
+                expect(url.searchParams.getAll('tearout')).toEqual(['terminal']);
+                expect(url.searchParams.getAll('vesselAdmission')).toEqual(['9']);
+                expect(url.searchParams.get(workspace.tearOutHostParam)).toBe(workspace.id)
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('without useSharedWorkers there is no vessel to open, and none is attempted', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  originalMain       = Neo.Main;
+
+            Neo.Main = {windowOpen: data => { opens.push(data); return Promise.resolve(true) }};
+            Neo.config.useSharedWorkers = false;
+
+            try {
+                // A live pane cannot be served to a second window without a shared worker, so
+                // opening one would produce an empty vessel — worse than not opening it.
+                expect(await workspace.openTearOutVessel({admissionToken: 1, itemId: 'editor'})).toBeNull();
+                expect(opens, 'no window is opened').toEqual([])
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
         })
     })
 });
