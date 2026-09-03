@@ -296,6 +296,25 @@ class GridBody extends Component {
 
         let me = this;
 
+        // Give this instance its own virtualization windows.
+        //
+        // `mountedRows`, `visibleRows` and `visibleColumns` are declared in `static config` as
+        // array literals, and updateMountedAndVisibleRows() / updateMountedAndVisibleColumns()
+        // write through them by index rather than reassigning — see the "update the array inline"
+        // comments at their assignment sites. A non-reactive config holding an array hands every
+        // instance the SAME object, so without this copy every grid body on the page shares one
+        // window and the last body to measure decides what all the others believe is mounted.
+        //
+        // The consequence is silent, because both repaint paths treat an out-of-window index as
+        // "nothing to do": onStoreRecordChange() skips the row and getRow() returns null, so a
+        // record change beyond the borrowed window updates the store and never reaches the DOM.
+        //
+        // Copying the current value rather than assigning a fresh `[0, 0]` keeps any window
+        // supplied through config, which is why this runs after super.construct().
+        me.mountedRows    = [...me.mountedRows];
+        me.visibleRows    = [...me.visibleRows];
+        me.visibleColumns = [...me.visibleColumns];
+
         me.addDomListeners([{
             click: me.onCellClick,
             dblclick: me.onCellDoubleClick,
