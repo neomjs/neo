@@ -79,7 +79,11 @@ test.describe('Neo.dashboard.dock.model.Operations — the change-class beside t
             expect(Operations.changeClassFor(op), `${op} moves a boundary`).toBe('geometry')
         }
 
-        for (const op of ['addTab', 'moveItem', 'splitNode', 'moveNode', 'closeItem', 'detachItem']) {
+        // `restoreTab` is structural on BOTH branches — it delegates to `addTab` when the home node
+        // survives and mints a node when it does not — so the class holds however the restore lands.
+        // AC-3: it already fell through to the `topology` default, so declaring it changes no
+        // behaviour; the arm exists so the map cannot drift from dispatch again.
+        for (const op of ['addTab', 'moveItem', 'splitNode', 'moveNode', 'closeItem', 'detachItem', 'restoreTab']) {
             expect(Operations.changeClassFor(op), `${op} may restructure`).toBe('topology')
         }
     });
