@@ -2008,6 +2008,49 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             )
         });
 
+        test('an OCCUPIED home is not a home — the new occupant survives, the returner goes elsewhere', () => {
+            const {document: detached, placement} = detachAlone(doc(), 'terminal');
+
+            expect(detached.nodes.root.zones.right).toBeUndefined();
+
+            // A vessel is long-lived. While the pane is out, the user docks something else to the
+            // very edge it left — an ordinary sequence, not an exotic one.
+            const occupied = Document.clone(detached);
+
+            occupied.nodes['new-right'] = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
+            Document.setZoneNodeId(occupied.nodes.root, 'right', 'new-right');
+
+            const {document: restored, errors} = Operations.applyOperation(occupied, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            // The recorded coordinate is VALID and NOT MINE. Writing it would orphan `new-right`:
+            // an edge zone holds one node per key, so the occupant would be referenced by nothing —
+            // a lost pane, and not the one being restored.
+            expect(errors.length, 'an occupied slot resolves to nothing, rather than being taken').toBeGreaterThan(0);
+            expect(restored, 'and the document is returned untouched').toEqual(occupied);
+
+            // The occupant is what this arm exists for: it must still be reachable from the root.
+            expect(Document.getZoneNodeId(occupied.nodes.root.zones.right)).toBe('new-right');
+            expect(Document.reachableNodeIds(occupied).has('new-right')).toBe(true)
+        });
+
+        test('a slot holding the returner ITSELF is still its own — re-entry is not an overwrite', () => {
+            const source    = doc(),
+                  placement = Document.captureItemPlacement(source, 'terminal');
+
+            // The ownership guard must not refuse the node its own slot: `side-tabs` is still in
+            // `zones.right` here, so an occupancy check that only asked "is anything there?" would
+            // send a pane away from the home it never lost.
+            const {document: restored, errors} = Operations.applyOperation(source, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors).toEqual([]);
+            expect(Document.getZoneNodeId(restored.nodes.root.zones.right)).toBe('side-tabs');
+            expect(restored.nodes['side-tabs'].items).toEqual(['terminal'])
+        });
+
         test('AC-6 with NO recorded placement the item still lands somewhere valid', () => {
             const {document: detached} = detachAlone(doc(), 'terminal');
 

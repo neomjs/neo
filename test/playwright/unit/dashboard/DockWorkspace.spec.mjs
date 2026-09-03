@@ -873,6 +873,37 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(detached.nodes['editor-tabs']).toBeUndefined()
         });
 
+        test('a pane docked into the recorded home while the vessel is open is NOT displaced', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
+
+            const placement = Document.captureItemPlacement(workspace.dockModel, 'inspector'),
+                  detached  = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'inspector'});
+
+            expect(detached.errors).toEqual([]);
+            workspace.onDockZoneDocumentChange(detached.document);
+            expect(detached.document.nodes[placement.tabsNodeId], 'the home is gone').toBeUndefined();
+
+            // A vessel window is long-lived, so this interleaving is ordinary: while the pane is
+            // out, something else takes the edge it left. The occupant must survive — losing a pane
+            // the user never touched is strictly worse than the misplacement this seam fixes.
+            const occupied = Document.clone(workspace.dockModel);
+
+            occupied.items['late']       = {componentRef: 'Late', title: 'Late', kind: 'panel'};
+            occupied.nodes['late-right']  = {type: 'tabs', items: ['late'], activeItemId: 'late'};
+            Document.setZoneNodeId(occupied.nodes[placement.home.parentId], placement.home.slot, 'late-right');
+            workspace.onDockZoneDocumentChange(occupied);
+
+            expect(await workspace.reintegrateTearOutItem('inspector', null)).toBe(true);
+
+            const doc = workspace.dockModel;
+
+            expect(Document.getZoneNodeId(doc.nodes[placement.home.parentId].zones[placement.home.slot]),
+                'the occupant kept the slot').toBe('late-right');
+            expect(doc.nodes['late-right'].items, 'and kept its item').toEqual(['late']);
+            expect(Document.findContainingTabsId(doc, 'inspector'), 'the returner still landed somewhere').toBeTruthy();
+            expect(Document.validate(doc)).toEqual([])
+        });
+
         test('a recorded home that resolves to NOTHING falls back rather than dropping the pane', async () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 

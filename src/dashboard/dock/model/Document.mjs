@@ -543,10 +543,17 @@ class Document extends Base {
      * @summary Mutating helper: grafts an already-present node back into the home
      * {@link Neo.dashboard.dock.model.Document.captureNodeHome} recorded for it.
      *
-     * Three resolutions, most faithful first: the recorded parent still holds the slot (an
-     * edge-zone that lost the key, or a split that kept ≥ 2 other children); otherwise the sibling
-     * the collapsed split folded into is re-split against, restoring orientation, side and ratio;
-     * otherwise nothing resolves and this fails closed rather than guessing a home.
+     * Three resolutions, most faithful first: the recorded parent still holds the slot and it is
+     * still FREE (an edge-zone that lost the key, or a split that kept ≥ 2 other children);
+     * otherwise the sibling the collapsed split folded into is re-split against, restoring
+     * orientation, side and ratio; otherwise nothing resolves and this fails closed rather than
+     * guessing a home.
+     *
+     * A recorded coordinate can go wrong two ways, and they need different answers: it can become
+     * INVALID (the node is gone — what the sibling anchor exists for) or OCCUPIED (someone else
+     * took the slot). Restoration guards the first by instinct and forgets the second, so the
+     * single-slot edge-zone path checks ownership explicitly; the split path is safe only because
+     * insertion is additive.
      *
      * Fails closed on purpose: choosing an arbitrary node here would look like a restoration and be
      * a relocation. Deciding that somewhere beats nowhere belongs to the caller, which knows whether
@@ -565,8 +572,17 @@ class Document extends Base {
         let parent = document.nodes[home.parentId];
 
         if (parent?.type === 'edge-zone' && typeof home.slot === 'string') {
-            Document.setZoneNodeId(parent, home.slot, nodeId);
-            return []
+            const occupant = Document.getZoneNodeId(parent.zones?.[home.slot]);
+
+            // An edge zone holds ONE node per key, so writing the slot REPLACES whatever is there.
+            // A vessel is long-lived: the user can dock another pane to this edge while the pane is
+            // out, and overwriting would orphan that node — a silently lost pane, and not the one
+            // being restored. An occupied slot is therefore not a home. This is the ownership
+            // question, distinct from the existence question every other path asks.
+            if (!occupant || occupant === nodeId) {
+                Document.setZoneNodeId(parent, home.slot, nodeId);
+                return []
+            }
         }
 
         if (parent?.type === 'split' && typeof home.slot === 'number') {
