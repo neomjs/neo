@@ -13,6 +13,7 @@ import Component                from '../../../../src/component/Base.mjs';
 import Container                from '../../../../src/container/Base.mjs';
 import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/button/Base.mjs';
 import '../../../../src/tab/Container.mjs';
@@ -431,6 +432,47 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             expect(placeholders.size).toBe(0)
         } finally {
             host.destroy()
+        }
+    });
+
+    test('the option the ENGINE derives for a resize is one this reconciler grants', async () => {
+        // The arms around this one hand `reconcileProjection` a `geometryOnly` the test author
+        // chose, which proves the reconciler honours the request but says nothing about whether
+        // anything ever makes it. The workspace's derived default is the other half of that loop:
+        // a consumer writing no hook gets whatever `getRefreshOptions` returns, so if the two ends
+        // disagree the fast path is dead code that every arm here still passes over.
+        //
+        // Taking the engine's ACTUAL output rather than restating it is what closes the loop —
+        // this goes red if the engine stops emitting the class, and red if the reconciler stops
+        // granting it.
+        const workspace = Neo.create(DockWorkspace, {});
+
+        let options;
+
+        try {
+            options = workspace.getRefreshOptions({operation: 'resizeSplit'}, null)
+        } finally {
+            workspace.destroy()
+        }
+
+        expect(options, 'the engine asks for the in-place path').toEqual({geometryOnly: true});
+
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].sizes = [0.7, 0.3]
+        }, options);
+
+        try {
+            // `landedInPlace` is the OUTCOME, not the request — the one read that distinguishes a
+            // granted fast path from a refused one that quietly took the staged transaction.
+            expect(receipt.result.landedInPlace, 'and the reconciler grants it').toBe(true);
+            expect(receipt.result.nextShell, 'the live shell was kept, not swapped').toBe(receipt.oldShell);
+
+            const currentTabs = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell);
+
+            expect(currentTabs.get('alpha-tabs').flex, 'and the new boundary actually landed').toBe(0.7);
+            expect(currentTabs.get('beta-tabs').flex).toBe(0.3)
+        } finally {
+            receipt.host.destroy()
         }
     });
 

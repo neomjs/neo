@@ -2198,11 +2198,14 @@ class Workspace extends DockWorkspace {
 
     /**
      * Maps both commit shapes onto the reconciler's fast paths — engine surfaces pass the semantic
-     * descriptor, this host's own paths pass their options object. `resizeSplit` (or an explicit
-     * `geometryOnly`) is an admission REQUEST for the in-place projection path, never a claim that
-     * the topology is stable: the reconciler validates it, falls back to the staged transaction on
-     * any structural delta, and `DockFlip` is told the resulting `landedInPlace`, not this
-     * request. `detachItem` / `transferNode` admit the stable-topology fast path (a transferNode
+     * descriptor, this host's own paths pass their options object. The geometry admission is the
+     * ENGINE's now: it derives `geometryOnly` from the operation's declared change class, so this
+     * override adds only the one thing the engine cannot see — an explicit `geometryOnly` on this
+     * host's own options-object commits. Either way it is an admission REQUEST for the in-place
+     * projection path, never a claim that the topology is stable: the reconciler validates it,
+     * falls back to the staged transaction on any structural delta, and `DockFlip` is told the
+     * resulting `landedInPlace`, not this request. `detachItem` / `transferNode` admit the
+     * stable-topology fast path (a transferNode
      * adoption keeps the structural shell — one tabs node's items grow — and the validator still
      * rejects any transfer that does mutate structure). A commit-scoped `preserveItemIds` parks
      * owner-held panes instead of destroying them (a terminal-first tear-out vessel owns its pane
@@ -2213,10 +2216,11 @@ class Workspace extends DockWorkspace {
      * @returns {Object}
      */
     getRefreshOptions(descriptor, source) {
-        let {geometryOnly = false, operation = null, preserveItemIds} = descriptor || {};
+        let {geometryOnly = false, operation = null, preserveItemIds} = descriptor || {},
+            base = super.getRefreshOptions(descriptor, source);
 
         return {
-            geometryOnly  : geometryOnly === true || ['resizeEdgeZone', 'resizeSplit'].includes(operation),
+            geometryOnly  : geometryOnly === true || base.geometryOnly === true,
             retainTopology: operation === 'detachItem' || operation === 'transferNode',
             ...(Array.isArray(preserveItemIds) && preserveItemIds.length > 0 ? {preserveItemIds} : {})
         }

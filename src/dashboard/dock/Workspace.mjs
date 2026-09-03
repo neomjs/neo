@@ -3472,10 +3472,11 @@ class Workspace extends Container {
 
     /**
      * Hook: the reconciler's fast-path options for the refresh a commit schedules —
-     * `{geometryOnly}` for a pure `resizeSplit`, `{retainTopology}` for item-only deltas on a
+     * `{geometryOnly}` for a pure boundary move, `{retainTopology}` for item-only deltas on a
      * proven-identical shell, `{preserveItemIds}` for owner-held ids known only at THIS commit (a
      * pane parked by the operation itself), merged with the standing {@link #getPreservedItemIds}
-     * set. The default takes the full staged transaction every time. The committing surface passes
+     * set. The default derives both fast paths from the operation's declared change class, so a
+     * consumer that overrides nothing already gets them. The committing surface passes
      * `descriptor` as it identifies the operation — engine surfaces pass the semantic descriptor;
      * a host's own paths may pass their options object — and the override maps whatever shapes its
      * commit sites produce.
@@ -3493,13 +3494,27 @@ class Workspace extends Container {
         //
         // An operation with no declared class falls through to `topology`, i.e. exactly the old
         // behaviour, so a vocabulary that outgrows the map degrades to slow rather than to wrong.
-        // Only the item-flag class is wired. `geometry` is declared honestly in the class map but
-        // deliberately NOT emitted yet: on `dev` a resize takes the full transaction, this ticket
-        // measured only the lock flicker, and its AC-4 requires resize to keep its current
-        // behaviour. Putting every drag-resize on an unmeasured fast path is a separate change with
-        // its own evidence, not a free rider on this one.
-        if (Operations.changeClassFor(descriptor?.operation) === 'itemFlags') {
-            return this.isDockRailedItem(descriptor?.itemId) ? {} : {retainTopology: true}
+        // `topology` is the one class with nothing to emit, because it IS the full transaction.
+        //
+        // Both emitted values are admission REQUESTS, never claims: `reconcileStableTopology`
+        // returns null on any node/type/ancestry/order/orientation delta and the caller falls
+        // through to the staged transaction, with `landedInPlace` reporting the path actually
+        // taken. A class that were ever wrong would therefore cost one refused validation pass,
+        // not a wrong projection — which is why the fast path can be derived at all.
+        switch (Operations.changeClassFor(descriptor?.operation)) {
+            // Both resize reducers clone the document and write exactly one field —
+            // `nodes[id].sizes`, `nodes[id].zones[edge].extent` — and survive `Document.commit`,
+            // normalization included, with the node tree, the node id set and `items` all
+            // byte-identical. Nothing moved but the boundary, so nothing needs restaging.
+            case 'geometry':
+                return {geometryOnly: true};
+
+            // The item-flag reducers write one `items[id]` field and touch `nodes` nowhere, so the
+            // shell is stable and only items reconcile. A railed item is the exception: pin and
+            // auto-hide project OUTSIDE the shell, so their placement change cannot ride an
+            // item-only refresh.
+            case 'itemFlags':
+                return this.isDockRailedItem(descriptor?.itemId) ? {} : {retainTopology: true}
         }
 
         return {}
