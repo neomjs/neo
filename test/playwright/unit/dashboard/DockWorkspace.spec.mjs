@@ -3318,6 +3318,81 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             pane.destroy()
         });
 
+        test('without the capability the pop-out action does not render, rather than rendering and declining', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
+
+            const {useSharedWorkers} = Neo.config;
+
+            try {
+                Neo.config.useSharedWorkers = true;
+                expect(workspace.canOpenTearOutVessel, 'a shared-worker realm can produce a vessel').toBe(true);
+                expect(workspace.dockPopOutActionActive, 'so the action is offered').toBe(true);
+
+                Neo.config.useSharedWorkers = false;
+                // The engine's own opener declines without a shared worker, because a vessel adopts
+                // a LIVE pane from this app worker. Offering the action anyway is the exact silence
+                // this seam removes: the user clicks and nothing happens, with no signal.
+                expect(workspace.canOpenTearOutVessel).toBe(false);
+                expect(workspace.dockPopOutActionActive, 'the action is withheld, not rendered-and-inert').toBe(false)
+            } finally {
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a host that overrides ONLY the opener still gets the action', () => {
+            class OpenerOnlyWorkspace extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.OpenerOnlyWorkspace'}
+
+                openTearOutVessel({admissionToken, itemId}) {return {admissionToken, windowName: `own-${itemId}`}}
+            }
+
+            Neo.setupClass(OpenerOnlyWorkspace);
+
+            workspace = Neo.create(OpenerOnlyWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
+
+            const {useSharedWorkers} = Neo.config;
+
+            try {
+                Neo.config.useSharedWorkers = false;
+
+                // The shared worker is the ENGINE opener's requirement, not the feature's. A host
+                // with its own transport can open a vessel without one, and demanding the config
+                // from it would withhold an action that works. The component pop-out fixture is
+                // exactly this shape and caught the first version of this gate in CI.
+                expect(workspace.canOpenTearOutVessel, 'its own opener is the capability').toBe(true);
+                expect(workspace.dockPopOutActionActive).toBe(true)
+            } finally {
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a host with its own transport states the capability beside its opener', () => {
+            class TransportWorkspace extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.TransportWorkspace'}
+
+                // The pair is the point: whoever answers "I can open a vessel" is whoever implements
+                // opening one, so the capability cannot drift from the implementation. Stated, never
+                // inferred from prototype identity — a host that overrides the opener without meaning
+                // to claim the capability must not be silently opted in.
+                get canOpenTearOutVessel() {return true}
+
+                openTearOutVessel({admissionToken, itemId}) {return {admissionToken, windowName: `native-${itemId}`}}
+            }
+
+            Neo.setupClass(TransportWorkspace);
+
+            workspace = Neo.create(TransportWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
+
+            const {useSharedWorkers} = Neo.config;
+
+            try {
+                Neo.config.useSharedWorkers = false;
+                expect(workspace.dockPopOutActionActive, 'a native transport keeps the action without shared workers').toBe(true)
+            } finally {
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
         test('a rail tab is not the pane either, and the whole button category is refused', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
