@@ -25,11 +25,6 @@
         "reason": "exempt #18145 — see the neo-light entry; same rule, same blocker."
     },
     {
-        "file": "resources/scss/theme-neo-dark/tab/header/Button.scss",
-        "blocks": 3,
-        "reason": "exempt #18171 — see the neo-light entry; same dead selector."
-    },
-    {
         "file": "resources/scss/theme-neo-light/Global.scss",
         "blocks": 10,
         "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
@@ -38,10 +33,5 @@
         "file": "resources/scss/theme-neo-light/dialog/Base.scss",
         "blocks": 3,
         "reason": "exempt #18145 — a structural rule for a dialog header button must sit at (0,3,0), which would override a ui-variant background winning at (0,2,0) in themes carrying no such rule today. CSS has no per-declaration opt-out, so this needs a design decision rather than a refactor."
-    },
-    {
-        "file": "resources/scss/theme-neo-light/tab/header/Button.scss",
-        "blocks": 3,
-        "reason": "exempt #18171 — the block writes .pressed as a DESCENDANT of a class that lands on the button itself, so it has never matched. Porting it reproduces a dead selector; fixing it repaints pressed tabs in two themes."
     }
 ]

@@ -20,22 +20,14 @@
     --tab-button-glyph-color                    : var(--sem-color-fg-neutral-subdued);
     --tab-button-glyph-color-active             : inherit;
     --tab-button-glyph-color-hover              : inherit;
-    --tab-button-glyph-color-pressed            : inherit;
+    --tab-button-glyph-color-pressed            : var(--sem-color-fg-neutral-contrast);
     --tab-button-height                         : var(--cmp-tab-height);
     --tab-button-height-pressed                 : var(--cmp-tab-height);
     --tab-button-margin-bottom                  : 0;
     --tab-button-padding                        : 7px var(--cmp-tab-spacinghorizontal) 6px;
     --tab-button-text-color                     : var(--sem-color-fg-neutral-subdued);
+    --tab-button-text-color-pressed             : var(--sem-color-fg-neutral-contrast);
     --tab-button-text-font-size                 : var(--sem-typo-label-regular-fontSize);
     --tab-button-text-font-weight               : var(--button-text-font-weight);
     --tab-button-text-transform                 : uppercase;
-
-    // custom overrides
-    .neo-tab-header-button.neo-button {
-        .pressed {
-            .neo-button-glyph, .neo-button-text {
-                color: var(--sem-color-fg-neutral-contrast);
-            }
-        }
-    }
 }

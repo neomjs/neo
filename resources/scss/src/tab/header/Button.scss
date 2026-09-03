@@ -75,6 +75,10 @@
             color: var(--tab-button-glyph-color-pressed);
         }
 
+        .neo-button-text {
+            color: var(--tab-button-text-color-pressed, var(--tab-button-text-color));
+        }
+
         .neo-tab-button-indicator {
             animation-duration: 260ms;
             animation-name    : delaybgcolor;
