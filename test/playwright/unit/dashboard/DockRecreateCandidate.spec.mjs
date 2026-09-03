@@ -97,6 +97,30 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
             .not.toBe(livePane)
     });
 
+    test('hasDockRecreateFallback constructs nothing, however often it is consulted', () => {
+        // AC-3, and the reason the old implementation compared prototypes rather than calling the
+        // factory: `syncDockReloadAction` consults this on every active-item change, so a
+        // visibility sync that invoked a resolver would mint panes nobody asked for. Delegation
+        // changed what `resolveFreshPane` returns; it must not have changed WHEN it runs.
+        let resolverCalls = 0;
+
+        workspace.resolvePane = (itemId, item) => {
+            resolverCalls++;
+            return {ntype: 'component'}
+        };
+
+        for (let i = 0; i < 5; i++) {
+            expect(workspace.hasDockRecreateFallback(), 'a path is wired').toBe(true)
+        }
+
+        expect(resolverCalls, 'consulting the predicate never reached the resolver').toBe(0);
+
+        // Non-vacuity: the counter can move, so zero above is a measurement rather than a
+        // resolver that was never wired up.
+        workspace.resolveFreshPane('editor', null);
+        expect(resolverCalls, 'and the resolver is genuinely reachable').toBe(1)
+    });
+
     test('a host that declines for an item still declines, with the live pane untouched', () => {
         // Delegation does not remove the refusal path, it just stops it being the default. A host
         // whose resolver answers `null` for a particular item is the case AC-6 names, and the
