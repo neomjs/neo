@@ -5,8 +5,12 @@
 @use "../tickets/Component";
 
 // Structural styles for Portal.view.news.pulls.Component (PR view). Colors live in the
-// theme-neo-light / theme-neo-dark counterparts, scoped to this component so the PR-specific
-// MERGED/CLOSED + review-state palette never collides with the tickets view's globals.
+// theme-neo-light / theme-neo-dark counterparts as FLAT `--portal-pr-*` tokens. The collision the
+// old theme-side selector scoping was guarding against — this view's MERGED/CLOSED semantics
+// redefining the tickets view's state vars — is now prevented by the token NAMES instead: a
+// component-specific name cannot collide the way a shared `--state-*` var could, and unlike a
+// selector scope it survives being read from here. WHICH badge is a state badge is structural;
+// only its palette is the theme's.
 .portal-news-pulls-component {
     .neo-ticket-labels {
         display      : flex;
@@ -17,6 +21,9 @@
 
     .neo-badge {
         align-items  : center;
+        background-color: var(--portal-pr-badge-background-color);
+        border          : var(--portal-pr-badge-border);
+        color           : var(--portal-pr-badge-color);
         border-radius: 2em;
         display      : inline-flex;
         font-size    : 12px;
@@ -25,13 +32,27 @@
         padding      : 0 10px;
 
         &.neo-state-badge {
+            color  : var(--portal-pr-state-badge-color);
             gap    : 6px;
             padding: 2px 10px 2px 8px;
+
+            &.neo-state-open   { background-color: var(--portal-pr-state-open-background-color); }
+            &.neo-state-merged { background-color: var(--portal-pr-state-merged-background-color); }
+            &.neo-state-closed { background-color: var(--portal-pr-state-closed-background-color); }
         }
 
         &.neo-review-state {
+            color         : var(--portal-pr-review-state-color);
             margin-right  : 6px;
             text-transform: none;
+
+            &.neo-review-approved { background-color: var(--portal-pr-review-approved-background-color); }
+            &.neo-review-changes  { background-color: var(--portal-pr-review-changes-background-color); }
+
+            &.neo-review-neutral {
+                background-color: var(--portal-pr-review-neutral-background-color);
+                color           : var(--portal-pr-review-neutral-color);
+            }
         }
     }
 
