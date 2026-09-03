@@ -62,6 +62,64 @@ class Operations extends Base {
     })
 
     /**
+     * What each operation can change, declared beside the reducer that implements it — the only
+     * place that can answer honestly, because the reducer IS what touched the document.
+     *
+     * - `topology`   — may restructure nodes, zones or splits. The full staged transaction.
+     * - `geometry`   — moves a boundary; every node and item survives in place.
+     * - `itemFlags`  — writes only `document.items[id].<flag>`; the node tree is byte-identical.
+     *
+     * The classes are verifiable rather than asserted: `setItemLocked`, `setItemPinned` and
+     * `setItemAutoHidden` each clone the document and assign exactly one item field, touching
+     * `nodes` nowhere — which is what makes an item-only refresh sound for them.
+     *
+     * **An operation with no entry here is treated as `topology`**, so a vocabulary that grows
+     * without updating this map degrades to today's behaviour rather than to a wrong fast path.
+     * The completeness of the map against {@link #operationHandlers} is a test obligation, not a
+     * structural guarantee — the pairing spec asserts every dispatch key carries a class.
+     * @member {Object} operationChangeClass
+     * @protected
+     * @static
+     */
+    static operationChangeClass = Object.freeze({
+        addTab           : 'topology',
+        applyDocument    : 'topology',
+        setActiveItem    : 'topology',
+        moveItem         : 'topology',
+        splitNode        : 'topology',
+        moveNode         : 'topology',
+        resizeSplit      : 'geometry',
+        resizeEdgeZone   : 'geometry',
+        detachItem       : 'topology',
+        closeItem        : 'topology',
+        setItemLocked    : 'itemFlags',
+        // Pinned and auto-hidden write one item field each, exactly like `setItemLocked` — but they
+        // are the two operations that MOVE a pane between the shell and an edge rail, and the rail
+        // is projected outside the shell. They are placement changes wearing an item flag, so they
+        // take the full transaction. `setItemLocked` is the only one of the three that is genuinely
+        // placement-neutral, which is what lets it keep the item-only path.
+        setItemPinned    : 'topology',
+        setItemAutoHidden: 'topology',
+        transferItem     : 'topology',
+        transferNode     : 'topology'
+    })
+
+    /**
+     * @summary The change-class of an operation name, defaulting to the safe `topology`.
+     *
+     * Own-key lookup only, for the same reason {@link #applyOperation} uses one: an inherited
+     * name must resolve like any unknown operation rather than to a prototype member.
+     * @param {String} operation
+     * @returns {String} `topology` | `geometry` | `itemFlags`
+     * @static
+     */
+    static changeClassFor(operation) {
+        return Object.hasOwn(Operations.operationChangeClass, operation)
+            ? Operations.operationChangeClass[operation]
+            : 'topology'
+    }
+
+    /**
      * The semantic operation vocabulary — derived from the dispatch table's keys, never
      * hand-listed, so vocabulary and dispatch agree in both directions by construction.
      * Consumers that enumerate, validate, or advertise executable operations read this

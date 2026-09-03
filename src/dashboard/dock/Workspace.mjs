@@ -3383,7 +3383,57 @@ class Workspace extends Container {
      * @returns {Object}
      */
     getRefreshOptions(descriptor, source) {
+        // Derived, not declined. `model/Operations` declares what each operation can change beside
+        // the reducer that implements it, so the engine answers from knowledge a consumer cannot
+        // have: only the reducer knows `setItemLocked` assigns one item field and touches `nodes`
+        // nowhere, while `moveItem` restructures. Before this, the default was `{}` — the full
+        // staged transaction for every commit — so one lock click re-parented the splits and edge
+        // rows and every retained header in the app repainted.
+        //
+        // An operation with no declared class falls through to `topology`, i.e. exactly the old
+        // behaviour, so a vocabulary that outgrows the map degrades to slow rather than to wrong.
+        // Only the item-flag class is wired. `geometry` is declared honestly in the class map but
+        // deliberately NOT emitted yet: on `dev` a resize takes the full transaction, this ticket
+        // measured only the lock flicker, and its AC-4 requires resize to keep its current
+        // behaviour. Putting every drag-resize on an unmeasured fast path is a separate change with
+        // its own evidence, not a free rider on this one.
+        if (Operations.changeClassFor(descriptor?.operation) === 'itemFlags') {
+            return this.isDockRailedItem(descriptor?.itemId) ? {} : {retainTopology: true}
+        }
+
         return {}
+    }
+
+    /**
+     * @summary Whether an item currently renders on an edge rail rather than inside the shell.
+     *
+     * The change-class in `model/Operations` describes what an operation does to the DOCUMENT, and
+     * it is exact: the three item-flag reducers clone and assign one field, touching `nodes` nowhere.
+     * That is necessary for the item-only fast path but not sufficient, because a railed pane is
+     * projected OUTSIDE the shell. `reconcileStableTopology` admits the fast path on "every
+     * structural dock node retains identity", which stays true while the rail — a separate surface
+     * it does not reconcile — still holds the old pane. The result is a stale rail copy beside a
+     * fresh one, which is worse than the slow path this fast path replaces.
+     *
+     * So placement is the workspace's half of the answer: `Operations` cannot know it, and the
+     * document alone does not carry it. Reconciling rail surfaces inside the stable-topology path
+     * would let this guard retire; until then a railed item takes the full transaction.
+     *
+     * **This reads the PRE-COMMIT document, and that is only sound because it is reached solely for
+     * placement-NEUTRAL operations.** `getRefreshOptions` runs before `dockModel` is reassigned, so
+     * for an operation that moves a pane the answer here would describe where the item *was*, not
+     * where it is going — `setItemAutoHidden(true)` would read "not railed" on the very commit that
+     * rails it. That is why `setItemPinned` and `setItemAutoHidden` are classed `topology` rather
+     * than guarded here: a placement change cannot be rescued by asking about placement beforehand.
+     * `setItemLocked` never moves a pane, so before and after agree by construction.
+     * @param {String|null} itemId
+     * @returns {Boolean}
+     * @protected
+     */
+    isDockRailedItem(itemId) {
+        const item = itemId ? this.dockModel?.items?.[itemId] : null;
+
+        return item?.autoHidden === true && item?.pinned !== true
     }
 
     /**

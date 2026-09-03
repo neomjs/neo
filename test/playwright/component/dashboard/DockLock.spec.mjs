@@ -326,3 +326,94 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         expect(await readInertOwnership(page, 'dock-lock-pane-reader')).toEqual({owned: false, value: undefined})
     })
 });
+
+/**
+ * The refresh SHAPE a lock commit takes, measured as DOM churn over the whole app.
+ *
+ * `setItemLocked` assigns one boolean on one item and touches `document.nodes` nowhere, but
+ * `getRefreshOptions` used to return `{}` for every commit — the full staged transaction — so the
+ * splits and edge rows had their children removed and re-added and every retained header in the app
+ * was re-parented. A re-parented node repaints, which is what the operator saw: clicking lock made
+ * every tab-container header in the app flicker.
+ *
+ * **The observer must sit ABOVE the headers.** The mechanism is re-parenting, not re-creation: the
+ * header components and their DOM nodes survive with zero internal mutations, so an observer scoped
+ * to a header cannot see its own cause. Three earlier arms found nothing for exactly that reason.
+ *
+ * This fixture writes no `getRefreshOptions`, which is what makes it the witness: the engine's
+ * derived default is the only thing under test.
+ *
+ * @see https://github.com/neomjs/neo/issues/18152
+ */
+test.describe('dock lock — the commit takes an item-only refresh (#18152)', () => {
+    /**
+     * Records every mutation under the app root while `action` runs, classified by whether the
+     * target sits inside a tab header.
+     * @param {Object} page
+     * @param {Function} action
+     * @returns {Promise<Object>} {total, outsideHeaders, targets}
+     */
+    async function mutationsDuring(page, action, ownPaneSelector) {
+        await page.evaluate(selector => {
+            globalThis.__ownPane = selector;
+            globalThis.__mutations = [];
+            globalThis.__observer  = new MutationObserver(records => {
+                for (const record of records) {
+                    const el = record.target instanceof Element ? record.target : record.target.parentElement;
+
+                    // "Own" = the locked pane's header, or the locked pane itself. Both MUST change:
+                    // the header swaps its action glyph and the pane gains its locked presentation.
+                    // The defect was never those — it was the splits, edge rows and dock host being
+                    // rebuilt around them, which re-parents every retained header in the app.
+                    globalThis.__mutations.push({
+                        own   : !!el?.closest('.neo-tab-header-toolbar') || !!el?.closest(globalThis.__ownPane),
+                        target: el ? (el.className?.toString?.() || el.tagName) : 'unknown',
+                        type  : record.type
+                    })
+                }
+            });
+            globalThis.__observer.observe(document.body, {attributes: true, childList: true, subtree: true})
+        }, ownPaneSelector);
+
+        await action();
+        await awaitRefresh(page);
+
+        return page.evaluate(() => {
+            globalThis.__observer.disconnect();
+
+            const all     = globalThis.__mutations,
+                  outside = all.filter(entry => !entry.own);
+
+            return {
+                outsideHeaders: outside.length,
+                targets       : [...new Set(outside.map(entry => entry.target))].slice(0, 8),
+                total         : all.length
+            }
+        })
+    }
+
+    test('locking a shell pane mutates nothing outside its own header', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await awaitRefresh(page);
+
+        const churn = await mutationsDuring(page, () => actionButton(main, 'fa-lock').click(), '#dock-lock-pane-alpha');
+
+        // Non-vacuity: a commit that produced NO mutations at all would satisfy the assertion below
+        // while proving the lock never landed.
+        expect(churn.total, 'the lock must actually have changed something').toBeGreaterThan(0);
+        await expect(page.locator('#dock-lock-pane-alpha')).toHaveClass(/neo-dock-pane-locked/);
+
+        expect(churn.outsideHeaders,
+            `nothing outside a tab header may move — saw: ${churn.targets.join(', ')}`).toBe(0)
+    });
+
+    // The RAILED counterpart is deliberately not a component arm. A railed pane's document delta is
+    // identical — one item field — but it is projected outside the shell, so the item-only path
+    // would leave a stale rail copy beside the fresh one; the engine declines on placement. That
+    // DECISION is witnessed in `unit/dashboard/DockOperationChangeClass.spec.mjs`, and the rail's
+    // end-to-end correctness is already carried by the locked-rail arms above, which exercise the
+    // full transaction on `railed` and `reader`. A third arm driving the same rail through its
+    // reveal choreography would restate them and add a timing surface, not coverage.
+});
