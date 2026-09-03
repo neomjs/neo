@@ -27,7 +27,12 @@ import Operations    from '../../../../src/dashboard/dock/model/Operations.mjs';
  * overrides `getRefreshOptions`, which is why the derived default needs its own witness — an arm on
  * an overriding workspace would pass whether or not a default exists.
  *
+ * The `geometry` class joined `itemFlags` afterwards: a resize used to take the full transaction
+ * for every consumer that wrote no hook, while one host escaped it by hand-listing the two resize
+ * operations — the engine's own map, restated in an app.
+ *
  * @see https://github.com/neomjs/neo/issues/18152
+ * @see https://github.com/neomjs/neo/issues/18206
  */
 
 /**
@@ -109,11 +114,15 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
             expect(workspace.getRefreshOptions({operation: 'setItemLocked', itemId: 'panel'}),
                 'an item-flag delta reconciles items in place').toEqual({retainTopology: true});
 
-            // `geometry` is declared in the class map but deliberately not wired yet: on `dev` a
-            // resize takes the full transaction, and this ticket measured only the lock flicker.
-            // Emitting `geometryOnly` here would put every drag-resize on an unmeasured fast path.
+            // Both resize reducers clone the document and write exactly one field, and survive
+            // `Document.commit` — normalization included — with the node tree, the node id set and
+            // `items` byte-identical. Nothing moved but the boundary, so nothing needs restaging.
             expect(workspace.getRefreshOptions({operation: 'resizeSplit'}),
-                'a boundary move keeps its current full transaction').toEqual({});
+                'a split boundary move reconciles in place').toEqual({geometryOnly: true});
+
+            expect(workspace.getRefreshOptions({operation: 'resizeEdgeZone'}),
+                'and so does an edge-zone extent — the class decides, not the operation name')
+                .toEqual({geometryOnly: true});
 
             expect(workspace.getRefreshOptions({operation: 'moveItem', itemId: 'panel'}),
                 'a restructuring operation still takes the full transaction').toEqual({});

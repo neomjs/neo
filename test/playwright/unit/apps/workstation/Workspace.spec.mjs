@@ -2913,3 +2913,66 @@ test.describe('Workspace — the theme toggle reveals from the pointer (#18125)'
         expect(themeAfter, 'and the flip still happens').toBe('neo-theme-neo-dark')
     })
 });
+
+test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, not a list this host keeps', () => {
+    /**
+     * @summary Reads this host's refresh options, optionally with the engine's default neutered.
+     *
+     * The host used to hand-list `['resizeEdgeZone', 'resizeSplit']` — a verbatim restatement of
+     * `Operations.operationChangeClass`, which is why a consumer that did not know to write the
+     * same list got the full staged transaction on every drag-resize. The VALUES below are
+     * unchanged; only their source moved, and an arm that asserts values alone cannot tell the
+     * difference. Neutering the engine can: a private list survives it, delegation does not.
+     * @param {Object|null} descriptor
+     * @param {Boolean} [neuterEngine=false] Make the engine's default contribute nothing
+     * @returns {Object}
+     */
+    function refreshOptionsFor(descriptor, neuterEngine=false) {
+        const
+            enginePrototype = Object.getPrototypeOf(Workspace.prototype),
+            original        = enginePrototype.getRefreshOptions,
+            workspace       = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest'});
+
+        neuterEngine && (enginePrototype.getRefreshOptions = () => ({}));
+
+        try {
+            return workspace.getRefreshOptions(descriptor, null)
+        } finally {
+            enginePrototype.getRefreshOptions = original;
+            workspace.destroy()
+        }
+    }
+
+    test('a resize still admits the in-place path, and it now comes from the change class', () => {
+        expect(refreshOptionsFor({operation: 'resizeSplit'}),
+            'a split boundary move is unchanged for this host')
+            .toEqual({geometryOnly: true, retainTopology: false});
+
+        expect(refreshOptionsFor({operation: 'resizeEdgeZone'}),
+            'and so is an edge-zone extent')
+            .toEqual({geometryOnly: true, retainTopology: false});
+
+        // The discriminating half. With the engine contributing nothing, a host that still kept
+        // its own operation list would answer `true` here.
+        expect(refreshOptionsFor({operation: 'resizeSplit'}, true),
+            'with the engine neutered the host has no geometry answer of its own')
+            .toEqual({geometryOnly: false, retainTopology: false})
+    });
+
+    test('the two jobs that are genuinely this host\'s survive the delegation', () => {
+        // This host's own paths commit with an options object rather than a semantic descriptor,
+        // so an explicit `geometryOnly` carries no operation the engine could classify. It must
+        // still be honoured — with the engine neutered, to prove the host answers it alone.
+        expect(refreshOptionsFor({geometryOnly: true}, true),
+            'an explicit request on an options-object commit is the host\'s to answer')
+            .toEqual({geometryOnly: true, retainTopology: false});
+
+        expect(refreshOptionsFor({operation: 'detachItem'}),
+            'the stable-topology mapping is untouched by this change')
+            .toEqual({geometryOnly: false, retainTopology: true});
+
+        expect(refreshOptionsFor({operation: 'moveItem', preserveItemIds: ['editor']}),
+            'and a commit-scoped park still rides along')
+            .toEqual({geometryOnly: false, retainTopology: false, preserveItemIds: ['editor']})
+    })
+});
