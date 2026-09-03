@@ -187,6 +187,129 @@ test.describe('dock maximize — presentation, never topology', () => {
         )
     });
 
+    /**
+     * The FLIP must never publish an un-inverted target rect. The symptom is three beats — the
+     * pane jumps to full size for a frame or two, snaps back to its original size, then animates —
+     * and they map onto the arming order. The worker writes the Last geometry and flushes it, so
+     * main PAINTS the target rect; the invert arrives a round-trip later, which is the snap-back.
+     *
+     * Invisible to any settled-state check, so this samples FRAMES.
+     *
+     * The assertion is ordering, not counting. `getBoundingClientRect` reports the VISUAL rect, so
+     * a frame at the target rect is by definition a frame with no effective inverse — but the
+     * settled end state looks identical and is correct. What separates them is when they occur:
+     * a bare frame at the target BEFORE the first inverted frame is the flash; after it is the
+     * animation having finished.
+     *
+     * The middle assertion is the positive control. Without it the arm passes on a workspace that
+     * never inverts at all — including the instant path — and would certify the defect as fixed by
+     * removing the animation.
+     */
+    // MEASURED RED, 2026-09-03 at `dcf8597fdd`: `bareBeforeInvert = 16`. Sixteen frames — about a
+    // quarter second at 60fps — paint the pane at full target size with no inverse applied. The
+    // positive control passes in the same run (`inverted > 0`), so the arm witnesses the defect and
+    // not the absence of motion.
+    //
+    // Parked rather than left red because the repair is a design fork, not an implementation. The
+    // obvious shape — have the app worker publish the invert alongside the geometry — is refuted by
+    // `play()` itself: it snapshots inline styles BEFORE writing its own invert and releases the
+    // motion by restoring `transform = styleSnapshot.transform`, so a pre-existing inline transform
+    // is treated as the RESTING state. A worker-published invert would be animated back to, leaving
+    // the pane parked at its old rect — worse than the flash. Either the FLIP's snapshot contract
+    // gains an explicit resting-state input, or main owns geometry-plus-invert for the duration of
+    // the motion. The arm stays exactly as measured, so whoever implements inherits the red.
+    test.fixme('#18027 no frame paints the target rect before the invert — maximize', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+
+        // Armed BEFORE the gesture. The flash is one or two frames wide, so anything sampled after
+        // the fact cannot see it.
+        await page.evaluate(() => {
+            const host = document.querySelector('#dock-maximize-workspace .neo-dashboard'),
+                  gap  = parseFloat(getComputedStyle(host).getPropertyValue('--dock-maximize-gap')) || 0,
+                  b    = host.getBoundingClientRect();
+
+            window.__flipSamples = [];
+            window.__flipTarget  = {
+                height: b.height - 2 * gap,
+                left  : b.left + gap,
+                top   : b.top + gap,
+                width : b.width - 2 * gap
+            };
+
+            window.__flipDone = false;
+
+            // The budget lives in the sampler, counted from the frame the node first appears, and
+            // NOT in an external wait. Two reasons, both learned the hard way:
+            //
+            // - Stopping on "the visual rect matches the target" stops at the DEFECT. With the
+            //   flash present that condition is true on the first frame after the geometry lands,
+            //   so the sampler cancelled before any invert could arrive and the arm reported zero
+            //   inverted frames — indistinguishable from a workspace that never animates.
+            // - A fixed `waitForTimeout` is what `check-fixed-sleeps` exists to reject, and it
+            //   would also be wrong: the budget has to start at the gesture, not at the call.
+            let budget = -1;
+
+            const tick = () => {
+                const el = document.querySelector('.neo-dock-maximized');
+
+                if (el) {
+                    const r = el.getBoundingClientRect();
+
+                    window.__flipSamples.push({
+                        height   : r.height,
+                        left     : r.left,
+                        top      : r.top,
+                        transform: getComputedStyle(el).transform,
+                        width    : r.width
+                    });
+
+                    budget = budget < 0 ? 90 : budget - 1
+                }
+
+                if (budget === 0) {
+                    window.__flipDone = true;
+                    return
+                }
+
+                window.__flipRaf = requestAnimationFrame(tick)
+            };
+
+            window.__flipRaf = requestAnimationFrame(tick)
+        });
+
+        await actionButton(main, 'fa-window-maximize').click();
+        await page.waitForFunction(() => window.__flipDone === true);
+        await maximizedRectMatchesHost(page);
+
+        const report = await page.evaluate(() => {
+            cancelAnimationFrame(window.__flipRaf);
+
+            const target   = window.__flipTarget,
+                  samples  = window.__flipSamples,
+                  atTarget = s => Math.abs(s.top - target.top) < 1.5 && Math.abs(s.left - target.left) < 1.5
+                      && Math.abs(s.width - target.width) < 1.5 && Math.abs(s.height - target.height) < 1.5,
+                  identity = s => s.transform === 'none' || s.transform === 'matrix(1, 0, 0, 1, 0, 0)',
+                  firstInverted = samples.findIndex(s => !identity(s));
+
+            return {
+                bareBeforeInvert: (firstInverted < 0 ? samples : samples.slice(0, firstInverted))
+                    .filter(s => atTarget(s) && identity(s)).length,
+                inverted: samples.filter(s => !identity(s)).length,
+                total   : samples.length
+            }
+        });
+
+        expect(report.total, 'the sampler must have observed the maximized node at all').toBeGreaterThan(0);
+
+        expect(report.inverted, 'the transition must invert at least once, or this arm cannot witness the defect it exists for')
+            .toBeGreaterThan(0);
+
+        expect(report.bareBeforeInvert, 'no frame may paint the target rect before the inverse transform is applied')
+            .toBe(0)
+    });
+
     test('an edge-band node maximizes to the same host rect as a center node — the band caps lift for the duration', async ({page}) => {
         const edge = tabsNodeWith(page, 'Pinned');
 
