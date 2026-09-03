@@ -2100,6 +2100,111 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         })
     });
 
+    test.describe('#18177 an edge-zone home carries its own geometry', () => {
+        /**
+         * `doc()`'s right zone with a committed extent — the shape `resizeEdgeZone` leaves behind,
+         * and the one a sole-occupant tear-out erases along with the node.
+         * @param {Object} [descriptor={extent: 0.42, nodeId: 'side-tabs', resizable: true}]
+         * @returns {Object}
+         */
+        const sizedEdgeDoc = (descriptor={extent: 0.42, nodeId: 'side-tabs', resizable: true}) => {
+            const d = doc();
+
+            d.nodes.root.zones.right = descriptor;
+
+            return d
+        };
+
+        test('AC-1/AC-2 the record carries the slot\'s extent and resizable — and invents neither', () => {
+            expect(Document.captureNodeHome(sizedEdgeDoc(), 'side-tabs')).toEqual({
+                parentId: 'root', slot: 'right', extent: 0.42, resizable: true
+            });
+
+            // A slot that declared no geometry must come back with none, so the projection default
+            // keeps deciding. An invented 0.5 here would look like a restoration and be a resize.
+            expect(Document.captureNodeHome(doc(), 'side-tabs')).toEqual({parentId: 'root', slot: 'right'});
+
+            expect(Document.captureNodeHome(sizedEdgeDoc({extent: 0.3, nodeId: 'side-tabs', resizable: false}), 'side-tabs'))
+                .toMatchObject({resizable: false})
+        });
+
+        test('AC-3/AC-7 the ROUND TRIP: an emptied edge slot comes back at the extent it left with', () => {
+            const source = sizedEdgeDoc();
+
+            const placement = Document.captureItemPlacement(source, 'terminal'),
+                  detached  = Operations.applyOperation(source, {operation: 'detachItem', itemId: 'terminal'});
+
+            expect(detached.errors).toEqual([]);
+            expect(detached.document.nodes.root.zones.right, 'the descriptor went with the node').toBeUndefined();
+
+            const {document: restored, errors} = Operations.applyOperation(detached.document, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors).toEqual([]);
+
+            // The assertion is on the DOCUMENT's extent, not on a rendered width: a pixel figure also
+            // moves when the projection legitimately re-lays-out, so it cannot isolate this property.
+            expect(restored.nodes.root.zones.right).toMatchObject({extent: 0.42, resizable: true});
+            expect(Document.getZoneNodeId(restored.nodes.root.zones.right)).toBe('side-tabs');
+            expect(Document.validate(restored)).toEqual([])
+        });
+
+        test('AC-4 a SURVIVING descriptor keeps its own extent — a stale record never overwrites a live gesture', () => {
+            const source    = sizedEdgeDoc(),
+                  placement = Document.captureItemPlacement(source, 'terminal');
+
+            // A vessel is long-lived: the user resizes that edge while the pane is out. The pane's
+            // node survives here (it still holds the item), so the descriptor is never cleared.
+            const widened = Document.clone(source);
+
+            widened.nodes.root.zones.right.extent = 0.6;
+
+            const {document: restored, errors} = Operations.applyOperation(widened, {
+                operation: 'restoreTab', itemId: 'terminal', ...placement
+            });
+
+            expect(errors).toEqual([]);
+            expect(restored.nodes.root.zones.right.extent, 'the newer gesture wins over the record').toBe(0.6)
+        });
+
+        test('AC-5 a CORRUPT recorded extent is discarded, and the document stays valid', () => {
+            const source    = sizedEdgeDoc(),
+                  placement = Document.captureItemPlacement(source, 'terminal');
+
+            const {document: detached} = Operations.applyOperation(source, {operation: 'detachItem', itemId: 'terminal'});
+
+            // `validate` rejects an extent outside the open interval (0, 1). A restore must fail
+            // closed on a corrupt record rather than author a document the model would refuse.
+            for (const bad of [0, 1, 1.5, -0.2, Number.NaN, Number.POSITIVE_INFINITY, '0.4']) {
+                const home = {...placement.home, extent: bad};
+
+                const {document: restored, errors} = Operations.applyOperation(detached, {
+                    operation: 'restoreTab', itemId: 'terminal', ...placement, home
+                });
+
+                expect(errors, `extent ${String(bad)} still restores the pane`).toEqual([]);
+                expect(Document.validate(restored), `extent ${String(bad)} never enters the document`).toEqual([]);
+                expect(restored.nodes.root.zones.right.extent, `extent ${String(bad)} is dropped`).toBeUndefined()
+            }
+        });
+
+        test('AC-6 the SPLIT branch is untouched — size and orientation still restore', () => {
+            const source = splitDoc([0.7, 0.3]);
+
+            const placement = Document.captureItemPlacement(source, 'terminal');
+
+            expect(placement.home).toEqual({
+                parentId: 'main-split', slot: 1, orientation: 'horizontal', size: 0.3, siblingId: 'main-tabs', position: 'after'
+            });
+
+            // No extent/resizable leaked onto a split home: they are the edge-zone counterpart, not
+            // an addition to every record.
+            expect(placement.home.extent).toBeUndefined();
+            expect(placement.home.resizable).toBeUndefined()
+        })
+    });
+
     test.describe('captureItemPlacement (exact-position return, stored half)', () => {
         test('captures the holding tabs node and the exact index', () => {
             expect(Document.captureItemPlacement(doc(), 'strategy')).toEqual({tabsNodeId: 'main-tabs', index: 0, home: {parentId: 'root', slot: 'center'}});

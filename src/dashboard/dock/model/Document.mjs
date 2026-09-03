@@ -506,10 +506,15 @@ class Document extends Base {
      * is the node that split collapsed INTO, so it is still there.
      *
      * An edge-zone parent needs no anchor: an edge-zone node survives losing every zone, so its id
-     * and the zone key remain resolvable.
+     * and the zone key remain resolvable. **That argument covers the ANCHOR and nothing else** — the
+     * id surviving says nothing about the slot's geometry surviving. An edge zone's size lives on the
+     * DESCRIPTOR (`{nodeId, extent, resizable}`), and a sole-occupant tear-out clears the whole
+     * descriptor with the node, so the extent has to be recorded here or it is gone. `extent` and
+     * `resizable` are therefore the edge-zone counterpart of the split branch's `size` and
+     * `orientation`: absent when the descriptor declared none, never invented.
      * @param {Object} document
      * @param {String} nodeId
-     * @returns {{parentId:String, slot:(Number|String), orientation:String, size:Number, siblingId:String, position:String}|null}
+     * @returns {{parentId:String, slot:(Number|String), orientation:String, size:Number, siblingId:String, position:String, extent:Number, resizable:Boolean}|null}
      * @static
      */
     static captureNodeHome(document, nodeId) {
@@ -519,6 +524,17 @@ class Document extends Base {
 
         let parent = document.nodes[slot.parentId],
             home   = {parentId: slot.parentId, slot: slot.slot};
+
+        if (parent?.type === 'edge-zone' && typeof slot.slot === 'string') {
+            let descriptor = parent.zones?.[slot.slot];
+
+            if (Document.isJsonRecord(descriptor)) {
+                // Recorded only when declared: a slot that never carried an extent must come back
+                // without one, so the projection default keeps deciding rather than a value we made up.
+                typeof descriptor.extent  === 'number'  && (home.extent    = descriptor.extent);
+                typeof descriptor.resizable === 'boolean' && (home.resizable = descriptor.resizable)
+            }
+        }
 
         if (parent?.type === 'split' && typeof slot.slot === 'number') {
             let children = parent.children || [],
@@ -580,7 +596,27 @@ class Document extends Base {
             // being restored. An occupied slot is therefore not a home. This is the ownership
             // question, distinct from the existence question every other path asks.
             if (!occupant || occupant === nodeId) {
+                let existed = Document.isJsonRecord(parent.zones?.[home.slot]);
+
                 Document.setZoneNodeId(parent, home.slot, nodeId);
+
+                // `setZoneNodeId` spreads whatever descriptor it finds, so a SURVIVING slot keeps its
+                // own geometry — including a resize the user performed while the pane was out, which
+                // a stale record must never overwrite. Only an emptied slot has nothing to spread,
+                // and that is the one case the record fills.
+                if (!existed) {
+                    let target = parent.zones[home.slot];
+
+                    // Fail closed on a corrupt record rather than authoring a document `validate`
+                    // would reject: the extent contract is a finite number in the open interval (0,1).
+                    if (typeof home.extent === 'number' && Number.isFinite(home.extent) &&
+                        home.extent > 0 && home.extent < 1) {
+                        target.extent = home.extent
+                    }
+
+                    typeof home.resizable === 'boolean' && (target.resizable = home.resizable)
+                }
+
                 return []
             }
         }
