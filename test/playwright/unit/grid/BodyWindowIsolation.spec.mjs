@@ -143,4 +143,38 @@ test.describe('Neo.grid.Body — one grid cannot resize another grid\'s window (
             expect(feed[key], 'without touching the other body').toEqual([0, 0])
         })
     }
+
+    // `mountedColumns` is the fourth window and it is deliberately NOT in the loop above, because
+    // it is the only one of the four with an `afterSet` hook: `afterSetMountedColumns` calls
+    // `createViewData()`, so the assignment IS the horizontal repaint trigger. Its contract is
+    // therefore assign-only, and the property worth guarding is the opposite one — that a whole
+    // assignment still reaches the hook. It carries the same descriptor as its siblings for the
+    // other two reasons (per-instance default, and no array copy on a read that happens per row
+    // and per cell during render), and those must not have cost it the notification.
+    test('mountedColumns is per instance, like its three siblings', () => {
+        expect(scale.mountedColumns, 'not the same array as the other body').not.toBe(feed.mountedColumns);
+
+        scale.mountedColumns = [2, 8];
+
+        expect(feed.mountedColumns, 'the sibling keeps its own').toEqual([0, 0])
+    });
+
+    test('assigning mountedColumns still reaches afterSetMountedColumns, which drives the repaint', () => {
+        let renders = 0;
+
+        scale.createViewData = () => {renders++};
+
+        // A fresh array with different values: the setter's equality check must see a change.
+        scale.mountedColumns = [1, 6];
+
+        expect(scale.mountedColumns, 'the assignment landed').toEqual([1, 6]);
+        expect(renders, 'and it triggered the render the hook owns').toBe(1);
+
+        // The negative half, and the reason this config is excluded from the index-write loop: a
+        // write that does not go through the setter moves the value without repainting. Asserted
+        // so the assign-only contract is enforced by the suite rather than only by a comment.
+        scale.mountedColumns[0] = 4;
+
+        expect(renders, 'an index-write does NOT repaint — assign, never index-write').toBe(1)
+    })
 });

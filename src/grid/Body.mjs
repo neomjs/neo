@@ -142,12 +142,28 @@ class GridBody extends Component {
          */
         keys: {},
         /**
-         * Stores the indexes of the first & last mounted columns, including bufferColumnRange
+         * Stores the indexes of the first & last mounted columns, including bufferColumnRange.
+         *
+         * **Assign this, never write it by index** — unlike its three sibling windows. It is the
+         * only one of the four with an `afterSet` hook, and {@link #afterSetMountedColumns} calls
+         * `createViewData()`, so the assignment IS the repaint trigger. An index-write would move
+         * the value and skip the render, leaving the painted columns behind the mounted range.
+         *
+         * The descriptor matches the siblings for the same two reasons they carry it: a mutable
+         * default needs `clone` to be per-instance, and `cloneOnGet: 'none'` avoids copying the
+         * array on every read — it is read per row and per cell during render
+         * ({@link Neo.grid.Row}) and three times per `createViewData()`, and the copy protected
+         * nothing because nothing mutates it through the reference.
          * @member {Number[]} mountedColumns_=[0,0]
          * @protected
          * @reactive
          */
-        mountedColumns_: [0, 0],
+        mountedColumns_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : [0, 0]
+        },
         /**
          * Stores the indexes of the first & last mounted rows, including bufferRowRange.
          *
