@@ -126,7 +126,16 @@ test.describe('grid cell editing — the key activation contract', () => {
     });
 
     test('control: Enter with nothing selected mounts nothing', async ({page}) => {
-        await page.locator(`${GRID} .neo-grid-view`).first().click({position: {x: 2, y: 2}});
+        const view = page.locator(`${GRID} .neo-grid-view`).first(),
+              box  = await view.boundingBox();
+
+        // Below the last row: {x: 2, y: 2} lands on the first row's `id` cell, which SELECTS it —
+        // so the arm would pass for the non-editable-column reason the previous arm already covers.
+        await view.click({position: {x: 4, y: box.height - 8}});
+
+        await expect(page.locator(`${GRID} .neo-selected`), 'the click must select nothing, or this arm is not about an empty selection')
+            .toHaveCount(0);
+
         await page.keyboard.press('Enter');
 
         await expect(page.locator(EDITOR), 'no selection means no editor').toHaveCount(0)

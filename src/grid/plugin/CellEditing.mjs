@@ -44,7 +44,7 @@ class CellEditing extends BaseCellEditing {
     }
 
     /**
-     * `grid.View` is the grid's key registry, as `selection.grid.CellModel` and `ColumnModel` use.
+     * `grid.View` owns the key registry every grid selection model registers into.
      * @returns {Neo.component.Base}
      * @protected
      */
@@ -54,7 +54,11 @@ class CellEditing extends BaseCellEditing {
 
     /**
      * Opens an editor over the selected cell. The base reads the keydown target, which on a grid is
-     * always the View; `neo-selected` is on the cell, so selection is asked of the selection model.
+     * always the View; `neo-selected` is on the cell, so the cell comes from the selection model.
+     *
+     * Gated on a cell id rather than `hasSelection()`: only the `Cell*` models put cell ids in
+     * `items`. `ColumnModel` answers `hasSelection()` from `selectedColumns` and leaves `items`
+     * empty, so the pair disagree and a selection check would reach `getRecord(undefined)`.
      * @param {Object} data
      * @returns {Promise<void>}
      */
@@ -62,13 +66,13 @@ class CellEditing extends BaseCellEditing {
         let me             = this,
             {view}         = me.owner,
             selectionModel = view?.selectionModel,
-            cellId, dataField, record;
+            cellId         = selectionModel?.items?.[0],
+            dataField, record;
 
-        if (me.mountedEditor || !selectionModel?.hasSelection?.()) {
+        if (me.mountedEditor || !cellId) {
             return
         }
 
-        cellId    = selectionModel.items[0];
         record    = selectionModel.getRecord?.(cellId);
         dataField = view.getDataField(cellId);
 
