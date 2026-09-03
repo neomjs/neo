@@ -2,6 +2,12 @@
     border             : 1px solid var(--grid-container-border-color);
     border-spacing     : 0;
     color              : var(--grid-container-color);
+    // WHICH element carries the UA colour scheme is structural — the grid owns scrollbars, form
+    // controls and the focus ring it inherits from the UA, and that ownership does not change per
+    // theme. Only the VALUE does, so the themes value the token and this rule stays their single
+    // answer to "where". Every theme declares it: an omission would inherit the ENCLOSING theme's
+    // scheme through a nested boundary rather than reset, which is the failure #18141 shipped.
+    color-scheme       : var(--grid-container-color-scheme);
     display            : flex;
     flex-direction     : column;
     font-size          : var(--grid-container-font-size);
