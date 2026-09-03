@@ -2150,9 +2150,20 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // could fix it without changing refresh sequencing for every consumer. What AC-3 actually
         // claims is that no group was ever rebuilt behind them — every signal, before and after
         // reconciliation, came from the one retained instance.
-        expect(new Set(signalSources).size, 'one emitter across every signal, not a rebuilt group')
+        // Scoped to the PIN action's own signals. The claim is about pin's instance surviving
+        // reconciliation, and an unscoped emitter set silently also asserted that pin is the only
+        // action in this fixture whose visibility ever moves — which it is not: `reload` is enabled
+        // here and the engine now derives a recreate fallback for it, so it legitimately un-hides
+        // during the same refreshes. Measured: the two emitters are `pin` and `reload`, both
+        // visible. Counting them together turned another action's correct behaviour into a failure
+        // of this one.
+        const pinSources = signalSources.filter(component => component === pinAction);
+
+        expect(pinSources.length, 'pin did emit, so the assertion below is not vacuous')
+            .toBeGreaterThan(0);
+        expect(new Set(pinSources).size, 'one emitter across every pin signal, not a rebuilt group')
             .toBe(1);
-        expect(signalSources[0], 'and it is the instance the assertions above held').toBe(pinAction)
+        expect(pinSources[0], 'and it is the instance the assertions above held').toBe(pinAction)
     });
 
     /**
