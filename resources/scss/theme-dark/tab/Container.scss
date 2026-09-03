@@ -13,41 +13,26 @@
     --tab-header-inline-background-image           : none;
     --tab-header-inline-box-shadow                 : none;
 
-    // Inline inherits the classic theme's established 25px / square geometry and tightens only what
-    // a dock header cannot afford: horizontal padding and the title's weight — beside an action
-    // rail the title is chrome, not a button label, and the indicator bar already carries emphasis.
-    // Keeping inherited defaults out of this block prevents copy-drift while leaving measured,
-    // deletion-sensitive variant effects.
-    &.neo-tab-container-inline > .neo-tab-header-toolbar,
-    .neo-tab-container-inline > .neo-tab-header-toolbar,
-    // Self-scoped: a drag proxy is a detached toolbar at document.body, so it has no container
-    // ancestor for the two forms above to match. draggable.tab.header.toolbar.SortZone propagates
-    // the owner's ui-derived class onto it, and these two forms are what let the same tokens resolve
-    // there — one source, rather than a value snapshot taken at drag start.
+    // Inline keeps the classic 25px / square geometry and tightens only what a dock header cannot
+    // afford: horizontal padding and the title's weight — beside an action rail the title is chrome,
+    // not a button label, and the indicator bar already carries emphasis.
     //
-    // BOTH are required, and the `&` form is the one that is easy to miss: DragZone#createDragProxy
-    // pushes the resolved theme class onto the PROXY ITSELF, so theme + toolbar + variant all land on
-    // a single element and the descendant form below cannot match it. The descendant form still
-    // carries the case where an ancestor holds the theme.
-    &.neo-tab-header-toolbar.neo-tab-container-inline,
-    .neo-tab-header-toolbar.neo-tab-container-inline {
-        --tab-button-padding         : 7px 8px 6px;
-        --tab-button-text-font-weight: 400;
-    }
+    // The inherited four are now STATED. They were omitted while the selector lived here, which was
+    // safe only because the block sat inside this theme's own scope; read from a structural rule the
+    // omission would resolve against the ENCLOSING theme, which is the #18141 defect exactly.
+    --tab-inline-button-border-radius              : 0;
+    --tab-inline-button-gap                        : 0;
+    --tab-inline-button-height                     : 25px;
+    --tab-inline-button-height-pressed             : 25px;
+    --tab-inline-button-padding                    : 7px 8px 6px;
+    --tab-inline-button-text-font-size             : var(--button-text-font-size);
+    --tab-inline-button-text-font-weight           : 400;
 
     // Standalone gives classic-theme consumers a coherent free-standing card treatment without
-    // changing the ui:null default above.
-    &.neo-tab-container-standalone > .neo-tab-header-toolbar,
-    .neo-tab-container-standalone > .neo-tab-header-toolbar,
-    // The detached-proxy pair, mirroring the inline block above. SortZone propagates whatever
-    // non-null `ui` the owner holds, so every variant the themes name needs both self-scoped
-    // forms — an inline-only self-scope would leave a standalone proxy silently ancestor-scoped.
-    &.neo-tab-header-toolbar.neo-tab-container-standalone,
-    .neo-tab-header-toolbar.neo-tab-container-standalone {
-        --tab-button-border-radius : 8px;
-        --tab-button-gap           : 4px;
-        --tab-button-height        : 40px;
-        --tab-button-height-pressed: 40px;
-        --tab-button-padding       : 7px 16px 6px;
-    }
+    // changing the ui:null default.
+    --tab-standalone-button-border-radius          : 8px;
+    --tab-standalone-button-gap                    : 4px;
+    --tab-standalone-button-height                 : 40px;
+    --tab-standalone-button-height-pressed         : 40px;
+    --tab-standalone-button-padding                : 7px 16px 6px;
 }
