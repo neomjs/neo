@@ -11,6 +11,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Button         from '../../../../src/button/Base.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 import BaseContainer  from '../../../../src/container/Base.mjs';
 import DialogToolbar  from '../../../../src/dialog/header/Toolbar.mjs';
@@ -339,6 +340,42 @@ test.describe.serial('Neo tab header actions', () => {
 
         expect(secondBoundAction).not.toBe(firstBoundAction);
         expect(secondBoundAction.handler()).toBe(2)
+    });
+
+    test('an identical re-projection constructs nothing; a real change still rebuilds', () => {
+        const tabs = own(Neo.create(TabContainer, {
+                  headerActions: [{action: 'lock', iconCls: 'fa fa-lock'}],
+                  items        : [{module: Component, header: {text: 'One'}}]
+              })),
+              first = tabs.getActionItems()[0];
+
+        // Counting constructions rather than inferring them from instance identity: a rebuild that
+        // happened to land in the same slot is still work the projection paid for, and `toBe` alone
+        // cannot see it. `button.Base` owns `construct`, so save/restore by assignment is exact.
+        const constructed       = [],
+              originalConstruct = Button.prototype.construct;
+
+        Button.prototype.construct = function(config) {
+            constructed.push(this);
+            return originalConstruct.call(this, config)
+        };
+
+        try {
+            // A structurally identical action set delivered as a FRESH array — the shape every dock
+            // re-projection produces. Nothing differs, so nothing may be rebuilt.
+            tabs.headerActions = [{action: 'lock', iconCls: 'fa fa-lock'}];
+
+            expect(tabs.getActionItems()[0], 'the instance survives an identical projection').toBe(first);
+            expect(constructed, 'an identical projection constructs no buttons').toHaveLength(0);
+
+            // Control: the counter must be ABLE to fire, or the zero above witnesses nothing.
+            tabs.headerActions = [{action: 'unlock', iconCls: 'fa fa-lock-open'}];
+
+            expect(constructed.length, 'a genuine action change still rebuilds').toBeGreaterThan(0);
+            expect(tabs.getActionItems()[0], 'and it is a different instance').not.toBe(first)
+        } finally {
+            Button.prototype.construct = originalConstruct
+        }
     });
 
     test('tab SortZone admits only tab buttons, including after runtime action replacement', async () => {

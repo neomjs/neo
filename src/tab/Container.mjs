@@ -99,7 +99,6 @@ class Container extends BaseContainer {
             [isDescriptor]: true,
             clone         : 'shallow',
             cloneOnGet    : 'none',
-            isEqual       : () => false,
             value         : null
         },
         /**
