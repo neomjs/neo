@@ -135,41 +135,55 @@ test.describe('core.Base — mutable static config defaults', () => {
         expect(b.isolatedReactive, 'the isolated half does not').toEqual([0, 0])
     });
 
-    // `test.fail()` rather than a skip or an inverted assertion. The arms below state the contract
-    // the guide promises, so they must go RED the moment it holds — a spec asserting today's broken
-    // behaviour would go red when the defect is FIXED, which is precisely backwards. Playwright
-    // reports an expected failure as a pass, so this lands green and flips the day someone repairs
-    // the config system, at which point the annotation comes off.
+    // These record what the config system does TODAY. They are not `test.fail()`, and the earlier
+    // draft of this file that made them expected-failures was wrong in two separate ways.
     //
-    // Nothing that serves as a control lives in here: an assertion inside an expected-failure block
-    // can never go red, so it can never discriminate. The control is the arm above.
-    test.describe('the contract the guide promises, not yet met', () => {
-        test.fail();
-
-        test('a non-reactive mutable default is not shared between instances', () => {
+    // First, two of them would have asserted ISOLATION for a non-reactive mutable default — which is
+    // not a defect awaiting repair. `learn/guides/fundamentals/DeclarativeConfigMerging.md` states
+    // sharing as the documented default and prescribes an opt-out. A spec demanding the opposite is
+    // a feature request wearing a test's clothing.
+    //
+    // Second, `test.fail()` encodes a preferred outcome for a fork that is OPEN. It is not settled
+    // whether a `clone` descriptor on a non-reactive key should start working or be rejected at
+    // `Neo.setupClass()`, and an expected-failure arm asserting the first silently lobbies for it.
+    // It also reports as a pass, so it tells a reader scanning CI nothing at all, and would flip to
+    // a real failure under whichever resolution lands — surprising whoever implements it.
+    //
+    // Characterization instead: assert today's behaviour, name the open decision, and let these go
+    // RED when the config system changes. That redness is the point — it tells the implementer the
+    // record needs updating, in the same PR that changes the behaviour.
+    test.describe('current behaviour, pending the open clone-descriptor decision', () => {
+        test('a non-reactive mutable default is shared between instances, as the guide documents', () => {
             const a = Neo.create(PlainDefaults),
                   b = Neo.create(PlainDefaults);
 
-            expect(a.plainArray, 'two instances must not hold the same array').not.toBe(b.plainArray);
-            expect(a.plainObject, 'nor the same object').not.toBe(b.plainObject)
+            expect(a.plainArray, 'both instances hold one array').toBe(b.plainArray);
+            expect(a.plainObject, 'and one object').toBe(b.plainObject)
         });
 
-        test('writing through a non-reactive default cannot reach a sibling or the class default', () => {
+        test('an in-place write reaches the sibling AND the class default', () => {
+            // The sharp half, and the reason the sharing is worth pinning even though it is
+            // intended: the value handed to each instance IS `ctor.config`'s, so the first write
+            // through any instance edits the class default and every instance built afterwards
+            // starts from the mutated value.
             const a = Neo.create(PlainDefaults),
                   b = Neo.create(PlainDefaults);
 
             a.plainArray[0] = 99;
 
-            expect(b.plainArray, 'the sibling instance is untouched').toEqual([0, 0]);
-            expect(PlainDefaults.config.plainArray, 'and the class default is untouched').toEqual([0, 0])
+            expect(b.plainArray, 'the sibling sees it').toEqual([99, 0]);
+            expect(PlainDefaults.config.plainArray, 'and so does the class default').toEqual([99, 0])
         });
 
-        test('a clone descriptor takes effect on a non-reactive config, or is rejected loudly', () => {
+        test('a clone descriptor on a non-reactive key is accepted and does nothing', () => {
+            // The actual defect, stated as what happens rather than as what should. Every option
+            // on the open fork agrees this must stop being SILENT — they disagree on whether it
+            // starts working or starts throwing, so this arm deliberately asserts neither outcome.
             const a = Neo.create(DescribedDefaults),
                   b = Neo.create(DescribedDefaults);
 
-            expect(a.clonedPlain, 'clone:deep must not be silently inert on a non-reactive key')
-                .not.toBe(b.clonedPlain)
+            expect(a.clonedPlain, 'the descriptor is accepted, and the value is still shared')
+                .toBe(b.clonedPlain)
         })
     })
 });
