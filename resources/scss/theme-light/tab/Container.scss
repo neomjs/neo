@@ -7,9 +7,17 @@
     --tab-header-action-glyph-color-active         : #1c60a0;
     --tab-header-action-glyph-color-hover          : #1c60a0;
     --tab-header-action-size                       : 20px;
-    // Classic chrome is intentionally flat, stated rather than omitted: an omitted custom property
-    // inherits the enclosing theme's value instead of resetting. Separation is the content border.
-    --tab-header-inline-background-color           : transparent;
+    // Classic chrome stays FLAT — no gradient, no hairline — but flat is not groundless. `transparent`
+    // left the header borrowing whatever sat behind it, so beside white pane content it read as an
+    // undefined grey rather than as chrome, and every consumer re-declared the token to fix it. That
+    // projection lands at the SAME (0,2,0) weight as this line, so which one wins is decided by sheet
+    // fetch order, which a consumer cannot control. Stating the value here is what removes the race.
+    //
+    // `#f2f2f2` is the family's own header grey rather than a new one: it already carries
+    // `--calendar-settings-header-background-color`, `component.Splitter`, and the even-row banding
+    // that separates rows from white. A `--sem-color-*` token would be wrong here — the classic
+    // families declare none, so it would resolve against whatever theme was previously in scope.
+    --tab-header-inline-background-color           : #f2f2f2;
     --tab-header-inline-background-image           : none;
     --tab-header-inline-box-shadow                 : none;
 

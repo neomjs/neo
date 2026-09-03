@@ -14,7 +14,9 @@ const THEMES = [
 const EXPECTED = {
     'neo-theme-light': {
         actionSize: '20px',
-        band      : 'none',
+        // `flat`, not `none`: the family states its own header grey and carries no hairline. The
+        // old name described the value it happened to have, which stopped being true.
+        band      : 'flat',
         inline    : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
         null      : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
         standalone: {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
@@ -22,7 +24,7 @@ const EXPECTED = {
     },
     'neo-theme-dark': {
         actionSize: '20px',
-        band      : 'none',
+        band      : 'flat',
         inline    : {fontSize: '11px', fontWeight: '400', height: '25px', padding: '7px 8px 6px',  radius: '0px'},
         null      : {fontSize: '11px', fontWeight: '600', height: '25px', padding: '7px 12px 6px', radius: '0px'},
         standalone: {fontSize: '11px', fontWeight: '600', height: '40px', padding: '7px 16px 6px', radius: '8px'},
@@ -341,16 +343,20 @@ test.describe('Neo.tab.Container — ui variants', () => {
                 .not.toBe('0px');
 
             // The inline header's band. The neo themes paint a flat semantic surface with an inset
-            // hairline and value the public image hook `none`; the legacy themes value none of the
-            // inline hooks and keep a transparent header. Neither paints a gradient any more.
+            // hairline; the classic families paint their own header grey and carry no hairline, so
+            // separation there stays the content border. Neither paints a gradient any more.
+            //
+            // The classic branch used to assert `transparent`, which was the VALUE those families
+            // happened to state rather than the property this arm exists for. `flat` is the property
+            // — a ground, no hairline — and it is what still distinguishes the two families.
             expect(measured.inline.backgroundImage, 'no theme paints the inline header as a gradient').toBe('none');
 
             if (EXPECTED[theme].band === 'surface') {
                 expect(measured.inline.backgroundColor, 'the inline header is a theme surface').not.toBe('rgba(0, 0, 0, 0)');
                 expect(measured.inline.boxShadow, 'with a hairline under it').toContain('inset')
             } else {
-                expect(measured.inline.backgroundColor, 'a theme without inline hooks keeps the header transparent').toBe('rgba(0, 0, 0, 0)');
-                expect(measured.inline.boxShadow).toBe('none')
+                expect(measured.inline.backgroundColor, 'a classic family gives the header its own ground').not.toBe('rgba(0, 0, 0, 0)');
+                expect(measured.inline.boxShadow, 'and no hairline — the content border carries the separation').toBe('none')
             }
 
             expect(measured.null.boxShadow, 'the hairline belongs to the inline variant alone').toBe('none');
