@@ -1,0 +1,52 @@
+name: Theme Value File Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+#
+# The rule (operator, 2026-09-02): a theme value file declares variables, never selectors. Which
+# elements get a value is structural and belongs in `resources/scss/src`; a theme only answers what
+# its value is. See `buildScripts/util/check-theme-value-files.mjs` for why that is a defect class
+# rather than a style preference.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      # The invariant is scanned ⊆ watched. The guard walks EVERY theme file, so every theme file
+      # must re-run it; a filter narrower than the scan lets the introducing PR land ungated and
+      # turns the next unrelated run red — late, misattributed enforcement.
+      - 'resources/scss/theme-*/**/*.scss'
+      # The baseline is an INPUT to the verdict, so editing it must re-run the check. Otherwise a
+      # file can be blessed by editing the record of what exists, with nothing re-reading reality.
+      - 'buildScripts/util/check-theme-value-files-baseline.json'
+      - 'buildScripts/util/check-theme-value-files.mjs'
+      - '.github/workflows/theme-value-file-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'resources/scss/theme-*/**/*.scss'
+      - 'buildScripts/util/check-theme-value-files-baseline.json'
+      - 'buildScripts/util/check-theme-value-files.mjs'
+      - '.github/workflows/theme-value-file-lint.yml'
+
+concurrency:
+  group: theme-value-file-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # No install: the guard reads files and walks braces with the standard library only. Stated
+      # rather than assumed, because `fixed-sleep-lint.yml` carries the scar of a workflow whose
+      # "nothing to resolve" comment stayed true right up until discovery moved to a parse tree.
+      # If this guard ever grows a parser, this step is the tripwire — add `npm ci` with it.
+      - name: Require theme value files to declare variables, never selectors
+        run: node ./buildScripts/util/check-theme-value-files.mjs

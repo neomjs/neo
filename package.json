@@ -158,7 +158,8 @@
             "node ./buildScripts/util/check-engine-brain-boundary.mjs"
         ],
         "resources/scss/**/*.scss": [
-            "node ./buildScripts/util/check-theme-coverage.mjs"
+            "node ./buildScripts/util/check-theme-coverage.mjs",
+            "node ./buildScripts/util/check-theme-value-files.mjs"
         ],
         "resources/content/archive/**/*.md": [
             "node ./buildScripts/util/check-content-logical-identity.mjs"
