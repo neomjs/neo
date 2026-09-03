@@ -32,6 +32,15 @@ class CellEditing extends Plugin {
          */
         editorCls: ['neo-table-editor'],
         /**
+         * @summary Whether dismissing an editor hands focus back to the cell it covered.
+         *
+         * The post-dismissal RESTORE only — it does not establish focus, and nothing consults it
+         * before an editor mounts. Its single use is in {@link #selectCell}, which runs from
+         * {@link #onEditorKeyEnter} and {@link #onEditorKeyEscape}, i.e. after an editor closes.
+         *
+         * Spelled out because the name reads like the opposite. On a surface whose cells are not
+         * focusable at all — a grid, where the View is the sole element declaring `tabindex` — this
+         * config being `true` says nothing about where a keystroke will land.
          * @member {Boolean} focusCells=true
          */
         focusCells: true
