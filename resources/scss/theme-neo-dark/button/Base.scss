@@ -147,15 +147,9 @@
     --button-tertiary-opacity-disabled          : var(--neo-disabled-opacity);
     --button-tertiary-ripple-background-color   : inherit;
 
-
-    // custom overrides
-    .neo-button {
-        min-width: var(--cmp-button-height);
-
-        &.neo-button-tertiary {
-            text-decoration      : underline;
-            text-decoration-color: var(--sem-color-text-primary-default);
-            text-underline-offset: 3px;
-        }
-    }
+    // Moved out of a selector block: the rule is structural, only these values are the theme's.
+    --button-min-width                          : var(--cmp-button-height);
+    --button-tertiary-text-decoration           : underline;
+    --button-tertiary-text-decoration-color     : var(--sem-color-text-primary-default);
+    --button-tertiary-text-underline-offset     : 3px;
 }

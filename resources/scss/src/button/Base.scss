@@ -22,6 +22,9 @@
     height            : var(--button-height);
     justify-content   : center;
     margin            : var(--button-margin);
+    // A square minimum is a THEME's density decision, but WHICH element gets one is not — it is
+    // every button, in every theme, so the rule belongs here and only its value varies.
+    min-width         : var(--button-min-width);
     padding           : var(--button-padding);
     position          : relative;
     text-decoration   : none; // for url buttons => links
@@ -283,9 +286,15 @@
     }
 
     &.neo-button-tertiary {
-        background-color: var(--button-tertiary-background-color);
-        background-image: var(--button-tertiary-background-image);
-        border          : var(--button-tertiary-border);
+        background-color     : var(--button-tertiary-background-color);
+        background-image     : var(--button-tertiary-background-image);
+        border               : var(--button-tertiary-border);
+        // A tertiary button reads as a link, so whether it is underlined is a theme's call while the
+        // element that carries the underline is not. All three land together: `text-decoration` alone
+        // would leave a theme valuing `underline` with an uncontrolled colour and offset.
+        text-decoration      : var(--button-tertiary-text-decoration);
+        text-decoration-color: var(--button-tertiary-text-decoration-color);
+        text-underline-offset: var(--button-tertiary-text-underline-offset);
 
         .neo-button-badge {
             background-color: var(--button-tertiary-badge-background-color);
