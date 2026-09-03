@@ -1008,8 +1008,16 @@ class Workspace extends Container {
      * @protected
      */
     isDockTearOutCandidate(component) {
-        return component?.ntype !== 'tab-header-button'
-            && !component?.cls?.includes('neo-dashboard-dock-placeholder')
+        const cls = component?.cls || [];
+
+        // Excluded by CATEGORY, not one instance at a time. Every stand-in found so far is a
+        // BUTTON — the tab header button and the rail tab both carry the pane's `dockItemId` so a
+        // click can resolve the item without id bookkeeping — and naming them individually lost
+        // twice in one night. A dock pane is never a button, so the category is safe to refuse.
+        return !cls.includes('neo-button')
+            && !component?.ntype?.endsWith('button')
+            && !cls.includes('neo-dashboard-dock-rail-tab')
+            && !cls.includes('neo-dashboard-dock-placeholder')
             && component?.data?.missingComponentRef !== true
     }
 

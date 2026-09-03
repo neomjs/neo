@@ -3067,6 +3067,23 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 'a real pane still qualifies — the guard is not simply refusing everything').toBe(true)
         });
 
+        test('a rail tab is not the pane either, and the whole button category is refused', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            // `interaction/Rail#createTabConfig` mints a Button carrying the pane's dockItemId so a
+            // click resolves the item without id bookkeeping — it cleared an exclusion that named
+            // only the header button and the placeholder. Naming stand-ins one at a time lost twice,
+            // so the guard refuses the CATEGORY: a dock pane is never a button.
+            expect(workspace.isDockTearOutCandidate({cls: ['neo-dashboard-dock-rail-tab', 'neo-button'], ntype: 'button'}),
+                'a rail tab is refused').toBe(false);
+
+            expect(workspace.isDockTearOutCandidate({cls: ['neo-button'], ntype: 'button'}),
+                'and so is any other button carrying the identity').toBe(false);
+
+            expect(workspace.isDockTearOutCandidate({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
+                'while a real pane is untouched by the widening').toBe(true)
+        });
+
         test('the engine opens its own vessel, carrying the four params onWindowConnect parses', async () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
