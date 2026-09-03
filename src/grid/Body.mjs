@@ -148,12 +148,6 @@ class GridBody extends Component {
          */
         mountedColumns_: [0, 0],
         /**
-         * Stores the indexes of the first & last mounted rows, including bufferRowRange
-         * @member {Number[]} mountedRows=[0,0]
-         * @protected
-         */
-        mountedRows: [0, 0],
-        /**
          * Optional config values for Neo.grid.plugin.AnimateRows
          * @member {Object} pluginAnimateRowsConfig=null
          */
@@ -210,18 +204,6 @@ class GridBody extends Component {
          */
         stripedRows_: true,
         /**
-         * Stores the indexes of the first & last painted columns
-         * @member {Number[]} visibleColumns=[0,0]
-         * @protected
-         */
-        visibleColumns: [0, 0],
-        /**
-         * Stores the indexes of the first & last visible rows, excluding bufferRowRange
-         * @member {Number[]} visibleRows=[0,0]
-         * @protected
-         */
-        visibleRows: [0, 0],
-        /**
          * @member {String[]|null} wrapperCls=null
          * @reactive
          */
@@ -257,10 +239,37 @@ class GridBody extends Component {
      */
     items = []
     /**
+     * Stores the indexes of the first & last mounted rows, including bufferRowRange.
+     *
+     * An instance field rather than a `static config`, because it is neither configured nor read
+     * from outside: it is derived state that `updateMountedAndVisibleRows()` writes through BY
+     * INDEX. A `static config` holding a mutable literal is handed to every instance by reference
+     * — the engine's clone protection lives in the reactive-config path, which a config without a
+     * trailing underscore never enters — so every grid body on a page would share this one array
+     * and the last body to measure would decide what all the others believe is mounted.
+     * @member {Number[]} mountedRows=[0,0]
+     * @protected
+     */
+    mountedRows = [0, 0]
+    /**
      * The dynamic size of the row pool.
      * @member {Number|null} rowPoolSize=null
      */
     rowPoolSize = null
+    /**
+     * Stores the indexes of the first & last painted columns.
+     * Instance field for the same reason as `mountedRows`.
+     * @member {Number[]} visibleColumns=[0,0]
+     * @protected
+     */
+    visibleColumns = [0, 0]
+    /**
+     * Stores the indexes of the first & last visible rows, excluding bufferRowRange.
+     * Instance field for the same reason as `mountedRows`.
+     * @member {Number[]} visibleRows=[0,0]
+     * @protected
+     */
+    visibleRows = [0, 0]
 
     /**
      * @member {String[]} selectedCells
