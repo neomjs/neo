@@ -70,8 +70,9 @@ test.describe('learn link routing', () => {
 
     /**
      * The question the href arms structurally cannot answer: not "is the href well-formed" but
-     * "does clicking it arrive". Neutering `MainContainerController#onRouteLearnItem` leaves every
-     * href above correct and reddens only this arm.
+     * "does clicking it arrive". Measured: dropping every re-navigation in
+     * `MainContainerController#onRouteLearnItem` leaves both href arms green and reddens this arm
+     * and the control, each at its destination assertion rather than at setup.
      */
     test('clicking a rewritten link arrives at its destination', async ({page}) => {
         await page.goto(GUIDE);
