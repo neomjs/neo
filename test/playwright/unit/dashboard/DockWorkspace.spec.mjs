@@ -3366,6 +3366,53 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             }
         });
 
+        test('a host override is the ONLY opener that runs — the engine default does not also fire', async () => {
+            class HostOpenerWorkspace extends PlainWorkspace {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.HostOpenerWorkspace'}
+
+                hostOpens = []
+
+                openTearOutVessel(request) {
+                    this.hostOpens.push(request);
+                    return {admissionToken: request.admissionToken, windowName: `host-${request.itemId}`}
+                }
+            }
+
+            Neo.setupClass(HostOpenerWorkspace);
+
+            workspace = Neo.create(HostOpenerWorkspace, {dockModel: createDocument()});
+
+            const opens              = [],
+                  {useSharedWorkers} = Neo.config,
+                  originalMain       = Neo.Main;
+
+            // Shared workers ON, so the ENGINE default would happily open a window here. That is the
+            // whole point of the arm: the risk is not that a host override fails, it is that the
+            // engine adds a second vessel behind it — two windows for one gesture, one of them
+            // holding nothing, and neither owner aware of the other.
+            Neo.Main = {
+                getByPath    : () => Promise.resolve('https://example.test/app/index.html'),
+                getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 0, screenTop: 0}),
+                windowOpen   : data => { opens.push(data); return Promise.resolve(true) }
+            };
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                const vessel = await workspace.acquireTearOutVessel({admissionToken: 5, itemId: 'editor'});
+
+                expect(workspace.hostOpens, 'the host opener ran exactly once').toHaveLength(1);
+                expect(vessel).toMatchObject({windowName: 'host-editor'});
+
+                // Witnessed on the WINDOW, not on which method was called: `Neo.Main.windowOpen` is
+                // the only thing the engine default does that a host cannot undo, so an empty
+                // collector is the honest statement that no second vessel exists.
+                expect(opens, 'the engine opened nothing of its own').toEqual([])
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
         test('without useSharedWorkers there is no vessel to open, and none is attempted', async () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
