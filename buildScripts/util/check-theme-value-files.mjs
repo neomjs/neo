@@ -63,63 +63,77 @@ const
  * 1, so ANY block opened at depth ≥ 1 is a nested rule regardless of how its selector is written.
  * Comments and strings are stripped first so a brace inside either cannot move the count. `@`-rules
  * stay allowed — `@include` composes values rather than deciding which elements receive them.
+ *
+ * **The depth-0 block is checked too, and that is not symmetry — it closes a real escape.** Treating
+ * depth 0 as "the file's own wrapper" is a convention no code enforces: nothing stops a file having a
+ * SECOND top-level block, and one declaring `color: red` was reported compliant. Worse, it is the
+ * shape ordinary editing produces — appending to a theme file lands at column 0, so the easiest way
+ * to add an override was the one way this guard could not see it.
+ *
+ * The test is the rule itself rather than a proxy for it: a top-level block may declare custom
+ * properties and nothing else. Failing on "more than one top-level block" would also have worked on
+ * today's tree, and would ban a legitimate second variables-only scope; this does not.
  * @param {String} file Absolute path.
  * @returns {{line: Number, text: String}[]}
  */
 export function findSelectorBlocks(file) {
     const
-        lines  = fs.readFileSync(file, 'utf8').split('\n'),
-        blocks = [];
+        blocks = [],
+        source = fs.readFileSync(file, 'utf8')
+            // Comments and strings first, so a brace inside either cannot move the depth.
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/\/\/[^\n]*/g, '')
+            .replace(/(['"])(?:\\.|(?!\1).)*\1/g, '')
+            // SCSS interpolation is not a block. `--button-border: #{$w} #{$s};` carries two `#{`
+            // openers, and counting them made an already-clean file report 34 selectors.
+            .replace(/#\{[^{}]*\}/g, '');
 
-    let depth     = 0,
-        inComment = false;
+    let depth  = 0,
+        line   = 1,
+        buffer = '';
 
-    lines.forEach((raw, index) => {
-        let code      = raw,
-            opensHere = 0;
+    /**
+     * @summary Records a declaration if `buffer` holds one that a theme file may not declare.
+     * @param {Number} at
+     */
+    const flushDeclaration = at => {
+        const declaration = buffer.match(/([a-zA-Z-][\w-]*)\s*:/);
 
-        // Strip block comments (possibly spanning lines), then line comments and strings.
-        if (inComment) {
-            const end = code.indexOf('*/');
+        // Only DIRECTLY inside the theme's own scope. Deeper text already belongs to a nested block
+        // that was reported when it opened.
+        depth === 1 && declaration && !declaration[1].startsWith('--') && !buffer.trim().startsWith('@') &&
+            blocks.push({kind: 'top-level property', line: at, text: buffer.trim().slice(0, 90)});
 
-            if (end === -1) return;
+        buffer = ''
+    };
 
-            code      = code.slice(end + 2);
-            inComment = false
+    for (const char of source) {
+        if (char === '\n') { line++; buffer += ' '; continue }
+
+        if (char === '{') {
+            // The selector is whatever preceded the brace. At depth ≥ 1 that is a nested rule; at
+            // depth 0 it is the file's own scope, whose CONTENTS `flushDeclaration` then polices.
+            depth > 0 && !buffer.trim().startsWith('@') && buffer.trim() &&
+                blocks.push({kind: 'nested selector', line, text: buffer.trim().slice(0, 90)});
+
+            depth++;
+            buffer = '';
+            continue
         }
 
-        code = code.replace(/\/\*[\s\S]*?\*\//g, '');
-
-        const open = code.indexOf('/*');
-
-        if (open !== -1) {
-            inComment = true;
-            code      = code.slice(0, open)
+        if (char === '}') {
+            // A one-line block (`.probe { color: red }`) closes without a `;`, so the declaration is
+            // only ever seen here. Flushing BEFORE the depth drop is what catches it — the earlier
+            // line-based version missed exactly this shape.
+            flushDeclaration(line);
+            depth = Math.max(0, depth - 1);
+            continue
         }
 
-        code = code.replace(/\/\/.*$/, '').replace(/(['"])(?:\\.|(?!\1).)*\1/g, '');
+        if (char === ';') { flushDeclaration(line); continue }
 
-        // SCSS INTERPOLATION is not a block. `--button-border: #{$width} #{$style};` carries two
-        // `#{` openers, and counting them made a file this sweep had already cleaned report 34
-        // selectors. Stripped before the walk so the depth stays structural.
-        code = code.replace(/#\{[^{}]*\}/g, '');
-
-        const atRule = /^\s*@/.test(code);
-
-        for (const char of code) {
-            if (char === '{') {
-                // Depth 0 → the file's own theme wrapper. Depth ≥ 1 → a nested rule, unless this
-                // line is an at-rule: `@include`/`@if`/`@each` compose values and control flow,
-                // they do not decide which elements receive them.
-                depth > 0 && !atRule && opensHere++;
-                depth++
-            } else if (char === '}') {
-                depth = Math.max(0, depth - 1)
-            }
-        }
-
-        opensHere && blocks.push({line: index + 1, text: raw.trim()})
-    });
+        buffer += char
+    }
 
     return blocks
 }
@@ -180,9 +194,10 @@ export function collectThemeValueFileFailures() {
 
         if (!recorded) {
             failures.push(
-                `[new-selector] ${file} declares ${blocks.length} selector block(s); a theme file ` +
-                `answers "what value", never "which elements". Move the selector to resources/scss/src ` +
-                `and add tokens: ` + blocks.map(block => `${file}:${block.line} ${block.text.trim()}`).join(' | ')
+                `[new-selector] ${file} declares ${blocks.length} rule(s) that are not variables; a ` +
+                `theme file answers "what value", never "which elements". Move the selector to ` +
+                `resources/scss/src and add tokens: ` +
+                blocks.map(block => `${file}:${block.line} (${block.kind}) ${block.text.trim()}`).join(' | ')
             );
             continue
         }
