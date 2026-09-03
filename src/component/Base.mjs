@@ -199,10 +199,22 @@ class Component extends Abstract {
          * Declares part of this component's DOM as a native HTML5 drag source, so a drag can carry
          * a `DataTransfer` payload into content the synthetic drag pipeline cannot reach — an
          * embedded iframe, another window's foreign document, the OS. The declaration is pure JSON:
-         * a `delegate` selector for the draggable nodes, a `types` map of mime type to attribute
-         * template (`'{data-record-id}'` reads that attribute off the source node at drag time),
-         * and an optional `effectAllowed`. Requires the `NativeDragSource` main-thread addon; see
-         * its class docs for the payload contract and the partition with the synthetic pipeline.
+         * a `delegate` selector for the draggable nodes, a `types` map of mime type to payload
+         * template, and an optional `effectAllowed`. Requires the `NativeDragSource` main-thread
+         * addon; see its class docs for the payload contract and the partition with the synthetic
+         * pipeline.
+         *
+         * A template token resolves from one of two sources:
+         *
+         * - `'{data-record-id}'` reads that attribute off the source node at drag time.
+         * - `'{field:name}'` reads a record field supplied by {@link #getNativeDragFields}, for a
+         *   value that lives in the app worker's store and is not in the DOM at all.
+         *
+         * The field form exists because the attribute form couples the payload to DOM identity:
+         * putting a business id on the clipboard used to mean putting it in the DOM first, which
+         * for a grid meant `useInternalId: false` — opting out of stable DOM keying to use an
+         * unrelated feature. **The two settings are independent.** A grid can keep
+         * `useInternalId: true` and name its fields.
          * @member {Object|null} nativeDragZone_=null
          * @reactive
          */
@@ -675,11 +687,112 @@ class Component extends Abstract {
             send = () => {
                 if (gen === me.nativeDragZoneGeneration && me.nativeDragZone) {
                     me.nativeDragZoneWindowId = me.windowId;
-                    Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId})
+                    Neo.main?.addon?.NativeDragSource?.register({
+                        ...me.nativeDragZone,
+                        fields  : me.getNativeDragFieldMap(),
+                        ownerId : me.id,
+                        windowId: me.windowId
+                    })
                 }
             };
 
         me.mounted ? send() : me.on('mounted', send, me, {once: true})
+    }
+
+    /**
+     * The record fields this component's {@link #nativeDragZone} templates name, parsed from the
+     * declaration rather than configured twice.
+     *
+     * Derived so a template and its field list cannot disagree: a `{field:x}` added to a payload
+     * is collected by construction, and a field nobody references is never gathered. The parse is
+     * deliberately the same shape the addon resolves with — see its `templateToken`.
+     * @returns {String[]} Field names, empty when no template names one
+     * @protected
+     */
+    getNativeDragFieldNames() {
+        const types = this.nativeDragZone?.types;
+
+        if (!Neo.isObject(types)) {
+            return []
+        }
+
+        const names = new Set();
+
+        Object.values(types).forEach(template => {
+            if (Neo.isString(template)) {
+                for (const match of template.matchAll(/\{field:([\w-]+)\}/g)) {
+                    names.add(match[1])
+                }
+            }
+        });
+
+        return [...names]
+    }
+
+    /**
+     * Hook: the values backing this component's `{field:name}` payload tokens, as
+     * `{nodeId: {field: value}}`.
+     *
+     * The base cannot answer this — a component has no store and no rows — so the default
+     * contributes nothing and every attribute-only declaration keeps its exact behaviour. A
+     * data-bound surface overrides it; see `Neo.grid.Body#getNativeDragFields`.
+     *
+     * Called at registration and again from {@link #updateNativeDragFields} on every render that
+     * can change the mapping, because the map is keyed by node id and a pooled surface recycles
+     * those ids across records. Returning a value captured once would go stale on the first
+     * scroll, silently, with the payload naming a record the user is no longer dragging.
+     * @param {String[]} fieldNames The fields the templates actually reference
+     * @returns {Object|null}
+     * @protected
+     */
+    getNativeDragFields(fieldNames) {
+        return null
+    }
+
+    /**
+     * This component's field map, or `null` when no payload template names a field.
+     *
+     * The short-circuit is the contract, not an optimisation: {@link #getNativeDragFields} is
+     * consulted ONLY when its answer can be used. An override that ignores its `fieldNames`
+     * argument would otherwise ship a map for an attribute-only declaration, and `null` is what
+     * makes the addon's no-field path byte-identical to its behaviour before fields existed.
+     * @returns {Object|null}
+     * @protected
+     */
+    getNativeDragFieldMap() {
+        const fieldNames = this.getNativeDragFieldNames();
+
+        return fieldNames.length > 0 ? this.getNativeDragFields(fieldNames) : null
+    }
+
+    /**
+     * Pushes a fresh field map for an already-registered {@link #nativeDragZone}.
+     *
+     * Cheap by design so a render path can call it unconditionally: it returns immediately unless
+     * this component has a live registration whose templates actually name a field. The generation
+     * check is the same guard {@link #registerNativeDragZone} uses — a declaration replaced between
+     * a render and this send must not have its successor's map overwritten by the old one.
+     * @protected
+     */
+    updateNativeDragFields() {
+        let me  = this,
+            gen = me.nativeDragZoneGeneration;
+
+        if (!me.nativeDragZone || !me.nativeDragZoneWindowId) {
+            return
+        }
+
+        const fields = me.getNativeDragFieldMap();
+
+        if (!fields) {
+            return
+        }
+
+        gen === me.nativeDragZoneGeneration && Neo.main?.addon?.NativeDragSource?.updateFields({
+            fields,
+            ownerId : me.id,
+            windowId: me.nativeDragZoneWindowId
+        })
     }
 
     /**

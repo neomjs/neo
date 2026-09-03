@@ -299,4 +299,159 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
             originalWindow === undefined ? delete globalThis.window : globalThis.window = originalWindow
         }
     });
+
+    /**
+     * `{field:name}` — the resolution source that does not require the value to be in the DOM.
+     *
+     * A payload could only ever read attributes, so putting a business id on the clipboard meant
+     * putting it in the DOM first; for a grid that meant `useInternalId: false`, and getting it
+     * wrong was silent — `getAttribute` returned `neo-record-7`, `setData` accepted it, the drop
+     * fired, and the receiver looked up an id that does not exist in its domain.
+     *
+     * @see https://github.com/neomjs/neo/issues/18113
+     */
+    test.describe('field tokens resolve from the registered map, not the DOM', () => {
+        /**
+         * Registers a source whose payload mixes both token forms, so every arm below measures
+         * the two resolving side by side rather than in isolation.
+         * @param {Object} [config] register() overrides
+         * @returns {Object} the armable node
+         */
+        function registerWithFields(config = {}) {
+            const node = fakeNode({'data-record-id': 'neo-record-7'});
+
+            node.id = 'grid-1__row-0';
+            node.closestMap['.grid [data-record-id]'] = node;
+            owners['grid-1'] = {contains: candidate => candidate === node};
+
+            addon.register({
+                delegate: '.grid [data-record-id]',
+                fields  : {'grid-1__row-0': {id: 'CNET-1234', title: 'Concept'}},
+                ownerId : 'grid-1',
+                types   : {
+                    'application/x-entity-id': '{field:id}',
+                    'text/plain'             : 'cnet:{field:id}',
+                    'text/x-both'            : '{field:title}@{data-record-id}'
+                },
+                ...config
+            });
+
+            return node
+        }
+
+        test('a field token carries the store value while the node id stays the internal one', () => {
+            const node         = registerWithFields(),
+                  dataTransfer = fakeDataTransfer();
+
+            addon.onMouseDown(press(node));
+            addon.onDragStart({target: node, dataTransfer});
+
+            // The node's own identity is untouched and still neo's — which is the entire point:
+            // the payload no longer forces the DOM to carry the business id.
+            expect(node.getAttribute('data-record-id'), 'the DOM still holds neo\'s id').toBe('neo-record-7');
+
+            expect(dataTransfer.data['application/x-entity-id'], 'the payload holds the business id').toBe('CNET-1234');
+            expect(dataTransfer.data['text/plain']).toBe('cnet:CNET-1234');
+
+            // Both forms in ONE template, so the arm cannot pass by resolving every token the
+            // same way.
+            expect(dataTransfer.data['text/x-both'], 'the two sources resolve independently')
+                .toBe('Concept@neo-record-7')
+        });
+
+        test('an unresolvable field yields the empty string, never the literal template', () => {
+            // Matching `?? ''` for attributes exactly. The literal leaking through would put
+            // `{field:missing}` on a real clipboard, which reads as a receiver bug, not ours.
+            const node         = registerWithFields({types: {'text/plain': 'x:{field:missing}'}}),
+                  dataTransfer = fakeDataTransfer();
+
+            addon.onMouseDown(press(node));
+            addon.onDragStart({target: node, dataTransfer});
+
+            expect(dataTransfer.data['text/plain']).toBe('x:')
+        });
+
+        test('a registration with no field map behaves exactly as before', () => {
+            // The control for every existing consumer: `fields` is absent, so an attribute
+            // template must resolve unchanged and a field token must not throw on the way.
+            const node         = registerGrid(),
+                  dataTransfer = fakeDataTransfer();
+
+            addon.onMouseDown(press(node));
+            addon.onDragStart({target: node, dataTransfer});
+
+            expect(dataTransfer.data['application/x-entity-id']).toBe('cid-42');
+            expect(dataTransfer.data['text/plain']).toBe('entity:cid-42')
+        });
+
+        test('a node keyed by data-neo-id resolves too, because half the apps have no id attribute', () => {
+            // `useDomIds: false` leaves `id` empty and puts identity in `data-neo-id`. Keying on
+            // `node.id` alone would resolve nothing for those apps — silently, which is the
+            // failure mode this whole ticket is about.
+            const node = fakeNode({});
+
+            node.dataset = {neoId: 'grid-2__row-3'};
+            node.closestMap['.grid-2 .row'] = node;
+            owners['grid-2'] = {contains: candidate => candidate === node};
+
+            addon.register({
+                delegate: '.grid-2 .row',
+                fields  : {'grid-2__row-3': {id: 'CNET-99'}},
+                ownerId : 'grid-2',
+                types   : {'text/plain': '{field:id}'}
+            });
+
+            const dataTransfer = fakeDataTransfer();
+
+            addon.onMouseDown(press(node));
+            addon.onDragStart({target: node, dataTransfer});
+
+            expect(dataTransfer.data['text/plain']).toBe('CNET-99')
+        });
+
+        test('updateFields replaces the map on a live registration, so a re-render is not stale', () => {
+            const node = registerWithFields();
+
+            // Pooled rows recycle node ids across records as they scroll, so the SAME node id
+            // must be able to mean a different record after a render. A map captured once at
+            // registration is the defect this path exists to prevent.
+            addon.updateFields({ownerId: 'grid-1', fields: {'grid-1__row-0': {id: 'CNET-5678'}}});
+
+            const dataTransfer = fakeDataTransfer();
+
+            addon.onMouseDown(press(node));
+            addon.onDragStart({target: node, dataTransfer});
+
+            expect(dataTransfer.data['application/x-entity-id']).toBe('CNET-5678');
+
+            // The rest of the declaration survived the refresh — it must not re-register.
+            expect(addon.sources.get('grid-1').delegate).toBe('.grid [data-record-id]');
+            expect(Object.keys(addon.sources.get('grid-1').types)).toHaveLength(3)
+        });
+
+        test('updateFields for an unknown owner is a no-op, because a render can outlive a retire', () => {
+            registerWithFields();
+            addon.unregister({ownerId: 'grid-1'});
+
+            expect(() => addon.updateFields({ownerId: 'grid-1', fields: {a: {id: 'x'}}})).not.toThrow();
+            expect(addon.sources.has('grid-1')).toBe(false)
+        });
+
+        test('the dragstart path is synchronous, so no value is ever fetched during a gesture', () => {
+            // `DataTransfer` exists only synchronously inside a native dragstart: an await here
+            // would silently produce an empty payload rather than an error. This asserts the
+            // property structurally instead of hoping a timing test would notice.
+            expect(NativeDragSource.prototype.onDragStart.constructor.name,
+                'onDragStart must not be async').toBe('Function');
+            expect(NativeDragSource.prototype.fieldsFor.constructor.name,
+                'nor may its resolution helper be').toBe('Function');
+
+            // And the values are present BEFORE the gesture, which is what makes that possible.
+            const node = registerWithFields();
+
+            expect(addon.sources.get('grid-1').fields['grid-1__row-0'].id,
+                'the map is in memory ahead of any dragstart').toBe('CNET-1234');
+            expect(addon.fieldsFor(addon.sources.get('grid-1'), node).id).toBe('CNET-1234')
+        })
+    })
 });

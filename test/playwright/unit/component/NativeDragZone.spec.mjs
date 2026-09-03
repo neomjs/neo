@@ -109,3 +109,125 @@ test.describe('Neo.component.Base#nativeDragZone lifecycle', () => {
         expect(calls).toEqual([])
     });
 });
+
+/**
+ * The field-token half of the declaration: which fields a payload names, and how their values
+ * reach the addon.
+ *
+ * @see https://github.com/neomjs/neo/issues/18113
+ */
+test.describe('Neo.component.Base#nativeDragZone field tokens', () => {
+    let payloads, instance;
+
+    test.beforeEach(() => {
+        payloads = [];
+
+        Neo.main = Neo.main || {};
+        Neo.main.DomEvents = {registerPreventDefaultTargets: () => {}};
+        Neo.main.addon     = {
+            NativeDragSource: {
+                claimsEvent : () => false,
+                register    : data => payloads.push(['register', data.fields]),
+                unregister  : () => {},
+                updateFields: data => payloads.push(['updateFields', data.fields])
+            }
+        }
+    });
+
+    test.afterEach(() => {
+        instance?.destroy();
+        instance = null;
+        delete Neo.main.addon;
+        delete Neo.main.DomEvents
+    });
+
+    /**
+     * A component answering the hook from a fixed table, standing in for a data-bound surface.
+     * It records the field names it was asked for, which is the contract that matters here: the
+     * list is DERIVED from the templates, so it cannot drift from them.
+     */
+    class FieldComponent extends Component {
+        static config = {
+            className: 'Test.Unit.Component.NativeDragZone.FieldComponent'
+        }
+
+        askedFor = []
+        table    = {'row-0': {id: 'CNET-1', title: 'One'}}
+
+        getNativeDragFields(fieldNames) {
+            this.askedFor.push([...fieldNames]);
+            return this.table
+        }
+    }
+
+    Neo.setupClass(FieldComponent);
+
+    test('the field list is parsed from the templates, so it cannot disagree with them', () => {
+        instance = Neo.create(FieldComponent, {
+            appName       : 'TestApp',
+            nativeDragZone: {
+                delegate: '.entity',
+                types   : {
+                    'application/x-id': '{field:id}',
+                    'text/plain'      : 'cnet:{field:id} — {field:title}',
+                    'text/x-mixed'    : '{data-record-id}/{field:title}'
+                }
+            },
+            windowId: 1
+        });
+
+        instance.mounted = true;
+
+        // Deduplicated across templates, attribute tokens excluded, order of first appearance.
+        expect(instance.askedFor[0]).toEqual(['id', 'title']);
+        expect(payloads[0]).toEqual(['register', {'row-0': {id: 'CNET-1', title: 'One'}}])
+    });
+
+    test('an attribute-only declaration asks for nothing and sends no field map', () => {
+        // The control for every consumer that exists today: the hook must not be consulted, and
+        // `fields` must reach the addon as the null it treats exactly as before.
+        instance = Neo.create(FieldComponent, {
+            appName       : 'TestApp',
+            nativeDragZone: {delegate: '.entity', types: {'text/plain': 'entity:{data-record-id}'}},
+            windowId      : 1
+        });
+
+        instance.mounted = true;
+
+        // Not "asked for an empty list" — not asked AT ALL. The hook is consulted only when its
+        // answer can be used, so an override that ignores its argument still ships no map here.
+        expect(instance.askedFor, 'the hook is never consulted').toEqual([]);
+        expect(payloads[0]).toEqual(['register', null])
+    });
+
+    test('updateNativeDragFields pushes a fresh map, and stays silent when there is nothing to push', () => {
+        instance = Neo.create(FieldComponent, {
+            appName       : 'TestApp',
+            nativeDragZone: {delegate: '.entity', types: {'text/plain': '{field:id}'}},
+            windowId      : 1
+        });
+
+        instance.mounted = true;
+        payloads.length  = 0;
+
+        instance.table = {'row-0': {id: 'CNET-2'}};
+        instance.updateNativeDragFields();
+
+        expect(payloads).toEqual([['updateFields', {'row-0': {id: 'CNET-2'}}]]);
+
+        // A render path calls this unconditionally, so the cheap exits are load-bearing rather
+        // than defensive: an attribute-only declaration and a retired one must both send nothing.
+        payloads.length = 0;
+        instance.nativeDragZone = {delegate: '.entity', types: {'text/plain': '{data-record-id}'}};
+        instance.updateNativeDragFields();
+
+        expect(payloads.filter(([verb]) => verb === 'updateFields'),
+            'an attribute-only declaration pushes no map').toEqual([]);
+
+        payloads.length         = 0;
+        instance.nativeDragZone = null;
+        instance.updateNativeDragFields();
+
+        expect(payloads, 'and a retired declaration pushes nothing at all').toEqual([])
+    })
+});

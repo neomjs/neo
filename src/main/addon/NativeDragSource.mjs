@@ -1,11 +1,18 @@
 import Base from './Base.mjs';
 
 /**
- * `{attribute-name}` placeholders inside a payload template. Attribute names only — values come
- * from `getAttribute()`, never from code, which is what keeps the whole declaration JSON-safe.
+ * Placeholders inside a payload template, in the two forms a declaration can name:
+ * `{attribute-name}` resolves through `getAttribute()`, `{field:name}` through the registered
+ * field map. The capture group tells them apart, so a template's meaning is fixed at parse time
+ * rather than by what happens to be resolvable — and neither form ever runs consumer code, which
+ * is what keeps the whole declaration JSON-safe.
+ *
+ * The field form cannot collide with an existing attribute template: `[\w-]+` never matched a
+ * colon, so `{field:x}` was inert literal text before this form existed and no declaration can
+ * have relied on it resolving.
  * @type {RegExp}
  */
-const templateToken = /\{([\w-]+)\}/g;
+const templateToken = /\{(field:)?([\w-]+)\}/g;
 
 /**
  * The `body` class marking a native drag in flight, from `dragstart` to `dragend`. Frame shields
@@ -38,9 +45,28 @@ const nativeDragCls = 'neo-native-drag-active';
  *         }
  *     }
  *
- * Payload values are **templates over the source node's attributes**: `{data-record-id}` reads
- * `node.getAttribute('data-record-id')` at `dragstart` time. String substitution is the entire
- * main-thread execution surface.
+ * Payload values are **templates with two resolution sources**, and string substitution is the
+ * entire main-thread execution surface for both:
+ *
+ * - `{data-record-id}` reads `node.getAttribute('data-record-id')` at `dragstart` time.
+ * - `{field:name}` reads the registered field map, so a value that lives only in the app worker's
+ *   store can reach the clipboard without first being written into the DOM.
+ *
+ * An unresolvable token yields `''` in either form — never the literal template text.
+ *
+ * ## Why the field map is pushed, and never fetched
+ *
+ * `DataTransfer` exists only synchronously inside a native `dragstart` on this thread, so there is
+ * no moment at which the app worker can be asked anything. Attribute templates were the original
+ * answer precisely because the DOM is the one authority already present. The field map keeps that
+ * property by inverting the direction: the owning component sends `{nodeId: {field: value}}` with
+ * the registration and refreshes it whenever its rows change, so resolution reads memory that was
+ * already there before the gesture began. Anything that made `dragstart` await is the defect this
+ * design exists to avoid.
+ *
+ * Node ids are the map's keys because a delegate node is what a gesture starts on. Pooled surfaces
+ * recycle those ids across records as they scroll, which is exactly why the map is refreshed per
+ * render rather than captured once at registration.
  *
  * ## The gesture lifecycle mirrors what a node needs, not what is convenient
  *
@@ -86,7 +112,8 @@ class NativeDragSource extends Base {
         remote: {
             app: [
                 'register',
-                'unregister'
+                'unregister',
+                'updateFields'
             ]
         }
     }
@@ -155,6 +182,27 @@ class NativeDragSource extends Base {
     }
 
     /**
+     * The field values registered for one delegate node — the `{field:name}` resolution source.
+     *
+     * Reads BOTH DOM identity modes for the same reason {@link #sourceOf} resolves owners through
+     * `DomAccess.getElement()`: `useDomIds: false` puts the node's id in `data-neo-id` and leaves
+     * `id` empty, so keying on `node.id` alone would silently resolve nothing for half the
+     * supported apps — and silently is how this whole class of defect hurts.
+     *
+     * Returns an empty object rather than null, so the caller's `?? ''` stays the single place a
+     * missing value becomes the empty string.
+     * @param {Object} registration
+     * @param {HTMLElement} node
+     * @returns {Object} field name -> value; empty when this node has no registered fields
+     * @protected
+     */
+    fieldsFor(registration, node) {
+        const nodeId = node.id || node.dataset?.neoId;
+
+        return (nodeId && registration.fields?.[nodeId]) || {}
+    }
+
+    /**
      * Fills the drag data store. Only a drag this addon armed is answered: `mousedown` is where
      * every reason to stay out of a gesture gets decided, and a `dragstart` from any other
      * `draggable` node keeps whatever behaviour its owner gave it.
@@ -179,8 +227,11 @@ class NativeDragSource extends Base {
         ({node} = armed);
         types   = armed.registration.types || {};
 
+        const fields = this.fieldsFor(armed.registration, node);
+
         Object.entries(types).forEach(([type, template]) => {
-            dataTransfer.setData(type, template.replace(templateToken, (match, name) => node.getAttribute(name) ?? ''))
+            dataTransfer.setData(type, template.replace(templateToken,
+                (match, isField, name) => (isField ? fields[name] : node.getAttribute(name)) ?? ''))
         });
 
         dataTransfer.effectAllowed = armed.registration.effectAllowed || 'copy'
@@ -243,11 +294,14 @@ class NativeDragSource extends Base {
      * @param {Object} data
      * @param {String} data.ownerId The owning component's id; matches are scoped to its DOM subtree.
      * @param {String} data.delegate CSS selector for the draggable nodes, resolved via `closest()`.
-     * @param {Object} data.types Map of mime type -> attribute template (see the class comment).
+     * @param {Object} data.types Map of mime type -> payload template (see the class comment).
      * @param {String} [data.effectAllowed='copy']
+     * @param {Object|null} [data.fields=null] `{nodeId: {field: value}}` backing `{field:name}`
+     *     tokens. Omitted by every declaration that uses attribute templates only, which is why
+     *     its absence has to behave exactly like today rather than throw.
      */
-    register({ownerId, delegate, types, effectAllowed}) {
-        this.sources.set(ownerId, {delegate, effectAllowed, ownerId, types})
+    register({ownerId, delegate, types, effectAllowed, fields=null}) {
+        this.sources.set(ownerId, {delegate, effectAllowed, fields, ownerId, types})
     }
 
     /**
@@ -274,6 +328,26 @@ class NativeDragSource extends Base {
         }
 
         return null
+    }
+
+    /**
+     * Replaces one live registration's field map, leaving the rest of the declaration alone.
+     *
+     * This is the per-render refresh path, so it must NOT re-register: a full `register` would
+     * rebuild the entry and lose its position in the insertion order `sourceOf` resolves by, and
+     * a pooled surface calls this on every scroll frame.
+     *
+     * An unknown owner is a no-op rather than an error. The refresh is fired by a render, and a
+     * render can outlive a retirement by one frame — treating that ordinary race as a failure
+     * would make it look like a defect every time a drag source unmounts.
+     * @param {Object} data
+     * @param {String} data.ownerId
+     * @param {Object|null} data.fields `{nodeId: {field: value}}`
+     */
+    updateFields({ownerId, fields}) {
+        const registration = this.sources.get(ownerId);
+
+        registration && (registration.fields = fields ?? null)
     }
 
     /**

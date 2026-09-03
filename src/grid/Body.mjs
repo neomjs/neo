@@ -822,6 +822,14 @@ class GridBody extends Component {
 
         me.gridContainer.isLoading = false;
 
+        // The native drag payload's field map is keyed by ROW NODE id, and `getRowId` is
+        // pool-index based — the same node id carries a different record after a scroll. So the
+        // map is refreshed here, at the single funnel every row change goes through, rather than
+        // captured at registration where it would go stale on the first scroll and put the wrong
+        // record's id on the clipboard with no error anywhere. A no-op unless this body actually
+        // declares a `nativeDragZone` naming a field.
+        me.updateNativeDragFields();
+
         me.updateScrollHeight(true); // silent
 
         if (me.isScrolling) {
@@ -1154,6 +1162,51 @@ class GridBody extends Component {
      */
     getRowClass(record, rowIndex) {
         return ['neo-grid-row']
+    }
+
+    /**
+     * The record fields backing this body's `{field:name}` native drag payload tokens, keyed by
+     * row node id.
+     *
+     * This is the override that decouples `nativeDragZone` from `useInternalId`: the payload no
+     * longer needs the business id to be IN the DOM, because the value is read from the store here
+     * — in the worker, where the record actually lives — and pushed to the addon ahead of any
+     * gesture. `getRecordId` can keep writing `neo-record-N` into the row's own identity while the
+     * clipboard carries `record.id`.
+     *
+     * Scoped to the MOUNTED range, which is the whole set a gesture can start on: an unmounted row
+     * has no node to drag. That also bounds the map to the pool rather than the store, so a
+     * million-row grid pushes the same handful of entries a ten-row one does.
+     * @param {String[]} fieldNames The fields this body's templates reference
+     * @returns {Object|null} `{rowNodeId: {field: value}}`, or null when there is nothing to map
+     * @protected
+     */
+    getNativeDragFields(fieldNames) {
+        let me                   = this,
+            {mountedRows, store} = me;
+
+        if (!store || fieldNames.length < 1) {
+            return null
+        }
+
+        const fields = {};
+
+        for (let i = mountedRows[0]; i < mountedRows[1]; i++) {
+            const record = store.getAt(i);
+
+            if (record) {
+                const values = {};
+
+                // `record[name]` and not `record.get(name)`: a Model's fields are accessors, and
+                // an undefined field must stay undefined so the addon's `?? ''` is the one place
+                // a missing value becomes the empty string.
+                fieldNames.forEach(name => {values[name] = record[name]});
+
+                fields[me.getRowId(i)] = values
+            }
+        }
+
+        return fields
     }
 
     /**
