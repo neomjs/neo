@@ -130,7 +130,13 @@ class Workspace extends Container {
          * `locked` item field is the hard boundary: close, detach and source movement fail
          * closed in the reducer. Workspace presentation mirrors that truth by making the pane
          * inert, hiding close, and suppressing the tab drag source while preserving exact prior
-         * inert and drag-token ownership for unlock. Disabled by default.
+         * inert and drag-token ownership for unlock.
+         *
+         * On by default, like the other five. It was the one action a host had to ask for, from a
+         * time when the engine did not yet own it: the lock action, the pane delegation contract
+         * and the `itemFlags` change class that keeps a toggle from restaging the shell all landed
+         * afterwards, leaving a host enabling this to supply nothing. `false` remains the explicit
+         * opt-out, and withholds the icon configs from the projection context with it.
          *
          * The content half is delegable, exactly like reload: a pane implementing
          * `dockLock(locked: Boolean): void` owns what locked means for its content (a form
@@ -140,9 +146,9 @@ class Workspace extends Container {
          * `inert` at all. The probe is a pure `typeof` on the live card, never a resolver call.
          * The structural half — the reducer's refusals, the hidden close action, the suppressed
          * drag source, the `neo-dock-pane-locked` frame cue — is never delegated.
-         * @member {Boolean} enableDockLockAction=false
+         * @member {Boolean} enableDockLockAction=true
          */
-        enableDockLockAction: false,
+        enableDockLockAction: true,
         /**
          * Icon of the projected lock action while the active item is unlocked.
          * @member {String} dockLockIconCls='fa fa-lock'
