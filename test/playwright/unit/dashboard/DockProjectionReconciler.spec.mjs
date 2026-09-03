@@ -501,6 +501,110 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         }
     });
 
+    test.describe('#18188 a retainTopology REQUEST over a changed topology is refused', () => {
+        // `retainTopology` is an admission request, not a statement of fact. A host sends it for
+        // `detachItem`, and a detach CAN restructure: emptying a tabs node drops it and collapses a
+        // two-child split behind it. The consumer is safe only because `reconcileStableTopology`
+        // refuses — and until now nothing asserted that it does.
+        //
+        // What these arms witness, measured rather than assumed: the refusal is OVER-DETERMINED.
+        // Removing the node-count clause, the missing-node clause, or the child-order clause on its
+        // own leaves the others still refusing, and all three arms stay green. They go red once the
+        // guard is weakened far enough to actually admit a changed topology — with every structural
+        // clause but the missing-node one removed, one arm fails; with that one gone too, two do.
+        //
+        // So this block protects the CONTRACT ("a changed topology is refused") rather than any
+        // single line of it. Worth stating, because a reader who assumed a one-clause mutation would
+        // turn them red — as the ticket's own AC-5 did — would wrongly conclude they cover nothing.
+
+        test('AC-1/AC-2 a detach that COLLAPSES a node falls through to the staged transaction', async () => {
+            // `alpha` is the sole occupant of `alpha-tabs`, the left child of a two-child split.
+            // Removing it empties the node, so the projection has FEWER structural nodes than the
+            // shell — the exact case the node-count clause exists for.
+            const receipt = await reconcileModel(createSplitModel(), nextModel => {
+                delete nextModel.nodes['alpha-tabs'];
+                delete nextModel.items.alpha;
+                nextModel.root = 'beta-tabs';
+                delete nextModel.nodes['root-split']
+            }, {retainTopology: true});
+
+            try {
+                // AC-1: the request was REFUSED. `landedInPlace` is the honest read of the path
+                // actually taken; the request itself says only what the caller hoped for.
+                expect(receipt.result.landedInPlace, 'the fast path was refused').not.toBe(true);
+                expect(receipt.stagedCount, 'the staged transaction ran instead').toBe(1);
+
+                // AC-2: refusing is only half the contract. A guard that refuses AND renders wrongly
+                // would satisfy the assertion above and be worthless, so the OUTCOME is asserted —
+                // which node set the host ends up projecting, not which shell object carries it.
+                // Shell identity is the staged path's own business and asserting it would couple
+                // this arm to an implementation detail the contract does not promise.
+                // The staged path leaves BOTH shells on the host — it moves the surviving nodes
+                // into a fresh shell and the committing surface completes the swap and disposes the
+                // source. At this layer the new shell is the host item that is not the old one;
+                // identifying it by exclusion states that, where an index would just encode it.
+                const newShell = receipt.host.items.find(item => item !== receipt.oldShell);
+
+                expect(newShell, 'a fresh shell was staged').toBeTruthy();
+
+                const tabs = DockProjectionReconciler.collectProjectedTabs(newShell);
+
+                expect([...tabs.keys()], 'only the surviving node is projected').toEqual(['beta-tabs']);
+                expect(tabs.get('beta-tabs').getTabButtons().map(button => button.text)).toEqual(['Beta'])
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('AC-3 a node-count INCREASE is refused too, so the size clause holds both ways', async () => {
+            const model = createSplitModel();
+
+            // Catalogued but unplaced, so a live pane exists for it before the mutation adds its
+            // node — the same shape the same-topology arrival arm below uses. Introducing the item
+            // only in `nextModel` would leave `resolveItem` with nothing to hand back, and the arm
+            // would die on pane resolution instead of testing the size clause.
+            model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+
+            const receipt = await reconcileModel(model, nextModel => {
+                nextModel.nodes['gamma-tabs'] = {activeItemId: 'gamma', items: ['gamma'], type: 'tabs'};
+                nextModel.nodes['root-split'].children.push('gamma-tabs');
+                nextModel.nodes['root-split'].sizes = [0.4, 0.35, 0.25]
+            }, {retainTopology: true});
+
+            try {
+                expect(receipt.result.landedInPlace, 'a grown tree is not the same tree').not.toBe(true);
+                expect(receipt.stagedCount).toBe(1)
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('AC-4 CONTROL: a detach whose node SURVIVES still lands in place', async () => {
+            // Without this, the arms above would stay green if the guard began refusing everything —
+            // which would silently retire the fast path rather than protect it.
+            const model = createSplitModel();
+
+            model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+            model.nodes['alpha-tabs'].items.push('gamma');
+
+            // `gamma` leaves the node but `alpha` holds it open, so the structural tree is identical
+            // and the fast path is legitimately admissible. `preserveItemIds` keeps the departing
+            // pane resolvable, which is the same shape a real detach uses.
+            const receipt = await reconcileModel(model, nextModel => {
+                nextModel.nodes['alpha-tabs'].items        = ['alpha'];
+                nextModel.nodes['alpha-tabs'].activeItemId = 'alpha'
+            }, {preserveItemIds: ['gamma'], retainTopology: true});
+
+            try {
+                expect(receipt.result.landedInPlace, 'the node survived, so the fast path holds').toBe(true);
+                expect(receipt.result.nextShell).toBe(receipt.oldShell)
+            } finally {
+                receipt.panes.gamma.destroy();
+                receipt.host.destroy()
+            }
+        })
+    });
+
     test('reconciles an explicit same-topology item arrival without replacing the shell', async () => {
         // The stack-return adoption shape: the arriving pane exists as a live instance
         // (it survived its previous workspace), the structural shell is unchanged, and one tabs
