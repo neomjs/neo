@@ -4,7 +4,6 @@ import NeoArray                    from '../../util/Array.mjs';
 import {isDescriptor}              from '../../core/ConfigSymbols.mjs';
 import ClassSystemUtil             from '../../util/ClassSystem.mjs';
 import HeaderActionPolicy          from './projection/HeaderActionPolicy.mjs';
-import TransactionManager          from '../../manager/Transaction.mjs';
 import LayoutAdapter               from './projection/LayoutAdapter.mjs';
 import Maximize                    from './plugin/Maximize.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
@@ -334,6 +333,23 @@ class Workspace extends Container {
     tearOutAdmissions = new Map()
 
     /**
+     * `Neo.manager.Transaction`, once the tear-out lifecycle loaded it — `null` until then, and for a
+     * workspace that never opted in. The module is not part of a single-window app's closure: the
+     * opt-in is the load, so a host with the lifecycle off pays no Group machinery.
+     * @member {Neo.manager.Transaction|null} transactionManager=null
+     * @protected
+     */
+    transactionManager = null
+
+    /**
+     * Resolves to {@link #transactionManager} once it is loaded and this workspace observes its Group;
+     * `null` for a workspace that never asked (see {@link #loadTransactionManager}).
+     * @member {Promise<Neo.manager.Transaction>|null} transactionManagerReady=null
+     * @protected
+     */
+    transactionManagerReady = null
+
+    /**
      * Tear-out windows that connected before the detach terminal committed.
      * @member {Object} tearOutConnects={}
      * @protected
@@ -441,12 +457,7 @@ class Workspace extends Container {
 
             // One worker lifecycle subscriber exists — `Neo.manager.Transaction`. This workspace only
             // observes its own Group: slots it reserved bind, release, or run out their lease.
-            TransactionManager.on({
-                bind        : this.onTopologyBind,
-                leaseExpired: this.onTopologyLeaseExpired,
-                release     : this.onTopologyRelease,
-                scope       : this
-            })
+            this.loadTransactionManager()
         }
 
         // Cross-window hit testing reads manager.Window as its one geometry authority, and the
@@ -482,10 +493,16 @@ class Workspace extends Container {
     async acquireTearOutVessel(request={}) {
         let me       = this,
             {itemId} = request,
-            groupId  = me.topologyGroupId,
-            admission, reservation, vessel;
+            admission, groupId, manager, reservation, vessel;
 
         if (typeof itemId !== 'string' || !itemId) {
+            return null
+        }
+
+        manager = await me.loadTransactionManager();
+        groupId = me.topologyGroupId;
+
+        if (me.isDestroyed) {
             return null
         }
 
@@ -499,7 +516,7 @@ class Workspace extends Container {
         // The reservation IS the admission: `Neo.manager.Transaction` holds the slot, the lineage
         // token the vessel must present and the clock. This map keeps only what the host needs to
         // answer the binding — the gesture's sort zone and, once the platform names it, the window.
-        reservation = TransactionManager.reserve({groupId, workspaceKey: me.tearOutWorkspaceKey(itemId)});
+        reservation = manager.reserve({groupId, workspaceKey: me.tearOutWorkspaceKey(itemId)});
 
         if (!reservation) {
             return null
@@ -530,7 +547,7 @@ class Workspace extends Container {
 
         if (!vessel) {
             me.tearOutAdmissions.get(itemId) === admission && me.clearTearOutAdmission(itemId, admission);
-            TransactionManager.revoke(reservation);
+            manager.revoke(reservation);
             return null
         }
 
@@ -580,11 +597,37 @@ class Workspace extends Container {
     }
 
     /**
-     * The Group this workspace's window is bound into, or `null` before its window has bound.
+     * Loads `Neo.manager.Transaction` and observes this workspace's Group on it — once. The load is the
+     * opt-in: the tear-out lifecycle asks at construction, a host running its own admission asks the
+     * moment it reserves a slot, and a workspace that does neither never loads the module — which is
+     * how a single-window app's closure stays without Group machinery.
+     * @returns {Promise<Neo.manager.Transaction>}
+     * @protected
+     */
+    loadTransactionManager() {
+        return this.transactionManagerReady ??= import('../../manager/Transaction.mjs').then(({default: manager}) => {
+            if (!this.isDestroyed) {
+                this.transactionManager = manager;
+
+                manager.on({
+                    bind        : this.onTopologyBind,
+                    leaseExpired: this.onTopologyLeaseExpired,
+                    release     : this.onTopologyRelease,
+                    scope       : this
+                })
+            }
+
+            return manager
+        })
+    }
+
+    /**
+     * The Group this workspace's window is bound into, or `null` before its window has bound — which
+     * includes the moment before the manager has loaded.
      * @member {String|null} topologyGroupId
      */
     get topologyGroupId() {
-        return TransactionManager.findByWindow(this.windowId)?.groupId ?? null
+        return this.transactionManager?.findByWindow(this.windowId)?.groupId ?? null
     }
 
     /**
@@ -1531,7 +1574,7 @@ class Workspace extends Container {
     destroy(...args) {
         let me = this;
 
-        me.enableDockTearOutLifecycle && TransactionManager.un({
+        me.transactionManager?.un({
             bind        : me.onTopologyBind,
             leaseExpired: me.onTopologyLeaseExpired,
             release     : me.onTopologyRelease,

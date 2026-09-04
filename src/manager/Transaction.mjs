@@ -53,14 +53,9 @@ class Transaction extends Manager {
     leaseTimers = new Map()
 
     /**
-     * Carrier writes the main realm could not take yet, keyed by window: a window is admitted when its
-     * config registers, which can precede the main realm registering its remote surface.
-     * @member {Map} pendingCarrierWrites=new Map()
-     * @protected
-     */
-    pendingCarrierWrites = new Map()
-
-    /**
+     * This module loads on demand — the first multi-window participant imports it — so windows whose apps
+     * registered before that moment are admitted here, with the identity their config registered with.
+     * Every later window is admitted as its app registers (`worker/App#registerApp`).
      * @param {Object} config
      */
     construct(config) {
@@ -71,6 +66,10 @@ class Transaction extends Manager {
         Neo.currentWorker?.on?.({
             disconnect: me.onWindowDisconnect,
             scope     : me
+        });
+
+        Object.keys(Neo.apps || {}).forEach(windowId => {
+            me.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId})
         })
     }
 
@@ -253,23 +252,6 @@ class Transaction extends Manager {
     }
 
     /**
-     * Sends a parked carrier write for a window once the main realm can take it.
-     * @param {String} windowId
-     * @returns {Boolean} Whether a write was sent.
-     */
-    flushCarrierWrite(windowId) {
-        let me       = this,
-            identity = me.pendingCarrierWrites.get(windowId);
-
-        if (!identity || !Neo.Main?.setTopologyIdentity) return false;
-
-        me.pendingCarrierWrites.delete(windowId);
-        Neo.Main.setTopologyIdentity({...identity, windowId});
-
-        return true
-    }
-
-    /**
      * Worker `disconnect`: the binding carrying this `windowId` is released and its slot held for the
      * lease. A `windowId` no binding carries — a superseded generation reporting late — changes nothing.
      * @param {Object} data
@@ -377,18 +359,15 @@ class Transaction extends Manager {
     }
 
     /**
-     * Tells a window's carrier what to hold from now on, or parks the write until the main realm has
-     * registered its remote surface (see {@link #flushCarrierWrite}).
+     * Tells a window's carrier what to hold from now on. A window is admitted once its app registered,
+     * which is after the main realm registered its remote surface; the optional call only spares a unit
+     * harness that mocks no `Neo.Main`.
      * @param {String} windowId
      * @param {{groupId: String, workspaceKey: String, generationToken: String}} identity
      * @protected
      */
     writeCarrier(windowId, identity) {
-        if (Neo.Main?.setTopologyIdentity) {
-            Neo.Main.setTopologyIdentity({...identity, windowId})
-        } else {
-            this.pendingCarrierWrites.set(windowId, identity)
-        }
+        Neo.Main?.setTopologyIdentity?.({...identity, windowId})
     }
 
     /**

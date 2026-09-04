@@ -166,23 +166,33 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         expect(Transaction.items).toHaveLength(before + 1)
     });
 
-    test('a carrier write the main realm cannot take yet is parked, and flushed once it can', () => {
-        const writes = [];
+    test('a manager loading after apps registered admits every live window with the identity its config carried', () => {
+        // The module loads on demand — with the first multi-window participant — so the windows whose
+        // apps registered before that moment must not stay unbound. A second instance of the class
+        // stands in for that later load; the singleton the worker uses is untouched.
+        const
+            writes          = [],
+            previousApps    = Neo.apps,
+            previousConfigs = Neo.windowConfigs,
+            carried         = {generationToken: 'lineage-7', groupId: 'group-carried', workspaceKey: 'popup:notes'};
 
-        Neo.ns('Neo.Main', true);
-        delete Neo.Main.setTopologyIdentity;
+        let late;
 
-        connect('early-root', {});
-
-        expect(Transaction.pendingCarrierWrites.has('early-root'), 'parked: no remote surface yet').toBe(true);
-
-        Neo.Main.setTopologyIdentity = data => writes.push(data);
+        Neo.ns('Neo.Main', true).setTopologyIdentity = data => writes.push(data);
+        Neo.apps          = {'late-popup': {}, 'late-root': {}};
+        Neo.windowConfigs = {'late-popup': {topologyIdentity: carried}};
 
         try {
-            expect(Transaction.flushCarrierWrite('early-root')).toBe(true);
-            expect(writes).toEqual([{generationToken: expect.any(String), groupId: expect.any(String), windowId: 'early-root', workspaceKey: 'main'}]);
-            expect(Transaction.flushCarrierWrite('early-root'), 'nothing left to flush').toBe(false)
+            late = Neo.create(Transaction.constructor, {});
+
+            expect(late.findByWindow('late-root')).toEqual({generation: 1, groupId: expect.any(String), workspaceKey: 'main'});
+            expect(late.findByWindow('late-popup'), 'a carried identity binds cold under its own Group').toEqual({generation: 1, groupId: 'group-carried', workspaceKey: 'popup:notes'});
+            expect(late.items).toHaveLength(2);
+            expect(writes.map(write => write.windowId), 'only the minted root learns something new').toEqual(['late-root'])
         } finally {
+            late?.destroy();
+            Neo.apps          = previousApps;
+            Neo.windowConfigs = previousConfigs;
             delete Neo.Main.setTopologyIdentity
         }
     });

@@ -87,7 +87,13 @@ test('the host window is bound into a Group on connect — the identity every po
     }).toBe('main');
 
     expect(topology.binding).toEqual({generation: 1, groupId: expect.any(String), workspaceKey: 'main'});
-    expect(topology.groups, 'one root, one Group').toBe(1)
+    expect(topology.groups, 'one root, one Group').toBe(1);
+
+    // The carrier: the worker's word reached the page, so the next load of this window presents the
+    // same Group. Read from the page itself — the only realm that can read its own sessionStorage.
+    const carried = await page.evaluate(() => JSON.parse(sessionStorage.getItem('neo-topology-identity') ?? 'null'));
+
+    expect(carried).toEqual({generationToken: expect.any(String), groupId: topology.binding.groupId, workspaceKey: 'main'})
 });
 
 test.describe('dock pop-out — the click is the drag terminal', () => {

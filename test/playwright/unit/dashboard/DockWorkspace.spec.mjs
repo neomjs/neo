@@ -1134,8 +1134,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         // The vessel's arrival, as the worker admits it: the carried identity its config registered
         // with. The manager binds synchronously and fires; the host's handler is async, so the arms
-        // await the promises the fixture captured.
+        // await the promises the fixture captured. The host observes its Group once the manager it
+        // loads on demand has resolved — a real vessel binds long after that, a unit arm may not.
         const connectVessel = async (windowId, topologyIdentity) => {
+            await workspace.transactionManagerReady;
             TransactionManager.admit({topologyIdentity, windowId});
             await Promise.all(workspace.binds)
         };
