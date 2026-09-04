@@ -1,5 +1,5 @@
-import Base     from '../../../core/Base.mjs';
-import Document from './Document.mjs';
+import Base              from '../../../core/Base.mjs';
+import WorkspaceDocument from './WorkspaceDocument.mjs';
 
 /**
  * @class Neo.dashboard.dock.model.TopologyDiff
@@ -26,7 +26,7 @@ import Document from './Document.mjs';
  * The output is JSON-first and snapshot-stable: every category array is sorted by its primary
  * key and the walk order is deterministic, so identical inputs produce byte-identical results.
  * Malformed inputs never throw and never half-diff: both documents pass through the landed
- * fail-closed shape gate (`Document.computeShapeFingerprint`, which also rejects cyclic
+ * fail-closed shape gate (`WorkspaceDocument.computeShapeFingerprint`, which also rejects cyclic
  * trees) and any failure returns empty categories plus a non-empty `errors` array naming the
  * offending side.
  */
@@ -77,7 +77,7 @@ class TopologyDiff extends Base {
             } else if (node.type === 'split') {
                 (node.children || []).forEach(walk)
             } else if (node.type === 'edge-zone') {
-                Object.keys(node.zones || {}).sort().forEach(zone => walk(Document.getZoneNodeId(node.zones[zone])))
+                Object.keys(node.zones || {}).sort().forEach(zone => walk(WorkspaceDocument.getZoneNodeId(node.zones[zone])))
             }
         };
 
@@ -107,7 +107,7 @@ class TopologyDiff extends Base {
             errors = [];
 
         [['before', before], ['after', after]].forEach(([side, document]) => {
-            const gate = Document.computeShapeFingerprint(document || {});
+            const gate = WorkspaceDocument.computeShapeFingerprint(document || {});
 
             gate.errors.forEach(error => {
                 errors.push(`${side} document failed the shape gate: ${error}`)

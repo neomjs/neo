@@ -11,7 +11,7 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
 test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the named perspective store)', () => {
-    let Document, Persistence, PerspectiveLibrary, store;
+    let WorkspaceDocument, Persistence, PerspectiveLibrary, store;
 
     const doc = ids => ({
         schema: 'neo.dock.zone.v1',
@@ -32,7 +32,7 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
     };
 
     test.beforeAll(async () => {
-        Document           = (await import('../../../../src/dashboard/dock/model/Document.mjs')).default;
+        WorkspaceDocument           = (await import('../../../../src/dashboard/dock/model/WorkspaceDocument.mjs')).default;
         Persistence        = (await import('../../../../src/dashboard/dock/model/Persistence.mjs')).default;
         PerspectiveLibrary = (await import('../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs')).default
     });
@@ -69,7 +69,7 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
         const loaded = store.loadPerspective('Coding');
         expect(loaded.errors).toEqual([]);
         expect(loaded.layout.perspectiveName).toBe('Coding');
-        expect(Document.validate(loaded.document)).toEqual([]);   // a restorable primary document
+        expect(WorkspaceDocument.validate(loaded.document)).toEqual([]);   // a restorable primary document
         expect(store.collection.activeLayoutId).toBe('l-1');
 
         const renamed = store.renamePerspective('Coding', 'Review');
@@ -144,6 +144,24 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
         expect(family.errors.join(' ')).toContain('schema')
     });
 
+    test('topology records cannot enter the single-workspace perspective library', () => {
+        const topology = Persistence.captureTopologyPerspective({main: doc(['alpha'])}, {
+                layoutId       : 'whole-app',
+                perspectiveName: 'Whole App',
+                title          : 'Whole App'
+            }).topology,
+            saved = store.savePerspective(topology);
+
+        expect(saved.saved).toBe(false);
+        expect(saved.errors.join(' ')).toContain(Persistence.LAYOUT_SCHEMA);
+        expect(store.collection).toBeNull();
+
+        const collection = PerspectiveLibrary.createSavedLayoutCollection([topology]);
+
+        expect(collection.collection).toBeNull();
+        expect(collection.errors.join(' ')).toContain(Persistence.LAYOUT_SCHEMA)
+    });
+
     test('fail-closed everywhere: invalid saves, unknown loads, missing removes, corrupt collection assignments', () => {
         // an invalid layout never enters
         const bad = store.savePerspective({schema: 'nope'});
@@ -183,7 +201,7 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
         const payload = written[0];
         expect(payload).not.toBe(store.collection);
         expect(JSON.stringify(payload)).toBe(JSON.stringify(store.collection));
-        expect(Document.findNonJsonValue(payload)).toBeNull();
+        expect(WorkspaceDocument.findNonJsonValue(payload)).toBeNull();
 
         // hydrate round-trips...
         const fresh = Neo.create(PerspectiveLibrary, {persistenceAdapter: store.persistenceAdapter});

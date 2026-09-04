@@ -115,7 +115,7 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
                 'an item-flag delta reconciles items in place').toEqual({retainTopology: true});
 
             // Both resize reducers clone the document and write exactly one field, and survive
-            // `Document.commit` — normalization included — with the node tree, the node id set and
+            // `WorkspaceDocument.commit` — normalization included — with the node tree, the node id set and
             // `items` byte-identical. Nothing moved but the boundary, so nothing needs restaging.
             expect(workspace.getRefreshOptions({operation: 'resizeSplit'}),
                 'a split boundary move reconciles in place').toEqual({geometryOnly: true});

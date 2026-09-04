@@ -44,7 +44,7 @@ async function placePopupOutsideSource(page, popup) {
  * window identity while the same live CounterPane remains in the target. The tour then captures
  * the two worker-owned workspace documents, reattaches, and reconciles
  * that saved topology into one live window without opening another popup, render the exact
- * no-live-window remainder, and finish on Focus with the original counter still advancing.
+ * no-live-workspace remainder, and finish on Focus with the original counter still advancing.
  * The same page repeats the run without viewer pauses so the executable screenplay proves
  * deterministic replay and host-owned projection settledness independently of demo pacing.
  *
@@ -265,28 +265,28 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
             const state = await app.getComponent(wsId, [
                       'detachedPanes',
                       'dockModel',
-                      'perspectiveStore.collection',
+                      'topologyCollection',
                       'restoreReport',
                       'tourRunner.log'
                   ]),
                   final = await readCounter();
 
-            const detached = state['perspectiveStore.collection']?.layouts?.['demo-b-detached'];
+            const detached = state.topologyCollection?.topologies?.['demo-b-detached'];
 
             expect(state.restoreReport).not.toBeNull();
-            expect(detached?.captureScope).toBe('topology');
-            expect(detached?.windowDocuments).toHaveLength(1);
-            expect(detached.windowDocuments[0].items.workbench).toEqual({
+            expect(detached?.schema).toBe('neo.dock.topology.v1');
+            expect(Object.keys(detached.workspaces)).toEqual(['demo-b-main', 'demo-b-popup']);
+            expect(detached.workspaces['demo-b-popup'].items.workbench).toEqual({
                 componentRef: 'Workbench',
                 kind        : 'panel',
                 title       : 'Workbench'
             });
-            expect(detached.windowDocuments[0].nodes['popup-tabs'].items).toEqual(['workbench']);
+            expect(detached.workspaces['demo-b-popup'].nodes['popup-tabs'].items).toEqual(['workbench']);
             expect(state.restoreReport.noWindowSpawned).toBe(true);
             expect(state.restoreReport.unrestored).toEqual([
-                {capturedIndex: 1, itemId: 'workbench', reason: 'no-live-window'}
+                {workspaceKey: 'demo-b-popup', itemId: 'workbench', reason: 'no-live-workspace'}
             ]);
-            expect(state.restoreReport.displaced).toEqual([{itemId: 'workbench', liveIndex: 0}]);
+            expect(state.restoreReport.displaced).toEqual([{workspaceKey: 'demo-b-main', itemId: 'workbench'}]);
             expect(state.dockModel.items.workbench.title).toBe('Workbench');
             expect(state['tourRunner.log'].filter(entry => entry.type === 'cross-window')).toEqual([{
                 applied: true,

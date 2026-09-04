@@ -6,11 +6,11 @@ setup({
     }
 });
 
-import {test, expect}   from '@playwright/test';
-import Neo              from '../../../../src/Neo.mjs';
-import * as core        from '../../../../src/core/_export.mjs';
-import Document         from '../../../../src/dashboard/dock/model/Document.mjs';
-import DockTopologyDiff from '../../../../src/dashboard/dock/model/TopologyDiff.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import WorkspaceDocument from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import DockTopologyDiff  from '../../../../src/dashboard/dock/model/TopologyDiff.mjs';
 
 /**
  * A fresh canonical dockZone.v1 document mirroring the executor spec's fixture:
@@ -180,10 +180,10 @@ test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
 
             malformed.nodes.root.zones.center = descriptor;
 
-            expect(Document.validate(malformed), 'the document validator rejects the same descriptor')
+            expect(WorkspaceDocument.validate(malformed), 'the document validator rejects the same descriptor')
                 .not.toEqual([]);
 
-            const gate = Document.computeShapeFingerprint(malformed);
+            const gate = WorkspaceDocument.computeShapeFingerprint(malformed);
 
             expect(gate.fingerprint, 'a malformed present zone never yields a success fingerprint').toBe(null);
             expect(gate.errors.join(' ')).toContain('zone "center"');
@@ -205,7 +205,7 @@ test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
 
         delete absent.nodes.root.zones.center;
 
-        const absentGate = Document.computeShapeFingerprint(absent);
+        const absentGate = WorkspaceDocument.computeShapeFingerprint(absent);
 
         expect(absentGate.errors, 'an omitted optional zone remains valid').toEqual([]);
         expect(absentGate.fingerprint?.shape).toBe('e{}')
@@ -228,8 +228,8 @@ test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
 
             malformed.nodes.root.zones = zones;
 
-            const validationErrors = Document.validate(malformed),
-                  gate             = Document.computeShapeFingerprint(malformed);
+            const validationErrors = WorkspaceDocument.validate(malformed),
+                  gate             = WorkspaceDocument.computeShapeFingerprint(malformed);
 
             expect(validationErrors.length > 0,
                 `validator and fingerprint gate must agree for zones=${JSON.stringify(zones)}`)
@@ -254,7 +254,7 @@ test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
 
         empty.nodes.root.zones = {};
 
-        const gate = Document.computeShapeFingerprint(empty);
+        const gate = WorkspaceDocument.computeShapeFingerprint(empty);
 
         expect(gate.errors, 'an empty zones record is the legitimate no-occupancy case').toEqual([]);
         expect(gate.fingerprint?.shape).toBe('e{}')

@@ -5,7 +5,7 @@ import DockDropIndicators                 from '../../../src/dashboard/dock/inte
 import DockPreview                        from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockService                        from '../../../src/ai/client/DockService.mjs';
 import DockWorkspace                      from '../../../src/dashboard/dock/Workspace.mjs';
-import Document                           from '../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument                  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import {demoATourScript, initialDocument} from './demoADockChoreography.mjs';
 import '../../../src/button/Base.mjs';   // registers the `button` ntype the tour bar composes
@@ -120,7 +120,7 @@ class DemoAWorkspace extends DockWorkspace {
 
         let me = this;
 
-        me.dockModel   = Document.clone(initialDocument);
+        me.dockModel   = WorkspaceDocument.clone(initialDocument);
         me.dockService = Neo.create(DockService, {});
 
         me.tourRunner = Neo.create(TourRunner, {
@@ -377,7 +377,7 @@ class DemoAWorkspace extends DockWorkspace {
 
         if (me.tourRunner.log.length) {
             // restart semantics: reset the stage to the opening document before replaying
-            me.onDockZoneDocumentChange(Document.clone(initialDocument));
+            me.onDockZoneDocumentChange(WorkspaceDocument.clone(initialDocument));
             await me.refreshPromise
         }
 

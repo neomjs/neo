@@ -11,7 +11,7 @@
  * 3. **Pop-out** — the workbench pane detaches to a real OS window on the SAME SharedWorker
  *    heap and reattaches, its instance-bound counter unbroken: reparent, never recreate.
  * 4. **Changed topology** — the detached two-workspace record restores into a one-window
- *    world through the real reconciler. Its no-live-window remainder is rendered, and no
+ *    world through the real reconciler. Its no-live-workspace remainder is rendered, and no
  *    popup is auto-spawned.
  *
  * Perspective saves/loads and reattach ride surface CUES (the Demo-A reveal-cue pattern).
@@ -136,7 +136,7 @@ export const demoBTourScript = Object.freeze({
         title  : 'Changed topology — restore truth, never summon a window',
         caption: '"Detached" captured two worker-owned workspace documents. Only the main window is live now, so reconciliation applies what fits and renders the exact remainder.',
         steps  : [
-            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Detached'}, caption: 'reconcile("Detached"): no popup is spawned; Workbench is reported unrestored with reason no-live-window, and displaced primary content is named'},
+            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Detached'}, caption: 'reconcile("Detached"): no popup is spawned; Workbench is reported unrestored with reason no-live-workspace, and displaced primary content is named'},
             {
                 type   : 'topology-assert',
                 caption: 'the coverable primary slot committed, while the dedicated report strip keeps the missing popup slot visible',

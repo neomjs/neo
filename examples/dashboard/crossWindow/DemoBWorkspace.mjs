@@ -11,7 +11,7 @@ import DockPreviewProducer                  from '../../../src/dashboard/dock/in
 import DockProjectionReconciler             from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService                          from '../../../src/ai/client/DockService.mjs';
 import DockTopologyReconciler               from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
-import Document                             from '../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument                    from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations                           from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence                          from '../../../src/dashboard/dock/model/Persistence.mjs';
 import InteractionService                   from '../../../src/ai/client/InteractionService.mjs';
@@ -57,7 +57,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  *   (`mainView.add(instance)` — both windows share one App Worker) and reattaching moves it
  *   home. The {@link Neo.examples.dashboard.crossWindow.CounterPane} witness makes the
  *   reparent-never-recreate contract visible: its count survives because its instance does.
- *   Document honesty: pop-out and item return use the atomic two-document `transferItem` seam;
+ *   WorkspaceDocument honesty: pop-out and item return use the atomic two-document `transferItem` seam;
  *   the popup stack-handle return composes the sibling `transferNode` seam. Ownership therefore
  *   moves commit-or-neither while component reparenting stays orthogonal.
  *
@@ -240,6 +240,12 @@ class DemoBWorkspace extends Container {
      */
     perspectiveStore = null
     /**
+     * The keyed multi-workspace topology collection. Kept separate from the Workspace perspective
+     * library so `neo.dock.layoutCollection.v1` never admits topology records.
+     * @member {Object|null} topologyCollection=null
+     */
+    topologyCollection = null
+    /**
      * The tour runner playing the Demo-B screenplay.
      * @member {Neo.ai.client.TourRunner|null} tourRunner=null
      */
@@ -393,7 +399,7 @@ class DemoBWorkspace extends Container {
     tearOutConnectAdmissions = new Map()
     /**
      * Transient render-only pane embodiment. An admitted pre-terminal vessel carries the real pane
-     * while an exact-slot placeholder preserves the source card/header pairing. Document truth is
+     * while an exact-slot placeholder preserves the source card/header pairing. WorkspaceDocument truth is
      * untouched until terminal; cancellation restores through the live placeholder position.
      * @member {Object|null} tearOutEmbodiment=null
      * @protected
@@ -485,7 +491,7 @@ class DemoBWorkspace extends Container {
      */
     refreshPromise = Promise.resolve()
     /**
-     * Latest atomic projection request per worker-owned workspace. Document truth and
+     * Latest atomic projection request per worker-owned workspace. WorkspaceDocument truth and
      * owner-preservation policy coalesce together; transaction metadata can never trail behind
      * and mutate a newer document.
      * @member {Map<String,Object>} workspaceProjectionRequests
@@ -506,7 +512,7 @@ class DemoBWorkspace extends Container {
 
         let me = this;
 
-        me.dockModel        = Document.clone(initialDocument);
+        me.dockModel        = WorkspaceDocument.clone(initialDocument);
         me.popupDocument    = DemoBWorkspace.createPopupDocument();
         me.popup2Document   = DemoBWorkspace.createPopupDocument();
 
@@ -541,6 +547,7 @@ class DemoBWorkspace extends Container {
         me.dockService      = Neo.create(DockService, {});
         me.interactionService = Neo.create(InteractionService, {});
         me.perspectiveStore = Neo.create(PerspectiveLibrary, {});
+        me.topologyCollection = Persistence.createTopologyCollection().collection;
 
         // The cross-window stage choreography (decomposition Phase 1): a pure decision
         // machine over host-injected seams. Stage STATE stays host-owned by contract — the
@@ -955,7 +962,7 @@ class DemoBWorkspace extends Container {
             let document     = me.workspaceSet.getDocument(workspaceId),
                 nodes        = document?.nodes || {},
                 sourceTabsId = document?.items?.[itemId]
-                    ? Document.findContainingTabsId(document, itemId)
+                    ? WorkspaceDocument.findContainingTabsId(document, itemId)
                     : null,
                 tabsIds      = Object.keys(nodes).filter(nodeId =>
                     nodes[nodeId].type === 'tabs' && nodeId !== sourceTabsId
@@ -1217,11 +1224,35 @@ class DemoBWorkspace extends Container {
         }
 
         created = scope === 'topology'
-            ? Persistence.captureTopologyPerspective([me.dockModel, me.popupDocument], metadata)
+            ? Persistence.captureTopologyPerspective({
+                [DemoBWorkspace.MAIN_WORKSPACE_ID] : me.dockModel,
+                [DemoBWorkspace.POPUP_WORKSPACE_ID]: me.popupDocument
+            }, metadata)
             : Persistence.createSavedLayout(me.dockModel, metadata);
 
         if (created.errors.length) {
             return {errors: created.errors, saved: false}
+        }
+
+        if (scope === 'topology') {
+            const topologies = {
+                    ...me.topologyCollection.topologies,
+                    [created.topology.layoutId]: created.topology
+                },
+                result = Persistence.createTopologyCollection(topologies, {
+                    activeLayoutId: created.topology.layoutId,
+                    metadata      : me.topologyCollection.metadata,
+                    ...(Object.hasOwn(me.topologyCollection, 'revision') && {
+                        revision: me.topologyCollection.revision
+                    })
+                });
+
+            if (result.errors.length) {
+                return {errors: result.errors, saved: false}
+            }
+
+            me.topologyCollection = result.collection;
+            return {errors: [], saved: true}
         }
 
         let result = me.perspectiveStore.savePerspective(created.layout, {replace: true});
@@ -1303,7 +1334,9 @@ class DemoBWorkspace extends Container {
      * @returns {{loaded: Boolean, errors: String[], report: (Object|undefined)}}
      */
     loadPerspectiveByName(name) {
-        let me         = this,
+        let me       = this,
+            topology = Object.values(me.topologyCollection?.topologies || {})
+                .find(record => record.perspectiveName === name || record.layoutId === name),
             summary    = me.perspectiveStore.list().find(entry => entry.perspectiveName === name || entry.layoutId === name),
             collection = me.perspectiveStore.collection,
             layout     = summary ? collection.layouts[summary.layoutId] : null;
@@ -1311,17 +1344,24 @@ class DemoBWorkspace extends Container {
         // Reconcile BEFORE `loadPerspective` advances the store's active id. A malformed
         // topology record or live document must leave both layout truth and selection truth
         // untouched — fail-closed means more than avoiding a document assignment.
-        if (layout?.captureScope === 'topology') {
-            let preview = me.restoreTopologyPerspective(layout, {commit: false});
+        if (topology) {
+            let preview = me.restoreTopologyPerspective(topology, {commit: false});
 
             if (!preview.loaded) return preview;
 
-            let activated = me.perspectiveStore.loadPerspective(name);
+            let activated = Persistence.createTopologyCollection(me.topologyCollection.topologies, {
+                activeLayoutId: topology.layoutId,
+                metadata      : me.topologyCollection.metadata,
+                ...(Object.hasOwn(me.topologyCollection, 'revision') && {
+                    revision: me.topologyCollection.revision
+                })
+            });
 
             if (activated.errors.length) {
                 return {errors: activated.errors, loaded: false, report: preview.report}
             }
 
+            me.topologyCollection = activated.collection;
             me.commitTopologyRestore(preview);
 
             return {errors: [], loaded: true, report: preview.report}
@@ -1342,23 +1382,23 @@ class DemoBWorkspace extends Container {
      * @summary Commits a validated topology result while preserving panes that remain owner-held
      * but cannot be projected because their captured window is not live.
      * @param {Object} result
-     * @param {Object[]} result.documents Reconciled documents for the currently live topology.
+     * @param {Object<String,Object>} result.workspaces Reconciled documents keyed by workspace.
      * @param {Boolean} result.hasLivePopup Whether a second render target currently exists.
      * @param {Object} result.report Structured reconciliation remainder.
      * @returns {Promise}
      * @protected
      */
-    commitTopologyRestore({documents, hasLivePopup, report}) {
+    commitTopologyRestore({workspaces, hasLivePopup, report}) {
         let me              = this,
-            liveDocuments   = hasLivePopup ? documents.slice(0, 2) : documents.slice(0, 1),
+            liveDocuments   = Object.values(workspaces),
             liveItemIds     = new Set(liveDocuments.flatMap(document => Object.keys(document?.items || {}))),
             preserveItemIds = (report?.unrestored || [])
                 .map(entry => entry.itemId)
                 .filter(itemId => !liveItemIds.has(itemId));
 
-        hasLivePopup && (me.popupDocument = documents[1]);
+        hasLivePopup && (me.popupDocument = workspaces[DemoBWorkspace.POPUP_WORKSPACE_ID]);
 
-        return me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, documents[0], {
+        return me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, workspaces[DemoBWorkspace.MAIN_WORKSPACE_ID], {
             preserveItemIds
         })
     }
@@ -1367,21 +1407,23 @@ class DemoBWorkspace extends Container {
      * @summary Reconciles one topology record onto the currently live workspace documents.
      * A connected/detached popup contributes its worker-owned document; otherwise the live
      * topology is intentionally one window. Validation errors mutate neither document.
-     * @param {Object} layout A topology-scope saved-layout record.
+     * @param {Object} topology A keyed topology record.
      * @param {Object} [options={}]
      * @param {Boolean} [options.commit=true] Commit reconciled documents; false is a preflight.
-     * @returns {{loaded: Boolean, errors: String[], report: Object, documents: Object[], hasLivePopup: Boolean}}
+     * @returns {{loaded: Boolean, errors: String[], report: Object, workspaces: Object, hasLivePopup: Boolean}}
      */
-    restoreTopologyPerspective(layout, {commit = true} = {}) {
-        let me            = this,
-            hasLivePopup  = Object.keys(me.detachedPanes).length > 0,
-            liveDocuments = hasLivePopup ? [me.dockModel, me.popupDocument] : [me.dockModel],
-            result        = DockTopologyReconciler.reconcile(layout, liveDocuments),
-            report        = Document.clone({
+    restoreTopologyPerspective(topology, {commit = true} = {}) {
+        let me             = this,
+            hasLivePopup   = Object.keys(me.detachedPanes).length > 0,
+            liveWorkspaces = {
+                [DemoBWorkspace.MAIN_WORKSPACE_ID]: me.dockModel,
+                ...(hasLivePopup && {[DemoBWorkspace.POPUP_WORKSPACE_ID]: me.popupDocument})
+            },
+            result        = DockTopologyReconciler.reconcile(topology, liveWorkspaces),
+            report        = WorkspaceDocument.clone({
                 applied        : result.applied,
                 displaced      : result.displaced,
                 errors         : result.errors,
-                mapping        : result.mapping,
                 noWindowSpawned: true,
                 unmatchedLive  : result.unmatchedLive,
                 unrestored     : result.unrestored
@@ -1391,12 +1433,12 @@ class DemoBWorkspace extends Container {
         me.renderRestoreReport();
 
         if (result.errors.length) {
-            return {documents: result.documents, errors: result.errors, hasLivePopup, loaded: false, report}
+            return {workspaces: result.workspaces, errors: result.errors, hasLivePopup, loaded: false, report}
         }
 
-        commit && me.commitTopologyRestore({documents: result.documents, hasLivePopup, report});
+        commit && me.commitTopologyRestore({workspaces: result.workspaces, hasLivePopup, report});
 
-        return {documents: result.documents, errors: [], hasLivePopup, loaded: true, report}
+        return {workspaces: result.workspaces, errors: [], hasLivePopup, loaded: true, report}
     }
 
     /**
@@ -1420,7 +1462,7 @@ class DemoBWorkspace extends Container {
 
         target.html = report.errors.length
             ? `<strong>Topology restore rejected.</strong> Validation failed; live documents stayed untouched. ${report.errors.map(escape).join('; ')}`
-            : `<strong>Topology restore — no window spawned.</strong> Unrestored: ${entries(report.unrestored)}. Displaced: ${report.displaced.length ? report.displaced.map(entry => escape(entry.itemId)).join(', ') : 'none'}. Unmatched live slots: ${report.unmatchedLive.length ? report.unmatchedLive.join(', ') : 'none'}.`;
+            : `<strong>Topology restore — no window spawned.</strong> Unrestored: ${entries(report.unrestored)}. Displaced: ${report.displaced.length ? report.displaced.map(entry => escape(entry.itemId)).join(', ') : 'none'}. Unmatched live workspaces: ${report.unmatchedLive.length ? report.unmatchedLive.join(', ') : 'none'}.`;
         target.hidden = false
     }
 
@@ -1676,7 +1718,7 @@ class DemoBWorkspace extends Container {
 
                 let pane         = me.paneCache[itemId],
                     framesAfter  = pane?.frames ?? -1,
-                    targetTabsId = Document.findContainingTabsId(targetDocument, itemId),
+                    targetTabsId = WorkspaceDocument.findContainingTabsId(targetDocument, itemId),
                     proof        = {
                         framesAfter,
                         framesBefore      : context?.frames ?? null,
@@ -1687,7 +1729,7 @@ class DemoBWorkspace extends Container {
                         remoteSnapshot    : context?.remoteSnapshot ?? null,
                         sameInstance      : pane === context?.pane,
                         sourceItemRemoved : !sourceDocument.items?.[itemId]
-                            && Document.findContainingTabsId(sourceDocument, itemId) === null,
+                            && WorkspaceDocument.findContainingTabsId(sourceDocument, itemId) === null,
                         sourceSuppressionConsumed: sourceDecision.remoteDropOutFires === 1
                             && sourceDecision.localDropFires === 0,
                         targetItemPlaced        : !!targetDocument.items?.[itemId]
@@ -1720,8 +1762,8 @@ class DemoBWorkspace extends Container {
                     receipt        = {
                         applied       : errors.length === 0,
                         errors,
-                        sourceDocument: Document.clone(sourceDocument),
-                        targetDocument: Document.clone(targetDocument),
+                        sourceDocument: WorkspaceDocument.clone(sourceDocument),
+                        targetDocument: WorkspaceDocument.clone(targetDocument),
                         witness       : {
                             instanceId: pane?.id ?? null,
                             mountCount: pane?.mountCount ?? null
@@ -1857,8 +1899,8 @@ class DemoBWorkspace extends Container {
                         + (candidateSet?.root?.chips?.length ?? 0),
                     schema         : candidateSet?.schema ?? null
                 },
-                preview : preview ? Document.clone(preview) : null,
-                rendered: rendered ? Document.clone(rendered) : null,
+                preview : preview ? WorkspaceDocument.clone(preview) : null,
+                rendered: rendered ? WorkspaceDocument.clone(rendered) : null,
                 targetNodeId
             };
 
@@ -2091,7 +2133,7 @@ class DemoBWorkspace extends Container {
             }
 
             let sourceDocument = me.getWorkspaceDocument(sourceWorkspaceId),
-                sourceNodeId   = Document.findContainingTabsId(sourceDocument, itemId),
+                sourceNodeId   = WorkspaceDocument.findContainingTabsId(sourceDocument, itemId),
                 sourceItems    = sourceDocument.nodes[sourceNodeId]?.items || [],
                 sourceHost     = me.crossWindowHosts.get(sourceWorkspaceId),
                 sourceTabs     = sourceHost?.down({dockNodeId: sourceNodeId}),
@@ -2475,7 +2517,7 @@ class DemoBWorkspace extends Container {
                     detached = {
                         catalogRetained: !!sourceDocument?.items?.[itemId],
                         entry          : entry ? {...entry} : null,
-                        itemAbsent     : Document.findContainingTabsId(sourceDocument, itemId) === null
+                        itemAbsent     : WorkspaceDocument.findContainingTabsId(sourceDocument, itemId) === null
                     };
 
                     if (
@@ -2489,8 +2531,8 @@ class DemoBWorkspace extends Container {
                 await me.awaitProjectionIdle();
 
                 let terminalIdentity = identity(),
-                    sourceAfter      = Document.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
-                    targetAfter      = Document.clone(me.getWorkspaceDocument(targetWorkspaceId)),
+                    sourceAfter      = WorkspaceDocument.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
+                    targetAfter      = WorkspaceDocument.clone(me.getWorkspaceDocument(targetWorkspaceId)),
                     proof            = {
                         acquisitionAttempts: {
                             afterRestore            : acquisitionsAfterRestore,
@@ -2553,12 +2595,12 @@ class DemoBWorkspace extends Container {
             }
 
             if (cancelAtTarget) {
-                let sourceBefore = Document.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
-                    targetBefore = Document.clone(me.getWorkspaceDocument(targetWorkspaceId)),
+                let sourceBefore = WorkspaceDocument.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
+                    targetBefore = WorkspaceDocument.clone(me.getWorkspaceDocument(targetWorkspaceId)),
                     cancellation = await me.cancelCrossWindowGesture(me.crossWindowGestureContext),
                     cleanup      = await me.waitForCrossWindowCancellation(me.crossWindowGestureContext),
-                    sourceAfter  = Document.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
-                    targetAfter  = Document.clone(me.getWorkspaceDocument(targetWorkspaceId)),
+                    sourceAfter  = WorkspaceDocument.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
+                    targetAfter  = WorkspaceDocument.clone(me.getWorkspaceDocument(targetWorkspaceId)),
                     result       = {
                         applied       : false,
                         cancelled     : true,
@@ -2697,7 +2739,7 @@ class DemoBWorkspace extends Container {
 
             // The committed document BEFORE the gesture — both the zero-mutation (cancel) and the
             // detach-commit (terminal) proofs compare against this snapshot.
-            let documentBefore = Document.clone(document),
+            let documentBefore = WorkspaceDocument.clone(document),
                 catalogBefore  = Object.keys(documentBefore.items);
 
             let startX  = buttonRect.x + buttonRect.width / 2,
@@ -2800,7 +2842,7 @@ class DemoBWorkspace extends Container {
                 // dockTearOutCancel → the host closes its vessel. Assert the committed document is
                 // byte-identical — the zero-mutation invariant, proven from the third party (the doc).
                 let cancellation  = await me.cancelTearOutGesture(button, release),
-                    documentAfter = Document.clone(me.getWorkspaceDocument(workspaceId));
+                    documentAfter = WorkspaceDocument.clone(me.getWorkspaceDocument(workspaceId));
 
                 return {
                     applied  : false,
@@ -2826,7 +2868,7 @@ class DemoBWorkspace extends Container {
             }]});
 
             let committed      = await me.waitForTearOutCommit(itemId, sourceNodeId),
-                documentAfter  = Document.clone(me.getWorkspaceDocument(workspaceId)),
+                documentAfter  = WorkspaceDocument.clone(me.getWorkspaceDocument(workspaceId)),
                 absentFromTree = !Object.values(documentAfter.nodes).some(zoneNode => zoneNode.items?.includes(itemId)),
                 keptInCatalog  = Boolean(documentAfter.items?.[itemId]);
 
@@ -3283,7 +3325,7 @@ class DemoBWorkspace extends Container {
                 me.tearOutRetirements.add(itemId);
 
                 if (me.tearOutEmbodiment.isStaged(itemId)) {
-                    const sourceOwns = Boolean(Document.findContainingTabsId(me.dockModel, itemId));
+                    const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId));
 
                     me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({itemId, windowId: entry.windowId})
                 }
@@ -3365,7 +3407,7 @@ class DemoBWorkspace extends Container {
     applyTearOutOperation(descriptor) {
         let me       = this,
             isDetach = descriptor?.operation === 'detachItem',
-            captured = isDetach ? Document.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            captured = isDetach ? WorkspaceDocument.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
             result;
 
         captured && (me.tearOutPlacements[descriptor.itemId] = captured);
@@ -3403,7 +3445,7 @@ class DemoBWorkspace extends Container {
 
         delete me.tearOutPlacements[itemId];
 
-        if (!doc.items?.[itemId] || !fallback || Document.findContainingTabsId(doc, itemId)) {
+        if (!doc.items?.[itemId] || !fallback || WorkspaceDocument.findContainingTabsId(doc, itemId)) {
             return
         }
 
@@ -3428,13 +3470,13 @@ class DemoBWorkspace extends Container {
     async popOutPane(itemId) {
         let me   = this,
             pane = me.paneCache[itemId],
-            home = Document.findContainingTabsId(me.dockModel, itemId);
+            home = WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
 
         if (!pane || !home || me.detachedPanes[itemId]) {
             return {detached: false, errors: [`"${itemId}" is not a docked, cached, attached pane`]}
         }
 
-        // A prior round-trip normalizes the now-empty popup tree. Re-seed its valid landing
+        // A completed round-trip normalizes the now-empty popup tree. Re-seed its valid landing
         // tabs before the next transfer; no item state exists there to preserve at that point.
         let sourceBefore = me.dockModel,
             popupBefore  = me.popupDocument,
@@ -3579,7 +3621,7 @@ class DemoBWorkspace extends Container {
             itemId            = data.itemId ?? draggedItem?.dockItemId,
             sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId ?? workspaceId,
             sourceNodeId      = data.sourceNodeId
-                ?? Document.findContainingTabsId(me.getWorkspaceDocument(sourceWorkspaceId), itemId),
+                ?? WorkspaceDocument.findContainingTabsId(me.getWorkspaceDocument(sourceWorkspaceId), itemId),
             pointer    = {x: data.localX ?? data.clientX, y: data.localY ?? data.clientY};
 
         if (!host || !geometry || !itemId || !Neo.isNumber(pointer.x) || !Neo.isNumber(pointer.y)) {
@@ -4113,7 +4155,7 @@ class DemoBWorkspace extends Container {
         admission && (admission.invalidated = true);
 
         if (embodiedWindowId && me.tearOutEmbodiment.isStaged(itemId)) {
-            const sourceOwns = Boolean(Document.findContainingTabsId(me.dockModel, itemId)),
+            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
                   settled    = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
                       itemId, windowId: embodiedWindowId
                   });
@@ -4289,7 +4331,7 @@ class DemoBWorkspace extends Container {
      * The shared projection reconciler moves cached panes and tab chrome into the staged tree
      * before retiring the empty shell, so object permanence no longer depends on coarse parking.
      * @param {String} workspaceId Worker-owned workspace id.
-     * @param {Object} [document=this.getWorkspaceDocument(workspaceId)] Document to project.
+     * @param {Object} [document=this.getWorkspaceDocument(workspaceId)] WorkspaceDocument to project.
      * @param {Object} [options={}] Projection policy.
      * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes to park.
      * @returns {Promise}
@@ -4449,7 +4491,7 @@ class DemoBWorkspace extends Container {
             me.popupDocument = DemoBWorkspace.createPopupDocument();
             await me.onWorkspaceDocumentChange(
                 DemoBWorkspace.MAIN_WORKSPACE_ID,
-                Document.clone(initialDocument)
+                WorkspaceDocument.clone(initialDocument)
             )
         }
 
@@ -4509,7 +4551,7 @@ class DemoBWorkspace extends Container {
      */
     static createPopupDocument() {
         return {
-            schema: Document.SCHEMA,
+            schema: WorkspaceDocument.SCHEMA,
             root  : 'popup-root',
             items : {},
             nodes : {

@@ -6,13 +6,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import DockService    from '../../../../../../src/ai/client/DockService.mjs';
-import Document       from '../../../../../../src/dashboard/dock/model/Document.mjs';
-import Operations     from '../../../../../../src/dashboard/dock/model/Operations.mjs';
-import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../../../src/Neo.mjs';
+import * as core         from '../../../../../../src/core/_export.mjs';
+import DockService       from '../../../../../../src/ai/client/DockService.mjs';
+import WorkspaceDocument from '../../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations        from '../../../../../../src/dashboard/dock/model/Operations.mjs';
+import TourRunner        from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import {validateTourScript}                     from '../../../../../../src/ai/client/tourScript.mjs';
 import {workstationTourScript, initialDocument} from '../../../../../../apps/workstation/tour/denseWorkstation.mjs';
@@ -29,7 +29,7 @@ test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
      * @returns {Neo.ai.client.TourRunner}
      */
     function createRunner() {
-        const holder = {dockZoneDocument: Document.clone(initialDocument), id: 'workstation-stage'};
+        const holder = {dockZoneDocument: WorkspaceDocument.clone(initialDocument), id: 'workstation-stage'};
 
         Neo.getComponent = () => holder;
         runner = Neo.create(TourRunner, {

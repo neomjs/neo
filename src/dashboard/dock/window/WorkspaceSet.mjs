@@ -114,23 +114,26 @@ export function createDockWorkspaceSet() {
         },
 
         /**
-         * Adopts one committed document per registered workspace, in `ids()` order — the slot
-         * order a topology perspective was captured in.
+         * Adopts one committed document per registered workspace key.
          *
-         * All-or-nothing, like {@link #adoptTransfer} one arity up: a slot count that does not
-         * match the registry, a missing document, or a read-only entry refuses before anything is
-         * written, and a throw mid-write rolls every earlier slot back to the document it replaced.
-         * A partially adopted topology is a composition no capture could have produced.
-         * @param {Object[]} documents Slot-ordered committed documents, primary first.
-         * @returns {Boolean} true when every slot adopted
+         * All-or-nothing, like {@link #adoptTransfer} one arity up: the payload must name exactly
+         * the registered semantic keys. Object insertion order and registry order never pair a
+         * document with its owner. A missing/excess key, missing document, or read-only entry
+         * refuses before the first write; a throw mid-write compensates every earlier writer.
+         * @param {Object<String,Object>} workspaces Documents keyed by stable workspace identity.
+         * @returns {Boolean} true when every workspace adopted its keyed document
          */
-        adoptAll(documents) {
-            const ids = [...entries.keys()];
+        adoptAll(workspaces) {
+            const
+                isRecord = workspaces !== null && typeof workspaces === 'object' && !Array.isArray(workspaces) &&
+                    (Object.getPrototypeOf(workspaces) === Object.prototype || Object.getPrototypeOf(workspaces) === null),
+                ids      = [...entries.keys()],
+                keys     = isRecord ? Object.keys(workspaces) : [];
 
             if (
-                !Array.isArray(documents) || documents.length !== ids.length ||
-                documents.some(document => !document) ||
-                ids.some(workspaceId => !entries.get(workspaceId).setDocument)
+                !isRecord || keys.length !== ids.length ||
+                keys.some(workspaceId => !entries.has(workspaceId) || !workspaces[workspaceId]) ||
+                ids.some(workspaceId => !Object.hasOwn(workspaces, workspaceId) || !entries.get(workspaceId).setDocument)
             ) {
                 return false
             }
@@ -143,7 +146,7 @@ export function createDockWorkspaceSet() {
                 written.push([entry, entry.getDocument()]);
 
                 try {
-                    entry.setDocument(documents[index])
+                    entry.setDocument(workspaces[ids[index]])
                 } catch (error) {
                     written.reverse().forEach(([slot, previous]) => {
                         try {

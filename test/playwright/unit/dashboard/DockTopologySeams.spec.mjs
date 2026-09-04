@@ -116,27 +116,30 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         return {set, vessel}
     }
 
-    test('a workspace with no set answers a single-slot topology', () => {
+    test('a workspace with no semantic set refuses to invent a topology key', () => {
         workspace = Neo.create(TopologyWorkspace, {dockModel: primaryDoc()});
 
-        const documents = workspace.getDockTopologyDocuments();
+        const workspaces = workspace.getDockTopologyWorkspaces();
 
-        expect(documents).toHaveLength(1);
-        expect(documents[0]).toBe(workspace.dockModel)
+        expect(workspaces).toEqual({});
+        expect(Persistence.captureTopologyPerspective(workspaces, {
+            layoutId: 'unknown-key',
+            title   : 'Unknown Key'
+        }).errors.join(' ')).toContain('keyed workspaces')
     });
 
-    test('a workspace with a set answers every slot, primary first', () => {
+    test('a workspace with a set answers every document by semantic key', () => {
         workspace = Neo.create(TopologyWorkspace, {dockModel: primaryDoc()});
 
         const {set, vessel} = createSet(workspace);
 
         workspace.workspaceSet = set;
 
-        const documents = workspace.getDockTopologyDocuments();
+        const workspaces = workspace.getDockTopologyWorkspaces();
 
-        expect(documents).toHaveLength(2);
-        expect(documents[0]).toBe(workspace.dockModel);
-        expect(documents[1]).toBe(vessel.document)
+        expect(Object.keys(workspaces)).toEqual(['main', 'vessel']);
+        expect(workspaces.main).toBe(workspace.dockModel);
+        expect(workspaces.vessel).toBe(vessel.document)
     });
 
     test('a multi-window capture restores the whole composition through the real reconciler', async () => {
@@ -147,14 +150,14 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         workspace.workspaceSet = set;
 
         // CAPTURE the composition through the seam the service uses
-        const captured = Persistence.captureTopologyPerspective(workspace.getDockTopologyDocuments(), {
+        const captured = Persistence.captureTopologyPerspective(workspace.getDockTopologyWorkspaces(), {
             layoutId: 'topo-1', perspectiveName: 'Everything', title: 'Everything'
         });
 
         expect(captured.errors).toEqual([]);
-        expect(captured.layout.captureScope).toBe('topology');
+        expect(captured.topology.schema).toBe(Persistence.TOPOLOGY_SCHEMA);
         // where the active tab lives at each hop — capture, reconcile, commit
-        expect(captured.layout.dockZone.nodes['main-tabs'].activeItemId, 'capture keeps it').toBe('strategy');
+        expect(captured.topology.workspaces.main.nodes['main-tabs'].activeItemId, 'capture keeps it').toBe('strategy');
 
         // the live composition MOVES ON: the primary is rearranged
         workspace.dockModel = primaryRearranged();
@@ -162,18 +165,18 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         expect(workspace.dockModel.nodes['main-tabs'].items).toEqual(['swarm', 'strategy']);
 
         // RESTORE: real reconciler over the live slots, then the atomic write seam
-        const result = TopologyReconciler.reconcile(captured.layout, workspace.getDockTopologyDocuments());
+        const result = TopologyReconciler.reconcile(captured.topology, workspace.getDockTopologyWorkspaces());
 
         expect(result.errors).toEqual([]);
-        expect(result.documents).toHaveLength(2);
+        expect(Object.keys(result.workspaces)).toEqual(['main', 'vessel']);
         // Which tab was active is restored, not merely which tabs exist: `TopologyDiff` reports an
         // `activeItemChanges` bucket and `RestorePlanner` emits a `setActiveItem` step for it, both
         // reached here through `RestorePlanner.restoreToward()`. Capture keeps `activeItemId`
         // (asserted above) and the restore now carries it, so the CAPTURED value wins over the live
         // one — this arm is what fails if that stops being true.
-        expect(result.documents[0].nodes['main-tabs'].activeItemId, 'captured active tab wins over live').toBe('strategy');
+        expect(result.workspaces.main.nodes['main-tabs'].activeItemId, 'captured active tab wins over live').toBe('strategy');
 
-        const commit = workspace.commitDockTopologyDocuments(result.documents, {operation: 'restorePerspective'});
+        const commit = workspace.commitDockTopologyWorkspaces(result.workspaces, {operation: 'restorePerspective'});
 
         expect(commit.errors).toEqual([]);
 
@@ -188,13 +191,13 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         workspace = Neo.create(TopologyWorkspace, {dockModel: primaryDoc()});
 
         // no set: a single-document workspace must never silently swallow a two-window record
-        const refused = workspace.commitDockTopologyDocuments([primaryDoc(), vesselDoc()]);
+        const refused = workspace.commitDockTopologyWorkspaces({main: primaryDoc(), vessel: vesselDoc()});
 
         expect(refused.errors).toHaveLength(1);
-        expect(refused.errors[0]).toContain('commits every slot or none');
+        expect(refused.errors[0]).toContain('registered workspace key');
 
-        expect(workspace.commitDockTopologyDocuments([]).errors).toHaveLength(1);
-        expect(workspace.commitDockTopologyDocuments([null]).errors).toHaveLength(1);
-        expect(workspace.commitDockTopologyDocuments(null).errors).toHaveLength(1)
+        expect(workspace.commitDockTopologyWorkspaces({}).errors).toHaveLength(1);
+        expect(workspace.commitDockTopologyWorkspaces({main: null}).errors).toHaveLength(1);
+        expect(workspace.commitDockTopologyWorkspaces(null).errors).toHaveLength(1)
     })
 });

@@ -11,7 +11,7 @@ import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import DockRestorePlanner from '../../../../src/dashboard/dock/persistence/RestorePlanner.mjs';
 import DockTopologyDiff   from '../../../../src/dashboard/dock/model/TopologyDiff.mjs';
-import Document           from '../../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 
 /**
@@ -39,7 +39,7 @@ function doc() {
     }
 }
 
-const fp        = d => Document.computeShapeFingerprint(d).fingerprint?.shape;
+const fp        = d => WorkspaceDocument.computeShapeFingerprint(d).fingerprint?.shape;
 const emptyDiff = d => {
     const r = DockTopologyDiff.diffDockDocuments(d.a, d.b);
     return {moves: r.moves, adds: r.adds, removes: r.removes, resizes: r.resizes, tabReorders: r.tabReorders, autoHideFlips: r.autoHideFlips}

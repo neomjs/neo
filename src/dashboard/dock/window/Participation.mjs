@@ -1,7 +1,7 @@
 import Base                                    from '../../../core/Base.mjs';
 import DragAffordances                         from '../interaction/DragAffordances.mjs';
 import DragTarget                              from './DragTarget.mjs';
-import Document                                from '../model/Document.mjs';
+import WorkspaceDocument                       from '../model/WorkspaceDocument.mjs';
 import Operations                              from '../model/Operations.mjs';
 import Preview                                 from '../interaction/Preview.mjs';
 import {previewToOperation as toDockOperation} from '../model/PreviewContract.mjs';
@@ -25,7 +25,7 @@ import {previewToOperation as toDockOperation} from '../model/PreviewContract.mj
  * - **Foreign drop** (the item belongs to a sibling window's workspace on the same App-Worker
  *   heap): the converted `addTab`/`splitNode` descriptor becomes the nested `target` of ONE
  *   semantic `transferItem` operation, executed through the landed atomic two-document executor
- *   ({@link Neo.dashboard.dock.model.Document#transferItem}) — commit-or-neither, item record verbatim,
+ *   ({@link Neo.dashboard.dock.model.WorkspaceDocument#transferItem}) — commit-or-neither, item record verbatim,
  *   live component instances move and are never re-instantiated (§2.6). The adapter publishes
  *   those finite documents unchanged. Durable placement intent belongs to the separate topology
  *   hint layer; once that layer exists, its workspace-set owner must join it to the document-pair
@@ -491,7 +491,7 @@ class Participation extends Base {
 
             if (!sourceDocument || !publishTransfer ||
                 operation.operation !== 'transferNode' || operation.nodeId !== groupNodeId ||
-                Document.resolveStackRoot(sourceDocument) !== groupNodeId) {
+                WorkspaceDocument.resolveStackRoot(sourceDocument) !== groupNodeId) {
                 return null
             }
 

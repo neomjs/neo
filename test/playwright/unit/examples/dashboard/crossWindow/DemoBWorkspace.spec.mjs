@@ -15,8 +15,9 @@ import Container                                           from '../../../../../
 import DemoBWorkspace, {describeCrossWindowChromeMismatch} from '../../../../../../examples/dashboard/crossWindow/DemoBWorkspace.mjs';
 import DockPreview                                         from '../../../../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockProjectionReconciler                            from '../../../../../../src/dashboard/dock/projection/Reconciler.mjs';
-import Document                                            from '../../../../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument                                   from '../../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations                                          from '../../../../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence                                         from '../../../../../../src/dashboard/dock/model/Persistence.mjs';
 
 import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
@@ -629,12 +630,12 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
             await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-committed'});
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'timeline', sortZone})).toBe(true);
-            expect(Document.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline')).toBeNull();
+            expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline')).toBeNull();
             expect(workspace.tearOutPanes.timeline.windowId).toBeNull();
 
             workspace.onWindowDisconnect({windowId: 'tear-stage-committed'});
 
-            expect(Document.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline'))
+            expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline'))
                 .toBe('side-tabs');
             expect(workspace.tearOutPanes.timeline).toBeUndefined();
             expect(workspace.tearOutConnectAdmissions.has('timeline')).toBe(false);
@@ -1102,7 +1103,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         const descriptor = {
             operation        : 'transferNode',
-            nodeId           : Document.resolveStackRoot(workspace.popupDocument),
+            nodeId           : WorkspaceDocument.resolveStackRoot(workspace.popupDocument),
             sourceWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
             targetWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
             target           : {targetNodeId: 'side-tabs', placement: {kind: 'tab-into'}}
@@ -1392,24 +1393,23 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(vessel.openCount).toBe(1);
             expect(workspace.dockModel.items.workbench).toBeUndefined();
             expect(workspace.popupDocument.items.workbench).toEqual(initialDocument.items.workbench);
-            expect(Document.validate(workspace.dockModel)).toEqual([]);
-            expect(Document.validate(workspace.popupDocument)).toEqual([]);
+            expect(WorkspaceDocument.validate(workspace.dockModel)).toEqual([]);
+            expect(WorkspaceDocument.validate(workspace.popupDocument)).toEqual([]);
 
             expect(workspace.capturePerspective('Detached', {scope: 'topology'}).saved).toBe(true);
 
-            const detachedSummary = workspace.perspectiveStore.list().find(entry => entry.perspectiveName === 'Detached'),
-                  detachedLayout  = workspace.perspectiveStore.collection.layouts[detachedSummary.layoutId];
+            const detachedLayout = workspace.topologyCollection.topologies['demo-b-detached'];
 
-            expect(detachedLayout.captureScope).toBe('topology');
-            expect(detachedLayout.windowDocuments).toHaveLength(1);
+            expect(detachedLayout.schema).toBe(Persistence.TOPOLOGY_SCHEMA);
+            expect(Object.keys(detachedLayout.workspaces)).toEqual(['demo-b-main', 'demo-b-popup']);
 
             const reattached = await workspace.reattachPane('workbench', {windowAlreadyClosed: true});
 
             expect(reattached).toEqual({errors: [], reattached: true});
             expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
             expect(workspace.popupDocument.items.workbench).toBeUndefined();
-            expect(Document.validate(workspace.dockModel)).toEqual([]);
-            expect(Document.validate(workspace.popupDocument)).toEqual([]);
+            expect(WorkspaceDocument.validate(workspace.dockModel)).toEqual([]);
+            expect(WorkspaceDocument.validate(workspace.popupDocument)).toEqual([]);
             expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
 
             const opensBeforeRestore = vessel.openCount,
@@ -1420,9 +1420,9 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(vessel.openCount).toBe(opensBeforeRestore);
             expect(loaded.report.noWindowSpawned).toBe(true);
             expect(loaded.report.unrestored).toEqual([
-                {capturedIndex: 1, itemId: 'workbench', reason: 'no-live-window'}
+                {workspaceKey: 'demo-b-popup', itemId: 'workbench', reason: 'no-live-workspace'}
             ]);
-            expect(loaded.report.displaced).toEqual([{itemId: 'workbench', liveIndex: 0}]);
+            expect(loaded.report.displaced).toEqual([{workspaceKey: 'demo-b-main', itemId: 'workbench'}]);
             expect(workspace.dockModel.items.workbench).toBeUndefined();
 
             // Let the changed-topology projection fully settle while Workbench has no live
@@ -1438,7 +1438,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
             expect(report.hidden).toBe(false);
             expect(report.html).toContain('no window spawned');
-            expect(report.html).toContain('workbench (no-live-window)');
+            expect(report.html).toContain('workbench (no-live-workspace)');
 
             expect(workspace.loadPerspectiveByName('Focus').loaded).toBe(true);
             await workspace.refreshPromise;
@@ -1457,15 +1457,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
             expect(workspace.capturePerspective('Detached', {scope: 'topology'}).saved).toBe(true);
 
-            const summary      = workspace.perspectiveStore.list().find(entry => entry.perspectiveName === 'Detached'),
-                  layout       = Document.clone(workspace.perspectiveStore.collection.layouts[summary.layoutId]),
+            const layout       = WorkspaceDocument.clone(workspace.topologyCollection.topologies['demo-b-detached']),
                   dockBefore   = workspace.dockModel,
                   popupBefore  = workspace.popupDocument,
                   dockSnapshot = JSON.stringify(dockBefore),
                   popSnapshot  = JSON.stringify(popupBefore),
-                  activeBefore = workspace.perspectiveStore.collection.activeLayoutId;
+                  activeBefore = workspace.topologyCollection.activeLayoutId;
 
-            layout.windowDocuments[0].root = 'ghost-root';
+            layout.workspaces['demo-b-popup'].root = 'ghost-root';
 
             const restored = workspace.restoreTopologyPerspective(layout);
 
@@ -1475,7 +1474,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(workspace.popupDocument).toBe(popupBefore);
             expect(JSON.stringify(workspace.dockModel)).toBe(dockSnapshot);
             expect(JSON.stringify(workspace.popupDocument)).toBe(popSnapshot);
-            expect(workspace.perspectiveStore.collection.activeLayoutId).toBe(activeBefore);
+            expect(workspace.topologyCollection.activeLayoutId).toBe(activeBefore);
             expect(workspace.getReference('restore-report-b').html).toContain('live documents stayed untouched')
         } finally {
             vessel.restore()
@@ -1536,8 +1535,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
     test('projection coalescing keeps the latest document and preservation policy atomic', async () => {
         const
-            topologyDocument = Document.clone(initialDocument),
-            focusDocument    = Document.clone(initialDocument),
+            topologyDocument = WorkspaceDocument.clone(initialDocument),
+            focusDocument    = WorkspaceDocument.clone(initialDocument),
             calls            = [];
 
         delete topologyDocument.items.workbench;
@@ -1693,7 +1692,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         // occurrence, in the node the other flow chose, placement record still consumed
         const doc = workspace.getDockZoneDocument();
 
-        expect(Document.findContainingTabsId(doc, 'timeline')).toBe('workbench-tabs');
+        expect(WorkspaceDocument.findContainingTabsId(doc, 'timeline')).toBe('workbench-tabs');
         expect(doc.nodes['workbench-tabs'].items.filter(id => id === 'timeline')).toHaveLength(1);
         expect(workspace.tearOutPlacements.timeline).toBeUndefined()
     });

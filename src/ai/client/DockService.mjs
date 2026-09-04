@@ -35,11 +35,10 @@ export function registerDockServiceMethods(serviceMap, service) {
  * notification hook. Policy rejections (e.g. `pinnable: false`) therefore surface as the
  * executor's structured `errors`, never get bypassed.
  *
- * Perspective verbs consume the executable substrate directly: capture scope validates against
- * `Persistence.CAPTURE_SCOPES` (the SSOT — never a hand-listed mirror), capture rides the
- * landed scope producers, and restore inspects the stored record's own `captureScope` BEFORE
- * any state moves, routing topology records through `DockTopologyReconciler` plus the holder's
- * atomic multi-document commit seam.
+ * Perspective verbs consume the executable substrate directly. Capture scope selects one of two
+ * schemas: single-workspace layouts stay in `PerspectiveLibrary`; keyed topology records stay in a
+ * separate topology collection. Restore routes by the stored schema before state moves, and keyed
+ * topologies commit through one atomic holder seam.
  * @class Neo.ai.client.DockService
  * @extends Neo.ai.client.Service
  */
@@ -60,6 +59,114 @@ class DockService extends Service {
      * @static
      */
     static operations = Operations.operations
+
+    /**
+     * @summary Resolves one topology by product name first, then technical layout id.
+     * @param {Object|null} collection A `neo.dock.topologyCollection.v1` candidate.
+     * @param {String} name
+     * @returns {{layoutId:String, topology:Object}|null}
+     * @static
+     */
+    static resolveTopologyEntry(collection, name) {
+        const topologies = collection?.topologies;
+
+        if (!topologies || typeof topologies !== 'object' || Array.isArray(topologies)) {
+            return null
+        }
+
+        for (const [layoutId, topology] of Object.entries(topologies)) {
+            if (topology?.perspectiveName === name) {
+                return {layoutId, topology}
+            }
+        }
+
+        return Object.hasOwn(topologies, name)
+            ? {layoutId: name, topology: topologies[name]}
+            : null
+    }
+
+    /**
+     * @summary Returns plain topology summaries without exposing held records.
+     * @param {Object|null} collection
+     * @returns {Object[]}
+     * @static
+     */
+    static listTopologies(collection) {
+        return Object.entries(collection?.topologies || {}).map(([layoutId, topology]) => ({
+            layoutId,
+            perspectiveName: topology?.perspectiveName ?? null,
+            revision       : topology?.revision ?? null,
+            schema         : topology?.schema ?? null,
+            title          : topology?.title ?? null
+        }))
+    }
+
+    /**
+     * @summary Atomically stores one topology in the holder's separate collection.
+     *
+     * Name and technical-id collisions require the caller's explicit `replace` decision, matching
+     * the single-workspace perspective library. A holder without a `topologyCollection` field still
+     * captures successfully but reports `saved: false`; the Group leaf supplies the durable owner.
+     * @param {Object} holder
+     * @param {Object} topology
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.replace=false]
+     * @returns {{saved:Boolean,collision:(Object|null),errors:String[]}}
+     * @static
+     */
+    static storeTopology(holder, topology, {replace=false}={}) {
+        if (!('topologyCollection' in holder)) {
+            return {saved: false, collision: null, errors: []}
+        }
+
+        const current       = holder.topologyCollection ?? Persistence.createTopologyCollection().collection,
+              currentErrors = Persistence.validateTopologyCollection(current);
+
+        if (currentErrors.length) {
+            return {saved: false, collision: null, errors: currentErrors}
+        }
+
+        const name       = topology.perspectiveName ?? topology.layoutId,
+              byName     = DockService.resolveTopologyEntry(current, name),
+              byId       = DockService.resolveTopologyEntry(current, topology.layoutId),
+              collisions = [byName, byId]
+                  .filter(Boolean)
+                  .filter((entry, index, entries) =>
+                      entry.layoutId !== topology.layoutId &&
+                      entries.findIndex(other => other.layoutId === entry.layoutId) === index);
+
+        if (collisions.length && !replace) {
+            const holderEntry = collisions[0];
+
+            return {
+                saved    : false,
+                collision: {
+                    holderLayoutId: holderEntry.layoutId,
+                    holderTitle   : holderEntry.topology?.title ?? null,
+                    name
+                },
+                errors: []
+            }
+        }
+
+        const topologies = {...current.topologies};
+
+        collisions.forEach(entry => delete topologies[entry.layoutId]);
+        topologies[topology.layoutId] = topology;
+
+        const created = Persistence.createTopologyCollection(topologies, {
+            activeLayoutId: topology.layoutId,
+            metadata      : current.metadata,
+            ...(Object.hasOwn(current, 'revision') && {revision: current.revision})
+        });
+
+        if (created.errors.length) {
+            return {saved: false, collision: null, errors: created.errors}
+        }
+
+        holder.topologyCollection = created.collection;
+        return {saved: true, collision: null, errors: []}
+    }
 
     /**
      * Resolves a live dock-document holder — a component that carries a `dockZoneDocument`,
@@ -141,13 +248,12 @@ class DockService extends Service {
      * scope producers, and stores it when the holder exposes a perspective store — the capture
      * verb of the perspective tool trio.
      *
-     * `captureScope` validates against the executable SSOT
-     * ({@link Neo.dashboard.dock.model.Document#CAPTURE_SCOPES}), never a hand-listed mirror:
+     * `captureScope` validates against {@link Neo.dashboard.dock.model.Persistence#CAPTURE_SCOPES}:
      * `window` (the default) captures the holder's own document through
      * `Persistence.capturePerspective()` (fingerprint-coherent by construction); `topology`
      * captures the whole multi-window workspace through
      * `Persistence.captureTopologyPerspective()` over the holder's topology read seam —
-     * `getDockTopologyDocuments()`, returning the ordered committed documents, primary first.
+     * `getDockTopologyWorkspaces()`, returning documents keyed by semantic workspace identity.
      * A holder without that seam refuses topology capture with the missing seam declared —
      * never a silent downgrade to window scope.
      * @param {Object} params
@@ -157,7 +263,8 @@ class DockService extends Service {
      * @param {String} [params.title]            Display title
      * @param {String} [params.captureScope]     'window' (default) | 'topology' — the CAPTURE_SCOPES SSOT
      * @param {Boolean} [params.replace]         Explicit collision decision for the store
-     * @returns {Object} `{captured, stored, collision, errors, layout}`
+     * @returns {Object} `{captured, stored, collision, errors, layout, topology}` — exactly one
+     * record is non-null on success.
      */
     async capturePerspective({componentId, layoutId, perspectiveName, title, captureScope = 'window', replace = false}) {
         if (!Persistence.CAPTURE_SCOPES.includes(captureScope)) {
@@ -166,6 +273,7 @@ class DockService extends Service {
                 collision: null,
                 errors   : [`unknown captureScope "${captureScope}" — the vocabulary is: ${Persistence.CAPTURE_SCOPES.join(', ')}`],
                 layout   : null,
+                topology : null,
                 stored   : false
             }
         }
@@ -185,26 +293,41 @@ class DockService extends Service {
         let produced;
 
         if (captureScope === 'topology') {
-            if (typeof holder.getDockTopologyDocuments !== 'function') {
+            if (typeof holder.getDockTopologyWorkspaces !== 'function') {
                 return {
                     captured : false,
                     collision: null,
                     errors   : [
-                        `Component ${componentId} exposes no getDockTopologyDocuments() seam — topology ` +
-                        'capture needs the holder\'s ordered multi-window documents (primary first)'
+                        `Component ${componentId} exposes no getDockTopologyWorkspaces() seam — topology ` +
+                        'capture needs documents keyed by the holder\'s registered workspace identities'
                     ],
-                    layout: null,
-                    stored: false
+                    layout  : null,
+                    stored  : false,
+                    topology: null
                 }
             }
 
-            produced = Persistence.captureTopologyPerspective(holder.getDockTopologyDocuments(), metadata)
+            produced = Persistence.captureTopologyPerspective(holder.getDockTopologyWorkspaces(), metadata)
         } else {
             produced = Persistence.capturePerspective(this.readDocument(holder), metadata)
         }
 
         if (produced.errors.length) {
-            return {captured: false, collision: null, errors: produced.errors, layout: null, stored: false}
+            return {captured: false, collision: null, errors: produced.errors, layout: null, stored: false, topology: null}
+        }
+
+        if (captureScope === 'topology') {
+            const {topology} = produced,
+                  saved      = DockService.storeTopology(holder, topology, {replace});
+
+            return {
+                captured : true,
+                collision: saved.collision,
+                errors   : saved.errors,
+                layout   : null,
+                stored   : saved.saved,
+                topology
+            }
         }
 
         const {layout} = produced,
@@ -213,7 +336,7 @@ class DockService extends Service {
         if (typeof store?.savePerspective !== 'function') {
             // capture still succeeds — the agent holds the record; storing needs the holder's
             // perspective surface, and its absence is declared, never silently absorbed
-            return {captured: true, collision: null, errors: [], layout, stored: false}
+            return {captured: true, collision: null, errors: [], layout, stored: false, topology: null}
         }
 
         const saved = store.savePerspective(layout, {replace});
@@ -223,89 +346,122 @@ class DockService extends Service {
             collision: saved.collision,
             errors   : saved.errors,
             layout,
-            stored   : saved.saved
+            stored   : saved.saved,
+            topology : null
         }
     }
 
     /**
-     * Lists the holder's stored perspectives — the read verb of the trio. Fail-closed when
-     * the holder exposes no perspective store: a structured error, never a crash or an empty
-     * list masquerading as "no perspectives exist".
+     * Lists the holder's stored single-workspace perspectives and keyed topologies without
+     * combining their collections. Fail-closed only when neither surface exists.
      * @param {Object} params
      * @param {String} params.componentId The dock workspace / holder component id
-     * @returns {Object} `{perspectives, activeLayoutId, errors}`
+     * @returns {Object} `{perspectives, topologies, activeLayoutId, activeTopologyLayoutId, errors}`
      */
     async listPerspectives({componentId}) {
-        const holder = this.resolveHolder(componentId),
-              store  = holder.perspectiveStore;
+        const holder        = this.resolveHolder(componentId),
+              store         = holder.perspectiveStore,
+              collection    = holder.topologyCollection,
+              hasLayouts    = typeof store?.list === 'function',
+              hasTopologies = collection !== undefined && collection !== null;
 
-        if (typeof store?.list !== 'function') {
+        if (!hasLayouts && !hasTopologies) {
             return {
-                activeLayoutId: null,
-                errors        : [`Component ${componentId} exposes no perspective store — nothing to list`],
-                perspectives  : null
+                activeLayoutId        : null,
+                activeTopologyLayoutId: null,
+                errors                : [`Component ${componentId} exposes no perspective or topology store — nothing to list`],
+                perspectives          : null,
+                topologies            : null
+            }
+        }
+
+        const topologyErrors = hasTopologies ? Persistence.validateTopologyCollection(collection) : [];
+
+        if (topologyErrors.length) {
+            return {
+                activeLayoutId        : hasLayouts ? store.collection?.activeLayoutId ?? null : null,
+                activeTopologyLayoutId: null,
+                errors                : topologyErrors,
+                perspectives          : hasLayouts ? store.list() : [],
+                topologies            : null
             }
         }
 
         return {
-            activeLayoutId: store.collection?.activeLayoutId ?? null,
-            errors        : [],
-            perspectives  : store.list()
+            activeLayoutId        : hasLayouts ? store.collection?.activeLayoutId ?? null : null,
+            activeTopologyLayoutId: hasTopologies ? collection.activeLayoutId : null,
+            errors                : [],
+            perspectives          : hasLayouts ? store.list() : [],
+            topologies            : hasTopologies ? DockService.listTopologies(collection) : []
         }
     }
 
     /**
-     * Restores a stored perspective by name, scope-honestly: the record is inspected READ-ONLY
-     * first (the store's `getPerspective()` seam — no store state advances before the workspace
-     * commit is known), then routed by the record's OWN `captureScope`:
-     *
-     * - **window** records prefer the holder's switch seam (`activatePerspective` — commit
-     *   loop, animation and error rendering included), falling back to the store's fail-closed
-     *   load plus the landed plain-holder commit semantics.
-     * - **topology** records route through {@link Neo.dashboard.dock.model.TopologyReconciler} plus the
-     *   holder's atomic multi-document commit seam — see
-     *   {@link #restoreTopologyPerspective}. `windowDocuments` are never dropped: a topology
-     *   record can never report `switched: true` off a single-document commit.
-     *
-     * Fail-closed per the settled restore semantics: validate everything before mutating
-     * anything — a refused restore leaves the live layout byte-untouched, the store's active
-     * pointer unmoved, and surfaces the structured errors.
+     * Restores a named record by schema after read-only lookup in the separate layout and topology
+     * collections. A name present in both is ambiguous and fails closed. `layout.v1` prefers the
+     * holder's switch seam, while `topology.v1` uses keyed reconciliation plus one atomic commit.
+     * Neither active pointer advances before the corresponding document commit succeeds.
      * @param {Object} params
      * @param {String} params.componentId The dock workspace / holder component id
      * @param {String} params.name        The perspective's product name (or technical layoutId)
-     * @returns {Object} Window scope / refusals: `{switched, captureScope, errors, document}`;
-     * topology scope additionally carries `{documents, restored, unrestored, displaced}` —
-     * the reconciler's completion/remainder report
+     * @returns {Object} Layout: `{switched, schema, captureScope, errors, document}`. Topology adds
+     * `{workspaces, restored, unrestored, displaced}`.
      */
     async restorePerspective({componentId, name}) {
-        const holder = this.resolveHolder(componentId),
-              store  = holder.perspectiveStore;
+        const holder            = this.resolveHolder(componentId),
+              store             = holder.perspectiveStore,
+              collection        = holder.topologyCollection,
+              hasLayoutReader   = typeof store?.getPerspective === 'function',
+              hasTopologyReader = collection !== undefined && collection !== null;
 
-        if (typeof store?.getPerspective !== 'function') {
+        if (!hasLayoutReader && !hasTopologyReader) {
             return {
                 captureScope: null,
                 document    : this.readDocument(holder),
                 errors      : [
-                    `Component ${componentId} exposes no perspective store with a read-only ` +
-                    'getPerspective() seam — the record\'s captureScope must be inspected before any state moves'
+                    `Component ${componentId} exposes no perspective store with a read-only getPerspective() ` +
+                    'seam and no topology collection — schema must be inspected before state moves'
                 ],
+                schema  : null,
+                switched: false
+            }
+        }
+
+        const layoutEntry   = hasLayoutReader ? store.getPerspective(name) : null,
+              topologyEntry = hasTopologyReader ? DockService.resolveTopologyEntry(collection, name) : null;
+
+        if (layoutEntry && topologyEntry) {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [`perspective name "${name}" is ambiguous across layout and topology collections`],
+                schema      : null,
                 switched    : false
             }
         }
 
-        const entry = store.getPerspective(name);
+        if (topologyEntry) {
+            return this.restoreTopologyPerspective({collection, holder, name, record: topologyEntry.topology})
+        }
 
-        if (!entry) {
+        if (!layoutEntry) {
             return {
                 captureScope: null,
                 document    : this.readDocument(holder),
                 errors      : [`no perspective named "${name}"`],
+                schema      : null,
                 switched    : false
             }
         }
 
-        if (entry.layout?.captureScope === 'topology') {
-            return this.restoreTopologyPerspective({holder, name, record: entry.layout, store})
+        if (layoutEntry.layout?.schema !== Persistence.LAYOUT_SCHEMA) {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [`perspective "${name}" is not a ${Persistence.LAYOUT_SCHEMA} record`],
+                schema      : layoutEntry.layout?.schema ?? null,
+                switched    : false
+            }
         }
 
         // window scope: the holder's own switch seam rides its full commit loop
@@ -316,6 +472,7 @@ class DockService extends Service {
                 captureScope: 'window',
                 document    : this.readDocument(holder),
                 errors      : verdict.errors,
+                schema      : Persistence.LAYOUT_SCHEMA,
                 switched    : verdict.switched
             }
         }
@@ -325,6 +482,7 @@ class DockService extends Service {
                 captureScope: 'window',
                 document    : this.readDocument(holder),
                 errors      : [`Component ${componentId}'s perspective store exposes no loadPerspective() seam`],
+                schema      : Persistence.LAYOUT_SCHEMA,
                 switched    : false
             }
         }
@@ -332,7 +490,7 @@ class DockService extends Service {
         const {document, errors} = store.loadPerspective(name);
 
         if (errors.length) {
-            return {captureScope: 'window', document: this.readDocument(holder), errors, switched: false}
+            return {captureScope: 'window', document: this.readDocument(holder), errors, schema: Persistence.LAYOUT_SCHEMA, switched: false}
         }
 
         // the same commit semantics executeDockOperation uses for plain holders
@@ -344,79 +502,82 @@ class DockService extends Service {
             holder.onDockZoneDocumentChange(document, {name, operation: 'restorePerspective'}, this)
         }
 
-        return {captureScope: 'window', document, errors: [], switched: true}
+        return {captureScope: 'window', document, errors: [], schema: Persistence.LAYOUT_SCHEMA, switched: true}
     }
 
     /**
-     * The topology-scope restore branch: reconciles a multi-window record onto the live
-     * workspace through {@link Neo.dashboard.dock.model.TopologyReconciler#reconcile} and commits
-     * ALL result documents through the holder's atomic seam — all-or-nothing, by contract.
-     *
-     * The holder seam pair a topology-capable workspace exposes:
-     * - `getDockTopologyDocuments()` — the ordered live committed documents, primary first
-     *   (the read seam topology CAPTURE shares).
-     * - `commitDockTopologyDocuments(documents, context)` — the atomic multi-document write:
-     *   the holder commits every document or none, returning `{errors}` on refusal (a missing
-     *   or empty `errors` means committed).
-     *
-     * A holder missing either seam refuses with the gap declared — a topology record must
-     * never be collapsed onto the single-document path. A reconciliation that refuses
-     * (validation errors) mutates nothing: live documents stay byte-untouched and the store's
-     * active pointer only advances AFTER a successful workspace commit.
+     * Reconciles one keyed topology against the holder's registered workspaces and commits the
+     * complete result once. The activated topology-collection candidate validates before commit;
+     * its active pointer is assigned only after the workspace write succeeds.
      * @param {Object} config
      * @param {Neo.component.Base} config.holder The resolved dock-document holder
      * @param {String} config.name               The perspective name being restored
-     * @param {Object} config.record             The stored topology-scope saved-layout record
-     * @param {Neo.dashboard.dock.persistence.PerspectiveLibrary} config.store The holder's perspective store
-     * @returns {Object} `{switched, captureScope, errors, document, documents, restored, unrestored, displaced}`
+     * @param {Object} config.record             The stored `neo.dock.topology.v1` record
+     * @param {Object} config.collection         The containing topology collection
+     * @returns {Object} `{switched, schema, errors, document, workspaces, restored, unrestored, displaced}`
      * @protected
      */
-    restoreTopologyPerspective({holder, name, record, store}) {
-        const missing = ['getDockTopologyDocuments', 'commitDockTopologyDocuments']
+    restoreTopologyPerspective({collection, holder, name, record}) {
+        const missing = ['getDockTopologyWorkspaces', 'commitDockTopologyWorkspaces']
             .filter(seam => typeof holder[seam] !== 'function');
 
         const refusal = (errors, reconcileResult = null) => ({
-            captureScope: 'topology',
-            displaced   : reconcileResult?.displaced  ?? [],
-            document    : this.readDocument(holder),
-            documents   : null,
+            displaced    : reconcileResult?.displaced    ?? [],
+            document     : this.readDocument(holder),
             errors,
-            restored    : reconcileResult?.restored   ?? [],
-            switched    : false,
-            unrestored  : reconcileResult?.unrestored ?? []
+            restored     : reconcileResult?.restored     ?? [],
+            schema       : Persistence.TOPOLOGY_SCHEMA,
+            switched     : false,
+            unmatchedLive: reconcileResult?.unmatchedLive ?? [],
+            unrestored   : reconcileResult?.unrestored   ?? [],
+            workspaces   : null
         });
 
         if (missing.length) {
             return refusal([
                 `Component ${holder.id} cannot restore a topology perspective: missing holder seam(s) ` +
-                `${missing.join(', ')} — a topology record commits ALL window documents atomically or not at all`
+                `${missing.join(', ')} — a topology record commits all keyed workspaces atomically or not at all`
             ])
         }
 
-        const result = DockTopologyReconciler.reconcile(record, holder.getDockTopologyDocuments());
+        const result           = DockTopologyReconciler.reconcile(record, holder.getDockTopologyWorkspaces()),
+              collectionErrors = Persistence.validateTopologyCollection(collection);
 
-        if (result.errors.length) {
-            return refusal(result.errors, result)
+        if (collectionErrors.length || result.errors.length) {
+            return refusal([...new Set([...collectionErrors, ...result.errors])], result)
         }
 
-        const commit = holder.commitDockTopologyDocuments(result.documents, {name, operation: 'restorePerspective'});
+        const activated = Persistence.createTopologyCollection(collection.topologies, {
+            activeLayoutId: record.layoutId,
+            metadata      : collection.metadata,
+            ...(Object.hasOwn(collection, 'revision') && {revision: collection.revision})
+        });
+
+        if (activated.errors.length) {
+            return refusal(activated.errors, result)
+        }
+
+        const commit = holder.commitDockTopologyWorkspaces(result.workspaces, {
+            name,
+            operation: 'restorePerspective'
+        });
 
         if (commit?.errors?.length) {
             return refusal(commit.errors, result)
         }
 
-        // the workspace advanced — only NOW does the store's active pointer move
-        const activated = store.loadPerspective?.(name);
+        holder.topologyCollection = activated.collection;
 
         return {
-            captureScope: 'topology',
-            displaced   : result.displaced,
-            document    : result.documents[0] ?? this.readDocument(holder),
-            documents   : result.documents,
-            errors      : activated?.errors?.length ? activated.errors.map(error => `store-activation: ${error}`) : [],
-            restored    : result.restored,
-            switched    : true,
-            unrestored  : result.unrestored
+            displaced    : result.displaced,
+            document     : this.readDocument(holder),
+            errors       : [],
+            restored     : result.restored,
+            schema       : Persistence.TOPOLOGY_SCHEMA,
+            switched     : true,
+            unmatchedLive: result.unmatchedLive,
+            unrestored   : result.unrestored,
+            workspaces   : result.workspaces
         }
     }
 
