@@ -1551,8 +1551,10 @@ class Workspace extends Container {
 
     /**
      * Creates the hidden stand-in the reconciler materializes a projected item through before the
-     * live pane or its resolved config takes the slot. Override only to change the placeholder's
-     * shape; its header text rides {@link #getPaneHeaderText}.
+     * live pane or its resolved config takes the slot. Asked only for an item inside a tabs node the
+     * current shell does not render: a retained node's config is discarded whole, so its items
+     * project as their `blueprint` or a placeholder config and no instance is built for them. Override
+     * only to change the placeholder's shape; its header text rides {@link #getPaneHeaderText}.
      * @param {String} itemId
      * @param {Object} item The persisted item record.
      * @param {String} componentRef
@@ -3793,13 +3795,22 @@ class Workspace extends Container {
             return
         }
 
-        const nextConfig = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId) => {
-            const placeholder = me.createProjectionPlaceholder(itemId, item, componentRef);
+        // The reconciler discards a retained tabs node's config whole, so a stand-in for one of its
+        // items never enters a parent; only an item inside a NEW tabs node needs one, for button pairing.
+        const
+            currentShell       = host.items?.[me.dockShellIndex],
+            retainedTabNodeIds = new Set(currentShell ? Reconciler.collectProjectedTabs(currentShell).keys() : []),
+            nextConfig         = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId, nodeId) => {
+                if (retainedTabNodeIds.has(nodeId)) {
+                    return null
+                }
 
-            placeholders.set(itemId, placeholder);
+                const placeholder = me.createProjectionPlaceholder(itemId, item, componentRef);
 
-            return placeholder
-        }, document);
+                placeholders.set(itemId, placeholder);
+
+                return placeholder
+            }, document);
 
         // The hook extends the reconciler's SEAMS, never its identity: only the three sanctioned
         // keys are read off its result — a hostile or accidental override cannot displace the
@@ -4044,8 +4055,8 @@ class Workspace extends Container {
      * refusal below leaves the workspace exactly as it was. The docking record's user-triggered
      * recreate exception is conditioned on this phase — without a validated candidate the exception
      * does not apply and the never-destroyed guarantee stands unmodified.
-     * @see ADR 0029 §2.6 — ticket-ref-ok: the record IS this method's authority, not a tracking ref;
-     *      the contract is unreadable without it and an accepted ADR section does not close.
+     * @see learn/agentos/decisions/0029-docking-design.md §2.6 — the docking record is this method's
+     *      authority, not a tracking reference; the contract is unreadable without it.
      *
      * The three refusals are the ones a cache-backed resolver actually produces:
      *
