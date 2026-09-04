@@ -468,7 +468,10 @@ class Rail extends Container {
                 pane.isDestroyed || pane.destroy()
             }
         } finally {
-            delete me.revealPaneReleases[itemId];
+            // `destroy()` deletes own properties, so a rail torn down across the awaits above has no
+            // map left to clear — but the lease must settle either way, or the sweep holding it waits
+            // on a promise nobody resolves.
+            me.revealPaneReleases && delete me.revealPaneReleases[itemId];
             resolveRelease()
         }
     }
