@@ -32,7 +32,7 @@ const WIRE_METHODS = [
     'inspect_class', 'inspect_state_provider', 'inspect_store', 'list_perspectives', 'list_stores',
     'list_transactions', 'modify_state_provider', 'observe_motion', 'open_component_window', 'patch_code',
     'position_window', 'query_component', 'query_vdom', 'redo', 'reload_page', 'replay_transaction',
-    'restore_perspective', 'save_transaction', 'set_instance_properties', 'set_route',
+    'restore_perspective', 'save_transaction', 'set_instance_properties', 'set_neo_config', 'set_route',
     'simulate_event', 'undo', 'verify_component_consistency'
 ];
 
@@ -86,7 +86,8 @@ test.describe('Neo.ai.client.resolveServiceMethod', () => {
         const {runtime} = services;
 
         expectTarget('get_dom_event_listeners', runtime, runtime.getDomEventListeners);
-        expectTarget('get_dom_event_summary',   runtime, runtime.getDomEventSummary)
+        expectTarget('get_dom_event_summary',   runtime, runtime.getDomEventSummary);
+        expectTarget('set_neo_config',          runtime, runtime.setNeoConfig)
     });
 
     test('the first registered prefix wins, in registration order', () => {

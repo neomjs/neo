@@ -25,6 +25,7 @@ export function registerRuntimeServiceMethods(serviceMap, service) {
         patch_code           : service,
         position_window      : service,
         reload_page          : service,
+        set_neo_config       : service,
         set_route            : service
     })
 }
