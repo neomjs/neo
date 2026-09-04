@@ -1,8 +1,56 @@
 name: PR Baseline
 
+# This repository's caller for the shared non-product PR baseline. The reusable workflow owns the
+# executable jobs; a caller owns exactly two things — its event trigger and an immutable `uses:`
+# coordinate — so adopting the baseline copies no contract.
+#
+# THE TRIGGER IS THE CALLER'S OBLIGATION, and `edited` is the load-bearing entry. The `pr-body` job
+# reads the LIVE body, so a corrected body goes green with no push — but only if this workflow fires
+# on the edit. Without it the live fetch buys nothing: an author fixes the body, nothing re-runs, and
+# the red stands until an unrelated commit arrives. `ready_for_review` matters for the same reason at
+# the draft boundary, where the close-target rule changes. A reusable workflow cannot see its caller's
+# `on:` block, so nothing upstream can assert this for us.
+#
+# WHY THIS EXISTS: this repository ran `agent-pr-body-lint.yml` until it was deleted on 2026-08-26
+# (91ae3604b4). Its replacement moved into the shared corpus and no caller was ever added here, so
+# between that deletion and this file NOTHING checked a pull-request body in this repository — and the
+# failure was silent, which is the expensive part: nothing red, nothing missing, just an unrun gate.
+#
+# OVERLAP, STATED RATHER THAN RESOLVED. Two baseline jobs have narrower local counterparts that stay
+# for now, because neither is a proven superset and deleting a working guard on an assumed equivalence
+# is how coverage disappears quietly:
+#
+#   - `pr-base`                   vs `pr-base-guard.yml` — the local one fires on the same three PR
+#                                    types; the baseline job additionally rejects non-PR callers.
+#   - `source-comment-archaeology` vs `ticket-archaeology-lint.yml` — NOT equivalent. The local
+#                                    workflow is path-scoped (`src/**`, `test/playwright/**`, plus the
+#                                    guard and itself) and deliberately mirrors DEFAULT_SCAN_PATHS in
+#                                    buildScripts/util/check-ticket-archaeology.mjs. The baseline job
+#                                    carries no path filter and runs the published guard. Whichever
+#                                    scope is right, they are different scopes, and the difference has
+#                                    to be measured before either is removed.
+#
+# `skills-materialized` is adjacent to `substrate-sync.yml`; `substrate-size` and `pr-body` have no
+# local counterpart at all and are the reason this caller is worth its duplication in the interim.
+#
+# STARTUP: this caller carried a workflow-level `concurrency:` block on its first push and GitHub
+# returned `startup_failure` — no jobs, no logs, no annotations. A minimal caller at the SAME pin
+# dispatched all five jobs, which isolates the cause to that block rather than to the pin, the target
+# or repository policy. The block is not worth a second diagnosis cycle; `pull_request` on a caller
+# whose only job is a `uses:` is cheap to run.
+#
+# PIN: an exact commit, per the reusable workflow's own "immutable coordinate" instruction. The
+# upstream repository publishes no tags today, so a SHA is the only immutable ref available. How this
+# coordinate should be maintained is an open upstream question; when it is answered, this line is the
+# single place that changes.
+
 on:
   pull_request:
     types: [opened, edited, synchronize, ready_for_review]
+
+
+permissions:
+  contents: read
 
 jobs:
   baseline:
