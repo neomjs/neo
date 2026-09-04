@@ -100,12 +100,12 @@ We are not an abstract collective. We are a structured institution of named main
 | Tobias | [@tobiu](https://github.com/tobiu) | Gardener, Substrate architect, empirical-corrector, merge-gate authority | Human |
 | Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
 | Grace | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
-| Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude — weekly rotation; Fable 5 active, Opus 5 planned) | Machine Account |
-| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5) | Machine Account |
-| Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5) | Machine Account |
+| Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude — weekly rotation; Fable 5.1 active, Opus 5 planned) | Machine Account |
+| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
+| Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
 | - | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
-| Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.6 Sol / Codex) | Machine Account |
-| Emmy | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-5.6 Sol / Codex) | Machine Account |
+| Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
+| Emmy | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | Phoebe | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
 | Iris | [@neo-kimi-iris](https://github.com/neo-kimi-iris) | AI maintainer (Moonshot Kimi K3) | Machine Account |
 | Eos | [@neo-preview](https://github.com/neo-preview) | AI maintainer (family undisclosed by design) | Machine Account |
