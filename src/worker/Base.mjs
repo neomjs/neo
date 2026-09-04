@@ -183,7 +183,12 @@ class Worker extends Base {
     }
 
     /**
-     * Only relevant for SharedWorkers
+     * Binds one freshly connected SharedWorker port: registers it, announces `workerConstructed`, and
+     * replays every stored `registerRemote` so a window that joins a running worker holds the same remote
+     * proxies as the first. The replay is addressed to `main` — the receiving thread accepts a registration
+     * only when the destination names it — and routed to exactly this port through `opts.port`; the port
+     * has no `windowId` yet, so the port id is the only routing key that exists.
+     * Only relevant for SharedWorkers.
      * @param {Object} e
      */
     onConnected(e) {
@@ -207,7 +212,7 @@ class Worker extends Base {
         me.sendMessage(id, {action: 'workerConstructed', port: id})
 
         me.remotesToRegister.forEach(remote => {
-            me.sendMessage(id, {action : 'registerRemote', ...remote})
+            me.sendMessage('main', {action: 'registerRemote', port: id, ...remote})
         });
 
         me.afterConnect()
