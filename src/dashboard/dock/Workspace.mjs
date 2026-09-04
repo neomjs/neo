@@ -1747,7 +1747,7 @@ class Workspace extends Container {
             item   = this.dockModel?.items?.[itemId],
             hidden = !itemId || item?.closable === false || item?.locked === true;
 
-        action && action.hidden !== hidden && (action.hidden = hidden)
+        action && (action.hidden = hidden)
     }
 
     /**
@@ -1772,7 +1772,7 @@ class Workspace extends Container {
             itemId = this.getActiveDockItemId(tabContainer),
             hidden = !itemId || !this.dockPopOutActionActive;
 
-        action && action.hidden !== hidden && (action.hidden = hidden)
+        action && (action.hidden = hidden)
     }
 
     /**
@@ -1791,51 +1791,52 @@ class Workspace extends Container {
     syncDockLockAction(tabContainer) {
         let me = this;
 
-        if (!me.enableDockLockAction) return;
+        if (!me.enableDockLockAction || !tabContainer) return;
 
-        let action       = tabContainer?.getActionItem?.('lock'),
-            activeItemId = me.getActiveDockItemId(tabContainer),
-            activeItem   = me.dockModel?.items?.[activeItemId],
-            hidden       = !activeItemId || activeItem?.lockable === false,
-            iconCls      = activeItem?.locked === true ? me.dockUnlockIconCls : me.dockLockIconCls,
-            ariaLabel    = activeItem?.locked === true ? 'unlock' : 'lock',
-            tooltipKey   = activeItem?.locked === true ? 'unlock' : 'lock',
-            showOnFocus  = activeItem?.locked !== true,
-            changes      = {};
+        let {items} = me.dockModel || {},
+            bar     = tabContainer.getTabBar(),
+            action  = tabContainer.getActionItem('lock'),
+            itemId  = me.getActiveDockItemId(tabContainer),
+            item    = items?.[itemId],
+            locked  = item?.locked === true,
+            // Names the control for what it does NEXT — accessible name and tooltip key are one word.
+            label   = locked ? 'unlock' : 'lock';
 
         if (action) {
-            let ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel;
+            let labelChanged = action.vdom['aria-label'] !== label,
+                gateChanged  = action.showOnFocus === locked,
+                values       = {
+                    hidden : !itemId || item?.lockable === false,
+                    iconCls: locked ? me.dockUnlockIconCls : me.dockLockIconCls
+                };
 
-            action.hidden  !== hidden  && (changes.hidden  = hidden);
-            action.iconCls !== iconCls && (changes.iconCls = iconCls);
-            action.showOnFocus !== showOnFocus && (changes.showOnFocus = showOnFocus);
-            me.syncDockActionTooltip(action, tooltipKey, changes);
+            me.syncDockActionTooltip(action, label, values);
 
-            if (Object.keys(changes).length || ariaLabelChanged) {
-                // `setSilent()` consumes non-config class-field keys from its input, so remember
-                // this transition BEFORE handing the batch over.
-                let focusGateChanged = Object.hasOwn(changes, 'showOnFocus');
+            // `setSilent` rather than `set`: the `aria-label` write and the focus-gate flip have to
+            // publish in the SAME update as the configs, and `set()` publishes at the end of itself.
+            // The configs still self-diff — `setSilent` is `set` with the publish suppressed.
+            gateChanged && (values.showOnFocus = !locked);
 
-                Object.keys(changes).length && action.setSilent(changes);
-                ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
+            action.setSilent(values);
+            labelChanged && (action.vdom['aria-label'] = label);
 
-                // `showOnFocus` is a stable-instance policy flip, not an action-list rebuild. The
-                // toolbar owns the inert/aria/tab-index presentation and must release/re-arm it
-                // before this one update publishes the changed action.
-                focusGateChanged && tabContainer?.getTabBar?.()?.applyContextualActionState(true);
+            // The toolbar owns the inert/aria/tab-index presentation the gate drives, and must
+            // re-arm it before this one update publishes the changed action.
+            gateChanged && bar.applyContextualActionState(true);
 
-                action.update()
-            }
+            action.update()
         }
 
-        let itemIds = tabContainer?.getTabBar?.()?.sortZoneConfig?.dockItemIds || [],
-            panes   = tabContainer?.getCardContainer?.()?.items || [],
-            buttons = tabContainer?.getTabButtons?.() || [];
+        // Buttons are addressed by identity, never by position: `tab.plugin.Overflow` removes
+        // overflowing buttons from this collection by design, so `buttons[index]` can name a
+        // different item than `dockItemIds[index]` does.
+        let buttons = tabContainer.getTabButtons(),
+            panes   = tabContainer.getCardContainer().items;
 
-        itemIds.forEach((itemId, index) => {
+        bar.sortZoneConfig?.dockItemIds?.forEach((id, index) => {
             me.syncDockLockItemPresentation({
-                button: buttons[index],
-                locked: me.dockModel?.items?.[itemId]?.locked === true,
+                button: buttons.find(button => button.dockItemId === id) || null,
+                locked: items?.[id]?.locked === true,
                 pane  : panes[index]
             })
         })
@@ -1862,34 +1863,22 @@ class Workspace extends Container {
         let me = this;
 
         if (pane && !pane.isDestroyed) {
-            let cls       = Array.isArray(pane.cls) ? [...pane.cls] : pane.cls ? [pane.cls] : [],
-                hadCls    = cls.includes('neo-dock-pane-locked'),
-                changed   = false,
-                delegated = typeof pane.dockLock === 'function',
-                prior,
-                vdom      = pane.vdom;
+            let {vdom}  = pane,
+                held    = me.dockLockPaneState.get(pane),
+                changed = false,
+                prior;
 
-            if (locked) {
-                if (delegated) {
-                    if (!me.dockLockPaneState.has(pane)) {
-                        me.dockLockPaneState.set(pane, {delegated: true});
-                        pane.dockLock(true)
-                    }
+            if (locked && !held) {
+                if (typeof pane.dockLock === 'function') {
+                    me.dockLockPaneState.set(pane, {delegated: true});
+                    pane.dockLock(true)
                 } else {
-                    if (!me.dockLockPaneState.has(pane)) {
-                        me.dockLockPaneState.set(pane, {
-                            owned: Object.hasOwn(vdom, 'inert'),
-                            value: vdom.inert
-                        })
-                    }
-
-                    if (vdom.inert !== true) {
-                        vdom.inert = true;
-                        changed = true
-                    }
+                    me.dockLockPaneState.set(pane, {owned: Object.hasOwn(vdom, 'inert'), value: vdom.inert});
+                    changed    = vdom.inert !== true;
+                    vdom.inert = true
                 }
-            } else if (me.dockLockPaneState.has(pane)) {
-                prior = me.dockLockPaneState.get(pane);
+            } else if (!locked && held) {
+                prior = held;
                 me.dockLockPaneState.delete(pane);
 
                 // Reverse along the path that locked: the record decides, never the current probe,
@@ -1897,19 +1886,15 @@ class Workspace extends Container {
                 if (prior.delegated) {
                     pane.dockLock(false)
                 } else {
-                    if (prior.owned) {
-                        vdom.inert = prior.value
-                    } else {
-                        delete vdom.inert
-                    }
-
+                    prior.owned ? (vdom.inert = prior.value) : delete vdom.inert;
                     changed = true
                 }
             }
 
-            NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
+            if (pane.cls?.includes('neo-dock-pane-locked') !== locked) {
+                let cls = [...pane.cls || []];
 
-            if (hadCls !== locked) {
+                NeoArray.toggle(cls, 'neo-dock-pane-locked', locked);
                 pane.setSilent({cls});
                 changed = true
             }
@@ -1918,20 +1903,25 @@ class Workspace extends Container {
         }
 
         if (button && !button.isDestroyed) {
-            let cls       = Array.isArray(button.wrapperCls) ? [...button.wrapperCls] : [],
-                draggable = cls.includes('neo-draggable'),
-                restore;
+            let was = button.wrapperCls?.includes('neo-draggable'),
+                next;
 
             if (locked) {
-                !me.dockLockDragState.has(button) && me.dockLockDragState.set(button, draggable);
-                NeoArray.remove(cls, 'neo-draggable')
+                !me.dockLockDragState.has(button) && me.dockLockDragState.set(button, was);
+                next = false
             } else if (me.dockLockDragState.has(button)) {
-                restore = me.dockLockDragState.get(button);
-                me.dockLockDragState.delete(button);
-                NeoArray.toggle(cls, 'neo-draggable', restore)
+                next = me.dockLockDragState.get(button);
+                me.dockLockDragState.delete(button)
+            } else {
+                return
             }
 
-            draggable !== cls.includes('neo-draggable') && (button.wrapperCls = cls)
+            if (was !== next) {
+                let cls = [...button.wrapperCls];
+
+                NeoArray.toggle(cls, 'neo-draggable', next);
+                button.wrapperCls = cls
+            }
         }
     }
 
@@ -1949,16 +1939,15 @@ class Workspace extends Container {
 
         if (!me.enableDockLockAction) return;
 
-        me.forEachDockRail(rail => {
-            let itemId = rail.revealOverlay?.revealPaneItemId,
-                pane   = rail.revealOverlay?.paneSlot?.items?.[0];
+        let {items} = me.dockModel || {};
 
-            if (itemId && pane) {
-                me.syncDockLockItemPresentation({
-                    locked: me.dockModel?.items?.[itemId]?.locked === true,
-                    pane
-                })
-            }
+        me.forEachDockRail(({revealOverlay}) => {
+            let pane = revealOverlay?.paneSlot.items[0];
+
+            pane && me.syncDockLockItemPresentation({
+                locked: items?.[revealOverlay.revealPaneItemId]?.locked === true,
+                pane
+            })
         })
     }
 
@@ -2049,7 +2038,7 @@ class Workspace extends Container {
                 || !model
                 || !Document.findOwningEdge(model, itemId);
 
-        action && action.hidden !== hidden && (action.hidden = hidden)
+        action && (action.hidden = hidden)
     }
 
     /**
@@ -2323,24 +2312,18 @@ class Workspace extends Container {
      * @returns {{document:Object,errors:String[]}|null}
      * @protected
      */
-    handleDockLockAction({dockNodeId, tabContainer}={}) {
-        let me     = this,
-            itemId = me.getActiveDockItemId(tabContainer);
+    handleDockLockAction({tabContainer}={}) {
+        let me          = this,
+            {dockModel} = me,
+            itemId      = me.getActiveDockItemId(tabContainer),
+            missing     = !itemId ? 'an active item' : !dockModel ? 'a committed document' : null;
 
-        if (!itemId) {
-            return {document: me.dockModel, errors: ['Dock lock action requires an active item']}
+        if (missing) {
+            return {document: dockModel, errors: [`Dock lock action requires ${missing}`]}
         }
 
-        if (!me.dockModel) {
-            return {document: me.dockModel, errors: ['Dock lock action requires a committed document']}
-        }
-
-        let descriptor = {
-                operation: 'setItemLocked',
-                itemId,
-                locked   : me.dockModel.items[itemId]?.locked !== true
-            },
-            result = me.applyDockZoneOperation(descriptor);
+        let descriptor = {operation: 'setItemLocked', itemId, locked: dockModel.items[itemId]?.locked !== true},
+            result     = me.applyDockZoneOperation(descriptor);
 
         if (result && !result.errors?.length && result.document) {
             me.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
@@ -2709,9 +2692,7 @@ class Workspace extends Container {
         // opens its own vdom round trip on the tab bar, and stacked in-flight bar updates racing
         // a following reconcile is exactly the collision that duplicated retained chrome on slow
         // rigs.
-        if (action && (action.disabled !== disabled || action.hidden !== hidden)) {
-            action.set({disabled, hidden})
-        }
+        action?.set({disabled, hidden})
     }
 
     /**
@@ -3213,19 +3194,20 @@ class Workspace extends Container {
 
         if (!action) return;
 
-        let iconCls          = maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls,
-            ariaLabel        = maximized ? 'restore' : 'maximize',
-            ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel,
-            changes          = {};
+        let label            = maximized ? 'restore' : 'maximize',
+            ariaLabelChanged = action.vdom['aria-label'] !== label,
+            values           = {iconCls: maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls};
 
-        action.iconCls !== iconCls && (changes.iconCls = iconCls);
-        me.syncDockActionTooltip(action, maximized ? 'restore' : 'maximize', changes);
+        me.syncDockActionTooltip(action, label, values);
 
-        if (Object.keys(changes).length || ariaLabelChanged) {
-            Object.keys(changes).length && action.setSilent(changes);
-            ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
-            action.update()
-        }
+        // `setSilent` rather than `set`: an `aria-label` write has to publish in the SAME update as
+        // the configs, and `set()` publishes at the end of itself. The configs still self-diff —
+        // `setSilent` is `set` with the publish suppressed — so no hand-written guard is needed in
+        // front of them, only the vdom write needs its own.
+        action.setSilent(values);
+        ariaLabelChanged && (action.vdom['aria-label'] = label);
+
+        action.update()
     }
 
     /**
