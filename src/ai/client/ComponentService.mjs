@@ -3,6 +3,28 @@ import TreeBuilder from '../../util/vdom/TreeBuilder.mjs';
 import VdomUtil    from '../../util/VDom.mjs';
 
 /**
+ * @summary Registers the JSON-RPC method prefixes one ComponentService instance answers.
+ * @param {Object} serviceMap Mutable Client prefix map.
+ * @param {ComponentService} service Owning service instance.
+ * @returns {Object} The same map after registration.
+ */
+export function registerComponentServiceMethods(serviceMap, service) {
+    return Object.assign(serviceMap, {
+        get_component      : service,
+        get_computed_styles: service,
+        get_dom_rect       : service,
+        get_vdom           : service,
+        get_vdom_vnode     : service,
+        get_vnode          : service,
+        highlight_component: service,
+        observe_motion     : service,
+        query_component    : service,
+        query_vdom         : service,
+        verify_component   : service
+    })
+}
+
+/**
  * Handles component-related Neural Link requests.
  * @class Neo.ai.client.ComponentService
  * @extends Neo.ai.client.Service

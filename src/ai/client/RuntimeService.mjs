@@ -3,6 +3,34 @@ import HashHistory     from '../../util/HashHistory.mjs';
 import Service         from './Service.mjs';
 
 /**
+ * @summary Registers the JSON-RPC method prefixes one RuntimeService instance answers.
+ * @param {Object} serviceMap Mutable Client prefix map.
+ * @param {RuntimeService} service Owning service instance.
+ * @returns {Object} The same map after registration.
+ */
+export function registerRuntimeServiceMethods(serviceMap, service) {
+    return Object.assign(serviceMap, {
+        check_namespace      : service,
+        close_window         : service,
+        focus_window         : service,
+        get_dom_event        : service,
+        get_drag             : service,
+        get_method_source    : service,
+        get_namespace_tree   : service,
+        get_neo_config       : service,
+        get_route            : service,
+        get_window           : service,
+        inspect_class        : service,
+        open_component_window: service,
+        patch_code           : service,
+        position_window      : service,
+        reload_page          : service,
+        set_neo_config       : service,
+        set_route            : service
+    })
+}
+
+/**
  * Handles runtime environment related Neural Link requests.
  * @class Neo.ai.client.RuntimeService
  * @extends Neo.ai.client.Service

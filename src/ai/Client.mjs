@@ -1,17 +1,17 @@
-import Base             from '../core/Base.mjs';
-import ClassSystemUtil  from '../util/ClassSystem.mjs';
-import ComponentService from './client/ComponentService.mjs';
-import DataService      from './client/DataService.mjs';
-import DockService      from './client/DockService.mjs';
-import InstanceService  from './client/InstanceService.mjs';
-import InteractionService, {registerInteractionServiceMethods}
-                            from './client/InteractionService.mjs';
-import RuntimeService       from './client/RuntimeService.mjs';
-import Socket               from '../data/connection/WebSocket.mjs';
-import WindowManager        from '../manager/Window.mjs';
-import WriteGuard           from './WriteGuard.mjs';
-import TransactionService   from './TransactionService.mjs';
-import {parseAgentEnvelope} from './parseAgentEnvelope.mjs';
+import Base                                                    from '../core/Base.mjs';
+import ClassSystemUtil                                         from '../util/ClassSystem.mjs';
+import ComponentService,   {registerComponentServiceMethods}   from './client/ComponentService.mjs';
+import DataService,        {registerDataServiceMethods}        from './client/DataService.mjs';
+import DockService,        {registerDockServiceMethods}        from './client/DockService.mjs';
+import InstanceService,    {registerInstanceServiceMethods}    from './client/InstanceService.mjs';
+import InteractionService, {registerInteractionServiceMethods} from './client/InteractionService.mjs';
+import RuntimeService,     {registerRuntimeServiceMethods}     from './client/RuntimeService.mjs';
+import {resolveServiceMethod}                                  from './client/resolveServiceMethod.mjs';
+import Socket                                                  from '../data/connection/WebSocket.mjs';
+import WindowManager                                           from '../manager/Window.mjs';
+import WriteGuard                                              from './WriteGuard.mjs';
+import TransactionService                                      from './TransactionService.mjs';
+import {parseAgentEnvelope}                                    from './parseAgentEnvelope.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -57,7 +57,8 @@ class Client extends Base {
      */
     logs = []
     /**
-     * Map JSON-RPC method prefixes to service instances
+     * JSON-RPC method prefix → service instance, filled by each service's `register*ServiceMethods` at
+     * construction; insertion order is the prefix precedence.
      * @member {Object} serviceMap
      * @protected
      */
@@ -112,65 +113,14 @@ class Client extends Base {
 
         const {component, data, dock, instance, interaction, runtime} = me.services;
 
-        me.serviceMap = {
-            get_component      : component,
-            get_computed_styles: component,
-            get_dom_rect       : component,
-            get_vdom           : component,
-            get_vdom_vnode     : component,
-            get_vnode          : component,
-            highlight_component: component,
-            observe_motion     : component,
-            query_component    : component,
-            query_vdom         : component,
-            verify_component   : component,
+        // Registration order is prefix precedence: the first registered prefix a method starts with wins.
+        me.serviceMap = {};
 
-            capture_perspective   : dock,
-            diff_dock_topology    : dock,
-            execute_dock_operation: dock,
-            get_dock_topology     : dock,
-            list_perspectives     : dock,
-            restore_perspective   : dock,
-
-            call_method            : instance,
-            create_instance        : instance,
-            destroy_instance       : instance,
-            find_instances         : instance,
-            get_instance_properties: instance,
-            set_instance_properties: instance,
-            undo                   : instance,
-            redo                   : instance,
-            replay_transaction     : instance,
-            save_transaction       : instance,
-            abort_transaction      : instance,
-            begin_transaction      : instance,
-            commit_transaction     : instance,
-            list_transactions      : instance,
-
-            get_record            : data,
-            inspect_state_provider: data,
-            inspect_store         : data,
-            list_stores           : data,
-            modify_state_provider : data,
-
-            check_namespace      : runtime,
-            close_window         : runtime,
-            focus_window         : runtime,
-            get_dom_event        : runtime,
-            get_drag             : runtime,
-            get_method_source    : runtime,
-            get_namespace_tree   : runtime,
-            get_neo_config       : runtime,
-            get_route            : runtime,
-            get_window           : runtime,
-            inspect_class        : runtime,
-            open_component_window: runtime,
-            patch_code           : runtime,
-            position_window      : runtime,
-            reload_page          : runtime,
-            set_route            : runtime
-        };
-
+        registerComponentServiceMethods(me.serviceMap, component);
+        registerDockServiceMethods(me.serviceMap, dock);
+        registerInstanceServiceMethods(me.serviceMap, instance);
+        registerDataServiceMethods(me.serviceMap, data);
+        registerRuntimeServiceMethods(me.serviceMap, runtime);
         registerInteractionServiceMethods(me.serviceMap, interaction);
 
         Neo.currentWorker.on({
@@ -225,8 +175,8 @@ class Client extends Base {
     }
 
     /**
-     * Routes specific JSON-RPC methods to their corresponding implementation.
-     * This method acts as the central dispatcher for all AI-driven commands.
+     * Routes a JSON-RPC method to the service that registered its prefix — the central dispatcher for
+     * every AI-driven command; the rule lives in {@link Neo.ai.client.resolveServiceMethod}.
      * @param {String} method The JSON-RPC method name
      * @param {Object} params The parameters associated with the method
      * @param {Object} [context] Optional request context (e.g. `{agentId}`) threaded from the
@@ -234,36 +184,13 @@ class Client extends Base {
      * @returns {Promise<*>} The result of the operation
      */
     async handleRequest(method, params, context) {
-        let me      = this,
-            service = null,
-            prefix;
+        const target = resolveServiceMethod(this.serviceMap, method);
 
-        // Find matching service based on prefix
-        // e.g. "get_component_property" -> matches "get_component" prefix
-        for (prefix in me.serviceMap) {
-            if (method.startsWith(prefix)) {
-                service = me.serviceMap[prefix];
-                break
-            }
+        if (!target) {
+            throw new Error(`Unknown method: ${method}`)
         }
 
-        const fnName = Neo.snakeToCamel(method);
-
-        if (service) {
-            const fn = service[fnName];
-
-            if (Neo.isFunction(fn)) {
-                return fn.call(service, params, context)
-            } else if (Neo.isPromise(fn)) {
-                return await fn.call(service, params, context)
-            }
-        }
-
-        if (service && typeof service[fnName] === 'function') {
-            return service[fnName](params, context)
-        }
-
-        throw new Error(`Unknown method: ${method}`);
+        return target.fn.call(target.service, params, context)
     }
 
     /**

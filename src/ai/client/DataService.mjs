@@ -2,6 +2,22 @@ import Service      from './Service.mjs';
 import StoreManager from '../../manager/Store.mjs';
 
 /**
+ * @summary Registers the JSON-RPC method prefixes one DataService instance answers.
+ * @param {Object} serviceMap Mutable Client prefix map.
+ * @param {DataService} service Owning service instance.
+ * @returns {Object} The same map after registration.
+ */
+export function registerDataServiceMethods(serviceMap, service) {
+    return Object.assign(serviceMap, {
+        get_record            : service,
+        inspect_state_provider: service,
+        inspect_store         : service,
+        list_stores           : service,
+        modify_state_provider : service
+    })
+}
+
+/**
  * Handles data-related Neural Link requests.
  * @class Neo.ai.client.DataService
  * @extends Neo.ai.client.Service
