@@ -819,8 +819,16 @@ class DragCoordinator extends Manager {
             // one key — an out-of-group zone never enters the arbiter at all, so two roots' equal
             // stable ids cannot collide inside it.
             //
-            // Both sides must prove ownership; `null` on either is a refusal, never a wildcard.
-            if (sourceTransactionGroupId == null || zone.transactionGroupId !== sourceTransactionGroupId) {
+            // Asymmetry refuses in BOTH directions; symmetric absence is the untouched legacy
+            // path. An owned gesture can never land in an unowned zone and an unowned gesture can
+            // never reach an owned one, so ownership cannot be bypassed by OMITTING it — which is
+            // the property that matters. But two zones that both predate this axis are a
+            // composition that never had cross-root isolation to lose, and refusing them would
+            // silently disable cross-window drag for every non-dock coordinator consumer. This is
+            // the same rule `Participation#commitDrop` applies, deliberately: one sentence for
+            // both enforcement points beats two that have to be reconciled by a reader.
+            if ((sourceTransactionGroupId ?? zone.transactionGroupId) != null &&
+                zone.transactionGroupId !== sourceTransactionGroupId) {
                 zone.stableTargetId != null && arbiter.release(zone.stableTargetId);
 
                 candidates.push({
