@@ -2198,18 +2198,23 @@ class Workspace extends DockWorkspace {
 
     /**
      * Maps both commit shapes onto the reconciler's fast paths — engine surfaces pass the semantic
-     * descriptor, this host's own paths pass their options object. The geometry admission is the
-     * ENGINE's now: it derives `geometryOnly` from the operation's declared change class, so this
-     * override adds only the one thing the engine cannot see — an explicit `geometryOnly` on this
-     * host's own options-object commits. Either way it is an admission REQUEST for the in-place
-     * projection path, never a claim that the topology is stable: the reconciler validates it,
-     * falls back to the staged transaction on any structural delta, and `DockFlip` is told the
-     * resulting `landedInPlace`, not this request. `detachItem` / `transferNode` admit the
-     * stable-topology fast path (a transferNode
+     * descriptor, this host's own paths pass their options object. BOTH admissions are the
+     * ENGINE's now: it derives `geometryOnly` and `retainTopology` from the operation's declared
+     * change class, so this override adds only what the engine cannot see — an explicit
+     * `geometryOnly` on this host's own options-object commits, and the two operations below.
+     * Neither key may be written unconditionally: an override that always answers `false` does not
+     * decline the engine's answer, it SHADOWS it, which is how `setItemLocked`'s item-only refresh
+     * stopped reaching this host while the engine derived it correctly. Either way it is an
+     * admission REQUEST for the in-place projection path, never a claim that the topology is
+     * stable: the reconciler validates it, falls back to the staged transaction on any structural
+     * delta, and `DockFlip` is told the resulting `landedInPlace`, not this request. `detachItem` /
+     * `transferNode` admit the stable-topology fast path (a transferNode
      * adoption keeps the structural shell — one tabs node's items grow — and the validator still
-     * rejects any transfer that does mutate structure). A commit-scoped `preserveItemIds` parks
-     * owner-held panes instead of destroying them (a terminal-first tear-out vessel owns its pane
-     * before it connects).
+     * rejects any transfer that does mutate structure). Adding them to the engine's answer rather
+     * than replacing it keeps the engine's railed-item guard intact: a railed pane projects outside
+     * the shell, the engine answers `{}` for it, and neither of these two operations resurrects it.
+     * A commit-scoped `preserveItemIds` parks owner-held panes instead of destroying them (a
+     * terminal-first tear-out vessel owns its pane before it connects).
      * @param {Object|null} descriptor The committing surface's identification — a semantic
      *     descriptor or this host's options object.
      * @param {Object|null} source The committing surface, when it identifies itself.
@@ -2221,7 +2226,7 @@ class Workspace extends DockWorkspace {
 
         return {
             geometryOnly  : geometryOnly === true || base.geometryOnly === true,
-            retainTopology: operation === 'detachItem' || operation === 'transferNode',
+            retainTopology: base.retainTopology === true || operation === 'detachItem' || operation === 'transferNode',
             ...(Array.isArray(preserveItemIds) && preserveItemIds.length > 0 ? {preserveItemIds} : {})
         }
     }

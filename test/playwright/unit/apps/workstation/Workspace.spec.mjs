@@ -2914,7 +2914,7 @@ test.describe('Workspace — the theme toggle reveals from the pointer (#18125)'
     })
 });
 
-test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, not a list this host keeps', () => {
+test.describe('getRefreshOptions — BOTH admissions are the ENGINE\'s, not a list this host keeps', () => {
     /**
      * @summary Reads this host's refresh options, optionally with the engine's default neutered.
      *
@@ -2923,15 +2923,22 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
      * same list got the full staged transaction on every drag-resize. The VALUES below are
      * unchanged; only their source moved, and an arm that asserts values alone cannot tell the
      * difference. Neutering the engine can: a private list survives it, delegation does not.
+     * `dockModel` is what makes the railed arms real rather than stubbed: the engine's item-flag
+     * guard resolves placement through `isDockRailedItem`, which reads `dockModel.items[itemId]`.
+     * Passing a document exercises the engine's own predicate instead of replacing it with a
+     * hand-held boolean, so an arm still fails if that predicate changes underneath this host.
      * @param {Object|null} descriptor
      * @param {Boolean} [neuterEngine=false] Make the engine's default contribute nothing
+     * @param {Object|null} [dockModel=null] The pre-commit document the railed guard reads
      * @returns {Object}
      */
-    function refreshOptionsFor(descriptor, neuterEngine=false) {
+    function refreshOptionsFor(descriptor, neuterEngine=false, dockModel=null) {
         const
             enginePrototype = Object.getPrototypeOf(Workspace.prototype),
             original        = enginePrototype.getRefreshOptions,
             workspace       = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest'});
+
+        dockModel && (workspace.dockModel = dockModel);
 
         neuterEngine && (enginePrototype.getRefreshOptions = () => ({}));
 
@@ -2974,5 +2981,46 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
         expect(refreshOptionsFor({operation: 'moveItem', preserveItemIds: ['editor']}),
             'and a commit-scoped park still rides along')
             .toEqual({geometryOnly: false, retainTopology: false, preserveItemIds: ['editor']})
+    });
+
+    // #18152 removed the lock flicker in the engine by deriving `{retainTopology: true}` for the
+    // item-flag class. It never reached this host, because the override wrote `retainTopology`
+    // unconditionally: for `setItemLocked` the operation test is `false`, and an unconditional
+    // `false` overwrites the engine's `true` instead of falling back to it. The host is where the
+    // operator demoed docking, so the flicker was still live exactly where it was reported.
+    test('a lock on a shell item reaches this host\'s item-only refresh', () => {
+        const shellItem = {items: {editor: {locked: false}}};
+
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'editor'}, false, shellItem),
+            'the engine derives the item-only path and this host no longer shadows it')
+            .toEqual({geometryOnly: false, retainTopology: true});
+
+        // The discriminating half, mirroring the geometry arm above. A host that still answered
+        // `retainTopology` from its own operation list would be unmoved by neutering the engine —
+        // and would answer `false` here either way, which is the bug this arm fails on.
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'editor'}, true, shellItem),
+            'with the engine neutered this host has no item-flag answer of its own')
+            .toEqual({geometryOnly: false, retainTopology: false})
+    });
+
+    test('a railed item still takes the full transaction — delegation inherits the guard, a naive merge would not', () => {
+        // `isDockRailedItem` is `autoHidden === true && pinned !== true`: auto-hide is rail
+        // membership and pinning is the override that keeps the pane open in the shell. A railed
+        // pane projects OUTSIDE the shell, so an item-only refresh would leave a stale copy on the
+        // rail — worse than the slow path it replaces. The engine answers `{}` for it.
+        expect(refreshOptionsFor(
+            {operation: 'setItemLocked', itemId: 'editor'}, false,
+            {items: {editor: {autoHidden: true}}}
+        ), 'the engine declines, and adding two unrelated operations to a decline is still a decline')
+            .toEqual({geometryOnly: false, retainTopology: false});
+
+        // Control on the axis the guard actually turns on. Same operation, same item, one field
+        // different — an arm that only ever saw the railed case could not tell this delegation
+        // apart from a blanket `false`.
+        expect(refreshOptionsFor(
+            {operation: 'setItemLocked', itemId: 'editor'}, false,
+            {items: {editor: {autoHidden: true, pinned: true}}}
+        ), 'a pinned pane is open in the shell, so it is not railed and the fast path holds')
+            .toEqual({geometryOnly: false, retainTopology: true})
     })
 });
