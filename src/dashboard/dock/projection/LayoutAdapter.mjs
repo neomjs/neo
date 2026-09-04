@@ -639,16 +639,19 @@ class LayoutAdapter extends Base {
      * @param {String[]} itemIds
      * @param {String} edge One of `top`, `right`, `bottom`, `left`.
      * @param {Object} context
+     * @param {String} nodeId The owning edge-zone node; with the edge it is the rail's structural
+     *     identity, so a retained rail can be recognised across projections and reconciled in place.
      * @returns {Object}
      * @protected
      * @static
      */
-    static createEdgeRail(itemIds, edge, context) {
+    static createEdgeRail(itemIds, edge, context, nodeId) {
         return {
             applyDockZoneOperation  : context.applyDockZoneOperation,
             autoHideRevealOnHover   : context.autoHideRevealOnHover === true,
             defaultRevealFraction   : context.defaultRevealFraction ?? null,
             dockEdge                : edge,
+            dockNodeId              : `${nodeId}:edge-rail:${edge}`,
             dockNodeType            : 'edge-rail',
             dockZoneDocument        : context.dockZoneDocument,
             edge,
@@ -778,7 +781,7 @@ class LayoutAdapter extends Base {
         // returns null for an empty tab flow — see its constraint comment).
         let band;
 
-        if (railsByEdge.left) middleItems.push(this.createEdgeRail(railsByEdge.left, 'left', context));
+        if (railsByEdge.left) middleItems.push(this.createEdgeRail(railsByEdge.left, 'left', context, nodeId));
 
         if (zones.left && (band = this.projectEdgeBand(zones.left, 'left', childContext))) {
             middleItems.push(band);
@@ -796,10 +799,10 @@ class LayoutAdapter extends Base {
             middleItems.push(band)
         }
 
-        if (railsByEdge.right) middleItems.push(this.createEdgeRail(railsByEdge.right, 'right', context));
+        if (railsByEdge.right) middleItems.push(this.createEdgeRail(railsByEdge.right, 'right', context, nodeId));
 
         if (railsByEdge.top) {
-            rows.push(this.createEdgeRail(railsByEdge.top, 'top', context))
+            rows.push(this.createEdgeRail(railsByEdge.top, 'top', context, nodeId))
         }
 
         if (zones.top && (band = this.projectEdgeBand(zones.top, 'top', childContext))) {
@@ -825,7 +828,7 @@ class LayoutAdapter extends Base {
         }
 
         if (railsByEdge.bottom) {
-            rows.push(this.createEdgeRail(railsByEdge.bottom, 'bottom', context))
+            rows.push(this.createEdgeRail(railsByEdge.bottom, 'bottom', context, nodeId))
         }
 
         return {

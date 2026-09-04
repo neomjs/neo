@@ -2894,6 +2894,50 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(playArgs.map(config => config.geometryOnly)).toEqual([true, false])
     });
 
+    test('locking a railed item admits in-place reconciliation, and the refresh pays no staged shell', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.autoHidden = true; // the inspector rides the right edge rail
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        const descriptor = {operation: 'setItemLocked', itemId: 'inspector', locked: true};
+
+        // The cost, measured on the host first so the pre-fix run prints its own receipt: the staged
+        // transaction issues one host update per phase and leaves a staged sibling until the swap; the
+        // in-place path issues none of those.
+        const
+            host     = workspace.getDockHost(),
+            original = host.promiseUpdate.bind(host);
+
+        let hostUpdates = 0,
+            outcome     = null;
+
+        host.promiseUpdate = (...args) => {
+            hostUpdates++;
+            return original(...args)
+        };
+        workspace.afterRefreshDockWorkspace = ({result}) => outcome = result;
+
+        try {
+            const committed = workspace.applyDockZoneOperation(descriptor);
+
+            expect(committed.errors ?? []).toEqual([]);
+            workspace.onDockZoneDocumentChange(committed.document, descriptor, workspace);
+            await workspace.refreshPromise
+        } finally {
+            host.promiseUpdate = original
+        }
+
+        console.log(`receipt: a railed setItemLocked refresh issued ${hostUpdates} host update(s), landedInPlace=${outcome?.landedInPlace}`);
+
+        // Pre-fix a railed item was the one item whose flag commit was refused the item-only refresh,
+        // because the reconciler could not address the rail; now it is an item-only delta like any other.
+        expect(workspace.getRefreshOptions(descriptor, null), 'a railed item admits retainTopology').toEqual({retainTopology: true});
+        expect(outcome?.landedInPlace, 'the refresh landed in place').toBe(true);
+        expect(workspace.items, 'one shell, no staged sibling').toHaveLength(1)
+    });
+
     test('the reconcile hook passes only its sanctioned seams; a hostile override cannot displace the identity keys', async () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 

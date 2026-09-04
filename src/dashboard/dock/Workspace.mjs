@@ -2801,46 +2801,13 @@ class Workspace extends Container {
                 return {geometryOnly: true};
 
             // The item-flag reducers write one `items[id]` field and touch `nodes` nowhere, so the
-            // shell is stable and only items reconcile. A railed item is the exception: pin and
-            // auto-hide project OUTSIDE the shell, so their placement change cannot ride an
-            // item-only refresh.
+            // shell is stable and only items reconcile — a railed item included: its rail is stable
+            // topology too, keyed by its edge-zone node and edge, and reconciles its items in place.
             case 'itemFlags':
-                return this.isDockRailedItem(descriptor?.itemId) ? {} : {retainTopology: true}
+                return {retainTopology: true}
         }
 
         return {}
-    }
-
-    /**
-     * @summary Whether an item currently renders on an edge rail rather than inside the shell.
-     *
-     * The change-class in `model/Operations` describes what an operation does to the DOCUMENT, and
-     * it is exact: the three item-flag reducers clone and assign one field, touching `nodes` nowhere.
-     * That is necessary for the item-only fast path but not sufficient, because a railed pane is
-     * projected OUTSIDE the shell. `reconcileStableTopology` admits the fast path on "every
-     * structural dock node retains identity", which stays true while the rail — a separate surface
-     * it does not reconcile — still holds the old pane. The result is a stale rail copy beside a
-     * fresh one, which is worse than the slow path this fast path replaces.
-     *
-     * So placement is the workspace's half of the answer: `Operations` cannot know it, and the
-     * document alone does not carry it. Reconciling rail surfaces inside the stable-topology path
-     * would let this guard retire; until then a railed item takes the full transaction.
-     *
-     * **This reads the PRE-COMMIT document, and that is only sound because it is reached solely for
-     * placement-NEUTRAL operations.** `getRefreshOptions` runs before `dockModel` is reassigned, so
-     * for an operation that moves a pane the answer here would describe where the item *was*, not
-     * where it is going — `setItemAutoHidden(true)` would read "not railed" on the very commit that
-     * rails it. That is why `setItemPinned` and `setItemAutoHidden` are classed `topology` rather
-     * than guarded here: a placement change cannot be rescued by asking about placement beforehand.
-     * `setItemLocked` never moves a pane, so before and after agree by construction.
-     * @param {String|null} itemId
-     * @returns {Boolean}
-     * @protected
-     */
-    isDockRailedItem(itemId) {
-        const item = itemId ? this.dockModel?.items?.[itemId] : null;
-
-        return item?.autoHidden === true && item?.pinned !== true
     }
 
     /**

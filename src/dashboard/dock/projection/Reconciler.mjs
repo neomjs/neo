@@ -1,7 +1,10 @@
 import Component from '../../../component/Base.mjs';
 import Base      from '../../../core/Base.mjs';
 
-const projectionNodeTypes = new Set(['edge-zone', 'split', 'tabs']);
+// The structural identities the stable-topology walk keys retained chrome by. A rail is a leaf: its
+// identity is its owning edge-zone node plus edge (the adapter derives it), and its items reconcile
+// in place through its own reactive `railItems`, never as structural children.
+const projectionNodeTypes = new Set(['edge-rail', 'edge-zone', 'split', 'tabs']);
 
 /**
  * @summary Preserves live tab-chrome identity across dock-layout projections.
@@ -132,7 +135,7 @@ class Reconciler extends Base {
                     nodes.get(parentNodeId)?.childNodeIds.push(ownerNodeId)
                 }
 
-                if (node.dockNodeType === 'tabs') return
+                if (node.dockNodeType === 'tabs' || node.dockNodeType === 'edge-rail') return
             }
 
             node.items?.forEach(child => visit(child, ownerNodeId))
@@ -147,7 +150,8 @@ class Reconciler extends Base {
      * @summary Reconciles a geometry-only projection without moving live dock chrome.
      *
      * The fast path is deliberately strict: dock-node ancestry/order, split orientation, tab item
-     * order, and active selection must all be unchanged. Only then may projected child geometry
+     * order, active selection, and each rail's edge and membership must all be unchanged (item and
+     * rail membership deltas are admitted only under `reconcileItems`). Only then may projected child geometry
      * (`flex`, `width`, and `height`) be applied to the retained shell in place. Any structural or
      * ownership delta defers to the staged descendant → ancestor transaction in
      * {@link #reconcileProjection}.
@@ -198,6 +202,19 @@ class Reconciler extends Base {
                     return null
                 }
             }
+
+            // A rail's edge is part of its identity and never moves in place; its membership is an
+            // item delta, admitted on the same terms as a tab node's items.
+            if (current.type === 'edge-rail') {
+                const
+                    currentItemIds = (current.node.railItems || []).map(item => item.dockItemId),
+                    nextItemIds    = (next.node.railItems    || []).map(item => item.dockItemId);
+
+                if (current.node.edge !== next.node.edge
+                    || !reconcileItems && currentItemIds.join('\0') !== nextItemIds.join('\0')) {
+                    return null
+                }
+            }
         }
 
         const
@@ -223,6 +240,15 @@ class Reconciler extends Base {
             }
 
             Object.keys(dimensions).length && current.set(dimensions);
+
+            // A retained rail reads its reveal extents from the committed document, so it receives the
+            // fresh one on every in-place landing; its items reconcile through its own reactive
+            // `railItems` seam, and only when items were admitted at all.
+            if (next.type === 'edge-rail') {
+                current.set(reconcileItems
+                    ? {dockZoneDocument: next.node.dockZoneDocument, railItems: next.node.railItems}
+                    : {dockZoneDocument: next.node.dockZoneDocument})
+            }
 
             if (next.type === 'tabs') {
                 plans.set(nodeId, {

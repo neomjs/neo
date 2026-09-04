@@ -137,13 +137,14 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
         }
     });
 
-    test('a RAILED item takes the full transaction even though its document delta is item-only', () => {
+    test('a RAILED item takes the item-only path like any other: placement no longer decides', () => {
         // The change class describes the DOCUMENT and is exact — `setItemLocked` touches `nodes`
-        // nowhere. That is necessary for the fast path but not sufficient: a railed pane is
-        // projected outside the shell, and `reconcileStableTopology` admits the fast path on "every
-        // structural dock node retains identity", which stays true while the rail still holds the
-        // old pane. Without this guard the rail keeps a stale copy beside the fresh one — worse
-        // than the slow path it replaced. Placement is the workspace's half of the answer.
+        // nowhere. A railed pane is projected outside the shell, and this used to be the one case the
+        // workspace refused the fast path for: the rail had no structural identity, so the
+        // stable-topology walk could not address it and would have left it holding a stale copy.
+        // The rail is stable topology now — keyed by its edge-zone node and edge, its items
+        // reconciled in place through its own reactive seam — so the answer comes from the change
+        // class alone, for a railed, a shell and a pinned item alike.
         const workspace = bareWorkspace({
             panel : {},
             railed: {autoHidden: true},
@@ -151,14 +152,10 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
         });
 
         try {
-            expect(workspace.getRefreshOptions({operation: 'setItemLocked', itemId: 'railed'}),
-                'a railed item cannot take the item-only path').toEqual({});
-
-            expect(workspace.getRefreshOptions({operation: 'setItemLocked', itemId: 'panel'}),
-                'a shell item still can — the guard is placement, not the operation').toEqual({retainTopology: true});
-
-            expect(workspace.getRefreshOptions({operation: 'setItemLocked', itemId: 'pinned'}),
-                'a pinned item renders in the shell, so it keeps the fast path').toEqual({retainTopology: true})
+            for (const itemId of ['railed', 'panel', 'pinned']) {
+                expect(workspace.getRefreshOptions({operation: 'setItemLocked', itemId}),
+                    `${itemId}: an item-flag commit reconciles in place wherever the item renders`).toEqual({retainTopology: true})
+            }
         } finally {
             workspace.destroy()
         }

@@ -857,6 +857,12 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(rail.railItems).toEqual([
             {dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'}
         ]);
+        // The rail's structural identity — its owning edge-zone node and its edge — is what lets the
+        // reconciler key a retained rail across projections; the same document projects it twice alike.
+        expect(rail.dockNodeId).toBe('root:edge-rail:right');
+        expect(DockLayoutAdapter.project(model, {
+            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+        }).items[0].items.find(item => item.dockNodeType === 'edge-rail').dockNodeId).toBe(rail.dockNodeId);
 
         // ...and its now-empty tabs node is gone from the live split, not rendered as dead chrome.
         expect([...collectProjectedTabsById(side).keys()]).toEqual(['inspector-tabs']);

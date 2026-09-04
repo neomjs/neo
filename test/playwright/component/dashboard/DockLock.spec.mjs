@@ -40,6 +40,11 @@ const tabButton = (node, text) => node.locator('.neo-tab-header-button', {hasTex
 const actionButton = (node, glyph) =>
     node.locator(`.neo-tab-header-toolbar .neo-button:has([class*="${glyph}"])`);
 
+// The rail's own tab button, by role and exact name: a revealed overlay lives inside the rail and
+// repeats the item's title in its header, so a text match would resolve to both.
+const railButton = (page, name) =>
+    page.locator('.neo-dashboard-dock-edge-rail').getByRole('button', {name, exact: true});
+
 const readInertOwnership = (page, id) => page.evaluate(async componentId => {
     const reply  = await Neo.worker.App.getConfigs({id: componentId, keys: ['vdom']}),
           [vdom] = reply?.data ?? reply;
@@ -146,8 +151,8 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         expect(await readInertOwnership(page, 'dock-lock-pane-beta')).toEqual({owned: true, value: true})
     });
 
-    test('locked rail remains revealable while inert, then re-reveals interactive after unlock', async ({page}) => {
-        const railTab = page.locator('.neo-dashboard-dock-edge-rail').getByText('Railed'),
+    test('locked rail remains revealable while inert, and the unlock reaches the revealed pane in place', async ({page}) => {
+        const railTab = railButton(page, 'Railed'),
               overlay = page.locator(
                   '.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)'
               );
@@ -156,6 +161,9 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         await expect(overlay).toHaveCount(1);
         await expect(page.locator('#dock-lock-pane-railed')).toHaveClass(/neo-dock-pane-locked/);
         expect(await page.locator('#dock-lock-pane-railed').evaluate(node => node.inert)).toBe(true);
+
+        // Marks the live pane element: an in-place landing keeps it, a rebuilt rail would mint a new one.
+        await page.locator('#dock-lock-pane-railed').evaluate(node => {node.dataset.held = 'yes'});
 
         await setWorkspace(page, {
             operationJson: JSON.stringify({
@@ -173,8 +181,11 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         }).toBe(false);
         await awaitRefresh(page);
 
-        // Reconciliation may dismiss the transient overlay through its ordinary focus/pointer state
-        // machine. Orthogonality means the rail remains usable, not that one reveal is persistent.
+        // An item-flag commit on a railed item reconciles the rail in place: the reveal survives the
+        // refresh and the unlock reaches the revealed pane where it stands — the same element, not a
+        // re-materialized one. The rail stays usable: a further click keeps the item revealed.
+        await expect(overlay).toHaveCount(1);
+        await expect(page.locator('#dock-lock-pane-railed')).toHaveAttribute('data-held', 'yes');
         await railTab.click();
         await expect(overlay).toHaveCount(1);
         await expect(page.locator('#dock-lock-pane-railed')).not.toHaveClass(/neo-dock-pane-locked/);
@@ -193,7 +204,7 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
      * id collision that rejected the refresh silently.
      */
     test('a reducer-committed pin-back with an open reveal returns the pane to flow and settles', async ({page}) => {
-        const railTab = page.locator('.neo-dashboard-dock-edge-rail').getByText('Railed'),
+        const railTab = railButton(page, 'Railed'),
               overlay = page.locator(
                   '.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)'
               );
@@ -298,7 +309,7 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
      * the unit spec's rail-callback witness.
      */
     test('a delegating reveal pane receives the committed lock on the rail, never inert', async ({page}) => {
-        const railTab = page.locator('.neo-dashboard-dock-edge-rail').getByText('Reader'),
+        const railTab = railButton(page, 'Reader'),
               overlay = page.locator(
                   '.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)'
               ),
@@ -318,11 +329,14 @@ test.describe('dock lock — committed boundary plus reversible presentation', (
         });
         await awaitRefresh(page);
 
-        await railTab.click();
+        // The rail reconciles in place, so the revealed pane persists and is asked to unlock where it
+        // stands — a re-materialized pane would never have been asked at all.
         await expect(overlay).toHaveCount(1);
         await expect(pane).not.toHaveClass(/neo-dock-pane-locked/);
         await expect(control).toBeEnabled();
-        expect(await calls(), 'the re-materialized pane was never locked, so it is never asked').toEqual([]);
+        expect(await calls(), 'the persisting pane is asked to unlock, once').toEqual([true, false]);
+        await railTab.click();
+        await expect(overlay).toHaveCount(1);
         expect(await readInertOwnership(page, 'dock-lock-pane-reader')).toEqual({owned: false, value: undefined})
     })
 });
