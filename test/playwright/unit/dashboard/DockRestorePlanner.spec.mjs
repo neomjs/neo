@@ -171,4 +171,103 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
         expect(r.errors.length).toBeGreaterThan(0);
         expect(r.document.nodes.root.sizes).toEqual([0.5, 0.5]); // the first op did land
     });
+
+    /**
+     * Which tab you were on is document state and the capture keeps it — but nothing reported it, so
+     * a restore returned the tabs and left whichever one happened to be active.
+     */
+    test.describe('the active tab restores too', () => {
+        test('a differing active item comes back, through one setActiveItem step', () => {
+            const captured = doc();
+
+            // live: same membership, different tab selected
+            const current = Operations.applyOperation(doc(), {
+                operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'swarm'
+            });
+
+            expect(current.errors).toEqual([]);
+            expect(current.document.nodes['main-tabs'].activeItemId).toBe('swarm');
+
+            const {deferred, plan, errors, document: restored} = DockRestorePlanner.restoreToward(current.document, captured);
+
+            expect(deferred).toBe(false);
+            expect(errors).toEqual([]);
+            expect(plan).toEqual([{operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'strategy'}]);
+            expect(restored.nodes['main-tabs'].activeItemId).toBe('strategy')
+        });
+
+        test('the step lands AFTER the move that brings its item into the node', () => {
+            const captured = doc();               // main-tabs [strategy, swarm] active strategy
+            const wanted   = Operations.applyOperation(captured, {
+                operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'swarm'
+            });
+
+            expect(wanted.errors).toEqual([]);
+
+            // live: swarm and terminal are SWAPPED between the two zones, so tab counts still match
+            // (the fingerprint gate) and the restore has to move both before it can select swarm.
+            const current = {
+                schema: 'neo.dock.zone.v1',
+                root  : 'root',
+                items : doc().items,
+                nodes : {
+                    root       : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
+                    'main-tabs': {type: 'tabs', items: ['strategy', 'terminal'], activeItemId: 'strategy'},
+                    'side-tabs': {type: 'tabs', items: ['swarm'], activeItemId: 'swarm'}
+                }
+            };
+
+            const {deferred, errors, plan, document: restored} = DockRestorePlanner.restoreToward(current, wanted.document);
+
+            expect(deferred).toBe(false);
+            expect(errors).toEqual([]);
+
+            const
+                moveIndex   = plan.findIndex(step => step.operation === 'moveItem' && step.itemId === 'swarm' && step.targetNodeId === 'main-tabs'),
+                activeIndex = plan.findIndex(step => step.operation === 'setActiveItem' && step.tabsNodeId === 'main-tabs');
+
+            expect(moveIndex, 'the move is planned').toBeGreaterThan(-1);
+            expect(activeIndex, 'the selection is planned').toBeGreaterThan(-1);
+            // the executor rejects an active item that is not a member, so order is the contract
+            expect(activeIndex).toBeGreaterThan(moveIndex);
+
+            expect(restored.nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
+            expect(restored.nodes['main-tabs'].activeItemId).toBe('swarm')
+        });
+
+        test('an already-correct active item emits no step', () => {
+            const captured = doc();
+            const current  = Operations.applyOperation(doc(), {
+                operation: 'resizeSplit', splitNodeId: 'root', sizes: [0.25, 0.75]
+            });
+
+            expect(current.errors).toEqual([]);
+
+            const {plan} = DockRestorePlanner.restoreToward(current.document, captured);
+
+            expect(plan.some(step => step.operation === 'setActiveItem'), 'no spurious selection').toBe(false);
+            expect(plan).toHaveLength(1)
+        });
+
+        test('an active item the captured node does not list emits nothing, and the restore still succeeds', () => {
+            // a capture naming a non-member: the executor would reject the operation, so the plan
+            // must not carry it — a restore never destroys and must not start throwing here either
+            const captured = doc();
+
+            captured.nodes['main-tabs'].activeItemId = 'terminal';
+
+            const current = Operations.applyOperation(doc(), {
+                operation: 'resizeSplit', splitNodeId: 'root', sizes: [0.25, 0.75]
+            });
+
+            expect(current.errors).toEqual([]);
+
+            const {deferred, errors, plan, document: restored} = DockRestorePlanner.restoreToward(current.document, captured);
+
+            expect(deferred).toBe(false);
+            expect(errors).toEqual([]);
+            expect(plan.some(step => step.operation === 'setActiveItem')).toBe(false);
+            expect(restored.nodes.root.sizes).toEqual([0.6, 0.4])
+        })
+    })
 });
