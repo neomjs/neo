@@ -83,12 +83,7 @@ class Row extends Component {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        if (this.components) {
-            for (const key in this.components) {
-                this.components[key].mounted = value
-            }
-        }
+        this.forwardToCells('mounted', value)
     }
 
     /**
@@ -99,10 +94,36 @@ class Row extends Component {
      */
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
+        this.forwardToCells('theme', value)
+    }
 
-        if (this.components) {
-            for (const key in this.components) {
-                this.components[key].theme = value
+    /**
+     * Triggered after the windowId config got changed. A pooled cell that was created in one
+     * window must follow the row into the next one: a canvas cell re-transfers its node to the
+     * main thread of the window it believes it is in, and only the current id reaches a node.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+        value && this.forwardToCells('windowId', value)
+    }
+
+    /**
+     * Relays one lifecycle config to every cell component this row owns. A row is a component,
+     * not a container, so the cascade `container.Base` performs for its items is done here by hand
+     * for the configs a pooled cell depends on: `mounted`, `theme` and `windowId`.
+     * @param {String} key
+     * @param {*} value
+     * @protected
+     */
+    forwardToCells(key, value) {
+        const {components} = this;
+
+        if (components) {
+            for (const cellKey in components) {
+                components[cellKey][key] = value
             }
         }
     }
