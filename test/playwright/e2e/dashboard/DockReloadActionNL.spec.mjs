@@ -1,7 +1,8 @@
 import { test, expect } from '../../fixtures.mjs';
 
 /**
- * Whitebox-e2e: the gesture proof for the engine-owned, delegation-only reload action.
+ * Whitebox-e2e: the gesture proof for the engine-owned reload action — delegation when the pane
+ * carries the contract, an engine recreate when it does not.
  *
  * The component battery proves the mechanics on a fixture; the product truths only this spec can
  * certify are
@@ -11,9 +12,10 @@ import { test, expect } from '../../fixtures.mjs';
  *      is a visible refresh counter),
  *   2. pressing it delegates INTO the pane — the counter advances where a user can read it — and
  *      commits nothing: the App Worker's dock document is byte-identical after the gesture,
- *   3. availability is the contract, not the flag: the very same node's header hides the action
- *      the moment a pane WITHOUT `dockReload()` holds the active slot, with the always-visible
- *      close action as the control arm proving the header itself is live.
+ *   3. availability is either path: the very same node's header keeps the action when a pane
+ *      WITHOUT `dockReload()` holds the active slot, and pressing it recreates that pane — a new
+ *      instance holds the slot, the document stays byte-identical — with the always-visible close
+ *      action as the control arm proving the header itself is live.
  *
  * Paradigm (whitebox-e2e protocol): Playwright drives the native clicks; the Neural Link fixture
  * reads the holder's committed `dockModel` and the pane's counter. Nothing here is committed
@@ -69,7 +71,7 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
     test.setTimeout(90000);
     test.use({ viewport: { width: 1600, height: 900 } });
 
-    test('the reload action asks the contract-bearing pane, commits nothing, and hides without the contract', async ({ page, neuralLink }) => {
+    test('the reload action asks the contract-bearing pane, commits nothing, and recreates the pane without the contract', async ({ page, neuralLink }) => {
         const { app, readModel } = await bootDockExample({ page, neuralLink }),
               before             = await readModel(),
               mainTabsId         = await tabsNodeId(app, 'main-tabs');
@@ -96,7 +98,7 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
         // The focus consequence, as its own settle surface: the engine set ungates in the DOM.
         await expect(page.locator(`#${reloadAction.id}`)).not.toHaveClass(/neo-toolbar-action-context-inactive/);
 
-        // Product truth #2: the gesture delegates into the pane — the counter is USER-VISIBLE.
+        // Product truth 2: the gesture delegates into the pane — the counter is USER-VISIBLE.
         await page.locator(`#${reloadAction.id}`).click();
         await expect(page.getByText('Strategy · reloaded 1×')).toBeVisible();
 
@@ -106,15 +108,33 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
         // …and commits nothing: the committed document is byte-identical after two gestures.
         expect(JSON.stringify(await readModel())).toBe(JSON.stringify(before));
 
-        // Product truth #3: availability is the contract, not the flag. Swarm implements no
-        // dockReload(), so the SAME header hides the action for it — while close (the gating
+        // Product truth 3: availability is either path. Swarm implements no dockReload(), so the
+        // SAME header keeps the action — the engine serves the recreate — while close (the gating
         // opt-out) stays visible on that focused header, proving the header itself is live.
         await focusPane(app, page, 'swarm');
 
         await expect.poll(async () => (await app.callMethod(mainTabsId, 'getActionItem', ['reload']))?.hidden, {
-            message: 'a pane without the contract hides the reload action',
+            message: 'a pane without the contract keeps the reload action',
             timeout: 10000
-        }).toBe(true);
+        }).toBe(false);
+
+        // The gesture recreates the pane: a NEW instance takes the active slot, and the committed
+        // document is still byte-identical — a recreate is presentation, never topology. The
+        // baseline is read AFTER the focus click: activating the Swarm tab was itself a committed
+        // `setActiveItem`, and that change belongs to the click, not to the recreate.
+        const swarmBefore = await app.callMethod(mainTabsId, 'getActiveCard', []),
+              swarmDoc    = JSON.stringify(await readModel());
+
+        expect(swarmBefore?.id, 'the Swarm pane holds the active slot').toBeTruthy();
+
+        await page.locator(`#${reloadAction.id}`).click();
+
+        await expect.poll(async () => (await app.callMethod(mainTabsId, 'getActiveCard', []))?.id, {
+            message: 'the recreate replaces the active pane instance',
+            timeout: 10000
+        }).not.toBe(swarmBefore.id);
+
+        expect(JSON.stringify(await readModel()), 'a recreate commits nothing').toBe(swarmDoc);
 
         const closeAction = await app.callMethod(mainTabsId, 'getActionItem', ['close']);
 

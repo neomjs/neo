@@ -128,10 +128,10 @@ class MainContainer extends DockWorkspace {
          */
         enableDockPinAction: true,
         /**
-         * And into the engine-owned, delegation-only reload action. The Strategy pane implements
-         * the `dockReload()` contract below, so the example shows both halves of the policy: the
-         * action appears on the pane that owns a reload meaning and stays hidden on every pane
-         * that does not.
+         * And into the engine-owned reload action, which delegates to a pane's `dockReload()` when
+         * it has one and otherwise recreates the pane through the engine. The Strategy pane
+         * implements the contract below, so the example shows both halves of the policy: a
+         * delegated reload that counts, and an engine recreate on every pane that does not.
          * @member {Boolean} enableDockReloadAction=true
          */
         enableDockReloadAction: true,

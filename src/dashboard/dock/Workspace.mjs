@@ -175,19 +175,19 @@ class Workspace extends Container {
          */
         enableDockPinAction: true,
         /**
-         * Projects one engine-owned, delegation-only reload action into each Dock tab header —
-         * runtime only: no operation is committed and the document never changes. A pane
-         * implementing `dockReload(): void | Promise<*>` owns what reload means (its stores,
-         * caches, re-render — the author's decision, opted into by implementing the method); a
-         * pane without the contract simply hides the action, decided by a pure `typeof` probe on
-         * the live card, never a resolver call. One invocation per item may be in flight (the
-         * action disables for the window), and every completion — sync throw, async rejection,
-         * async success — settles exactly once through the `dockReloadSettled` event
+         * Projects one engine-owned reload action into each Dock tab header — runtime only: no
+         * operation is committed and the document never changes. A pane implementing
+         * `dockReload(): void | Promise<*>` owns what reload means (its stores, caches, re-render —
+         * the author's decision, opted into by implementing the method), decided by a pure `typeof`
+         * probe on the live card, never a resolver call; a pane without the contract keeps the
+         * action and is served by the engine's recreate — the two-phase transaction that replaces
+         * the live pane only after a validated fresh candidate exists (docking design record §2.6,
+         * as amended). The action hides only where the host declared no recreate through
+         * {@link #hasDockRecreateFallback}. One invocation per item may be in flight (the action
+         * disables for the window), and every completion — sync throw, async rejection, async
+         * success — settles exactly once through the `dockReloadSettled` event
          * (`{dockNodeId, itemId, errors}`); a failing `dockReload()` keeps the pane, always.
-         * Destroy-and-recreate is deliberately NOT here: resolved panes are moved, never
-         * destroyed (docking design record §2.6) — the recreate capability lives with the
-         * two-phase transaction that can honestly promise rollback. Enabled by default; explicit
-         * `false` removes the action.
+         * Enabled by default; explicit `false` removes the action.
          * @member {Boolean} enableDockReloadAction=true
          */
         enableDockReloadAction: true,
@@ -2549,9 +2549,10 @@ class Workspace extends Container {
     }
 
     /**
-     * Runs the engine-owned, delegation-only reload for the active pane: `dockReload()` when the
-     * pane implements the contract — the author owns what reload means, and the method is
-     * explicitly promise-aware (`void | Promise<*>`). Runtime-only by contract: no operation is
+     * Runs the engine-owned reload for the active pane: `dockReload()` when the pane implements
+     * the contract — the author owns what reload means, and the method is explicitly
+     * promise-aware (`void | Promise<*>`) — and the engine's recreate ({@link #recreateDockPane})
+     * when it does not. Runtime-only by contract: no operation is
      * committed and the document never changes. Every completion — sync throw, async rejection,
      * async success — settles exactly once through the `dockReloadSettled` event
      * (`{dockNodeId, itemId, errors}`), because the action wire has no result channel
@@ -2653,9 +2654,10 @@ class Workspace extends Container {
 
     /**
      * Synchronizes one retained reload action against the live active pane, owning BOTH state
-     * axes: `hidden` while no active item resolves OR the active card does not carry the
-     * `dockReload()` contract; `disabled` while the ACTIVE item — not whichever item started a
-     * flight — has an invocation in flight. Deriving both here (called at the flight edges and
+     * axes: `hidden` while no active item resolves, or while neither path can serve it — no
+     * `dockReload()` contract on the active card AND the host declared no recreate through
+     * {@link #hasDockRecreateFallback}; `disabled` while the ACTIVE item — not whichever item started
+     * a flight — has a reload or recreate in flight. Deriving both here (called at the flight edges and
      * on every active-item change) is what keeps per-item single-flight and the one node-level
      * action instance consistent when the active item changes mid-flight. The contract probe is
      * pure — a `typeof` on the card instance, or on its config's `module` prototype while the
@@ -4035,12 +4037,15 @@ class Workspace extends Container {
     }
 
     /**
-     * Whether a recreate path is wired — not whether a given item will succeed.
+     * Whether a recreate path is wired — not whether a given item will succeed. The engine always
+     * wires one: {@link #resolveFreshPane} delegates to {@link #resolvePane}, so the default answers
+     * `true` and a pane without `dockReload()` keeps its reload action.
      *
      * Never calls the factory: {@link #syncDockReloadAction} consults this on every active-item
      * change, and minting a pane to decide whether to show a button would be a side effect.
      *
-     * Override to `false` to declare this host serves no recreate.
+     * Override to `false` to declare this host serves no recreate; the action then hides for every
+     * pane without the contract.
      * @returns {Boolean}
      */
     hasDockRecreateFallback() {
