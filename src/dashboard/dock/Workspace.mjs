@@ -714,7 +714,8 @@ class Workspace extends Container {
     async expireTearOutAdmission(itemId, admission) {
         let me = this;
 
-        if (admission?.connected) return;
+        // An expiry already queued when the instance went away has nothing left to expire.
+        if (me.isDestroyed || admission?.connected) return;
         if (!admission || me.tearOutAdmissions.get(itemId) !== admission) return;
 
         const entry  = me.tearOutPanes[itemId],
@@ -1636,6 +1637,9 @@ class Workspace extends Container {
      */
     destroy(...args) {
         let me = this;
+
+        // Armed by acquireTearOutVessel() with or without the lifecycle opt-in below, so cleared with or without it.
+        me.tearOutAdmissions?.forEach((admission, itemId) => me.clearTearOutAdmission(itemId, admission));
 
         if (me.enableDockTearOutLifecycle) {
             Neo.currentWorker.un({

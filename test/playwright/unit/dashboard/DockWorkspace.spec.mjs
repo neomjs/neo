@@ -2167,9 +2167,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(pinAction.hidden, 'converging on the active item\'s real policy').toBe(false);
 
         // The load-bearing half, and the reason this counts emitters rather than signals. The refresh
-        // QUEUE replays each pending refresh in order, and refresh #1 reconciles chrome to the
-        // document as it stood when it was queued — so its sweep re-hides the action before refresh
-        // #2 settles it, and the post-refresh signal COUNT is not 0. Those extra signals are a
+        // QUEUE replays each pending refresh in order, and the first refresh reconciles chrome to the
+        // document as it stood when it was queued — so its sweep re-hides the action before the
+        // second settles it, and the post-refresh signal COUNT is not 0. Those extra signals are a
         // property of the queue, not of this action: `close` lags identically, and nothing here
         // could fix it without changing refresh sequencing for every consumer. What AC-3 actually
         // claims is that no group was ever rebuilt behind them — every signal, before and after
@@ -3756,6 +3756,55 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 // the only thing the engine default does that a host cannot undo, so an empty
                 // collector is the honest statement that no second vessel exists.
                 expect(opens, 'the engine opened nothing of its own').toEqual([])
+            } finally {
+                Neo.Main = originalMain;
+                Neo.config.useSharedWorkers = useSharedWorkers
+            }
+        });
+
+        test('a destroyed workspace fires no pending admission expiry, lifecycle opt-in or not', async () => {
+            class ShortWindowOpenerWorkspace extends PlainWorkspace {
+                static config = {
+                    className             : 'Test.Unit.Dashboard.DockWorkspace.ShortWindowOpenerWorkspace',
+                    tearOutConnectWindowMs: 20
+                }
+
+                openTearOutVessel(request) {
+                    return {admissionToken: request.admissionToken, windowName: `short-${request.itemId}`}
+                }
+            }
+
+            Neo.setupClass(ShortWindowOpenerWorkspace);
+
+            // The lifecycle opt-in is OFF here (the default), so `destroy()` does not run the retire that
+            // sweeps admissions — while `acquireTearOutVessel` arms the expiry timer regardless.
+            workspace = Neo.create(ShortWindowOpenerWorkspace, {dockModel: createDocument()});
+
+            const
+                {useSharedWorkers} = Neo.config,
+                originalMain       = Neo.Main;
+
+            Neo.Main = {
+                getByPath    : () => Promise.resolve('https://example.test/app/index.html'),
+                getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 0, screenTop: 0}),
+                windowOpen   : () => Promise.resolve(true)
+            };
+            Neo.config.useSharedWorkers = true;
+
+            try {
+                expect(workspace.enableDockTearOutLifecycle, 'the lifecycle opt-in is off').toBe(false);
+
+                await workspace.acquireTearOutVessel({admissionToken: 7, itemId: 'editor'});
+
+                expect(workspace.tearOutAdmissions.get('editor')?.timerId, 'the admission armed its expiry').toBeTruthy();
+
+                workspace.destroy();
+                workspace = null;
+
+                // Pre-fix the 20 ms expiry fires on the destroyed instance and dereferences a field core
+                // destroy removed — an uncaught TypeError charged to whichever test is running by then.
+                // Waiting past the window inside THIS arm makes that test this one.
+                await new Promise(resolve => setTimeout(resolve, 60))
             } finally {
                 Neo.Main = originalMain;
                 Neo.config.useSharedWorkers = useSharedWorkers
