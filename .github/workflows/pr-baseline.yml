@@ -33,11 +33,13 @@ name: PR Baseline
 # `skills-materialized` is adjacent to `substrate-sync.yml`; `substrate-size` and `pr-body` have no
 # local counterpart at all and are the reason this caller is worth its duplication in the interim.
 #
-# STARTUP: this caller carried a workflow-level `concurrency:` block on its first push and GitHub
-# returned `startup_failure` — no jobs, no logs, no annotations. A minimal caller at the SAME pin
-# dispatched all five jobs, which isolates the cause to that block rather than to the pin, the target
-# or repository policy. The block is not worth a second diagnosis cycle; `pull_request` on a caller
-# whose only job is a `uses:` is cheap to run.
+# PERMISSIONS ARE LOAD-BEARING HERE, and getting them wrong costs a `startup_failure` with no jobs,
+# no logs and no annotations — the least diagnosable result GitHub emits. A called job cannot request
+# more than its caller grants, and the baseline's `pr-body` job declares `pull-requests: read` because
+# it fetches the pull request itself. A caller granting only `contents: read` is rejected outright,
+# before any job starts. `neomjs/devindex`'s caller gets away with `contents: read` alone only because
+# it pins an older baseline that has no `pr-body` job at all — so it is a precedent for the `uses:`
+# coordinate, not for the permission set.
 #
 # PIN: an exact commit, per the reusable workflow's own "immutable coordinate" instruction. The
 # upstream repository publishes no tags today, so a SHA is the only immutable ref available. How this
@@ -51,6 +53,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   baseline:
