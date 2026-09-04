@@ -86,9 +86,9 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
     /**
      * Spec-readable cause witness: one captured call site per construction, in order.
      *
-     * `lazyPaneInstances` reports THAT a duplicate happened; this reports WHO. The arms below assert
-     * one construction, and when that assertion fails on CI there is no session to attach to — so the
-     * trail travels in the failure message instead. See #18275.
+     * `lazyPaneInstances` reports THAT a duplicate happened; this reports WHO. The arms assert one
+     * construction, and when that assertion fails on CI there is no session to attach to, so the
+     * trail travels in the failure message instead.
      * @returns {String[]}
      */
     get lazyPaneConstructionTrail() {

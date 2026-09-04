@@ -20,11 +20,10 @@ class LazyPane extends Component {
      * `lazyPaneConstructionTrail`.
      *
      * A count says a second construction happened; it cannot say who caused it. Two callers may
-     * legitimately load this pane (`layout.Card#afterSetActiveIndex` on activation, and
-     * `container.Base#insert` when the inserted index is already active), so the identity of the
-     * second one is the whole diagnostic — and #18275's window only opens on a loaded CI runner,
-     * where nobody is attached to inspect it. Capturing the site at construction is what lets the
-     * next natural occurrence name its own cause instead of leaving it to be deduced from a tally.
+     * legitimately load this pane — `layout.Card#afterSetActiveIndex` on activation, and
+     * `container.Base#insert` when the inserted index is already active — so the identity of the
+     * second is the diagnostic. The duplicate only surfaces on a loaded runner, where nobody is
+     * attached, so the site is captured at construction rather than reconstructed from a tally.
      * @member {String[]} constructionTrail=[]
      * @static
      */

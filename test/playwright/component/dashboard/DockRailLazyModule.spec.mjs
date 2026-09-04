@@ -41,9 +41,9 @@ const visibleOverlay = page => page.locator('.neo-dashboard-dock-reveal-overlay:
  *
  * Two callers may legitimately load a parked pane — `layout.Card#afterSetActiveIndex` on activation,
  * and `container.Base#insert` when the inserted index is already active — so a tally of 2 does not
- * say which one arrived second. #18275 reds roughly once in a hundred runs and only on a loaded CI
- * runner, where there is no session to attach to afterwards; the failure message is the only channel
- * that reaches a reader, so the captured call sites travel in it.
+ * say which one arrived second. The duplicate is rare and surfaces only on a loaded runner, where
+ * there is no session to attach to afterwards; the failure message is the only channel that reaches
+ * a reader, so the captured call sites travel in it.
  *
  * The trail is read only on the failing path, so the green path keeps its single round-trip.
  * @param {Object} page
