@@ -3762,7 +3762,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             }
         });
 
-        test('a destroyed workspace fires no pending admission expiry, lifecycle opt-in or not', async () => {
+        test('a destroyed workspace fires no pending admission expiry and closes the vessel it opened, lifecycle opt-in or not', async () => {
+            const closes = [];
+
             class ShortWindowOpenerWorkspace extends PlainWorkspace {
                 static config = {
                     className             : 'Test.Unit.Dashboard.DockWorkspace.ShortWindowOpenerWorkspace',
@@ -3771,6 +3773,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
                 openTearOutVessel(request) {
                     return {admissionToken: request.admissionToken, windowName: `short-${request.itemId}`}
+                }
+
+                closeTearOutVessel(vessel) {
+                    closes.push(vessel);
+                    return true
                 }
             }
 
@@ -3796,7 +3803,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
                 await workspace.acquireTearOutVessel({admissionToken: 7, itemId: 'editor'});
 
-                expect(workspace.tearOutAdmissions.get('editor')?.timerId, 'the admission armed its expiry').toBeTruthy();
+                const admission = workspace.tearOutAdmissions.get('editor');
+
+                expect(admission?.timerId, 'the admission armed its expiry').toBeTruthy();
+                expect(admission?.windowName, 'and holds the vessel the host opened').toBe('short-editor');
 
                 workspace.destroy();
                 workspace = null;
@@ -3804,7 +3814,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 // Pre-fix the 20 ms expiry fires on the destroyed instance and dereferences a field core
                 // destroy removed — an uncaught TypeError charged to whichever test is running by then.
                 // Waiting past the window inside THIS arm makes that test this one.
-                await new Promise(resolve => setTimeout(resolve, 60))
+                await new Promise(resolve => setTimeout(resolve, 60));
+
+                // The admission is one ownership unit: its timer, its record, and the native vessel it
+                // opened retire together, and the vessel exactly once.
+                expect(closes.map(vessel => vessel.windowName), 'the opened vessel was closed exactly once').toEqual(['short-editor'])
             } finally {
                 Neo.Main = originalMain;
                 Neo.config.useSharedWorkers = useSharedWorkers

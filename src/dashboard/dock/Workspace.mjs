@@ -1629,27 +1629,25 @@ class Workspace extends Container {
     }
 
     /**
-     * Tears down the producer and pending refresh chain. An enabled tear-out lifecycle first
-     * unregisters its worker routes, closes every pending/connected/committed vessel, and settles
-     * every owner-held pane exactly once; a refresh scheduled before teardown no-ops on its
-     * `isDestroyed` guard.
+     * Tears down the producer and pending refresh chain. The tear-out state this instance owns —
+     * every pending/connected/committed vessel, every admission with its expiry timer, every
+     * owner-held pane — retires exactly once whether or not the lifecycle opt-in is on, because
+     * `acquireTearOutVessel()` arms an admission and opens its vessel without it. Only the worker
+     * route subscription is the opt-in's to unregister, since only the opt-in subscribed. A refresh
+     * scheduled before teardown no-ops on its `isDestroyed` guard.
      * @param {...*} args
      */
     destroy(...args) {
         let me = this;
 
-        // Armed by acquireTearOutVessel() with or without the lifecycle opt-in below, so cleared with or without it.
-        me.tearOutAdmissions?.forEach((admission, itemId) => me.clearTearOutAdmission(itemId, admission));
+        me.enableDockTearOutLifecycle && Neo.currentWorker.un({
+            connect   : me.onWindowConnect,
+            disconnect: me.onWindowDisconnect,
+            scope     : me
+        });
 
-        if (me.enableDockTearOutLifecycle) {
-            Neo.currentWorker.un({
-                connect   : me.onWindowConnect,
-                disconnect: me.onWindowDisconnect,
-                scope     : me
-            });
-            me.retireTearOutState();
-            me.tearOutHandlers = null
-        }
+        me.retireTearOutState();
+        me.tearOutHandlers = null;
 
         if (me.dockMaximizeResizeObserved) {
             me.dockMaximizeResizeObserved = false;
