@@ -26,6 +26,14 @@ const fixtureDocument = {
  * @extends Neo.dashboard.dock.Workspace
  */
 class LazyRailFixtureWorkspace extends DockWorkspace {
+    /**
+     * One captured call site per lazy-load request, in order — read through
+     * {@link #lazyPaneConstructionTrail}.
+     * @member {String[]} raiseSites=[]
+     * @static
+     */
+    static raiseSites = []
+
     static config = {
         /**
          * @member {String} className='Test.Playwright.Component.DockLazyRail.Workspace'
@@ -84,15 +92,17 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
     }
 
     /**
-     * Spec-readable cause witness: one captured call site per construction, in order.
+     * Spec-readable cause witness: one captured call site per load request, in order.
      *
-     * `lazyPaneInstances` reports THAT a duplicate happened; this reports WHO. The arms assert one
-     * construction, and when that assertion fails on CI there is no session to attach to, so the
-     * trail travels in the failure message instead.
+     * `lazyPaneInstances` reports THAT a duplicate happened; this reports WHO asked. Each entry is
+     * captured in the loader before the dynamic import is awaited, so it still carries the frame
+     * that names the route — `container.Base#insert` or `layout.Card#afterSetActiveIndex`. The arms
+     * assert one construction, and when that fails on CI there is no session to attach to, so the
+     * sites travel in the failure message instead.
      * @returns {String[]}
      */
     get lazyPaneConstructionTrail() {
-        return Neo.ns('Test.Playwright.Component.DockLazyRail.LazyPane')?.constructionTrail ?? []
+        return LazyRailFixtureWorkspace.raiseSites
     }
 
     /**
@@ -115,9 +125,23 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
         if (itemId === 'lazy') {
             return {
                 // the lazy shape: loaded on activation — for a rail item, on its first reveal
-                module: () => import('./LazyPane.mjs'),
-                id    : 'dock-lazy-rail-pane-lazy',
-                text  : 'Lazy pane'
+                //
+                // The loader records its own call site, and the timing is the point: this runs
+                // BEFORE `#loadModuleOnce` awaits the import, so the caller chain is still on the
+                // stack. Capturing at construction instead yields three frames ending at
+                // `#loadModuleOnce` — the await starts a fresh microtask stack and severs the very
+                // frame that says which route asked. Here the two are plainly distinct:
+                // `container.Base#insert` on the already-active insert path, `afterSetActiveIndex`
+                // on activation.
+                module: () => {
+                    LazyRailFixtureWorkspace.raiseSites.push(
+                        (new Error('lazy module requested').stack || '').split('\n').slice(1, 7).join('\n')
+                    );
+
+                    return import('./LazyPane.mjs')
+                },
+                id  : 'dock-lazy-rail-pane-lazy',
+                text: 'Lazy pane'
             }
         }
 
