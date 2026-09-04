@@ -1,9 +1,12 @@
 
 import {defineConfig, devices}             from '@playwright/test';
-import fs                                  from 'node:fs';
 import path                                from 'node:path';
 import {resolveFreePortSync}               from './resolveFreePort.mjs';
 import {activeLaunchArgs, requiresGlProbe} from './e2e/utils/gpuIntent.mjs';
+import {
+    excludedSpecNotice,
+    selectExternalBrainSpecs
+} from './externalBrainSelection.mjs';
 import {
     DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT,
     resolveBrowserLifecycleReceipt
@@ -41,35 +44,21 @@ const RUN_ID        = process.env.NEO_E2E_RUN_ID || null,
 
 process.env.NEO_E2E_LIFECYCLE_RUN_ID = LIFECYCLE_RECEIPT.runId;
 
-/**
- * @summary Finds whitebox specs that request the external Brain fixture.
- * @param {String} root Absolute e2e directory.
- * @returns {RegExp[]} Exact file matchers for the Engine-only project's ignore set.
- */
-export function discoverExternalBrainSpecs(root) {
-    const files = [];
+// Only walked when the variable is absent: with a Brain checkout the whole tier is selected and there
+// is nothing to disclose, so the set arm keeps doing no I/O at all.
+const externalBrainSelection = process.env.NEO_AGENTOS_RUNTIME_ROOT
+    ? null
+    : selectExternalBrainSpecs(path.resolve(import.meta.dirname, 'e2e'));
 
-    for (const entry of fs.readdirSync(root, {withFileTypes: true})) {
-        const file = path.join(root, entry.name);
+const externalBrainTestIgnore = externalBrainSelection?.ignore ?? [];
 
-        if (entry.isDirectory()) {
-            files.push(...discoverExternalBrainSpecs(file));
-        } else if (entry.name.endsWith('.spec.mjs') && /\bneuralLink\b/.test(fs.readFileSync(file, 'utf8'))) {
-            const relative = path.relative(path.resolve(import.meta.dirname, 'e2e'), file)
-                .split(path.sep)
-                .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-                .join('[\\\\/]');
+// Pinned like NEO_E2E_PORT above, for the same reason: Playwright re-imports this config in the
+// webServer and in every worker, so an unguarded notice prints once per process. Children inherit it.
+if (externalBrainSelection && !process.env.NEO_E2E_EXCLUSION_NOTICE) {
+    process.env.NEO_E2E_EXCLUSION_NOTICE = '1';
 
-            files.push(new RegExp(`[\\\\/]${relative}$`))
-        }
-    }
-
-    return files
+    console.warn(excludedSpecNotice(externalBrainSelection))
 }
-
-const externalBrainTestIgnore = process.env.NEO_AGENTOS_RUNTIME_ROOT
-    ? []
-    : discoverExternalBrainSpecs(path.resolve(import.meta.dirname, 'e2e'));
 
 const
     launchArgs     = activeLaunchArgs(),
