@@ -2167,9 +2167,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(pinAction.hidden, 'converging on the active item\'s real policy').toBe(false);
 
         // The load-bearing half, and the reason this counts emitters rather than signals. The refresh
-        // QUEUE replays each pending refresh in order, and refresh #1 reconciles chrome to the
-        // document as it stood when it was queued — so its sweep re-hides the action before refresh
-        // #2 settles it, and the post-refresh signal COUNT is not 0. Those extra signals are a
+        // QUEUE replays each pending refresh in order, and the first refresh reconciles chrome to the
+        // document as it stood when it was queued — so its sweep re-hides the action before the
+        // second settles it, and the post-refresh signal COUNT is not 0. Those extra signals are a
         // property of the queue, not of this action: `close` lags identically, and nothing here
         // could fix it without changing refresh sequencing for every consumer. What AC-3 actually
         // claims is that no group was ever rebuilt behind them — every signal, before and after

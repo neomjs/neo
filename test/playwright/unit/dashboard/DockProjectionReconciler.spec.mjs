@@ -998,10 +998,11 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
      * with every later commit reconciling against `host.items[shellIndex]` forever.
      *
      * A rejecting flight is injected by counting `host.promiseUpdate` calls, which is what the phases
-     * ARE: #1 stages the shell, #2 closes tab chrome, #3 swaps visibility, #4 retires the old shell.
-     * Rejecting #2 and #3 leaves the swap unlanded (the outgoing shell must survive); rejecting #4
-     * happens after it landed (the staged shell must survive and the swap simply finishes) — so the
-     * two recovery verdicts are both reachable and are asserted by name rather than inferred.
+     * ARE: the first stages the shell, the second closes tab chrome, the third swaps visibility, the
+     * fourth retires the old shell. Rejecting the second or third leaves the swap unlanded (the
+     * outgoing shell must survive); rejecting the fourth happens after it landed (the staged shell
+     * must survive and the swap simply finishes) — so the two recovery verdicts are both reachable
+     * and are asserted by name rather than inferred.
      */
     const reconcileWithRejectedFlight = async rejectOnCall => {
         const
