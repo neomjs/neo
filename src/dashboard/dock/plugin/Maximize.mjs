@@ -26,8 +26,16 @@ import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
  * re-applies onto the surviving node and clears when the node collapsed.
  *
  * Declinable by construction: a workspace created with `enableDockMaximizeAction: false` never
- * instantiates this plugin, projects no toggle, registers no observer and binds no key. The owner's
- * destroy pass destroys the plugin, which releases its observer.
+ * instantiates this plugin, projects no toggle, registers no observer and binds no key.
+ *
+ * The owner surface this plugin reads, and nothing more: `id`, `windowId`, `keys`, `plugins`,
+ * `dockModel`, `dockShellIndex`, `refreshPromise`, `getDockHost()`, the `on` / `un` / `fire` and
+ * `addDomListeners` / `removeDomListeners` pairs, `isDestroying` / `isDestroyed`. Owned for its whole
+ * lifetime: the resize observation is armed in the owner's current render window and follows the
+ * owner across windows ({@link #onOwnerWindowIdChange}), every async register/release path is
+ * generation-guarded, the owner's destroy pass destroys the plugin, and a plugin destroyed while its
+ * owner lives resets the node and removes every listener, binding and registration it added
+ * ({@link #destroy}).
  *
  * @class Neo.dashboard.dock.plugin.Maximize
  * @extends Neo.plugin.Base
@@ -100,12 +108,34 @@ class Maximize extends Plugin {
      */
     resizeObserved = false
     /**
-     * True once the resize dom listener is wired on the owner; the listener itself is a cheap
-     * no-op while nothing is maximized.
-     * @member {Boolean} resizeWired=false
+     * The exact tuple this plugin registered with the main-thread ResizeObserver addon —
+     * `{componentId, id, windowId}` — so a release names the window it armed, never the window
+     * the owner happens to sit in now.
+     * @member {Object|null} observation=null
      * @protected
      */
-    resizeWired = false
+    observation = null
+    /**
+     * Generation of the observer's async register/release path. Every register, release, owner
+     * window change and destroy advances it; an await that resumes into a later generation does
+     * nothing, so a stale registration cannot outlive the state that started it.
+     * @member {Number} observationGeneration=0
+     * @protected
+     */
+    observationGeneration = 0
+    /**
+     * The one resize dom listener entry this plugin adds to its owner, kept by reference so an
+     * independent destroy removes exactly it.
+     * @member {Object|null} resizeListener=null
+     * @protected
+     */
+    resizeListener = null
+    /**
+     * Releases the owner `windowId` observation held while installed.
+     * @member {Function|null} unobserveOwnerWindowId=null
+     * @protected
+     */
+    unobserveOwnerWindowId = null
     /**
      * Restoration snapshot while a maximize presentation is applied:
      * `{nodeId, zone: {allowOverdrag, boundaryContainerId, enableProxyToPopup}|null, zoneId}`.
@@ -149,6 +179,28 @@ class Maximize extends Plugin {
             owner.keys = binding;
             owner.keys.register(owner)
         }
+
+        // The observation is armed per render window: follow the owner across windows.
+        me.unobserveOwnerWindowId = me.observeConfig(owner, 'windowId', me.onOwnerWindowIdChange.bind(me))
+    }
+
+    /**
+     * The owner changed render windows. An observation armed in the old window is released there
+     * and re-armed in the new one, and the generation advance retires any await still in flight
+     * from the old window — the registration follows the owner's generation, never a stale one.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    onOwnerWindowIdChange(value, oldValue) {
+        let me = this;
+
+        me.observationGeneration++;
+        me.releaseObservation();
+
+        // Re-arm in the new window whenever a node is maximized — including while a registration
+        // from the old window is still in flight, which the generation advance just retired.
+        me.maximizedNodeId && me.registerResizeObserver(true)
     }
 
     /**
@@ -581,12 +633,15 @@ class Maximize extends Plugin {
      * @protected
      */
     async clearPresentation({animate=true}={}) {
-        let me      = this,
-            restore = me.restoreSnapshot,
-            host    = null,
-            tabContainer, zone;
+        let me   = this,
+            host = null,
+            tabContainer;
 
-        if (!restore) {
+        if (me.isDestroyed) {
+            return
+        }
+
+        if (!me.restoreSnapshot) {
             // A failed superseding apply can clear the reactive id after the prior clear already
             // consumed the restore snapshot. The observer may still be live because its generation
             // guard correctly refused to unregister while that superseding id was non-null. Once the
@@ -595,54 +650,95 @@ class Maximize extends Plugin {
             return
         }
 
-        me.restoreSnapshot = null;
-
         // Same serialization as the apply path: never mutate geometry inside a live FLIP
         // window whose cleanup will re-stamp its stale snapshot.
         await me.play;
 
-        tabContainer = me.owner.getDockHost()?.down?.({dockNodeId: restore.nodeId});
+        // An independent destroy while this waited has already reset the node.
+        if (me.isDestroyed) {
+            return
+        }
 
-        if (tabContainer && !tabContainer.isDestroyed) {
-            zone = tabContainer.getTabBar?.()?.sortZone;
+        if (animate) {
+            await me.stampMarkers();
+            host = await me.captureFirst();
 
-            if (restore.zone && zone && zone.id === restore.zoneId) {
-                // One coherent batched mutation — the same idiom as the suppress direction.
-                zone.set(restore.zone)
+            if (me.isDestroyed) {
+                return
+            }
+        }
+
+        tabContainer = me.resetPresentation({animate});
+
+        if (tabContainer && animate) {
+            // Same deterministic boundary as the apply path: an un-flushed delta lets play()
+            // snapshot the maximize rect as "inline styles to restore" — its cleanup would
+            // stamp the fullscreen values back onto the restored node.
+            try {
+                await tabContainer.promiseUpdate?.()
+            } catch (error) {/* destroyed mid-flight */}
+
+            if (me.isDestroyed) {
+                // No play will lift the paint-order hold: lift it now.
+                !tabContainer.isDestroyed && (tabContainer.cls = tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'));
+                return
             }
 
-            if (animate) {
-                await me.stampMarkers();
-                host = await me.captureFirst()
-            }
-
-            // Null values through the shallow-merge wrapperStyle descriptor are the house
-            // removal idiom (the reconciler un-sets flex the same way).
-            tabContainer.set({
-                cls: [
-                    ...tabContainer.cls.filter(c => c !== 'neo-dock-maximized'),
-                    ...(animate ? ['neo-dock-maximize-restoring'] : [])
-                ],
-                wrapperStyle: {height: null, left: null, top: null, width: null}
-            });
-
-            if (animate) {
-                // Same deterministic boundary as the apply path: an un-flushed delta lets play()
-                // snapshot the maximize rect as "inline styles to restore" — its cleanup would
-                // stamp the fullscreen values back onto the restored node.
-                try {
-                    await tabContainer.promiseUpdate?.()
-                } catch (error) {/* destroyed mid-flight */}
-
-                me.playFlip(host).then(() => {
-                    !tabContainer.isDestroyed && (tabContainer.cls = tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'))
-                })
-            }
-
-            me.syncActionPresentation(tabContainer, false)
+            me.playFlip(host).then(() => {
+                !tabContainer.isDestroyed && (tabContainer.cls = tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'))
+            })
         }
 
         await me.registerResizeObserver(false)
+    }
+
+    /**
+     * The synchronous half of a restore: consumes the restore snapshot and lifts the class, the
+     * four inline rect values, the drag-source suppression and the action's pressed state from
+     * the live node. {@link #clearPresentation} runs it after its serialization awaits; an
+     * independent destroy runs it directly, so a plugin removed from a living owner leaves no
+     * geometry behind.
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.animate=false] Keep the restoring marker on for a following FLIP play.
+     * @returns {Neo.tab.Container|null} The restored node, or null when nothing was applied.
+     * @protected
+     */
+    resetPresentation({animate=false}={}) {
+        let me      = this,
+            restore = me.restoreSnapshot,
+            tabContainer, zone;
+
+        if (!restore) {
+            return null
+        }
+
+        me.restoreSnapshot = null;
+        tabContainer       = me.owner.getDockHost()?.down?.({dockNodeId: restore.nodeId});
+
+        if (!tabContainer || tabContainer.isDestroyed) {
+            return null
+        }
+
+        zone = tabContainer.getTabBar?.()?.sortZone;
+
+        if (restore.zone && zone && zone.id === restore.zoneId) {
+            // One coherent batched mutation — the same idiom as the suppress direction.
+            zone.set(restore.zone)
+        }
+
+        // Null values through the shallow-merge wrapperStyle descriptor are the house
+        // removal idiom (the reconciler un-sets flex the same way).
+        tabContainer.set({
+            cls: [
+                ...tabContainer.cls.filter(c => c !== 'neo-dock-maximized'),
+                ...(animate ? ['neo-dock-maximize-restoring'] : [])
+            ],
+            wrapperStyle: {height: null, left: null, top: null, width: null}
+        });
+
+        me.syncActionPresentation(tabContainer, false);
+
+        return tabContainer
     }
 
     /**
@@ -737,42 +833,64 @@ class Maximize extends Plugin {
     /**
      * Registers/unregisters the owner's root with the main-thread ResizeObserver addon — a NEW
      * observation scoped exactly to the maximize lifetime: no standing cost while un-maximized,
-     * unregistered again on restore, node-clear and destroy.
+     * unregistered again on restore, node-clear, window change and destroy. The registration is
+     * keyed on the owner's current window; the tuple it armed is kept for the release.
      * @param {Boolean} register
      * @returns {Promise<void>}
      * @protected
      */
     async registerResizeObserver(register) {
-        let me         = this,
-            {owner}    = me,
-            {windowId} = owner,
-            addon;
+        let me      = this,
+            {owner} = me,
+            addon, generation;
 
         if (me.resizeObserved === register || me.isDestroyed) {
             return
         }
 
-        if (register && !me.resizeWired) {
-            me.resizeWired = true;
-            owner.addDomListeners({resize: me.onOwnerResize, scope: me})
+        if (register && !me.resizeListener) {
+            me.resizeListener = {resize: me.onOwnerResize, scope: me};
+            owner.addDomListeners(me.resizeListener)
         }
 
-        addon = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
+        generation = ++me.observationGeneration;
+        addon      = await Neo.currentWorker.getAddon('ResizeObserver', owner.windowId);
 
-        if (me.isDestroyed || !addon) {
+        // A later register, release, window change or destroy owns the observer now: this await
+        // belongs to a superseded generation and touches nothing.
+        if (me.isDestroyed || !addon || generation !== me.observationGeneration) {
             return
         }
 
         if (register && me.maximizedNodeId) {
-            addon.register({componentId: owner.id, id: owner.id, windowId});
-            me.resizeObserved = true
-        } else if (!register && me.resizeObserved && !me.maximizedNodeId) {
+            me.observation    = {componentId: owner.id, id: owner.id, windowId: owner.windowId};
+            me.resizeObserved = true;
+            addon.register(me.observation)
+        } else if (!register && me.observation && !me.maximizedNodeId) {
             // The generation guard: a restore's deferred unregister can land AFTER a newer
             // maximize registered — the observation is keyed on the one workspace id, so tearing
             // it down here would leave the newer presentation blind. While any maximize is live,
             // the observation stays; the final restore (transient null) tears down.
-            addon.unregister({componentId: owner.id, id: owner.id, windowId});
+            addon.unregister(me.observation);
+            me.observation    = null;
             me.resizeObserved = false
+        }
+    }
+
+    /**
+     * Unregisters the exact tuple this plugin armed, in the window it armed it, and forgets it —
+     * synchronous, so a window change and destroy can call it; the addon proxy routes by the
+     * tuple's `windowId`.
+     * @protected
+     */
+    releaseObservation() {
+        let me            = this,
+            {observation} = me;
+
+        if (observation) {
+            me.observation    = null;
+            me.resizeObserved = false;
+            Neo.main.addon.ResizeObserver?.unregister(observation)
         }
     }
 
@@ -816,31 +934,44 @@ class Maximize extends Plugin {
     }
 
     /**
-     * Releases the observation the plugin armed; the owner's destroy pass runs this, so a
-     * destroyed workspace holds no maximize observer and no restore snapshot. A plugin removed
-     * from a living owner also takes its two listeners and the `Escape` binding with it.
+     * Releases the observation the plugin armed and retires every await still in flight; the
+     * owner's destroy pass runs this, so a destroyed workspace holds no maximize observer and no
+     * restore snapshot. A plugin removed from a LIVING owner leaves the owner as it found it: the
+     * live node's presentation reset, the resize dom listener, the two owner listeners and the
+     * `Escape` binding removed, the window observation released, and itself gone from `plugins`
+     * so no projection or refresh consults a dead collaborator.
      * @param {...*} args
      */
     destroy(...args) {
-        let me      = this,
-            {owner} = me;
+        let me         = this,
+            {owner}    = me,
+            ownerAlive = !owner.isDestroying && !owner.isDestroyed;
 
-        if (me.resizeObserved) {
-            me.resizeObserved = false;
-            Neo.main.addon.ResizeObserver?.unregister({componentId: owner.id, id: owner.id, windowId: owner.windowId})
-        }
+        me.observationGeneration++;
+        me.releaseObservation();
+        me.unobserveOwnerWindowId?.();
 
-        me.restoreSnapshot = null;
+        if (ownerAlive) {
+            let shell = owner.getDockHost()?.items?.[owner.dockShellIndex];
 
-        if (!owner.isDestroyed) {
+            me.resetPresentation();
+            me.resizeListener && owner.removeDomListeners(me.resizeListener);
+
+            // Header actions ride retained instances, so a refresh would keep projecting a toggle
+            // with no owner: hide it on every live node the way the reconciler varies an action.
+            shell && Reconciler.collectProjectedTabs(shell).forEach(tab => tab.getActionItem?.('maximize')?.set({hidden: true}));
+
             owner.un({
                 beforeDockZoneDocumentChange: me.onBeforeDockZoneDocumentChange,
                 dockHeaderAction            : me.onDockHeaderAction,
                 scope                       : me
             });
 
-            owner.keys?.removeKey({fn: 'onEscape', key: 'Escape', scope: me.id})
+            owner.keys?.removeKey({fn: 'onEscape', key: 'Escape', scope: me.id});
+            owner.plugins = owner.plugins.filter(plugin => plugin !== me)
         }
+
+        me.restoreSnapshot = null;
 
         super.destroy(...args)
     }

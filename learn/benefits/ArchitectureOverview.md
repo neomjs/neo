@@ -435,7 +435,7 @@ complete organism where the codebase and the agent co-evolve.
 | `src/container/` | Layout containers | `Base`, `Viewport` | — |
 | `src/list/` | Store-bound semantic lists, including fixed-height buffered component pools | `Base`, `Component`, `Buffered` | — |
 | `src/grid/` | Buffered data grids | `Container`, `View` | — |
-| `src/dashboard/` | Generic dashboard roots plus the DockLayouts domain package: committed dock documents, semantic operations, projection, interaction affordances, perspectives, and cross-window choreography under `dock/{model,projection,interaction,persistence,window}` | `Container`, `Panel`, `dock.Workspace`, `dock.model.WorkspaceDocument`, `dock.model.Operations`, `dock.persistence.PerspectiveLibrary` | [0029](../agentos/decisions/0029-docking-design.md) |
+| `src/dashboard/` | Generic dashboard roots plus the DockLayouts domain package: committed dock documents, semantic operations, projection, interaction affordances, perspectives, cross-window choreography, and declinable owner plugins the Workspace installs under `dock/{model,projection,interaction,persistence,window,plugin}` | `Container`, `Panel`, `dock.Workspace`, `dock.model.WorkspaceDocument`, `dock.model.Operations`, `dock.persistence.PerspectiveLibrary`, `dock.plugin.Maximize` | [0029](../agentos/decisions/0029-docking-design.md) |
 | `src/data/` | Data layer | `Store`, `Model`, `RecordFactory` | — |
 | `src/state/` | State management | `Provider` | — |
 | `src/worker/` | Thread management | `App`, `VDom`, `Data`, `Manager` | — |

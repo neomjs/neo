@@ -486,6 +486,66 @@ test.describe('dock maximize — presentation, never topology', () => {
         }).toBe('destroy:true->torn')
     });
 
+    test('a plugin destroyed while its owner lives resets the node, and a held transition cannot touch it afterwards', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+        await expectMaximizedCount(page, 1);
+        await expect.poll(async () => (await readPlugin(page, ['resizeObserved']))[0]).toBe(true);
+
+        // Hold the clear an outside operation starts, so a transition is in flight at destroy time.
+        await setWorkspace(page, {holdMaximizeClear: true});
+        await setWorkspace(page, {closeItemId: 'gamma'});
+        await expect.poll(async () => JSON.parse(
+            (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
+        )).toEqual(['clear:start']);
+
+        // The addon witness, as in the owner-destroy arm: the exact tuple must be released.
+        await page.evaluate(() => {
+            const addon    = Neo.main.addon.ResizeObserver,
+                  original = addon.unregister;
+
+            window.__dockMaximizeUnregistered = [];
+            addon.unregister = function(data) {
+                window.__dockMaximizeUnregistered.push(`${data.componentId}:${data.id}`);
+                return original.call(this, data)
+            }
+        });
+
+        await page.evaluate(() => Neo.worker.App.destroyNeoInstance('dock-maximize-plugin'));
+
+        // The node is reset synchronously by the destroy, before the held clear ever resumes.
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
+        await page.waitForFunction(() => {
+            const el = document.getElementById('dock-maximize-pane-alpha')?.closest('.neo-dashboard-dock-tabs');
+
+            return el && !el.style.top && !el.style.width
+        });
+        await expect.poll(() => page.evaluate(() => window.__dockMaximizeUnregistered))
+            .toEqual(['dock-maximize-workspace:dock-maximize-workspace']);
+
+        // Release the held clear: its continuation resumes into a destroyed plugin and must not
+        // mutate the owner — the fixture records the resumption, the engine path stops there.
+        await setWorkspace(page, {releaseMaximizeClearCount: 1});
+        await expect.poll(async () => JSON.parse(
+            (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
+        )).toEqual(['clear:start', 'clear:apply']);
+
+        // The owner works on without its collaborator: a refresh projects, and the toggle is gone.
+        await setWorkspace(page, {refreshCount: 1});
+        await tabButton(main, 'Alpha').click();
+        await expect(actionButton(main, 'fa-times')).toHaveCount(1);
+        await expect(actionButton(main, 'fa-window-maximize')).toHaveCount(0);
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
+        expect(await page.evaluate(() => {
+            const el = document.getElementById('dock-maximize-pane-alpha')?.closest('.neo-dashboard-dock-tabs');
+
+            return {top: el?.style.top, width: el?.style.width, transform: el?.style.transform}
+        })).toEqual({top: '', width: '', transform: ''});
+        expect((await readWorkspace(page, ['isDestroyed']))[0], 'the owner lives on').toBeFalsy()
+    });
+
     test('re-projection reapply is part of the settled refresh surface', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 

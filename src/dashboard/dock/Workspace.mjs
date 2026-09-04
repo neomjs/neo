@@ -1618,12 +1618,31 @@ class Workspace extends Container {
     /**
      * The projection surface the owned collaborators contribute: every plugin exposing
      * `getDockProjectionOptions()` (the maximize plugin: its toggle and icon pair) merges into
-     * the adapter context ahead of {@link #getDockProjectionOptions}. A declined collaborator
-     * contributes nothing, so the adapter projects nothing for it.
+     * the adapter context, in `plugins` order, ahead of {@link #getDockProjectionOptions} — the
+     * consumer's hook overrides a collaborator key, and two collaborators may not claim the same
+     * key: that collision throws at projection, naming both, rather than letting the later one win
+     * in silence. A declined collaborator contributes nothing, so the adapter projects nothing for it.
      * @returns {Object}
      */
     getDockCollaboratorOptions() {
-        return Object.assign({}, ...(this.plugins || []).map(plugin => plugin.getDockProjectionOptions?.() || {}))
+        let options = {},
+            owners  = {},
+            contribution, key;
+
+        for (const plugin of this.plugins || []) {
+            contribution = plugin.getDockProjectionOptions?.() || {};
+
+            for (key in contribution) {
+                if (key in options) {
+                    throw new Error(`Dock projection option "${key}" is contributed by two collaborators: ${owners[key]} and ${plugin.className}`)
+                }
+
+                options[key] = contribution[key];
+                owners[key]  = plugin.className
+            }
+        }
+
+        return options
     }
 
     /**
@@ -2935,6 +2954,9 @@ class Workspace extends Container {
         // A committed operation is announced BEFORE it applies, so a collaborator holding runtime
         // presentation over the outgoing projection (the maximize plugin) can clear it terminally;
         // the re-projection continuity in refreshDockWorkspace() re-applies only what survived.
+        // Synchronous, listeners in subscription order, the outgoing document still committed; a
+        // listener writes its own state and never throws — a throw here aborts the commit, as it
+        // would on any listener.
         me.fire('beforeDockZoneDocumentChange', {descriptor, document, source});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
@@ -3205,10 +3227,17 @@ class Workspace extends Container {
         // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
         if (result === null) return;
 
-        // Awaited on purpose: refreshPromise is the settled-surface contract, and a collaborator
-        // presentation that re-applies after it settles is a surface nobody can await.
+        // Awaited on purpose, in plugins order: refreshPromise is the settled-surface contract, and
+        // a collaborator presentation that re-applies after it settles is a surface nobody can
+        // await. A collaborator that rejects is reported and skipped — presentation never fails a
+        // refresh, and the next collaborator still runs.
         for (const plugin of me.plugins || []) {
-            await plugin.syncDockProjection?.()
+            try {
+                await plugin.syncDockProjection?.()
+            } catch (error) {
+                console.warn(`Dock collaborator ${plugin.className} failed to sync its projection`, me.id, error);
+                me.fire('dockCollaboratorSyncFailed', {component: me, error, plugin})
+            }
         }
 
         // FLIP phase 2: fire-and-forget by default — the addon self-waits for the swap, inverts and
