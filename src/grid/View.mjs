@@ -124,6 +124,52 @@ class View extends Base {
     }
 
     /**
+     * Triggered after the isLoading config got changed
+     *
+     * {@link Neo.grid.Body#createViewData} refuses to project while the view is loading, and a store
+     * that commits inside that window fires its `load` into the refusal — so the rows keep showing
+     * the pre-load projection after the mask clears, with nothing left to re-run them. Clearing the
+     * flag is therefore a projection trigger and not only a mask removal, which is what any consumer
+     * wrapping a bulk store mutation in `isLoading` depends on.
+     *
+     * Every body is asked, not just `body`: `bodyStart` and `bodyEnd` project the same store through
+     * the same guard, so a locked-column grid would otherwise clear its mask over two stale flanks.
+     * @param {Boolean|String} value
+     * @param {Boolean|String} oldValue
+     * @protected
+     */
+    afterSetIsLoading(value, oldValue) {
+        let me = this;
+
+        super.afterSetIsLoading(value, oldValue);
+
+        if (oldValue !== undefined && !value) {
+            // Deferred one tick, and not for tidiness: the mask removal this call just published is
+            // still in flight, so a synchronous re-projection meets `createViewData`'s guard block
+            // while the body still measures as masked. That block returns BEFORE the `isVdomUpdating`
+            // branch that would re-register the work, so an early call is not merely early — it is
+            // dropped, and nothing schedules another.
+            //
+            // `createViewData` clears the CONTAINER's flag on its way out, which arrives back here as
+            // a no-op through the config's own equality gate, so this cannot re-enter.
+            // The deferral is detached, so it owns its terminal outcome. `core.Base#destroy` rejects
+            // every pending timeout with `Neo.isDestroyed`, and a view destroyed inside this one tick
+            // is an expected end to a re-projection into somewhere that no longer exists — not a
+            // failure to report. The `isDestroyed` guard below cannot cover it: that guard only runs
+            // when the timeout RESOLVES, and destroy makes it reject. Anything else IS a live failure
+            // and this chain has no caller to propagate to, so the console is the honest surface.
+            me.timeout(0)
+                .then(() => {
+                    me.isDestroyed || me.items?.forEach(body => body.createViewData?.(false, true))
+                })
+                .catch(reason => {
+                    reason !== Neo.isDestroyed &&
+                        console.error('grid.View: deferred re-projection failed', {id: me.id, reason})
+                })
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed. Registers grid.View (not a body) as the
      * model's `view`, so a single model owns selection state across all bodies.
      * @param {Neo.selection.Model} value
