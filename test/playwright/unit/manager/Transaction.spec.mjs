@@ -151,5 +151,36 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         connect('legacy-window');
 
         expect(Transaction.items, 'no identity slot in windowData: nothing bound').toHaveLength(before)
+    });
+
+    test('the carrier learns what the worker decided: minted and forked identities are written back, a rebind is not', () => {
+        const writes = [];
+
+        Neo.ns('Neo.Main', true).setTopologyIdentity = data => writes.push(data);
+
+        try {
+            connect('r1', {});
+
+            expect(writes).toHaveLength(1);
+
+            const identity = writes[0];
+
+            expect(identity).toEqual({generationToken: expect.any(String), groupId: expect.any(String), windowId: 'r1', workspaceKey: 'main'});
+
+            // A warm reload presents the carried identity and rebinds — the carrier already holds it.
+            Transaction.onWindowDisconnect({windowId: 'r1'});
+            connect('r2', {generationToken: identity.generationToken, groupId: identity.groupId, workspaceKey: 'main'});
+
+            expect(writes, 'a rebind carries nothing new').toHaveLength(1);
+
+            // A copied identity while r2 is live forks, and the fork's window learns its new Group.
+            connect('r3', {generationToken: identity.generationToken, groupId: identity.groupId, workspaceKey: 'main'});
+
+            expect(writes).toHaveLength(2);
+            expect(writes[1].windowId).toBe('r3');
+            expect(writes[1].groupId).not.toBe(identity.groupId)
+        } finally {
+            delete Neo.Main.setTopologyIdentity
+        }
     })
 });

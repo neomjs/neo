@@ -232,7 +232,22 @@ class Transaction extends Manager {
         // are left alone; consumers opting in present `topologyIdentity: {}` for a fresh root.
         if (identity === undefined) return;
 
-        this.bind({...identity, windowId})
+        const result = this.bind({...identity, windowId});
+
+        // The carrier learns what the worker decided: a minted, cold or forked identity differs from the
+        // one presented; a plain bind or rebind changes nothing the window did not already carry.
+        if (
+            result.groupId         !== identity.groupId      ||
+            result.workspaceKey    !== identity.workspaceKey ||
+            result.generationToken !== identity.generationToken
+        ) {
+            Neo.Main?.setTopologyIdentity?.({
+                generationToken: result.generationToken,
+                groupId        : result.groupId,
+                windowId,
+                workspaceKey   : result.workspaceKey
+            })
+        }
     }
 
     /**

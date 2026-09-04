@@ -103,6 +103,15 @@ class Main extends core.Base {
          */
         nativeRouteTtl: 5000,
         /**
+         * The `sessionStorage` key carrying this window's topology identity — `{groupId, workspaceKey,
+         * generationToken}` — across page loads. A same-origin popup inherits a copy at creation, which
+         * {@link #windowOpen} replaces with the slot its opener reserved, or clears so the popup boots as
+         * a root of its own. The App Worker's `Neo.manager.Transaction` decides what the identity means;
+         * this thread only carries it.
+         * @member {String} topologyIdentityStorageKey='neo-topology-identity'
+         */
+        topologyIdentityStorageKey: 'neo-topology-identity',
+        /**
          * @member {Object} nativeWindowCapabilities
          * @protected
          */
@@ -141,6 +150,7 @@ class Main extends core.Base {
                 'reloadWindow',
                 'setNeoConfig',
                 'setRoute',
+                'setTopologyIdentity',
                 'windowClose',
                 'windowCloseAll',
                 'windowFocus',
@@ -334,7 +344,45 @@ class Main extends core.Base {
                 width      : screen.width
             },
             screenLeft: win.screenLeft,
-            screenTop : win.screenTop
+            screenTop : win.screenTop,
+            topologyIdentity: this.readTopologyIdentity(win)
+        }
+    }
+
+    /**
+     * Reads this window's carried topology identity. An empty object means "no identity yet": the App
+     * Worker mints one and writes it back through {@link #setTopologyIdentity}. Unavailable storage and a
+     * malformed or incomplete record read the same way, so the window boots as a fresh root instead of
+     * failing.
+     * @param {Window} [win=window]
+     * @returns {{groupId: String, workspaceKey: String, generationToken: String}|{}}
+     */
+    readTopologyIdentity(win=window) {
+        try {
+            const {generationToken, groupId, workspaceKey} = JSON.parse(win.sessionStorage?.getItem(this.topologyIdentityStorageKey) || 'null') || {};
+
+            return groupId && workspaceKey && generationToken ? {generationToken, groupId, workspaceKey} : {}
+        } catch {
+            return {}
+        }
+    }
+
+    /**
+     * Writes the identity the App Worker bound this window to, so the next page load presents it again.
+     * `Neo.manager.Transaction` calls this after it minted, cold-created or forked a Group for the window;
+     * a plain bind or rebind writes nothing, because the carrier already holds what it presented.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @param {String} data.generationToken
+     * @returns {Boolean} Whether the carrier accepted the write.
+     */
+    setTopologyIdentity({generationToken, groupId, workspaceKey}) {
+        try {
+            window.sessionStorage.setItem(this.topologyIdentityStorageKey, JSON.stringify({generationToken, groupId, workspaceKey}));
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -1098,7 +1146,7 @@ class Main extends core.Base {
      * @param {String}  data.windowName
      * @return {Boolean}
      */
-    windowOpen({nativeCapabilities, stagedColorScheme, url, useTotalHeight=true, windowFeatures, windowName}) {
+    windowOpen({nativeCapabilities, stagedColorScheme, topologyIdentity=null, url, useTotalHeight=true, windowFeatures, windowName}) {
         let existingWin = this.openWindows[windowName],
             stagedUrl   = null,
             targetName;
@@ -1166,6 +1214,16 @@ class Main extends core.Base {
             } catch {
                 this.#pendingWindowRoutes.delete(token)
             }
+            // A same-origin child inherits a copy of this window's identity at creation. The opener's
+            // reservation replaces it; without one the copy is cleared, so the popup boots as a root of
+            // its own instead of forking the opener's Group on connect.
+            try {
+                if (topologyIdentity) {
+                    openedWindow.sessionStorage.setItem(this.topologyIdentityStorageKey, JSON.stringify(topologyIdentity))
+                } else {
+                    openedWindow.sessionStorage.removeItem(this.topologyIdentityStorageKey)
+                }
+            } catch {/* Cross-origin or unavailable storage: the child boots as a fresh root. */}
 
             if (useTotalHeight) {
                 openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)
