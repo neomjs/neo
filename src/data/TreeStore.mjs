@@ -1285,8 +1285,9 @@ class TreeStore extends Store {
         if (me[isFiltered]) {
             me.filter();
 
-            // Collection fires mutate if added or removed items > 0
-            if (toAddArray || removeCountOrToRemoveArray) {
+            // Collection fires mutate if added or removed items > 0 — unless this is the
+            // projection's own event-free write
+            if (!silent && (toAddArray || removeCountOrToRemoveArray)) {
                 me.fire('mutate', {
                     addedItems     : toAddArray || [],
                     preventBubbleUp: me.preventBubbleUp,
@@ -1306,7 +1307,8 @@ class TreeStore extends Store {
 
         // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
         // so we skipped super.splice(). We must manually fire 'mutate' to keep systems like Store.count in sync.
-        if (toAddArray || removeCountOrToRemoveArray) {
+        // The projection's own write (`silent`) fires nothing on this exit either.
+        if (!silent && (toAddArray || removeCountOrToRemoveArray)) {
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,

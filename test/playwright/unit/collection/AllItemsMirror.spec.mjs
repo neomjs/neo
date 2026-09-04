@@ -14,6 +14,7 @@ import * as core       from '../../../../src/core/_export.mjs';
 import Collection      from '../../../../src/collection/Base.mjs';
 import Model           from '../../../../src/data/Model.mjs';
 import Store           from '../../../../src/data/Store.mjs';
+import TreeStore       from '../../../../src/data/TreeStore.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 
 /**
@@ -220,5 +221,40 @@ test.describe('Neo.collection.Base — allItems mirrors inside the mutation', ()
 
         expect(['a', 'b', 'c', 'd'].map(id => derived.map.has(id))).toEqual([true, true, true, true]);
         expect(source.allItems.count).toBe(5)
-    })
+    });
+
+    // A tree store's projection write is event-free on EVERY exit of `TreeStore#splice`: the
+    // visible-delta exit reaches the Collection's `splice`; the two exits that do not — a node added
+    // under a collapsed parent (no visible delta) and a store with an active filter — fire their own
+    // `mutate`, and honor `silent` there too. The same exit without `silent` keeps its one event.
+    const treeRows = () => [
+        {id: 'file',      text: 'File',  isLeaf: false, collapsed: true},
+        {id: 'file-open', text: 'Open',  isLeaf: true,  parentId: 'file'},
+        {id: 'about',     text: 'About', isLeaf: true}
+    ];
+
+    for (const [label, filters, row] of [
+        ['a node under a collapsed parent — the hidden-node exit', null, {id: 'file-save', text: 'Save', isLeaf: true, parentId: 'file'}],
+        ['a store with an active filter — the filtered exit', [{property: 'id', operator: 'like', value: 'o'}], {id: 'help', text: 'Help', isLeaf: true}]
+    ]) {
+        test(`a tree store's silent splice fires nothing: ${label}`, () => {
+            const store = Neo.create(TreeStore, {data: treeRows()});
+
+            created.push(store);
+
+            // assigned after construction, the consumer's shape: the filter pass runs on the
+            // populated tree and the store takes its filtered exit from here on
+            filters && (store.filters = filters);
+
+            let events = 0;
+
+            store.on('mutate', () => events++);
+
+            store.splice(null, [], [row], true);
+            expect(events).toBe(0);
+
+            store.splice(null, [], [{...row, id: row.id + '-2'}]);
+            expect(events).toBe(1)
+        })
+    }
 });
