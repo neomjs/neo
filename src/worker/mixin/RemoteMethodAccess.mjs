@@ -170,6 +170,11 @@ class RemoteMethodAccess extends Base {
      * It iterates over the list of methods provided in the remote config and generates local proxy functions
      * for them in the appropriate namespace. This makes the remote methods available to be called as if they were local.
      *
+     * Idempotent: the same registration can reach a thread twice — a SharedWorker replays every stored
+     * registration to each newly connected port, and the singleton's own startup registration also
+     * addresses the first window. The namespace is the class's own, so a second arrival keeps the existing
+     * proxy and is never a conflict.
+     *
      * @param {Object} remote The remote configuration object containing className and methods list.
      */
     onRegisterRemote(remote) {
@@ -179,10 +184,6 @@ class RemoteMethodAccess extends Base {
                 pkg                  = Neo.ns(className, true);
 
             methods.forEach(method => {
-                if (remote.origin !== 'main' && pkg[method]) {
-                    throw new Error('Duplicate remote method definition ' + className + '.' + method)
-                }
-
                 pkg[method] ??= me.generateRemote({
                     className: remote.className,
                     origin   : remote.origin

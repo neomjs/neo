@@ -206,8 +206,10 @@ class Worker extends Base {
 
         me.sendMessage(id, {action: 'workerConstructed', port: id})
 
+        // Addressed to `main`, because the receiving thread accepts a registration only when the
+        // destination names it; routed to exactly the new port through `opts.port`.
         me.remotesToRegister.forEach(remote => {
-            me.sendMessage(id, {action : 'registerRemote', ...remote})
+            me.sendMessage('main', {action: 'registerRemote', port: id, ...remote})
         });
 
         me.afterConnect()
