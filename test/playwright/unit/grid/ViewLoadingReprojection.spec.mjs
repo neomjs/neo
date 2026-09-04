@@ -137,24 +137,54 @@ test.describe('Neo.grid.View — clearing isLoading re-projects', () => {
     });
 
     /**
-     * Silence is two different outcomes here and the arm above cannot tell them apart: a deferral
-     * that declined to project, and a deferral whose promise rejected with nobody listening. Both
-     * leave `body.calls` empty. `core.Base#destroy` rejects pending timeouts with `Neo.isDestroyed`,
-     * so the second is what an unguarded chain actually produces — one `ERR_UNHANDLED_REJECTION`
-     * per teardown inside the window.
+     * The terminal has two halves and only one of them is witnessable in this tier.
      *
-     * Same shape as the landed `DispatchTerminalOutcome.spec.mjs`: record both escape channels, and
-     * require that the expected sentinel is consumed WITHOUT muting a real failure.
+     * The half that is NOT: `core.Base#destroy` rejects pending timeouts with `Neo.isDestroyed`, and
+     * an unguarded `timeout().then()` therefore leaks a rejected child promise. That surfaces as
+     * `ERR_UNHANDLED_REJECTION` under strict Node isolation — but NOT here. Measured, not assumed:
+     * a control that reproduces the raw unguarded shape (`inst.timeout(0).then(() => {}); inst.destroy()`)
+     * and records `process.on('unhandledRejection')` for 400ms observes **zero** in this runner. An
+     * arm asserting `unhandled === []` would therefore pass with the `.catch` deleted, which is a
+     * green that means nothing.
+     *
+     * The half that IS witnessable is the one a blanket catch would destroy: an UNEXPECTED failure
+     * inside the deferral must still reach the console. Deleting the `.catch` makes this arm red,
+     * because the rejection then escapes the chain instead of being reported — so this is the arm
+     * that actually holds the terminal in place.
+     *
+     * @see Neo.grid.Body#onStoreLoad — the landed terminal-outcome idiom this follows.
      */
-    test('the destroyed deferral consumes its cancellation instead of leaking a rejection', async () => {
-        const unhandled     = [],
-              consoleErrors = [],
-              onUnhandled   = value => unhandled.push(value),
+    test('an unexpected failure inside the deferral still reaches the console', async () => {
+        const consoleErrors = [],
+              originalError = console.error,
+              boom          = new Error('projection exploded');
+
+        attachBodies({
+            createViewData() { throw boom }
+        });
+
+        console.error = (...args) => consoleErrors.push(args);
+
+        try {
+            view.isLoading = 'Loading';
+            view.isLoading = false;
+
+            await new Promise(resolve => setTimeout(resolve, 50))
+        } finally {
+            console.error = originalError
+        }
+
+        expect(consoleErrors, 'a live failure has no caller to propagate to, so it must be reported')
+            .toHaveLength(1);
+        expect(consoleErrors[0][1].reason, 'the real reason survives, unwrapped').toBe(boom)
+    });
+
+    test('the expected teardown cancellation is consumed silently', async () => {
+        const consoleErrors = [],
               originalError = console.error;
 
         attachBodies(createBodyStub());
 
-        process.on('unhandledRejection', onUnhandled);
         console.error = (...args) => consoleErrors.push(args);
 
         try {
@@ -162,16 +192,12 @@ test.describe('Neo.grid.View — clearing isLoading re-projects', () => {
             view.isLoading = false;
             view.destroy();
 
-            // Past the deferral, then far enough for Node to have decided a rejection is unhandled —
-            // that verdict lands a macrotask after the microtask queue drains.
-            await new Promise(resolve => setTimeout(resolve, 300))
+            await new Promise(resolve => setTimeout(resolve, 50))
         } finally {
-            process.off('unhandledRejection', onUnhandled);
             console.error = originalError
         }
 
-        expect(unhandled,     'the Neo.isDestroyed sentinel is an expected outcome').toEqual([]);
-        expect(consoleErrors, 'an expected cancellation is not a reportable failure').toEqual([]);
+        expect(consoleErrors, 'Neo.isDestroyed is an expected end, not a reportable failure').toEqual([]);
 
         view = null
     })
