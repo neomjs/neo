@@ -4055,8 +4055,8 @@ class Workspace extends Container {
      * refusal below leaves the workspace exactly as it was. The docking record's user-triggered
      * recreate exception is conditioned on this phase — without a validated candidate the exception
      * does not apply and the never-destroyed guarantee stands unmodified.
-     * @see ADR 0029 §2.6 — ticket-ref-ok: the record IS this method's authority, not a tracking ref;
-     *      the contract is unreadable without it and an accepted ADR section does not close.
+     * @see learn/agentos/decisions/0029-docking-design.md §2.6 — the docking record is this method's
+     *      authority, not a tracking reference; the contract is unreadable without it.
      *
      * The three refusals are the ones a cache-backed resolver actually produces:
      *
