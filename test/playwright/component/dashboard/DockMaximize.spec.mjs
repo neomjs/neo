@@ -1,8 +1,9 @@
 import {test, expect} from '@playwright/test';
 
 /**
- * The engine-owned dock maximize toggle (`Neo.dashboard.dock.Workspace#enableDockMaximizeAction`),
- * witnessed on a rendered workspace rather than on projection JSON:
+ * The engine-owned dock maximize toggle (`Neo.dashboard.dock.plugin.Maximize`, installed by
+ * `Neo.dashboard.dock.Workspace#enableDockMaximizeAction`), witnessed on a rendered workspace
+ * rather than on projection JSON:
  *
  * - **Presentation, never topology.** The pane paints the MEASURED workspace rect in place — the
  *   same DOM node, the same iframe browsing context — and the committed document plus captured
@@ -16,22 +17,29 @@ import {test, expect} from '@playwright/test';
  *   motion.
  *
  * The fixture's reactive trigger configs are the spec's only cross-worker RPC: worker-side probes
- * are `setConfigs` writes that recompute `getConfigs`-readable mirror fields.
+ * are `setConfigs` writes that recompute `getConfigs`-readable mirror fields. The transient and
+ * the observer flag live on the plugin, addressed under its fixed fixture id.
  */
 
 const WORKSPACE_ID = 'dock-maximize-workspace';
+const PLUGIN_ID    = 'dock-maximize-plugin';
 
-const readWorkspace = async (page, keys) => {
+const readInstance = async (page, id, keys) => {
     // The main-realm remote answers with the worker-message envelope; the values ride `.data`.
-    const reply = await page.evaluate(data => Neo.worker.App.getConfigs(data), {id: WORKSPACE_ID, keys});
+    const reply = await page.evaluate(data => Neo.worker.App.getConfigs(data), {id, keys});
 
     return reply?.data ?? reply
 };
 
-const setWorkspace = (page, configs) => page.evaluate(
+const setInstance = (page, id, configs) => page.evaluate(
     data => Neo.worker.App.setConfigs(data),
-    {id: WORKSPACE_ID, ...configs}
+    {id, ...configs}
 );
+
+const readWorkspace = (page, keys)    => readInstance(page, WORKSPACE_ID, keys);
+const setWorkspace  = (page, configs) => setInstance(page, WORKSPACE_ID, configs);
+const readPlugin    = (page, keys)    => readInstance(page, PLUGIN_ID, keys);
+const setPlugin     = (page, configs) => setInstance(page, PLUGIN_ID, configs);
 
 const tabsNodeWith = (page, tabText) => page.locator('.neo-dashboard-dock-tabs', {
     has: page.locator(`.neo-tab-header-button:has-text("${tabText}")`)
@@ -45,11 +53,11 @@ const actionButton = (node, glyph) => node.locator(`.neo-tab-header-toolbar .neo
  * `toHaveCount` on the maximize marker, plus the one observable that splits this arm's failure
  * space when it reds — `maximizedNodeId`, read at failure time.
  *
- * `Workspace#applyDockMaximizePresentation` has two terminal exits that both leave the marker at
- * 0 forever, and the DOM cannot tell them apart:
+ * `Maximize#applyPresentation` has two terminal exits that both leave the marker at 0 forever,
+ * and the DOM cannot tell them apart:
  *
- * - **`null`** — the fail-safe (`failDockMaximize`) cleared the transient, because the tabs node
- *   did not resolve or `measureDockMaximizeRect` returned a 0×0 workspace rect.
+ * - **`null`** — the fail-safe (`Maximize#fail`) cleared the transient, because the tabs node
+ *   did not resolve or `measureRect` returned a 0×0 host rect.
  * - **a surviving id** — the config write landed and the presentation was lost downstream of it.
  *
  * Without that read a failure is a bare "expected 1, received 0" and the two families are
@@ -65,7 +73,7 @@ const expectMaximizedCount = async (page, count) => {
         let nodeId;
 
         try {
-            [nodeId] = await readWorkspace(page, ['maximizedNodeId'])
+            [nodeId] = await readPlugin(page, ['maximizedNodeId'])
         } catch (readError) {
             nodeId = `<unreadable: ${readError.message}>`
         }
@@ -151,7 +159,7 @@ test.describe('dock maximize — presentation, never topology', () => {
 
         expect(chrome.boxShadow, 'the maximized pane floats on the shadow token').not.toBe('none');
 
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['side-tabs']);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['side-tabs']);
 
         // No re-parent: the identical element, the identical browsing context. A re-parented
         // iframe reloads, wiping `contentWindow` expando state.
@@ -172,7 +180,7 @@ test.describe('dock maximize — presentation, never topology', () => {
             return el && !el.style.top && !el.style.width
         });
 
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual([null]);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual([null]);
 
         expect(await page.evaluate(() => {
             const frame = document.getElementById('dock-maximize-frame');
@@ -194,7 +202,7 @@ test.describe('dock maximize — presentation, never topology', () => {
         await actionButton(edge, 'fa-window-maximize').click();
 
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['edge-tabs']);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['edge-tabs']);
 
         // The band's `max-inline-size: 50%` used to survive the maximize class and cap the written
         // rect at half the host; the host-rect match below is the regression, the cap read the cause.
@@ -225,8 +233,8 @@ test.describe('dock maximize — presentation, never topology', () => {
 
         await setWorkspace(page, {captureCount: 2});
 
-        const [docDuring, perspectiveDuring, nodeId] =
-            await readWorkspace(page, ['docJson', 'perspectiveJson', 'maximizedNodeId']);
+        const [docDuring, perspectiveDuring] = await readWorkspace(page, ['docJson', 'perspectiveJson']),
+              [nodeId]                       = await readPlugin(page, ['maximizedNodeId']);
 
         expect(nodeId).toBe('main-tabs');
         expect(docDuring).toBe(docBefore);
@@ -252,7 +260,7 @@ test.describe('dock maximize — presentation, never topology', () => {
         // the second click of any real session, and the reason the operation boundary is scoped.
         await tabButton(main, 'Beta').click();
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
 
         // closeItem INSIDE (the node survives): still maximized.
         await actionButton(main, 'fa-times').click();
@@ -263,23 +271,23 @@ test.describe('dock maximize — presentation, never topology', () => {
         // it would take sits under the maximized plane, which is itself part of the contract.
         await setWorkspace(page, {closeItemId: 'gamma'});
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual([null]);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual([null]);
 
         // Continuity: a NON-operation re-projection re-applies a surviving transient…
-        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+        await setPlugin(page, {maximizedNodeId: 'main-tabs'});
         // This re-apply follows a cross-worker write with no committed operation behind it, so a
         // failure here has two indistinguishable families — hence the reporting variant.
         await expectMaximizedCount(page, 1);
 
         await setWorkspace(page, {refreshCount: 1});
         await page.waitForFunction(() => document.querySelectorAll('.neo-dock-maximized').length === 1);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
 
         // …and the fail-safe clears an unresolvable one — never a half state. Eventual by
         // contract: the clear is deterministic, not synchronous with the config write.
-        await setWorkspace(page, {maximizedNodeId: 'ghost-tabs'});
+        await setPlugin(page, {maximizedNodeId: 'ghost-tabs'});
         await page.waitForFunction(() => document.querySelectorAll('.neo-dock-maximized').length === 0);
-        await expect.poll(async () => (await readWorkspace(page, ['maximizedNodeId']))[0]).toBe(null)
+        await expect.poll(async () => (await readPlugin(page, ['maximizedNodeId']))[0]).toBe(null)
     });
 
     test('a superseding maximize waits for the prior clear and its refresh', async ({page}) => {
@@ -300,13 +308,13 @@ test.describe('dock maximize — presentation, never topology', () => {
 
         // Supersede the clear while it is held. The new apply must queue; starting it here races a
         // stale presentation against both the prior clear and the operation's re-projection.
-        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+        await setPlugin(page, {maximizedNodeId: 'main-tabs'});
         expect(JSON.parse((await readWorkspace(page, ['maximizeTransitionLogJson']))[0]))
             .toEqual(['clear:start']);
 
         await setWorkspace(page, {releaseMaximizeClearCount: 1});
         await expectMaximizedCount(page, 1);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
         await expect.poll(async () => JSON.parse(
             (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
         ).length).toBeGreaterThanOrEqual(3);
@@ -325,7 +333,7 @@ test.describe('dock maximize — presentation, never topology', () => {
         await expect.poll(async () => (
             await readWorkspace(page, ['maximizeCycleSyncSettled'])
         )[0]).toBe(true);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual([null])
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual([null])
     });
 
     test('while maximized, the workspace resize observation re-measures the rect live', async ({page}) => {
@@ -336,7 +344,7 @@ test.describe('dock maximize — presentation, never topology', () => {
         await maximizedRectMatchesHost(page);
 
         // The observation exists exactly as long as the presentation does.
-        await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(true);
+        await expect.poll(async () => (await readPlugin(page, ['resizeObserved']))[0]).toBe(true);
 
         const original = page.viewportSize();
 
@@ -394,13 +402,13 @@ test.describe('dock maximize — presentation, never topology', () => {
         // An in-node reorder through the addTab→moveItem redirect — confined.
         await setWorkspace(page, {addTabJson: JSON.stringify({itemId: 'beta', tabsNodeId: 'main-tabs', index: 0})});
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
 
         // Relocating a SIBLING's item into the maximized node reaches beyond it: the addTab
         // handler re-dispatches to a cross-node moveItem, and the pre-clear must fire.
         await setWorkspace(page, {addTabJson: JSON.stringify({itemId: 'gamma', tabsNodeId: 'main-tabs', index: 1})});
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual([null])
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual([null])
     });
 
     test('engaging maximize dismisses a live reveal overlay — one overlay tier at a time', async ({page}) => {
@@ -413,26 +421,26 @@ test.describe('dock maximize — presentation, never topology', () => {
         // Engage maximize WITHOUT a pointer interaction (setConfigs), so no generic
         // outside-click/focus-leave dismissal can fire first — the deterministic dismissal in
         // the presentation apply is the only thing that can close the overlay here.
-        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
+        await setPlugin(page, {maximizedNodeId: 'main-tabs'});
 
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
         await expect(visibleOverlay).toHaveCount(0)
     });
 
     test('the observation lives exactly as long as a presentation — teardown, rapid regeneration, destroy', async ({page}) => {
-        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
-        await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(true);
+        await setPlugin(page, {maximizedNodeId: 'main-tabs'});
+        await expect.poll(async () => (await readPlugin(page, ['resizeObserved']))[0]).toBe(true);
 
         // Ordinary restore tears down.
-        await setWorkspace(page, {maximizedNodeId: null});
-        await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(false);
+        await setPlugin(page, {maximizedNodeId: null});
+        await expect.poll(async () => (await readPlugin(page, ['resizeObserved']))[0]).toBe(false);
 
         // Rapid A → restore → B: the old restore's deferred unregister must not blind the new
         // generation — B must end observed with resize delivery live.
-        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
-        await setWorkspace(page, {maximizedNodeId: null});
-        await setWorkspace(page, {maximizedNodeId: 'side-tabs'});
-        await expect.poll(async () => await readWorkspace(page, ['maximizedNodeId', 'dockMaximizeResizeObserved']))
+        await setPlugin(page, {maximizedNodeId: 'main-tabs'});
+        await setPlugin(page, {maximizedNodeId: null});
+        await setPlugin(page, {maximizedNodeId: 'side-tabs'});
+        await expect.poll(async () => await readPlugin(page, ['maximizedNodeId', 'resizeObserved']))
             .toEqual(['side-tabs', true]);
 
         const before = (await readWorkspace(page, ['resizeEventCount']))[0],
@@ -442,15 +450,33 @@ test.describe('dock maximize — presentation, never topology', () => {
         await expect.poll(async () => (await readWorkspace(page, ['resizeEventCount']))[0], {timeout: 10_000}).toBeGreaterThan(before);
 
         // The fail-safe clear tears down.
-        await setWorkspace(page, {maximizedNodeId: 'ghost-tabs'});
-        await expect.poll(async () => await readWorkspace(page, ['maximizedNodeId', 'dockMaximizeResizeObserved']))
+        await setPlugin(page, {maximizedNodeId: 'ghost-tabs'});
+        await expect.poll(async () => await readPlugin(page, ['maximizedNodeId', 'resizeObserved']))
             .toEqual([null, false]);
 
-        // Destroy while observed tears down at the addon — read through the surviving probe.
-        await setWorkspace(page, {maximizedNodeId: 'main-tabs'});
-        await expect.poll(async () => (await readWorkspace(page, ['dockMaximizeResizeObserved']))[0]).toBe(true);
+        // Destroy while observed tears down AT THE ADDON. The plugin's own flag is wiped with the
+        // instance (so its log line reads "torn" whether or not the addon was told), which is why
+        // the witness is the addon's `unregister` call in the main realm, recorded before the
+        // destroy is issued.
+        await setPlugin(page, {maximizedNodeId: 'main-tabs'});
+        await expect.poll(async () => (await readPlugin(page, ['resizeObserved']))[0]).toBe(true);
+
+        await page.evaluate(() => {
+            const addon    = Neo.main.addon.ResizeObserver,
+                  original = addon.unregister;
+
+            window.__dockMaximizeUnregistered = [];
+            addon.unregister = function(data) {
+                window.__dockMaximizeUnregistered.push(`${data.componentId}:${data.id}`);
+                return original.call(this, data)
+            }
+        });
 
         await page.evaluate(() => Neo.worker.App.destroyNeoInstance('dock-maximize-workspace'));
+
+        await expect.poll(() => page.evaluate(() => window.__dockMaximizeUnregistered), {
+            message: 'the owner destroy reaches the addon with the workspace id'
+        }).toEqual(['dock-maximize-workspace:dock-maximize-workspace']);
 
         await expect.poll(async () => {
             const reply = await page.evaluate(() => Neo.worker.App.getConfigs({id: 'dock-maximize-probe', keys: ['observerLogJson']})),
@@ -458,6 +484,66 @@ test.describe('dock maximize — presentation, never topology', () => {
 
             return log[log.length - 1]
         }).toBe('destroy:true->torn')
+    });
+
+    test('a plugin destroyed while its owner lives resets the node, and a held transition cannot touch it afterwards', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+        await expectMaximizedCount(page, 1);
+        await expect.poll(async () => (await readPlugin(page, ['resizeObserved']))[0]).toBe(true);
+
+        // Hold the clear an outside operation starts, so a transition is in flight at destroy time.
+        await setWorkspace(page, {holdMaximizeClear: true});
+        await setWorkspace(page, {closeItemId: 'gamma'});
+        await expect.poll(async () => JSON.parse(
+            (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
+        )).toEqual(['clear:start']);
+
+        // The addon witness, as in the owner-destroy arm: the exact tuple must be released.
+        await page.evaluate(() => {
+            const addon    = Neo.main.addon.ResizeObserver,
+                  original = addon.unregister;
+
+            window.__dockMaximizeUnregistered = [];
+            addon.unregister = function(data) {
+                window.__dockMaximizeUnregistered.push(`${data.componentId}:${data.id}`);
+                return original.call(this, data)
+            }
+        });
+
+        await page.evaluate(() => Neo.worker.App.destroyNeoInstance('dock-maximize-plugin'));
+
+        // The node is reset synchronously by the destroy, before the held clear ever resumes.
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
+        await page.waitForFunction(() => {
+            const el = document.getElementById('dock-maximize-pane-alpha')?.closest('.neo-dashboard-dock-tabs');
+
+            return el && !el.style.top && !el.style.width
+        });
+        await expect.poll(() => page.evaluate(() => window.__dockMaximizeUnregistered))
+            .toEqual(['dock-maximize-workspace:dock-maximize-workspace']);
+
+        // Release the held clear: its continuation resumes into a destroyed plugin and must not
+        // mutate the owner — the fixture records the resumption, the engine path stops there.
+        await setWorkspace(page, {releaseMaximizeClearCount: 1});
+        await expect.poll(async () => JSON.parse(
+            (await readWorkspace(page, ['maximizeTransitionLogJson']))[0]
+        )).toEqual(['clear:start', 'clear:apply']);
+
+        // The owner works on without its collaborator: a refresh projects, and the toggle is gone.
+        await setWorkspace(page, {refreshCount: 1});
+        await tabButton(main, 'Alpha').click();
+        await expect(actionButton(main, 'fa-times')).toHaveCount(1);
+        await expect(actionButton(main, 'fa-window-maximize')).toHaveCount(0);
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
+        expect(await page.evaluate(() => {
+            const el = document.getElementById('dock-maximize-pane-alpha')?.closest('.neo-dashboard-dock-tabs');
+
+            return {top: el?.style.top, width: el?.style.width, transform: el?.style.transform}
+        })).toEqual({top: '', width: '', transform: ''});
+        expect((await readWorkspace(page, ['isDestroyed']))[0], 'the owner lives on').toBeFalsy()
     });
 
     test('re-projection reapply is part of the settled refresh surface', async ({page}) => {

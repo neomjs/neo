@@ -167,6 +167,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
             .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);
 
         expect(findTabsConfig(project({
+            enableDockMaximizeAction: true,
             resolveDockHeaderActions: () => [{action: 'lock'}]
         })).headerActions.map(action => action.action))
             .toEqual(['lock', 'reload', 'pin', 'pop-out', 'maximize', 'close']);

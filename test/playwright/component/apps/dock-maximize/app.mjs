@@ -1,5 +1,6 @@
 import Component     from '../../../../../src/component/Base.mjs';
 import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
+import Maximize      from '../../../../../src/dashboard/dock/plugin/Maximize.mjs';
 import Persistence   from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import Viewport      from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
@@ -189,6 +190,94 @@ const syncObserverProbe = () => {
 };
 
 /**
+ * @summary The engine maximize plugin under a fixed id, with the fixture's transition hold and
+ * observer log layered on. The production methods still own every effect; the workspace supplies
+ * this instance through `plugins`, so the engine installs no second one.
+ */
+class MaximizeFixturePlugin extends Maximize {
+    static config = {
+        /**
+         * @member {String} className='Test.Playwright.Component.DockMaximize.Plugin'
+         * @protected
+         */
+        className: 'Test.Playwright.Component.DockMaximize.Plugin',
+        /**
+         * The spec's `getConfigs`/`setConfigs` address for the transient and the observer flag.
+         * @member {String} id='dock-maximize-plugin'
+         */
+        id: 'dock-maximize-plugin'
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onOwnerResize(data) {
+        this.owner.resizeEventCount++;
+
+        return super.onOwnerResize(data)
+    }
+
+    /**
+     * @param {Boolean} register
+     */
+    async registerResizeObserver(register) {
+        await super.registerResizeObserver(register);
+
+        observerLog.push(`${register ? 'reg' : 'unreg'}:${this.resizeObserved}`);
+        syncObserverProbe()
+    }
+
+    /**
+     * Records when a maximize apply starts.
+     * @param {String} nodeId
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async applyPresentation(nodeId, options) {
+        this.owner.holdMaximizeClear && this.owner.recordMaximizeTransition(`apply:${nodeId}`);
+
+        return super.applyPresentation(nodeId, options)
+    }
+
+    /**
+     * Holds one clear before its destructive presentation mutation so the spec can issue a
+     * superseding maximize and observe whether the two transitions overlap.
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async clearPresentation(options) {
+        const {owner} = this;
+
+        if (owner.holdMaximizeClear) {
+            owner.recordMaximizeTransition('clear:start');
+
+            await new Promise(resolve => {
+                owner.maximizeClearRelease = resolve
+            });
+
+            owner.recordMaximizeTransition('clear:apply')
+        }
+
+        return super.clearPresentation(options)
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        const wasObserved = this.resizeObserved;
+
+        super.destroy(...args);
+
+        // Post-destroy the engine wipes instance fields, so read "torn" as any non-true value.
+        observerLog.push(`destroy:${wasObserved}->${this.resizeObserved ? 'live' : 'torn'}`);
+        syncObserverProbe()
+    }
+}
+
+MaximizeFixturePlugin = Neo.setupClass(MaximizeFixturePlugin);
+
+/**
  * @summary Browser fixture for the engine-owned maximize toggle: both action flags on, a split
  * document with two tabs nodes, and an iframe pane whose browsing context is the no-reparent
  * witness. The reactive trigger configs below are the spec's cross-worker RPC: a component spec
@@ -251,13 +340,14 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         enableDockCloseAction: true,
         /**
-         * @member {Boolean} enableDockMaximizeAction=true
-         */
-        enableDockMaximizeAction: true,
-        /**
          * @member {Boolean} enableDockReloadAction=true
          */
         enableDockReloadAction: true,
+        /**
+         * The instrumented maximize plugin stands in for the engine default.
+         * @member {Object[]} plugins=[{module:MaximizeFixturePlugin}]
+         */
+        plugins: [{module: MaximizeFixturePlugin}],
         /**
          * @member {String} id='dock-maximize-workspace'
          */
@@ -286,8 +376,8 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         releaseMaximizeClearCount_: 0,
         /**
-         * Spec trigger: builds the refreshPromise ↔ dockMaximizeTransition cycle and records
-         * whether the refresh-owned sync can settle without its own promise being released first.
+         * Spec trigger: builds the refreshPromise ↔ plugin transition cycle and records whether
+         * the refresh-owned sync can settle without its own promise being released first.
          * @member {Number} maximizeCycleProbeCount_=0
          * @reactive
          */
@@ -390,76 +480,12 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
     }
 
     /**
-     * @param {Object} data
-     */
-    onDockMaximizeResize(data) {
-        this.resizeEventCount++;
-
-        return super.onDockMaximizeResize(data)
-    }
-
-    /**
-     * @param {Boolean} register
-     */
-    async registerDockMaximizeResizeObserver(register) {
-        await super.registerDockMaximizeResizeObserver(register);
-
-        observerLog.push(`${register ? 'reg' : 'unreg'}:${this.dockMaximizeResizeObserved}`);
-        syncObserverProbe()
-    }
-
-    /**
-     * Records when a maximize apply starts. The production method still owns every effect.
-     * @param {String} nodeId
-     * @param {Object} options
-     * @returns {Promise<void>}
-     */
-    async applyDockMaximizePresentation(nodeId, options) {
-        this.holdMaximizeClear && this.recordMaximizeTransition(`apply:${nodeId}`);
-
-        return super.applyDockMaximizePresentation(nodeId, options)
-    }
-
-    /**
-     * Holds one clear before its destructive presentation mutation so the spec can issue a
-     * superseding maximize and observe whether the two transitions overlap.
-     * @param {Object} options
-     * @returns {Promise<void>}
-     */
-    async clearDockMaximizePresentation(options) {
-        if (this.holdMaximizeClear) {
-            this.recordMaximizeTransition('clear:start');
-
-            await new Promise(resolve => {
-                this.maximizeClearRelease = resolve
-            });
-
-            this.recordMaximizeTransition('clear:apply')
-        }
-
-        return super.clearDockMaximizePresentation(options)
-    }
-
-    /**
      * Appends one transition token and refreshes the spec-readable mirror.
      * @param {String} token
      */
     recordMaximizeTransition(token) {
         this.maximizeTransitionLog.push(token);
         this.maximizeTransitionLogJson = JSON.stringify(this.maximizeTransitionLog)
-    }
-
-    /**
-     * @param {...*} args
-     */
-    destroy(...args) {
-        const wasObserved = this.dockMaximizeResizeObserved;
-
-        super.destroy(...args);
-
-        // Post-destroy the engine wipes instance fields, so read "torn" as any non-true value.
-        observerLog.push(`destroy:${wasObserved}->${this.dockMaximizeResizeObserved ? 'live' : 'torn'}`);
-        syncObserverProbe()
     }
 
     /**
@@ -562,10 +588,12 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
 
         await this.refreshPromise;
 
+        const plugin = this.getPlugin('dock-maximize');
+
         this.settleJson = JSON.stringify({
-            maximizedNodeId: this.maximizedNodeId,
-            observed       : this.dockMaximizeResizeObserved,
-            restore        : !!this.dockMaximizeRestore
+            maximizedNodeId: plugin.maximizedNodeId,
+            observed       : plugin.resizeObserved,
+            restore        : !!plugin.restoreSnapshot
         })
     }
 
@@ -659,15 +687,16 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
             return
         }
 
-        let releaseRefresh;
+        let plugin = this.getPlugin('dock-maximize'),
+            releaseRefresh;
 
         this.maximizeCycleSyncSettled = false;
         this.refreshPromise = new Promise(resolve => {
             releaseRefresh = resolve
         });
-        this.maximizedNodeId = 'ghost-tabs';
+        plugin.maximizedNodeId = 'ghost-tabs';
 
-        this.syncDockMaximizeProjection().then(() => {
+        plugin.syncDockProjection().then(() => {
             this.maximizeCycleSyncSettled = true;
             releaseRefresh()
         })

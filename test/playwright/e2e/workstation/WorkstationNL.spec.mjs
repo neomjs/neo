@@ -2597,13 +2597,29 @@ test.describe('Workstation — dense living-data composition', () => {
             }),
             container          = page.locator(`#${chrome.containerId}`),
             beforeRect         = await container.boundingBox(),
-            workspaceRect      = await page.locator(`#${workspaceId}`).boundingBox();
+            // The maximized node fills the DOCK HOST inset by the gap token on every side — the
+            // contract the component spec measures — not the workspace root.
+            maximizeTarget     = await page.evaluate(id => {
+                const host = document.querySelector(`#${id} .neo-dashboard`),
+                      rect = host?.getBoundingClientRect(),
+                      gap  = host ? parseFloat(getComputedStyle(host).getPropertyValue('--dock-maximize-gap')) || 0 : 0;
+
+                return rect && {
+                    height: rect.height - 2 * gap,
+                    width : rect.width  - 2 * gap,
+                    x     : rect.x + gap,
+                    y     : rect.y + gap
+                }
+            }, workspaceId),
+            // The transient lives on the workspace's maximize plugin, a declinable collaborator.
+            maximizePluginId   = (await app.callMethod(workspaceId, 'getPlugin', ['dock-maximize']))?.id;
 
         expect(beforeRect, 'the source tab flow is measurable').toBeTruthy();
-        expect(workspaceRect, 'the owning workspace is measurable').toBeTruthy();
+        expect(maximizeTarget, 'the owning dock host is measurable').toBeTruthy();
+        expect(maximizePluginId, 'the workspace installed its maximize plugin').toBeTruthy();
         await locator.click();
 
-        await expect.poll(async () => (await app.getComponent(workspaceId, ['maximizedNodeId'])).maximizedNodeId, {
+        await expect.poll(async () => (await app.getComponent(maximizePluginId, ['maximizedNodeId'])).maximizedNodeId, {
             message  : 'the real header click selects the semantic tabs node',
             timeout  : 10000,
             intervals: [25, 50, 100]
@@ -2613,8 +2629,8 @@ test.describe('Workstation — dense living-data composition', () => {
         const maximizedRect = await container.boundingBox();
 
         for (const key of ['x', 'y', 'width', 'height']) {
-            expect(maximizedRect[key], `maximized ${key} follows the measured workspace rect`)
-                .toBeCloseTo(workspaceRect[key], 0)
+            expect(maximizedRect[key], `maximized ${key} follows the dock host rect inset by the gap token`)
+                .toBeCloseTo(maximizeTarget[key], 0)
         }
 
         expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
@@ -2627,7 +2643,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(restoreAction.id, 'the maximize action instance is retained for restore').toBe(action.id);
         await page.locator(`#${restoreAction.id}`).click();
 
-        await expect.poll(async () => (await app.getComponent(workspaceId, ['maximizedNodeId'])).maximizedNodeId, {
+        await expect.poll(async () => (await app.getComponent(maximizePluginId, ['maximizedNodeId'])).maximizedNodeId, {
             message  : 'the second real click restores the presentation',
             timeout  : 10000,
             intervals: [25, 50, 100]
