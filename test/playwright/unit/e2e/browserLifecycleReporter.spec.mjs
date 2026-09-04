@@ -31,17 +31,29 @@ const launchExit = ({
  * @summary Coverage for the bounded E2E browser-launch lifecycle receipt.
  *
  * The reporter owns classification and retention only. Playwright still owns the browser and the
- * failing launch already owns the test result. These units therefore use the exact public error-log
- * version-pinned runner grammar with fakes instead of creating another browser lifecycle merely
- * to test diagnostics.
+ * failing launch already owns the test result. These units therefore drive the classifier with
+ * fakes instead of creating another browser lifecycle merely to test diagnostics.
+ *
+ * WHAT THESE ARMS DO NOT PROVE, stated because the gap is invisible otherwise. `launchExit()` is a
+ * RECONSTRUCTION of Playwright's internal browser-log grammar, not a capture of it. Every arm below
+ * feeds the classifier a string this file wrote, so all of them keep passing if that grammar drifts —
+ * they cover the classifier's branches, never its fidelity to the real format. Treating them as
+ * upgrade protection is the mistake to avoid.
+ *
+ * There is deliberately no live witness, and the reason is measured rather than assumed: the parsed
+ * grammar only appears once a browser has LAUNCHED and then exited abnormally. A forced pre-launch
+ * failure does not produce it — `chromium.launch({executablePath: '/nonexistent/browser'})` returns
+ * `browserType.launch: Failed to launch chromium because executable doesn't exist`, carrying none of
+ * `Browser logs:`, `<launched> pid=` or `<process did exit:`. Reproducing a launched-then-crashed
+ * browser deterministically is not a unit-scope operation, which is why fakes are the right shape here.
+ *
+ * RESIDUAL RISK, owned rather than guarded: a Playwright upgrade can change the grammar and every arm
+ * here stays green. The previous mitigation asserted `playwright-core`'s version string, which fired
+ * on every bump regardless of whether the format moved and could never detect the format moving — a
+ * 100%-false-alarm, 0%-detection proxy that blocked dependency updates while proving nothing. If this
+ * needs a real guard, it belongs at the E2E layer where a browser actually launches, not here.
  */
 test.describe('e2e/custom-reporter browser lifecycle', () => {
-    test('#16161 binds the internal launch-exit grammar to Playwright Core 1.61.1', async () => {
-        const manifest = await fs.readJson(path.resolve('node_modules/playwright-core/package.json'));
-
-        expect(manifest.version).toBe('1.61.1')
-    });
-
     test('#16161 classifies SIGABRT without inventing transport state', () => {
         expect(classifyBrowserLaunchExit(launchExit(), {
             browserName: 'chromium',
