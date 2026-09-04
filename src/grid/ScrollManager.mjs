@@ -221,29 +221,39 @@ class ScrollManager extends Base {
     }
 
     /**
-     * @param {String|null} [windowId=this.windowId]
+     * Calls one method of the row-hover-sync addon in the window this manager renders in. The
+     * payload carries `windowId` because a remote method call is routed on it: without the key the
+     * message falls back to the first connected port, which in a popup is the opener — an addon
+     * that holds no registration for this grid, while the one that does is never told.
+     * @param {String} method `'suspendHover'` | `'resumeHover'`
+     * @param {String|null} windowId
      * @returns {Promise<void>}
+     * @protected
      */
-    async resumeGridRowHoverSyncAddon(windowId = this.windowId) {
-        let me = this,
+    async callGridRowHoverSyncAddon(method, windowId) {
+        let me    = this,
             addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
 
-        addon.resumeHover({
-            id: me.id
-        });
+        addon[method]({
+            id: me.id,
+            windowId
+        })
     }
 
     /**
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async suspendGridRowHoverSyncAddon(windowId = this.windowId) {
-        let me = this,
-            addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
+    resumeGridRowHoverSyncAddon(windowId = this.windowId) {
+        return this.callGridRowHoverSyncAddon('resumeHover', windowId)
+    }
 
-        addon.suspendHover({
-            id: me.id
-        });
+    /**
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    suspendGridRowHoverSyncAddon(windowId = this.windowId) {
+        return this.callGridRowHoverSyncAddon('suspendHover', windowId)
     }
 
     /**
