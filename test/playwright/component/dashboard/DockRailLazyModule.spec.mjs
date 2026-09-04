@@ -36,6 +36,37 @@ const lazyTab = page => page.locator('.neo-dashboard-dock-rail-tab', {hasText: '
 
 const visibleOverlay = page => page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
 
+/**
+ * Asserts the one-construction contract, and on a break carries the CAUSE rather than only the count.
+ *
+ * Two callers may legitimately load a parked pane — `layout.Card#afterSetActiveIndex` on activation,
+ * and `container.Base#insert` when the inserted index is already active — so a tally of 2 does not
+ * say which one arrived second. The duplicate is rare and surfaces only on a loaded runner, where
+ * there is no session to attach to afterwards; the failure message is the only channel that reaches
+ * a reader, so the captured call sites travel in it.
+ *
+ * The trail is read only on the failing path, so the green path keeps its single round-trip.
+ * @param {Object} page
+ * @param {Number} instances
+ */
+const expectOneConstruction = async (page, instances) => {
+    if (instances !== 1) {
+        const [trail] = await readWorkspace(page, ['lazyPaneConstructionTrail']);
+
+        // `?? fallback` is not enough: an EMPTY array is not nullish, so a trail that captured
+        // nothing would join to `''` and render a blank message — the exact "renders empty on the
+        // failing path" outcome this witness exists to avoid, and the one a reader would take as
+        // "no second caller". Length is the predicate, not nullishness.
+        const sites = trail?.length ? trail.join('\n--- next request ---\n') : '(no call site captured — the witness itself failed)';
+
+        expect(instances, `one construction — ${instances} recorded. Load requested from:\n${sites}`).toBe(1);
+
+        return
+    }
+
+    expect(instances, 'one construction').toBe(1)
+};
+
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/dock-lazy-rail/index.html');
     await page.waitForSelector(`#${WORKSPACE_ID}`,       {state: 'attached'});
@@ -115,7 +146,7 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         const [loadedAfter, instances] = await readWorkspace(page, ['lazyPaneModuleLoaded', 'lazyPaneInstances']);
 
         expect(loadedAfter).toBe(true);
-        expect(instances, 'one construction').toBe(1)
+        await expectOneConstruction(page, instances)
     });
 
     test('un-hidden as the only visible item of its tabs node, the lazy item is the active card and loads at once', async ({page}) => {
@@ -138,6 +169,51 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         const [loaded, instances] = await readWorkspace(page, ['lazyPaneModuleLoaded', 'lazyPaneInstances']);
 
         expect(loaded).toBe(true);
-        expect(instances, 'one construction').toBe(1)
+        await expectOneConstruction(page, instances)
+    });
+
+
+    /**
+     * The two arms below are the witness's own coverage, and they exist because without them the
+     * whole capture is deletable while every check stays green: every other read of the trail sits
+     * behind `instances !== 1`, a branch the suite never takes. They assert the property the
+     * diagnostic is FOR — that a call site identifies WHICH of the two legitimate routes asked —
+     * rather than that a string arrived.
+     */
+    test('the load request from the already-active insert route names that route', async ({page}) => {
+        await setWorkspace(page, {applyOperationJson: JSON.stringify({operation: 'setItemAutoHidden', itemId: 'pinned', autoHidden: true})});
+        await expect(page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Pinned'})).toHaveCount(1);
+        await setWorkspace(page, {applyOperationJson: JSON.stringify({operation: 'setItemAutoHidden', itemId: 'lazy', autoHidden: false})});
+
+        const tabsNode = page.locator('.neo-dashboard-dock-tabs', {has: page.locator('.neo-tab-header-button', {hasText: 'Lazy'})});
+
+        await expect(tabsNode.locator('.dock-lazy-rail-pane')).toBeVisible();
+
+        const [trail] = await readWorkspace(page, ['lazyPaneConstructionTrail']);
+
+        // Transport first: the capture happens in the app worker and is read through `getConfigs`,
+        // so a structured-clone failure would surface here as a missing array rather than as a
+        // silently empty message at the moment a real duplicate needs explaining.
+        expect(Array.isArray(trail), 'the trail survives the worker boundary as an array').toBe(true);
+        expect(trail, 'one load request, so one call site').toHaveLength(1);
+        expect(typeof trail[0], 'each entry is a string').toBe('string');
+        expect(trail[0], 'the insert route is named').toContain('insert');
+        expect(trail[0], 'and is not confused with the activation route').not.toContain('afterSetActiveIndex')
+    });
+
+    test('the load request from the activation route names that route instead', async ({page}) => {
+        await setWorkspace(page, {applyOperationJson: JSON.stringify({operation: 'setItemAutoHidden', itemId: 'lazy', autoHidden: false})});
+
+        const tabsNode = page.locator('.neo-dashboard-dock-tabs', {has: page.locator('.neo-tab-header-button', {hasText: 'Lazy'})});
+
+        await page.locator('.neo-tab-header-button', {hasText: 'Lazy'}).click();
+        await expect(tabsNode.locator('.dock-lazy-rail-pane')).toBeVisible();
+
+        const [trail] = await readWorkspace(page, ['lazyPaneConstructionTrail']);
+
+        expect(Array.isArray(trail), 'the trail survives the worker boundary as an array').toBe(true);
+        expect(trail, 'one load request, so one call site').toHaveLength(1);
+        expect(typeof trail[0], 'each entry is a string').toBe('string');
+        expect(trail[0], 'the activation route is named').toContain('afterSetActiveIndex')
     });
 });

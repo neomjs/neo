@@ -15,6 +15,7 @@ class LazyPane extends Component {
      */
     static instances = 0
 
+
     static config = {
         /**
          * @member {String} className='Test.Playwright.Component.DockLazyRail.LazyPane'
