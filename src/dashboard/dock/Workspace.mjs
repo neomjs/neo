@@ -244,6 +244,11 @@ class Workspace extends Container {
          * locked and `lock` restores it on unlock. Both halves of a toggle reach the action as its
          * declared pair, and {@link Neo.toolbar.ActionButton} keeps text, icon and accessible name
          * coherent on the retained instance from whichever half `pressed` selects.
+         *
+         * A half that is simply ABSENT behaves as a `null` one: supplying `lock` without `unlock`
+         * gives that toggle a tooltip while unpressed and none while pressed. The pressed state
+         * never inherits the other half's text, because a tooltip naming the state the control
+         * just left is worse than none.
          * @member {Object} dockActionTooltips_
          * @reactive
          */

@@ -101,6 +101,33 @@ test.describe('Neo.toolbar.ActionButton', () => {
         expect(tipText(button), 'tooltip is unchanged without a pressed side').toBe('Close')
     });
 
+    test('a partial pressed side: absence clears the optional axes and keeps the mandatory one', () => {
+        button = Neo.create(ActionButton, {
+            appName,
+            action        : 'lock',
+            actionLabel   : 'lock',
+            iconCls       : 'fa fa-lock-open',
+            pressedIconCls: 'fa fa-lock',
+            tooltip       : 'Lock this pane'
+        });
+
+        button.pressed = true;
+
+        expect(button.iconCls, 'the declared pressed icon still swaps').toBe('fa fa-lock');
+        // Optional axis: a pressed state declaring no tooltip HAS none. It must not keep naming
+        // the state the control just left.
+        expect(tipText(button), 'the undeclared tooltip is cleared, not inherited').toBeNull();
+        // Mandatory axis: absence cannot mean "remove" — a control with no accessible name cannot
+        // be announced at all, so the resting name stands. The least wrong answer, deliberately.
+        expect(button.vdom['aria-label'], 'the undeclared name falls back rather than clearing').toBe('lock');
+
+        button.pressed = false;
+
+        expect(button.iconCls, 'restored icon').toBe('fa fa-lock-open');
+        expect(tipText(button), 'the resting tooltip returns').toBe('Lock this pane');
+        expect(button.vdom['aria-label'], 'and the name it never lost').toBe('lock')
+    });
+
     test('a gated toggle keeps its reversal offered while pressed, and its declared gate intact', () => {
         const toolbar = Neo.create(Toolbar, {
             appName,

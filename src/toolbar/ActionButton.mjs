@@ -58,6 +58,12 @@ class ActionButton extends Button {
     /**
      * The unpressed side of each axis, captured before `pressed` first swaps it so the reversal
      * restores what the config declared rather than what the last swap happened to leave.
+     *
+     * Captured ONCE, which makes the resting side config-time truth: writing `iconCls`, `tooltip`
+     * or `actionLabel` on a live instance while it is pressed is unsupported, because the next
+     * un-press restores this snapshot over it. Under object permanence a host keeps one action
+     * instance across projections and re-syncs it, so a sync belongs on `pressed` and the
+     * consumer-owned flags — never on a resting axis.
      * @member {Object|null} restingPresentation=null
      * @protected
      */
@@ -78,15 +84,25 @@ class ActionButton extends Button {
 
         me.restingPresentation ??= {iconCls: me.iconCls, tooltip: me.tooltip, label: me.actionLabel};
 
-        // `pressedIconCls` is what makes this a TOGGLE. Once it is, every pressed-side axis is
-        // authoritative including its ABSENCE — a state that declares no tooltip has none, rather
-        // than keeping the one the button just left. An action with no pressed side at all is not
-        // a toggle and keeps everything it was configured with.
+        // `pressedIconCls` is what makes this a TOGGLE. Once it is, the pressed side is
+        // authoritative for the OPTIONAL axes including its ABSENCE — a state that declares no
+        // tooltip has none, rather than keeping the one the button just left.
+        //
+        // The accessible name is not one of them, and the asymmetry is deliberate: a control
+        // without a name cannot be announced at all, so absence there cannot mean "remove". A
+        // pressed state declaring no `pressedActionLabel` FALLS BACK to the resting name — it does
+        // not merely leave the attribute alone, which would name the control only when some
+        // earlier writer happened to. The fallback is the least wrong answer, not a good one,
+        // which is why a toggle that swaps its glyph should declare both names. A null on both
+        // sides writes nothing and keeps whatever the toolbar derived.
+        //
+        // An action with no pressed side at all is not a toggle and keeps everything it was
+        // configured with.
         let resting = me.restingPresentation,
             toggle  = me.pressedIconCls != null,
             on      = toggle && value === true,
             cls     = [...me.cls || []],
-            label   = on ? me.pressedActionLabel ?? null : resting.label,
+            label   = (on ? me.pressedActionLabel : null) ?? resting.label,
             values  = {
                 cls,
                 iconCls: on ? me.pressedIconCls : resting.iconCls,
