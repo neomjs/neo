@@ -3467,6 +3467,71 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 .toBeGreaterThan(0)
         });
 
+        /**
+         * The arm above witnesses that `syncDockHeaderActions` INVOKES the pop-out sync: it replaces
+         * the method with a logger, so it is blind to what the sync computes. An inverted guard, a
+         * wrong `getActionItem` key or a backwards `hidden` each keep it green while the control
+         * disappears from the header, which is the symptom users actually report.
+         *
+         * This arm reads the RETAINED action instance instead, because retention is where the
+         * staleness lives: `hidden` is stamped once at projection from `!activeItemId ||
+         * !dockPopOutActionActive` onto an instance that survives re-projection by design, so a
+         * capability arriving afterwards can only reach it through the sweep. Asserting the same
+         * instance across the commits is what makes that the claim — a freshly projected node would
+         * satisfy the visibility assertion without anything having recomputed the retained one.
+         *
+         * Shape follows the `reload` sibling's pin-back arm rather than the config-level pop-out arms.
+         */
+        test('the post-commit sweep RECOMPUTES pop-out on the retained instance, so a stale hidden is repaired', async () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+            const side   = tabsOf(workspace.items[0]).get('side-tabs'),
+                  popOut = side?.getActionItem('pop-out');
+
+            // Not a formality: `pop-out` is the registered action name while `popOut` is the tooltip
+            // key, so resolving the wrong one yields undefined and every assertion below would read
+            // `undefined?.hidden`. The arm states its subject exists before measuring it.
+            expect(popOut, 'the pop-out action projects onto the tabs node').toBeTruthy();
+
+            // Projected with no handler bundle, so `dockPopOutActionActive` was false and the action
+            // was stamped hidden ONCE. This is the stale value the defect could never repair.
+            expect(popOut.hidden, 'stamped hidden at projection time').toBe(true);
+
+            // The capability arrives after projection — a vessel opener registered on a live
+            // workspace. With the tear-out lifecycle off, `dockPopOutActionActive` reduces to "is
+            // there a handler bundle", which keeps the engine opener's platform gating out of a
+            // question about the sweep.
+            workspace.tearOutHandlers = {
+                onDockTearOutExit    : async () => undefined,
+                onDockTearOutTerminal: () => true
+            };
+
+            expect(workspace.dockPopOutActionActive, 'the workspace can now offer pop-out').toBe(true);
+            expect(popOut.hidden, 'but the RETAINED instance still carries the projection-time answer').toBe(true);
+
+            // Two commits, matching the reported reproduction: one addTab and one close, each a real
+            // reduction plus the refresh a host performs — never a direct sweep call.
+            for (const descriptor of [
+                {operation: 'addTab',    itemId: 'terminal', tabsNodeId: 'editor-tabs', index: null},
+                {operation: 'closeItem', itemId: 'terminal'}
+            ]) {
+                const result = workspace.applyDockZoneOperation(descriptor);
+
+                expect(result.errors, `${descriptor.operation} is a clean commit`).toEqual([]);
+
+                workspace.onDockZoneDocumentChange(result.document, descriptor);
+                await workspace.refreshPromise
+            }
+
+            // Asserting the same instance is what makes this a claim about the sweep: a freshly
+            // projected node would satisfy the visibility assertion without anything having
+            // recomputed the retained one.
+            expect(tabsOf(workspace.items[0]).get('side-tabs')?.getActionItem('pop-out'),
+                'the SAME action instance was retained across both commits').toBe(popOut);
+            expect(popOut.hidden, 'and the post-commit sweep recomputed it, so pop-out is offered again')
+                .toBe(false)
+        });
+
         test('a destroyed handle does not shadow the tree', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
