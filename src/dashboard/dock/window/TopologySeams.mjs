@@ -56,8 +56,11 @@ class TopologySeams extends Base {
     /**
      * @summary The atomic multi-document write: every slot adopts, or none does.
      *
-     * A refusal returns its reason rather than throwing, because the service treats an empty or
-     * missing `errors` as success — a thrown commit would read as one.
+     * A refusal returns its reason rather than throwing because the caller reads a structured
+     * result: `restoreTopologyPerspective` branches on `commit?.errors?.length` and does not wrap
+     * this call, so a throw would escape the refusal shape entirely and surface as an RPC crash
+     * instead of a declared refusal — the same distinction `executeDockOperation` draws for the
+     * single-document path.
      * @param {Object[]} documents Slot-ordered committed documents, primary first.
      * @returns {Object} `{errors}` — empty when every slot committed.
      */
@@ -93,9 +96,18 @@ class TopologySeams extends Base {
             return {errors: [`topology commit rolled back: ${error.message}`]}
         }
 
-        // The set writes each slot through its registered `setDocument`, which for the primary
-        // assigns `dockModel` directly — the view would keep projecting the pre-restore document
-        // without this. Sibling workspaces re-project through their own registered writer.
+        // The set writes each slot through its registered `setDocument`, and every such writer in
+        // the codebase is a plain assignment — `me.dockModel = document`, `me.popupDocument =
+        // document`, `targetState.document = document`. `dockModel` is not a reactive config, so
+        // nothing projects off the write; the document advances only inside
+        // `onDockZoneDocumentChange`, which is why the primary needs this call.
+        //
+        // ONLY the primary converges here. A sibling slot's document is written and never
+        // projected: the `register` contract carries no projection seam, and no consumer has a
+        // vessel-side projection to hand it — `targetState.document` is written in five places and
+        // read only by its own `getDocument`. So this restores N documents and one view. Making the
+        // second window visibly converge is a missing layer, not a missing call, and it is owed
+        // beyond this seam.
         me.onDockZoneDocumentChange(me.dockModel, null, me);
 
         return {errors: []}
