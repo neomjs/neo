@@ -973,6 +973,17 @@ class Workspace extends DockWorkspace {
             // coordinator-visible drag source under one sort group; the workspace id rides the
             // payload for the receiving window's `transferItem` resolution.
             crossWindowSortGroup        : Workspace.CROSS_WINDOW_SORT_GROUP,
+            // Cross-ROOT isolation: the sort group and every workspace id above are STATICS, so a
+            // second independently opened Workstation publishes values identical to this one and
+            // its items satisfy this root's local-commit equality. This instance id is what
+            // distinguishes the two — one Workspace instance per root, each owning its own
+            // workspace set, so it names the commit authority exactly.
+            //
+            // It coincides with `dockTearOutBoundaryContainerId` below because for Workstation the
+            // physical window root and the document owner ARE the same container. They stay
+            // separate options: a composition where those differ answers them differently, and the
+            // engine must never derive one from the other.
+            crossWindowTransactionGroupId: me.id,
             // Tear-out opt-in (§2.8): every tab zone shares the Workstation root as its physical
             // window boundary. Exiting a source toolbar remains ordinary cross-zone motion; only
             // leaving this app/window root enters the vessel outcome machine.
@@ -1095,6 +1106,7 @@ class Workspace extends DockWorkspace {
                 outcome: 'committed'
             }) : null,
             sortGroup          : Workspace.CROSS_WINDOW_SORT_GROUP,
+            transactionGroupId : me.id,
             stageDragEmbodiment: data => me.vesselProxyEmbodiment.move({
                 ...data,
                 sourceWindowId: me.resolveTearOutVessel(data.draggedItem?.dockItemId)?.windowId,
@@ -1916,13 +1928,17 @@ class Workspace extends DockWorkspace {
         return DockLayoutAdapter.project(document, {
             applyDockZoneOperation   : descriptor => me.commitLocalWorkspaceOperation(workspaceId, descriptor),
             crossWindowSortGroup     : Workspace.CROSS_WINDOW_SORT_GROUP,
-            enableStackDrag          : true,
-            onDockCrossZoneDragCancel: () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
-            onDockCrossZoneDrop      : () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
-            onDockStackDragTerminal  : () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
-            onDockZoneDocumentChange : nextDocument => state.document = nextDocument,
-            resolveComponentRef      : (componentRef, item, itemId) => me.resolvePane(itemId, item),
-            resolveRevealComponentRef: (componentRef, item, itemId) => me.resolvePane(itemId, item),
+            // Same ownership identity as the main projection: a vessel is a render target of THIS
+            // root, so its zones must carry this root's commit authority — not a per-vessel one,
+            // which would isolate a popup from the window that tore it out.
+            crossWindowTransactionGroupId: me.id,
+            enableStackDrag              : true,
+            onDockCrossZoneDragCancel    : () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
+            onDockCrossZoneDrop          : () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
+            onDockStackDragTerminal      : () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
+            onDockZoneDocumentChange     : nextDocument => state.document = nextDocument,
+            resolveComponentRef          : (componentRef, item, itemId) => me.resolvePane(itemId, item),
+            resolveRevealComponentRef    : (componentRef, item, itemId) => me.resolvePane(itemId, item),
             workspaceId
         })
     }

@@ -38,6 +38,9 @@ import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContr
  * @param {Object} seams.workspaceIds `{main, popup, popup2}` semantic workspace ids (`popup2`
  *     optional — the stage parameterizes over every popup id the host registers).
  * @param {String} seams.sortGroup The shared cross-window coordinator sort group.
+ * @param {String} seams.transactionGroupId The ownership identity every workspace of THIS demo
+ *     root shares — the separate axis deciding which zones may share one commit authority. A
+ *     second browser-opened DemoB is a different root and must not receive this one's items.
  * @param {String} seams.hostComponentId The workspace component id, stamped into stage URLs as `hostId`.
  * @param {Function} seams.applyWorkspaceOperation `(workspaceId, descriptor) => {document, errors}|null`
  * @param {Function} seams.adoptCommittedTransferPair `(pair) => Boolean` — the HOST's wrappable
@@ -88,6 +91,7 @@ export function createCrossWindowStage(seams) {
         workspaceSet,
         workspaceIds,
         sortGroup,
+        transactionGroupId,
         applyWorkspaceOperation,
         attachKeydown,
         bumpStageGeneration,
@@ -181,6 +185,10 @@ export function createCrossWindowStage(seams) {
             previewFor        : data => renderWorkspacePreview(workspaceId, data),
             previewToOperation,
             sortGroup,
+            // Every workspace of THIS demo — main and both popups — belongs to one application
+            // root, so they share one commit authority. A second browser-opened DemoB is a
+            // different root and must not receive this one's items.
+            transactionGroupId: transactionGroupId ?? null,
             windowId,
             workspaceId
         });

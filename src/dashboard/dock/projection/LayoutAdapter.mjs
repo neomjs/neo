@@ -493,8 +493,15 @@ class LayoutAdapter extends Base {
             // drag SOURCE (the workspace id rides the drag payload for the receiving window's
             // `transferItem` resolution). Absent = fully in-window, the unchanged default.
             crossWindowSortGroup : options.crossWindowSortGroup ?? null,
-            defaultRevealFraction: Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
-            dockZoneDocument     : options.dockZoneDocument || model,
+            // Cross-ROOT isolation (§2.3, same opt-in, SEPARATE axis): the ownership identity of
+            // the application root that owns this document. The sort group above says which zones
+            // speak the protocol; this says which of them may share a commit authority. Two
+            // independently opened roots publish the same sort group AND the same workspace ids —
+            // both statics — so the group alone cannot keep their gestures apart. Absent = no
+            // cross-window claim is ever won, the fail-closed default.
+            crossWindowTransactionGroupId: options.crossWindowTransactionGroupId ?? null,
+            defaultRevealFraction        : Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
+            dockZoneDocument             : options.dockZoneDocument || model,
             // Tear-out (docking design record §2.8, additive + opt-in): a composition that enables
             // it makes every projected tab sort zone fire the inherited window-boundary hysteresis,
             // re-fired as dock gesture events (exit / entry / terminal / cancel) on the projected
@@ -1274,6 +1281,7 @@ class LayoutAdapter extends Base {
                     enableVesselConversion: context.enableVesselConversion === true,
                     enableProxyToPopup    : context.enableDockTearOut === true,
                     sortGroup             : context.crossWindowSortGroup,
+                    transactionGroupId    : context.crossWindowTransactionGroupId,
                     ...(Number.isFinite(context.vesselConversionConvertThreshold)
                         ? {vesselConversionConvertThreshold: context.vesselConversionConvertThreshold}
                         : null),

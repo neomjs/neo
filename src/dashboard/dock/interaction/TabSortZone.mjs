@@ -87,6 +87,19 @@ class TabSortZone extends TabHeaderSortZone {
          */
         dockWorkspaceId: null,
         /**
+         * Ownership identity of the application root this toolbar's document belongs to. Un-prefixed
+         * because it is a COORDINATOR axis read straight off the zone, exactly like `sortGroup` —
+         * the dock-prefixed names on this class are the ones that carry dock semantics into a
+         * payload. It is stamped onto the drag payload as `dockTransactionGroupId`, mirroring how
+         * `dockWorkspaceId` becomes `dockSourceWorkspaceId`.
+         *
+         * Distinct axis from `sortGroup`: that says which zones speak this protocol, this says
+         * which of them share a commit authority. Threaded by
+         * {@link Neo.dashboard.dock.projection.LayoutAdapter} (`crossWindowTransactionGroupId`).
+         * @member {String|null} transactionGroupId=null
+         */
+        transactionGroupId: null,
+        /**
          * Dock tab toolbars are parent-sized projection surfaces. Pinning their live width to the
          * draggable button span would SHRINK a wide header during the gesture, causing Overflow to
          * misclassify the dragged tab as space-hidden and create a phantom menu control.
@@ -964,9 +977,10 @@ class TabSortZone extends TabHeaderSortZone {
             me.stackDragActive       = true;
             me.startIndex            = index;
 
-            draggedItem.dockGroupNodeId       = me.dockGroupNodeId;
-            draggedItem.dockItemId            = me.dockItemIds?.[index] ?? me.dockItemIds?.[0] ?? null;
-            draggedItem.dockSourceWorkspaceId = me.dockWorkspaceId;
+            draggedItem.dockGroupNodeId        = me.dockGroupNodeId;
+            draggedItem.dockItemId             = me.dockItemIds?.[index] ?? me.dockItemIds?.[0] ?? null;
+            draggedItem.dockSourceWorkspaceId  = me.dockWorkspaceId;
+            draggedItem.dockTransactionGroupId = me.transactionGroupId;
 
             await me.dragStart(data);
 
@@ -985,8 +999,9 @@ class TabSortZone extends TabHeaderSortZone {
 
         if (item) {
             delete item.dockGroupNodeId;
-            item.dockItemId              = me.dockItemIds?.[me.startIndex] ?? null;
-            item.dockSourceWorkspaceId   = me.dockWorkspaceId
+            item.dockItemId             = me.dockItemIds?.[me.startIndex] ?? null;
+            item.dockSourceWorkspaceId  = me.dockWorkspaceId;
+            item.dockTransactionGroupId = me.transactionGroupId
         }
     }
 

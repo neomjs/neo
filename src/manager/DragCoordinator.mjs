@@ -784,6 +784,9 @@ class DragCoordinator extends Manager {
 
         const
             candidates = [],
+            // The gesture's ownership axis, read ONCE from the source. A source that declares no
+            // transaction group matches nothing below — fail closed, not fail open.
+            sourceTransactionGroupId = sourceSortZone.transactionGroupId ?? null,
             // ONE acquisition instant for the whole pass. Every zone below is evaluated against the
             // SAME pointer event, so none of them holds seniority over another — they must tie, so
             // that `resolve()` settles them on stable-identity lexicographic order. Sampling the
@@ -800,6 +803,33 @@ class DragCoordinator extends Manager {
             ) {
                 zone.stableTargetId != null && arbiter.release(zone.stableTargetId);
                 candidates.push({windowId, skipped: 'source-or-excluded'});
+                continue
+            }
+
+            // OWNERSHIP, evaluated before claim identity and before the zone is ever asked to
+            // hit-test. `sortGroup` got this zone into the group; it cannot say whether the zone
+            // belongs to the SAME application root as the source, because two independently opened
+            // roots publish identical sort groups and identical stable ids — both are statics. A
+            // zone from another root must never claim, never be hit-tested, and never paint a drop
+            // indicator for an item it has no authority to receive.
+            //
+            // Released, not merely skipped: a zone that held a claim from an earlier pass of this
+            // gesture must give it up, or the arbiter would still resolve to it. Releasing here is
+            // also what keeps the claim namespace group-scoped WITHOUT joining the two axes into
+            // one key — an out-of-group zone never enters the arbiter at all, so two roots' equal
+            // stable ids cannot collide inside it.
+            //
+            // Both sides must prove ownership; `null` on either is a refusal, never a wildcard.
+            if (sourceTransactionGroupId == null || zone.transactionGroupId !== sourceTransactionGroupId) {
+                zone.stableTargetId != null && arbiter.release(zone.stableTargetId);
+
+                candidates.push({
+                    windowId,
+                    stableTargetId: zone.stableTargetId ?? null,
+                    skipped       : zone.transactionGroupId == null || sourceTransactionGroupId == null
+                        ? 'no-transaction-group'
+                        : 'foreign-transaction-group'
+                });
                 continue
             }
 

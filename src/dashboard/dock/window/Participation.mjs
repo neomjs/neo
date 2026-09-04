@@ -198,7 +198,20 @@ class Participation extends Base {
          * foreign transfer committed here.
          * @member {String|null} workspaceId=null
          */
-        workspaceId: null
+        workspaceId: null,
+        /**
+         * Ownership identity of the application root that owns this workspace's document set —
+         * the answer to *may these share one commit authority?*, kept strictly apart from
+         * `sortGroup`'s *are these protocol-compatible?*
+         *
+         * `workspaceId` is unique INSIDE a root and nothing else names the root, so two
+         * independently opened roots publish identical workspace ids (they are statics) and a
+         * foreign item satisfies the local-commit equality below. This id is what makes that
+         * equality answerable. Absent → this participation is unreachable cross-window; it never
+         * reads as "belongs to everyone".
+         * @member {String|null} transactionGroupId=null
+         */
+        transactionGroupId: null
     }
 
     /**
@@ -245,6 +258,7 @@ class Participation extends Base {
             resumeNativeWindowDrag : me.resumeNativeWindowDrag,
             retireNativeWindowDrag : me.retireNativeWindowDrag,
             sortGroup              : me.sortGroup ?? me.defaultSortGroup(),
+            transactionGroupId     : me.transactionGroupId ?? me.defaultTransactionGroupId(),
             stageDragEmbodiment    : me.stageDragEmbodiment,
             awaitDragEmbodiment    : me.awaitDragEmbodiment,
             suspendNativeWindowDrag: me.suspendNativeWindowDrag,
@@ -427,8 +441,9 @@ class Participation extends Base {
             return null
         }
 
-        pane.dockItemId            = itemId;
-        pane.dockSourceWorkspaceId = me.workspaceId;
+        pane.dockItemId               = itemId;
+        pane.dockSourceWorkspaceId    = me.workspaceId;
+        pane.dockTransactionGroupId   = me.transactionGroupId ?? me.defaultTransactionGroupId();
 
         return {
             draggedItem      : pane,
@@ -447,6 +462,19 @@ class Participation extends Base {
      */
     defaultSortGroup() {
         return this.workspace?.getDockProjectionOptions?.()?.crossWindowSortGroup ?? null
+    }
+
+    /**
+     * Engine default for {@link #transactionGroupId}: read from the SAME options hook as
+     * {@link #defaultSortGroup}, through a SEPARATE key. Deliberately not derived from the sort
+     * group — a host that shares a protocol across roots and a host that shares commit authority
+     * across windows are different compositions, and one value cannot answer both. Absent, this
+     * participation never wins a cross-window claim, which is the fail-closed default.
+     * @returns {String|null}
+     * @protected
+     */
+    defaultTransactionGroupId() {
+        return this.workspace?.getDockProjectionOptions?.()?.crossWindowTransactionGroupId ?? null
     }
 
     /**
@@ -472,10 +500,40 @@ class Participation extends Base {
             groupNodeId       = draggedItem?.dockGroupNodeId,
             itemId            = draggedItem?.dockItemId,
             sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId,
+            payloadGroupId    = draggedItem?.dockTransactionGroupId ?? null,
+            ownGroupId        = me.transactionGroupId ?? me.defaultTransactionGroupId(),
             publishTransfer   = me.resolveCommitTransfer(),
             document          = (me.getDocument ?? me.defaultGetDocument).call(me);
 
         if (!operation || !itemId || !document) {
+            return null
+        }
+
+        // Ownership re-checked HERE as well as in the coordinator's claim pass, because the two
+        // answer different questions at different times: the claim pass decides what may be
+        // HOVERED, this decides what may be COMMITTED. A payload reaching a commit it never won a
+        // claim for — a stale gesture, a host driving `commitDrop` directly, a coordinator seam
+        // replaced by a composition — must not be adjudicated by the equality further down, which
+        // cannot tell a sibling window of this root from a window of a different one.
+        //
+        // DISAGREEMENT refuses; symmetric absence does not, and the asymmetry is deliberate. An
+        // in-window drop rides this same method with no coordinator involved, so treating "neither
+        // side declares an owner" as a refusal would disable ordinary docking for every host that
+        // never opted into cross-WINDOW participation. Isolation does not depend on that: the
+        // claim pass already refuses when the SOURCE declares no group, and the legacy fallbacks on
+        // both gesture paths admit only zones without a `stableTargetId` — which no dock workspace
+        // is. Two non-opted-in roots are therefore unreachable to each other before they ever
+        // arrive here, and the case this guard exists for is a payload that names an owner the
+        // receiving workspace does not share.
+        if (payloadGroupId != null && payloadGroupId !== ownGroupId) {
+            return null
+        }
+
+        // The other half of the same rule: a payload carrying NO owner must not commit into a
+        // workspace that HAS one. That workspace has declared it participates in a multi-root
+        // composition, so an unowned payload is unprovable there — the direction that would
+        // otherwise let an un-stamped legacy source reach an isolated root.
+        if (payloadGroupId == null && ownGroupId != null) {
             return null
         }
 
@@ -518,11 +576,17 @@ class Participation extends Base {
             return published ? result : null
         }
 
-        // LOCAL means the payload NAMES this workspace as its source (two windows may project the
-        // same document) — workspace IDENTITY, never item-id presence in the target catalog: a
-        // foreign item whose id collides with a local one must reach the executor's fail-closed
-        // collision rejection below, not silently commit the local record. An unstamped payload
-        // proves neither side, so it falls through to the foreign guard and fails closed.
+        // LOCAL means the payload NAMES this workspace as its source — workspace IDENTITY, never
+        // item-id presence in the target catalog: a foreign item whose id collides with a local
+        // one must reach the executor's fail-closed collision rejection below, not silently commit
+        // the local record. An unstamped payload proves neither side, so it falls through to the
+        // foreign guard and fails closed.
+        //
+        // This equality is sound ONLY because the transaction-group gate above has already run.
+        // Two windows may project the same document, which is why the comparison is by identity
+        // rather than by catalog membership — but two independently opened ROOTS also publish the
+        // same workspace id, because it is a static, and for those this equality is true and
+        // wrong. Ownership answers that; workspace identity cannot, and never could.
         if (sourceWorkspaceId != null && sourceWorkspaceId === me.workspaceId) {
             return (me.commitLocal ?? me.defaultCommitLocal).call(me, operation, draggedItem) ?? null
         }

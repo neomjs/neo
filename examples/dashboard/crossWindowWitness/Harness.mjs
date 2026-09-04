@@ -105,21 +105,26 @@ class Harness extends Viewport {
             previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
             previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
             sortGroup         : 'cw-witness',
+            // One application root projecting into two windows, so both sides carry the SAME
+            // ownership id. Without it the coordinator refuses before any hit-test — that is the
+            // cross-ROOT isolation axis, and this witness is deliberately a single root.
+            transactionGroupId: 'cw-witness-root',
             windowId          : 'cw-win-b',
             workspaceId       : 'B'
         });
 
         // COLD source zone in window A — construct() kicks off the coordinator preload; we NEVER await it
         const zone = Neo.create(DockTabSortZone, {
-            dockItemIds     : ['terminal'],
-            dockSourceNodeId: 'side-tabs',
-            dockWorkspaceId : 'A',
-            owner           : {addDomListeners: () => {}, cls: [], dragResortable: false, items: [], on: () => {}, style: {}, up: () => ({fire: (name, data) => fires.push([name, data])})},
-            sortGroup       : 'cw-witness',
-            windowId        : 'cw-win-a'
+            dockItemIds       : ['terminal'],
+            dockSourceNodeId  : 'side-tabs',
+            dockWorkspaceId   : 'A',
+            owner             : {addDomListeners: () => {}, cls: [], dragResortable: false, items: [], on: () => {}, style: {}, up: () => ({fire: (name, data) => fires.push([name, data])})},
+            sortGroup         : 'cw-witness',
+            transactionGroupId: 'cw-witness-root',
+            windowId          : 'cw-win-a'
         });
 
-        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A', dockTransactionGroupId: 'cw-witness-root'};
         zone.dragProxy     = {hidden: false};
         zone.startIndex    = 0;
 

@@ -130,6 +130,24 @@ class DragTarget extends Base {
          */
         stableTargetId: null,
         /**
+         * Ownership identity — the SECOND registry axis, and deliberately not a refinement of the
+         * first. `sortGroup` answers *are these protocol-compatible?*; this answers *may these
+         * share one commit authority?* Two independently opened application roots publish the
+         * same `sortGroup` AND the same `stableTargetId` by construction, because both are
+         * statics: compatibility alone cannot tell a sibling window of one root from a window of
+         * a different root, so a foreign drop routes into the local commit path.
+         *
+         * Runtime identity, unlike `stableTargetId`: it names the live owner of a document set,
+         * not a persisted workspace. It is never concatenated with `sortGroup` — the two have
+         * different lifetimes, and joining them would make "which axis refused?" unanswerable.
+         *
+         * Fail-closed: `null` here NEVER matches, so an unstamped target is unreachable
+         * cross-window rather than reachable by everyone. It still registers, so the coordinator's
+         * claim ring can report `no-transaction-group` instead of silently omitting it.
+         * @member {String|null} transactionGroupId=null
+         */
+        transactionGroupId: null,
+        /**
          * Optional owner seam: stages/updates the SAME live dragged component in a target-local
          * proxy. Invoked only when the coordinator explicitly licenses `embodyProxy:true`; strict
          * `true` is required before this target can publish its semantic preview.

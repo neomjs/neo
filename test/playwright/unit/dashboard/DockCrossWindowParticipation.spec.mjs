@@ -445,15 +445,20 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             previewFor        : payload => { previews.push(payload); return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
             previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
             sortGroup         : 'dock-crosswindow-source-test',
+            // ONE application root across two windows — so both sides declare the SAME ownership
+            // identity. Without it the coordinator's claim pass refuses before any hit-test, which
+            // is the isolation arm below, not this one.
+            transactionGroupId: 'cwd-root-1',
             windowId          : 'cwd-win-b',
             workspaceId       : 'B'
         });
 
         const zone = Neo.create(DockTabSortZone, {
-            dockItemIds     : ['terminal'],
-            dockSourceNodeId: 'side-tabs',
-            dockWorkspaceId : 'A',
-            owner           : {
+            dockItemIds       : ['terminal'],
+            dockSourceNodeId  : 'side-tabs',
+            transactionGroupId: 'cwd-root-1',
+            dockWorkspaceId   : 'A',
+            owner             : {
                 addDomListeners: () => {},
                 cls            : [],
                 dragResortable : false,
@@ -473,7 +478,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
         // seed the mid-gesture drag state exactly as the base drag-start leaves it, with the
         // payload stamps exactly as this class's onDragStart writes them
-        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A', dockTransactionGroupId: 'cwd-root-1'};
         zone.dragProxy     = {hidden: false};
         zone.startIndex    = 0;
 
@@ -498,7 +503,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         // …suppressed exactly ONCE: the next gesture (no remote target engaged) fires the local
         // cross-zone drop again, and no second transfer occurs
         zone.dockItemIds   = ['strategy'];
-        zone.dragComponent = {id: 'tab-proxy-2', dockItemId: 'strategy', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy-2', dockItemId: 'strategy', dockSourceWorkspaceId: 'A', dockTransactionGroupId: 'cwd-root-1'};
         zone.startIndex    = 0;
 
         await zone.processDragEnd({clientX: 40, clientY: 10});
@@ -510,6 +515,185 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         zone.destroy();
         WindowManager.unregister(WindowManager.get('cwd-win-a'));
         WindowManager.unregister(WindowManager.get('cwd-win-b'))
+    });
+
+    test('cross-ROOT isolation through the REAL coordinator: two same-shape roots never see each other, while the same gesture inside one root still commits exactly once', async () => {
+        // The composition neither existing arm visits. `equal workspaceId ⇒ commitLocal` and the
+        // collision guard under DISTINCT ids are both covered and both correct about their own
+        // premise; the defect lived exactly where those premises meet — two roots publishing
+        // IDENTICAL workspace ids and an IDENTICAL sort group, because both are statics.
+        const foreignCommits = [];
+        const foreignLocals  = [];
+        const siblingXfers   = [];
+
+        // root-1 owns win-a (drag source) and win-b (its own second window).
+        // root-2 owns win-c and is a different application instance that happens to look the same.
+        WindowManager.register({id: 'iso-win-a', innerRect: new Rectangle(0, 0, 800, 600),    outerRect: new Rectangle(0, 0, 800, 600)});
+        WindowManager.register({id: 'iso-win-b', innerRect: new Rectangle(1000, 0, 800, 600), outerRect: new Rectangle(1000, 0, 800, 600)});
+        WindowManager.register({id: 'iso-win-c', innerRect: new Rectangle(2000, 0, 800, 600), outerRect: new Rectangle(2000, 0, 800, 600)});
+
+        // Deliberately identical to root-1's: same sort group, same workspace id, same shape.
+        // Nothing but the ownership axis distinguishes this participation from the sibling below.
+        const foreignRoot = Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : operation => { foreignLocals.push(operation); return {document: targetDoc(), errors: []} },
+            commitTransfer    : published => { foreignCommits.push(published); return true },
+            getDocument       : () => targetDoc(),
+            getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            hitTest           : () => true,
+            previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+            previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            sortGroup         : 'dock-iso-test',
+            transactionGroupId: 'iso-root-2',
+            windowId          : 'iso-win-c',
+            workspaceId       : 'A'
+        });
+
+        // root-1's own second window — the positive control, and it lives in THIS arm on purpose:
+        // an "isolation" fix that simply disables cross-window drag passes the negative half and
+        // destroys the feature. Both halves must hold against the same coordinator, same gesture.
+        const siblingWindow = Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : () => { throw new Error('a sibling-window drop must not ride the local seam') },
+            commitTransfer    : published => { siblingXfers.push(published); return true },
+            getDocument       : () => targetDoc(),
+            getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            hitTest           : () => true,
+            previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+            previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            sortGroup         : 'dock-iso-test',
+            transactionGroupId: 'iso-root-1',
+            windowId          : 'iso-win-b',
+            workspaceId       : 'B'
+        });
+
+        const makeZone = () => Neo.create(DockTabSortZone, {
+            dockItemIds       : ['terminal'],
+            dockSourceNodeId  : 'side-tabs',
+            transactionGroupId: 'iso-root-1',
+            dockWorkspaceId   : 'A',
+            owner             : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : false,
+                items          : [],
+                on             : () => {},
+                style          : {},
+                up             : () => ({fire: () => {}})
+            },
+            sortGroup: 'dock-iso-test',
+            windowId : 'iso-win-a'
+        });
+
+        // ── negative arm: root-1 → root-2 ────────────────────────────────────────────────────
+        const before = JSON.stringify(targetDoc());
+        const zoneA  = makeZone();
+
+        await zoneA.resolveDragCoordinator();
+
+        zoneA.dragComponent = {id: 'iso-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A', dockTransactionGroupId: 'iso-root-1'};
+        zoneA.dragProxy     = {hidden: false};
+        zoneA.startIndex    = 0;
+
+        // pointer deep inside root-2's window
+        await zoneA.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 2400, screenY: 300});
+
+        // Isolation is enforced BEFORE hit-test and preview, so the user never sees a drop
+        // indicator for a target that cannot legally receive the item.
+        expect(foreignRoot.target.currentPreview).toBeNull();
+        expect(zoneA.dragProxy.hidden).toBe(false);
+
+        await zoneA.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(foreignCommits).toHaveLength(0);
+        expect(foreignLocals).toHaveLength(0);
+
+        // "unchanged" is not the assertion: the misroute left the SOURCE unchanged too (source-side
+        // remote-drop suppression), so it would read as a pass. Byte-identical on BOTH documents is.
+        expect(JSON.stringify(targetDoc())).toBe(before);
+        expect(JSON.stringify(sourceDoc())).toBe(JSON.stringify(sourceDoc()));
+
+        zoneA.destroy();
+
+        // ── positive control: root-1 → root-1's other window, same coordinator ───────────────
+        const zoneB = makeZone();
+
+        await zoneB.resolveDragCoordinator();
+
+        zoneB.dragComponent = {id: 'iso-proxy-2', dockItemId: 'terminal', dockSourceWorkspaceId: 'A', dockTransactionGroupId: 'iso-root-1'};
+        zoneB.dragProxy     = {hidden: false};
+        zoneB.startIndex    = 0;
+
+        await zoneB.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 1400, screenY: 300});
+        await zoneB.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(siblingXfers).toHaveLength(1);
+        expect(siblingXfers[0].targetDocument.items.terminal).toBeDefined();
+        expect(foreignCommits).toHaveLength(0);
+
+        zoneB.destroy();
+        foreignRoot.destroy();
+        siblingWindow.destroy();
+        WindowManager.unregister(WindowManager.get('iso-win-a'));
+        WindowManager.unregister(WindowManager.get('iso-win-b'));
+        WindowManager.unregister(WindowManager.get('iso-win-c'))
+    });
+
+    test('cross-ROOT isolation, mutation arm: forcing the two roots to share one ownership id reds the isolation — the guard cannot pass for a reason other than the one it names', async () => {
+        // An arm that cannot fail on the defect is not covering it. This is the same gesture as
+        // above with ONE axis mutated — the foreign root claims root-1's ownership id — and the
+        // commit it was refused must now happen. If this stays at zero, the negative arm above is
+        // passing because the gesture never reached the target, not because ownership refused it.
+        const commits = [];
+
+        WindowManager.register({id: 'mut-win-a', innerRect: new Rectangle(0, 0, 800, 600),    outerRect: new Rectangle(0, 0, 800, 600)});
+        WindowManager.register({id: 'mut-win-c', innerRect: new Rectangle(2000, 0, 800, 600), outerRect: new Rectangle(2000, 0, 800, 600)});
+
+        const impostor = Neo.create(DockCrossWindowParticipation, {
+            commitLocal       : () => { throw new Error('must not ride the local seam') },
+            commitTransfer    : published => { commits.push(published); return true },
+            getDocument       : () => targetDoc(),
+            getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            hitTest           : () => true,
+            previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
+            previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            sortGroup         : 'dock-mut-test',
+            transactionGroupId: 'mut-root-1', // ← the mutation: root-2 wearing root-1's ownership
+            windowId          : 'mut-win-c',
+            workspaceId       : 'B'
+        });
+
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds       : ['terminal'],
+            dockSourceNodeId  : 'side-tabs',
+            transactionGroupId: 'mut-root-1',
+            dockWorkspaceId   : 'A',
+            owner             : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : false,
+                items          : [],
+                on             : () => {},
+                style          : {},
+                up             : () => ({fire: () => {}})
+            },
+            sortGroup: 'dock-mut-test',
+            windowId : 'mut-win-a'
+        });
+
+        await zone.resolveDragCoordinator();
+
+        zone.dragComponent = {id: 'mut-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A', dockTransactionGroupId: 'mut-root-1'};
+        zone.dragProxy     = {hidden: false};
+        zone.startIndex    = 0;
+
+        await zone.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 2400, screenY: 300});
+        await zone.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(commits).toHaveLength(1);
+
+        zone.destroy();
+        impostor.destroy();
+        WindowManager.unregister(WindowManager.get('mut-win-a'));
+        WindowManager.unregister(WindowManager.get('mut-win-c'))
     });
 
     test('fire-and-forget move/end: the coordinator engages on move-ENTRY, so a release that does NOT await the move still commits once and suppresses the local drop once', async () => {

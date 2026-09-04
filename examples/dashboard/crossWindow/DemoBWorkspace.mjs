@@ -626,7 +626,10 @@ class DemoBWorkspace extends Container {
                 ? me.crossWindowTarget2WindowId = windowId
                 : me.crossWindowTargetWindowId = windowId,
             sortGroup   : DemoBWorkspace.CROSS_WINDOW_SORT_GROUP,
-            workspaceIds: {
+            // Every workspace this demo owns shares ONE commit authority; the sort group cannot
+            // express that, being a static every DemoB instance publishes identically.
+            transactionGroupId: me.id,
+            workspaceIds      : {
                 main  : DemoBWorkspace.MAIN_WORKSPACE_ID,
                 popup : DemoBWorkspace.POPUP_WORKSPACE_ID,
                 popup2: DemoBWorkspace.POPUP2_WORKSPACE_ID
@@ -3698,13 +3701,16 @@ class DemoBWorkspace extends Container {
         return DockLayoutAdapter.project(document, {
             applyDockZoneOperation   : descriptor => me.applyWorkspaceOperation(workspaceId, descriptor),
             crossWindowSortGroup     : me.crossWindowEnabled ? DemoBWorkspace.CROSS_WINDOW_SORT_GROUP : null,
-            enableDockTearOut        : tearOut,
-            enableStackDrag          : stackDrag,
-            enableVesselConversion   : tearOut && me.crossWindowEnabled,
-            onDockCrossZoneDragCancel: data => me.onDockCrossZoneDragCancel(workspaceId, data),
-            onDockCrossZoneDragMove  : data => me.onDockCrossZoneDragMove(workspaceId, data),
-            onDockCrossZoneDrop      : data => me.onDockCrossZoneDrop(workspaceId, data),
-            onDockStackDragTerminal  : ({itemId, outcome}) =>
+            // Cross-ROOT isolation: the sort group above is a STATIC, so a second DemoB publishes
+            // the same one. This instance id names the commit authority, keeping the two apart.
+            crossWindowTransactionGroupId: me.crossWindowEnabled ? me.id : null,
+            enableDockTearOut            : tearOut,
+            enableStackDrag              : stackDrag,
+            enableVesselConversion       : tearOut && me.crossWindowEnabled,
+            onDockCrossZoneDragCancel    : data => me.onDockCrossZoneDragCancel(workspaceId, data),
+            onDockCrossZoneDragMove      : data => me.onDockCrossZoneDragMove(workspaceId, data),
+            onDockCrossZoneDrop          : data => me.onDockCrossZoneDrop(workspaceId, data),
+            onDockStackDragTerminal      : ({itemId, outcome}) =>
                 me.vesselParkHandlers?.onGestureTerminal({itemId, outcome}),
             onDockVesselConversionIn : data => me.vesselParkHandlers.onConversionIn({
                 itemId    : data.itemId,
