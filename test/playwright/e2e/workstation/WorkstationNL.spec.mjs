@@ -2597,13 +2597,16 @@ test.describe('Workstation — dense living-data composition', () => {
             }),
             container          = page.locator(`#${chrome.containerId}`),
             beforeRect         = await container.boundingBox(),
-            workspaceRect      = await page.locator(`#${workspaceId}`).boundingBox();
+            workspaceRect      = await page.locator(`#${workspaceId}`).boundingBox(),
+            // The transient lives on the workspace's maximize plugin, a declinable collaborator.
+            maximizePluginId   = (await app.callMethod(workspaceId, 'getPlugin', ['dock-maximize']))?.id;
 
         expect(beforeRect, 'the source tab flow is measurable').toBeTruthy();
         expect(workspaceRect, 'the owning workspace is measurable').toBeTruthy();
+        expect(maximizePluginId, 'the workspace installed its maximize plugin').toBeTruthy();
         await locator.click();
 
-        await expect.poll(async () => (await app.getComponent(workspaceId, ['maximizedNodeId'])).maximizedNodeId, {
+        await expect.poll(async () => (await app.getComponent(maximizePluginId, ['maximizedNodeId'])).maximizedNodeId, {
             message  : 'the real header click selects the semantic tabs node',
             timeout  : 10000,
             intervals: [25, 50, 100]
@@ -2627,7 +2630,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(restoreAction.id, 'the maximize action instance is retained for restore').toBe(action.id);
         await page.locator(`#${restoreAction.id}`).click();
 
-        await expect.poll(async () => (await app.getComponent(workspaceId, ['maximizedNodeId'])).maximizedNodeId, {
+        await expect.poll(async () => (await app.getComponent(maximizePluginId, ['maximizedNodeId'])).maximizedNodeId, {
             message  : 'the second real click restores the presentation',
             timeout  : 10000,
             intervals: [25, 50, 100]

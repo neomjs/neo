@@ -160,12 +160,14 @@ test.describe('dock header action tooltips', () => {
         expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
         expect(tipText(lock), 'the other half restores its text').toBe('Lock pane');
 
+        const plugin = workspace.getPlugin('dock-maximize');
+
         expect(tipText(maximize)).toBe('Maximize');
-        workspace.syncDockMaximizeActionPresentation(main, true);
-        expect(maximize.iconCls).toBe(workspace.dockMinimizeIconCls);
+        plugin.syncActionPresentation(main, true);
+        expect(maximize.iconCls).toBe(plugin.restoreIconCls);
         expect(tipText(maximize), 'restore opted out: no tooltip while maximized').toBeNull();
 
-        workspace.syncDockMaximizeActionPresentation(main, false);
+        plugin.syncActionPresentation(main, false);
         expect(tipText(maximize)).toBe('Maximize')
     });
 
@@ -173,21 +175,22 @@ test.describe('dock header action tooltips', () => {
         create();
 
         const main   = tabsOf('main-tabs'),
-              action = main.getActionItem('maximize');
+              action = main.getActionItem('maximize'),
+              plugin = workspace.getPlugin('dock-maximize');
 
         expect(action.vdom['aria-label'], 'the derived name before any toggle').toBe('maximize');
         expect(tipText(action)).toBe('Maximize');
 
-        workspace.syncDockMaximizeActionPresentation(main, true);
+        plugin.syncActionPresentation(main, true);
 
         expect(main.getActionItem('maximize'), 'the same instance').toBe(action);
-        expect(action.iconCls).toBe(workspace.dockMinimizeIconCls);
+        expect(action.iconCls).toBe(plugin.restoreIconCls);
         expect(action.vdom['aria-label'], 'the restore glyph is announced as restore').toBe('restore');
         expect(tipText(action)).toBe('Restore');
 
-        workspace.syncDockMaximizeActionPresentation(main, false);
+        plugin.syncActionPresentation(main, false);
 
-        expect(action.iconCls).toBe(workspace.dockMaximizeIconCls);
+        expect(action.iconCls).toBe(plugin.iconCls);
         expect(action.vdom['aria-label']).toBe('maximize');
         expect(tipText(action)).toBe('Maximize')
     })

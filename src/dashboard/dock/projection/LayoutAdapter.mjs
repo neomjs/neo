@@ -416,7 +416,8 @@ class LayoutAdapter extends Base {
      * @param {Boolean} [options.enableDockCloseAction=true] Project the persistent close action.
      * @param {Boolean} [options.enableDockLockAction=false] Projects one engine-owned lock toggle
      *     into every tabs header. The workspace owns committed-state dispatch and presentation sync.
-     * @param {Boolean} [options.enableDockMaximizeAction=true] Project the maximize toggle.
+     * @param {Boolean} [options.enableDockMaximizeAction=false] Project the maximize toggle. Opt-in:
+     *     the workspace's maximize plugin contributes it, so a workspace without one projects none.
      * @param {Boolean} [options.enableDockPinAction=true] Project the collapse-to-rail action.
      * @param {Boolean} [options.enableDockPopOutAction=true] Project the pop-out action; capability
      *     still controls its hidden state through `dockPopOutActionAvailable`.
@@ -517,7 +518,7 @@ class LayoutAdapter extends Base {
             dockUnlockIconCls                : options.dockUnlockIconCls || 'fa fa-lock-open',
             enableDockCloseAction            : options.enableDockCloseAction !== false,
             enableDockLockAction             : options.enableDockLockAction === true,
-            enableDockMaximizeAction         : options.enableDockMaximizeAction !== false,
+            enableDockMaximizeAction         : options.enableDockMaximizeAction === true,
             enableDockPinAction              : options.enableDockPinAction !== false,
             enableDockPopOutAction           : options.enableDockPopOutAction !== false,
             enableDockReloadAction           : options.enableDockReloadAction !== false,
@@ -1193,9 +1194,9 @@ class LayoutAdapter extends Base {
             // the engine set between host actions and the always-visible, always-last `close`.
             //
             // The second toggle, declared like lock. `pressed` is absent rather than false here:
-            // maximization is runtime view state (`Workspace#maximizedNodeId`), never persisted
-            // topology, so a projection cannot answer it and a boot config that claimed to would
-            // be inventing one. The workspace writes the flag; the mapping is already here.
+            // maximization is runtime view state (`plugin.Maximize#maximizedNodeId`), never
+            // persisted topology, so a projection cannot answer it and a boot config that claimed
+            // to would be inventing one. The plugin writes the flag; the mapping is already here.
             ...(context.enableDockMaximizeAction ? [{
                 action            : 'maximize',
                 actionLabel       : 'maximize',

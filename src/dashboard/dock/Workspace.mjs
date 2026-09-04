@@ -3,6 +3,7 @@ import Container                   from '../../container/Base.mjs';
 import NeoArray                    from '../../util/Array.mjs';
 import {isDescriptor}              from '../../core/ConfigSymbols.mjs';
 import LayoutAdapter               from './projection/LayoutAdapter.mjs';
+import Maximize                    from './plugin/Maximize.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
 import Reconciler                  from './projection/Reconciler.mjs';
@@ -192,19 +193,12 @@ class Workspace extends Container {
          */
         enableDockReloadAction: true,
         /**
-         * Projects one engine-owned maximize toggle into each Dock tab header — presentation
-         * only: the committed document, perspectives and topology diffs never observe maximize
-         * state. Enabled by default; explicit `false` removes the action.
-         *
-         * Input contract while a node is maximized: in-strip tab reordering stays live;
-         * cross-zone drag sources and tear-out affordances of the maximized node are suppressed
-         * (every drop target sits under the maximized plane); engaging maximize closes an
-         * in-progress reveal overlay; `Escape` restores and returns focus to the restored
-         * node's active header button. A committed dock operation that reaches beyond the
-         * maximized node clears maximize BEFORE applying, terminally for the re-projection rule
-         * on {@link #maximizedNodeId}; operations confined to the node itself (activating one
-         * of its tabs; closing, reordering or adding an item within it) defer to that rule
-         * instead, which re-applies onto the surviving node and clears when the node collapsed.
+         * Installs the engine-owned maximize toggle, {@link Neo.dashboard.dock.plugin.Maximize},
+         * at construction unless the consumer already supplied one through `plugins`. The plugin
+         * owns every maximize member — the projected action and its icons, the transient
+         * `maximizedNodeId`, the FLIP motion, the resize re-measurement and the `Escape` restore.
+         * Enabled by default; explicit `false` creates no plugin, so the workspace projects no
+         * toggle, registers no observer and binds no key.
          * @member {Boolean} enableDockMaximizeAction=true
          */
         enableDockMaximizeAction: true,
@@ -231,17 +225,6 @@ class Workspace extends Container {
          * @member {String} dockPopOutIconCls='far fa-window-restore'
          */
         dockPopOutIconCls: 'far fa-window-restore',
-        /**
-         * Icon of the projected maximize action while its node is not maximized.
-         * @member {String} dockMaximizeIconCls='far fa-window-maximize'
-         */
-        dockMaximizeIconCls: 'far fa-window-maximize',
-        /**
-         * Icon of the projected maximize action while its node is maximized — the restore half
-         * of the toggle, the {@link Neo.dialog.Base} icon-pair precedent.
-         * @member {String} dockMinimizeIconCls='far fa-window-minimize'
-         */
-        dockMinimizeIconCls: 'far fa-window-minimize',
         /**
          * Tooltip texts of the engine-owned header actions and the rail's reveal pin, keyed by
          * action state: `lock` / `unlock`, `reload`, `unpin`, `popOut`, `maximize` / `restore`,
@@ -299,33 +282,6 @@ class Workspace extends Container {
          * @member {String} flipMarkerPrefix='dock-flip-item-'
          */
         flipMarkerPrefix: 'dock-flip-item-',
-        /**
-         * `Escape` restores an active maximize. The binding is static, the effect is not: the
-         * handler no-ops unless {@link #maximizedNodeId} is set, so every other Escape consumer
-         * (dialogs, reveal overlays, transfer cycles) keeps its ordinary meaning.
-         * @member {Object} keys={Escape:'onDockMaximizeEscape'}
-         */
-        keys: {
-            Escape: 'onDockMaximizeEscape'
-        },
-        /**
-         * Prefix of the per-node marker class the maximize FLIP correlates. Stamped lazily onto
-         * every live tabs node right before a toggle captures its first rects — the projection
-         * itself stays byte-identical while nothing has ever been maximized.
-         * @member {String} maximizeMarkerPrefix='dock-maximize-node-'
-         */
-        maximizeMarkerPrefix: 'dock-maximize-node-',
-        /**
-         * The workspace-transient maximize target — the projected tabs node currently painting
-         * the measured workspace rect. Deliberately NOT part of the committed dock document:
-         * maximize is presentation, so perspectives, persistence and topology diffs never see
-         * it. Deterministic across re-projection: the presentation is re-applied iff this id
-         * still resolves to a projected tabs node, and cleared otherwise — never a third
-         * outcome. Committed operations clear it before they apply, terminally.
-         * @member {String|null} maximizedNodeId_=null
-         * @reactive
-         */
-        maximizedNodeId_: null,
         /**
          * URL-search parameter whose value identifies this workspace as a tear-out vessel's
          * owner. The engine default is product-neutral; legacy consumers may select their
@@ -433,31 +389,6 @@ class Workspace extends Container {
     returningTearOutPanes = {}
 
     /**
-     * One-shot motion intent for the next {@link #maximizedNodeId} transition: 'animate' (the
-     * gesture default) or 'instant' (operation-driven clears, fail-safes, re-projection
-     * continuity). Consumed and reset by `afterSetMaximizedNodeId`.
-     * @member {String} dockMaximizeMotion='animate'
-     * @protected
-     */
-    dockMaximizeMotion = 'animate'
-
-    /**
-     * True while the workspace root is registered with the main-thread ResizeObserver addon for
-     * maximize re-measurement — the observation exists exactly as long as a presentation does.
-     * @member {Boolean} dockMaximizeResizeObserved=false
-     * @protected
-     */
-    dockMaximizeResizeObserved = false
-
-    /**
-     * True once the maximize resize dom listener is wired; the listener itself is a cheap no-op
-     * while nothing is maximized.
-     * @member {Boolean} dockMaximizeResizeWired=false
-     * @protected
-     */
-    dockMaximizeResizeWired = false
-
-    /**
      * Exact pre-lock root-inert snapshots keyed by the live pane instance:
      * `{owned:Boolean, value:*}`. A WeakMap cannot prolong a retired pane's lifetime.
      * @member {WeakMap<Neo.component.Base,Object>} dockLockPaneState=new WeakMap()
@@ -474,15 +405,6 @@ class Workspace extends Container {
     dockLockDragState = new WeakMap()
 
     /**
-     * Restoration snapshot while a maximize presentation is applied:
-     * `{nodeId, zone: {allowOverdrag, boundaryContainerId, enableProxyToPopup}|null, zoneId}`.
-     * Doubles as the presentation-applied flag the clear path consumes exactly once.
-     * @member {Object|null} dockMaximizeRestore=null
-     * @protected
-     */
-    dockMaximizeRestore = null
-
-    /**
      * Item ids with a `dockReload()` invocation in flight — the single-flight guard: a second
      * activation during the window neither invokes nor settles.
      * @member {Set<String>} dockReloadInFlight=new Set()
@@ -497,25 +419,6 @@ class Workspace extends Container {
      * @protected
      */
     dockRecreateInFlight = new Set()
-
-    /**
-     * The in-flight maximizedNodeId transition as an awaitable — every consumer that must
-     * observe settled maximize presentation (the refresh chain, the continuity sync) awaits
-     * this instead of racing the async clear/apply pair.
-     * @member {Promise|null} dockMaximizeTransition=null
-     * @protected
-     */
-    dockMaximizeTransition = null
-
-    /**
-     * The in-flight maximize FLIP window (a settled-safe promise). Opposite-direction style
-     * mutations and resize re-applies serialize on it: a play's end-of-window cleanup restores
-     * the inline-style snapshot it captured at invert time, so geometry written INSIDE the
-     * window would be silently overwritten by stale values when the window closes.
-     * @member {Promise|null} dockMaximizePlay=null
-     * @protected
-     */
-    dockMaximizePlay = null
 
     /**
      * The render target whose geometry stream this Workspace has already armed. This is a
@@ -539,7 +442,13 @@ class Workspace extends Container {
             this.vdom.tabIndex = -1
         }
 
-        this.dockPreviewProducer = Neo.create(PreviewProducer)
+        this.dockPreviewProducer = Neo.create(PreviewProducer);
+
+        // The maximize affordance is a declinable collaborator: installed here unless the consumer
+        // supplied its own instance through `plugins`, never a member of this class.
+        if (this.enableDockMaximizeAction && !this.getPlugin('dock-maximize')) {
+            this.plugins = [...(this.plugins || []), {module: Maximize}]
+        }
 
         if (this.enableDockTearOutLifecycle) {
             this.tearOutHandlers = createDockTearOutHandlers({
@@ -1649,13 +1558,6 @@ class Workspace extends Container {
         me.retireTearOutState();
         me.tearOutHandlers = null;
 
-        if (me.dockMaximizeResizeObserved) {
-            me.dockMaximizeResizeObserved = false;
-            Neo.main.addon.ResizeObserver?.unregister({componentId: me.id, id: me.id, windowId: me.windowId})
-        }
-
-        me.dockMaximizeRestore = null;
-
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
         me.refreshPromise      = null;
@@ -1711,6 +1613,17 @@ class Workspace extends Container {
         return this.enableDockTearOutLifecycle
             ? {enableDockTearOut: true, ...this.tearOutHandlers}
             : {}
+    }
+
+    /**
+     * The projection surface the owned collaborators contribute: every plugin exposing
+     * `getDockProjectionOptions()` (the maximize plugin: its toggle and icon pair) merges into
+     * the adapter context ahead of {@link #getDockProjectionOptions}. A declined collaborator
+     * contributes nothing, so the adapter projects nothing for it.
+     * @returns {Object}
+     */
+    getDockCollaboratorOptions() {
+        return Object.assign({}, ...(this.plugins || []).map(plugin => plugin.getDockProjectionOptions?.() || {}))
     }
 
     /**
@@ -2254,16 +2167,15 @@ class Workspace extends Container {
      * and re-emits everything it does not own.
      *
      * This class owns the ENGINE SET, each action only while its own opt-in is on: `close`
-     * ({@link #enableDockCloseAction}), `maximize` ({@link #enableDockMaximizeAction} — a pure
-     * presentation toggle that never reaches the reducer), `lock`
-     * ({@link #enableDockLockAction}), `pin` ({@link #enableDockPinAction}), `reload`
-     * ({@link #enableDockReloadAction} — runtime-only like maximize: delegation into the pane's own
-     * `dockReload()`, never an operation) and `pop-out` ({@link #enableDockPopOutAction}, itself
-     * double-gated on {@link #enableDockTearOutLifecycle}). Every other intent —
-     * including host actions projected through `resolveDockHeaderActions` — is re-emitted as a
-     * **`dockHeaderAction`** event carrying `{action, dockNodeId, tabContainer}`, so a host receives it
-     * without subclassing this class or overriding a protected method, and this method returns `null`
-     * for it.
+     * ({@link #enableDockCloseAction}), `lock` ({@link #enableDockLockAction}), `pin`
+     * ({@link #enableDockPinAction}), `reload` ({@link #enableDockReloadAction} — runtime-only:
+     * delegation into the pane's own `dockReload()`, never an operation) and `pop-out`
+     * ({@link #enableDockPopOutAction}, itself double-gated on {@link #enableDockTearOutLifecycle}).
+     * Every other intent — `maximize`, which the maximize plugin owns as a pure presentation toggle
+     * that never reaches the reducer, and host actions projected through `resolveDockHeaderActions`
+     * alike — is re-emitted as a **`dockHeaderAction`** event carrying
+     * `{action, dockNodeId, tabContainer}`, so a host or a collaborator receives it without
+     * subclassing this class or overriding a protected method, and this method returns `null` for it.
      *
      * Routing lives here and the effect lives in one handler per action, so a further engine action is
      * a new handler plus a row below rather than another branch grown into this method.
@@ -2301,11 +2213,6 @@ class Workspace extends Container {
         // host's intent here instead of re-emitting it.
         if (action === 'pop-out' && me.dockPopOutActionActive) {
             return me.handleDockPopOutAction({dockNodeId, tabContainer})
-        }
-
-        if (action === 'maximize' && me.enableDockMaximizeAction) {
-            me.toggleDockMaximize(dockNodeId);
-            return null
         }
 
         if (action === 'reload' && me.enableDockReloadAction) {
@@ -2788,628 +2695,6 @@ class Workspace extends Container {
     }
 
     /**
-     * Triggered after the maximizedNodeId config got changed — the single presentation writer:
-     * clearing restores the previous node, setting applies the new one, and an A→B switch
-     * restores A instantly underneath B's animation. The one-shot {@link #dockMaximizeMotion}
-     * intent decides whether the transition animates (the gesture default) or lands instantly
-     * (operation-driven clears, fail-safes, re-projection continuity).
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetMaximizedNodeId(value, oldValue) {
-        if (oldValue === undefined) {
-            return
-        }
-
-        let me             = this,
-            animate        = me.dockMaximizeMotion !== 'instant',
-            transitionTail = me.dockMaximizeTransition?.catch(() => {}) || Promise.resolve();
-
-        me.dockMaximizeMotion = 'animate';
-
-        // Transitions are one ordered lane. A superseding value used to start its apply while the
-        // prior clear was still live; that clear could then remove the new presentation while the
-        // reactive id correctly survived. Clear first, then wait for the latest committed projection
-        // before resolving the live tabs instance the apply mutates. `syncDockMaximizeProjection`
-        // remains the refresh-owned idempotent reapply inside that projection.
-        me.dockMaximizeTransition = transitionTail.then(async () => {
-            oldValue && await me.clearDockMaximizePresentation({animate: animate && !value});
-
-            if (value) {
-                await (me.refreshPromise?.catch(() => {}) || Promise.resolve());
-
-                if (me.maximizedNodeId === value && !me.isDestroyed) {
-                    await me.applyDockMaximizePresentation(value, {animate})
-                }
-            }
-        }).catch(() => null)
-    }
-
-    /**
-     * Header-action dispatch for the engine-owned maximize toggle. Restoring returns focus to
-     * the restored node's active header button — the input contract's focus half.
-     * @param {String} dockNodeId
-     * @protected
-     */
-    toggleDockMaximize(dockNodeId) {
-        let me       = this,
-            restored = me.maximizedNodeId === dockNodeId;
-
-        me.maximizedNodeId = restored ? null : dockNodeId;
-
-        restored && me.focusDockMaximizeTarget(dockNodeId)
-    }
-
-    /**
-     * `Escape` restores an active maximize and returns focus to the restored node's active
-     * header button. A no-op while nothing is maximized, so every other Escape consumer keeps
-     * its ordinary meaning.
-     * @param {Object} data
-     * @protected
-     */
-    onDockMaximizeEscape(data) {
-        let me     = this,
-            nodeId = me.maximizedNodeId;
-
-        if (nodeId) {
-            me.maximizedNodeId = null;
-            me.focusDockMaximizeTarget(nodeId)
-        }
-    }
-
-    /**
-     * Focuses the restored node's active header button after a maximize restore; an
-     * unresolvable button falls back to the tabs root.
-     * @param {String} nodeId
-     * @protected
-     */
-    focusDockMaximizeTarget(nodeId) {
-        let tabContainer = this.getDockHost()?.down?.({dockNodeId: nodeId});
-
-        if (tabContainer) {
-            let buttons = tabContainer.getTabButtons?.() || [],
-                index   = tabContainer.activeIndex;
-
-            (buttons[index] || tabContainer).focus?.()
-        }
-    }
-
-    /**
-     * Measures the dock host's live viewport rect — the geometry authority for the maximize
-     * presentation. A maximized pane fills the DOCK AREA, not the app view: a workspace that
-     * frames its host with a tour bar or a status bar keeps them in sight. The host is measured
-     * explicitly (the workspace root stands in while no host is mounted): `inset: 0` would answer
-     * to the viewport or an incidental fixed containing block instead. `null` is the fail-safe
-     * trigger (unmounted mid-gesture, zero-area rect).
-     * @returns {Promise<Object|null>}
-     * @protected
-     */
-    async measureDockMaximizeRect() {
-        let me   = this,
-            id   = me.getDockHost()?.id || me.id,
-            rect = null;
-
-        try {
-            rect = await Neo.main.DomAccess.getBoundingClientRect({id, windowId: me.windowId})
-        } catch (error) {
-            rect = null
-        }
-
-        Array.isArray(rect) && (rect = rect[0]);
-
-        return (rect?.width > 0 && rect?.height > 0) ? rect : null
-    }
-
-    /**
-     * @summary The four inline rect values of a maximized node: the measured host rect inset by
-     * the gap token on every side.
-     *
-     * The gap is a paint-contract value (`--dock-maximize-gap` on `.neo-dashboard`), never a
-     * worker literal, so the rect is written as `calc()` against the token and resolves in CSS —
-     * a consumer tunes the gap without a worker round trip. The FLIP measures the DOM and is
-     * unaffected by how the values are expressed.
-     * @param {Object} rect The host's live viewport rect
-     * @returns {Object} `{height, left, top, width}`
-     * @protected
-     */
-    dockMaximizeRectStyle(rect) {
-        const gap = 'var(--dock-maximize-gap, 0px)';
-
-        return {
-            height: `calc(${rect.height}px - 2 * ${gap})`,
-            left  : `calc(${rect.left}px + ${gap})`,
-            top   : `calc(${rect.top}px + ${gap})`,
-            width : `calc(${rect.width}px - 2 * ${gap})`
-        }
-    }
-
-    /**
-     * The fail-safe half of the geometry contract: an unresolvable measurement or projection
-     * clears the transient through the ordinary restore path — never a half state.
-     * @param {String} nodeId The transition this failure belongs to.
-     * @protected
-     */
-    failDockMaximize(nodeId) {
-        let me = this;
-
-        if (me.maximizedNodeId === nodeId) {
-            me.dockMaximizeMotion = 'instant';
-            me.maximizedNodeId    = null
-        }
-    }
-
-    /**
-     * Stamps the maximize FLIP marker onto every live projected tabs node (idempotent) and
-     * flushes, so a following capture sees each node's pre-toggle rect: the maximized node
-     * glides, and the siblings reflowing around its vacated flow slot glide with it instead of
-     * snapping. Stamped lazily at gesture time — a workspace that never maximizes projects
-     * byte-identically.
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async stampDockMaximizeMarkers() {
-        let me     = this,
-            prefix = me.maximizeMarkerPrefix,
-            shell  = me.getDockHost()?.items?.[me.dockShellIndex],
-            tabs   = shell ? Reconciler.collectProjectedTabs(shell) : new Map(),
-            dirty  = [];
-
-        tabs.forEach(tab => {
-            let marker = `${prefix}${encodeURIComponent(tab.dockNodeId)}`;
-
-            if (!tab.cls.includes(marker)) {
-                tab.cls = [...new Set([...tab.cls, marker])];
-                dirty.push(tab)
-            }
-        });
-
-        await Promise.all(dirty.map(tab => tab.promiseUpdate?.()))
-    }
-
-    /**
-     * FLIP first-phase for a maximize transition, over the dedicated maximize marker family —
-     * separate from {@link #flipMarkerPrefix} so committed-operation refreshes and maximize
-     * gestures never consume each other's snapshots.
-     * @returns {Promise<Neo.container.Base|null>} The dock host, for the paired play call.
-     * @protected
-     */
-    async captureDockMaximizeFirst() {
-        let me   = this,
-            host = me.getDockHost(),
-            flip = Neo.main?.addon?.DockFlip;
-
-        if (!host?.mounted) {
-            return null
-        }
-
-        try {
-            await flip?.captureFirst({hostId: host.id, markerPrefix: me.maximizeMarkerPrefix, windowId: host.windowId})
-        } catch (error) {/* instant landing */}
-
-        return host
-    }
-
-    /**
-     * FLIP second-phase for a maximize transition — the same fail-safe discipline as
-     * {@link #refreshDockWorkspace}: gate on the play capability, bracket the motion signal, and
-     * let every failure land the final geometry instantly. Truth never waits on motion.
-     * @param {Neo.container.Base|null} host
-     * @returns {Promise<*>}
-     * @protected
-     */
-    playDockMaximizeFlip(host) {
-        let me   = this,
-            flip = Neo.main?.addon?.DockFlip,
-            played;
-
-        if (!host || typeof flip?.play !== 'function' || me.isDestroyed) {
-            return Promise.resolve(null)
-        }
-
-        MotionSignal.enter(me);
-
-        try {
-            played = flip.play({hostId: host.id, markerPrefix: me.maximizeMarkerPrefix, windowId: host.windowId})
-        } catch (error) {
-            played = Promise.reject(error)
-        }
-
-        played = Promise.resolve(played).catch(() => null);
-        played.finally(() => MotionSignal.leave(me));
-
-        me.dockMaximizePlay = played;
-
-        return played
-    }
-
-    /**
-     * Engaging maximize closes an in-progress reveal — one overlay tier at a time, and
-     * deterministically: the reveal machine gets an explicit dismissal input rather than the
-     * presentation relying on the overlay's focus/outside-click decay to arrive in time.
-     * @protected
-     */
-    dismissDockRevealOverlays() {
-        let walk = item => {
-            if (!item) {
-                return
-            }
-
-            if (item.ntype === 'dashboard-dock-rail') {
-                item.revealMachine?.outsideClick?.();
-                return
-            }
-
-            (item.items || []).forEach(walk)
-        };
-
-        walk(this.getDockHost()?.items?.[this.dockShellIndex])
-    }
-
-    /**
-     * The input-contract guard while a node is maximized: in-strip reorder stays live (the zone
-     * keeps sorting, clamped to its own toolbar), while cross-zone exits and tear-out are
-     * suppressed — every drop target sits under the maximized plane, so offering the gesture
-     * would be dishonest. Idempotent per zone instance: re-application onto the same live zone
-     * keeps the original snapshot, so restore always lands the pre-maximize values.
-     * @param {Neo.tab.Container} tabContainer
-     * @protected
-     */
-    suppressDockMaximizeDragSources(tabContainer) {
-        let me   = this,
-            bar  = tabContainer.getTabBar?.(),
-            zone = bar?.sortZone || null;
-
-        if (me.dockMaximizeRestore?.zoneId && me.dockMaximizeRestore.zoneId === zone?.id) {
-            return
-        }
-
-        me.dockMaximizeRestore = {
-            nodeId: tabContainer.dockNodeId,
-            zone  : zone && {
-                allowOverdrag      : zone.allowOverdrag,
-                boundaryContainerId: zone.boundaryContainerId,
-                enableProxyToPopup : zone.enableProxyToPopup
-            },
-            zoneId: zone?.id || null
-        };
-
-        // One coherent batched mutation per direction — the core reactive-config idiom.
-        zone?.set({
-            allowOverdrag      : false,
-            boundaryContainerId: bar.id,
-            enableProxyToPopup : false
-        })
-    }
-
-    /**
-     * Applies the maximize presentation onto the live projected tabs node: the measured
-     * workspace rect as four inline values plus the class toggle — never a re-parent (a pane
-     * hosting an iframe reloads its browsing context on re-parent), never a committed operation
-     * (the document, perspectives and topology diffs never observe maximize). Fail-safe: an
-     * unresolvable node or measurement clears the transient instead of leaving a half state.
-     * Idempotent, so the re-projection continuity can re-enter it.
-     * @param {String} nodeId
-     * @param {Object} [options={}]
-     * @param {Boolean} [options.animate=true]
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async applyDockMaximizePresentation(nodeId, {animate=true}={}) {
-        let me   = this,
-            host = null,
-            rect, tabContainer;
-
-        tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
-
-        if (!tabContainer || tabContainer.isDestroyed) {
-            me.failDockMaximize(nodeId);
-            return
-        }
-
-        rect = await me.measureDockMaximizeRect();
-
-        if (!rect) {
-            me.failDockMaximize(nodeId);
-            return
-        }
-
-        if (me.maximizedNodeId !== nodeId || me.isDestroyed) {
-            return
-        }
-
-        // Serialize on any in-flight FLIP window before WRITING: its end-of-window cleanup
-        // restores the inline-style snapshot from invert time, which would overwrite geometry
-        // written inside the window. Deliberately after the fail-guards — a fail-safe clear
-        // writes nothing and must never queue behind motion.
-        await me.dockMaximizePlay;
-
-        if (me.maximizedNodeId !== nodeId || me.isDestroyed) {
-            return
-        }
-
-        me.dismissDockRevealOverlays();
-        me.suppressDockMaximizeDragSources(tabContainer);
-
-        if (animate) {
-            await me.stampDockMaximizeMarkers();
-            host = await me.captureDockMaximizeFirst();
-
-            if (me.maximizedNodeId !== nodeId || me.isDestroyed) {
-                return
-            }
-        }
-
-        // wrapperStyle is the dock's geometry carrier (the reconciler writes split flex through
-        // it) and a shallow-merge descriptor: only the four rect keys ride here, and `null`
-        // removes — the `style` config cannot remove against the wrapperStyle/vdom mirror loop.
-        tabContainer.set({
-            cls: [...new Set([
-                ...tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'),
-                'neo-dock-maximized'
-            ])],
-            wrapperStyle: me.dockMaximizeRectStyle(rect)
-        });
-
-        if (animate) {
-            // The mutation→motion boundary must be deterministic: play() measures Last and
-            // snapshots inline styles for its cleanup, so an un-flushed delta makes it capture
-            // the OLD geometry — and its cleanup would then resurrect the stale inline values.
-            try {
-                await tabContainer.promiseUpdate?.()
-            } catch (error) {/* destroyed mid-flight: the play gate below lands instantly */}
-
-            me.playDockMaximizeFlip(host)
-        }
-
-        me.syncDockMaximizeActionPresentation(tabContainer, true);
-        await me.registerDockMaximizeResizeObserver(true)
-    }
-
-    /**
-     * Restores the ordinary presentation: removes the class and the four inline rect values,
-     * lifts the drag-source suppression, and (for gesture-driven restores) FLIP-glides the node
-     * from the workspace rect back into its flow slot while `neo-dock-maximize-restoring` holds
-     * its paint order above the re-expanded layout until the motion settles.
-     * @param {Object} [options={}]
-     * @param {Boolean} [options.animate=true]
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async clearDockMaximizePresentation({animate=true}={}) {
-        let me      = this,
-            restore = me.dockMaximizeRestore,
-            host    = null,
-            tabContainer, zone;
-
-        if (!restore) {
-            // A failed superseding apply can clear the reactive id after the prior clear already
-            // consumed the restore snapshot. The observer may still be live because its generation
-            // guard correctly refused to unregister while that superseding id was non-null. Once the
-            // id is null, this clear remains the lifecycle owner even without geometry left to restore.
-            !me.maximizedNodeId && await me.registerDockMaximizeResizeObserver(false);
-            return
-        }
-
-        me.dockMaximizeRestore = null;
-
-        // Same serialization as the apply path: never mutate geometry inside a live FLIP
-        // window whose cleanup will re-stamp its stale snapshot.
-        await me.dockMaximizePlay;
-
-        tabContainer = me.getDockHost()?.down?.({dockNodeId: restore.nodeId});
-
-        if (tabContainer && !tabContainer.isDestroyed) {
-            zone = tabContainer.getTabBar?.()?.sortZone;
-
-            if (restore.zone && zone && zone.id === restore.zoneId) {
-                // One coherent batched mutation — the same idiom as the suppress direction.
-                zone.set(restore.zone)
-            }
-
-            if (animate) {
-                await me.stampDockMaximizeMarkers();
-                host = await me.captureDockMaximizeFirst()
-            }
-
-            // Null values through the shallow-merge wrapperStyle descriptor are the house
-            // removal idiom (the reconciler un-sets flex the same way).
-            tabContainer.set({
-                cls: [
-                    ...tabContainer.cls.filter(c => c !== 'neo-dock-maximized'),
-                    ...(animate ? ['neo-dock-maximize-restoring'] : [])
-                ],
-                wrapperStyle: {height: null, left: null, top: null, width: null}
-            });
-
-            if (animate) {
-                // Same deterministic boundary as the apply path: an un-flushed delta lets play()
-                // snapshot the maximize rect as "inline styles to restore" — its cleanup would
-                // stamp the fullscreen values back onto the restored node.
-                try {
-                    await tabContainer.promiseUpdate?.()
-                } catch (error) {/* destroyed mid-flight */}
-
-                me.playDockMaximizeFlip(host).then(() => {
-                    !tabContainer.isDestroyed && (tabContainer.cls = tabContainer.cls.filter(c => c !== 'neo-dock-maximize-restoring'))
-                })
-            }
-
-            me.syncDockMaximizeActionPresentation(tabContainer, false)
-        }
-
-        await me.registerDockMaximizeResizeObserver(false)
-    }
-
-    /**
-     * States whether the node is maximized. The action's own `pressed` handler
-     * ({@link Neo.toolbar.ActionButton#afterSetPressed}) turns that into icon, accessible name and
-     * tooltip in one update, from the pair the projection declared — so the glyph naming the NEXT
-     * action is a property of the action, not of each caller that flips it.
-     * @param {Neo.tab.Container|null} tabContainer
-     * @param {Boolean} maximized
-     * @protected
-     */
-    syncDockMaximizeActionPresentation(tabContainer, maximized) {
-        tabContainer?.getActionItem?.('maximize')?.set({pressed: maximized})
-    }
-
-    /**
-     * Classifies a committed operation descriptor as confined to the maximized node — the ops
-     * that must NOT pre-clear the transient: their effect stays inside the pane the user is
-     * looking at, so the continuity rule ({@link #syncDockMaximizeProjection}) decides from the
-     * committed outcome instead (node survived ⇒ re-apply; collapsed away ⇒ clear). Everything
-     * else — topology mutations, boundary crossings, whole-document applies (a `null`
-     * descriptor included) — clears terminally before it applies.
-     * @param {Object|null} descriptor
-     * @returns {Boolean}
-     * @protected
-     */
-    isDockMaximizeNeutralOperation(descriptor) {
-        let me                                            = this,
-            nodeId                                        = me.maximizedNodeId,
-            {itemId, operation, tabsNodeId, targetNodeId} = descriptor || {};
-
-        if (!operation || !nodeId) {
-            return false
-        }
-
-        switch (operation) {
-            case 'addTab': {
-                // The addTab handler re-dispatches an already-contained item to moveItem, so a
-                // descriptor targeting the maximized node can still RELOCATE the item out of a
-                // sibling — that reaches beyond the node. Neutral only for a catalog-only item
-                // or one already inside the maximized node.
-                let source = WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
-
-                return tabsNodeId === nodeId && (!source || source === nodeId)
-            }
-            case 'closeItem':
-                return WorkspaceDocument.findContainingTabsId(me.dockModel, itemId) === nodeId;
-            case 'moveItem':
-                return targetNodeId === nodeId && WorkspaceDocument.findContainingTabsId(me.dockModel, itemId) === nodeId;
-            case 'setActiveItem':
-                return tabsNodeId === nodeId;
-            default:
-                return false
-        }
-    }
-
-    /**
-     * The deterministic re-projection half of the transient contract: after a refresh, the
-     * presentation is re-applied iff {@link #maximizedNodeId} still resolves to a projected
-     * tabs node, and cleared otherwise — never a third outcome. Committed operations that reach
-     * beyond the maximized node clear the transient BEFORE their refresh runs (see
-     * {@link #onDockZoneDocumentChange}), and that clear is terminal, so this continuity path
-     * only ever re-applies a transient that survived.
-     * @protected
-     */
-    async syncDockMaximizeProjection() {
-        let me     = this,
-            nodeId = me.maximizedNodeId,
-            tabContainer;
-
-        if (!nodeId) {
-            return
-        }
-
-        tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
-
-        if (tabContainer && me.dockModel?.nodes?.[nodeId]?.type === 'tabs') {
-            await me.applyDockMaximizePresentation(nodeId, {animate: false})
-        } else {
-            me.failDockMaximize(nodeId);
-
-            // This method runs INSIDE refreshDockWorkspace. A value-bearing transition may be
-            // waiting for this same refreshPromise before it applies, so awaiting the transition
-            // here closes a refresh → transition → refresh cycle. No projected node remains to
-            // restore in this branch; clear the independently-owned observer now and let the queued
-            // reactive clear drain after this refresh releases its tail.
-            await me.registerDockMaximizeResizeObserver(false)
-        }
-    }
-
-    /**
-     * Registers/unregisters the workspace root with the main-thread ResizeObserver addon — a
-     * NEW observation scoped exactly to the maximize lifetime: no standing cost while
-     * un-maximized, unregistered again on restore, node-clear and destroy.
-     * @param {Boolean} register
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async registerDockMaximizeResizeObserver(register) {
-        let me         = this,
-            {windowId} = me,
-            addon;
-
-        if (me.dockMaximizeResizeObserved === register || me.isDestroyed) {
-            return
-        }
-
-        if (register && !me.dockMaximizeResizeWired) {
-            me.dockMaximizeResizeWired = true;
-            me.addDomListeners({resize: me.onDockMaximizeResize, scope: me})
-        }
-
-        addon = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
-
-        if (me.isDestroyed || !addon) {
-            return
-        }
-
-        if (register && me.maximizedNodeId) {
-            addon.register({componentId: me.id, id: me.id, windowId});
-            me.dockMaximizeResizeObserved = true
-        } else if (!register && me.dockMaximizeResizeObserved && !me.maximizedNodeId) {
-            // The generation guard: a restore's deferred unregister can land AFTER a newer
-            // maximize registered — the observation is keyed on the one workspace id, so tearing
-            // it down here would leave the newer presentation blind. While any maximize is live,
-            // the observation stays; the final restore (transient null) tears down.
-            addon.unregister({componentId: me.id, id: me.id, windowId});
-            me.dockMaximizeResizeObserved = false
-        }
-    }
-
-    /**
-     * Re-measures and re-applies the maximize rect while the workspace resizes — geometry only,
-     * no motion. An unresolvable measurement takes the fail-safe restore path.
-     * @param {Object} data
-     * @protected
-     */
-    async onDockMaximizeResize(data) {
-        let me     = this,
-            nodeId = me.maximizedNodeId,
-            rect, tabContainer;
-
-        if (!nodeId) {
-            return
-        }
-
-        rect = await me.measureDockMaximizeRect();
-
-        if (!rect) {
-            me.failDockMaximize(nodeId);
-            return
-        }
-
-        if (me.maximizedNodeId !== nodeId) {
-            return
-        }
-
-        await me.dockMaximizePlay;
-
-        if (me.maximizedNodeId !== nodeId) {
-            return
-        }
-
-        tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
-
-        tabContainer && !tabContainer.isDestroyed && tabContainer.set({
-            wrapperStyle: me.dockMaximizeRectStyle(rect)
-        })
-    }
-
-    /**
      * The read half of the dock-holder contract (`src/ai/client/DockService.mjs`): the live
      * committed document, readable before any operation has run.
      * @returns {Object|null}
@@ -3647,16 +2932,10 @@ class Workspace extends Container {
         let me = this,
             tabInsertDescriptor, refreshOptions, tail;
 
-        // A committed operation clears maximize BEFORE applying — and that clear is terminal:
-        // the re-projection continuity in refreshDockWorkspace() re-applies only a transient
-        // that survived, never one an operation cleared. Operations confined to the maximized
-        // node itself (activating a tab, reordering or closing within it) are the exception:
-        // they defer to that same continuity rule, which re-applies onto the surviving node —
-        // without the exception, switching tabs INSIDE a maximized pane would restore it.
-        if (me.maximizedNodeId && !me.isDockMaximizeNeutralOperation(descriptor)) {
-            me.dockMaximizeMotion = 'instant';
-            me.maximizedNodeId    = null
-        }
+        // A committed operation is announced BEFORE it applies, so a collaborator holding runtime
+        // presentation over the outgoing projection (the maximize plugin) can clear it terminally;
+        // the re-projection continuity in refreshDockWorkspace() re-applies only what survived.
+        me.fire('beforeDockZoneDocumentChange', {descriptor, document, source});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
         refreshOptions      = me.getRefreshOptions(descriptor, source);
@@ -3737,6 +3016,9 @@ class Workspace extends Container {
 
             config = LayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
+                // Owned collaborators contribute their projected surface (the maximize plugin: its
+                // toggle and icons) before the consumer's hook and this class's own options.
+                ...me.getDockCollaboratorOptions(),
                 ...options,
                 // The Workspace component is the DOM-root authority for ordinary cross-zone tab
                 // motion. An explicit dockTearOutBoundaryContainerId from the hook still wins in
@@ -3753,13 +3035,10 @@ class Workspace extends Container {
                     dockUnlockIconCls   : me.dockUnlockIconCls,
                     enableDockLockAction: true
                 }),
-                enableDockMaximizeAction : me.enableDockMaximizeAction,
                 enableDockPinAction      : me.enableDockPinAction,
                 enableDockPopOutAction   : me.enableDockPopOutAction,
                 enableDockReloadAction   : me.enableDockReloadAction,
                 dockActionTooltips       : me.dockActionTooltips,
-                dockMaximizeIconCls      : me.dockMaximizeIconCls,
-                dockMinimizeIconCls      : me.dockMinimizeIconCls,
                 dockPopOutActionAvailable: me.dockPopOutActionActive,
                 dockPopOutIconCls        : me.dockPopOutIconCls,
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
@@ -3926,9 +3205,11 @@ class Workspace extends Container {
         // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
         if (result === null) return;
 
-        // Awaited on purpose: refreshPromise is the settled-surface contract, and a maximize
+        // Awaited on purpose: refreshPromise is the settled-surface contract, and a collaborator
         // presentation that re-applies after it settles is a surface nobody can await.
-        await me.syncDockMaximizeProjection();
+        for (const plugin of me.plugins || []) {
+            await plugin.syncDockProjection?.()
+        }
 
         // FLIP phase 2: fire-and-forget by default — the addon self-waits for the swap, inverts and
         // plays; the counted motion signal brackets the awaited animation window. Gate on the

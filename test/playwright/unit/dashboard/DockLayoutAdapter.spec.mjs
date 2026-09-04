@@ -209,10 +209,12 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             model       = createModel(),
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
             hidden      = getProjectedChildren(DockLayoutAdapter.project(model, {
-                resolveComponentRef: resolvePane
+                enableDockMaximizeAction: true,
+                resolveComponentRef     : resolvePane
             }))[0],
             available   = getProjectedChildren(DockLayoutAdapter.project(model, {
                 dockPopOutActionAvailable: true,
+                enableDockMaximizeAction : true,
                 resolveComponentRef      : resolvePane
             }))[0],
             optedOut   = getProjectedChildren(DockLayoutAdapter.project(model, {
@@ -243,6 +245,24 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         expect(optedOut.headerActions, 'explicit false retains the public compatibility escape').toBeUndefined();
         expect(optedOut.vdom).toBeUndefined()
+    });
+
+    test('the maximize toggle is opt-in: a workspace maximize plugin contributes it, nothing else does', () => {
+        const
+            model       = createModel(),
+            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            absent      = getProjectedChildren(DockLayoutAdapter.project(model, {
+                resolveComponentRef: resolvePane
+            }))[0],
+            hostOwned   = getProjectedChildren(DockLayoutAdapter.project(model, {
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: () => [{action: 'maximize', iconCls: 'fa fa-expand'}]
+            }))[0];
+
+        expect(absent.headerActions.map(action => action.action))
+            .toEqual(['reload', 'pin', 'pop-out', 'close']);
+        expect(hostOwned.headerActions.filter(action => action.action === 'maximize'),
+            'without the flag the name is the host\'s to take').toHaveLength(1)
     });
 
     test('routes default-rail and active-index intents through the tabs-node owner', () => {
@@ -276,6 +296,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             seenNodeIds = [],
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
             projected   = DockLayoutAdapter.project(model, {
+                enableDockMaximizeAction: true,
                 onDockHeaderAction      : data => intents.push(data),
                 resolveComponentRef     : resolvePane,
                 resolveDockHeaderActions: nodeId => {
@@ -301,6 +322,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             model       = createModel(),
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
             project     = (actions, extra={}) => () => DockLayoutAdapter.project(model, {
+                enableDockMaximizeAction: true,
                 resolveComponentRef     : resolvePane,
                 resolveDockHeaderActions: () => actions,
                 ...extra
@@ -349,6 +371,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
             result      = DockLayoutAdapter.project(model, {
                 dockPopOutActionAvailable: true,
+                enableDockMaximizeAction : true,
                 resolveComponentRef      : resolvePane,
                 resolveDockHeaderActions : nodeId => nodeId === 'terminal-tabs' ? [{action: 'diagnose'}] : []
             }),
@@ -397,9 +420,10 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             intents     = [],
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
             projected   = DockLayoutAdapter.project(model, {
-                dockMaximizeIconCls: 'fa fa-expand',
-                onDockHeaderAction : data => intents.push(data),
-                resolveComponentRef: resolvePane
+                dockMaximizeIconCls     : 'fa fa-expand',
+                enableDockMaximizeAction: true,
+                onDockHeaderAction      : data => intents.push(data),
+                resolveComponentRef     : resolvePane
             }),
             main        = getProjectedChildren(projected)[0],
             maximize    = main.headerActions.find(action => action.action === 'maximize');
@@ -419,8 +443,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             model       = createModel(),
             resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
             enabled     = DockLayoutAdapter.project(model, {
-                enableDockLockAction: true,
-                resolveComponentRef : resolvePane
+                enableDockLockAction    : true,
+                enableDockMaximizeAction: true,
+                resolveComponentRef     : resolvePane
             }),
             enabledMain = getProjectedChildren(enabled)[0];
 

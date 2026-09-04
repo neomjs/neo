@@ -716,7 +716,7 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
     }
 }
 
-// The maximize presentation (Neo.dashboard.dock.Workspace#maximizedNodeId): a class toggle plus
+// The maximize presentation (Neo.dashboard.dock.plugin.Maximize#maximizedNodeId): a class toggle plus
 // four inline rect values MEASURED from the workspace root at toggle time — never `inset: 0`,
 // which answers to the viewport or an incidental fixed containing block instead of the
 // workspace. The pane is never re-parented (an iframe reloads its browsing context on
