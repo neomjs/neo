@@ -164,6 +164,15 @@ class Rail extends Container {
      */
     revealPaneLoads = {}
     /**
+     * In-flight {@link #releaseRevealPane} calls, keyed by dock item id. The rail's own leave paths
+     * start a release without awaiting it, and the release clears {@link #revealPaneCache} on its
+     * first tick — so without this lease the workspace's pre-projection sweep sees an empty cache
+     * and stages the projection while the removal is still landing.
+     * @member {Object} revealPaneReleases={}
+     * @protected
+     */
+    revealPaneReleases = {}
+    /**
      * The reveal/dismiss timing brain. Runtime-only; created per instance, torn down in `destroy()`.
      * @member {RevealStateMachine|null} revealMachine=null
      * @protected
@@ -411,46 +420,59 @@ class Rail extends Container {
      * dismissal parks the pane, so a revealed pane leaves through its slot in the one update the
      * dismissal would otherwise spend on parking it — its DOM node and its registration retire
      * together, ahead of the refresh that mints the flow pane. The workspace's pre-projection sweep
-     * ({@link Neo.dashboard.dock.Workspace#releaseStaleRevealPanes}) covers the leave paths that
-     * never pass through this rail (a restored perspective, a transfer) and AWAITS the result: the
-     * slot's removal has to land before a staged projection inserts a node under the same id, and a
-     * destroy must never race an in-flight update that still diffs the pane's vnode — either one
-     * wedges the refresh (measured: a reconcile whose `promiseUpdate` never settles).
+     * ({@link Neo.dashboard.dock.Workspace#releaseStaleRevealPanes}) AWAITS the result — both for
+     * the leave paths that never pass through this rail (a restored perspective, a transfer) and,
+     * through {@link #revealPaneReleases}, for the ones that do: the slot's removal has to land
+     * before a staged projection inserts a node under the same id, and a destroy must never race an
+     * in-flight update that still diffs the pane's vnode — either one wedges the refresh (measured:
+     * a reconcile whose `promiseUpdate` never settles).
      * @param {String} itemId
      * @returns {Promise<void>} Settles once the pane is gone from the DOM and the registry.
      * @protected
      */
     async releaseRevealPane(itemId) {
-        let me   = this,
+        let me = this,
+            parent, pane, resolveRelease;
+
+        me.revealPaneReleases[itemId] = new Promise(resolve => {resolveRelease = resolve});
+
+        try {
             pane = me.revealPaneCache[itemId];
 
-        // an import still in flight for a released item must not land a pane afterwards
-        delete me.revealPaneLoads[itemId];
+            // an import still in flight for a released item must not land a pane afterwards
+            delete me.revealPaneLoads[itemId];
 
-        if (!pane) {
-            return
-        }
+            if (!pane) {
+                return
+            }
 
-        delete me.revealPaneCache[itemId];
+            delete me.revealPaneCache[itemId];
 
-        if (pane.isDestroyed) {
-            return
-        }
+            if (pane.isDestroyed) {
+                return
+            }
 
-        const parent = pane.parent;
+            parent = pane.parent;
 
-        // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
-        // resolve a slot that no longer lists it — go through the parent only while it does.
-        if (parent?.items?.includes(pane)) {
-            // `removeAt` splices the vdom BEFORE the payload is built and destroys the pane, so the
-            // removal it publishes never references the instance; hand its landing back.
-            parent.remove(pane, true);
-            await parent.promiseUpdate()
-        } else {
-            // Parked: the dismissal already spliced it out, but that update may still be in flight
-            // with the pane's vnode in its diff — let it land before the instance goes.
-            await parent?.promiseUpdate?.();
-            pane.isDestroyed || pane.destroy()
+            // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
+            // resolve a slot that no longer lists it — go through the parent only while it does.
+            if (parent?.items?.includes(pane)) {
+                // `removeAt` splices the vdom BEFORE the payload is built and destroys the pane, so
+                // the removal it publishes never references the instance; hand its landing back.
+                parent.remove(pane, true);
+                await parent.promiseUpdate()
+            } else {
+                // Parked: the dismissal already spliced it out, but that update may still be in
+                // flight with the pane's vnode in its diff — let it land before the instance goes.
+                await parent?.promiseUpdate?.();
+                pane.isDestroyed || pane.destroy()
+            }
+        } finally {
+            // `destroy()` deletes own properties, so a rail torn down across the awaits above has no
+            // map left to clear — but the lease must settle either way, or the sweep holding it waits
+            // on a promise nobody resolves.
+            me.revealPaneReleases && delete me.revealPaneReleases[itemId];
+            resolveRelease()
         }
     }
 

@@ -2015,6 +2015,30 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(returned.getActionItem('reload')?.hidden, 'and the post-settle sweep ran on the returned node').toBe(false)
     });
 
+    test('a pin retires only its own item — a rail still holding another auto-hidden item survives', async () => {
+        const
+            document   = createEdgeDocument(),
+            railTabIds = rail => (rail?.items || []).filter(item => item.dockItemId != null).map(item => item.dockItemId);
+
+        document.items.logs = {componentRef: 'Logs', title: 'Logs', kind: 'panel'};
+        document.nodes['inspector-tabs'].items.push('logs');
+
+        document.items.inspector.autoHidden = true;
+        document.items.logs.autoHidden      = true;
+
+        workspace = Neo.create(FixedIdWorkspace, {dockModel: document});
+
+        expect(railTabIds(railOf(workspace.items[0])), 'both auto-hidden items rail').toEqual(['inspector', 'logs']);
+
+        expect(railOf(workspace.items[0]).onRevealPinRequested({itemId: 'inspector'}).errors).toEqual([]);
+
+        await workspace.refreshPromise;
+
+        // Awaiting the rail's in-flight release must not make teardown unconditional: the edge
+        // still hosts an auto-hidden item, so the rail stays and loses only the pinned tab.
+        expect(railTabIds(railOf(workspace.items[0])), 'the rail keeps the item that stayed').toEqual(['logs'])
+    });
+
     /**
      * The leave paths that bypass the rail (a restored perspective, a transfer) reach the reveal pane
      * only through the workspace's pre-projection sweep. The state machine's contract names those
