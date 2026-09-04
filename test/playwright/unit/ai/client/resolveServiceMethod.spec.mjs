@@ -24,8 +24,9 @@ import {resolveServiceMethod}                                  from '../../../..
  */
 const WIRE_METHODS = [
     'abort_transaction', 'begin_transaction', 'call_method', 'capture_perspective', 'check_namespace',
-    'close_window', 'commit_transaction', 'create_instance', 'diff_dock_topology', 'execute_dock_operation',
-    'find_instances', 'focus_window', 'get_component_tree', 'get_computed_styles', 'get_dock_topology',
+    'close_window', 'commit_transaction', 'create_instance', 'diff_dock_topology', 'drive_drag',
+    'execute_dock_operation', 'find_instances', 'focus_window', 'get_component_tree', 'get_computed_styles',
+    'get_dock_topology',
     'get_dom_event_listeners', 'get_dom_event_summary', 'get_dom_rect', 'get_drag_state', 'get_drag_trace',
     'get_instance_properties', 'get_method_source', 'get_namespace_tree', 'get_neo_config', 'get_record',
     'get_route_history', 'get_vdom_tree', 'get_vdom_vnode', 'get_vnode_tree', 'highlight_component',
