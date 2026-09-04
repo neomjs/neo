@@ -36,6 +36,31 @@ const lazyTab = page => page.locator('.neo-dashboard-dock-rail-tab', {hasText: '
 
 const visibleOverlay = page => page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
 
+/**
+ * Asserts the one-construction contract, and on a break carries the CAUSE rather than only the count.
+ *
+ * Two callers may legitimately load a parked pane — `layout.Card#afterSetActiveIndex` on activation,
+ * and `container.Base#insert` when the inserted index is already active — so a tally of 2 does not
+ * say which one arrived second. #18275 reds roughly once in a hundred runs and only on a loaded CI
+ * runner, where there is no session to attach to afterwards; the failure message is the only channel
+ * that reaches a reader, so the captured call sites travel in it.
+ *
+ * The trail is read only on the failing path, so the green path keeps its single round-trip.
+ * @param {Object} page
+ * @param {Number} instances
+ */
+const expectOneConstruction = async (page, instances) => {
+    if (instances !== 1) {
+        const [trail] = await readWorkspace(page, ['lazyPaneConstructionTrail']);
+
+        expect(instances, `one construction — ${instances} recorded. Call sites:\n${(trail ?? ['(no trail captured)']).join('\n--- next construction ---\n')}`).toBe(1);
+
+        return
+    }
+
+    expect(instances, 'one construction').toBe(1)
+};
+
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/dock-lazy-rail/index.html');
     await page.waitForSelector(`#${WORKSPACE_ID}`,       {state: 'attached'});
@@ -115,7 +140,7 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         const [loadedAfter, instances] = await readWorkspace(page, ['lazyPaneModuleLoaded', 'lazyPaneInstances']);
 
         expect(loadedAfter).toBe(true);
-        expect(instances, 'one construction').toBe(1)
+        await expectOneConstruction(page, instances)
     });
 
     test('un-hidden as the only visible item of its tabs node, the lazy item is the active card and loads at once', async ({page}) => {
@@ -138,6 +163,6 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         const [loaded, instances] = await readWorkspace(page, ['lazyPaneModuleLoaded', 'lazyPaneInstances']);
 
         expect(loaded).toBe(true);
-        expect(instances, 'one construction').toBe(1)
+        await expectOneConstruction(page, instances)
     });
 });
