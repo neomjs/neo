@@ -2004,6 +2004,12 @@ class Workspace extends Container {
         const pending = [];
 
         this.forEachDockRail(rail => {
+            // A rail leave path (the pin escape, a reconciled leaver) starts its release without
+            // awaiting it, and the release clears the cache below on its first tick — without the
+            // lease this sweep would find nothing left to await and stage the projection into a
+            // removal still in flight.
+            pending.push(...Object.values(rail.revealPaneReleases || {}));
+
             Object.keys(rail.revealPaneCache || {}).forEach(itemId => {
                 if (document?.items?.[itemId]?.autoHidden !== true) {
                     pending.push(rail.releaseRevealPane(itemId));
