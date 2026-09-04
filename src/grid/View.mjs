@@ -152,9 +152,20 @@ class View extends Base {
             //
             // `createViewData` clears the CONTAINER's flag on its way out, which arrives back here as
             // a no-op through the config's own equality gate, so this cannot re-enter.
-            me.timeout(0).then(() => {
-                me.isDestroyed || me.items?.forEach(body => body.createViewData?.(false, true))
-            })
+            // The deferral is detached, so it owns its terminal outcome. `core.Base#destroy` rejects
+            // every pending timeout with `Neo.isDestroyed`, and a view destroyed inside this one tick
+            // is an expected end to a re-projection into somewhere that no longer exists — not a
+            // failure to report. The `isDestroyed` guard below cannot cover it: that guard only runs
+            // when the timeout RESOLVES, and destroy makes it reject. Anything else IS a live failure
+            // and this chain has no caller to propagate to, so the console is the honest surface.
+            me.timeout(0)
+                .then(() => {
+                    me.isDestroyed || me.items?.forEach(body => body.createViewData?.(false, true))
+                })
+                .catch(reason => {
+                    reason !== Neo.isDestroyed &&
+                        console.error('grid.View: deferred re-projection failed', {id: me.id, reason})
+                })
         }
     }
 

@@ -134,5 +134,45 @@ test.describe('Neo.grid.View — clearing isLoading re-projects', () => {
         expect(body.calls, 'the deferred pass saw the teardown').toEqual([]);
 
         view = null
+    });
+
+    /**
+     * Silence is two different outcomes here and the arm above cannot tell them apart: a deferral
+     * that declined to project, and a deferral whose promise rejected with nobody listening. Both
+     * leave `body.calls` empty. `core.Base#destroy` rejects pending timeouts with `Neo.isDestroyed`,
+     * so the second is what an unguarded chain actually produces — one `ERR_UNHANDLED_REJECTION`
+     * per teardown inside the window.
+     *
+     * Same shape as the landed `DispatchTerminalOutcome.spec.mjs`: record both escape channels, and
+     * require that the expected sentinel is consumed WITHOUT muting a real failure.
+     */
+    test('the destroyed deferral consumes its cancellation instead of leaking a rejection', async () => {
+        const unhandled     = [],
+              consoleErrors = [],
+              onUnhandled   = value => unhandled.push(value),
+              originalError = console.error;
+
+        attachBodies(createBodyStub());
+
+        process.on('unhandledRejection', onUnhandled);
+        console.error = (...args) => consoleErrors.push(args);
+
+        try {
+            view.isLoading = 'Loading';
+            view.isLoading = false;
+            view.destroy();
+
+            // Past the deferral, then far enough for Node to have decided a rejection is unhandled —
+            // that verdict lands a macrotask after the microtask queue drains.
+            await new Promise(resolve => setTimeout(resolve, 300))
+        } finally {
+            process.off('unhandledRejection', onUnhandled);
+            console.error = originalError
+        }
+
+        expect(unhandled,     'the Neo.isDestroyed sentinel is an expected outcome').toEqual([]);
+        expect(consoleErrors, 'an expected cancellation is not a reportable failure').toEqual([]);
+
+        view = null
     })
 });
