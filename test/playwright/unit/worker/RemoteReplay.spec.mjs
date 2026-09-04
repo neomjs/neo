@@ -112,7 +112,7 @@ test.describe('SharedWorker remote registration replay', () => {
         expect(second.sent.filter(message => message.action === 'registerRemote').length).toBe(1)
     });
 
-    test('onRegisterRemote: the same registration arriving twice keeps the existing proxy and still replies', () => {
+    test('onRegisterRemote: the same endpoint arriving twice keeps the existing proxy, still replies, and still routes to its origin', async () => {
         const receiver  = Neo.create(ReplayReceiver),
               className = 'Test.Unit.Worker.TwiceRegistered',
               remote    = {className, destination: Neo.workerId, methods: ['ping'], origin: 'app'};
@@ -126,6 +126,38 @@ test.describe('SharedWorker remote registration replay', () => {
         expect(() => receiver.onRegisterRemote({...remote, id: 'registration-2'})).not.toThrow();
 
         expect(Neo.ns(className).ping).toBe(proxy);
-        expect(receiver.replies.map(reply => reply.replyId)).toEqual(['registration-1', 'registration-2'])
+        expect(receiver.replies.map(reply => reply.replyId)).toEqual(['registration-1', 'registration-2']);
+
+        // the retained proxy still addresses the origin that registered it
+        expect((await proxy({})).destination).toBe('app')
+    });
+
+    test('onRegisterRemote: the same method from a DIFFERENT origin is a collision — it throws and the first binding stays', async () => {
+        const receiver  = Neo.create(ReplayReceiver),
+              className = 'Test.Unit.Worker.ConflictingOrigins',
+              methods   = ['ping'];
+
+        receiver.onRegisterRemote({className, destination: Neo.workerId, methods, origin: 'app'});
+
+        const proxy = Neo.ns(className).ping;
+
+        expect(() => receiver.onRegisterRemote({className, destination: Neo.workerId, methods, origin: 'data'}))
+            .toThrow(/collision/);
+
+        expect(Neo.ns(className).ping).toBe(proxy);
+        expect((await proxy({})).destination).toBe('app')
+    });
+
+    test('onRegisterRemote: a namespace slot already holding a local member is a collision, and the local member stays', () => {
+        const receiver  = Neo.create(ReplayReceiver),
+              className = 'Test.Unit.Worker.LocallyBound',
+              local     = () => 'local';
+
+        Neo.ns(className, true).ping = local;
+
+        expect(() => receiver.onRegisterRemote({className, destination: Neo.workerId, methods: ['ping'], origin: 'app'}))
+            .toThrow(/collision/);
+
+        expect(Neo.ns(className).ping).toBe(local)
     })
 });

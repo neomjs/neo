@@ -136,13 +136,14 @@ class RemoteMethodAccess extends Base {
      *
      * @param {Object} remote The remote configuration object.
      * @param {String} method The name of the method to generate a proxy for.
-     * @returns {function(*=, *=): Promise<any>} The proxy function.
+     * @returns {function(*=, *=): Promise<any>} The proxy function, carrying `remoteProvenance`
+     *     (`{className, origin}`) so {@link #onRegisterRemote} can tell a replay of this exact endpoint from a collision.
      */
     generateRemote(remote, method) {
         let me       = this,
             {origin} = remote;
 
-        return function(data, buffer) {
+        const proxy = function(data, buffer) {
             let opts = {
                 action         : 'remoteMethod',
                 data,
@@ -162,7 +163,11 @@ class RemoteMethodAccess extends Base {
             me.isSharedWorker && me.assignPort(data, opts);
 
             return me.promiseMessage(opts.destination, opts, buffer)
-        }
+        };
+
+        proxy.remoteProvenance = {className: remote.className, origin};
+
+        return proxy
     }
 
     /**
@@ -170,10 +175,12 @@ class RemoteMethodAccess extends Base {
      * It iterates over the list of methods provided in the remote config and generates local proxy functions
      * for them in the appropriate namespace. This makes the remote methods available to be called as if they were local.
      *
-     * Idempotent: the same registration can reach a thread twice — a SharedWorker replays every stored
-     * registration to each newly connected port, and the singleton's own startup registration also
-     * addresses the first window. The namespace is the class's own, so a second arrival keeps the existing
-     * proxy and is never a conflict.
+     * A registration of the SAME endpoint — `className`, `method` and `origin` all equal — arriving again
+     * is a no-op that keeps the existing proxy: a SharedWorker replays every stored registration to each
+     * newly connected port, and the singleton's own startup registration also addresses the first window,
+     * so that window legitimately sees one endpoint twice. Anything else already occupying the slot — a
+     * proxy for a different origin, or a local member — is a collision and throws, so a wrong binding is
+     * never retained in silence.
      *
      * @param {Object} remote The remote configuration object containing className and methods list.
      */
@@ -184,10 +191,19 @@ class RemoteMethodAccess extends Base {
                 pkg                  = Neo.ns(className, true);
 
             methods.forEach(method => {
-                pkg[method] ??= me.generateRemote({
-                    className: remote.className,
-                    origin   : remote.origin
-                }, method)
+                const existing = pkg[method],
+                      repeat   = existing?.remoteProvenance?.className === className
+                              && existing.remoteProvenance.origin === remote.origin;
+
+                if (existing && !repeat) {
+                    throw new Error(
+                        `Remote method collision: ${className}.${method} is already bound to ` +
+                        (existing.remoteProvenance ? `origin "${existing.remoteProvenance.origin}"` : 'a local member') +
+                        `; a registration from "${remote.origin}" cannot replace it`
+                    )
+                }
+
+                pkg[method] ??= me.generateRemote({className, origin: remote.origin}, method)
             });
 
             if (remote.id) {
