@@ -379,6 +379,12 @@ class VdomLifecycle extends Base {
 
             VDomUpdate.rejectCallbacks(me.id, err);
 
+            // Components that yielded to this flight (isChildUpdating / isParentUpdating) wait in the
+            // post-update queue keyed on it, exactly as on success — and only the success path drained
+            // it, so a caller awaiting one of them stayed suspended for good. Release them here too:
+            // each runs its own flight against the current truth and settles on its own outcome.
+            VDomUpdate.triggerPostUpdates(me.id);
+
             // Mirror of resolveVdomUpdate(): updates queued onto this flight while it was running
             // are only ever drained by a follow-up cycle — without this, their content (and any
             // attached promise callbacks) strand until the next organic update. A deterministic
@@ -672,6 +678,9 @@ class VdomLifecycle extends Base {
             }
 
             VDomUpdate.unregisterInFlightUpdate(me.id);
+            // The render-path flavour of the release executeVdomUpdate()'s catch performs: whoever
+            // yielded to this flight runs its own now, instead of waiting on a completion that never comes.
+            VDomUpdate.triggerPostUpdates(me.id);
 
             console.error('initVnode error', err, me.id);
             throw err
@@ -921,6 +930,12 @@ class VdomLifecycle extends Base {
         if (vnode && me.id !== vnode.id) {
             ComponentManager.registerWrapperNode(vnode.id, me)
         }
+
+        // A flight collected before a child was retired silently lands still naming that child by
+        // reference, and nothing else does any more. Pruned here, at the landing boundary, so the
+        // strict walkers below never resolve it — without this the whole flight fails on a child
+        // that is already gone, and every transaction awaiting the flight fails with it.
+        VNodeUtil.pruneRetiredReferences(me.vnode);
 
         let vnodeMap           = VNodeUtil.createMap(me.vnode),
             childComponentsSet = new Set(childComponents);

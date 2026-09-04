@@ -171,6 +171,103 @@ test.describe('VdomLifecycle update wedge (#12946)', () => {
         expect(VDomUpdate.inFlightUpdateMap.has(child.id)).toBe(false);
     });
 
+    test('#18297: a promiseUpdate() parked behind a FAILING descendant flight settles instead of hanging', async () => {
+        Neo.applyDeltas = async () => {};
+
+        const containerId = getUniqueId('wedge-container');
+        const childId     = getUniqueId('wedge-child');
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(WedgeContainer, {
+            appName,
+            id   : containerId,
+            items: [{module: WedgeChild, id: childId, text: 'pristine'}]
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+
+        const child = container.items[0];
+        await container.promiseUpdate();
+
+        VdomHelper.updateBatch = () => Promise.reject({data: {error: 'test-injected apply failure'}});
+
+        // The child's flight enters in-flight synchronously and registers itself as an in-flight
+        // descendant of the container.
+        const childFlight = child.promiseUpdate();
+        expect(child.isVdomUpdating).toBe(true);
+        expect(VDomUpdate.hasInFlightDescendants(container.id)).toBe(true);
+
+        // The container yields to its in-flight descendant instead of starting a flight of its own:
+        // its update waits in the post-update queue keyed on the child, to run once the child's
+        // flight completes. A success drains that queue; this arm asks what a failure does with it.
+        const parentFlight = container.promiseUpdate();
+        expect(container.isVdomUpdating, 'the parent yielded to the in-flight descendant').toBe(false);
+
+        await expect(childFlight).rejects.toBeTruthy();
+
+        // The failing child released its in-flight state, so nothing blocks the parent any more.
+        expect(VDomUpdate.hasInFlightDescendants(container.id)).toBe(false);
+
+        // Pre-fix the queue keyed on the failed child was never drained, so the parent's promise
+        // could settle by no route at all: the dock's projection transaction, awaiting exactly such a
+        // flight, stayed suspended with two shells in the host and its recovery never ran.
+        const outcome = await Promise.race([
+            parentFlight.then(() => 'settled', () => 'settled'),
+            new Promise(resolve => setTimeout(() => resolve('hung'), 300))
+        ]);
+
+        expect(outcome, 'a parent parked behind a failing descendant flight settles').toBe('settled');
+
+        // Released, the parent runs its own flight against the same failing boundary and rejects
+        // honestly — its own outcome, not the child's, decides the promise.
+        await expect(parentFlight).rejects.toBeTruthy();
+
+        expect(container.isVdomUpdating).toBe(false);
+        expect(VDomUpdate.inFlightUpdateMap.has(container.id)).toBe(false);
+    });
+
+    test('#18297: a promiseUpdate() parked behind a FAILING descendant render flight settles too', async () => {
+        Neo.applyDeltas = async () => {};
+
+        const containerId = getUniqueId('wedge-container');
+        const childId     = getUniqueId('wedge-child');
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(WedgeContainer, {
+            appName,
+            id   : containerId,
+            items: []
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+        await container.promiseUpdate();
+
+        // A silently inserted child has no vnode yet: its render flight is the in-flight descendant
+        // the parent yields to, and it fails at the create boundary — the same gap, render-path flavour.
+        const child = container.insert(0, {module: WedgeChild, id: childId, text: 'unborn'}, true);
+
+        VdomHelper.create = () => Promise.reject(new Error('test-injected create failure'));
+
+        const childFlight = child.initVnode(true);
+        expect(VDomUpdate.hasInFlightDescendants(container.id), 'the render flight is an in-flight descendant').toBe(true);
+
+        const parentFlight = container.promiseUpdate();
+        expect(container.isVdomUpdating, 'the parent yielded to the in-flight descendant').toBe(false);
+
+        await expect(childFlight).rejects.toThrow('test-injected create failure');
+
+        const outcome = await Promise.race([
+            parentFlight.then(() => 'settled', () => 'settled'),
+            new Promise(resolve => setTimeout(() => resolve('hung'), 300))
+        ]);
+
+        expect(outcome, 'a parent parked behind a failing descendant render flight settles').toBe('settled');
+        expect(container.isVdomUpdating).toBe(false);
+        expect(VDomUpdate.inFlightUpdateMap.has(container.id)).toBe(false);
+    });
+
     test('REGRESSION: initVnode failure releases the flag and the in-flight registry entry', async () => {
         const containerId = getUniqueId('wedge-container');
         createdComponentIds.push(containerId);

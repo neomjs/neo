@@ -22,13 +22,14 @@ import Container          from '../../../../src/container/Base.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 import VDomUpdate         from '../../../../src/manager/VDomUpdate.mjs';
+import VNodeUtil          from '../../../../src/util/VNode.mjs';
 
 class RaceChildComponent extends Component {
     static config = {
         className: 'Test.RaceChildComponent',
-        ntype: 'test-race-child',
-        hideMode: 'removeDom', // Crucial for reproduction
-        _vdom: {tag: 'div', cls: ['child']}
+        ntype    : 'test-race-child',
+        hideMode : 'removeDom', // Crucial for reproduction
+        _vdom    : {tag: 'div', cls: ['child']}
     }
 }
 RaceChildComponent = Neo.setupClass(RaceChildComponent);
@@ -61,9 +62,9 @@ test.describe('VdomLifecycle Race Condition', () => {
     // in an unrelated suite. Captured once here, restored after every test.
     const realApplyDeltas = Neo.applyDeltas;
 
-    let testIdCounter = 0;
-    const getUniqueId = (prefix) => `${prefix}-${Date.now()}-${testIdCounter++}`;
-    let createdComponentIds = [];
+    let   testIdCounter       = 0;
+    const getUniqueId         = (prefix) => `${prefix}-${Date.now()}-${testIdCounter++}`;
+    let   createdComponentIds = [];
 
     test.afterEach(() => {
         Neo.applyDeltas = realApplyDeltas;
@@ -75,6 +76,71 @@ test.describe('VdomLifecycle Race Condition', () => {
             }
         });
         createdComponentIds = [];
+    });
+
+    /**
+     * A child retired silently — destroyed without an update of its own, the way a projection
+     * transaction retires a leaver's tab button — leaves no vdom, no DOM node and no reference in
+     * its parent's stored vnode. One carrier remains: a parent flight that collected its payload
+     * while the child was alive and lands after the destroy still names the child by reference.
+     *
+     * The in-process helper answers in microtasks, so the destroy below could never fall between
+     * collection and landing on its own; one macrotask of latency is the smallest honest stand-in
+     * for the worker round trip the real app pays.
+     */
+    test('a child retired while its parent flight is in the air does not fail that flight', async () => {
+        Neo.applyDeltas = async () => {};
+
+        const
+            containerId = getUniqueId('race-retire-container'),
+            leaverId    = getUniqueId('race-retire-leaver'),
+            keeperId    = getUniqueId('race-retire-keeper');
+
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(RaceContainer, {
+            appName,
+            id   : containerId,
+            items: [
+                {module: RaceChildComponent, id: leaverId, hidden: false, text: 'leaves'},
+                {module: RaceChildComponent, id: keeperId, hidden: false, text: 'stays'}
+            ]
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+        await container.promiseUpdate();
+
+        const originalUpdateBatch = VdomHelper.updateBatch;
+
+        VdomHelper.updateBatch = async data => {
+            await new Promise(resolve => setTimeout(resolve, 10));
+            return originalUpdateBatch.call(VdomHelper, data)
+        };
+
+        try {
+            // Depth 1: the children ride the payload as references, exactly the shape that lands stale.
+            container.updateDepth = 1;
+
+            const flight = container.promiseUpdate();
+
+            // Past the collection yield, before the deferred landing.
+            await new Promise(resolve => setTimeout(resolve, 3));
+            expect(container.isVdomUpdating, 'the parent flight is in the air').toBe(true);
+
+            container.remove(container.items[0], true, true);
+            expect(Neo.getComponent(leaverId), 'the leaver is retired').toBeFalsy();
+
+            // Pre-fix: the landing walk resolves the leaver's reference through the registry, throws
+            // "Component not found", and the flight rejects — a transaction awaiting it fails with it.
+            await flight;
+
+            expect(container.isVdomUpdating).toBe(false);
+            expect(JSON.stringify(container.vnode), 'the adopted vnode names no retired child').not.toContain(leaverId);
+            expect(VNodeUtil.createMap(container.vnode).has(keeperId), 'the surviving child is still mapped').toBe(true)
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch
+        }
     });
 
     /**
@@ -103,23 +169,23 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
-        const child2Id = getUniqueId('child-2');
+        const child1Id    = getUniqueId('child-1');
+        const child2Id    = getUniqueId('child-2');
         createdComponentIds.push(containerId); // Cleanup tracking
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true,
-                text: 'Child 1'
+                text  : 'Child 1'
             }, {
                 module: RaceChildComponent,
-                id: child2Id,
+                id    : child2Id,
                 hidden: true,
-                text: 'Child 2'
+                text  : 'Child 2'
             }]
         });
 
@@ -275,23 +341,23 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
-        const child2Id = getUniqueId('child-2');
+        const child1Id    = getUniqueId('child-1');
+        const child2Id    = getUniqueId('child-2');
         createdComponentIds.push(containerId);
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true, // Start hidden to mimic prev setup
-                text: 'Child 1'
+                text  : 'Child 1'
             }, {
                 module: RaceChildComponent,
-                id: child2Id,
+                id    : child2Id,
                 hidden: true, // Start hidden
-                text: 'Child 2'
+                text  : 'Child 2'
             }]
         });
 
@@ -343,18 +409,18 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
-        const child2Id = getUniqueId('child-2'); // Add second child to match structure if needed, or stick to 1
+        const child1Id    = getUniqueId('child-1');
+        const child2Id    = getUniqueId('child-2'); // Add second child to match structure if needed, or stick to 1
         createdComponentIds.push(containerId);
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true,
-                text: 'Child 1'
+                text  : 'Child 1'
             }]
         });
 
@@ -405,17 +471,17 @@ test.describe('VdomLifecycle Race Condition', () => {
         };
 
         const containerId = getUniqueId('test-container');
-        const child1Id = getUniqueId('child-1');
+        const child1Id    = getUniqueId('child-1');
         createdComponentIds.push(containerId);
 
         const container = Neo.create(RaceContainer, {
             appName,
-            id: containerId,
+            id   : containerId,
             items: [{
                 module: RaceChildComponent,
-                id: child1Id,
+                id    : child1Id,
                 hidden: true,
-                text: 'Child 1'
+                text  : 'Child 1'
             }]
         });
 

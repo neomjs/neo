@@ -553,8 +553,9 @@ class VDomUpdate extends Collection {
 
     /**
      * Triggers all pending updates that were queued to run after the specified `ownerId`'s
-     * update has completed.
-     * @param {String} ownerId The `id` of the component whose update has just finished.
+     * update has settled — resolved or rejected. A waiter runs its own flight either way, so a
+     * failure upstream never leaves it suspended on a completion that will not come.
+     * @param {String} ownerId The `id` of the component whose update has just settled.
      */
     triggerPostUpdates(ownerId) {
         let me   = this,
