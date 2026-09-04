@@ -39,11 +39,17 @@ const watch = page => {
     return problems
 };
 
+// The registrations ride the connect handshake and nothing in the DOM marks their arrival, so readiness is
+// the proxy itself: wait for it with a bound and let the assertion read whatever is there afterwards — a
+// window that never receives it fails on the value, not on a clock.
+const awaitRemotes = page => page
+    .waitForFunction(remote => typeof globalThis.Neo?.worker?.App?.[remote] === 'function', REMOTE, {timeout: 20000})
+    .then(() => true, () => false);
+
 const boot = async page => {
     await page.goto(APP);
     await page.locator(VIEWPORT).first().waitFor({state: 'attached', timeout: 60000});
-    // the registrations ride the connect handshake; give the main thread one frame past first paint
-    await page.waitForTimeout(500)
+    await awaitRemotes(page)
 };
 
 test.describe('SharedWorker remote registration reaches every window', () => {
@@ -73,7 +79,7 @@ test.describe('SharedWorker remote registration reaches every window', () => {
         // The first window reloads while the second keeps the worker alive — the F5 case.
         await page.reload();
         await page.locator(VIEWPORT).first().waitFor({state: 'attached', timeout: 60000});
-        await page.waitForTimeout(500);
+        await awaitRemotes(page);
 
         const reloaded = await remoteState(page);
 
