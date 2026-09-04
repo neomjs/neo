@@ -1553,8 +1553,8 @@ class Workspace extends Container {
      * Creates the hidden stand-in the reconciler materializes a projected item through before the
      * live pane or its resolved config takes the slot. Asked only for an item inside a tabs node the
      * current shell does not render: a retained node's config is discarded whole, so its items
-     * project as placeholder configs and no instance is built for them. Override only to change the
-     * placeholder's shape; its header text rides {@link #getPaneHeaderText}.
+     * project as their `blueprint` or a placeholder config and no instance is built for them. Override
+     * only to change the placeholder's shape; its header text rides {@link #getPaneHeaderText}.
      * @param {String} itemId
      * @param {Object} item The persisted item record.
      * @param {String} componentRef

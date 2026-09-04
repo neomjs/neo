@@ -456,7 +456,8 @@ class LayoutAdapter extends Base {
      * @param {Function} [options.resolveVesselConversionSourceRect] Synchronous owner resolver for
      *     the exact dragged vessel's live global inner rect; threaded through a clone-safe listener.
      * @param {Function} [options.resolveComponentRef] `(componentRef, item, itemId, nodeId) => config
-     *     | instance | null`; a `null` answer projects a recoverable placeholder config.
+     *     | instance | null`; a `null` answer falls through to the item's persisted `blueprint` when
+     *     present, otherwise to a recoverable placeholder config — neither constructs an instance.
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
      * @param {Function} [options.syncDockLockPane] Workspace-owned lock presentation for a resolved
      *     rail reveal pane: `(pane, itemId) => void`.
@@ -910,7 +911,7 @@ class LayoutAdapter extends Base {
      * @param {String} itemId
      * @param {Object} context
      * @param {String|null} [nodeId=null] The tabs node the item projects into; a resolver that declines
-     *     an item of a retained node gets it projected as a placeholder config instead.
+     *     an item of a retained node gets it projected as its `blueprint` or a placeholder config instead.
      * @returns {*}
      * @protected
      * @static
