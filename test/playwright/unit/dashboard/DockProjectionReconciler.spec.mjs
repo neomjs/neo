@@ -647,6 +647,95 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         })
     });
 
+    test.describe('a rail is stable topology: item deltas land in place, rail topology changes stage', () => {
+        // `createEdgeModel` with `left` auto-hidden projects the left band empty and surfaces the item on
+        // a left edge rail — the smallest document whose projection carries a Rail.
+        const createRailedEdgeModel = () => {
+            const model = createEdgeModel();
+
+            model.items.left.autoHidden = true;
+
+            return model
+        };
+
+        const findRails = shell => {
+            const rails = [];
+
+            const walk = node => {
+                node?.dockNodeType === 'edge-rail' && rails.push(node);
+                node?.items?.forEach?.(walk)
+            };
+
+            walk(shell);
+
+            return rails
+        };
+
+        test('a railed item-only delta lands in place and reaches the surviving rail', async () => {
+            const receipt = await reconcileModel(createRailedEdgeModel(), nextModel => {
+                nextModel.items.left.title = 'Left, renamed'
+            }, {retainTopology: true});
+
+            try {
+                expect(receipt.result.landedInPlace, 'the item-only delta lands in place').toBe(true);
+                expect(receipt.host.items, 'no staged sibling').toHaveLength(1);
+
+                const [rail, ...moreRails] = findRails(receipt.oldShell);
+
+                expect(rail, 'the retained shell carries its rail').toBeTruthy();
+                expect(moreRails).toEqual([]);
+
+                // Pre-fix the rail was invisible to the stable-topology walk: the request landed in
+                // place and the rail kept yesterday's items — a stale rail, worse than a staged shell.
+                expect(rail.railItems.map(item => item.title), 'the surviving rail received the fresh rail items').toEqual(['Left, renamed']);
+                expect(rail.items.find(item => item.dockItemId === 'left')?.text, 'and reconciled its own button in place').toBe('Left, renamed');
+                expect(rail.dockZoneDocument, 'the rail reads the committed document').toEqual(receipt.nextModel)
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('a rail that changes edge is a topology change and stages a shell', async () => {
+            const receipt = await reconcileModel(createRailedEdgeModel(), nextModel => {
+                const zones = nextModel.nodes['root-edge'].zones;
+
+                zones.right = zones.left;
+                delete zones.left
+            }, {retainTopology: true});
+
+            try {
+                // Pre-fix the walk saw the same edge-zone and center tabs on both sides and landed in
+                // place, leaving the rail on the edge the document had left.
+                expect(receipt.result.landedInPlace, 'the request was refused').not.toBe(true);
+                expect(receipt.stagedCount, 'the staged transaction ran').toBe(1);
+
+                const newShell = receipt.host.items.find(item => item !== receipt.oldShell);
+
+                expect(findRails(newShell).map(rail => rail.edge), 'the fresh shell carries the rail on its new edge').toEqual(['right'])
+            } finally {
+                receipt.host.destroy()
+            }
+        });
+
+        test('a geometry-only refresh keeps the rail and hands it the committed document', async () => {
+            const receipt = await reconcileModel(createRailedEdgeModel(), nextModel => {
+                nextModel.nodes['root-edge'].zones.left.extent = 0.3
+            }, {geometryOnly: true});
+
+            try {
+                expect(receipt.result.nextShell).toBe(receipt.oldShell);
+                expect(receipt.stagedCount).toBe(0);
+
+                const [rail] = findRails(receipt.oldShell);
+
+                expect(rail.railItems.map(item => item.dockItemId), 'the rail items are untouched').toEqual(['left']);
+                expect(rail.dockZoneDocument, 'the rail reads the committed document').toEqual(receipt.nextModel)
+            } finally {
+                receipt.host.destroy()
+            }
+        })
+    });
+
     test('reconciles an explicit same-topology item arrival without replacing the shell', async () => {
         // The stack-return adoption shape: the arriving pane exists as a live instance
         // (it survived its previous workspace), the structural shell is unchanged, and one tabs
