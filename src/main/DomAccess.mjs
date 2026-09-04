@@ -1073,6 +1073,9 @@ class DomAccess extends Base {
      * applies its DOM change after this resolves, and `data.delay` is the window it has to do so
      * before the new state is captured. Awaiting `transition.ready` here would close that window,
      * and the transition would capture the unchanged DOM as both states.
+     *
+     * Built-in reveals own both snapshot layers' opacity and blending until the transition
+     * settles. Consumers need no cancellation CSS; raw `data.animate` payloads remain caller-owned.
      * @param {Object} data
      * @param {Object} [data.animate] Raw keyframes and options, passed to `animate()` unchanged
      * @param {Number} [data.delay=50] Milliseconds the caller has to apply its DOM change
@@ -1084,16 +1087,32 @@ class DomAccess extends Base {
             return false
         }
 
-        const animate    = data.animate || DomUtils.createRevealAnimation(data.reveal),
+        const reveal     = data.animate ? null : DomUtils.createRevealAnimation(data.reveal),
+              animate    = data.animate || reveal,
+              effects    = [],
+              cleanup    = () => effects.forEach(effect => effect.cancel()),
               transition = document.startViewTransition(async () => {
                   // `??`, not `||`: `delay: 0` is a caller asking for no window at all.
                   await this.timeout(data.delay ?? 50)
               });
 
+        if (reveal) {
+            // Finished filled effects must survive until the pseudo tree is removed, including
+            // a zero-duration reveal. Cancel only our effects so later transitions start clean.
+            transition.finished.then(cleanup, cleanup)
+        }
+
         if (animate) {
             transition.ready.then(() => {
-                document.documentElement.animate(animate.keyframes, animate.options)
+                if (reveal) {
+                    for (const layer of [reveal.oldLayer, reveal]) {
+                        effects.push(document.documentElement.animate(layer.keyframes, layer.options))
+                    }
+                } else {
+                    document.documentElement.animate(animate.keyframes, animate.options)
+                }
             }).catch(error => {
+                cleanup();
                 // Catches a rejected `ready` or a registration that throws — NOT a reveal that
                 // registers and then rasterises wrongly, which is what actually happened here and
                 // stays invisible to every runtime signal this method can read. The reveal is
