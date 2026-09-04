@@ -2187,8 +2187,11 @@ test.describe('Workstation — dense living-data composition', () => {
         for (const [nodeId, receipt] of Object.entries(openingChrome)) {
             const {headerActions} = await app.getComponent(receipt.containerId, ['headerActions']);
 
-            expect(headerActions.map(action => action.action), `${nodeId} owns the complete default vector`)
-                .toEqual(['reload', 'pin', 'pop-out', 'maximize', 'close']);
+            // Containment, not equality: this arm is about every default action being OFFERED, and
+            // an exact vector additionally forbids the engine from ever growing the default set —
+            // which is a consumer spec vetoing an engine decision. A missing action still fails.
+            expect(headerActions.map(action => action.action), `${nodeId} offers every default action`)
+                .toEqual(expect.arrayContaining(['reload', 'pin', 'pop-out', 'maximize', 'close']));
             expect(headerActions.find(action => action.action === 'pop-out').hidden,
                 `${nodeId} sees Workstation's handler bundle on first projection`).toBe(false)
         }
@@ -2520,7 +2523,10 @@ test.describe('Workstation — dense living-data composition', () => {
                     height: Math.max(Math.round(beforeRect.height), 240),
                     width : Math.max(Math.round(beforeRect.width), 320)
                 },
-                placement: {index: 0, tabsNodeId: 'right-bottom-tabs'},
+                // The subject is WHERE the pane is recorded, so the two fields that say so are
+                // asserted exactly. The record is allowed to carry more — it gained a rebuildable
+                // `home` the moment restoration stopped depending on the node still existing.
+                placement: expect.objectContaining({index: 0, tabsNodeId: 'right-bottom-tabs'}),
                 stage    : 'granted',
                 windowId : expect.any(String)
             });
