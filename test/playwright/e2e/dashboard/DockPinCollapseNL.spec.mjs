@@ -40,9 +40,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * The runtime root is a PREREQUISITE, not a convenience: `playwright.config.e2e.mjs` builds its
  * `testIgnore` from `selectExternalBrainSpecs` whenever `NEO_AGENTOS_RUNTIME_ROOT` is unset, so a
  * run without it does not fail this spec — it never selects it, and reports "No tests found". The
- * config says so out loud at startup since #18246; before that it did not, and three readers took
- * the silence for a green tier. The port override isolates from any foreign dev-server squatting
- * on 8080.
+ * config announces that exclusion at startup, naming how many spec files it dropped. The port
+ * override isolates from any foreign dev-server squatting on 8080.
  */
 
 const bootDockExample = async ({ page, neuralLink, theme }) => {

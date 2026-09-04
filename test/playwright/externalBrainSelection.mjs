@@ -57,8 +57,8 @@ export function selectExternalBrainSpecs(root, base = root) {
  *
  * Emitted at config-evaluation time rather than from the reporter, because that is the only seam every
  * entry point crosses: a reporter never learns about unselected files, and `--list` constructs no
- * reporter at all — a bare `--list` matching almost nothing is exactly the signal that sent three
- * separate readers off to re-derive this from scratch (#18246).
+ * reporter at all — a bare `--list` matching almost nothing looks identical to a tier that ran and
+ * found nothing wrong.
  *
  * @param {{ignore: RegExp[], total: Number}} selection From {@link selectExternalBrainSpecs}.
  * @returns {String|null} The notice, or `null` when the run selects the whole tier and has nothing to
