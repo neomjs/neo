@@ -32,6 +32,6 @@
     {
         "file": "resources/scss/theme-neo-light/dialog/Base.scss",
         "blocks": 3,
-        "reason": "exempt #18145 — the structural rule outweighs 13 of the 16 button background states; the other 3 win on !important and need no token. Tokenising the 13 would close an open extension point. Measurement: #18145."
+        "reason": "exempt #18145 — of the 15 button background states in resources/scss/src/button/Base.scss, the structural rule outweighs 12; the other 3 (ghost/secondary/tertiary :active) win on !important and need no token. Tokenising the 12 would close an open extension point. Measurement: #18145."
     }
 ]
