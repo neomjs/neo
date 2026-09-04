@@ -70,20 +70,6 @@ permissions:
 
 jobs:
   baseline:
-    # Dependabot authors no ticket, so `pr-body` can only ever fail on its PRs: a bump body carries no
-    # newline-isolated `Resolves #N` and no `Evidence:` line, and it would be wrong for it to — there is
-    # no leaf to close. Skipping is the honest outcome; the alternative is a permanent red that teaches
-    # readers to ignore red, which costs more than the check earns.
-    #
-    # This is NOT currently a merge block — per the header, `dev` carries no `required_status_checks`
-    # rule, so a red baseline job blocks nothing today. It becomes one the moment those contexts are
-    # bound, which #18302 sequences BEFORE enabling auto-merge. The skip is therefore signal integrity
-    # now and a genuine prerequisite later, and it is cheaper to land it before the queue exists than to
-    # explain a wall of red afterwards.
-    #
-    # Keyed on the PR AUTHOR, not `github.actor`: a human editing a bot's PR body fires `edited` with
-    # their own actor, and that must still skip — the body is Dependabot's either way.
-    if: github.event.pull_request.user.login != 'dependabot[bot]'
     uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@e409dea5dcbc9f6f97d6eb86ecbef4caa7a269b8
     with:
       required_base: dev
