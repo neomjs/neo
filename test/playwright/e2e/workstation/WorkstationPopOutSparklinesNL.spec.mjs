@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}              from '../../fixtures.mjs';
+import {countPixelsUnlikeDominant} from '../utils/pngPixels.mjs';
 
 /**
  * @summary Whitebox E2E witness: the sparkline cells of a popped-out grid follow the grid into the
@@ -13,9 +14,15 @@ import {test, expect} from '../../fixtures.mjs';
  * created after the hop were stamped with the popup's id at creation and drew at once — which is why
  * this arm reads the cells that existed BEFORE the gesture, not only the ones present after it.
  *
- * Read through the Neural Link, not the DOM: a blank canvas and a drawn one are the same element to
- * a locator. `offscreenRegistered` is the App Worker's own record that the canvas worker owns the
- * node in the window the component believes it is in.
+ * Two boundaries, read separately. Ownership is read through the Neural Link: `offscreenRegistered`
+ * is the App Worker's own record that the canvas worker owns the node in the window the component
+ * believes it is in. Drawing is read from the popup page as an element screenshot of each travelled
+ * canvas, decoded and counted as pixels unlike the cell's background — a canvas whose control lives
+ * in a worker reads as blank from page script, a blank canvas and a drawn one are the same element
+ * to a locator, and the renderer records nothing the App Worker can be asked about.
+ *
+ * Runs in Playwright's default headless mode of the local Chrome channel the e2e config selects; no
+ * `--headed` is passed. The popup is a real second window either way.
  *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> NEO_E2E_PORT=8152 \
  *      npx playwright test workstation/WorkstationPopOutSparklinesNL -c test/playwright/playwright.config.e2e.mjs --workers=1
@@ -27,9 +34,12 @@ const
     ACTION     = '.neo-toolbar-action',
     FEED_TITLE = 'Live Event Stream', // the Feed pane's tab title in the Workstation's boot document
     HEADER     = '.neo-tab-header-toolbar',
-    POP_OUT    = 'window-restore',
-    SPARKLINE  = 'Neo.component.Sparkline',
-    TAB        = '.neo-tab-header-button';
+    // A sparkline's polyline crosses a ~139px-wide cell; a blank canvas counts zero. Well below
+    // any drawn count, well above a stray border pixel.
+    MIN_DRAWN_PIXELS = 40,
+    POP_OUT          = 'window-restore',
+    SPARKLINE        = 'Neo.component.Sparkline',
+    TAB              = '.neo-tab-header-button';
 
 /** One record per live sparkline, in the shape the fixture returns for either wrapper. */
 const readSparklines = async app => {
@@ -76,6 +86,13 @@ test.describe('Workstation pop-out — sparkline cells follow the grid into the 
         const travelling = (await readSparklines(app)).filter(cell => cell.windowId === openerId).map(cell => cell.id),
               popOut     = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
 
+        // The drawing instrument, validated on cells the opener visibly draws before the gesture: if
+        // the screenshot read cannot see a drawn sparkline here, it cannot certify one in the popup.
+        const drawnInOpener = countPixelsUnlikeDominant(await page.locator(`#${travelling[0]}`).screenshot());
+
+        expect(drawnInOpener.unlike, `the screenshot read sees a drawn sparkline in the opener (${drawnInOpener.width}×${drawnInOpener.height})`)
+            .toBeGreaterThanOrEqual(MIN_DRAWN_PIXELS);
+
         await expect(popOut, 'the Feed pane offers the pop-out action').toBeVisible({timeout: 10000});
 
         // Subscribed before the click: the vessel can open faster than the next await.
@@ -108,6 +125,26 @@ test.describe('Workstation pop-out — sparkline cells follow the grid into the 
         const strangers = (await readSparklines(app)).filter(cell => inVessel.has(cell.id) && cell.windowId !== popupId);
 
         expect(strangers, 'no canvas in the vessel still believes it is in the opener').toEqual([]);
+
+        // Registration is ownership, not drawing: the renderer's register/updateData/updateSize run
+        // in the Canvas worker afterwards and record nothing the App Worker can be asked about. The
+        // drawn result is observed where it lands — the pixels the popup DISPLAYS for each travelled
+        // canvas, read from an element screenshot, because a canvas whose control lives in a worker
+        // reads as blank from page script. Drawn = pixels unlike the cell's background.
+        await expect.poll(async () => {
+            const blank = [];
+
+            for (const id of travelled) {
+                const {unlike} = countPixelsUnlikeDominant(await vessel.locator(`#${id}`).screenshot());
+
+                unlike < MIN_DRAWN_PIXELS && blank.push(`${id}:${unlike}`)
+            }
+
+            return blank
+        }, {
+            message: 'every travelled sparkline is drawn in the popup — the Live column is not blank',
+            timeout: 15000
+        }).toEqual([]);
 
         await vessel.close({runBeforeUnload: true})
     })
