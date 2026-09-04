@@ -904,11 +904,13 @@ class Collection extends Base {
                 // which stores the unfiltered data. It is crucial to use `me.constructor` here.
                 // If we hardcode `Collection`, subclasses like `data.Store` would lose their specific
                 // functionalities (e.g., lazy record instantiation on `get()`) for the `allItems` collection.
+                // Not a `sourceId` collection: that would subscribe it to `mutate` as one listener
+                // among others, ordered by registration. `splice` writes into it inline instead —
+                // see `mirrorMutation` — so the projection needs neither a subscription nor a source.
                 me.allItems = me.createAllItems({
                     ...Neo.clone(config, true, true),
                     id         : me.id + '-all',
-                    keyProperty: me.keyProperty,
-                    sourceId   : me.id
+                    keyProperty: me.keyProperty
                 });
 
                 me.allItems.items = me._items.slice();
@@ -1361,6 +1363,19 @@ class Collection extends Base {
     }
 
     /**
+     * @summary The unfiltered projection's write: the rows its collection's `splice` just applied,
+     * applied here without an event. The projection holds what the collection holds before any
+     * listener runs, and fires nothing of its own — it is part of the mutation, not an observer of it.
+     * @param {Object}   opts
+     * @param {Object[]} [opts.addedItems]
+     * @param {Object[]} [opts.removedItems]
+     * @protected
+     */
+    mirrorMutation({addedItems, removedItems}) {
+        this.splice(null, removedItems, addedItems, true)
+    }
+
+    /**
      * @param {Object} opts
      * @protected
      */
@@ -1454,9 +1469,11 @@ class Collection extends Base {
      * @param {Number|null} index
      * @param {Number|Object[]} [removeCountOrToRemoveArray]
      * @param {Object|Object[]} [toAddArray]
+     * @param {Boolean} [silent=false] Applies the mutation without firing `mutate` — the write path of
+     *     the unfiltered projection, which is part of its collection's mutation, never an observer of it
      * @returns {Object} An object containing the addedItems & removedItems arrays
      */
-    splice(index, removeCountOrToRemoveArray, toAddArray) {
+    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
         let me                 = this,
             {keyProperty, map} = me,
             source             = me.getSource(),
@@ -1600,12 +1617,20 @@ class Collection extends Base {
             me[countMutations]++
         }
 
+        // The unfiltered projection is PART of the mutation, never a subscriber racing the other
+        // subscribers for it and never an event consumer: it is written here, on every splice —
+        // batched and silent ones included — before anything can observe the mutation, so a listener
+        // (the store's own synchronous `load` included) sees `allItems` holding the batch, and a
+        // record hydrated inside a listener lands in both collections. The payload is the input
+        // rows, because the projection filters nothing itself.
+        me.allItems?.mirrorMutation({addedItems: toAddArray, removedItems});
+
         if (me[updatingIndex] === 0) {
             me.count = me._items.length;
 
             me.calcValueBands(index || 0);
 
-            me.fire('mutate', {
+            !silent && me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
                 // Always emit actual removed objects, not input keys. `removedItems` (local) is built
@@ -1613,10 +1638,10 @@ class Collection extends Base {
                 // The legacy `toRemoveArray || removedItems` fallback emitted the INPUT array, which
                 // contained STRING IDs when remove-by-key was used. Rollback at Database.mjs:451
                 // (`store.add(mutation.removedItems)`) then attempted Symbol-assignment on primitive
-                // strings → TypeError (#11595 surface failure).
+                // strings → TypeError (the transaction-rollback surface failure).
                 //
-                // Consumer-impact V-B-A 2026-05-18 (corrected scope per @neo-gpt PR #11611 Cycle 1
-                // review using `rg -n "mutate:|on(['\"]mutate" src ai`):
+                // Consumer-impact V-B-A 2026-05-18 (scope corrected in cross-family review, using
+                // `rg -n "mutate:|on(['\"]mutate" src ai`):
                 //   1. `Database.onNodesMutate` (ai/graph/Database.mjs:378) — consumes via
                 //      `storage.removeNodes` → SQLite.mjs:280 `node.id` extraction. REQUIRES object.
                 //   2. `Database.onEdgesMutate` (ai/graph/Database.mjs:358) — symmetric edge path.
@@ -1632,7 +1657,7 @@ class Collection extends Base {
                 // Net: 2 consumers strictly require object-shape (and previously silently broke or
                 // loudly broke when fed strings); 3 are payload-compatible with either shape. Fix
                 // is structurally narrow-blast — no consumer breaks, 2 previously-silent bugs also
-                // fixed. (#11595)
+                // fixed.
                 removedItems   : removedItems
             })
         } else if (!me[silentUpdateMode]) {

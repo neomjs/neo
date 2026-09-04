@@ -834,6 +834,20 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary The tree ingests RAW rows: its structural layer annotates `depth`, `isLeaf`,
+     * `childCount` and `collapsed` inside {@link #splice} before a record exists, and
+     * {@link #hydrateRecord} materializes records lazily with those annotations in place. The base
+     * store's eager pre-splice hydration would freeze a record before the annotation and leave the
+     * hierarchy fields at their defaults, so the rows pass through untouched here.
+     * @param {Object[]} items The raw rows (or records) passed to `add` / `insert`
+     * @returns {Object[]} The same rows
+     * @protected
+     */
+    prepareAddedItems(items) {
+        return items
+    }
+
+    /**
      * Extends the base Store's hydrateRecord to also update the TreeStore's internal maps.
      * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode, ensuring
      * that when a raw data object becomes a Record, the TreeStore doesn't suffer from a split-brain.
@@ -1067,9 +1081,10 @@ class TreeStore extends Store {
      * @param {Number|null} index
      * @param {Number|Object[]} [removeCountOrToRemoveArray]
      * @param {Object|Object[]} [toAddArray]
+     * @param {Boolean} [silent=false] The unfiltered projection's event-free write, forwarded to the Collection
      * @returns {Object} An object containing the addedItems & removedItems arrays
      */
-    splice(index, removeCountOrToRemoveArray, toAddArray) {
+    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
         let me              = this,
             affectedParents = new Set(),
             visibleToRemove = [],
@@ -1270,8 +1285,9 @@ class TreeStore extends Store {
         if (me[isFiltered]) {
             me.filter();
 
-            // Collection fires mutate if added or removed items > 0
-            if (toAddArray || removeCountOrToRemoveArray) {
+            // Collection fires mutate if added or removed items > 0 — unless this is the
+            // projection's own event-free write
+            if (!silent && (toAddArray || removeCountOrToRemoveArray)) {
                 me.fire('mutate', {
                     addedItems     : toAddArray || [],
                     preventBubbleUp: me.preventBubbleUp,
@@ -1286,12 +1302,13 @@ class TreeStore extends Store {
 
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
         if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
-            return super.splice(insertIndex, visibleToRemove, visibleToAdd)
+            return super.splice(insertIndex, visibleToRemove, visibleToAdd, silent)
         }
 
         // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
         // so we skipped super.splice(). We must manually fire 'mutate' to keep systems like Store.count in sync.
-        if (toAddArray || removeCountOrToRemoveArray) {
+        // The projection's own write (`silent`) fires nothing on this exit either.
+        if (!silent && (toAddArray || removeCountOrToRemoveArray)) {
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
