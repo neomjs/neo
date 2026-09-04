@@ -455,7 +455,8 @@ class LayoutAdapter extends Base {
      *     another owning lifecycle has already retired the same source vessel.
      * @param {Function} [options.resolveVesselConversionSourceRect] Synchronous owner resolver for
      *     the exact dragged vessel's live global inner rect; threaded through a clone-safe listener.
-     * @param {Function} [options.resolveComponentRef]
+     * @param {Function} [options.resolveComponentRef] `(componentRef, item, itemId, nodeId) => config
+     *     | instance | null`; a `null` answer projects a recoverable placeholder config.
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
      * @param {Function} [options.syncDockLockPane] Workspace-owned lock presentation for a resolved
      *     rail reveal pane: `(pane, itemId) => void`.
@@ -908,11 +909,13 @@ class LayoutAdapter extends Base {
      * Projects one dock item id into a Neo config or recoverable placeholder.
      * @param {String} itemId
      * @param {Object} context
+     * @param {String|null} [nodeId=null] The tabs node the item projects into; a resolver that declines
+     *     an item of a retained node gets it projected as a placeholder config instead.
      * @returns {*}
      * @protected
      * @static
      */
-    static projectItem(itemId, context) {
+    static projectItem(itemId, context, nodeId=null) {
         let item      = context.items[itemId],
             component = null;
 
@@ -920,7 +923,7 @@ class LayoutAdapter extends Base {
             return this.createPlaceholder(itemId, null)
         }
 
-        component = context.resolveComponentRef(item.componentRef, item, itemId);
+        component = context.resolveComponentRef(item.componentRef, item, itemId, nodeId);
 
         if (!component && item.blueprint) {
             component = this.cloneConfig(item.blueprint)
@@ -1046,7 +1049,7 @@ class LayoutAdapter extends Base {
         // root header (plain config OR live instance) with exact restoration on its next item-only
         // projection; no broad selector or committed-document mutation is used as a fallback.
         projectedItems = items.map((itemId, index) => this.decorateProjectedItem(
-            this.projectItem(itemId, context),
+            this.projectItem(itemId, context, nodeId),
             itemId,
             context.items[itemId],
             {
