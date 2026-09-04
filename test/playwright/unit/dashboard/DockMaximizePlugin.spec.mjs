@@ -141,14 +141,27 @@ test.describe('dock maximize as a declinable plugin', () => {
         expect(plugin.isNeutralOperation({operation: 'splitNode', nodeId: 'side-tabs'}), 'a topology mutation reaches beyond it').toBe(false)
     });
 
-    test('destroying the owner destroys the plugin', () => {
+    test('destroying the owner destroys the plugin and releases its observation at the addon', () => {
         create();
 
-        const plugin = workspace.getPlugin('dock-maximize');
+        const
+            plugin       = workspace.getPlugin('dock-maximize'),
+            unregistered = [],
+            mainBefore   = Neo.main;
 
-        workspace.destroy();
+        // The plugin's flag dies with the instance, so the witness is the addon call itself.
+        Neo.main = {addon: {ResizeObserver: {unregister: data => unregistered.push(data)}}};
+        plugin.resizeObserved = true;
+
+        try {
+            workspace.destroy()
+        } finally {
+            Neo.main = mainBefore
+        }
 
         expect(plugin.isDestroyed).toBe(true);
-        expect(Neo.get(plugin.id), 'released from the instance registry').toBeFalsy()
+        expect(Neo.get(plugin.id), 'released from the instance registry').toBeFalsy();
+        expect(unregistered, 'the owner destroy reaches the addon with the owner id')
+            .toEqual([{componentId: workspace.id, id: workspace.id, windowId: workspace.windowId}])
     })
 });

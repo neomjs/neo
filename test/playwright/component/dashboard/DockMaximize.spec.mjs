@@ -454,11 +454,29 @@ test.describe('dock maximize — presentation, never topology', () => {
         await expect.poll(async () => await readPlugin(page, ['maximizedNodeId', 'resizeObserved']))
             .toEqual([null, false]);
 
-        // Destroy while observed tears down at the addon — read through the surviving probe.
+        // Destroy while observed tears down AT THE ADDON. The plugin's own flag is wiped with the
+        // instance (so its log line reads "torn" whether or not the addon was told), which is why
+        // the witness is the addon's `unregister` call in the main realm, recorded before the
+        // destroy is issued.
         await setPlugin(page, {maximizedNodeId: 'main-tabs'});
         await expect.poll(async () => (await readPlugin(page, ['resizeObserved']))[0]).toBe(true);
 
+        await page.evaluate(() => {
+            const addon    = Neo.main.addon.ResizeObserver,
+                  original = addon.unregister;
+
+            window.__dockMaximizeUnregistered = [];
+            addon.unregister = function(data) {
+                window.__dockMaximizeUnregistered.push(`${data.componentId}:${data.id}`);
+                return original.call(this, data)
+            }
+        });
+
         await page.evaluate(() => Neo.worker.App.destroyNeoInstance('dock-maximize-workspace'));
+
+        await expect.poll(() => page.evaluate(() => window.__dockMaximizeUnregistered), {
+            message: 'the owner destroy reaches the addon with the workspace id'
+        }).toEqual(['dock-maximize-workspace:dock-maximize-workspace']);
 
         await expect.poll(async () => {
             const reply = await page.evaluate(() => Neo.worker.App.getConfigs({id: 'dock-maximize-probe', keys: ['observerLogJson']})),
