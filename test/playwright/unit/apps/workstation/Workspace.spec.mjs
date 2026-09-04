@@ -450,13 +450,10 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 targetId: targetWorkspaceId
             });
 
-            // Movement observation rides the same call: the main render target's poll is owned by
-            // config, so a titlebar grabbed from outside page content still publishes.
-            expect(resizeCalls).toEqual([{
-                observeMovement: true,
-                observeResize  : true,
-                windowId       : workspace.windowId
-            }]);
+            // This unit instance has no render target. Geometry begins only when a real container
+            // supplies its window id; the focused DockWorkspace first-projection spec owns that
+            // positive bind arm.
+            expect(resizeCalls).toEqual([]);
             expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
             expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
             expect(workspace.vesselConversionTargetWindowId).toBe('window-alerts');

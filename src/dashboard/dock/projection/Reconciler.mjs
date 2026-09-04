@@ -314,16 +314,20 @@ class Reconciler extends Base {
     /**
      * @summary Stages and commits one identity-preserving dock projection.
      *
-     * The host keeps its current shell rendered while a visibility-hidden projection is inserted
-     * beside it. Four explicit ownership phases follow: mount the target tree, move pane/button
-     * descendants, move retained tab ancestors plus swap shell visibility, then destroy the empty
-     * source shell. Each phase receives its own host update so renderer cleanup cannot overtake a
-     * native reparent. Floating Overflow controls are reprojected only after final ownership settles.
+     * With a current shell, the host keeps it rendered while a visibility-hidden projection is
+     * inserted beside it. Four explicit ownership phases follow: mount the target tree, move
+     * pane/button descendants, move retained tab ancestors plus swap shell visibility, then destroy
+     * the empty source shell. With no current shell, the same projection is inserted at
+     * `shellIndex` as the explicit first projection; it resolves panes and becomes visible without
+     * inventing an outgoing shell. Each phase receives its own host update so renderer cleanup
+     * cannot overtake a native reparent. Floating Overflow controls are reprojected only after final
+     * ownership settles.
      *
      * Workspace-specific FLIP capture/play, animation timing, pane creation, and menu readiness stay
      * outside this method. `onProjectionStaged` can decorate retained chrome before the first commit.
      * @param {Object} options
-     * @param {Neo.container.Base} options.host Dock host containing the current shell.
+     * @param {Neo.container.Base} options.host Dock host containing the current shell, or the empty
+     *     destination for a first projection.
      * @param {Boolean} [options.geometryOnly=false] Explicitly admits strict in-place geometry reconciliation.
      * @param {Boolean} [options.retainTopology=false] Explicitly admits in-place item reconciliation
      *     only when every structural dock node retains its identity, ancestry, order, and orientation.
@@ -335,7 +339,8 @@ class Reconciler extends Base {
      * @param {Function|null} [options.onProjectionStaged=null]
      * @param {Number} [options.shellIndex=0]
      * @param {Function|null} [options.waitForOverflowProjection=null]
-     * @returns {Promise<{currentTabs: Map, nextShell: Neo.component.Base, overflowPlugins: Object[], plans: Map}>}
+     * @returns {Promise<{currentTabs: Map, landedInPlace: Boolean, nextShell: Neo.component.Base,
+     *     overflowPlugins: Object[], plans: Map}>}
      * @static
      */
     static async reconcileProjection({
@@ -350,13 +355,11 @@ class Reconciler extends Base {
         shellIndex=0,
         waitForOverflowProjection=null
     }) {
-        const oldShell = host?.items?.[shellIndex];
+        const
+            oldShell          = host?.items?.[shellIndex] || null,
+            initialProjection = !oldShell;
 
-        if (!oldShell) {
-            throw new Error(`Dock projection could not find a current shell at index ${shellIndex}`)
-        }
-
-        const stableProjection = geometryOnly || retainTopology
+        const stableProjection = oldShell && (geometryOnly || retainTopology)
             ? this.reconcileStableTopology(oldShell, nextConfig, placeholders, {
                 preserveItemIds,
                 reconcileItems: retainTopology,
@@ -423,23 +426,41 @@ class Reconciler extends Base {
             ? preparedConfig.setSilent({hidden: true, hideMode: 'visibility'})
             : Object.assign(preparedConfig, {hidden: true, hideMode: 'visibility'});
 
-        let nextShell = host.insert(shellIndex + 1, preparedConfig, true);
+        let nextShell;
 
-        await onProjectionStaged?.({currentTabs, nextShell, oldShell, plans});
+        try {
+            nextShell = host.insert(shellIndex + (initialProjection ? 0 : 1), preparedConfig, true);
 
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
+            await onProjectionStaged?.({currentTabs, nextShell, oldShell, plans});
+
+            host.updateDepth = -1;
+            host.update();
+            await host.promiseUpdate()
+        } catch (error) {
+            if (!initialProjection) {
+                throw error
+            }
+
+            error.isDockProjectionFailure = true;
+            error.projectionRecovery      = await this.settleFailedInitialProjection({
+                destroyShell: true,
+                host,
+                nextShell,
+                shellIndex
+            });
+
+            throw error
+        }
 
         const commitBars = new Set();
 
-        // Phases 2-4 are the window in which the host holds TWO shells, and every one of them ends in
-        // an awaited flight that can reject: a landing ancestor update whose stored vnode still
-        // references chrome a phase destroyed silently is enough (`util.VNode.getVnode` throws on a
-        // reference whose component has left the registry). Without this guard the rejection unwinds
-        // out of the whole method and the host keeps both shells — the outgoing one visible and
-        // populated, the staged one hidden and half-built — and since every later commit reconciles
-        // against `host.items[shellIndex]` again, that state never self-heals.
+        // With an outgoing shell, phases 2-4 are the window in which the host holds TWO shells. A
+        // first projection holds one hidden shell instead, but the same awaited flights can reject
+        // after consumer-owned panes entered it. In either shape, a landing ancestor update whose
+        // stored vnode still references chrome a phase destroyed silently is enough
+        // (`util.VNode.getVnode` throws on a reference whose component has left the registry).
+        // Without this guard the rejection unwinds and leaves a partial projection at the canonical
+        // shell index, so every later commit reconciles against state which never settled.
         //
         // `VdomLifecycle#executeVdomUpdate` already promises the half this method needs: a rejected
         // flight adopts no vnode and rejects every parked promise, "so the next cycle re-diffs
@@ -492,7 +513,7 @@ class Reconciler extends Base {
             retainedRoot = oldShell === nextShell;
 
             if (!retainedRoot) {
-                oldShell.setSilent({hideMode: 'visibility', hidden: true});
+                oldShell?.setSilent({hideMode: 'visibility', hidden: true});
                 nextShell.setSilent({hidden: false})
             }
 
@@ -502,9 +523,9 @@ class Reconciler extends Base {
             // change unadopted, so recovery must treat the outgoing shell as the one still on screen.
             await host.promiseUpdate();
 
-            swapped = !retainedRoot;
+            swapped = Boolean(oldShell && !retainedRoot);
 
-            if (!retainedRoot) {
+            if (oldShell && !retainedRoot) {
                 host.remove(oldShell, true, true);
                 host.updateDepth = -1;
                 host.update();
@@ -512,9 +533,11 @@ class Reconciler extends Base {
             }
         } catch (error) {
             error.isDockProjectionFailure = true;
-            error.projectionRecovery      = await this.settleFailedProjection({
-                host, nextShell, oldShell, retainedRoot, shellIndex, swapped
-            });
+            error.projectionRecovery      = initialProjection
+                ? await this.settleFailedInitialProjection({host, nextShell, shellIndex})
+                : await this.settleFailedProjection({
+                    host, nextShell, oldShell, retainedRoot, shellIndex, swapped
+                });
 
             // Re-thrown rather than wrapped: the original message and stack ARE the diagnostic (the
             // live report that produced this guard read `Component not found for id: …` out of
@@ -537,10 +560,48 @@ class Reconciler extends Base {
             await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))
         }
 
-        // The staged transaction replaced the shell, so any downstream contract keyed on
-        // "no topology swap can be pending" must NOT be told otherwise, however the call was
-        // admitted. See the in-place return above.
+        // A staged transaction replaced the shell or a first projection created it, so any
+        // downstream contract keyed on "no topology swap can be pending" must NOT be told this was
+        // in-place, however the call was admitted. See the in-place return above.
         return {currentTabs, landedInPlace: false, nextShell, overflowPlugins, plans}
+    }
+
+    /**
+     * @summary Retires a rejected first projection so its one clean retry starts with no shell.
+     *
+     * A shell whose initial mount failed before item reconciliation is destroyed: it contains only
+     * engine projection placeholders. Once reconciliation may have moved consumer-owned live panes,
+     * the shell is detached without destruction instead; the retry resolves those same panes into a
+     * fresh first shell.
+     * @param {Object} data
+     * @param {Boolean} [data.destroyShell=false] Whether item reconciliation is known not to have run.
+     * @param {Neo.container.Base} data.host The dock host which attempted its first projection.
+     * @param {Neo.component.Base|null} data.nextShell The failed first shell, when insertion landed.
+     * @param {Number} [data.shellIndex=0] The slot the first shell attempted to occupy.
+     * @returns {Promise<String>} `retired-initial` | `unrecoverable`
+     * @static
+     */
+    static async settleFailedInitialProjection({destroyShell=false, host, nextShell, shellIndex=0}) {
+        const failedShell = nextShell || host.items?.[shellIndex] || null;
+
+        try {
+            if (failedShell && !failedShell.isDestroyed && host.indexOf(failedShell) > -1) {
+                host.remove(failedShell, destroyShell, true)
+            }
+
+            host.updateDepth = -1;
+            host.update();
+            await host.promiseUpdate();
+
+            return !failedShell || host.indexOf(failedShell) === -1 ? 'retired-initial' : 'unrecoverable'
+        } catch (recoveryError) {
+            console.warn(
+                'Initial dock projection recovery failed; the host may retain its failed shell',
+                host?.id,
+                recoveryError
+            );
+            return 'unrecoverable'
+        }
     }
 
     /**
