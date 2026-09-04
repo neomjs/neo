@@ -97,12 +97,12 @@ class TopologyDiff extends Base {
      * @param {Object} after The later committed document
      * @param {Object} [options]
      * @param {Number} [options.sizeEpsilon=TopologyDiff.SIZE_EPSILON] Resize tolerance on size fractions
-     * @returns {{moves: Object[], adds: Object[], removes: Object[], resizes: Object[], tabReorders: Object[], autoHideFlips: Object[], unchanged: String[], errors: String[]}}
+     * @returns {{moves: Object[], adds: Object[], removes: Object[], resizes: Object[], tabReorders: Object[], autoHideFlips: Object[], activeItemChanges: Object[], unchanged: String[], errors: String[]}}
      * @static
      */
     static diffDockDocuments(before, after, {sizeEpsilon = TopologyDiff.SIZE_EPSILON} = {}) {
         const
-            empty  = () => ({moves: [], adds: [], removes: [], resizes: [], tabReorders: [], autoHideFlips: [], unchanged: [], errors: []}),
+            empty  = () => ({moves: [], adds: [], removes: [], resizes: [], tabReorders: [], autoHideFlips: [], activeItemChanges: [], unchanged: [], errors: []}),
             result = empty(),
             errors = [];
 
@@ -161,6 +161,23 @@ class TopologyDiff extends Base {
             const
                 beforeNode = before.nodes[nodeId],
                 afterNode  = after.nodes?.[nodeId];
+
+            if (beforeNode?.type === 'tabs' && afterNode?.type === 'tabs') {
+                const
+                    fromActive = beforeNode.activeItemId ?? null,
+                    toActive   = afterNode.activeItemId  ?? null;
+
+                // Which tab you were on is document state and the capture keeps it, but nothing
+                // reported it, so a restore returned the tabs and left you looking at whichever one
+                // happened to be active. Only a target that actually LISTS the item is emitted: the
+                // executor rejects an active item that is not a member, and a restore must not start
+                // throwing over a tab it could not place.
+                if (fromActive !== toActive && toActive != null && (afterNode.items || []).includes(toActive)) {
+                    result.activeItemChanges.push({nodeId, from: fromActive, to: toActive})
+                }
+
+                return
+            }
 
             if (beforeNode?.type !== 'split' || afterNode?.type !== 'split') return;
 

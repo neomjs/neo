@@ -106,7 +106,7 @@ class RestorePlanner extends Base {
 
         let plan = [];
 
-        // adds → moves (collapse-safe order) → tabReorders (ascending captured index) → resizes → autoHideFlips.
+        // adds → moves (collapse-safe order) → tabReorders (ascending captured index) → activeItems → resizes → autoHideFlips.
         diff.adds.forEach(({itemId, to}) =>
             plan.push({operation: 'addTab', itemId, tabsNodeId: to.nodeId, index: to.index}));
 
@@ -115,6 +115,12 @@ class RestorePlanner extends Base {
 
         [...diff.tabReorders].sort((a, b) => a.toIndex - b.toIndex).forEach(({itemId, nodeId, toIndex}) =>
             plan.push({operation: 'moveItem', itemId, targetNodeId: nodeId, index: toIndex}));
+
+        // After the membership steps and before the flags: the executor rejects an active item that
+        // is not a member of its node, so this cannot run until every add/move/reorder has landed —
+        // and it must run while the item is still in the tab flow, ahead of any auto-hide flip.
+        diff.activeItemChanges.forEach(({nodeId, to}) =>
+            plan.push({operation: 'setActiveItem', tabsNodeId: nodeId, itemId: to}));
 
         diff.resizes.forEach(({nodeId, toSizes}) =>
             plan.push({operation: 'resizeSplit', splitNodeId: nodeId, sizes: [...toSizes]}));
