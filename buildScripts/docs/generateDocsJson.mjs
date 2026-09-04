@@ -443,9 +443,15 @@ parse(options)
         });
 
         writePromises.push(
+            // One key per line, not one line. Keys are already sorted above, so disjoint
+            // additions land at different offsets and git can 3-way merge them; at indent 0 every
+            // class-adding PR pair conflicts on this file with no semantic disagreement, and the
+            // only correct resolution for a generated artifact is to regenerate it. Whitespace is
+            // safe to change: the Knowledge Base hashes the PARSED `extends` value, never these
+            // bytes (neo-agent-brain `DatabaseService#createContentHash`).
             writeJSON({
                 path  : './docs/output/class-hierarchy.json',
-                indent: 0,
+                indent: 1,
                 force : true
             }, hierarchyJson)
         );
