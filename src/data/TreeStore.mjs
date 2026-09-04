@@ -834,6 +834,20 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary The tree ingests RAW rows: its structural layer annotates `depth`, `isLeaf`,
+     * `childCount` and `collapsed` inside {@link #splice} before a record exists, and
+     * {@link #hydrateRecord} materializes records lazily with those annotations in place. The base
+     * store's eager pre-splice hydration would freeze a record before the annotation and leave the
+     * hierarchy fields at their defaults, so the rows pass through untouched here.
+     * @param {Object[]} items The raw rows (or records) passed to `add` / `insert`
+     * @returns {Object[]} The same rows
+     * @protected
+     */
+    prepareAddedItems(items) {
+        return items
+    }
+
+    /**
      * Extends the base Store's hydrateRecord to also update the TreeStore's internal maps.
      * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode, ensuring
      * that when a raw data object becomes a Record, the TreeStore doesn't suffer from a split-brain.

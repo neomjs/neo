@@ -274,11 +274,15 @@ class Store extends Collection {
             threshold = me.initialChunkSize;
 
         if (init) {
-            super.add(items);
+            const prepared = me.prepareAddedItems(items);
+
+            super.add(prepared);
 
             me.isLoaded = true;
 
-            return items.map(i => me.get(me.getKey(i)))
+            // the VISIBLE instance per key: the existing record for a duplicate, null for a row an
+            // active filter hides
+            return prepared.map(i => me.get(me.getKey(i)))
         }
 
         if (threshold > 0 && items.length > threshold) {
@@ -778,6 +782,26 @@ class Store extends Collection {
     }
 
     /**
+     * @summary What an eager-mode `add` / `insert` hands to the splice: records, created BEFORE the
+     * mutation runs.
+     *
+     * The mutation — and the unfiltered projection (`allItems`) mirrored inside it — then carries
+     * the record instances every listener will see, so no listener can observe a raw/record split:
+     * a filter on a calculated field evaluates records, and a mounted list that renders inside the
+     * store's own `load` holds the same instances the projection does. The caller's array stays
+     * raw (a copy is converted).
+     *
+     * Overridable: a store whose structural layer annotates raw rows before records exist (see
+     * {@link Neo.data.TreeStore#prepareAddedItems}) hands the rows through and hydrates lazily.
+     * @param {Object[]} items The raw rows (or records) passed to `add` / `insert`
+     * @returns {Object[]} The items to splice
+     * @protected
+     */
+    prepareAddedItems(items) {
+        return this.createRecord([...items])
+    }
+
+    /**
      * Lazily instantiates a raw data object into a Record instance and updates all internal maps.
      * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode.
      * @param {Object} item The raw data object or Record
@@ -869,7 +893,7 @@ class Store extends Collection {
      */
     insert(index, item, init=this.autoInitRecords) {
         let me    = this,
-            items = super.insert(index, item);
+            items = super.insert(index, init ? me.prepareAddedItems(Array.isArray(item) ? item : [item]) : item);
 
         if (init) {
             return items.map(i => me.get(me.getKey(i)))

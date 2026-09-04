@@ -43,8 +43,7 @@ class Model extends BaseModel {
             name: 'iconCls',
             type: 'String'
         }, {
-            name: 'id',
-            type: 'Integer'
+            name: 'id' // untyped: menus key by strings (`file-open`); a typed conversion would rewrite the key
         }, {
             name: 'items', // optional
             type: 'Array'

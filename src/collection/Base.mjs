@@ -811,6 +811,15 @@ class Collection extends Base {
         } else {
             me.calcValueBands();
 
+            // The unfiltered projection is PART of the mutation, never a subscriber racing the
+            // other subscribers for it: mirror before `mutate` fires, so every listener — the
+            // store's own synchronous `load` included — sees `allItems` holding the batch, and a
+            // record hydrated inside a listener lands in both collections.
+            me.allItems?.onMutate({
+                addedItems  : me[toAddArray],
+                removedItems: me[toRemoveArray]
+            });
+
             me.fire('mutate', {
                 addedItems  : me[toAddArray],
                 removedItems: me[toRemoveArray]
@@ -910,6 +919,12 @@ class Collection extends Base {
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
                 });
+
+                // `sourceId` subscribed the projection to this collection's `mutate` — one listener
+                // among others, ordered by registration. `splice` and `endUpdate` mirror into it
+                // inline instead, before the event, so the subscription would only replay an
+                // already-applied mutation.
+                me.un({mutate: me.allItems.onMutate, scope: me.allItems});
 
                 me.allItems.items = me._items.slice();
             }
@@ -1605,6 +1620,16 @@ class Collection extends Base {
 
             me.calcValueBands(index || 0);
 
+            // The unfiltered projection is PART of the mutation, never a subscriber racing the
+            // other subscribers for it: mirror before `mutate` fires, so every listener — the
+            // store's own synchronous `load` included — sees `allItems` holding the batch, and a
+            // record hydrated inside a listener lands in both collections. The payload is the
+            // event's own: the INPUT items, because the projection filters nothing itself.
+            me.allItems?.onMutate({
+                addedItems  : toAddArray,
+                removedItems: removedItems
+            });
+
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
@@ -1613,10 +1638,10 @@ class Collection extends Base {
                 // The legacy `toRemoveArray || removedItems` fallback emitted the INPUT array, which
                 // contained STRING IDs when remove-by-key was used. Rollback at Database.mjs:451
                 // (`store.add(mutation.removedItems)`) then attempted Symbol-assignment on primitive
-                // strings → TypeError (#11595 surface failure).
+                // strings → TypeError (the transaction-rollback surface failure).
                 //
-                // Consumer-impact V-B-A 2026-05-18 (corrected scope per @neo-gpt PR #11611 Cycle 1
-                // review using `rg -n "mutate:|on(['\"]mutate" src ai`):
+                // Consumer-impact V-B-A 2026-05-18 (scope corrected in cross-family review, using
+                // `rg -n "mutate:|on(['\"]mutate" src ai`):
                 //   1. `Database.onNodesMutate` (ai/graph/Database.mjs:378) — consumes via
                 //      `storage.removeNodes` → SQLite.mjs:280 `node.id` extraction. REQUIRES object.
                 //   2. `Database.onEdgesMutate` (ai/graph/Database.mjs:358) — symmetric edge path.
@@ -1632,7 +1657,7 @@ class Collection extends Base {
                 // Net: 2 consumers strictly require object-shape (and previously silently broke or
                 // loudly broke when fed strings); 3 are payload-compatible with either shape. Fix
                 // is structurally narrow-blast — no consumer breaks, 2 previously-silent bugs also
-                // fixed. (#11595)
+                // fixed.
                 removedItems   : removedItems
             })
         } else if (!me[silentUpdateMode]) {
