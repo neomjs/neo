@@ -84,16 +84,18 @@ const expectMaximizedCount = async (page, count) => {
 };
 
 /**
- * The maximized node fills the DOCK HOST inset by the gap token on every side — not the workspace
- * root, not the viewport. The expected rect is derived from the rendered host and the token's
- * computed value, so a host framed by other chrome, or a consumer that tunes the gap, both
- * measure against the same contract.
+ * The maximized node fills the DOCK AREA inset by the gap token on every side — not the workspace
+ * root, not the viewport. The fixture workspace is its own host and frames the projected shell
+ * with a 42px chrome bar at index 0 (`dockShellIndex: 1`), so the root and the shell have different
+ * rects: the expected rect is derived from the rendered shell and the token's computed value, and
+ * the bar must stay uncovered. A consumer that tunes the gap measures against the same contract.
  */
 const maximizedRectMatchesHost = page => page.waitForFunction(() => {
-    const el   = document.querySelector('.neo-dock-maximized'),
-          host = document.querySelector('#dock-maximize-workspace .neo-dashboard');
+    const el     = document.querySelector('.neo-dock-maximized'),
+          host   = document.querySelector('#dock-maximize-workspace .neo-dashboard'),
+          chrome = document.getElementById('dock-maximize-chrome');
 
-    if (!el || !host) return false;
+    if (!el || !host || !chrome) return false;
 
     const a   = el.getBoundingClientRect(),
           b   = host.getBoundingClientRect(),
@@ -101,6 +103,7 @@ const maximizedRectMatchesHost = page => page.waitForFunction(() => {
 
     return Math.abs(a.top - (b.top + gap)) < 1.5 && Math.abs(a.left - (b.left + gap)) < 1.5
         && Math.abs(a.width - (b.width - 2 * gap)) < 1.5 && Math.abs(a.height - (b.height - 2 * gap)) < 1.5
+        && a.top >= chrome.getBoundingClientRect().bottom - 0.5
 });
 
 /** The rendered maximize chrome: the shadow token applied, no residual band cap. */
@@ -193,6 +196,46 @@ test.describe('dock maximize — presentation, never topology', () => {
             document.activeElement?.classList?.contains('neo-tab-header-button')
             && document.activeElement.textContent.includes('Frame')
         )
+    });
+
+    test('a host-less workspace that frames the shell with chrome maximizes onto the SHELL — the chrome stays in sight', async ({page}) => {
+        const side = tabsNodeWith(page, 'Frame');
+
+        await tabButton(side, 'Frame').click();
+        await actionButton(side, 'fa-window-maximize').click();
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
+
+        // Read the geometry once the presentation settled; the numbers name the failure when
+        // the measurement authority is wrong (root ⇒ the pane starts at the root's gap inset,
+        // above the chrome's bottom edge).
+        await page.waitForFunction(() => !document.querySelector('.neo-dock-maximized')?.style.transform);
+
+        const geometry = await page.evaluate(() => {
+            const rect = id => document.querySelector(id).getBoundingClientRect(),
+                  el   = rect('.neo-dock-maximized'),
+                  root = rect('#dock-maximize-workspace'),
+                  bar  = rect('#dock-maximize-chrome'),
+                  host = document.querySelector('#dock-maximize-workspace .neo-dashboard'),
+                  gap  = parseFloat(getComputedStyle(host).getPropertyValue('--dock-maximize-gap')) || 0;
+
+            return {
+                barBottom: bar.bottom,
+                barTop   : bar.top,
+                gap,
+                paneTop  : el.top,
+                rootTop  : root.top,
+                shellTop : host.getBoundingClientRect().top
+            }
+        });
+
+        expect(geometry.barTop, 'the chrome bar sits at the workspace root').toBeCloseTo(geometry.rootTop, 0);
+        expect(geometry.shellTop, 'the projected shell mounts under the bar').toBeCloseTo(geometry.barBottom, 0);
+        expect(geometry.paneTop, 'the maximized pane starts at the SHELL inset by the gap, not at the root')
+            .toBeCloseTo(geometry.shellTop + geometry.gap, 0);
+        expect(geometry.paneTop, 'the chrome stays uncovered').toBeGreaterThanOrEqual(geometry.barBottom - 0.5);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-dock-maximized')).toHaveCount(0)
     });
 
     test('an edge-band node maximizes to the same host rect as a center node — the band caps lift for the duration', async ({page}) => {

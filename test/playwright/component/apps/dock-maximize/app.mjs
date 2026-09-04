@@ -344,6 +344,26 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         enableDockReloadAction: true,
         /**
+         * The workspace is its own dock host (no `dockHostReference`) and frames the projected
+         * shell with chrome of its own: the shell mounts at index 1, under the bar at index 0.
+         * The workspace root and the shell therefore have DIFFERENT rects — a maximize measured
+         * off the root covers the bar, one measured off the shell keeps it in sight.
+         * @member {Number} dockShellIndex=1
+         */
+        dockShellIndex: 1,
+        /**
+         * The chrome the workspace frames its shell with — the consumer-owned bar that sits
+         * outside the dock area, the `examples/dashboard/dock` perspective toolbar's shape.
+         * @member {Object[]} items
+         */
+        items: [{
+            ntype : 'component',
+            id    : 'dock-maximize-chrome',
+            height: 42,
+            style : {alignItems: 'center', display: 'flex', flexShrink: 0, paddingInline: '8px'},
+            text  : 'chrome outside the dock area'
+        }],
+        /**
          * The instrumented maximize plugin stands in for the engine default.
          * @member {Object[]} plugins=[{module:MaximizeFixturePlugin}]
          */
