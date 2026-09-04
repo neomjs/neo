@@ -3476,7 +3476,7 @@ class DemoBWorkspace extends Container {
             return {detached: false, errors: [`"${itemId}" is not a docked, cached, attached pane`]}
         }
 
-        // A prior round-trip normalizes the now-empty popup tree. Re-seed its valid landing
+        // A completed round-trip normalizes the now-empty popup tree. Re-seed its valid landing
         // tabs before the next transfer; no item state exists there to preserve at that point.
         let sourceBefore = me.dockModel,
             popupBefore  = me.popupDocument,
