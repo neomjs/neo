@@ -268,5 +268,72 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the workspace-set regi
 
         expect(set.getDocument('main')).toEqual(before);
         expect(set.ids()).toEqual(['main'])
+    });
+
+    /**
+     * `adoptAll` is `adoptTransfer` one arity up — the write half of a multi-window perspective
+     * restore. A partially adopted topology is a composition no capture could have produced, so
+     * every refusal path is asserted alongside the success one.
+     */
+    test.describe('adoptAll — slot-ordered, all-or-nothing', () => {
+        test('adopts one document per registered workspace in ids() order', () => {
+            const
+                main   = createHolder({rootId: 'main-before', items: []}),
+                vessel = createHolder({rootId: 'vessel-before', items: []});
+
+            set.register('main', main.seams);
+            set.register('vessel', vessel.seams);
+
+            expect(set.adoptAll([{rootId: 'main-after', items: []}, {rootId: 'vessel-after', items: []}])).toBe(true);
+            expect(main.document.rootId).toBe('main-after');
+            expect(vessel.document.rootId).toBe('vessel-after')
+        });
+
+        test('refuses a slot count that does not match the registry, writing nothing', () => {
+            const main = createHolder({rootId: 'untouched', items: []});
+
+            set.register('main', main.seams);
+
+            expect(set.adoptAll([{rootId: 'a', items: []}, {rootId: 'b', items: []}])).toBe(false);
+            expect(set.adoptAll([])).toBe(false);
+            expect(set.adoptAll(null)).toBe(false);
+            expect(main.document.rootId).toBe('untouched')
+        });
+
+        test('refuses a missing slot document and a read-only workspace, writing nothing', () => {
+            const
+                main   = createHolder({rootId: 'untouched', items: []}),
+                vessel = createHolder({rootId: 'also-untouched', items: []});
+
+            set.register('main', main.seams);
+            set.register('vessel', vessel.seams);
+
+            expect(set.adoptAll([{rootId: 'a', items: []}, null]), 'a null slot').toBe(false);
+
+            // a read-only entry cannot adopt, so neither may its siblings
+            set.register('vessel', {getDocument: vessel.seams.getDocument});
+
+            expect(set.adoptAll([{rootId: 'a', items: []}, {rootId: 'b', items: []}])).toBe(false);
+            expect(main.document.rootId).toBe('untouched');
+            expect(vessel.document.rootId).toBe('also-untouched')
+        });
+
+        test('a throw mid-write rolls every earlier slot back to the document it replaced', () => {
+            const
+                main    = createHolder({rootId: 'main-before', items: []}),
+                failure = new Error('the second writer refuses');
+
+            set.register('main', main.seams);
+            set.register('vessel', {
+                getDocument: () => ({rootId: 'vessel-before', items: []}),
+                setDocument: () => {throw failure}
+            });
+
+            expect(() => set.adoptAll([{rootId: 'main-after', items: []}, {rootId: 'vessel-after', items: []}]))
+                .toThrow('the second writer refuses');
+
+            // the primary was written first and must not survive the failure
+            expect(main.document.rootId).toBe('main-before')
+        })
     })
 });

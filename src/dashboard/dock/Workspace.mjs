@@ -10,6 +10,7 @@ import {createDockTearOutHandlers} from './window/TearOut.mjs';
 import Document                    from './model/Document.mjs';
 import Operations                  from './model/Operations.mjs';
 import {previewToOperation}        from './model/PreviewContract.mjs';
+import TopologySeams               from './window/TopologySeams.mjs';
 
 /**
  * @summary The engine-owned dock workspace host: the reducer-container that owns one committed
@@ -84,6 +85,12 @@ import {previewToOperation}        from './model/PreviewContract.mjs';
  */
 class Workspace extends Container {
     static config = {
+        /**
+         * A topology restore resolves its holder as the component carrying the dock document, so
+         * the seams must be here; their implementation is not.
+         * @member {Neo.core.Base[]} mixins=[TopologySeams]
+         */
+        mixins: [TopologySeams],
         /**
          * @member {String} className='Neo.dashboard.dock.Workspace'
          * @protected

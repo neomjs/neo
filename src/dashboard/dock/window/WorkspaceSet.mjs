@@ -114,6 +114,55 @@ export function createDockWorkspaceSet() {
         },
 
         /**
+         * Adopts one committed document per registered workspace, in `ids()` order — the slot
+         * order a topology perspective was captured in.
+         *
+         * All-or-nothing, like {@link #adoptTransfer} one arity up: a slot count that does not
+         * match the registry, a missing document, or a read-only entry refuses before anything is
+         * written, and a throw mid-write rolls every earlier slot back to the document it replaced.
+         * A partially adopted topology is a composition no capture could have produced.
+         * @param {Object[]} documents Slot-ordered committed documents, primary first.
+         * @returns {Boolean} true when every slot adopted
+         */
+        adoptAll(documents) {
+            const ids = [...entries.keys()];
+
+            if (
+                !Array.isArray(documents) || documents.length !== ids.length ||
+                documents.some(document => !document) ||
+                ids.some(workspaceId => !entries.get(workspaceId).setDocument)
+            ) {
+                return false
+            }
+
+            const written = [];
+
+            for (let index = 0; index < ids.length; index++) {
+                const entry = entries.get(ids[index]);
+
+                written.push([entry, entry.getDocument()]);
+
+                try {
+                    entry.setDocument(documents[index])
+                } catch (error) {
+                    written.reverse().forEach(([slot, previous]) => {
+                        try {
+                            slot.setDocument(previous)
+                        } catch (compensationError) {
+                            // best-effort by construction, exactly as `adoptTransfer` documents:
+                            // the original failure below still propagates, and a writer failing its
+                            // own compensation is the documented double-breach residual
+                        }
+                    });
+
+                    throw error
+                }
+            }
+
+            return true
+        },
+
+        /**
          * @param {String} workspaceId
          * @returns {Object|null} the entry's current document, or null (fail closed)
          */
