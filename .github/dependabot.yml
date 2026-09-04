@@ -1,0 +1,41 @@
+# Dependabot VERSION updates. Security updates are a separate, already-active surface: they need no
+# config file and have been opening PRs here for months (#18132, #16669, #16608, #16478, #16476, all
+# titled `bump the npm_and_yarn group`). Without this file nothing else ever moves a dependency, so an
+# advisory was the only event that did — which is the whole defect #18302 describes.
+#
+# MAJORS ARE INCLUDED BY NOT BEING EXCLUDED. Dependabot's default covers every semver level; you opt
+# OUT with `ignore: [{update-types: ["version-update:semver-major"]}]`. There is deliberately no such
+# key here. Operator direction 2026-09-04: move fast, take the majors, and let the next real PR's CI
+# surface a break rather than paying a review cycle per bump up front. That trade is safe because
+# `npm-publish.yml` fires on `release:` / `workflow_dispatch` only, never on a push to `dev` — a bad
+# bump reaches `dev` and stops there, behind the human release cut.
+#
+# GROUPED, because ungrouped daily updates across a 31-module dock package produce a PR per dependency
+# and train everyone to ignore the queue. One PR per ecosystem per day is reviewable; ten are noise.
+#
+# `github-actions` is here because nothing else updates the pinned action SHAs and versions
+# (`actions/checkout@v4`, `actions/setup-node@v4`). That is a live supply-chain surface, not hygiene.
+#
+# NOT A FRESHNESS MECHANISM. `#17798` settled that consuming repos take a canonical store as an npm
+# dependency and that policing duplicated bytes is "evidence of the mistake rather than mitigation of
+# it"; its Contract Ledger names this exact surface as `npm outdated / dependabot — ecosystem-native;
+# no bespoke gate`. So there is no materializer, no installer, and no drift check around this file.
+# Each repository commits its own twelve lines.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: daily
+    groups:
+      all-deps:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: daily
+    groups:
+      actions:
+        patterns: ["*"]
