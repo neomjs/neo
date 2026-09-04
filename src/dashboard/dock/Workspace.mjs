@@ -1811,19 +1811,20 @@ class Workspace extends Container {
                 };
 
             me.syncDockActionTooltip(action, label, values);
-            action.set(values);
 
-            if (gateChanged || labelChanged) {
-                // `showOnFocus` is a plain class field rather than a reactive config, so it takes
-                // the silent path — a stable-instance policy flip, not an action-list rebuild. The
-                // toolbar owns the inert/aria/tab-index presentation it gates and must re-arm
-                // before this one update publishes.
-                gateChanged  && action.setSilent({showOnFocus: !locked});
-                labelChanged && (action.vdom['aria-label'] = label);
-                gateChanged  && bar.applyContextualActionState(true);
+            // `setSilent` rather than `set`: the `aria-label` write and the focus-gate flip have to
+            // publish in the SAME update as the configs, and `set()` publishes at the end of itself.
+            // The configs still self-diff — `setSilent` is `set` with the publish suppressed.
+            gateChanged && (values.showOnFocus = !locked);
 
-                action.update()
-            }
+            action.setSilent(values);
+            labelChanged && (action.vdom['aria-label'] = label);
+
+            // The toolbar owns the inert/aria/tab-index presentation the gate drives, and must
+            // re-arm it before this one update publishes the changed action.
+            gateChanged && bar.applyContextualActionState(true);
+
+            action.update()
         }
 
         // Buttons are addressed by identity, never by position: `tab.plugin.Overflow` removes
@@ -3194,19 +3195,19 @@ class Workspace extends Container {
         if (!action) return;
 
         let label            = maximized ? 'restore' : 'maximize',
-            ariaLabelChanged = action.vdom?.['aria-label'] !== label,
+            ariaLabelChanged = action.vdom['aria-label'] !== label,
             values           = {iconCls: maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls};
 
         me.syncDockActionTooltip(action, label, values);
 
-        // `iconCls` and `tooltip` are reactive configs — `set()` runs each hook only on a real
-        // change, so an unchanged sync is already a no-op without a hand-written guard.
-        action.set(values);
+        // `setSilent` rather than `set`: an `aria-label` write has to publish in the SAME update as
+        // the configs, and `set()` publishes at the end of itself. The configs still self-diff —
+        // `setSilent` is `set` with the publish suppressed — so no hand-written guard is needed in
+        // front of them, only the vdom write needs its own.
+        action.setSilent(values);
+        ariaLabelChanged && (action.vdom['aria-label'] = label);
 
-        if (ariaLabelChanged) {
-            action.vdom['aria-label'] = label;
-            action.update()
-        }
+        action.update()
     }
 
     /**
