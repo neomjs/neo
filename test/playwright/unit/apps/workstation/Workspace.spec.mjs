@@ -2983,11 +2983,12 @@ test.describe('getRefreshOptions — BOTH admissions are the ENGINE\'s, not a li
             .toEqual({geometryOnly: false, retainTopology: false, preserveItemIds: ['editor']})
     });
 
-    // #18152 removed the lock flicker in the engine by deriving `{retainTopology: true}` for the
-    // item-flag class. It never reached this host, because the override wrote `retainTopology`
-    // unconditionally: for `setItemLocked` the operation test is `false`, and an unconditional
-    // `false` overwrites the engine's `true` instead of falling back to it. The host is where the
-    // operator demoed docking, so the flicker was still live exactly where it was reported.
+    // The engine derives `{retainTopology: true}` for the item-flag class, which is what keeps a
+    // lock click from restaging the shell. It cannot reach this host through an override that
+    // writes `retainTopology` unconditionally: for `setItemLocked` the operation test below is
+    // `false`, and an unconditional `false` overwrites the engine's `true` instead of falling back
+    // to it. So the arm that matters is not "does the engine derive it" but "does this host's
+    // return value preserve what the engine derived".
     test('a lock on a shell item reaches this host\'s item-only refresh', () => {
         const shellItem = {items: {editor: {locked: false}}};
 
