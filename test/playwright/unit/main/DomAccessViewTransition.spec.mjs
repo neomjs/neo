@@ -130,11 +130,28 @@ test.describe('Neo.main.DomUtils - view transition reveal', () => {
         expect(DomUtils.createRevealAnimation({x: 1, y: 1}, 100, 100).options).toEqual({
             duration     : 500,
             easing       : 'ease-in',
+            fill         : 'both',
             pseudoElement: '::view-transition-new(root)'
         });
 
         expect(DomUtils.createRevealAnimation({duration: 800, easing: 'linear', x: 1, y: 1}, 100, 100).options)
             .toMatchObject({duration: 800, easing: 'linear'})
+    });
+
+    test('both snapshot layers stay opaque and normally blended for the complete transition', () => {
+        const animation = DomUtils.createRevealAnimation({x: 20, y: 30, duration: 0}, 100, 100);
+
+        expect(animation.oldLayer).toBeDefined();
+        expect(animation.oldLayer.options).toMatchObject({
+            duration     : 0,
+            fill         : 'both',
+            pseudoElement: '::view-transition-old(root)'
+        });
+
+        for (const layer of [animation, animation.oldLayer]) {
+            expect(layer.keyframes).toHaveLength(2);
+            layer.keyframes.forEach(frame => expect(frame).toMatchObject({opacity: 1, mixBlendMode: 'normal'}))
+        }
     });
 
     test('an explicit zero duration survives — it is the reduced-motion answer, not a missing value', () => {

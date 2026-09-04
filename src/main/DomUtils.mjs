@@ -44,7 +44,12 @@ class DomUtils extends Base {
     }
 
     /**
-     * @summary Builds a circular-reveal animation in units the pseudo-element itself resolves.
+     * @summary Builds circular-reveal effects that own both snapshot layers' compositing.
+     *
+     * The old snapshot stays opaque behind the growing new snapshot. Both effects override the
+     * browser's cross-fade and additive blending, so consumers need no view-transition CSS.
+     * Filled effects must be cancelled when the owning view transition settles, not when their
+     * duration elapses: a zero-duration reveal still shares the browser's transition lifetime.
      *
      * The values are percentages on purpose. A view transition pseudo-element resolves a percentage
      * against its own box, while a pixel length depends on the coordinate space the browser resolves
@@ -71,7 +76,8 @@ class DomUtils extends Base {
      * @param {Number} [reveal.y] Viewport y coordinate to grow the new state from
      * @param {Number} [width=globalThis.innerWidth]
      * @param {Number} [height=globalThis.innerHeight]
-     * @returns {Object|null} An `Element.animate()` payload, or null when there is no usable origin
+     * @returns {Object|null} A new-layer `Element.animate()` payload with an `oldLayer` companion,
+     * or null when there is no usable origin
      */
     static createRevealAnimation(reveal, width=globalThis.innerWidth, height=globalThis.innerHeight) {
         // `x` and `y` are compared to null, not tested for truthiness: 0 is a coordinate on the
@@ -90,22 +96,31 @@ class DomUtils extends Base {
                   Math.hypot(reveal.x,         height - reveal.y),
                   Math.hypot(width - reveal.x, height - reveal.y)
               ),
+              options  = {
+                  // Nullish defaults preserve an explicit zero-duration reduced-motion reveal.
+                  duration: reveal.duration ?? 500,
+                  easing  : reveal.easing   ?? 'ease-in',
+                  fill    : 'both'
+              },
               radius   = distance / (Math.hypot(width, height) / Math.SQRT2) * 100,
               x        = reveal.x / width  * 100,
               y        = reveal.y / height * 100;
 
         return {
             keyframes: [
-                {clipPath: `circle(0% at ${x}% ${y}%)`},
-                {clipPath: `circle(${radius}% at ${x}% ${y}%)`}
+                {clipPath: `circle(0% at ${x}% ${y}%)`, opacity: 1, mixBlendMode: 'normal'},
+                {clipPath: `circle(${radius}% at ${x}% ${y}%)`, opacity: 1, mixBlendMode: 'normal'}
             ],
             options: {
-                // `??`, not `||`: a caller asking for `duration: 0` wants an instant swap — the
-                // reduced-motion answer — and a truthiness guard would silently rewrite it to 500.
-                // The same class of bug as reading `x: 0` as "no coordinate", one object over.
-                duration     : reveal.duration ?? 500,
-                easing       : reveal.easing   ?? 'ease-in',
+                ...options,
                 pseudoElement: '::view-transition-new(root)'
+            },
+            oldLayer: {
+                keyframes: [
+                    {opacity: 1, mixBlendMode: 'normal'},
+                    {opacity: 1, mixBlendMode: 'normal'}
+                ],
+                options: {...options, pseudoElement: '::view-transition-old(root)'}
             }
         }
     }

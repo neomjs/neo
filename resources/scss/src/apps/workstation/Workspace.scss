@@ -2,25 +2,6 @@
 // app-owned Workstation token layer; all motion rides the dashboard aliases, including the
 // reduced-motion collapse owned by Neo.dashboard.Container.
 
-// The theme reveal's other half, and it is a CANCELLATION rather than decoration. The browser
-// cross-fades the two view-transition snapshots by default — old fades out over ~250ms — while
-// `DomUtils.createRevealAnimation()` grows the circle on the NEW layer for 500ms and never
-// touches the old one. Without this the old snapshot is already gone for the back half of the
-// reveal, and everything outside the circle paints as bare backdrop: black. `mix-blend-mode`
-// overrides the UA's `plus-lighter` on the image pair, which blows out where the layers overlap.
-//
-// Every consumer that calls `Neo.main.DomAccess#startViewTransition()` needs this today; the
-// engine owns the animation but not the cancellation that makes it visible.
-//
-// It MUST stay at file top level. These are DOCUMENT pseudo-elements: nesting them under
-// `.workstation-workspace` for tidiness would not scope them, it would make them never match —
-// silently, with a black reveal as the only symptom and nothing to connect it to the refactor.
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation     : none;
-    mix-blend-mode: normal;
-}
-
 .workstation-workspace {
     // The grid/tab token bridge sits on `.workstation-viewport`, one level up: the `?popout=`
     // vessel is a viewport WITHOUT a workspace, so a bridge scoped here never reached the pane it
