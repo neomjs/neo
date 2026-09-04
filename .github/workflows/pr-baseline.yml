@@ -1,8 +1,17 @@
 name: PR Baseline
 
 # This repository's caller for the shared non-product PR baseline. The reusable workflow owns the
-# executable jobs; a caller owns exactly two things — its event trigger and an immutable `uses:`
-# coordinate — so adopting the baseline copies no contract.
+# executable jobs, so adopting the baseline copies no job logic. What a caller does own is four
+# load-bearing things, every one of them present below and none assertable from upstream: the event
+# trigger, the permission ceiling, the consumer input (`required_base`), and an immutable `uses:`
+# coordinate. The upstream header still describes caller ownership as trigger + coordinate only; the
+# permission ceiling was established empirically here and the correction belongs to that corpus'
+# governance rather than to this file.
+#
+# These jobs REPORT. They are not required contexts: `dev` carries no `required_status_checks` rule
+# today, so a red baseline job does not mechanically block a merge. Binding them is a separate lane
+# and stays there — writing "gate" here would claim enforcement this head does not deliver, which is
+# the same shape as the silent unrun check this file exists to end.
 #
 # THE TRIGGER IS THE CALLER'S OBLIGATION, and `edited` is the load-bearing entry. The `pr-body` job
 # reads the LIVE body, so a corrected body goes green with no push — but only if this workflow fires
@@ -16,12 +25,16 @@ name: PR Baseline
 # between that deletion and this file NOTHING checked a pull-request body in this repository — and the
 # failure was silent, which is the expensive part: nothing red, nothing missing, just an unrun gate.
 #
-# OVERLAP, STATED RATHER THAN RESOLVED. Two baseline jobs have narrower local counterparts that stay
-# for now, because neither is a proven superset and deleting a working guard on an assumed equivalence
-# is how coverage disappears quietly:
+# NEIGHBOURING LOCAL WORKFLOWS, and none of them is superseded. Nothing is deleted here, because
+# deleting a working guard on an assumed equivalence is how coverage disappears quietly:
 #
-#   - `pr-base`                   vs `pr-base-guard.yml` — the local one fires on the same three PR
-#                                    types; the baseline job additionally rejects non-PR callers.
+#   - `pr-base`                   vs `pr-base-guard.yml` — COMPLEMENTS, not an overlap. The local
+#                                    workflow fires only on PRs whose base is `main` and MUTATES
+#                                    them: it retargets the base to `dev` and comments, which is why
+#                                    it holds `pull-requests: write`. The baseline job is read-only
+#                                    and rejects a PR whose base is not `required_base`, on every
+#                                    event this caller fires. One fixes a wrong base, the other
+#                                    refuses one; neither covers the other's case.
 #   - `source-comment-archaeology` vs `ticket-archaeology-lint.yml` — NOT equivalent. The local
 #                                    workflow is path-scoped (`src/**`, `test/playwright/**`, plus the
 #                                    guard and itself) and deliberately mirrors DEFAULT_SCAN_PATHS in
