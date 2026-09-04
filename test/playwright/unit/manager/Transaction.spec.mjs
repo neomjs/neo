@@ -22,11 +22,8 @@ import * as core      from '../../../../src/core/_export.mjs';
 test.describe.serial('Neo.manager.Transaction — Groups and token-matched window bindings', () => {
     let Transaction;
 
-    const connect = (windowId, topologyIdentity) => Transaction.onWindowConnect({
-        appName   : 'Workstation',
-        windowData: topologyIdentity === undefined ? {} : {topologyIdentity},
-        windowId
-    });
+    // The worker admits a window when its config registers, carrying the identity the main thread read.
+    const connect = (windowId, topologyIdentity) => Transaction.admit({topologyIdentity, windowId});
 
     test.beforeAll(async () => {
         Transaction = (await import('../../../../src/manager/Transaction.mjs')).default
@@ -140,7 +137,7 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         expect(Transaction.getBinding('group-from-a-previous-worker', 'main').windowId).toBe('w1')
     });
 
-    test('a reserved slot cannot be reserved again while live, and a connect without any identity slot is left alone', () => {
+    test('a reserved slot cannot be reserved again while live, and an empty carrier admits a fresh root', () => {
         const a = Transaction.bind({windowId: 'a1', workspaceKey: 'main'});
 
         expect(Transaction.reserve({groupId: a.groupId, workspaceKey: 'main'}), 'a live slot').toBeNull();
@@ -148,9 +145,29 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
 
         const before = Transaction.items.length;
 
-        connect('legacy-window');
+        expect(connect('fresh-root', {}).outcome, 'no carrier yet: a Group is minted').toBe('minted');
+        expect(Transaction.items).toHaveLength(before + 1)
+    });
 
-        expect(Transaction.items, 'no identity slot in windowData: nothing bound').toHaveLength(before)
+    test('a carrier write the main realm cannot take yet is parked, and flushed once it can', () => {
+        const writes = [];
+
+        Neo.ns('Neo.Main', true);
+        delete Neo.Main.setTopologyIdentity;
+
+        connect('early-root', {});
+
+        expect(Transaction.pendingCarrierWrites.has('early-root'), 'parked: no remote surface yet').toBe(true);
+
+        Neo.Main.setTopologyIdentity = data => writes.push(data);
+
+        try {
+            expect(Transaction.flushCarrierWrite('early-root')).toBe(true);
+            expect(writes).toEqual([{generationToken: expect.any(String), groupId: expect.any(String), windowId: 'early-root', workspaceKey: 'main'}]);
+            expect(Transaction.flushCarrierWrite('early-root'), 'nothing left to flush').toBe(false)
+        } finally {
+            delete Neo.Main.setTopologyIdentity
+        }
     });
 
     test('the carrier learns what the worker decided: minted and forked identities are written back, a rebind is not', () => {

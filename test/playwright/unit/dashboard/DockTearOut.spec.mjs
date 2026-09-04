@@ -78,8 +78,10 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
 
         await handlers.onDockTearOutExit(data);
 
+        // `gestureToken` is the pair's correlation id; `admissionToken` is the same value under the
+        // name the unmigrated consumers' openers still read, until they adopt the Group.
         expect(calls.opened[0]).toEqual({
-            admissionToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone
+            admissionToken: 1, gestureToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone
         });
         expect(calls.ended).toBe(0);
         expect(calls.started).toEqual([{

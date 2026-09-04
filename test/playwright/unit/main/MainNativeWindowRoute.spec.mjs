@@ -341,6 +341,8 @@ async function runNativeWindowRouteProbe(scenario) {
                 secondHandle: second?.nativeHandleKey ?? null
             }))
         } else if (scenario === 'topology-identity') {
+            // The boot-time reader lives on the worker manager; Main only writes and hands off.
+            const {default: WorkerManager} = await import('./src/worker/Manager.mjs');
             const
                 storage      = new Map(),
                 childStorage = new Map(),
@@ -350,13 +352,13 @@ async function runNativeWindowRouteProbe(scenario) {
                 removeItem: key => storage.delete(key),
                 setItem   : (key, value) => storage.set(key, value)
             };
-            const empty    = Main.getWindowData().topologyIdentity;
+            const empty    = WorkerManager.readTopologyIdentity();
             const accepted = Main.setTopologyIdentity({generationToken: 't1', groupId: 'g1', workspaceKey: 'main'});
-            const carried  = Main.getWindowData().topologyIdentity;
+            const carried  = WorkerManager.readTopologyIdentity();
             storage.set('neo-topology-identity', '{not json');
-            const malformed = Main.getWindowData().topologyIdentity;
+            const malformed = WorkerManager.readTopologyIdentity();
             storage.set('neo-topology-identity', JSON.stringify({groupId: 'g1'}));
-            const partial = Main.getWindowData().topologyIdentity;
+            const partial = WorkerManager.readTopologyIdentity();
             const popup = {
                 closed        : false,
                 innerHeight   : 500,

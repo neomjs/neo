@@ -63,19 +63,20 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
      * @summary Creates the exact vessel identity without widening its enumerable public payload.
      * @param {String} itemId
      * @param {Object} vessel
-     * @param {Number} fallbackGeneration
+     * @param {Number} fallbackToken The gesture's own correlation id, when the host did not echo it.
      * @returns {Object}
      */
-    const createVesselIdentity = (itemId, vessel, fallbackGeneration) => {
-        const identity = {itemId, windowName: vessel.windowName};
+    const createVesselIdentity = (itemId, vessel, fallbackToken) => {
+        const identity = {itemId, windowName: vessel.windowName},
+              token    = Number.isFinite(vessel.gestureToken) ? vessel.gestureToken : fallbackToken;
 
+        vessel.workspaceKey !== undefined && (identity.workspaceKey = vessel.workspaceKey);
+
+        // `admissionToken` is the same value under the name the Workstation and DemoB closers still
+        // read; it leaves with their migration to the Group.
         Object.defineProperties(identity, {
-            admissionToken: {
-                value: Number.isFinite(vessel.admissionToken) ? vessel.admissionToken : fallbackGeneration
-            },
-            generation: {
-                value: Number.isFinite(vessel.generation) ? vessel.generation : fallbackGeneration
-            }
+            admissionToken: {value: token},
+            gestureToken  : {value: token}
         });
 
         return identity
@@ -180,10 +181,10 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
          * @param {String} identity.windowName
          * @returns {Boolean}
          */
-        onVesselRetired({admissionToken, generation, itemId, windowName} = {}) {
+        onVesselRetired({admissionToken, gestureToken=admissionToken, itemId, windowName} = {}) {
             if (
                 pendingAdmission?.itemId === itemId &&
-                pendingAdmission.token === admissionToken
+                pendingAdmission.token === gestureToken
             ) {
                 pendingAdmission.externallyRetired = true;
                 return invalidateAdmission(itemId)
@@ -191,8 +192,7 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
 
             const matches = vessel => Boolean(
                 vessel && vessel.itemId === itemId && vessel.windowName === windowName &&
-                (!Number.isFinite(generation) || vessel.generation === generation) &&
-                (!Number.isFinite(admissionToken) || vessel.admissionToken === admissionToken)
+                (!Number.isFinite(gestureToken) || vessel.gestureToken === gestureToken)
             );
 
             let vessel = matches(activeVessel) ? activeVessel : lateVessel;
@@ -273,7 +273,8 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
 
             try {
                 vessel = await openVessel({
-                    admissionToken: state.token,
+                    admissionToken: state.token, // the name the unmigrated consumers' openers read
+                    gestureToken  : state.token,
                     itemId        : data.itemId,
                     proxyRect     : data.proxyRect,
                     sortZone      : data.sortZone

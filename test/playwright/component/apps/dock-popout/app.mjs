@@ -1,6 +1,7 @@
-import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
-import Viewport      from '../../../../../src/container/Viewport.mjs';
-import WindowManager from '../../../../../src/manager/Window.mjs';
+import DockWorkspace      from '../../../../../src/dashboard/dock/Workspace.mjs';
+import Viewport           from '../../../../../src/container/Viewport.mjs';
+import WindowManager      from '../../../../../src/manager/Window.mjs';
+import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 const fixtureDocument = {
@@ -116,6 +117,14 @@ class PopOutFixtureWorkspace extends DockWorkspace {
          */
         readWindowGeometry_: 0,
         /**
+         * Spec trigger: any new tick mirrors this window's Group binding from
+         * `Neo.manager.Transaction` into {@link #topologyJson} — the witness that a host binds on
+         * connect, which is the identity every pop-out reserves its vessel slot under.
+         * @member {Number} readTopologyIdentity_=0
+         * @reactive
+         */
+        readTopologyIdentity_: 0,
+        /**
          * Spec trigger: an item id drives the engine's own dead-vessel compensation — release the
          * pane, retire the vessel, reintegrate. The reintegration arm asserts the item comes home
          * through THIS path, which is the drag path's path; a click-specific return branch would
@@ -123,15 +132,7 @@ class PopOutFixtureWorkspace extends DockWorkspace {
          * @member {String|null} retireItemId_=null
          * @reactive
          */
-        retireItemId_: null,
-        /**
-         * The default 20s connect window would expire the admission of a vessel that — by this
-         * fixture's design — never connects a worker, and the engine would then retire and
-         * reintegrate the item mid-spec. Pushing the bound past any run keeps that real behaviour
-         * from racing arms that are about the click, not about connect timeouts.
-         * @member {Number} tearOutConnectWindowMs=600000
-         */
-        tearOutConnectWindowMs: 600000
+        retireItemId_: null
     }
 
     /**
@@ -164,6 +165,12 @@ class PopOutFixtureWorkspace extends DockWorkspace {
     windowGeometryJson = null
 
     /**
+     * Mirror of this window's Group binding, refreshed by {@link #readTopologyIdentity_}.
+     * @member {String|null} topologyJson=null
+     */
+    topologyJson = null
+
+    /**
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -176,6 +183,23 @@ class PopOutFixtureWorkspace extends DockWorkspace {
         const row = WindowManager.get(this.windowId);
 
         this.windowGeometryJson = JSON.stringify(row ? {innerRect: row.innerRect, outerRect: row.outerRect} : null)
+    }
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetReadTopologyIdentity(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        this.topologyJson = JSON.stringify({
+            binding : TransactionManager.findByWindow(this.windowId),
+            groups  : TransactionManager.items.length,
+            windowId: this.windowId
+        })
     }
 
     /**
@@ -252,6 +276,12 @@ class PopOutFixtureWorkspace extends DockWorkspace {
      */
     construct(config) {
         super.construct(config);
+
+        // The default 20 s lease would expire the reservation of a vessel that — by this fixture's
+        // design — never connects a worker, and the engine would then retire and reintegrate the item
+        // mid-spec. Pushing the bound past any run keeps that real behaviour from racing arms that are
+        // about the click, not about a lease running out.
+        TransactionManager.reconnectLeaseMs = 600000;
 
         // The proven deferred-boot dance: seed the empty shell, then commit the real document.
         this.add(this.projectDockModel());

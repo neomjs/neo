@@ -107,6 +107,15 @@ class Manager extends Base {
          */
         windowId: window.__NEO_SSR__?.windowId || crypto.randomUUID(),
         /**
+         * The `sessionStorage` key carrying this window's topology identity — `{groupId, workspaceKey,
+         * generationToken}` — across page loads. Read once per worker registration and sent with the
+         * config, so every window arrives in the App Worker already carrying what it is; `Neo.Main`
+         * writes it on the worker's word and hands a staged popup its reserved slot under the same key.
+         * @member {String} topologyIdentityStorageKey='neo-topology-identity'
+         * @protected
+         */
+        topologyIdentityStorageKey: 'neo-topology-identity',
+        /**
          * Contains the fileNames for the App, Data & Vdom workers
          * @member {Object} workers
          * @protected
@@ -295,7 +304,7 @@ class Manager extends Base {
                 break
             }
 
-            let workerConfig = {...config, windowId};
+            let workerConfig = {...config, topologyIdentity: me.readTopologyIdentity(), windowId};
 
             if (ssrData && key === 'app') {
                 Object.assign(workerConfig, {
@@ -599,6 +608,23 @@ class Manager extends Base {
 
             me.promises[msgId] = {reject, resolve}
         })
+    }
+
+    /**
+     * Reads this window's carried topology identity for a worker registration. An empty object means
+     * "no identity yet": the App Worker mints one and asks `Neo.Main#setTopologyIdentity` to write it
+     * back. Unavailable storage and a malformed or incomplete record read the same way, so the window
+     * boots as a fresh root instead of failing.
+     * @returns {{groupId: String, workspaceKey: String, generationToken: String}|{}}
+     */
+    readTopologyIdentity() {
+        try {
+            const {generationToken, groupId, workspaceKey} = JSON.parse(window.sessionStorage?.getItem(this.topologyIdentityStorageKey) || 'null') || {};
+
+            return groupId && workspaceKey && generationToken ? {generationToken, groupId, workspaceKey} : {}
+        } catch {
+            return {}
+        }
     }
 
     /**

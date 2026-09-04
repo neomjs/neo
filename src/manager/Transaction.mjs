@@ -53,6 +53,14 @@ class Transaction extends Manager {
     leaseTimers = new Map()
 
     /**
+     * Carrier writes the main realm could not take yet, keyed by window: a window is admitted when its
+     * config registers, which can precede the main realm registering its remote surface.
+     * @member {Map} pendingCarrierWrites=new Map()
+     * @protected
+     */
+    pendingCarrierWrites = new Map()
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -61,10 +69,38 @@ class Transaction extends Manager {
         let me = this;
 
         Neo.currentWorker?.on?.({
-            connect   : me.onWindowConnect,
             disconnect: me.onWindowDisconnect,
             scope     : me
         })
+    }
+
+    /**
+     * Admits a window the worker just learned of: binds it under the identity its carrier presented and
+     * tells the carrier what to hold from now on when that differs — a minted, cold or forked identity.
+     * A plain bind or rebind changes nothing the window did not already carry.
+     * @param {Object} data
+     * @param {Object} data.topologyIdentity `{}` for a first boot; else `{groupId, workspaceKey, generationToken}`
+     * @param {String} data.windowId
+     * @returns {Object} The binding description, see {@link #bind}.
+     */
+    admit({topologyIdentity, windowId}) {
+        let me       = this,
+            identity = topologyIdentity || {},
+            result   = me.bind({...identity, windowId});
+
+        if (
+            result.groupId         !== identity.groupId      ||
+            result.workspaceKey    !== identity.workspaceKey ||
+            result.generationToken !== identity.generationToken
+        ) {
+            me.writeCarrier(windowId, {
+                generationToken: result.generationToken,
+                groupId        : result.groupId,
+                workspaceKey   : result.workspaceKey
+            })
+        }
+
+        return result
     }
 
     /**
@@ -217,37 +253,20 @@ class Transaction extends Manager {
     }
 
     /**
-     * Worker `connect`: a window presenting a carried identity binds; one without is a new root.
-     * The identity travels inside `windowData`, beside the native route the main thread already resolves
-     * for it.
-     * @param {Object} data
-     * @param {Object} [data.windowData]
-     * @param {String} data.windowId
-     * @protected
+     * Sends a parked carrier write for a window once the main realm can take it.
+     * @param {String} windowId
+     * @returns {Boolean} Whether a write was sent.
      */
-    onWindowConnect({windowData, windowId}) {
-        const identity = windowData?.topologyIdentity;
+    flushCarrierWrite(windowId) {
+        let me       = this,
+            identity = me.pendingCarrierWrites.get(windowId);
 
-        // Windows that carry no identity slot at all (a worker booted without the main-thread carrier)
-        // are left alone; consumers opting in present `topologyIdentity: {}` for a fresh root.
-        if (identity === undefined) return;
+        if (!identity || !Neo.Main?.setTopologyIdentity) return false;
 
-        const result = this.bind({...identity, windowId});
+        me.pendingCarrierWrites.delete(windowId);
+        Neo.Main.setTopologyIdentity({...identity, windowId});
 
-        // The carrier learns what the worker decided: a minted, cold or forked identity differs from the
-        // one presented; a plain bind or rebind changes nothing the window did not already carry.
-        if (
-            result.groupId         !== identity.groupId      ||
-            result.workspaceKey    !== identity.workspaceKey ||
-            result.generationToken !== identity.generationToken
-        ) {
-            Neo.Main?.setTopologyIdentity?.({
-                generationToken: result.generationToken,
-                groupId        : result.groupId,
-                windowId,
-                workspaceKey   : result.workspaceKey
-            })
-        }
+        return true
     }
 
     /**
@@ -274,7 +293,7 @@ class Transaction extends Manager {
                 if (binding.windowId === windowId) {
                     binding.windowId = null;
                     me.startLease(group, binding);
-                    me.fire('release', {generation: binding.generation, groupId: group.id, workspaceKey: binding.workspaceKey});
+                    me.fire('release', {generation: binding.generation, groupId: group.id, windowId, workspaceKey: binding.workspaceKey});
                     return true
                 }
             }
@@ -319,6 +338,27 @@ class Transaction extends Manager {
     }
 
     /**
+     * Gives a reserved or released slot back before its lease ends — the opener's vessel never came,
+     * or the host retired it. A slot with a live binder is not the caller's to revoke.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @returns {Boolean}
+     */
+    revoke({groupId, workspaceKey}) {
+        let me      = this,
+            group   = me.get(groupId),
+            binding = group?.bindings.get(workspaceKey);
+
+        if (!binding || binding.windowId !== null) return false;
+
+        me.clearLease(binding);
+        group.bindings.delete(workspaceKey);
+
+        return true
+    }
+
+    /**
      * Retires a Group and every lease it holds. Whether a Group MAY retire — durably persisted, no
      * retained reference — is the caller's contract; this manager only forgets what it is told to.
      * @param {String} groupId
@@ -334,6 +374,21 @@ class Transaction extends Manager {
         me.unregister(group);
 
         return true
+    }
+
+    /**
+     * Tells a window's carrier what to hold from now on, or parks the write until the main realm has
+     * registered its remote surface (see {@link #flushCarrierWrite}).
+     * @param {String} windowId
+     * @param {{groupId: String, workspaceKey: String, generationToken: String}} identity
+     * @protected
+     */
+    writeCarrier(windowId, identity) {
+        if (Neo.Main?.setTopologyIdentity) {
+            Neo.Main.setTopologyIdentity({...identity, windowId})
+        } else {
+            this.pendingCarrierWrites.set(windowId, identity)
+        }
     }
 
     /**

@@ -686,6 +686,10 @@ class App extends Base {
             appPath = appPath.startsWith('/') ? appPath.substring(1) : appPath
         }
 
+        // The main realm's remote surface is registered by now; a carrier write the admission parked
+        // because `Neo.Main` had no `setTopologyIdentity` yet lands here.
+        Neo.manager.Transaction?.flushCarrierWrite(windowId);
+
         me.importApp(appPath).then(module => {
             Neo.bootingWindowId = windowId;
             module.onStart();
@@ -740,6 +744,15 @@ class App extends Base {
         Neo.windowConfigs = Neo.windowConfigs || {};
 
         Neo.windowConfigs[data.windowId] = Neo.clone(data, true);
+
+        // Every window arrives carrying its topology identity; `Neo.manager.Transaction` binds it into
+        // its Group and answers what the carrier must hold next. Loaded here rather than statically:
+        // the manager subscribes to this worker at construction, which needs the worker to exist first.
+        if (data.topologyIdentity) {
+            import('../manager/Transaction.mjs').then(({default: TransactionManager}) => {
+                TransactionManager.admit({topologyIdentity: data.topologyIdentity, windowId: data.windowId})
+            })
+        }
 
         if (!me.themeMapFetchStarted) {
             me.themeMapFetchStarted = true;

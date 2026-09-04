@@ -103,15 +103,6 @@ class Main extends core.Base {
          */
         nativeRouteTtl: 5000,
         /**
-         * The `sessionStorage` key carrying this window's topology identity — `{groupId, workspaceKey,
-         * generationToken}` — across page loads. A same-origin popup inherits a copy at creation, which
-         * {@link #windowOpen} replaces with the slot its opener reserved, or clears so the popup boots as
-         * a root of its own. The App Worker's `Neo.manager.Transaction` decides what the identity means;
-         * this thread only carries it.
-         * @member {String} topologyIdentityStorageKey='neo-topology-identity'
-         */
-        topologyIdentityStorageKey: 'neo-topology-identity',
-        /**
          * @member {Object} nativeWindowCapabilities
          * @protected
          */
@@ -344,33 +335,15 @@ class Main extends core.Base {
                 width      : screen.width
             },
             screenLeft: win.screenLeft,
-            screenTop : win.screenTop,
-            topologyIdentity: this.readTopologyIdentity(win)
+            screenTop : win.screenTop
         }
     }
 
     /**
-     * Reads this window's carried topology identity. An empty object means "no identity yet": the App
-     * Worker mints one and writes it back through {@link #setTopologyIdentity}. Unavailable storage and a
-     * malformed or incomplete record read the same way, so the window boots as a fresh root instead of
-     * failing.
-     * @param {Window} [win=window]
-     * @returns {{groupId: String, workspaceKey: String, generationToken: String}|{}}
-     */
-    readTopologyIdentity(win=window) {
-        try {
-            const {generationToken, groupId, workspaceKey} = JSON.parse(win.sessionStorage?.getItem(this.topologyIdentityStorageKey) || 'null') || {};
-
-            return groupId && workspaceKey && generationToken ? {generationToken, groupId, workspaceKey} : {}
-        } catch {
-            return {}
-        }
-    }
-
-    /**
-     * Writes the identity the App Worker bound this window to, so the next page load presents it again.
-     * `Neo.manager.Transaction` calls this after it minted, cold-created or forked a Group for the window;
-     * a plain bind or rebind writes nothing, because the carrier already holds what it presented.
+     * Writes the identity the App Worker bound this window to, so the next page load presents it again
+     * (the worker manager reads it into every worker registration). `Neo.manager.Transaction` asks for
+     * this after it minted, cold-created or forked a Group for the window; a plain bind or rebind writes
+     * nothing, because the carrier already holds what it presented.
      * @param {Object} data
      * @param {String} data.groupId
      * @param {String} data.workspaceKey
@@ -379,7 +352,7 @@ class Main extends core.Base {
      */
     setTopologyIdentity({generationToken, groupId, workspaceKey}) {
         try {
-            window.sessionStorage.setItem(this.topologyIdentityStorageKey, JSON.stringify({generationToken, groupId, workspaceKey}));
+            window.sessionStorage.setItem(WorkerManager.topologyIdentityStorageKey, JSON.stringify({generationToken, groupId, workspaceKey}));
             return true
         } catch {
             return false
@@ -1219,9 +1192,9 @@ class Main extends core.Base {
             // its own instead of forking the opener's Group on connect.
             try {
                 if (topologyIdentity) {
-                    openedWindow.sessionStorage.setItem(this.topologyIdentityStorageKey, JSON.stringify(topologyIdentity))
+                    openedWindow.sessionStorage.setItem(WorkerManager.topologyIdentityStorageKey, JSON.stringify(topologyIdentity))
                 } else {
-                    openedWindow.sessionStorage.removeItem(this.topologyIdentityStorageKey)
+                    openedWindow.sessionStorage.removeItem(WorkerManager.topologyIdentityStorageKey)
                 }
             } catch {/* Cross-origin or unavailable storage: the child boots as a fresh root. */}
 
