@@ -931,6 +931,12 @@ class VdomLifecycle extends Base {
             ComponentManager.registerWrapperNode(vnode.id, me)
         }
 
+        // A flight collected before a child was retired silently lands still naming that child by
+        // reference, and nothing else does any more. Pruned here, at the landing boundary, so the
+        // strict walkers below never resolve it — without this the whole flight fails on a child
+        // that is already gone, and every transaction awaiting the flight fails with it.
+        VNodeUtil.pruneRetiredReferences(me.vnode);
+
         let vnodeMap           = VNodeUtil.createMap(me.vnode),
             childComponentsSet = new Set(childComponents);
 

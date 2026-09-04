@@ -47,6 +47,39 @@ class VNode extends Base {
     }
 
     /**
+     * Removes, in place, every `{componentId}` reference whose component has left the registry from a
+     * flight's RETURNED vnode tree, before the tree is adopted and walked. A child retired silently —
+     * destroyed without an update of its own — takes its vdom, its DOM node and its place in its
+     * parent's stored vnode with it; the one tree that can still name it is a flight collected while
+     * it was alive and landing after. The walkers here resolve references strictly, so this runs once
+     * at the landing boundary and only over the tree's own inline nodes: a live reference is kept as a
+     * reference, never followed — the stored vnode behind it is that component's own to keep clean.
+     * @param {Object} vnode
+     * @returns {Number} The number of references removed
+     */
+    static pruneRetiredReferences(vnode) {
+        let childNodes = vnode?.childNodes,
+            removed    = 0;
+
+        if (childNodes) {
+            for (let i = childNodes.length - 1; i >= 0; i--) {
+                const child = childNodes[i];
+
+                if (child?.componentId) {
+                    if (!ComponentManager.get(child.componentId)) {
+                        childNodes.splice(i, 1);
+                        removed++
+                    }
+                } else {
+                    removed += VNode.pruneRetiredReferences(child)
+                }
+            }
+        }
+
+        return removed
+    }
+
+    /**
      * Search vnode child nodes by id or opts object for a given vdom tree
      * @param {Object} vnode
      * @param {Object|String} opts Either an object containing vdom node attributes or a string based id
