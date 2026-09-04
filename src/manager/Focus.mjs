@@ -164,12 +164,15 @@ class Focus extends CoreBase {
      * @protected
      */
     onFocusout(opts) {
-        let me = this;
+        let me   = this,
+            date = new Date();
 
-        me.lastFocusOutDate = new Date();
+        me.lastFocusOutDate = date;
 
         me.timeout(me.maxFocusInOutGap).then(() => {
-            if (me.lastFocusOutDate > me.lastFocusInDate) {
+            // Identity, not just recency: a newer focusout must not satisfy this check on an older
+            // one's behalf and deliver `opts` raised against a mount that has since been replaced.
+            if (me.lastFocusOutDate === date && date > me.lastFocusInDate) {
                 me.focusLeave(opts)
             }
         })

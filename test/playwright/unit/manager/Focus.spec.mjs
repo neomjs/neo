@@ -226,4 +226,71 @@ test.describe('Neo.manager.Focus', () => {
             ['change', 'parent',          'focus-parent', ['old-event-node'], ['new-event-node']]
         ]);
     });
+
+    test('a superseded focusout does not deliver its stale leave, and a later one still delivers its own', async () => {
+        const log = [];
+
+        components = [
+            createFocusComponent('focus-stale-root',  'document.body',    log),
+            createFocusComponent('focus-stale-child', 'focus-stale-root', log),
+            createFocusComponent('focus-stale-other', 'document.body',    log)
+        ];
+
+        const [root, child] = components;
+
+        // Derived, never hard-coded: if maxFocusInOutGap changes, these stay inside the collapse
+        // window instead of silently drifting outside it and making the arm vacuous.
+        const {maxFocusInOutGap} = FocusManager,
+              step               = maxFocusInOutGap / 5;
+
+        root.containsFocus  = true;
+        child.containsFocus = true;
+
+        // The dismissal. `onFocusout` defers delivery by maxFocusInOutGap, so nothing has been
+        // delivered yet and this leave is still only pending.
+        FocusManager.onFocusout({
+            componentPath: ['focus-stale-child', 'focus-stale-root'],
+            data         : {path: ['dismissed-node'], relatedTarget: null}
+        });
+
+        await FocusManager.timeout(step);
+
+        // The reopen, inside the gap. The component path is unchanged because the SAME instance
+        // remounts under the same id — the shape a hidden/un-hidden floating menu produces. The
+        // out/in pair therefore collapses into a focusMove across identical paths, which correctly
+        // delivers nothing: focus never actually left this subtree.
+        FocusManager.history = [{
+            componentPath: ['focus-stale-child', 'focus-stale-root'],
+            data         : {path: ['dismissed-node']}
+        }];
+
+        FocusManager.onFocusin({
+            componentPath: ['focus-stale-child', 'focus-stale-root'],
+            data         : {path: ['reopened-node'], relatedTarget: null}
+        });
+
+        await FocusManager.timeout(step);
+
+        // An unrelated, later focusout. It carries its own opts and deserves its own leave — but it
+        // also pushes the manager-global lastFocusOutDate past lastFocusInDate, and that global pair
+        // is the only thing the FIRST focusout's pending timer consults before firing.
+        FocusManager.onFocusout({
+            componentPath: ['focus-stale-other'],
+            data         : {path: ['other-node'], relatedTarget: null}
+        });
+
+        // Outlast both pending timers.
+        await FocusManager.timeout(maxFocusInOutGap * 3);
+
+        const leaves = log.filter(entry => entry[0] === 'leave').map(entry => entry[1]);
+
+        // The stale leave belongs to a mount that no longer exists. Delivering it to the remounted
+        // instance is what unmounts a freshly reopened floating menu.
+        expect(leaves).not.toContain('focus-stale-child');
+
+        // ...and the guard must not buy that by suppressing leaves generally: the later focusout is
+        // the newest one and still delivers. Without this half the arm passes if focusLeave never
+        // runs at all.
+        expect(leaves).toEqual(['focus-stale-other']);
+    });
 });
