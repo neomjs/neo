@@ -23,12 +23,14 @@ const evaluate = ({
     base = {},
     head = {},
     body = '',
+    changed = null,
     compareBase = true
 }) => evaluateMeasurements({
     measurements: Object.fromEntries(
         Object.entries(current).map(([file, codeLines]) => [file, measured(codeLines)])
     ),
     baseBaseline: base,
+    changedFiles: changed && new Set(changed),
     headBaseline: head,
     declarations: parseGrowthDeclarations(body),
     compareBase,
@@ -157,6 +159,73 @@ test.describe('check-file-sizes', () => {
             expect(result.violations).toEqual([]);
             expect(result.rows[0]).toMatchObject({docPercent: 90, verdict: 'pass'});
         });
+    });
+
+    test.describe('row demands are scoped to the changed set (#18345)', () => {
+        const
+            mine   = 'src/large.mjs',
+            theirs = 'src/other.mjs';
+
+        test('a stale row on a path this change did not touch is reported, not gated', () => {
+            // The defect, twice in ninety minutes: a baseline row goes stale on the base branch and
+            // every unrelated pull request — a dependency bot's included — is told to lower a number
+            // its diff never touched, and cannot justify.
+            const result = evaluate({
+                changed: [mine],
+                current: {[mine]: 1_100, [theirs]: 1_415},
+                base   : {[mine]: 1_100, [theirs]: 1_419},
+                head   : {[mine]: 1_100, [theirs]: 1_419}
+            });
+
+            expect(result.violations).toEqual([]);
+            expect(result.rows.find(row => row.file === theirs).verdict).toBe('pass');
+            // Reported, not silenced — the row still carries its measurement.
+            expect(result.rows.find(row => row.file === theirs).codeLines).toBe(1_415);
+        });
+
+        test('NON-VACUITY: the same stale row on a path this change DID touch still fails', () => {
+            // Without this, the arm above passes on a guard that stopped checking anything at all.
+            const result = evaluate({
+                changed: [mine, theirs],
+                current: {[mine]: 1_100, [theirs]: 1_415},
+                base   : {[mine]: 1_100, [theirs]: 1_419},
+                head   : {[mine]: 1_100, [theirs]: 1_419}
+            });
+
+            expect(result.violations[0].reason).toContain('lower the HEAD baseline');
+        });
+
+        test('the GROWTH gate is untouched by the scoping', () => {
+            // The one that must never be scoped away. Growth is why the ratchet exists, and a future
+            // refactor that applies the changed-set filter to the declaration branch would disarm it
+            // while leaving every other arm green.
+            const result = evaluate({
+                changed: [mine],
+                current: {[mine]: 1_201},
+                base   : {[mine]: 1_200},
+                head   : {[mine]: 1_201}
+            });
+
+            expect(result.violations[0].reason).toContain('size-guard-growth');
+        });
+
+        test('enrollment of a newly added offender still needs declaration and row', () => {
+            const result = evaluate({changed: [mine], current: {[mine]: 1_201}, base: {}, head: {}});
+
+            expect(result.violations.map(violation => violation.reason).join(' ')).toContain('enroll');
+        });
+
+        test('whole-tree mode has no diff to be outside of, so every path stays in scope', () => {
+            // `changed: null` is the on-demand audit. Exempting everything there would make the
+            // whole-tree run structurally incapable of reporting the very drift it exists to find.
+            const result = evaluate({
+                current: {[theirs]: 1_415},
+                base   : {[theirs]: 1_419},
+                head   : {[theirs]: 1_419}
+            });
+
+            expect(result.violations[0].reason).toContain('lower the HEAD baseline');
+        })
     });
 
     test.describe('base-to-HEAD ratchet', () => {

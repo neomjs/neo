@@ -193,12 +193,23 @@ function validateBaseline(baseline, label) {
  * @param {Object<String, Number>} options.headBaseline Baseline in the working tree.
  * @param {{declarations: Map<String, String>, malformed: String[], duplicates: String[]}} options.declarations Parsed PR declarations.
  * @param {Boolean} options.compareBase Whether historical monotonicity is available.
+ * @param {Set<String>|null} [options.changedFiles=null] The paths this change actually touched. Row
+ * demands are scoped to it, because a baseline row that goes stale on the base branch otherwise
+ * fails every unrelated pull request until someone repairs a number nobody involved changed. `null`
+ * means no diff scope — the whole-tree audit, where every path is in scope because there is no diff
+ * to be outside of.
+ *
+ * **The deleted-path branch is deliberately NOT scoped**, and the asymmetry is load-bearing:
+ * `changedFilesAtRef` runs `--diff-filter=d`, so a deletion never appears in the changed set. Scoping
+ * that branch would let a pull request delete a baselined file and silently orphan its row — trading
+ * a real guard for a rare transitional block.
  * @param {{target: Number, yellow: Number, red: Number}} options.thresholds Threshold inputs.
  * @returns {{rows: Object[], violations: Object[], unusedDeclarations: String[], malformedDeclarations: String[], monotonicityEvaluated: Boolean}}
  */
 export function evaluateMeasurements({
     measurements,
     baseBaseline = {},
+    changedFiles = null,
     headBaseline = {},
     declarations = parseGrowthDeclarations(''),
     compareBase  = true,
@@ -252,6 +263,21 @@ export function evaluateMeasurements({
         };
 
         rows.push(row);
+
+        // A pull request is accountable for the files it changed. Outside its diff the row is
+        // REPORTED and never gated, because every demand below asks for an edit only the PR that
+        // moved the file can justify — and a stale row therefore failed every unrelated PR,
+        // a bot's included, until a human repaired a number nobody involved cared about.
+        //
+        // Nothing is lost: a file this PR did not touch cannot have been grown by it, so the growth
+        // gate — the reason the ratchet exists — is unaffected. A shrink whose PR forgot to lower
+        // its row is still caught, on the PR that shrank it, which is the only one able to fix it.
+        //
+        // `changedFiles === null` means no diff scope was supplied (the whole-tree audit), and then
+        // every path is in scope because there is no diff to be outside of.
+        if (changedFiles && !changedFiles.has(file)) {
+            return
+        }
 
         if (measurement.status !== 'measured') {
             row.verdict = 'fail';
@@ -517,6 +543,7 @@ async function main() {
     try {
         let headBaseline = readBaselineFile(baselinePath, 'HEAD baseline'),
             baseBaseline = {},
+            changedFiles = null,
             compareBase  = false,
             selected;
 
@@ -525,6 +552,9 @@ async function main() {
 
             baseBaseline = baseState.baseline;
             compareBase  = baseState.exists;
+            // Captured before the union below folds the baselines in: after that, `selected` is the
+            // measurement population and no longer says which paths this change actually touched.
+            changedFiles = compareBase ? new Set(changedFilesAtRef(options.base)) : null;
             selected     = compareBase
                 ? changedFilesAtRef(options.base)
                 : await fg(DEFAULT_SCAN_ROOTS.map(root => `${root}/**/*.mjs`), {
@@ -566,6 +596,7 @@ async function main() {
         const result = evaluateMeasurements({
             measurements,
             baseBaseline,
+            changedFiles,
             headBaseline,
             declarations,
             compareBase,
