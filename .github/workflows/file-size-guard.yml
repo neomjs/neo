@@ -1,0 +1,60 @@
+name: File Size Guard
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, edited, synchronize, ready_for_review]
+    paths:
+      - 'src/**/*.mjs'
+      - 'apps/**/*.mjs'
+      - 'examples/**/*.mjs'
+      - 'buildScripts/**/*.mjs'
+      - 'buildScripts/util/file-size-baseline.json'
+      - '.github/workflows/file-size-guard.yml'
+      - 'test/playwright/unit/buildScripts/checkFileSizes.spec.mjs'
+      - 'package.json'
+
+concurrency:
+  group: file-size-guard-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check-size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with comparison history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install the parser
+        run: npm ci --ignore-scripts
+
+      - name: Fetch the current pull-request body
+        uses: actions/github-script@v9
+        env:
+          PR_BODY_FILE: ${{ runner.temp }}/pr-body.md
+        with:
+          script: |
+            const {data} = await github.rest.pulls.get({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            require('node:fs').writeFileSync(process.env.PR_BODY_FILE, data.body || '', 'utf8');
+
+      - name: Enforce the base-to-HEAD file-size ratchet
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: npm run check-file-sizes -- --base "origin/$BASE_REF" --pr-body-file "$RUNNER_TEMP/pr-body.md"
