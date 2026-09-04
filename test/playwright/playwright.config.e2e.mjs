@@ -71,6 +71,21 @@ const externalBrainTestIgnore = process.env.NEO_AGENTOS_RUNTIME_ROOT
     ? []
     : discoverExternalBrainSpecs(path.resolve(import.meta.dirname, 'e2e'));
 
+// Narrowing here is correct — those specs need a Brain checkout — but doing it silently is not.
+// `testIgnore` drops files BEFORE collection, so the excluded specs are not counted as skipped
+// either: the summary of a run that measured an eighth of the surface is indistinguishable from
+// one that measured all of it. That is how a truncated run once reported the same failed/passed
+// tally on two different heads while the full set showed two arms fixed and two newly red — it
+// hid a state change, not just coverage. So say what was dropped, loudly enough to survive the
+// custom reporter, and keep it silent on a full run so a complete suite gains no new noise.
+if (externalBrainTestIgnore.length > 0) {
+    console.warn(
+        `\n⚠️  e2e: ignoring ${externalBrainTestIgnore.length} Neural-Link spec file(s) — ` +
+        'NEO_AGENTOS_RUNTIME_ROOT is unset, so this run does NOT cover them.\n' +
+        '   Set it to an absolute neo-agent-brain checkout to run the full suite.\n'
+    )
+}
+
 const
     launchArgs     = activeLaunchArgs(),
     needsGlProbe   = requiresGlProbe(launchArgs),
