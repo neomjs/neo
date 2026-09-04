@@ -658,4 +658,190 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         WindowManager.unregister(WindowManager.get('cwd-inert-a'));
         WindowManager.unregister(WindowManager.get('cwd-inert-b'))
     });
+
+    /**
+     * The seams the engine answers from state the workspace already holds. Every arm asserts the
+     * default AND that a host value still wins: a default that cannot be overridden would be a
+     * capability REMOVAL wearing the shape of an addition.
+     */
+    test.describe('seams the engine answers from workspace state', () => {
+        const createWorkspaceStub = ({dockModel, projectionOptions, resolvePane, tearOutPanes} = {}) => ({
+            applied     : [],
+            changes     : [],
+            dockModel   : dockModel ?? targetDoc(),
+            tearOutPanes: tearOutPanes ?? {},
+
+            applyDockZoneOperation(descriptor) {
+                this.applied.push(descriptor);
+
+                return {document: this.dockModel, errors: []}
+            },
+            getDockHost() {
+                return null
+            },
+            getDockProjectionOptions() {
+                return projectionOptions ?? {}
+            },
+            onDockZoneDocumentChange(document, descriptor) {
+                this.changes.push([document, descriptor])
+            },
+            resolvePane(itemId, item) {
+                return resolvePane?.(itemId, item) ?? null
+            }
+        });
+
+        const createParticipation = config => Neo.create(DockCrossWindowParticipation, {
+            dragCoordinator: createCoordinatorStub(config.calls ?? []),
+            windowId       : 'window-b',
+            workspaceId    : 'B',
+            ...config
+        });
+
+        test('a workspace publishing a cross-window sort group registers a target with no sortGroup seam', () => {
+            const
+                calls         = [],
+                participation = createParticipation({
+                    calls,
+                    workspace: createWorkspaceStub({projectionOptions: {crossWindowSortGroup: 'dock-engine'}})
+                });
+
+            expect(calls).toHaveLength(1);
+            expect(participation.target.sortGroup).toBe('dock-engine');
+
+            participation.destroy()
+        });
+
+        test('a workspace publishing NO sort group registers nothing — the opt-in stays opt-in', () => {
+            const
+                calls         = [],
+                participation = createParticipation({calls, workspace: createWorkspaceStub()});
+
+            expect(calls).toHaveLength(0);
+            expect(participation.target.sortGroup ?? null).toBeNull();
+
+            participation.destroy()
+        });
+
+        test('a host sortGroup still wins over the workspace default', () => {
+            const participation = createParticipation({
+                sortGroup: 'host-group',
+                workspace: createWorkspaceStub({projectionOptions: {crossWindowSortGroup: 'dock-engine'}})
+            });
+
+            expect(participation.target.sortGroup).toBe('host-group');
+
+            participation.destroy()
+        });
+
+        test('an unset commitLocal rides the workspace reducer pair', () => {
+            const
+                workspace     = createWorkspaceStub(),
+                participation = createParticipation({sortGroup: 'dock-engine', workspace}),
+                operation     = {operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'},
+                result        = participation.commitDrop(operation, {dockItemId: 'alpha', dockSourceWorkspaceId: 'B'});
+
+            expect(workspace.applied).toEqual([operation]);
+            expect(workspace.changes).toHaveLength(1);
+            expect(result?.document).toBe(workspace.dockModel);
+
+            participation.destroy()
+        });
+
+        test('an unset foreign pair rides the workspace set, and without a set a foreign drop fails closed', () => {
+            const
+                adopted   = [],
+                source    = sourceDoc(),
+                operation = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},
+                payload   = {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+
+            const joined = createParticipation({
+                sortGroup   : 'dock-engine',
+                workspace   : createWorkspaceStub(),
+                workspaceSet: {
+                    adoptTransfer: data => {adopted.push(data); return true},
+                    getDocument  : workspaceId => (workspaceId === 'A' ? source : null)
+                }
+            });
+
+            expect(joined.commitDrop(operation, payload)).toBeTruthy();
+            expect(adopted).toHaveLength(1);
+            expect(adopted[0].sourceWorkspaceId).toBe('A');
+            expect(adopted[0].targetWorkspaceId).toBe('B');
+
+            joined.destroy();
+
+            // No set means no sibling to resolve — the same drop must decline, not guess.
+            const lone = createParticipation({sortGroup: 'dock-engine', workspace: createWorkspaceStub()});
+
+            expect(lone.commitDrop(operation, payload)).toBeNull();
+
+            lone.destroy()
+        });
+
+        test('the engine hit test answers window-local bounds and refuses everything outside them', () => {
+            WindowManager.register({
+                id       : 'cwd-default-win',
+                innerRect: new Rectangle(0, 0, 800, 600),
+                outerRect: new Rectangle(0, 0, 800, 600)
+            });
+
+            const participation = createParticipation({
+                sortGroup: 'dock-engine',
+                windowId : 'cwd-default-win',
+                workspace: createWorkspaceStub()
+            });
+
+            expect(participation.target.acceptsRemoteDrag(10, 10)).toBe(true);
+            expect(participation.target.acceptsRemoteDrag(900, 10)).toBe(false);
+            expect(participation.target.acceptsRemoteDrag(10, 700)).toBe(false);
+            expect(participation.target.acceptsRemoteDrag(Number.NaN, 10)).toBe(false);
+
+            participation.destroy();
+            WindowManager.unregister(WindowManager.get('cwd-default-win'))
+        });
+
+        test('an unset native-window resolver maps a moving popup back through the tear-out registry', () => {
+            const
+                pane          = {id: 'pane-terminal', isDestroyed: false},
+                participation = createParticipation({
+                    sortGroup: 'dock-engine',
+                    workspace: createWorkspaceStub({
+                        dockModel   : sourceDoc(),
+                        resolvePane : itemId => (itemId === 'terminal' ? pane : null),
+                        tearOutPanes: {terminal: {windowId: 'popup-1'}}
+                    }),
+                    workspaceId: 'A'
+                });
+
+            const resolved = participation.target.getNativeWindowDrag('popup-1');
+
+            expect(resolved?.draggedItem).toBe(pane);
+            expect(resolved.widgetName).toBe('terminal');
+            expect(pane.dockItemId).toBe('terminal');
+            expect(pane.dockSourceWorkspaceId).toBe('A');
+
+            expect(participation.target.getNativeWindowDrag('popup-unknown')).toBeNull();
+
+            participation.destroy()
+        });
+
+        test('the refinement seams stay null and a participation built without them degrades', () => {
+            const participation = createParticipation({
+                sortGroup: 'dock-engine',
+                workspace: createWorkspaceStub()
+            });
+
+            for (const seam of [
+                'awaitDragEmbodiment', 'promoteDragEmbodiment', 'restoreDragEmbodiment',
+                'resumeNativeWindowDrag', 'retireNativeWindowDrag', 'stageDragEmbodiment',
+                'suspendNativeWindowDrag'
+            ]) {
+                expect(participation[seam] ?? null, `${seam} stays host-owned`).toBeNull()
+            }
+
+            expect(() => participation.target.onRemoteDragLeave()).not.toThrow();
+
+            participation.destroy()
+        })
+    })
 });
