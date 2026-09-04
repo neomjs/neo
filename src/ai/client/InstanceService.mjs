@@ -3,6 +3,31 @@ import {admitWrite}        from '../admitWrite.mjs';
 import {deriveSubtreePath} from '../deriveSubtreePath.mjs';
 
 /**
+ * @summary Registers the JSON-RPC method prefixes one InstanceService instance answers.
+ * @param {Object} serviceMap Mutable Client prefix map.
+ * @param {InstanceService} service Owning service instance.
+ * @returns {Object} The same map after registration.
+ */
+export function registerInstanceServiceMethods(serviceMap, service) {
+    return Object.assign(serviceMap, {
+        call_method            : service,
+        create_instance        : service,
+        destroy_instance       : service,
+        find_instances         : service,
+        get_instance_properties: service,
+        set_instance_properties: service,
+        undo                   : service,
+        redo                   : service,
+        replay_transaction     : service,
+        save_transaction       : service,
+        abort_transaction      : service,
+        begin_transaction      : service,
+        commit_transaction     : service,
+        list_transactions      : service
+    })
+}
+
+/**
  * Handles generic instance-related Neural Link requests.
  * @class Neo.ai.client.InstanceService
  * @extends Neo.ai.client.Service

@@ -6,6 +6,23 @@ import Service                from './Service.mjs';
 import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
 
 /**
+ * @summary Registers the JSON-RPC method prefixes one DockService instance answers.
+ * @param {Object} serviceMap Mutable Client prefix map.
+ * @param {DockService} service Owning service instance.
+ * @returns {Object} The same map after registration.
+ */
+export function registerDockServiceMethods(serviceMap, service) {
+    return Object.assign(serviceMap, {
+        capture_perspective   : service,
+        diff_dock_topology    : service,
+        execute_dock_operation: service,
+        get_dock_topology     : service,
+        list_perspectives     : service,
+        restore_perspective   : service
+    })
+}
+
+/**
  * Handles dock-layout Neural Link requests: topology readout, semantic operation execution and
  * the perspective tool trio (capture / list / restore) against a live dockZone.v1 document
  * holder (contract of record: learn/agentos/DockZoneModel.md and the docking
