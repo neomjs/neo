@@ -1,6 +1,6 @@
 import DockService        from '../../../src/ai/client/DockService.mjs';
 import DockWorkspace      from '../../../src/dashboard/dock/Workspace.mjs';
-import Document           from '../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Persistence        from '../../../src/dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import ReloadablePane     from './ReloadablePane.mjs';
@@ -51,7 +51,7 @@ const initialDockModel = {
     }
 };
 
-const reviewDockModel = Document.clone(initialDockModel);
+const reviewDockModel = WorkspaceDocument.clone(initialDockModel);
 
 reviewDockModel.nodes['root-split'].sizes = [0.48, 0.52];
 reviewDockModel.nodes['main-tabs'].activeItemId = 'swarm';
@@ -180,7 +180,7 @@ class MainContainer extends DockWorkspace {
         let me = this;
 
         me.layoutCollection = me.createDefaultLayoutCollection();
-        me.dockModel        = PerspectiveLibrary.restoreActiveSavedLayout(me.layoutCollection).document || Document.clone(initialDockModel);
+        me.dockModel        = PerspectiveLibrary.restoreActiveSavedLayout(me.layoutCollection).document || WorkspaceDocument.clone(initialDockModel);
 
         me.add(me.createPerspectiveToolbar());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
@@ -256,7 +256,7 @@ class MainContainer extends DockWorkspace {
 
             await me.refreshPromise;
 
-            return {...result, document: Document.clone(me.dockModel)}
+            return {...result, document: WorkspaceDocument.clone(me.dockModel)}
         } finally {
             runner.destroy();
             dockService.destroy()
@@ -454,7 +454,7 @@ class MainContainer extends DockWorkspace {
                 return {collection: null, document: null, errors: restored.errors, loaded: false}
             }
 
-            me.layoutCollection = Document.clone(parsed);
+            me.layoutCollection = WorkspaceDocument.clone(parsed);
             me.onDockZoneDocumentChange(restored.document);
             await me.refreshPromise;
 

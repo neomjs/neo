@@ -10,7 +10,7 @@ import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
-import Document           from '../../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import LayoutAdapter      from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence        from '../../../../src/dashboard/dock/model/Persistence.mjs';
@@ -20,7 +20,7 @@ import Toolbar            from '../../../../src/toolbar/Base.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 /**
- * @summary Tests for Neo.dashboard.dock.model.Document — the dock-zone semantic operations executor.
+ * @summary Tests for Neo.dashboard.dock.model.WorkspaceDocument — the dock-zone semantic operations executor.
  * Primarily pure JSON: validity invariants, each operation, fail-closed behavior, normalizeTree
  * collapse, and the previewToOperation descriptor seam. The standalone-example block additionally
  * mounts its persistent toolbar to pin identity reconciliation over collection mutations.
@@ -45,6 +45,20 @@ function doc() {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}},
             'main-tabs': {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'swarm'},
             'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
+        }
+    }
+}
+
+/** A second, item-disjoint workspace document for topology contract controls. */
+function popupDoc() {
+    return {
+        schema: 'neo.dock.zone.v1',
+        root  : 'popup-tabs',
+        items : {
+            detail: {componentRef: 'detail', title: 'Detail', kind: 'panel'}
+        },
+        nodes: {
+            'popup-tabs': {type: 'tabs', items: ['detail'], activeItemId: 'detail'}
         }
     }
 }
@@ -89,7 +103,7 @@ function nestedEdgeDoc() {
 
 /** Collects the tabs node id holding an item, across a document. */
 function tabsOf(document, itemId) {
-    return Document.findContainingTabsId(document, itemId)
+    return WorkspaceDocument.findContainingTabsId(document, itemId)
 }
 
 /** Creates a valid saved-layout wrapper for collection tests. */
@@ -104,49 +118,49 @@ function savedLayout(layoutId, title=layoutId, mutate=()=>{}) {
     }).layout
 }
 
-test.describe('Neo.dashboard.dock.model.Document', () => {
+test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
     test.describe('validate (invariants)', () => {
         test('accepts the canonical document', () => {
-            expect(Document.validate(doc())).toEqual([])
+            expect(WorkspaceDocument.validate(doc())).toEqual([])
         });
 
         test('treats absent lock state as unlocked and rejects non-boolean lock fields', () => {
             const input = doc();
 
             expect(input.items.strategy.locked).toBeUndefined();
-            expect(Document.validate(input)).toEqual([]);
+            expect(WorkspaceDocument.validate(input)).toEqual([]);
 
             input.items.strategy.locked = 'true';
-            expect(Document.validate(input).join(' ')).toContain('locked must be a boolean');
+            expect(WorkspaceDocument.validate(input).join(' ')).toContain('locked must be a boolean');
 
             input.items.strategy.locked   = false;
             input.items.strategy.lockable = 'false';
-            expect(Document.validate(input).join(' ')).toContain('lockable must be a boolean')
+            expect(WorkspaceDocument.validate(input).join(' ')).toContain('lockable must be a boolean')
         });
 
         test('rejects a wrong schema', () => {
             const d = doc();
             d.schema = 'neo.dock.zone.v2';
-            expect(Document.validate(d).length).toBeGreaterThan(0)
+            expect(WorkspaceDocument.validate(d).length).toBeGreaterThan(0)
         });
 
         test('rejects a missing root', () => {
             const d = doc();
             d.root = 'ghost';
-            expect(Document.validate(d).length).toBeGreaterThan(0)
+            expect(WorkspaceDocument.validate(d).length).toBeGreaterThan(0)
         });
 
         test('rejects a dangling node reference', () => {
             const d = doc();
             d.nodes.root.zones.center.nodeId = 'does-not-exist';
-            expect(Document.validate(d).length).toBeGreaterThan(0)
+            expect(WorkspaceDocument.validate(d).length).toBeGreaterThan(0)
         });
 
         test('rejects an item used in two tabs nodes', () => {
             const d = doc();
             d.nodes['side-tabs'].items.push('strategy'); // strategy now in main-tabs AND side-tabs
-            expect(Document.validate(d).join(' ')).toContain('strategy');
-            expect(Document.validate(d).length).toBeGreaterThan(0)
+            expect(WorkspaceDocument.validate(d).join(' ')).toContain('strategy');
+            expect(WorkspaceDocument.validate(d).length).toBeGreaterThan(0)
         });
 
         test('rejects split sizes that mismatch or do not sum to 1', () => {
@@ -154,26 +168,26 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             d.nodes.split = {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.5]};
             d.nodes.root.zones.center.nodeId = 'split';
             delete d.nodes.root.zones.right;
-            expect(Document.validate(d).length).toBeGreaterThan(0);
+            expect(WorkspaceDocument.validate(d).length).toBeGreaterThan(0);
 
             d.nodes.split.sizes = [0.5, 0.9];
-            expect(Document.validate(d).join(' ')).toContain('sum to 1')
+            expect(WorkspaceDocument.validate(d).join(' ')).toContain('sum to 1')
         });
 
         test('rejects an activeItemId not among the tab items', () => {
             const d = doc();
             d.nodes['main-tabs'].activeItemId = 'terminal';
-            expect(Document.validate(d).length).toBeGreaterThan(0)
+            expect(WorkspaceDocument.validate(d).length).toBeGreaterThan(0)
         });
 
         test('accepts nested edge descriptors and rejects the retired string form', () => {
-            expect(Document.validate(nestedEdgeDoc())).toEqual([]);
+            expect(WorkspaceDocument.validate(nestedEdgeDoc())).toEqual([]);
 
             const legacy = doc();
 
             legacy.nodes.root.zones = {center: 'main-tabs', right: 'side-tabs'};
 
-            expect(Document.validate(legacy).join('\n')).toContain('descriptor')
+            expect(WorkspaceDocument.validate(legacy).join('\n')).toContain('descriptor')
         });
 
         test('rejects malformed nested edge descriptor state', () => {
@@ -185,13 +199,230 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             invalidExtent.nodes.root.zones.right.extent    = 1;
             invalidPolicy.nodes.root.zones.right.resizable = 'yes';
 
-            expect(Document.validate(missingNodeId).join('\n')).toContain('nodeId');
-            expect(Document.validate(invalidExtent).join('\n')).toContain('extent');
-            expect(Document.validate(invalidPolicy).join('\n')).toContain('resizable')
+            expect(WorkspaceDocument.validate(missingNodeId).join('\n')).toContain('nodeId');
+            expect(WorkspaceDocument.validate(invalidExtent).join('\n')).toContain('extent');
+            expect(WorkspaceDocument.validate(invalidPolicy).join('\n')).toContain('resizable')
         })
     });
 
     test.describe('saved layout persistence', () => {
+        test('keyed topology wire: captures and restores workspace records without positional fields', () => {
+            const {topology, errors} = Persistence.captureTopologyPerspective({
+                main          : doc(),
+                'popup:detail': popupDoc()
+            }, {
+                layoutId       : 'fleet',
+                perspectiveName: 'Fleet View',
+                title          : 'Fleet',
+                placementHints : {
+                    'popup:detail': {
+                        dx            : 240,
+                        dy            : 80,
+                        fallbackTarget: {workspaceKey: 'main', nodeId: 'side-tabs'}
+                    }
+                }
+            });
+
+            expect(errors).toEqual([]);
+            expect(topology.schema).toBe(Persistence.TOPOLOGY_SCHEMA);
+            expect(topology.layoutId).toBe('fleet');
+            expect(Object.keys(topology.workspaces)).toEqual(['main', 'popup:detail']);
+            expect(topology).not.toHaveProperty('captureScope');
+            expect(topology).not.toHaveProperty('windowDocuments');
+            expect(topology.topologyFingerprint).toMatchObject({
+                schema        : 'neo.dock.topologyShape.v2',
+                workspaceCount: 2
+            });
+
+            const restored = Persistence.restoreTopology(topology);
+
+            expect(restored.errors).toEqual([]);
+            expect(restored.topology).toEqual(topology);
+            expect(restored.topology).not.toBe(topology);
+            expect(restored.topology.workspaces.main).not.toBe(topology.workspaces.main)
+        });
+
+        test('keyed topology wire: aggregate fingerprints are stable across record insertion order', () => {
+            const
+                main   = WorkspaceDocument.computeShapeFingerprint(doc()).fingerprint,
+                detail = WorkspaceDocument.computeShapeFingerprint(popupDoc()).fingerprint,
+                  first  = WorkspaceDocument.composeTopologyFingerprint({main, 'popup:detail': detail}),
+                  second = WorkspaceDocument.composeTopologyFingerprint({'popup:detail': detail, main});
+
+            expect(first.errors).toEqual([]);
+            expect(second.errors).toEqual([]);
+            expect(first.fingerprint).toEqual(second.fingerprint);
+            expect(first.fingerprint.shape).toContain('main');
+            expect(first.fingerprint.shape).toContain('popup:detail')
+        });
+
+        test('keyed topology wire: fingerprints describe normalized persisted workspaces and ignore field order', () => {
+            const collapsing = popupDoc();
+
+            collapsing.nodes['popup-split'] = {
+                type       : 'split',
+                orientation: 'horizontal',
+                children   : ['popup-tabs'],
+                sizes      : [1]
+            };
+            collapsing.root = 'popup-split';
+
+            const {topology, errors} = Persistence.captureTopologyPerspective({
+                main : doc(),
+                popup: collapsing
+            }, {
+                layoutId: 'normalized',
+                title   : 'Normalized'
+            });
+
+            expect(errors).toEqual([]);
+            expect(topology.workspaces.popup.root).toBe('popup-tabs');
+            expect(topology.topologyFingerprint.shape).not.toContain('h(');
+
+            const fingerprint = topology.topologyFingerprint;
+
+            topology.topologyFingerprint = {
+                totalItems    : fingerprint.totalItems,
+                shape         : fingerprint.shape,
+                workspaceCount: fingerprint.workspaceCount,
+                schema        : fingerprint.schema
+            };
+
+            expect(Persistence.restoreTopology(topology).errors).toEqual([])
+        });
+
+        test('keyed topology wire: rejects the retired positional topologyShape.v1 fingerprint', () => {
+            const {topology} = Persistence.captureTopologyPerspective({main: doc()}, {
+                layoutId: 'shape-cut',
+                title   : 'Shape Cut'
+            });
+
+            topology.topologyFingerprint = {
+                schema     : 'neo.dock.topologyShape.v1',
+                windowCount: 1,
+                shape      : 'w[t2]',
+                totalItems : 2
+            };
+
+            const restored = Persistence.restoreTopology(topology);
+
+            expect(restored.topology).toBe(null);
+            expect(restored.errors.join(' ')).toContain('neo.dock.topologyShape.v2')
+        });
+
+        test('keyed topology wire: rejects positional producers and topology-shaped layout records by name', () => {
+            const positional = Persistence.captureTopologyPerspective([doc()], {
+                layoutId: 'old-topology',
+                title   : 'Old Topology'
+            });
+
+            expect(positional.topology).toBe(null);
+            expect(positional.errors.join(' ')).toContain('keyed workspaces');
+
+            const layout = Persistence.capturePerspective(doc(), {
+                layoutId: 'layout-1',
+                title   : 'Layout One'
+            }).layout;
+
+            layout.captureScope  = 'topology';
+            layout.windowDocuments = [doc()];
+
+            const refused = Persistence.restoreSavedLayout(layout);
+
+            expect(refused.document).toBe(null);
+            expect(refused.errors.join(' ')).toContain('captureScope');
+            expect(refused.errors.join(' ')).toContain('windowDocuments')
+        });
+
+        test('keyed topology wire: validates placement hints as semantic relative data only', () => {
+            const base = {
+                layoutId      : 'fleet',
+                title         : 'Fleet',
+                placementHints: {
+                    popup: {
+                        dx            : 10,
+                        dy            : 20,
+                        fallbackTarget: {workspaceKey: 'main', nodeId: 'side-tabs'}
+                    }
+                }
+            };
+
+            expect(Persistence.captureTopologyPerspective({main: doc(), popup: popupDoc()}, base).errors).toEqual([]);
+
+            for (const poison of [
+                {windowId: 'runtime-window'},
+                {outerRect: {x: 1, y: 2, width: 800, height: 600}},
+                {dx: 10},
+                {dx: 10, dy: Infinity}
+            ]) {
+                const result = Persistence.captureTopologyPerspective({main: doc(), popup: popupDoc()}, {
+                    ...base,
+                    placementHints: {popup: poison}
+                });
+
+                expect(result.topology).toBe(null);
+                expect(result.errors.length).toBeGreaterThan(0)
+            }
+        });
+
+        test('keyed topology collection: keeps activeLayoutId separate from the workspace layout library', () => {
+            const morning = Persistence.captureTopologyPerspective({main: doc()}, {
+                    layoutId: 'morning',
+                    title   : 'Morning'
+                }).topology,
+                evening = Persistence.captureTopologyPerspective({main: doc()}, {
+                    layoutId: 'evening',
+                    title   : 'Evening'
+                }).topology,
+                {collection, errors} = Persistence.createTopologyCollection([morning, evening], {
+                    activeLayoutId: 'evening'
+                });
+
+            expect(errors).toEqual([]);
+            expect(collection.schema).toBe(Persistence.TOPOLOGY_COLLECTION_SCHEMA);
+            expect(collection.activeLayoutId).toBe('evening');
+            expect(Object.keys(collection.topologies)).toEqual(['morning', 'evening']);
+            expect(Persistence.validateTopologyCollection(collection)).toEqual([]);
+
+            const restored = Persistence.restoreActiveTopology(collection);
+
+            expect(restored.errors).toEqual([]);
+            expect(restored.topology.layoutId).toBe('evening');
+
+            const layoutCollection = PerspectiveLibrary.createSavedLayoutCollection([
+                savedLayout('layout-only')
+            ]).collection;
+
+            expect(Persistence.restoreActiveTopology(layoutCollection).errors.join(' '))
+                .toContain(Persistence.TOPOLOGY_COLLECTION_SCHEMA)
+        });
+
+        test('keyed topology collection: one safe namespace keeps every id and perspective name reachable', () => {
+            const first = Persistence.captureTopologyPerspective({main: doc()}, {
+                    layoutId       : 'first',
+                    perspectiveName: 'Primary',
+                    title          : 'First'
+                }).topology,
+                second = Persistence.captureTopologyPerspective({main: doc()}, {
+                    layoutId       : 'second',
+                    perspectiveName: 'first',
+                    title          : 'Second'
+                }).topology,
+                collision = Persistence.createTopologyCollection([first, second]);
+
+            expect(collision.collection).toBe(null);
+            expect(collision.errors.join(' ')).toContain('topology name "first" is shared');
+
+            const unsafe = Persistence.captureTopologyPerspective({main: doc()}, {
+                layoutId       : 'safe-id',
+                perspectiveName: 'constructor',
+                title          : 'Unsafe Name'
+            });
+
+            expect(unsafe.topology).toBe(null);
+            expect(unsafe.errors.join(' ')).toContain('not usable')
+        });
+
         test('creates and restores a versioned saved-layout wrapper', () => {
             const {layout, errors} = Persistence.createSavedLayout(doc(), {
                 layoutId: 'operator-default',
@@ -208,8 +439,8 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(layout.title).toBe('Operator Default');
             expect(layout.revision).toBe(3);
             expect(layout.metadata.workspace).toBe('agent-harness');
-            expect(layout.dockZone.schema).toBe(Document.SCHEMA);
-            expect(Document.validate(layout.dockZone)).toEqual([]);
+            expect(layout.dockZone.schema).toBe(WorkspaceDocument.SCHEMA);
+            expect(WorkspaceDocument.validate(layout.dockZone)).toEqual([]);
 
             const restored = Persistence.restoreSavedLayout(layout);
 
@@ -278,18 +509,18 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect('captureScope' in legacy).toBe(false)
         });
 
-        test('round-trips the v2 perspective fields (topology scope, fingerprint, name)', () => {
+        test('round-trips the single-workspace perspective fields without widening layout.v1', () => {
             const {layout, errors} = Persistence.createSavedLayout(doc(), {
                 layoutId         : 'focus',
                 title            : 'Focus',
-                captureScope     : 'topology',
-                windowFingerprint: {windows: 2, splits: [2, 1]},
+                captureScope     : 'window',
+                windowFingerprint: {schema: 'neo.dock.shape.v1', shape: 't2', itemCount: 2},
                 perspectiveName  : 'Focus Mode'
             });
 
             expect(errors).toEqual([]);
-            expect(layout.captureScope).toBe('topology');
-            expect(layout.windowFingerprint).toEqual({windows: 2, splits: [2, 1]});
+            expect(layout.captureScope).toBe('window');
+            expect(layout.windowFingerprint).toEqual({schema: 'neo.dock.shape.v1', shape: 't2', itemCount: 2});
             expect(layout.perspectiveName).toBe('Focus Mode');
             expect(Persistence.restoreSavedLayout(layout).errors).toEqual([])
         });
@@ -324,10 +555,10 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(errors).toEqual([]);
             // the stored fingerprint must equal the persisted tree's fingerprint by construction…
             expect(layout.windowFingerprint)
-                .toEqual(Document.computeShapeFingerprint(layout.dockZone).fingerprint);
+                .toEqual(WorkspaceDocument.computeShapeFingerprint(layout.dockZone).fingerprint);
             // …and must NOT carry the collapsed split wrapper the raw input had
             expect(layout.windowFingerprint.shape)
-                .not.toBe(Document.computeShapeFingerprint(d).fingerprint.shape);
+                .not.toBe(WorkspaceDocument.computeShapeFingerprint(d).fingerprint.shape);
             expect(layout.windowFingerprint.shape).not.toContain('h(')
         });
 
@@ -336,7 +567,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             cyclic.nodes['loop-split'] = {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'loop-split'], sizes: [0.5, 0.5]};
             cyclic.nodes.root.zones.center.nodeId = 'loop-split';
 
-            const direct = Document.computeShapeFingerprint(cyclic);
+            const direct = WorkspaceDocument.computeShapeFingerprint(cyclic);
             expect(direct.fingerprint).toBe(null);
             expect(direct.errors.join(' ')).toContain('cycle');
 
@@ -346,153 +577,28 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         });
 
         test('shape fingerprints are deterministic, id-free and shape-sensitive', () => {
-            const a = Document.computeShapeFingerprint(doc()),
-                  b = Document.computeShapeFingerprint(doc());
+            const a = WorkspaceDocument.computeShapeFingerprint(doc()),
+                  b = WorkspaceDocument.computeShapeFingerprint(doc());
 
             expect(a.errors).toEqual([]);
             expect(a.fingerprint).toEqual(b.fingerprint);
 
             // rename every node id — the shape must not change (id-freedom)
             const renamed = JSON.parse(JSON.stringify(doc()).replaceAll('main-tabs', 'renamed-tabs'));
-            expect(Document.computeShapeFingerprint(renamed).fingerprint.shape).toBe(a.fingerprint.shape);
+            expect(WorkspaceDocument.computeShapeFingerprint(renamed).fingerprint.shape).toBe(a.fingerprint.shape);
 
             // structural change → different shape term
             const mutated = doc();
             mutated.nodes['main-tabs'].items.push('extra-item');
-            expect(Document.computeShapeFingerprint(mutated).fingerprint.shape).not.toBe(a.fingerprint.shape)
+            expect(WorkspaceDocument.computeShapeFingerprint(mutated).fingerprint.shape).not.toBe(a.fingerprint.shape)
         });
 
-        test('topology fingerprints compose per-window terms in slot order and fail closed on bad input', () => {
-            const single = Document.computeShapeFingerprint(doc()).fingerprint;
-
-            const two = Document.composeTopologyFingerprint([single, single]);
-            expect(two.errors).toEqual([]);
-            expect(two.fingerprint.schema).toBe('neo.dock.topologyShape.v1');
-            expect(two.fingerprint.windowCount).toBe(2);
-            expect(two.fingerprint.shape).toBe(`w[${single.shape}|${single.shape}]`);
-            expect(two.fingerprint.totalItems).toBe(single.itemCount * 2);
-
-            // slot order IS meaning: reversed input must produce a different term when shapes differ
-            const mutated = doc();
-            mutated.nodes['main-tabs'].items.push('extra-item');
-            const other = Document.computeShapeFingerprint(mutated).fingerprint;
-            expect(Document.composeTopologyFingerprint([single, other]).fingerprint.shape)
-                .not.toBe(Document.composeTopologyFingerprint([other, single]).fingerprint.shape);
-
-            // degenerate single-window composition wraps the same term
-            expect(Document.composeTopologyFingerprint([single]).fingerprint.shape).toBe(`w[${single.shape}]`);
-
-            // fail-closed: empty list + non-fingerprint entry
-            expect(Document.composeTopologyFingerprint([]).fingerprint).toBe(null);
-            const bad = Document.composeTopologyFingerprint([single, {shape: 42}]);
-            expect(bad.fingerprint).toBe(null);
-            expect(bad.errors.join(' ')).toContain('entry 1')
-        });
-
-        test('topology composition rejects incomplete window fingerprints — a missing itemCount never fakes a zero', () => {
-            // right schema, right shape, NO itemCount: must fail closed, never compose totalItems: 0
-            const incomplete = Document.composeTopologyFingerprint([{schema: 'neo.dock.shape.v1', shape: 't1'}]);
-            expect(incomplete.fingerprint).toBe(null);
-            expect(incomplete.errors.join(' ')).toContain('entry 0');
-            expect(incomplete.errors.join(' ')).toContain('incomplete');
-
-            // malformed counts are rejected the same way, with the offending slot indexed
-            const single = Document.computeShapeFingerprint(doc()).fingerprint;
-
-            for (const itemCount of [NaN, -1, 1.5, '3']) {
-                const malformed = Document.composeTopologyFingerprint([single, {...single, itemCount}]);
-                expect(malformed.fingerprint).toBe(null);
-                expect(malformed.errors.join(' ')).toContain('entry 1')
-            }
-        });
-
-        test('captureTopologyPerspective: multi-window round-trip with slot-ordered windowDocuments', () => {
-            const second = doc();
-            second.nodes['main-tabs'].items.push('inspector');
-
-            const {layout, errors} = Persistence.captureTopologyPerspective([doc(), second], {
-                layoutId       : 'fleet',
-                title          : 'Fleet',
-                perspectiveName: 'Fleet View'
-            });
-
-            expect(errors).toEqual([]);
-            expect(layout.captureScope).toBe('topology');
-            expect(layout.windowFingerprint.schema).toBe('neo.dock.topologyShape.v1');
-            expect(layout.windowFingerprint.windowCount).toBe(2);
-            expect(layout.windowDocuments.length).toBe(1);
-            expect(Document.validate(layout.windowDocuments[0])).toEqual([]);
-            expect(Persistence.restoreSavedLayout(layout).errors).toEqual([])
-        });
-
-        test('degenerate single-document topology capture equals a window-scope capture modulo scope + fingerprint schema', () => {
-            const topo = Persistence.captureTopologyPerspective([doc()], {layoutId: 'solo', title: 'Solo'}).layout,
-                  win  = Persistence.capturePerspective(doc(), {layoutId: 'solo', title: 'Solo'}).layout;
-
-            expect('windowDocuments' in topo).toBe(false);
-            expect(topo.dockZone).toEqual(win.dockZone);
-            expect(topo.windowFingerprint.shape).toBe(`w[${win.windowFingerprint.shape}]`);
-            expect(topo.captureScope).toBe('topology');
-            expect(win.captureScope).toBe('window')
-        });
-
-        test('topology fingerprint derives from the PERSISTED slot trees (collapsing-slot coherence)', () => {
-            // second window: a single-child split that normalizeTree collapses — the stored slot
-            // is the collapsed tree, and the composed fingerprint must describe THAT, not the input
-            const collapsing = splitDoc();
-            collapsing.nodes['main-split'].children = ['main-tabs'];
-            collapsing.nodes['main-split'].sizes    = [1];
-            delete collapsing.nodes['side-tabs'];
-            delete collapsing.items.terminal;
-
-            const {layout, errors} = Persistence.captureTopologyPerspective([doc(), collapsing], {layoutId: 't', title: 'T'});
-
-            expect(errors).toEqual([]);
-            const slotTerm = Document.computeShapeFingerprint(layout.windowDocuments[0]).fingerprint.shape;
-            expect(layout.windowFingerprint.shape).toContain(slotTerm);
-            expect(layout.windowFingerprint.shape).not.toContain('h(');
-            expect(slotTerm.startsWith('h(')).toBe(false)
-        });
-
-        test('windowDocuments fails closed on window-scope records and on invalid slot trees', () => {
-            const base = Persistence.capturePerspective(doc(), {layoutId: 'x', title: 'X'}).layout;
-
-            const smuggled = {...base, windowDocuments: [doc()]};
-            expect(Persistence.restoreSavedLayout(smuggled).errors.join(' '))
-                .toContain('only valid on captureScope "topology"');
-
-            const badTree = doc();
-            badTree.root = 'ghost';
-            const {layout, errors} = Persistence.captureTopologyPerspective([doc(), badTree], {layoutId: 'x', title: 'X'});
-            expect(layout).toBe(null);
-            expect(errors.join(' ')).toContain('documents[1]')
-        });
-
-        test('windowDocuments slots enforce the SAME finite durable-field boundary as the primary document', () => {
-            const {layout} = Persistence.captureTopologyPerspective([doc(), doc()], {layoutId: 'x', title: 'X'});
-
-            // A runtime-bearing field on an ADDITIONAL slot must fail exactly like it would on
-            // `dockZone` — document-level and item-level offenders both, index preserved.
-            const slot     = layout.windowDocuments[0],
-                  poisoned = {...layout, windowDocuments: [{...slot, runtimeRect: {x: 0, y: 0}}]},
-                  topLevel = Persistence.restoreSavedLayout(poisoned).errors.join(' ');
-
-            expect(topLevel).toContain('windowDocuments[0]');
-            expect(topLevel).toContain('runtimeRect');
-
-            const [itemId]  = Object.keys(slot.items),
-                  badItems  = {...slot, items: {[itemId]: {...slot.items[itemId], windowId: 'w2'}}},
-                  itemLevel = Persistence.restoreSavedLayout({...layout, windowDocuments: [badItems]}).errors.join(' ');
-
-            expect(itemLevel).toContain(`windowDocuments[0].items.${itemId}`);
-            expect(itemLevel).toContain('windowId')
-        });
 
         test('fingerprint walk fails closed on dangling node refs', () => {
             const broken = doc();
             broken.root = 'missing-node';
 
-            const {fingerprint, errors} = Document.computeShapeFingerprint(broken);
+            const {fingerprint, errors} = WorkspaceDocument.computeShapeFingerprint(broken);
 
             expect(fingerprint).toBe(null);
             expect(errors.join(' ')).toContain('missing-node')
@@ -833,14 +939,14 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             expect(created.errors).toEqual([]);
 
-            const wrongSchema = Document.clone(created.collection);
+            const wrongSchema = WorkspaceDocument.clone(created.collection);
 
             wrongSchema.schema = 'neo.dock.layoutCollection.v2';
 
             expect(PerspectiveLibrary.validateSavedLayoutCollection(wrongSchema).join(' ')).toContain(PerspectiveLibrary.LAYOUT_COLLECTION_SCHEMA);
             expect(PerspectiveLibrary.restoreActiveSavedLayout(wrongSchema).document).toBe(null);
 
-            const mismatched = Document.clone(created.collection);
+            const mismatched = WorkspaceDocument.clone(created.collection);
 
             mismatched.layouts.alias = mismatched.layouts['operator-default'];
             delete mismatched.layouts['operator-default'];
@@ -863,7 +969,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             review.title = 'Mutated Review';
             expect(updated.collection.layouts['review-layout'].title).toBe('Review Layout');
 
-            const invalid = Document.clone(review);
+            const invalid = WorkspaceDocument.clone(review);
 
             invalid.dockZone.nodes.root.zones.center.nodeId = 'missing-tabs';
 
@@ -928,7 +1034,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(restored.document).toEqual(review.dockZone);
             expect(restored.document).not.toBe(review.dockZone);
 
-            const invalid = Document.clone(collection);
+            const invalid = WorkspaceDocument.clone(collection);
 
             invalid.activeLayoutId = 'ghost-layout';
 
@@ -940,7 +1046,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
         test('rejects invalid saved layouts and secret-like collection metadata', () => {
             const operator = savedLayout('operator-default', 'Operator Default'),
-                  invalid  = Document.clone(operator);
+                  invalid  = WorkspaceDocument.clone(operator);
 
             invalid.metadata = {
                 authKey: 'secret-value'
@@ -1215,7 +1321,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(document.nodes['side-tabs']).toBeUndefined();
             expect(document.nodes.root.zones.right).toBeUndefined();
             // terminal appears exactly once
-            expect(Document.validate(document)).toEqual([])
+            expect(WorkspaceDocument.validate(document)).toEqual([])
         });
 
         test('fails closed on an unknown item (document untouched)', () => {
@@ -1367,7 +1473,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             });
             expect(errors).toEqual([]);
             expect(document.nodes['main-tabs'].items).toEqual(['strategy']);
-            expect(Document.validate(document)).toEqual([])
+            expect(WorkspaceDocument.validate(document)).toEqual([])
         });
 
         test('fails closed on an unknown item, unknown target, or bad orientation', () => {
@@ -1390,7 +1496,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(errors).toEqual([]);
             expect(document).not.toBe(input);
             expect(document.nodes['main-split'].sizes).toEqual([0.75, 0.25]);
-            expect(Document.validate(document)).toEqual([]);
+            expect(WorkspaceDocument.validate(document)).toEqual([]);
             expect(JSON.stringify(input)).toBe(snapshot);
 
             ratios[0] = 1;
@@ -1425,7 +1531,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('detachItem removes from the tree but keeps the catalog record', () => {
             const {document, errors} = Operations.detachItem(doc(), {itemId: 'terminal'});
             expect(errors).toEqual([]);
-            expect(Document.findContainingTabsId(document, 'terminal')).toBe(null);
+            expect(WorkspaceDocument.findContainingTabsId(document, 'terminal')).toBe(null);
             expect(document.items.terminal).toBeDefined()
         });
 
@@ -1446,7 +1552,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             const {document, errors} = Operations.detachItem(input, {itemId: 'terminal'});
 
             expect(errors).toEqual([]);
-            expect(Document.findContainingTabsId(document, 'terminal')).toBe(null);
+            expect(WorkspaceDocument.findContainingTabsId(document, 'terminal')).toBe(null);
             expect(document.items.terminal.autoHidden).toBe(true)
         });
 
@@ -1777,7 +1883,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('collapses an emptied tabs node and prunes its edge zone', () => {
             const d = doc();
             d.nodes['side-tabs'].items = [];
-            const out = Document.normalizeTree(d);
+            const out = WorkspaceDocument.normalizeTree(d);
             expect(out.nodes['side-tabs']).toBeUndefined();
             expect(out.nodes.root.zones.right).toBeUndefined()
         });
@@ -1786,7 +1892,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             const d = doc();
             d.nodes.split = {type: 'split', orientation: 'horizontal', children: ['main-tabs'], sizes: [1]};
             d.nodes.root.zones.center.nodeId = 'split';
-            const out = Document.normalizeTree(d);
+            const out = WorkspaceDocument.normalizeTree(d);
             expect(out.nodes.split).toBeUndefined();
             expect(out.nodes.root.zones.center.nodeId).toBe('main-tabs')
         });
@@ -1794,7 +1900,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('prunes nodes unreachable from the root', () => {
             const d = doc();
             d.nodes.orphan = {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'};
-            const out = Document.normalizeTree(d);
+            const out = WorkspaceDocument.normalizeTree(d);
             expect(out.nodes.orphan).toBeUndefined()
         })
     });
@@ -1804,7 +1910,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             const {document, errors} = Operations.applyOperation(doc(), {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs', index: 0});
             expect(errors).toEqual([]);
             expect(document.nodes['main-tabs'].items).toEqual(['terminal', 'strategy', 'swarm']);
-            expect(Document.validate(document)).toEqual([])
+            expect(WorkspaceDocument.validate(document)).toEqual([])
         });
 
         test('dispatches splitNode from a previewToOperation-shaped descriptor', () => {
@@ -1868,7 +1974,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
                 expect(split.orientation).toBe(c.orientation);
                 expect(document.nodes[newPane].items).toEqual(['inspector']);
                 expect(keep).toBe(c.target);
-                expect(Document.validate(document)).toEqual([])
+                expect(WorkspaceDocument.validate(document)).toEqual([])
             })
         }
     });
@@ -1883,7 +1989,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
          * @returns {{document:Object, placement:Object}}
          */
         function detachAlone(source, itemId) {
-            const placement          = Document.captureItemPlacement(source, itemId),
+            const placement          = WorkspaceDocument.captureItemPlacement(source, itemId),
                   {document, errors} = Operations.applyOperation(source, {operation: 'detachItem', itemId});
 
             expect(errors).toEqual([]);
@@ -1903,7 +2009,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             expect(errors).toEqual([]);
 
-            const zoneId = Document.getZoneNodeId(restored.nodes.root.zones.right);
+            const zoneId = WorkspaceDocument.getZoneNodeId(restored.nodes.root.zones.right);
 
             expect(zoneId, 'the right zone exists again').toBeTruthy();
             expect(restored.nodes[zoneId].items).toEqual(['terminal']);
@@ -1933,7 +2039,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
         test('AC-3 a pane that SHARED its node returns to that node at its index — the surviving path is untouched', () => {
             const source    = doc(),
-                  placement = Document.captureItemPlacement(source, 'strategy');
+                  placement = WorkspaceDocument.captureItemPlacement(source, 'strategy');
 
             const {document: detached} = Operations.applyOperation(source, {operation: 'detachItem', itemId: 'strategy'});
 
@@ -2015,10 +2121,10 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             // A vessel is long-lived. While the pane is out, the user docks something else to the
             // very edge it left — an ordinary sequence, not an exotic one.
-            const occupied = Document.clone(detached);
+            const occupied = WorkspaceDocument.clone(detached);
 
             occupied.nodes['new-right'] = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
-            Document.setZoneNodeId(occupied.nodes.root, 'right', 'new-right');
+            WorkspaceDocument.setZoneNodeId(occupied.nodes.root, 'right', 'new-right');
 
             const {document: restored, errors} = Operations.applyOperation(occupied, {
                 operation: 'restoreTab', itemId: 'terminal', ...placement
@@ -2031,13 +2137,13 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(restored, 'and the document is returned untouched').toEqual(occupied);
 
             // The occupant is what this arm exists for: it must still be reachable from the root.
-            expect(Document.getZoneNodeId(occupied.nodes.root.zones.right)).toBe('new-right');
-            expect(Document.reachableNodeIds(occupied).has('new-right')).toBe(true)
+            expect(WorkspaceDocument.getZoneNodeId(occupied.nodes.root.zones.right)).toBe('new-right');
+            expect(WorkspaceDocument.reachableNodeIds(occupied).has('new-right')).toBe(true)
         });
 
         test('a slot holding the returner ITSELF is still its own — re-entry is not an overwrite', () => {
             const source    = doc(),
-                  placement = Document.captureItemPlacement(source, 'terminal');
+                  placement = WorkspaceDocument.captureItemPlacement(source, 'terminal');
 
             // The ownership guard must not refuse the node its own slot: `side-tabs` is still in
             // `zones.right` here, so an occupancy check that only asked "is anything there?" would
@@ -2047,7 +2153,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             });
 
             expect(errors).toEqual([]);
-            expect(Document.getZoneNodeId(restored.nodes.root.zones.right)).toBe('side-tabs');
+            expect(WorkspaceDocument.getZoneNodeId(restored.nodes.root.zones.right)).toBe('side-tabs');
             expect(restored.nodes['side-tabs'].items).toEqual(['terminal'])
         });
 
@@ -2062,7 +2168,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             expect(errors).toEqual([]);
             expect(restored.nodes['main-tabs'].items).toContain('terminal');
-            expect(Document.validate(restored)).toEqual([])
+            expect(WorkspaceDocument.validate(restored)).toEqual([])
         });
 
         test('the restored node reclaims its ORIGINAL id, so a round trip lands on the document it left', () => {
@@ -2116,22 +2222,22 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         };
 
         test('AC-1/AC-2 the record carries the slot\'s extent and resizable — and invents neither', () => {
-            expect(Document.captureNodeHome(sizedEdgeDoc(), 'side-tabs')).toEqual({
+            expect(WorkspaceDocument.captureNodeHome(sizedEdgeDoc(), 'side-tabs')).toEqual({
                 parentId: 'root', slot: 'right', extent: 0.42, resizable: true
             });
 
             // A slot that declared no geometry must come back with none, so the projection default
             // keeps deciding. An invented 0.5 here would look like a restoration and be a resize.
-            expect(Document.captureNodeHome(doc(), 'side-tabs')).toEqual({parentId: 'root', slot: 'right'});
+            expect(WorkspaceDocument.captureNodeHome(doc(), 'side-tabs')).toEqual({parentId: 'root', slot: 'right'});
 
-            expect(Document.captureNodeHome(sizedEdgeDoc({extent: 0.3, nodeId: 'side-tabs', resizable: false}), 'side-tabs'))
+            expect(WorkspaceDocument.captureNodeHome(sizedEdgeDoc({extent: 0.3, nodeId: 'side-tabs', resizable: false}), 'side-tabs'))
                 .toMatchObject({resizable: false})
         });
 
         test('AC-3/AC-7 the ROUND TRIP: an emptied edge slot comes back at the extent it left with', () => {
             const source = sizedEdgeDoc();
 
-            const placement = Document.captureItemPlacement(source, 'terminal'),
+            const placement = WorkspaceDocument.captureItemPlacement(source, 'terminal'),
                   detached  = Operations.applyOperation(source, {operation: 'detachItem', itemId: 'terminal'});
 
             expect(detached.errors).toEqual([]);
@@ -2146,17 +2252,17 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             // The assertion is on the DOCUMENT's extent, not on a rendered width: a pixel figure also
             // moves when the projection legitimately re-lays-out, so it cannot isolate this property.
             expect(restored.nodes.root.zones.right).toMatchObject({extent: 0.42, resizable: true});
-            expect(Document.getZoneNodeId(restored.nodes.root.zones.right)).toBe('side-tabs');
-            expect(Document.validate(restored)).toEqual([])
+            expect(WorkspaceDocument.getZoneNodeId(restored.nodes.root.zones.right)).toBe('side-tabs');
+            expect(WorkspaceDocument.validate(restored)).toEqual([])
         });
 
         test('AC-4 a SURVIVING descriptor keeps its own extent — a stale record never overwrites a live gesture', () => {
             const source    = sizedEdgeDoc(),
-                  placement = Document.captureItemPlacement(source, 'terminal');
+                  placement = WorkspaceDocument.captureItemPlacement(source, 'terminal');
 
             // A vessel is long-lived: the user resizes that edge while the pane is out. The pane's
             // node survives here (it still holds the item), so the descriptor is never cleared.
-            const widened = Document.clone(source);
+            const widened = WorkspaceDocument.clone(source);
 
             widened.nodes.root.zones.right.extent = 0.6;
 
@@ -2170,7 +2276,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
         test('AC-5 a CORRUPT recorded extent is discarded, and the document stays valid', () => {
             const source    = sizedEdgeDoc(),
-                  placement = Document.captureItemPlacement(source, 'terminal');
+                  placement = WorkspaceDocument.captureItemPlacement(source, 'terminal');
 
             const {document: detached} = Operations.applyOperation(source, {operation: 'detachItem', itemId: 'terminal'});
 
@@ -2184,7 +2290,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
                 });
 
                 expect(errors, `extent ${String(bad)} still restores the pane`).toEqual([]);
-                expect(Document.validate(restored), `extent ${String(bad)} never enters the document`).toEqual([]);
+                expect(WorkspaceDocument.validate(restored), `extent ${String(bad)} never enters the document`).toEqual([]);
                 expect(restored.nodes.root.zones.right.extent, `extent ${String(bad)} is dropped`).toBeUndefined()
             }
         });
@@ -2192,7 +2298,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('AC-6 the SPLIT branch is untouched — size and orientation still restore', () => {
             const source = splitDoc([0.7, 0.3]);
 
-            const placement = Document.captureItemPlacement(source, 'terminal');
+            const placement = WorkspaceDocument.captureItemPlacement(source, 'terminal');
 
             expect(placement.home).toEqual({
                 parentId: 'main-split', slot: 1, orientation: 'horizontal', size: 0.3, siblingId: 'main-tabs', position: 'after'
@@ -2207,20 +2313,20 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
     test.describe('captureItemPlacement (exact-position return, stored half)', () => {
         test('captures the holding tabs node and the exact index', () => {
-            expect(Document.captureItemPlacement(doc(), 'strategy')).toEqual({tabsNodeId: 'main-tabs', index: 0, home: {parentId: 'root', slot: 'center'}});
-            expect(Document.captureItemPlacement(doc(), 'swarm')).toEqual({tabsNodeId: 'main-tabs', index: 1, home: {parentId: 'root', slot: 'center'}});
-            expect(Document.captureItemPlacement(doc(), 'terminal')).toEqual({tabsNodeId: 'side-tabs', index: 0, home: {parentId: 'root', slot: 'right'}})
+            expect(WorkspaceDocument.captureItemPlacement(doc(), 'strategy')).toEqual({tabsNodeId: 'main-tabs', index: 0, home: {parentId: 'root', slot: 'center'}});
+            expect(WorkspaceDocument.captureItemPlacement(doc(), 'swarm')).toEqual({tabsNodeId: 'main-tabs', index: 1, home: {parentId: 'root', slot: 'center'}});
+            expect(WorkspaceDocument.captureItemPlacement(doc(), 'terminal')).toEqual({tabsNodeId: 'side-tabs', index: 0, home: {parentId: 'root', slot: 'right'}})
         });
 
         test('fails closed when no tabs node holds the item — catalog presence is not placement', () => {
-            expect(Document.captureItemPlacement(doc(), 'ghost')).toBeNull();
+            expect(WorkspaceDocument.captureItemPlacement(doc(), 'ghost')).toBeNull();
 
             // a DETACHED item stays in the catalog but has no placement to capture
             const {document: detached, errors} = Operations.applyOperation(doc(), {operation: 'detachItem', itemId: 'strategy'});
 
             expect(errors).toEqual([]);
             expect(detached.items.strategy).toBeTruthy();
-            expect(Document.captureItemPlacement(detached, 'strategy')).toBeNull()
+            expect(WorkspaceDocument.captureItemPlacement(detached, 'strategy')).toBeNull()
         });
 
         test('the ROUND TRIP: capture → detach → addTab with the stored pair restores the ORIGINAL order, not append order', () => {
@@ -2228,7 +2334,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             // 'strategy' sits at index 0 of ['strategy', 'swarm'] — the append default would
             // put it BACK at index 1, which is exactly the defect the stored pair compensates
-            const placement = Document.captureItemPlacement(source, 'strategy');
+            const placement = WorkspaceDocument.captureItemPlacement(source, 'strategy');
 
             expect(placement).toEqual({tabsNodeId: 'main-tabs', index: 0, home: {parentId: 'root', slot: 'center'}});
 
@@ -2278,11 +2384,11 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('an edge-owned item resolves its band; a center-owned item resolves null', () => {
             const d = doc();
 
-            expect(Document.findOwningEdge(d, 'terminal')).toBe('right');
+            expect(WorkspaceDocument.findOwningEdge(d, 'terminal')).toBe('right');
 
             // Center is not a claim: §2.7's fail-safe is that main content never rails.
-            expect(Document.findOwningEdge(d, 'strategy')).toBe(null);
-            expect(Document.findOwningEdge(d, 'swarm')).toBe(null)
+            expect(WorkspaceDocument.findOwningEdge(d, 'strategy')).toBe(null);
+            expect(WorkspaceDocument.findOwningEdge(d, 'swarm')).toBe(null)
         });
 
         test('resolves through an ancestor climb, not just a direct zone slot', () => {
@@ -2294,18 +2400,18 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             d.nodes['side-split']      = {type: 'split', orientation: 'vertical', children: ['side-tabs'], sizes: [1]};
             d.nodes.root.zones.right   = {nodeId: 'side-split'};
 
-            expect(Document.findOwningEdge(d, 'terminal')).toBe('right')
+            expect(WorkspaceDocument.findOwningEdge(d, 'terminal')).toBe('right')
         });
 
         test('an unknown item and a catalog-only item resolve null, never a stray edge', () => {
             const d = doc();
 
-            expect(Document.findOwningEdge(d, 'ghost')).toBe(null);
+            expect(WorkspaceDocument.findOwningEdge(d, 'ghost')).toBe(null);
 
             // `inspector` is in the catalog but not in the tree. Catalog presence is not placement —
             // the same rule `captureItemPlacement` fails closed on.
             expect(d.items.inspector).toBeTruthy();
-            expect(Document.findOwningEdge(d, 'inspector')).toBe(null)
+            expect(WorkspaceDocument.findOwningEdge(d, 'inspector')).toBe(null)
         });
 
         test('nested edge-zones: the OUTERMOST directional band wins, because that is the one that rails it', () => {
@@ -2314,16 +2420,16 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             // `buried` sits in inner.top, and inner sits in root.left. The projection collects the
             // root's `left` band with `collectAutoHiddenItems`, which recurses THROUGH `inner` and
             // claims the item first — so `left` is the rail it would actually reach, not `top`.
-            expect(Document.findOwningEdge(d, 'buried')).toBe('left');
+            expect(WorkspaceDocument.findOwningEdge(d, 'buried')).toBe('left');
 
             // `plain` sits in the INNER edge-zone's center — but that whole edge-zone is inside root's
             // left band, and the collection recurses through it without treating a nested center as a
             // stop. So `plain` rails LEFT too. "Center never rails" is a rule about the center of the
             // edge-zone being projected, not about every center slot on the path.
-            expect(Document.findOwningEdge(d, 'plain')).toBe('left');
+            expect(WorkspaceDocument.findOwningEdge(d, 'plain')).toBe('left');
 
             // The genuine fail-safe: reaching the root through the ROOT's center is no claim.
-            expect(Document.findOwningEdge(d, 'main')).toBe(null)
+            expect(WorkspaceDocument.findOwningEdge(d, 'main')).toBe(null)
         });
 
         /**
@@ -2375,7 +2481,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             ['buried', 'plain'].forEach(itemId => {
                 expect(rails.filter(rail => rail.itemId === itemId).map(rail => rail.edge),
                     `${itemId} rails exactly once, on the band the query names`)
-                    .toEqual([Document.findOwningEdge(d, itemId)]);
+                    .toEqual([WorkspaceDocument.findOwningEdge(d, itemId)]);
 
                 expect(tabFlow, `${itemId} left the tab flow it railed out of`).not.toContain(itemId)
             });
@@ -2383,7 +2489,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             // The negative half. `main` is auto-hidden in the ROOT's center: §2.7's fail-safe keeps it
             // in the tab flow rather than railing it, and the query agrees by answering null. Without
             // this the arm above could pass by railing everything.
-            expect(Document.findOwningEdge(d, 'main')).toBe(null);
+            expect(WorkspaceDocument.findOwningEdge(d, 'main')).toBe(null);
             expect(rails.map(rail => rail.itemId), 'center content is never railed').not.toContain('main');
             expect(tabFlow, 'and it stays visible instead of vanishing').toContain('main')
         });
@@ -2401,7 +2507,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             // No edge-zone ancestor is reachable at all, so the fail-safe answer is null — and the
             // point of the assertion is that it ARRIVES.
-            expect(Document.findOwningEdge(d, 'terminal')).toBe(null)
+            expect(WorkspaceDocument.findOwningEdge(d, 'terminal')).toBe(null)
         })
     });
 
@@ -2422,23 +2528,23 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         });
 
         test('resolves the canonical vessel shape: the root edge-zone\'s center child IS the stack', () => {
-            expect(Document.resolveStackRoot(vessel())).toBe('popup-tabs');
+            expect(WorkspaceDocument.resolveStackRoot(vessel())).toBe('popup-tabs');
 
             // the shared main-document fixture resolves too — the rule is the document shape,
             // not a vessel special case
-            expect(Document.resolveStackRoot(doc())).toBe('main-tabs')
+            expect(WorkspaceDocument.resolveStackRoot(doc())).toBe('main-tabs')
         });
 
         test('fails closed on every unprovable shape', () => {
-            expect(Document.resolveStackRoot(null)).toBeNull();
-            expect(Document.resolveStackRoot({})).toBeNull();
+            expect(WorkspaceDocument.resolveStackRoot(null)).toBeNull();
+            expect(WorkspaceDocument.resolveStackRoot({})).toBeNull();
 
             const missingRoot = vessel();
             delete missingRoot.nodes['popup-root'];
-            expect(Document.resolveStackRoot(missingRoot)).toBeNull();
+            expect(WorkspaceDocument.resolveStackRoot(missingRoot)).toBeNull();
 
             // a degenerate workspace whose root IS a tabs node has no projectable stack
-            expect(Document.resolveStackRoot({
+            expect(WorkspaceDocument.resolveStackRoot({
                 schema: 'neo.dock.zone.v1',
                 root  : 'only-tabs',
                 items : {},
@@ -2447,11 +2553,11 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             const noCenter = vessel();
             delete noCenter.nodes['popup-root'].zones.center;
-            expect(Document.resolveStackRoot(noCenter)).toBeNull();
+            expect(WorkspaceDocument.resolveStackRoot(noCenter)).toBeNull();
 
             const ghostCenter = vessel();
             ghostCenter.nodes['popup-root'].zones.center.nodeId = 'ghost';
-            expect(Document.resolveStackRoot(ghostCenter)).toBeNull()
+            expect(WorkspaceDocument.resolveStackRoot(ghostCenter)).toBeNull()
         });
 
         test('COMPOSES with transferNode: the resolved stack transfers whole and atomically — while the root door stays shut', () => {
@@ -2469,7 +2575,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             // the resolved stack: ONE atomic two-document transfer through the landed executor
             const
                 source    = vessel(),
-                stackRoot = Document.resolveStackRoot(source);
+                stackRoot = WorkspaceDocument.resolveStackRoot(source);
 
             const {sourceDocument, targetDocument, errors} = Operations.transferNode(source, doc(), {
                 nodeId           : stackRoot,
@@ -2490,7 +2596,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(sourceDocument.nodes['popup-tabs']).toBeUndefined();
             expect(sourceDocument.items.drill).toBeUndefined();
             expect(sourceDocument.items.stream).toBeUndefined();
-            expect(Document.validate(sourceDocument)).toEqual([])
+            expect(WorkspaceDocument.validate(sourceDocument)).toEqual([])
         })
     });
 
@@ -2517,15 +2623,15 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(errors).toEqual([]);
             // source: terminal gone from catalog + tree; the emptied side-tabs collapsed + its edge zone pruned
             expect(sourceDocument.items.terminal).toBeUndefined();
-            expect(Document.findContainingTabsId(sourceDocument, 'terminal')).toBeNull();
+            expect(WorkspaceDocument.findContainingTabsId(sourceDocument, 'terminal')).toBeNull();
             expect(sourceDocument.nodes['side-tabs']).toBeUndefined();
             expect(sourceDocument.nodes.root.zones.right).toBeUndefined();
             // target: terminal now in catalog + main-tabs tree
             expect(targetDocument.items.terminal).toBeDefined();
             expect(targetDocument.nodes['main-tabs'].items).toContain('terminal');
             // both documents remain contract-valid
-            expect(Document.validate(sourceDocument)).toEqual([]);
-            expect(Document.validate(targetDocument)).toEqual([])
+            expect(WorkspaceDocument.validate(sourceDocument)).toEqual([]);
+            expect(WorkspaceDocument.validate(targetDocument)).toEqual([])
         });
 
         test('the item record travels verbatim — policy hints, metadata, and a railed autoHidden state intact', () => {
@@ -2538,7 +2644,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             expect(errors).toEqual([]);
             expect(targetDocument.items.terminal).toEqual(record);        // verbatim, incl. autoHidden
-            expect(Document.validate(targetDocument)).toEqual([])    // a railed item is a valid arrival
+            expect(WorkspaceDocument.validate(targetDocument)).toEqual([])    // a railed item is a valid arrival
         });
 
         test('atomic: a target-side placement failure leaves BOTH documents untouched (source byte-identical)', () => {
@@ -2614,8 +2720,8 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             expect(errors).toEqual([]);
             expect(targetDocument.items.terminal).toBeDefined();
-            expect(Document.findContainingTabsId(targetDocument, 'terminal')).not.toBeNull();
-            expect(Document.validate(targetDocument)).toEqual([])
+            expect(WorkspaceDocument.findContainingTabsId(targetDocument, 'terminal')).not.toBeNull();
+            expect(WorkspaceDocument.validate(targetDocument)).toEqual([])
         });
 
         test('applyOperation redirects a single-document transferItem descriptor to the two-document method', () => {
@@ -2645,8 +2751,8 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(document.nodes[centerId].children).toContain('main-tabs');
             expect(document.nodes[centerId].children).toContain('side-tabs');
             expect(document.nodes.root.zones.right).toBeUndefined();                            // moved out of its old edge slot
-            expect(Document.findContainingTabsId(document, 'terminal')).toBe('side-tabs'); // the moved subtree is intact
-            expect(Document.validate(document)).toEqual([])
+            expect(WorkspaceDocument.findContainingTabsId(document, 'terminal')).toBe('side-tabs'); // the moved subtree is intact
+            expect(WorkspaceDocument.validate(document)).toEqual([])
         });
 
         test('tab-into placement merges the moved tabs items into the target in order, then drops the node', () => {
@@ -2658,7 +2764,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm', 'terminal']);
             expect(document.nodes['side-tabs']).toBeUndefined();
             expect(document.nodes.root.zones.right).toBeUndefined();
-            expect(Document.validate(document)).toEqual([])
+            expect(WorkspaceDocument.validate(document)).toEqual([])
         });
 
         test('cycle guard: moving a node into its own subtree fails closed, document untouched', () => {
@@ -2703,7 +2809,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(document.nodes.tri.children).toEqual(['b', 'c']);
             expect(document.nodes.tri.sizes[0]).toBeCloseTo(0.375);
             expect(document.nodes.tri.sizes[1]).toBeCloseTo(0.625);
-            expect(Document.validate(document)).toEqual([])
+            expect(WorkspaceDocument.validate(document)).toEqual([])
         });
 
         test('applyOperation dispatches moveNode; the op joins the exported vocabulary', () => {
@@ -2742,9 +2848,9 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(sourceDocument.nodes.root.zones.right).toBeUndefined();
             expect(targetDocument.nodes['side-tabs']).toBeDefined();
             expect(targetDocument.items.terminal).toBeDefined();
-            expect(Document.findContainingTabsId(targetDocument, 'terminal')).toBe('side-tabs');
-            expect(Document.validate(sourceDocument)).toEqual([]);
-            expect(Document.validate(targetDocument)).toEqual([])
+            expect(WorkspaceDocument.findContainingTabsId(targetDocument, 'terminal')).toBe('side-tabs');
+            expect(WorkspaceDocument.validate(sourceDocument)).toEqual([]);
+            expect(WorkspaceDocument.validate(targetDocument)).toEqual([])
         });
 
         test('a multi-node subtree travels whole — every member node and item re-homes verbatim', () => {
@@ -2768,8 +2874,8 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(sourceDocument.items.log).toBeUndefined();
             ['grp', 'grp-a', 'grp-b'].forEach(id => expect(targetDocument.nodes[id]).toBeDefined());
             expect(targetDocument.items.watch).toEqual(source.items.watch);   // verbatim
-            expect(Document.validate(sourceDocument)).toEqual([]);
-            expect(Document.validate(targetDocument)).toEqual([])
+            expect(WorkspaceDocument.validate(sourceDocument)).toEqual([]);
+            expect(WorkspaceDocument.validate(targetDocument)).toEqual([])
         });
 
         test('atomic: an attach failure after preconditions leaves BOTH documents untouched (source byte-identical)', () => {
@@ -2834,7 +2940,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         };
 
         test('validate rejects a forbidden preview key nested in item metadata', () => {
-            expect(Document.validate(tainted()).join(' ')).toContain('runtime-only preview field "groupNodeId"')
+            expect(WorkspaceDocument.validate(tainted()).join(' ')).toContain('runtime-only preview field "groupNodeId"')
         });
 
         test('createSavedLayout refuses to persist a smuggled preview key (fail-closed, layout null)', () => {
@@ -2870,8 +2976,8 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         });
 
         test('the forbidden-preview-key set is the model-owned SSOT (adapter projection reads the same finder)', () => {
-            expect(Document.forbiddenPreviewKeys.has('groupNodeId')).toBe(true);
-            expect(Document.findForbiddenPreviewKey({items: {a: {metadata: {pointerX: 1}}}})).toBe('pointerX')
+            expect(WorkspaceDocument.forbiddenPreviewKeys.has('groupNodeId')).toBe(true);
+            expect(WorkspaceDocument.findForbiddenPreviewKey({items: {a: {metadata: {pointerX: 1}}}})).toBe('pointerX')
         })
     });
 });

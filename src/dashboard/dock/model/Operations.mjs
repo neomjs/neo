@@ -1,5 +1,5 @@
-import Base     from '../../../core/Base.mjs';
-import Document from './Document.mjs';
+import Base              from '../../../core/Base.mjs';
+import WorkspaceDocument from './WorkspaceDocument.mjs';
 
 /**
  * @class Neo.dashboard.dock.model.Operations
@@ -8,7 +8,7 @@ import Document from './Document.mjs';
  * @summary The semantic operation vocabulary and reducer dispatch over committed dock-zone documents.
  *
  * Split out of the former monolithic zone model per the graduated v13.2 DockLayouts
- * architecture: `model.Document` owns the committed-document contract, `model.Operations`
+ * architecture: `model.WorkspaceDocument` owns the committed-document contract, `model.Operations`
  * owns the semantic reducer vocabulary, `model.Persistence` owns saved-layout envelopes,
  * and `persistence.PerspectiveLibrary` is the sole collection/perspective authority.
  * Return shape for every operation and envelope helper: `{document|layout, errors}` —
@@ -38,7 +38,7 @@ class Operations extends Base {
      */
     static operationHandlers = Object.freeze({
         addTab: (document, descriptor) =>
-            Document.findContainingTabsId(document, descriptor.itemId)
+            WorkspaceDocument.findContainingTabsId(document, descriptor.itemId)
                 ? Operations.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
                 : Operations.addTab(document, descriptor),
         applyDocument    : (document, descriptor) => Operations.applyDocument(document, descriptor),
@@ -102,7 +102,7 @@ class Operations extends Base {
         setItemAutoHidden: 'topology',
         // Structural on BOTH branches, which is why the name alone does not settle it: it delegates
         // to `addTab` when the home node survives, and otherwise mints a node outright
-        // (`doc.nodes[nodeId] = {type: 'tabs', …}`, id-collision-safe via `Document.genId`).
+        // (`doc.nodes[nodeId] = {type: 'tabs', …}`, id-collision-safe via `WorkspaceDocument.genId`).
         restoreTab  : 'topology',
         transferItem: 'topology',
         transferNode: 'topology'
@@ -148,7 +148,7 @@ class Operations extends Base {
      */
     static applyDocument(document, descriptor = {}) {
         return descriptor.document
-            ? Document.commit(document, descriptor.document)
+            ? WorkspaceDocument.commit(document, descriptor.document)
             : {document, errors: ['applyDocument requires a candidate document']}
     }
 
@@ -164,9 +164,9 @@ class Operations extends Base {
         if (!document.items?.[itemId])           return {document, errors: [`unknown item "${itemId}"`]};
         if (document.nodes?.[tabsNodeId]?.type !== 'tabs') return {document, errors: [`"${tabsNodeId}" is not a tabs node`]};
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
-        Document.detachFromTabs(doc, itemId);
+        WorkspaceDocument.detachFromTabs(doc, itemId);
 
         let node = doc.nodes[tabsNodeId],
             at   = Number.isInteger(index) ? Math.max(0, Math.min(index, node.items.length)) : node.items.length;
@@ -174,7 +174,7 @@ class Operations extends Base {
         node.items.splice(at, 0, itemId);
         node.activeItemId = itemId;
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -203,19 +203,19 @@ class Operations extends Base {
 
         if (!tabsNodeId) return {document, errors: ['restoreTab requires a tabsNodeId']};
 
-        let doc = Document.clone(document),
+        let doc = WorkspaceDocument.clone(document),
             // Reuse the recorded id when nothing has claimed it, so a round trip leaves the document
             // it started from rather than one that merely looks like it.
-            nodeId = doc.nodes[tabsNodeId] ? Document.genId(doc, tabsNodeId) : tabsNodeId,
+            nodeId = doc.nodes[tabsNodeId] ? WorkspaceDocument.genId(doc, tabsNodeId) : tabsNodeId,
             errors;
 
-        Document.detachFromTabs(doc, itemId);
+        WorkspaceDocument.detachFromTabs(doc, itemId);
 
         doc.nodes[nodeId] = {activeItemId: itemId, items: [itemId], type: 'tabs'};
 
-        errors = Document.restoreNodeHome(doc, nodeId, home);
+        errors = WorkspaceDocument.restoreNodeHome(doc, nodeId, home);
 
-        return errors.length > 0 ? {document, errors} : Document.commit(document, doc)
+        return errors.length > 0 ? {document, errors} : WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -228,7 +228,7 @@ class Operations extends Base {
      * @static
      */
     static moveItem(document, {itemId, targetNodeId, index} = {}) {
-        if (!Document.findContainingTabsId(document, itemId)) {
+        if (!WorkspaceDocument.findContainingTabsId(document, itemId)) {
             return {document, errors: [`item "${itemId}" is not in the tree`]}
         }
 
@@ -269,11 +269,11 @@ class Operations extends Base {
             return {document, errors: []}
         }
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
         doc.nodes[tabsNodeId].activeItemId = itemId;
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -298,12 +298,12 @@ class Operations extends Base {
             return {document, errors: [`invalid split orientation "${orientation}"`]}
         }
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
-        Document.detachFromTabs(doc, itemId);
+        WorkspaceDocument.detachFromTabs(doc, itemId);
 
-        let newTabsId  = Document.genId(doc, `tabs-${itemId}`),
-            newSplitId = Document.genId(doc, `split-${targetNodeId}`),
+        let newTabsId  = WorkspaceDocument.genId(doc, `tabs-${itemId}`),
+            newSplitId = WorkspaceDocument.genId(doc, `split-${targetNodeId}`),
             ratio      = (Array.isArray(sizes) && sizes.length === 2) ? sizes : [0.5, 0.5],
             // Edge descriptors encode the side in `edge`, not `position`: top / left lead (before),
             // bottom / right trail (after). An explicit `position` always wins.
@@ -311,7 +311,7 @@ class Operations extends Base {
 
         // Resolve the target's parent BEFORE inserting the new split — otherwise the new split
         // (which references the target) would be found as the target's own parent.
-        let parentSlot = Document.findParentSlot(doc, targetNodeId);
+        let parentSlot = WorkspaceDocument.findParentSlot(doc, targetNodeId);
 
         doc.nodes[newTabsId] = {type: 'tabs', items: [itemId], activeItemId: itemId};
         doc.nodes[newSplitId] = {
@@ -328,10 +328,10 @@ class Operations extends Base {
         } else if (typeof parentSlot.slot === 'number') {
             doc.nodes[parentSlot.parentId].children[parentSlot.slot] = newSplitId
         } else {
-            Document.setZoneNodeId(doc.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
+            WorkspaceDocument.setZoneNodeId(doc.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
         }
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -356,17 +356,17 @@ class Operations extends Base {
             return {document, errors: [`"${splitNodeId}" is not a split node`]}
         }
 
-        let normalized = Document.normalizeSplitSizes(sizes, (split.children || []).length, splitNodeId);
+        let normalized = WorkspaceDocument.normalizeSplitSizes(sizes, (split.children || []).length, splitNodeId);
 
         if (normalized.errors.length) {
             return {document, errors: normalized.errors}
         }
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
         doc.nodes[splitNodeId].sizes = normalized.sizes;
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -396,7 +396,7 @@ class Operations extends Base {
             return {document, errors: [`edge "${edge}" is not resizable`]}
         }
 
-        if (!Document.isJsonRecord(descriptor) || !Document.getZoneNodeId(descriptor)) {
+        if (!WorkspaceDocument.isJsonRecord(descriptor) || !WorkspaceDocument.getZoneNodeId(descriptor)) {
             return {document, errors: [`edge-zone "${edgeZoneId}" has no valid "${edge}" descriptor`]}
         }
 
@@ -412,11 +412,11 @@ class Operations extends Base {
             return {document, errors: []}
         }
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
         doc.nodes[edgeZoneId].zones[edge].extent = extent;
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -428,7 +428,7 @@ class Operations extends Base {
      * @static
      */
     static detachItem(document, {itemId} = {}) {
-        if (!Document.findContainingTabsId(document, itemId)) {
+        if (!WorkspaceDocument.findContainingTabsId(document, itemId)) {
             return {document, errors: [`item "${itemId}" is not in the tree`]}
         }
 
@@ -436,11 +436,11 @@ class Operations extends Base {
             return {document, errors: [`item "${itemId}" is locked`]}
         }
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
-        Document.detachFromTabs(doc, itemId);
+        WorkspaceDocument.detachFromTabs(doc, itemId);
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -460,12 +460,12 @@ class Operations extends Base {
         if (item.locked === true) return {document, errors: [`item "${itemId}" is locked`]};
         if (item.closable === false) return {document, errors: [`item "${itemId}" is not closable`]};
 
-        let tabsNodeId  = Document.findContainingTabsId(document, itemId),
+        let tabsNodeId  = WorkspaceDocument.findContainingTabsId(document, itemId),
             closedIndex = tabsNodeId ? document.nodes[tabsNodeId].items.indexOf(itemId) : -1,
             wasActive   = tabsNodeId ? document.nodes[tabsNodeId].activeItemId === itemId : false,
-            doc         = Document.clone(document);
+            doc         = WorkspaceDocument.clone(document);
 
-        Document.detachFromTabs(doc, itemId);
+        WorkspaceDocument.detachFromTabs(doc, itemId);
 
         if (wasActive && tabsNodeId && doc.nodes[tabsNodeId]?.type === 'tabs') {
             let node = doc.nodes[tabsNodeId];
@@ -478,7 +478,7 @@ class Operations extends Base {
 
         delete doc.items[itemId];
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -501,11 +501,11 @@ class Operations extends Base {
         if (typeof locked !== 'boolean') return {document, errors: ['locked must be a boolean']};
         if (item.lockable === false) return {document, errors: [`item "${itemId}" is not lockable`]};
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
         doc.items[itemId].locked = locked;
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -522,7 +522,7 @@ class Operations extends Base {
         if (typeof pinned !== 'boolean') return {document, errors: ['pinned must be a boolean']};
         if (item.pinnable === false) return {document, errors: [`item "${itemId}" is not pinnable`]};
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
         doc.items[itemId].pinned = pinned;
 
@@ -530,7 +530,7 @@ class Operations extends Base {
             doc.items[itemId].autoHidden = false
         }
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -548,11 +548,11 @@ class Operations extends Base {
         if (item.pinnable === false) return {document, errors: [`item "${itemId}" is not pinnable`]};
         if (autoHidden && item.pinned === true) return {document, errors: [`item "${itemId}" is pinned and cannot be autoHidden`]};
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
         doc.items[itemId].autoHidden = autoHidden;
 
-        return Document.commit(document, doc)
+        return WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -618,19 +618,19 @@ class Operations extends Base {
 
         // Source side: drop from the tree (a no-op for an already-detached item) + catalog, then
         // normalize + validate through the shared fail-closed commit.
-        let sourceWorking = Document.clone(sourceDocument);
+        let sourceWorking = WorkspaceDocument.clone(sourceDocument);
 
-        Document.detachFromTabs(sourceWorking, itemId);
+        WorkspaceDocument.detachFromTabs(sourceWorking, itemId);
         delete sourceWorking.items[itemId];
 
-        let sourceResult = Document.commit(sourceDocument, sourceWorking);
+        let sourceResult = WorkspaceDocument.commit(sourceDocument, sourceWorking);
 
         // Target side: insert the verbatim record into the catalog, then place it through the landed
         // single-document dispatch (which normalizes + validates the target tree). The transfer's
         // `itemId` overrides any id the caller left in the nested descriptor.
-        let targetWorking = Document.clone(targetDocument);
+        let targetWorking = WorkspaceDocument.clone(targetDocument);
 
-        targetWorking.items[itemId] = Document.clone(record);
+        targetWorking.items[itemId] = WorkspaceDocument.clone(record);
 
         let targetResult = Operations.applyOperation(targetWorking, {...target, itemId}),
             errors       = [...sourceResult.errors, ...targetResult.errors];
@@ -668,17 +668,17 @@ class Operations extends Base {
         if (nodeId === document.root) return {document, errors: ['cannot move the root node']};
 
         // cycle guard: the target must not live inside the moved subtree (walk rooted AT nodeId)
-        if (Document.reachableNodeIds({nodes, root: nodeId}).has(targetNodeId)) {
+        if (WorkspaceDocument.reachableNodeIds({nodes, root: nodeId}).has(targetNodeId)) {
             return {document, errors: [`cannot move node "${nodeId}" into its own subtree`]}
         }
 
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
-        Document.detachNode(doc, nodeId);
+        WorkspaceDocument.detachNode(doc, nodeId);
 
-        let errors = Document.attachNode(doc, nodeId, targetNodeId, placement);
+        let errors = WorkspaceDocument.attachNode(doc, nodeId, targetNodeId, placement);
 
-        return errors.length ? {document, errors} : Document.commit(document, doc)
+        return errors.length ? {document, errors} : WorkspaceDocument.commit(document, doc)
     }
 
     /**
@@ -712,7 +712,7 @@ class Operations extends Base {
         }
 
         // The subtree: its node ids + the member item ids its tabs nodes carry.
-        let subtreeNodeIds = Document.reachableNodeIds({nodes: sourceNodes, root: nodeId}),
+        let subtreeNodeIds = WorkspaceDocument.reachableNodeIds({nodes: sourceNodes, root: nodeId}),
             memberItemIds  = [];
 
         subtreeNodeIds.forEach(id => {
@@ -730,25 +730,25 @@ class Operations extends Base {
         }
 
         // Source side: unlink the subtree, drop its nodes + member records, normalize + validate.
-        let sourceWorking = Document.clone(sourceDocument);
+        let sourceWorking = WorkspaceDocument.clone(sourceDocument);
 
-        Document.detachNode(sourceWorking, nodeId);
+        WorkspaceDocument.detachNode(sourceWorking, nodeId);
         subtreeNodeIds.forEach(id => delete sourceWorking.nodes[id]);
         memberItemIds.forEach(itemId => delete sourceWorking.items[itemId]);
 
-        let sourceResult = Document.commit(sourceDocument, sourceWorking);
+        let sourceResult = WorkspaceDocument.commit(sourceDocument, sourceWorking);
 
         // Target side: graft the member records + subtree nodes verbatim, then attach the subtree root
         // through the shared moveNode placement grammar; normalize + validate.
-        let targetWorking = Document.clone(targetDocument);
+        let targetWorking = WorkspaceDocument.clone(targetDocument);
 
-        memberItemIds.forEach(itemId => targetWorking.items[itemId] = Document.clone(sourceDocument.items[itemId]));
-        subtreeNodeIds.forEach(id => targetWorking.nodes[id] = Document.clone(sourceDocument.nodes[id]));
+        memberItemIds.forEach(itemId => targetWorking.items[itemId] = WorkspaceDocument.clone(sourceDocument.items[itemId]));
+        subtreeNodeIds.forEach(id => targetWorking.nodes[id] = WorkspaceDocument.clone(sourceDocument.nodes[id]));
 
-        let attachErrors = Document.attachNode(targetWorking, nodeId, target.targetNodeId, target.placement || {}),
+        let attachErrors = WorkspaceDocument.attachNode(targetWorking, nodeId, target.targetNodeId, target.placement || {}),
             targetResult = attachErrors.length
                 ? {document: targetDocument, errors: attachErrors}
-                : Document.commit(targetDocument, targetWorking),
+                : WorkspaceDocument.commit(targetDocument, targetWorking),
             errors       = [...sourceResult.errors, ...targetResult.errors];
 
         // Commit-or-neither: any error on either side rolls the whole transfer back to both inputs.

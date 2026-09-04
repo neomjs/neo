@@ -24,7 +24,7 @@ import NeoArray     from '../../../util/Array.mjs';
  * @class Neo.dashboard.dock.interaction.DockSplitter
  * @extends Neo.component.Splitter
  * @see Neo.dashboard.dock.projection.LayoutAdapter
- * @see Neo.dashboard.dock.model.Document
+ * @see Neo.dashboard.dock.model.WorkspaceDocument
  * @see learn/agentos/DockZoneModel.md
  */
 class DockSplitter extends Splitter {

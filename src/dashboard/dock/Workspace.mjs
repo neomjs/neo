@@ -7,7 +7,7 @@ import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
 import Reconciler                  from './projection/Reconciler.mjs';
 import {createDockTearOutHandlers} from './window/TearOut.mjs';
-import Document                    from './model/Document.mjs';
+import WorkspaceDocument           from './model/WorkspaceDocument.mjs';
 import Operations                  from './model/Operations.mjs';
 import {previewToOperation}        from './model/PreviewContract.mjs';
 import TopologySeams               from './window/TopologySeams.mjs';
@@ -79,7 +79,7 @@ import TopologySeams               from './window/TopologySeams.mjs';
  * @extends Neo.container.Base
  * @see Neo.dashboard.dock.projection.LayoutAdapter
  * @see Neo.dashboard.dock.projection.Reconciler
- * @see Neo.dashboard.dock.model.Document
+ * @see Neo.dashboard.dock.model.WorkspaceDocument
  * @see learn/agentos/DockZoneModel.md
  * @see learn/guides/uibuildingblocks/DockLayouts.md
  */
@@ -910,7 +910,7 @@ class Workspace extends Container {
     applyTearOutOperation(descriptor) {
         let me       = this,
             isDetach = descriptor?.operation === 'detachItem',
-            captured = isDetach ? Document.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            captured = isDetach ? WorkspaceDocument.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
             result;
 
         captured && (me.tearOutPlacements[descriptor.itemId] = captured);
@@ -1415,7 +1415,7 @@ class Workspace extends Container {
 
         me.beforeTearOutPaneReturn({itemId, pane});
 
-        if (Document.findContainingTabsId(doc, itemId)) {
+        if (WorkspaceDocument.findContainingTabsId(doc, itemId)) {
             me.onDockZoneDocumentChange(doc);
 
             try {
@@ -2047,7 +2047,7 @@ class Workspace extends Container {
      * or the projection would refuse: no active item, `pinnable: false` (which
      * {@link Neo.dashboard.dock.model.Operations#setItemAutoHidden} rejects), or an item no edge owns
      * (§2.7 — center never rails). The edge answer comes from
-     * {@link Neo.dashboard.dock.model.Document#findOwningEdge}, the same derivation the projection
+     * {@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge}, the same derivation the projection
      * rails by, so the action cannot disagree with the rail it would collapse into.
      *
      * Like {@link #syncDockCloseAction}, hidden-state changes stay on the stable action instance so
@@ -2072,7 +2072,7 @@ class Workspace extends Container {
             hidden = !itemId
                 || model?.items?.[itemId]?.pinnable === false
                 || !model
-                || !Document.findOwningEdge(model, itemId);
+                || !WorkspaceDocument.findOwningEdge(model, itemId);
 
         action && (action.hidden = hidden)
     }
@@ -2345,7 +2345,7 @@ class Workspace extends Container {
             return {document: me.dockModel, errors: ['Dock close action requires a committed document']}
         }
 
-        let modelNodeId = Document.findContainingTabsId(me.dockModel, itemId) || dockNodeId,
+        let modelNodeId = WorkspaceDocument.findContainingTabsId(me.dockModel, itemId) || dockNodeId,
             descriptor  = {operation: 'closeItem', itemId},
             result      = me.applyDockZoneOperation(descriptor);
 
@@ -2470,7 +2470,7 @@ class Workspace extends Container {
         // Reading only the "after" state would let an absent or empty document read as a detach —
         // `findContainingTabsId` returns null for "not in the tree" AND for "no tree at all", so a
         // success would be reported from the absence of any evidence.
-        const wasInTree = !!Document.findContainingTabsId(me.dockModel, itemId);
+        const wasInTree = !!WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
 
         await me.tearOutHandlers.onDockTearOutTerminal({itemId});
 
@@ -2483,7 +2483,7 @@ class Workspace extends Container {
         // The committed document is the honest witness: a detached item is no longer in any tabs
         // node. Read AFTER the terminal, so a success reports the advanced document rather than the
         // one this method started with.
-        const detached = wasInTree && !Document.findContainingTabsId(me.dockModel, itemId);
+        const detached = wasInTree && !WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
 
         return detached
             ? {document: me.dockModel, errors: []}
@@ -2581,7 +2581,7 @@ class Workspace extends Container {
             return {document: me.dockModel, errors: ['Dock pin action requires a committed document']}
         }
 
-        if (!Document.findOwningEdge(me.dockModel, itemId)) {
+        if (!WorkspaceDocument.findOwningEdge(me.dockModel, itemId)) {
             return {document: me.dockModel, errors: ['Dock pin action requires an item owned by an edge zone']}
         }
 
@@ -3280,14 +3280,14 @@ class Workspace extends Container {
                 // descriptor targeting the maximized node can still RELOCATE the item out of a
                 // sibling — that reaches beyond the node. Neutral only for a catalog-only item
                 // or one already inside the maximized node.
-                let source = Document.findContainingTabsId(me.dockModel, itemId);
+                let source = WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
 
                 return tabsNodeId === nodeId && (!source || source === nodeId)
             }
             case 'closeItem':
-                return Document.findContainingTabsId(me.dockModel, itemId) === nodeId;
+                return WorkspaceDocument.findContainingTabsId(me.dockModel, itemId) === nodeId;
             case 'moveItem':
-                return targetNodeId === nodeId && Document.findContainingTabsId(me.dockModel, itemId) === nodeId;
+                return targetNodeId === nodeId && WorkspaceDocument.findContainingTabsId(me.dockModel, itemId) === nodeId;
             case 'setActiveItem':
                 return tabsNodeId === nodeId;
             default:
@@ -3490,7 +3490,7 @@ class Workspace extends Container {
         // not a wrong projection — which is why the fast path can be derived at all.
         switch (Operations.changeClassFor(descriptor?.operation)) {
             // Both resize reducers clone the document and write exactly one field —
-            // `nodes[id].sizes`, `nodes[id].zones[edge].extent` — and survive `Document.commit`,
+            // `nodes[id].sizes`, `nodes[id].zones[edge].extent` — and survive `WorkspaceDocument.commit`,
             // normalization included, with the node tree, the node id set and `items` all
             // byte-identical. Nothing moved but the boundary, so nothing needs restaging.
             case 'geometry':
@@ -3564,7 +3564,7 @@ class Workspace extends Container {
             && typeof tabsNodeId === 'string'
             && Array.isArray(oldItems)
             && Array.isArray(newItems)
-            && !Document.findContainingTabsId(this.dockModel, itemId)
+            && !WorkspaceDocument.findContainingTabsId(this.dockModel, itemId)
             && !oldItems.includes(itemId)
             && newItems.includes(itemId)
                 ? {itemId, operation: 'addTab', tabsNodeId}

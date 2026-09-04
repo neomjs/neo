@@ -205,10 +205,10 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    that joins the SharedWorker session; detached panes arrive at runtime. The canonical example is the cross-window
    demo's `?popout` boot branch (`examples/dashboard/crossWindow/Viewport.mjs`), whose own JSDoc says it all: "This
    window carries no workspace of its own; the opener's workspace reparents the live pane into it on connect."
-5. **Persist through the wrappers, not by hand.** `model.Persistence` and
-   `persistence.PerspectiveLibrary` use the perspective-carrying `neo.dock.layout.v1` envelope for named,
-   switchable, fail-closed-validated arrangements.
-   Restore refuses invalid documents wholesale — your users' layouts never half-restore.
+5. **Persist through the wrappers, not by hand.** `persistence.PerspectiveLibrary` owns named
+   single-Workspace `neo.dock.layout.v1` records. `model.Persistence` separately validates keyed
+   `neo.dock.topology.v1` / `neo.dock.topologyCollection.v1` records for the Group-level topology owner.
+   Restore refuses invalid records wholesale — your users' layouts never half-restore.
 
 Styling arrives through the engine's token layer. The dock's visual language lives in
 `resources/scss/src/dashboard/Container.scss` as neutral `--dock-*` tokens, so a consumer skins the affordances by
@@ -221,13 +221,12 @@ greenfield cut ([ADR 0029 §2.9 amendment](../../agentos/decisions/0029-docking-
 pre-release history shipped no compatibility obligation, so the cut is total: readers fail closed on any
 other family, and no migration reader, alias, or dual parser exists.
 
-- **Persisted** — `neo.dock.zone.v1`, `neo.dock.layout.v1`, `neo.dock.layoutCollection.v1`: these live in
-  saved layouts and perspectives, and restore validation is fail-closed by design. The layout wrapper carries
-  the perspective fields (`captureScope`, `windowFingerprint`, `perspectiveName`, `windowDocuments`) — the
-  envelope IS the perspective capability, and there is exactly one revision of it.
-- **Runtime-only** — `neo.dock.preview.v1`, `neo.dock.candidates.v1`, `neo.dock.shape.v1`,
-  `neo.dock.topologyShape.v1`: never persisted, but pinned by cross-window participation, Neural Link
-  tooling, and the test suites. They version by coordinated change, never by find-replace.
+- **Persisted** — `neo.dock.zone.v1`, `neo.dock.layout.v1`, `neo.dock.layoutCollection.v1`,
+  `neo.dock.topology.v1`, `neo.dock.topologyCollection.v1`. A layout always carries one Workspace and fixed
+  `captureScope: 'window'`; a topology carries `{workspaceKey: WorkspaceDocument}` records plus relative hints.
+- **Embedded fingerprint evidence** — `neo.dock.shape.v1` for one Workspace and the key-sorted
+  `neo.dock.topologyShape.v2` aggregate. The retired positional `topologyShape.v1` is rejected, never redefined.
+- **Runtime-only** — `neo.dock.preview.v1` and `neo.dock.candidates.v1`. They never enter persisted state.
 
 If you take one sentence from this section: **a schema string is an API to every byte your users will
 store** — from here forward, identity lives in one family, unsupported versions are rejected inside it, and

@@ -3,10 +3,11 @@
 `@summary` Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
 
 **Code realization (v13.2 architecture).** The contract lives in the `Neo.dashboard.dock.model.*` tier:
-`model.Document` owns the committed tree (schema keys, validation, normalization, tree helpers,
+`model.WorkspaceDocument` owns the committed tree (schema keys, validation, normalization, tree helpers,
 fingerprints, the fail-closed commit), `model.Operations` owns the semantic operation vocabulary and
 dispatch, `model.Persistence` owns the saved-layout envelope (capture, wrapper validation, restore), and
-`Neo.dashboard.dock.persistence.PerspectiveLibrary` is the sole named-collection/perspective authority.
+`Neo.dashboard.dock.persistence.PerspectiveLibrary` is the single-workspace named-layout authority;
+keyed topology envelopes and collections validate through `model.Persistence` until the Group owner loads them.
 Method references below name their owning module.
 
 ## Scope
@@ -33,7 +34,7 @@ The subsystem realizing this contract lives at `src/dashboard/dock/**` (`Neo.das
 
 The model is a generic dashboard-layer contract, not a core layout primitive.
 
-The dock-zone subsystem lives in `src/dashboard/dock/`: `model.Document` owns document invariants,
+The dock-zone subsystem lives in `src/dashboard/dock/`: `model.WorkspaceDocument` owns document invariants,
 `model.Operations` executes semantic changes, `projection.LayoutAdapter` derives component configs, and
 `projection.Reconciler` preserves live component identity across projections. Dock zones are an engine capability;
 applications contribute pane resolution, product chrome, and product-specific policy only.
@@ -382,33 +383,64 @@ Required wrapper fields:
 - `layoutId`: stable user/workspace layout identity, distinct from dock item ids.
 - `title`: display label for layout pickers or recovery UIs.
 - `dockZone`: a normalized `neo.dock.zone.v1` model after semantic operations have run.
-- `captureScope`: `window` for one document or `topology` for a multi-window capture.
-- `windowFingerprint`: JSON-only topology-shape evidence, or `null` when no fingerprint was captured.
+- `captureScope`: fixed to `window`. The layout schema never carries topology mode.
+- `windowFingerprint`: JSON-only shape evidence for this Workspace, or `null` when no fingerprint was captured.
 
 Optional wrapper fields:
 
 - `revision`: monotonic revision, content version, or adapter-owned equivalent used for conflict/recovery messaging.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, live component instances, credentials, PATs, access tokens, or harness bridge tokens.
 - `perspectiveName`: a non-empty display name when the wrapper is used as a named perspective.
-- `windowDocuments`: additional normalized dock-zone documents, valid only for `captureScope: 'topology'`; the primary document remains in `dockZone`.
 
-Schema-name row (the canonical vocabulary both tiers share — the design record's capture-scope amendment is the prescriptive side of this row):
+Multi-workspace state has a separate keyed envelope:
+
+```json
+{
+  "schema": "neo.dock.topology.v1",
+  "layoutId": "operator-default",
+  "title": "Operator Default",
+  "workspaces": {
+    "main": {"schema": "neo.dock.zone.v1", "root": "root", "items": {}, "nodes": {}},
+    "popup:detail": {"schema": "neo.dock.zone.v1", "root": "root", "items": {}, "nodes": {}}
+  },
+  "placementHints": {
+    "popup:detail": {
+      "dx": 240,
+      "dy": 80,
+      "fallbackTarget": {"workspaceKey": "main", "nodeId": "side-tabs"}
+    }
+  },
+  "topologyFingerprint": {"schema": "neo.dock.topologyShape.v2"},
+  "metadata": {}
+}
+```
+
+`workspaces` is keyed by the registered semantic `workspaceKey`; each value validates as a complete
+`WorkspaceDocument`. `placementHints` may name only those keys and persist finite relative offsets plus a semantic
+fallback target. Aggregate fingerprints sort keys before composition, so object insertion and workspace
+registration order cannot become identity. Item ids remain unique across the topology.
+
+Schema-name row (the canonical vocabulary both tiers share):
 
 | Schema | Role | Notes |
 |---|---|---|
-| `neo.dock.layout.v1` | THE saved-layout AND perspective wrapper | carries `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
-| `neo.dock.layoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
+| `neo.dock.layout.v1` | one Workspace saved layout / perspective | carries fixed `captureScope: 'window'`, `windowFingerprint`, and optional `perspectiveName`; rejects topology fields |
+| `neo.dock.layoutCollection.v1` | named single-workspace layouts | every row validates through `restoreSavedLayout()` |
+| `neo.dock.topology.v1` | one keyed multi-workspace composition | carries `workspaces`, relative `placementHints`, and `topologyFingerprint` |
+| `neo.dock.topologyCollection.v1` | named topology compositions | keyed by each topology's `layoutId`; `activeLayoutId` must resolve |
+| `neo.dock.topologyShape.v2` | keyed aggregate shape evidence | `workspaceCount` + collision-safe, sorted workspace-key terms; positional v1 is rejected |
 
 The `neo.dock.` prefix is the single greenfield wire family (ADR 0029 §2.9 amendment): readers fail closed on every other schema string — unsupported versions are proven rejected inside the family, the retired pre-release `neo.harness.` family is proven rejected as foreign, and no migration reader or alias exists.
 
-Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
+Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, absolute screen coordinates, monitor ids, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. Relative `{dx, dy}` topology hints stay semantic and always carry a semantic fallback target; they do not turn the topology into an OS-window session dump.
 
-Restore must validate the wrapper schema, the inner dock-zone schema, and the normalized model invariants before replacing an active layout. Unsupported wrapper versions, unsupported dock-zone versions, invalid references, or invalid split/tab invariants fail closed: keep the last-good active layout and surface validation or recovery state to the caller.
+Restore validates the complete wrapper/collection before replacing active truth. For topologies this includes every keyed Workspace document, placement hint, cross-workspace item uniqueness, and the freshly recomputed aggregate fingerprint. Unsupported or positional inputs fail closed: keep the last-good active state and surface validation or recovery state to the caller.
 
 Component recovery remains the adapter's responsibility. A restored item with an unresolved `componentRef` follows the stale component reference policy above: preserve the item record and semantic placement long enough for validation, explicit recovery, placeholder rendering, or intentional removal. Persistence must not silently drop the item or rewrite the dock tree to hide the missing component.
 
-Reusable envelope validation and restore live in `model.Persistence`; named collections and perspectives live in
-`persistence.PerspectiveLibrary`. Only storage backends, pane registries, and product preference wiring stay app-local.
+Reusable layout/topology envelope validation and restore live in `model.Persistence`; single-workspace named layouts
+live in `persistence.PerspectiveLibrary`. The Group-level topology library remains a separate lazy owner. Only storage
+backends, pane registries, and product preference wiring stay app-local.
 
 ## Split/Tab Adapter Boundary
 
@@ -480,7 +512,7 @@ This aligns the adapter with stale `componentRef` restore behavior: runtime comp
 
 Repeated projections add one ownership rule: the adapter remains pure and stateless, while `projection.Reconciler` keys surviving tab containers by `dockNodeId` and moves each pane/header-button pair before moving its retained tab-container ancestor. The reconciler commits those descendant and ancestor handoffs separately; app-local code owns only its pane resolver, animation, and app-specific menu readiness. Workstation and Dock Demo B exercise the same transaction with different pane policies, keeping the projection contract reusable without making `projection.LayoutAdapter` stateful.
 
-The resolver may return either an existing live component or a materializable component config; the reconciler normalizes an inserted config to its one live instance. Once every projected tabs destination is known, a live pane/header-button pair absent from all of them is a **true projection retirement** and is destroyed exactly once. This cleanup cannot infer broader app ownership from a single committed document. A consumer that intentionally retains a pane outside the currently renderable projection — for example, during a popup handoff or as an unrestored `no-live-window` topology remainder — must park that live instance with a non-destroying removal before reconciliation. A cache guard that recreates an `isDestroyed` entry is recovery safety, not identity preservation.
+The resolver may return either an existing live component or a materializable component config; the reconciler normalizes an inserted config to its one live instance. Once every projected tabs destination is known, a live pane/header-button pair absent from all of them is a **true projection retirement** and is destroyed exactly once. This cleanup cannot infer broader app ownership from a single committed document. A consumer that intentionally retains a pane outside the currently renderable projection — for example, during a popup handoff or as an unrestored `no-live-workspace` topology remainder — must park that live instance with a non-destroying removal before reconciliation. A cache guard that recreates an `isDestroyed` entry is recovery safety, not identity preservation.
 
 ## Demand Validation
 

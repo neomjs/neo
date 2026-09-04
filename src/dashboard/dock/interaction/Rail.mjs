@@ -43,7 +43,7 @@ import NeoArray           from '../../../util/Array.mjs';
  * @see Neo.dashboard.dock.projection.LayoutAdapter
  * @see Neo.dashboard.dock.interaction.RevealOverlay
  * @see Neo.dashboard.dock.interaction.DockSplitter
- * @see Neo.dashboard.dock.model.Document
+ * @see Neo.dashboard.dock.model.WorkspaceDocument
  * @see learn/agentos/DockZoneModel.md
  */
 class Rail extends Container {

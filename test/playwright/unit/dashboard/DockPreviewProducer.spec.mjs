@@ -223,8 +223,8 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
     });
 
     test('the produce → previewToOperation → applyOperation pipeline SPLITS the target for an edge drop', async () => {
-        const Operations = (await import('../../../../src/dashboard/dock/model/Operations.mjs')).default,
-              Document   = (await import('../../../../src/dashboard/dock/model/Document.mjs')).default;
+        const Operations        = (await import('../../../../src/dashboard/dock/model/Operations.mjs')).default,
+              WorkspaceDocument = (await import('../../../../src/dashboard/dock/model/WorkspaceDocument.mjs')).default;
 
         // a minimal dockZone.v1 doc: a vertical split of two single-tab zones
         const doc = {
@@ -254,7 +254,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
         // the reducer applies it — a NEW split node appears (an interior tab-into move would not add one)
         const result = Operations.applyOperation(doc, descriptor);
         expect(result.errors ?? []).toEqual([]);
-        expect(Document.validate(result.document)).toEqual([]);                    // the split produced a valid dockZone.v1 tree
+        expect(WorkspaceDocument.validate(result.document)).toEqual([]);                    // the split produced a valid dockZone.v1 tree
 
         // edge-left → a NEW horizontal split now exists (there were none before) → the pipeline genuinely split the target
         expect(Object.values(result.document.nodes).some(n => n.type === 'split' && n.orientation === 'horizontal'),

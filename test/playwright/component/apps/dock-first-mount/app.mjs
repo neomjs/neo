@@ -1,6 +1,6 @@
-import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
-import Document      from '../../../../../src/dashboard/dock/model/Document.mjs';
-import Viewport      from '../../../../../src/container/Viewport.mjs';
+import DockWorkspace     from '../../../../../src/dashboard/dock/Workspace.mjs';
+import WorkspaceDocument from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Viewport          from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 const bootstrapDocument = {
@@ -74,9 +74,9 @@ class DeferredDockWorkspace extends DockWorkspace {
     construct(config) {
         super.construct(config);
 
-        this.dockModel = Document.clone(bootstrapDocument);
+        this.dockModel = WorkspaceDocument.clone(bootstrapDocument);
         this.add(this.projectDockModel());
-        this.onDockZoneDocumentChange(Document.clone(realDocument))
+        this.onDockZoneDocumentChange(WorkspaceDocument.clone(realDocument))
     }
 
     /**

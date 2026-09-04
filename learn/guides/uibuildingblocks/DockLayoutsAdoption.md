@@ -54,7 +54,7 @@ loudly — to guess either one:
 
 ```javascript readonly
 import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
-import Document from '../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Persistence from '../../../src/dashboard/dock/model/Persistence.mjs';
 
 const initialDockModel = {
@@ -81,7 +81,7 @@ class Workspace extends DockWorkspace {
     construct(config) {
         super.construct(config);
 
-        this.dockModel = Document.clone(initialDockModel);
+        this.dockModel = WorkspaceDocument.clone(initialDockModel);
         this.add(this.projectDockModel())
     }
 }
@@ -89,7 +89,7 @@ class Workspace extends DockWorkspace {
 
 That is a complete, working docking workspace: two tabbed zones in a resizable split, drag a tab across zones, done.
 The document is plain serializable JSON — an item **catalog** (what exists) and a **node tree** (where it lives) —
-and `Document.clone` gives your seed a private copy so later commits never mutate your constant.
+and `WorkspaceDocument.clone` gives your seed a private copy so later commits never mutate your constant.
 
 Initial edge bands use the same nested descriptor shape. Give the band a committed normalized extent and opt it into
 the splitter explicitly:

@@ -1,7 +1,7 @@
-import Base         from '../../../core/Base.mjs';
-import TopologyDiff from '../model/TopologyDiff.mjs';
-import Document     from '../model/Document.mjs';
-import Operations   from '../model/Operations.mjs';
+import Base              from '../../../core/Base.mjs';
+import TopologyDiff      from '../model/TopologyDiff.mjs';
+import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
+import Operations        from '../model/Operations.mjs';
 
 /**
  * @class Neo.dashboard.dock.persistence.RestorePlanner
@@ -10,7 +10,7 @@ import Operations   from '../model/Operations.mjs';
  * @summary Plans + applies a same-topology perspective RESTORE through semantic operations.
  *
  * Restore is where object permanence must hold: reaching a captured layout must happen via the
- * {@link Neo.dashboard.dock.model.Document} executor (`moveItem` / `resizeSplit` / `setItemAutoHidden`), NEVER by
+ * {@link Neo.dashboard.dock.model.WorkspaceDocument} executor (`moveItem` / `resizeSplit` / `setItemAutoHidden`), NEVER by
  * document replacement — a swap would remount every pane, violating the §2.6 reparent-never-recreate promise
  * (a restore that flickers every pane is a contract violation wearing a feature's name).
  *
@@ -48,8 +48,8 @@ class RestorePlanner extends Base {
      * @static
      */
     static planRestore(current, captured) {
-        let fpCurrent  = Document.computeShapeFingerprint(current),
-            fpCaptured = Document.computeShapeFingerprint(captured),
+        let fpCurrent  = WorkspaceDocument.computeShapeFingerprint(current),
+            fpCaptured = WorkspaceDocument.computeShapeFingerprint(captured),
             errors     = [...fpCurrent.errors, ...fpCaptured.errors];
 
         if (errors.length) {

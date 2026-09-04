@@ -3,7 +3,7 @@ import Rail              from '../interaction/Rail.mjs';
 import DockSplitter      from '../interaction/DockSplitter.mjs';
 import TabEnterButton    from '../interaction/TabEnterButton.mjs';
 import TabSortZone       from '../interaction/TabSortZone.mjs';
-import Document          from '../model/Document.mjs';
+import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
 import TabOverflowPlugin from '../../../tab/plugin/Overflow.mjs';
 
 // Private runtime restoration slot for live component instances projected through the popup
@@ -472,7 +472,7 @@ class LayoutAdapter extends Base {
      * @static
      */
     static project(model, options={}) {
-        let forbiddenKey = Document.findForbiddenPreviewKey(model);
+        let forbiddenKey = WorkspaceDocument.findForbiddenPreviewKey(model);
 
         if (forbiddenKey) {
             throw new Error(`LayoutAdapter input must be committed dock-zone model; preview-only field "${forbiddenKey}" is not allowed.`)
@@ -483,7 +483,7 @@ class LayoutAdapter extends Base {
         }
 
         let stackDragNodeId = options.enableStackDrag === true
-                ? Document.resolveStackRoot(model)
+                ? WorkspaceDocument.resolveStackRoot(model)
                 : null,
             config = this.projectNode(model.root, {
             applyDockZoneOperation: options.applyDockZoneOperation,
@@ -581,7 +581,7 @@ class LayoutAdapter extends Base {
         }
 
         if (node.type === 'edge-zone') {
-            Object.values(node.zones || {}).map(Document.getZoneNodeId).forEach(childId => {
+            Object.values(node.zones || {}).map(WorkspaceDocument.getZoneNodeId).forEach(childId => {
                 result.push(...this.collectAutoHiddenItems(childId, context))
             })
         } else if (node.type === 'split') {
@@ -686,7 +686,7 @@ class LayoutAdapter extends Base {
 
                 if (node.type === 'edge-zone') {
                     for (const descriptor of Object.values(node.zones || {})) {
-                        if (Document.getZoneNodeId(descriptor) === id) {
+                        if (WorkspaceDocument.getZoneNodeId(descriptor) === id) {
                             return {descriptor, nodeId, split: false}
                         }
                     }
@@ -725,7 +725,7 @@ class LayoutAdapter extends Base {
      *
      * **An ancestor's claim is inherited, not restarted.** `collectAutoHiddenItems` recurses through
      * nested edge-zones, so an item two edge-zones deep is collected by BOTH the outer band and the
-     * inner one. {@link Neo.dashboard.dock.model.Document#findOwningEdge} answers that contest with the
+     * inner one. {@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge} answers that contest with the
      * OUTERMOST edge, and this projection is the behavior that answer describes. The `inheritedIds`
      * filter is what enforces it: without it a nested zone re-claims an item its ancestor already owns
      * and the item renders on two rails. `DockZoneModel.spec` reds on exactly that.
@@ -752,7 +752,7 @@ class LayoutAdapter extends Base {
             railedItemIds = new Set(inheritedIds);
 
         ['top', 'right', 'bottom', 'left'].forEach(edge => {
-            let zoneId = Document.getZoneNodeId(zones[edge]);
+            let zoneId = WorkspaceDocument.getZoneNodeId(zones[edge]);
 
             if (zoneId) {
                 let itemIds = this.collectAutoHiddenItems(zoneId, context)
@@ -784,8 +784,8 @@ class LayoutAdapter extends Base {
             zones.left.resizable === true && middleItems.push(this.createEdgeSplitterAffordance(nodeId, 'left', zones.left, context))
         }
 
-        if (Document.getZoneNodeId(zones.center)) {
-            centerConfig      = this.projectNode(Document.getZoneNodeId(zones.center), childContext);
+        if (WorkspaceDocument.getZoneNodeId(zones.center)) {
+            centerConfig      = this.projectNode(WorkspaceDocument.getZoneNodeId(zones.center), childContext);
             centerConfig.flex = 1;
             middleItems.push(centerConfig)
         }
@@ -849,7 +849,7 @@ class LayoutAdapter extends Base {
      * @static
      */
     static projectEdgeBand(descriptor, edge, context) {
-        let zoneId = Document.getZoneNodeId(descriptor),
+        let zoneId = WorkspaceDocument.getZoneNodeId(descriptor),
             config = zoneId ? this.projectNode(zoneId, context) : null;
 
         if (!config) {
@@ -1168,7 +1168,7 @@ class LayoutAdapter extends Base {
                 // `Workspace#syncDockPinAction` recomputes exactly this on every active-item change.
                 hidden    : !activeItemId
                     || context.items[activeItemId]?.pinnable === false
-                    || !Document.findOwningEdge({nodes: context.nodes}, activeItemId),
+                    || !WorkspaceDocument.findOwningEdge({nodes: context.nodes}, activeItemId),
                 // Like maximize → minimize, the glyph names the NEXT action, not current state:
                 // this one-way command unpins into the rail; the reveal toolbar owns the inverse
                 // thumbtack that pins the pane back into flow.

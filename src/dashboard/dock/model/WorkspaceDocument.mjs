@@ -1,25 +1,25 @@
 import Base from '../../../core/Base.mjs';
 
 /**
- * @class Neo.dashboard.dock.model.Document
+ * @class Neo.dashboard.dock.model.WorkspaceDocument
  * @extends Neo.core.Base
  *
  * @summary The committed dock-zone document contract: schema keys, validation, normalization, tree helpers, and the fail-closed commit.
  *
  * Split out of the former monolithic zone model per the graduated v13.2 DockLayouts
- * architecture: `model.Document` owns the committed-document contract, `model.Operations`
+ * architecture: `model.WorkspaceDocument` owns the committed-document contract, `model.Operations`
  * owns the semantic reducer vocabulary, `model.Persistence` owns saved-layout envelopes,
  * and `persistence.PerspectiveLibrary` is the sole collection/perspective authority.
  * Return shape for every operation and envelope helper: `{document|layout, errors}` —
  * fail-closed, the input is never partially mutated.
  */
-class Document extends Base {
+class WorkspaceDocument extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.dashboard.dock.model.Document'
+         * @member {String} className='Neo.dashboard.dock.model.WorkspaceDocument'
          * @protected
          */
-        className: 'Neo.dashboard.dock.model.Document'
+        className: 'Neo.dashboard.dock.model.WorkspaceDocument'
     }
 
     /**
@@ -106,7 +106,7 @@ class Document extends Base {
 
         if (Array.isArray(value)) {
             for (let i = 0; i < value.length; i++) {
-                let match = Document.findForbiddenPreviewKey(value[i]);
+                let match = WorkspaceDocument.findForbiddenPreviewKey(value[i]);
 
                 if (match) {
                     return match
@@ -117,11 +117,11 @@ class Document extends Base {
         }
 
         for (let key of Object.keys(value)) {
-            if (Document.forbiddenPreviewKeys.has(key)) {
+            if (WorkspaceDocument.forbiddenPreviewKeys.has(key)) {
                 return key
             }
 
-            let match = Document.findForbiddenPreviewKey(value[key]);
+            let match = WorkspaceDocument.findForbiddenPreviewKey(value[key]);
 
             if (match) {
                 return match
@@ -158,7 +158,7 @@ class Document extends Base {
      * @static
      */
     static getZoneNodeId(descriptor) {
-        return Document.isJsonRecord(descriptor) && typeof descriptor.nodeId === 'string' && descriptor.nodeId
+        return WorkspaceDocument.isJsonRecord(descriptor) && typeof descriptor.nodeId === 'string' && descriptor.nodeId
             ? descriptor.nodeId
             : null
     }
@@ -173,7 +173,7 @@ class Document extends Base {
      */
     static setZoneNodeId(edgeZoneNode, edge, nodeId) {
         edgeZoneNode.zones[edge] = {
-            ...(Document.isJsonRecord(edgeZoneNode.zones[edge]) ? edgeZoneNode.zones[edge] : {}),
+            ...(WorkspaceDocument.isJsonRecord(edgeZoneNode.zones[edge]) ? edgeZoneNode.zones[edge] : {}),
             nodeId
         }
     }
@@ -235,7 +235,7 @@ class Document extends Base {
 
         if (Array.isArray(value)) {
             for (let i = 0; i < value.length; i++) {
-                let match = Document.findNonJsonValue(value[i], `${path}[${i}]`, seen);
+                let match = WorkspaceDocument.findNonJsonValue(value[i], `${path}[${i}]`, seen);
 
                 if (match) {
                     return match
@@ -245,7 +245,7 @@ class Document extends Base {
             return null
         }
 
-        if (!Document.isJsonRecord(value)) {
+        if (!WorkspaceDocument.isJsonRecord(value)) {
             return {path, reason: `${value.constructor?.name || 'object'} is not a JSON record`}
         }
 
@@ -254,7 +254,7 @@ class Document extends Base {
                 return {path: `${path}.${String(key)}`, reason: 'symbol keys are not JSON-serializable'}
             }
 
-            let match = Document.findNonJsonValue(value[key], `${path}.${key}`, seen);
+            let match = WorkspaceDocument.findNonJsonValue(value[key], `${path}.${key}`, seen);
 
             if (match) {
                 return match
@@ -312,7 +312,7 @@ class Document extends Base {
     static findSecretMetadataKey(value, path='metadata') {
         if (Array.isArray(value)) {
             for (let i = 0; i < value.length; i++) {
-                let match = Document.findSecretMetadataKey(value[i], `${path}[${i}]`);
+                let match = WorkspaceDocument.findSecretMetadataKey(value[i], `${path}[${i}]`);
 
                 if (match) {
                     return match
@@ -322,16 +322,16 @@ class Document extends Base {
             return null
         }
 
-        if (!Document.isJsonRecord(value)) {
+        if (!WorkspaceDocument.isJsonRecord(value)) {
             return null
         }
 
         for (const [key, child] of Object.entries(value)) {
-            if (Document.isSecretMetadataKey(key)) {
+            if (WorkspaceDocument.isSecretMetadataKey(key)) {
                 return {key, path: `${path}.${key}`, reason: 'metadata must not contain credentials or secrets'}
             }
 
-            let match = Document.findSecretMetadataKey(child, `${path}.${key}`);
+            let match = WorkspaceDocument.findSecretMetadataKey(child, `${path}.${key}`);
 
             if (match) {
                 return match
@@ -354,23 +354,23 @@ class Document extends Base {
      * @static
      */
     static findUnexpectedDockZoneKey(document, path='dockZone') {
-        if (!Document.isJsonRecord(document)) {
+        if (!WorkspaceDocument.isJsonRecord(document)) {
             return null
         }
 
-        let unexpected = Document.findUnexpectedKey(document, Document.dockZoneDocumentKeys, path);
+        let unexpected = WorkspaceDocument.findUnexpectedKey(document, WorkspaceDocument.dockZoneDocumentKeys, path);
 
         if (unexpected) {
             return unexpected
         }
 
-        if (Document.isJsonRecord(document.items)) {
+        if (WorkspaceDocument.isJsonRecord(document.items)) {
             for (const [itemId, item] of Object.entries(document.items)) {
-                if (!Document.isJsonRecord(item)) {
+                if (!WorkspaceDocument.isJsonRecord(item)) {
                     return {key: itemId, path: `${path}.items.${itemId}`, reason: 'item record must be a JSON object'}
                 }
 
-                unexpected = Document.findUnexpectedKey(item, Document.dockZoneItemKeys, `${path}.items.${itemId}`);
+                unexpected = WorkspaceDocument.findUnexpectedKey(item, WorkspaceDocument.dockZoneItemKeys, `${path}.items.${itemId}`);
 
                 if (unexpected) {
                     return unexpected
@@ -378,37 +378,37 @@ class Document extends Base {
             }
         }
 
-        if (Document.isJsonRecord(document.nodes)) {
+        if (WorkspaceDocument.isJsonRecord(document.nodes)) {
             for (const [nodeId, node] of Object.entries(document.nodes)) {
-                if (!Document.isJsonRecord(node)) {
+                if (!WorkspaceDocument.isJsonRecord(node)) {
                     return {key: nodeId, path: `${path}.nodes.${nodeId}`, reason: 'node record must be a JSON object'}
                 }
 
-                let allowedNodeKeys = Document.dockZoneNodeKeys[node.type];
+                let allowedNodeKeys = WorkspaceDocument.dockZoneNodeKeys[node.type];
 
                 if (!allowedNodeKeys) {
                     return {key: 'type', path: `${path}.nodes.${nodeId}.type`, reason: `unsupported dock-zone node type "${node.type}"`}
                 }
 
-                unexpected = Document.findUnexpectedKey(node, allowedNodeKeys, `${path}.nodes.${nodeId}`);
+                unexpected = WorkspaceDocument.findUnexpectedKey(node, allowedNodeKeys, `${path}.nodes.${nodeId}`);
 
                 if (unexpected) {
                     return unexpected
                 }
 
                 if (node.type === 'edge-zone') {
-                    if (!Document.isJsonRecord(node.zones)) {
+                    if (!WorkspaceDocument.isJsonRecord(node.zones)) {
                         return {key: 'zones', path: `${path}.nodes.${nodeId}.zones`, reason: 'edge-zone zones must be a JSON object'}
                     }
 
-                    unexpected = Document.findUnexpectedKey(node.zones, Document.dockZoneEdgeKeys, `${path}.nodes.${nodeId}.zones`);
+                    unexpected = WorkspaceDocument.findUnexpectedKey(node.zones, WorkspaceDocument.dockZoneEdgeKeys, `${path}.nodes.${nodeId}.zones`);
 
                     if (unexpected) {
                         return unexpected
                     }
 
                     for (const [edge, descriptor] of Object.entries(node.zones)) {
-                        if (!Document.isJsonRecord(descriptor)) {
+                        if (!WorkspaceDocument.isJsonRecord(descriptor)) {
                             return {
                                 key   : edge,
                                 path  : `${path}.nodes.${nodeId}.zones.${edge}`,
@@ -416,9 +416,9 @@ class Document extends Base {
                             }
                         }
 
-                        unexpected = Document.findUnexpectedKey(
+                        unexpected = WorkspaceDocument.findUnexpectedKey(
                             descriptor,
-                            Document.dockZoneDescriptorKeys,
+                            WorkspaceDocument.dockZoneDescriptorKeys,
                             `${path}.nodes.${nodeId}.zones.${edge}`
                         );
 
@@ -483,17 +483,17 @@ class Document extends Base {
      * while that node still exists — and for the commonest tear-out (a pane alone in its zone)
      * it never does: the emptied node is removed on commit and an emptied split collapses with
      * it. The id alone therefore describes a home that is guaranteed to be gone exactly when it
-     * is needed. See {@link Neo.dashboard.dock.model.Document.captureNodeHome}.
+     * is needed. See {@link Neo.dashboard.dock.model.WorkspaceDocument.captureNodeHome}.
      * @param {Object} document
      * @param {String} itemId
      * @returns {{tabsNodeId: String, index: Number, home: Object|null}|null}
      * @static
      */
     static captureItemPlacement(document, itemId) {
-        let tabsNodeId = Document.findContainingTabsId(document, itemId),
+        let tabsNodeId = WorkspaceDocument.findContainingTabsId(document, itemId),
             index      = tabsNodeId ? document.nodes[tabsNodeId].items.indexOf(itemId) : -1;
 
-        return index >= 0 ? {tabsNodeId, index, home: Document.captureNodeHome(document, tabsNodeId)} : null
+        return index >= 0 ? {tabsNodeId, index, home: WorkspaceDocument.captureNodeHome(document, tabsNodeId)} : null
     }
 
     /**
@@ -518,7 +518,7 @@ class Document extends Base {
      * @static
      */
     static captureNodeHome(document, nodeId) {
-        let slot = Document.findParentSlot(document, nodeId);
+        let slot = WorkspaceDocument.findParentSlot(document, nodeId);
 
         if (!slot) return null;
 
@@ -528,7 +528,7 @@ class Document extends Base {
         if (parent?.type === 'edge-zone' && typeof slot.slot === 'string') {
             let descriptor = parent.zones?.[slot.slot];
 
-            if (Document.isJsonRecord(descriptor)) {
+            if (WorkspaceDocument.isJsonRecord(descriptor)) {
                 // Recorded only when declared: a slot that never carried an extent must come back
                 // without one, so the projection default keeps deciding rather than a value we made up.
                 typeof descriptor.extent  === 'number'  && (home.extent    = descriptor.extent);
@@ -557,7 +557,7 @@ class Document extends Base {
 
     /**
      * @summary Mutating helper: grafts an already-present node back into the home
-     * {@link Neo.dashboard.dock.model.Document.captureNodeHome} recorded for it.
+     * {@link Neo.dashboard.dock.model.WorkspaceDocument.captureNodeHome} recorded for it.
      *
      * Three resolutions, most faithful first: the recorded parent still holds the slot and it is
      * still FREE (an edge-zone that lost the key, or a split that kept ≥ 2 other children);
@@ -588,7 +588,7 @@ class Document extends Base {
         let parent = document.nodes[home.parentId];
 
         if (parent?.type === 'edge-zone' && typeof home.slot === 'string') {
-            const occupant = Document.getZoneNodeId(parent.zones?.[home.slot]);
+            const occupant = WorkspaceDocument.getZoneNodeId(parent.zones?.[home.slot]);
 
             // An edge zone holds ONE node per key, so writing the slot REPLACES whatever is there.
             // A vessel is long-lived: the user can dock another pane to this edge while the pane is
@@ -596,9 +596,9 @@ class Document extends Base {
             // being restored. An occupied slot is therefore not a home. This is the ownership
             // question, distinct from the existence question every other path asks.
             if (!occupant || occupant === nodeId) {
-                let existed = Document.isJsonRecord(parent.zones?.[home.slot]);
+                let existed = WorkspaceDocument.isJsonRecord(parent.zones?.[home.slot]);
 
-                Document.setZoneNodeId(parent, home.slot, nodeId);
+                WorkspaceDocument.setZoneNodeId(parent, home.slot, nodeId);
 
                 // `setZoneNodeId` spreads whatever descriptor it finds, so a SURVIVING slot keeps its
                 // own geometry — including a resize the user performed while the pane was out, which
@@ -646,7 +646,7 @@ class Document extends Base {
             // is the remainder, exactly rather than approximately.
             let sizes = home.position === 'before' ? [home.size, 1 - home.size] : [1 - home.size, home.size];
 
-            return Document.attachNode(document, nodeId, home.siblingId, {
+            return WorkspaceDocument.attachNode(document, nodeId, home.siblingId, {
                 orientation: home.orientation,
                 position   : home.position,
                 sizes
@@ -673,7 +673,7 @@ class Document extends Base {
                 if (index > -1) return {parentId, slot: index}
             } else if (node.type === 'edge-zone' && node.zones) {
                 for (const [zone, descriptor] of Object.entries(node.zones)) {
-                    if (Document.getZoneNodeId(descriptor) === nodeId) return {parentId, slot: zone}
+                    if (WorkspaceDocument.getZoneNodeId(descriptor) === nodeId) return {parentId, slot: zone}
                 }
             }
         }
@@ -711,7 +711,7 @@ class Document extends Base {
      * @static
      */
     static findOwningEdge(document, itemId) {
-        let nodeId = Document.findContainingTabsId(document, itemId),
+        let nodeId = WorkspaceDocument.findContainingTabsId(document, itemId),
             edge   = null,
             seen   = new Set(),
             parent;
@@ -721,7 +721,7 @@ class Document extends Base {
         while (nodeId && !seen.has(nodeId)) {
             seen.add(nodeId);
 
-            parent = Document.findParentSlot(document, nodeId);
+            parent = WorkspaceDocument.findParentSlot(document, nodeId);
 
             if (!parent) break;
 
@@ -744,7 +744,7 @@ class Document extends Base {
      * @static
      */
     static detachFromTabs(document, itemId) {
-        let tabsId = Document.findContainingTabsId(document, itemId);
+        let tabsId = WorkspaceDocument.findContainingTabsId(document, itemId);
 
         if (!tabsId) return;
 
@@ -777,7 +777,7 @@ class Document extends Base {
                 if (node.type === 'split') {
                     (node.children || []).forEach(walk)
                 } else if (node.type === 'edge-zone') {
-                    Object.values(node.zones || {}).map(Document.getZoneNodeId).forEach(walk)
+                    Object.values(node.zones || {}).map(WorkspaceDocument.getZoneNodeId).forEach(walk)
                 }
             };
 
@@ -797,7 +797,7 @@ class Document extends Base {
      * @static
      */
     static detachNode(document, nodeId) {
-        let slot = Document.findParentSlot(document, nodeId);
+        let slot = WorkspaceDocument.findParentSlot(document, nodeId);
 
         if (!slot) return;
 
@@ -871,11 +871,11 @@ class Document extends Base {
         }
 
         let {edge, orientation, position, sizes} = placement,
-            newSplitId                           = Document.genId(document, `split-${targetNodeId}`),
+            newSplitId                           = WorkspaceDocument.genId(document, `split-${targetNodeId}`),
             ratio                                = (Array.isArray(sizes) && sizes.length === 2) ? sizes : [0.5, 0.5],
             atPosition                           = position || ((edge === 'top' || edge === 'left') ? 'before' : 'after'),
             // Resolve the target's parent BEFORE inserting the new split (which references the target).
-            parentSlot = Document.findParentSlot(document, targetNodeId);
+            parentSlot = WorkspaceDocument.findParentSlot(document, targetNodeId);
 
         document.nodes[newSplitId] = {
             type    : 'split',
@@ -889,7 +889,7 @@ class Document extends Base {
         } else if (typeof parentSlot.slot === 'number') {
             document.nodes[parentSlot.parentId].children[parentSlot.slot] = newSplitId
         } else {
-            Document.setZoneNodeId(document.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
+            WorkspaceDocument.setZoneNodeId(document.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
         }
 
         return []
@@ -910,13 +910,13 @@ class Document extends Base {
         let errors = [];
 
         if (!document || typeof document !== 'object') return ['document is not an object'];
-        if (document.schema !== Document.SCHEMA)   errors.push(`schema must be ${Document.SCHEMA}`);
+        if (document.schema !== WorkspaceDocument.SCHEMA)   errors.push(`schema must be ${WorkspaceDocument.SCHEMA}`);
         if (!document.nodes || !document.nodes[document.root]) errors.push(`root node "${document.root}" is missing`);
 
         // Runtime-only preview state is invalid at the model boundary — not just at render projection.
         // The scan reaches into the opaque `metadata` channel, so a preview key cannot ride a saved
         // layout through createSavedLayout / restoreSavedLayout (both validate through here).
-        let previewKey = Document.findForbiddenPreviewKey(document);
+        let previewKey = WorkspaceDocument.findForbiddenPreviewKey(document);
 
         if (previewKey) {
             errors.push(`runtime-only preview field "${previewKey}" must not enter committed dock-zone state`)
@@ -927,23 +927,23 @@ class Document extends Base {
             itemUse = {};
 
         for (const [itemId, item] of Object.entries(items)) {
-            if (Document.isJsonRecord(item) && Object.hasOwn(item, 'pinned') && typeof item.pinned !== 'boolean') {
+            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'pinned') && typeof item.pinned !== 'boolean') {
                 errors.push(`item "${itemId}" pinned must be a boolean`)
             }
 
-            if (Document.isJsonRecord(item) && Object.hasOwn(item, 'autoHidden') && typeof item.autoHidden !== 'boolean') {
+            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'autoHidden') && typeof item.autoHidden !== 'boolean') {
                 errors.push(`item "${itemId}" autoHidden must be a boolean`)
             }
 
-            if (Document.isJsonRecord(item) && Object.hasOwn(item, 'lockable') && typeof item.lockable !== 'boolean') {
+            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'lockable') && typeof item.lockable !== 'boolean') {
                 errors.push(`item "${itemId}" lockable must be a boolean`)
             }
 
-            if (Document.isJsonRecord(item) && Object.hasOwn(item, 'locked') && typeof item.locked !== 'boolean') {
+            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'locked') && typeof item.locked !== 'boolean') {
                 errors.push(`item "${itemId}" locked must be a boolean`)
             }
 
-            if (Document.isJsonRecord(item) && item.pinned === true && item.autoHidden === true) {
+            if (WorkspaceDocument.isJsonRecord(item) && item.pinned === true && item.autoHidden === true) {
                 errors.push(`item "${itemId}" cannot be pinned and autoHidden at the same time`)
             }
         }
@@ -962,28 +962,28 @@ class Document extends Base {
                     errors.push(`split "${nodeId}" sizes do not sum to 1`)
                 }
             } else if (node.type === 'edge-zone') {
-                if (!Document.isJsonRecord(node.zones)) {
+                if (!WorkspaceDocument.isJsonRecord(node.zones)) {
                     errors.push(`edge-zone "${nodeId}" zones must be a JSON object`)
                     continue
                 }
 
                 for (const [edge, descriptor] of Object.entries(node.zones)) {
-                    if (!Document.dockZoneEdgeKeys.has(edge)) {
+                    if (!WorkspaceDocument.dockZoneEdgeKeys.has(edge)) {
                         errors.push(`edge-zone "${nodeId}" has unsupported edge "${edge}"`);
                         continue
                     }
 
-                    if (!Document.isJsonRecord(descriptor)) {
+                    if (!WorkspaceDocument.isJsonRecord(descriptor)) {
                         errors.push(`edge-zone "${nodeId}" zone "${edge}" descriptor must be a JSON object`);
                         continue
                     }
 
-                    let unexpected = Document.findUnexpectedKey(
+                    let unexpected = WorkspaceDocument.findUnexpectedKey(
                             descriptor,
-                            Document.dockZoneDescriptorKeys,
+                            WorkspaceDocument.dockZoneDescriptorKeys,
                             `document.nodes.${nodeId}.zones.${edge}`
                         ),
-                        targetId = Document.getZoneNodeId(descriptor);
+                        targetId = WorkspaceDocument.getZoneNodeId(descriptor);
 
                     if (unexpected) {
                         errors.push(`${unexpected.path} ${unexpected.reason}`)
@@ -1039,7 +1039,7 @@ class Document extends Base {
      * @static
      */
     static normalizeTree(document) {
-        let doc = Document.clone(document);
+        let doc = WorkspaceDocument.clone(document);
 
         const collapse = nodeId => {
             let node = doc.nodes[nodeId];
@@ -1062,10 +1062,10 @@ class Document extends Base {
                 }
             } else if (node.type === 'edge-zone') {
                 for (const [zone, descriptor] of Object.entries(node.zones || {})) {
-                    let resolved = collapse(Document.getZoneNodeId(descriptor));
+                    let resolved = collapse(WorkspaceDocument.getZoneNodeId(descriptor));
 
                     if (resolved && doc.nodes[resolved]) {
-                        Document.setZoneNodeId(node, zone, resolved)
+                        WorkspaceDocument.setZoneNodeId(node, zone, resolved)
                     } else {
                         delete node.zones[zone]
                     }
@@ -1084,7 +1084,7 @@ class Document extends Base {
         doc.root = newRoot ?? doc.root;
 
         // prune nodes unreachable from the (possibly new) root
-        let reachable = Document.reachableNodeIds(doc);
+        let reachable = WorkspaceDocument.reachableNodeIds(doc);
         Object.keys(doc.nodes).forEach(nodeId => {
             if (!reachable.has(nodeId)) delete doc.nodes[nodeId]
         });
@@ -1101,8 +1101,8 @@ class Document extends Base {
      * @static
      */
     static commit(original, mutated) {
-        let normalized = Document.normalizeTree(mutated),
-            errors     = Document.validate(normalized);
+        let normalized = WorkspaceDocument.normalizeTree(mutated),
+            errors     = WorkspaceDocument.validate(normalized);
 
         return errors.length ? {document: original, errors} : {document: normalized, errors: []}
     }
@@ -1178,7 +1178,7 @@ class Document extends Base {
     static computeShapeFingerprint(document) {
         let errors = [];
 
-        if (!Document.isJsonRecord(document) || !Document.isJsonRecord(document.nodes)) {
+        if (!WorkspaceDocument.isJsonRecord(document) || !WorkspaceDocument.isJsonRecord(document.nodes)) {
             return {fingerprint: null, errors: ['fingerprint requires a document with a nodes record']}
         }
 
@@ -1210,20 +1210,20 @@ class Document extends Base {
                 case 'tabs':
                     return `t${node.items?.length || 0}`;
                 case 'edge-zone': {
-                    if (!Document.isJsonRecord(node.zones)) {
+                    if (!WorkspaceDocument.isJsonRecord(node.zones)) {
                         errors.push(`fingerprint walk found a non-record zones container for edge-zone "${nodeId}"`);
                         return '?'
                     }
 
                     const zones = node.zones;
 
-                    return `e{${[...Document.dockZoneEdgeKeys]
+                    return `e{${[...WorkspaceDocument.dockZoneEdgeKeys]
                         .map(zone => {
                             if (!Object.hasOwn(zones, zone)) {
                                 return ''
                             }
 
-                            let childNodeId = Document.getZoneNodeId(zones[zone]);
+                            let childNodeId = WorkspaceDocument.getZoneNodeId(zones[zone]);
 
                             if (!childNodeId) {
                                 errors.push(`fingerprint walk found unusable descriptor for edge-zone "${nodeId}" zone "${zone}"`);
@@ -1258,31 +1258,34 @@ class Document extends Base {
     }
 
     /**
-     * @summary Composes per-window shape fingerprints into one whole-topology fingerprint.
+     * @summary Composes workspace-keyed shape fingerprints into one deterministic topology fingerprint.
      *
-     * Slot ORDER is meaning: the reconciliation of a restored topology maps captured slots onto
-     * live windows positionally-by-shape, so the composed term preserves input order verbatim.
-     * Envelope-agnostic by design — whichever record shape the topology capture persists,
-     * it carries this composition. Fails closed on an empty list, any entry that is not a
-     * window-shape fingerprint record, and any INCOMPLETE record: the composition consumes
-     * `itemCount`, and a window fingerprint always emits an integer count ≥ 0, so a missing or
-     * malformed count is rejected — never defaulted into a fake zero.
-     * @param {Object[]} windowFingerprints Ordered per-window records from {@link #computeShapeFingerprint}.
+     * Workspace identity, not registration order, is the durable coordinate. Keys are sorted before
+     * composition, so two equivalent records produce identical evidence regardless of object insertion
+     * order. Each value must be the complete output of {@link #computeShapeFingerprint}; a malformed or
+     * missing `itemCount` fails closed instead of being defaulted into a fictive zero.
+     * @param {Object<String,Object>} workspaceFingerprints Per-workspace records keyed by `workspaceKey`.
      * @returns {{fingerprint:(Object|null), errors:String[]}}
      * @static
      */
-    static composeTopologyFingerprint(windowFingerprints) {
+    static composeTopologyFingerprint(workspaceFingerprints) {
         let errors = [];
 
-        if (!Array.isArray(windowFingerprints) || windowFingerprints.length < 1) {
-            return {fingerprint: null, errors: ['topology fingerprint requires a non-empty ordered array of window fingerprints']}
+        if (!WorkspaceDocument.isJsonRecord(workspaceFingerprints) || !Object.keys(workspaceFingerprints).length) {
+            return {fingerprint: null, errors: ['topology fingerprint requires a non-empty keyed workspace record']}
         }
 
-        windowFingerprints.forEach((entry, index) => {
-            if (entry?.schema !== 'neo.dock.shape.v1' || typeof entry.shape !== 'string') {
-                errors.push(`entry ${index} is not a window shape fingerprint record`)
+        const workspaceKeys = Object.keys(workspaceFingerprints).sort();
+
+        workspaceKeys.forEach(workspaceKey => {
+            const entry = workspaceFingerprints[workspaceKey];
+
+            if (!workspaceKey.trim()) {
+                errors.push('topology fingerprint workspace keys must be non-empty strings')
+            } else if (entry?.schema !== 'neo.dock.shape.v1' || typeof entry.shape !== 'string') {
+                errors.push(`workspace "${workspaceKey}" is not a workspace shape fingerprint record`)
             } else if (!Number.isInteger(entry.itemCount) || entry.itemCount < 0) {
-                errors.push(`entry ${index} is an incomplete window fingerprint record: itemCount must be an integer >= 0`)
+                errors.push(`workspace "${workspaceKey}" is an incomplete workspace fingerprint record: itemCount must be an integer >= 0`)
             }
         });
 
@@ -1292,10 +1295,10 @@ class Document extends Base {
 
         return {
             fingerprint: {
-                schema     : 'neo.dock.topologyShape.v1',
-                windowCount: windowFingerprints.length,
-                shape      : `w[${windowFingerprints.map(entry => entry.shape).join('|')}]`,
-                totalItems : windowFingerprints.reduce((sum, entry) => sum + entry.itemCount, 0)
+                schema        : 'neo.dock.topologyShape.v2',
+                workspaceCount: workspaceKeys.length,
+                shape         : `w{${workspaceKeys.map(key => `${JSON.stringify(key)}:${workspaceFingerprints[key].shape}`).join('|')}}`,
+                totalItems    : workspaceKeys.reduce((sum, key) => sum + workspaceFingerprints[key].itemCount, 0)
             },
             errors
         }
@@ -1327,10 +1330,10 @@ class Document extends Base {
             return null
         }
 
-        centerId = Document.getZoneNodeId(root.zones?.center);
+        centerId = WorkspaceDocument.getZoneNodeId(root.zones?.center);
 
         return centerId && document.nodes[centerId] ? centerId : null
     }
 }
 
-export default Neo.setupClass(Document);
+export default Neo.setupClass(WorkspaceDocument);

@@ -10,7 +10,7 @@ import {test, expect}           from '@playwright/test';
 import Neo                      from '../../../../../src/Neo.mjs';
 import * as core                from '../../../../../src/core/_export.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
-import Document                 from '../../../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import {previewToOperation}     from '../../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import '../../../../../src/manager/Instance.mjs';
@@ -1002,7 +1002,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             const provisional = workspace.getWorkspaceDocument(workspaceId);
 
-            expect(Document.validate(provisional)).toEqual([]);
+            expect(WorkspaceDocument.validate(provisional)).toEqual([]);
             expect(provisional.items).toEqual({});
             expect(provisional.nodes[Workspace.vesselTabsNodeId('alerts')]).toEqual({
                 activeItemId: null,
@@ -1810,7 +1810,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             const returnDescriptor = {
                     operation        : 'transferNode',
-                    nodeId           : Document.resolveStackRoot(state.document),
+                    nodeId           : WorkspaceDocument.resolveStackRoot(state.document),
                     sourceWorkspaceId: workspaceId,
                     targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                     target           : {
@@ -1967,7 +1967,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             const
                 descriptor = {
                     operation        : 'transferNode',
-                    nodeId           : Document.resolveStackRoot(state.document),
+                    nodeId           : WorkspaceDocument.resolveStackRoot(state.document),
                     sourceWorkspaceId: workspaceId,
                     targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                     target           : {
@@ -2568,7 +2568,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
             // against the one being reset into place, so the stub would fail the diff's shape gate
             // and the derivation would fail closed — turning this assertion into a statement about
             // an unparseable fixture rather than about same-topology admission.
-            liveDocument = Document.clone(initialDocument),
+            liveDocument = WorkspaceDocument.clone(initialDocument),
             refreshCalls = [],
             host         = {
                 dockModel     : liveDocument,

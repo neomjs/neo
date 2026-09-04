@@ -6,13 +6,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import DockService    from '../../../../../../src/ai/client/DockService.mjs';
-import Document       from '../../../../../../src/dashboard/dock/model/Document.mjs';
-import Operations     from '../../../../../../src/dashboard/dock/model/Operations.mjs';
-import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../../../src/Neo.mjs';
+import * as core         from '../../../../../../src/core/_export.mjs';
+import DockService       from '../../../../../../src/ai/client/DockService.mjs';
+import WorkspaceDocument from '../../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations        from '../../../../../../src/dashboard/dock/model/Operations.mjs';
+import TourRunner        from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import DockLayoutAdapter                  from '../../../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import {validateTourScript}               from '../../../../../../src/ai/client/tourScript.mjs';
@@ -55,7 +55,7 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
      * @returns {Object}
      */
     function createHolder() {
-        const holder = {dockZoneDocument: Document.clone(initialDocument), id: 'demo-a-stage'};
+        const holder = {dockZoneDocument: WorkspaceDocument.clone(initialDocument), id: 'demo-a-stage'};
 
         Neo.getComponent = () => holder;
 
@@ -152,7 +152,7 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
         // fold the script's op descriptors through the reducer: S1 (2) + S2 (3) + the three tucks = 8 ops
         const opSteps = demoATourScript.scenes.flatMap(scene => scene.steps).filter(step => step.type === 'op');
 
-        let document = Document.clone(initialDocument);
+        let document = WorkspaceDocument.clone(initialDocument);
 
         const apply = step => {
             const result = Operations.applyOperation(document, step.descriptor);

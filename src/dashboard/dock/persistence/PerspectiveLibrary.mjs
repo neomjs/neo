@@ -1,7 +1,7 @@
-import Base        from '../../../core/Base.mjs';
-import Document    from '../model/Document.mjs';
-import Persistence from '../model/Persistence.mjs';
-import Observable  from '../../../core/Observable.mjs';
+import Base              from '../../../core/Base.mjs';
+import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
+import Persistence       from '../model/Persistence.mjs';
+import Observable        from '../../../core/Observable.mjs';
 
 // Prototype-shaped keys are rejected at the write boundary: `layouts[key]` assignment with
 // '__proto__' mutates the object's prototype instead of adding a record, and inherited
@@ -15,7 +15,7 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * switchable state.
  *
  * The store deliberately introduces NO new persisted shape (the docking ADR's anti-anchor): it
- * operates on the landed collection schema through the model tier validators and constructors (Document, Persistence),
+ * operates on the landed collection schema through the model tier validators and constructors (WorkspaceDocument, Persistence),
  * and every read or write crosses its boundary as plain JSON clones — no live component refs, no
  * functions, no window state can enter or leave (guardrail-specced). Mutations are atomic and
  * fail closed: the CANDIDATE collection validates as a whole before it replaces the current one,
@@ -57,7 +57,7 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * @class Neo.dashboard.dock.persistence.PerspectiveLibrary
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
- * @see Neo.dashboard.dock.model.Document
+ * @see Neo.dashboard.dock.model.WorkspaceDocument
  * @see Neo.dashboard.dock.model.Persistence
  * @see learn/agentos/DockZoneModel.md
  */
@@ -118,7 +118,7 @@ class PerspectiveLibrary extends Base {
     static validateSavedLayoutCollection(collection) {
         let errors = [];
 
-        if (!Document.isJsonRecord(collection)) {
+        if (!WorkspaceDocument.isJsonRecord(collection)) {
             return ['saved layout collection must be a JSON object']
         }
 
@@ -132,42 +132,42 @@ class PerspectiveLibrary extends Base {
             errors.push('activeLayoutId must be a non-empty string or null')
         }
 
-        if (!Document.isJsonRecord(collection.layouts)) {
+        if (!WorkspaceDocument.isJsonRecord(collection.layouts)) {
             errors.push('layouts must be a JSON object')
         }
 
-        if (Object.hasOwn(collection, 'metadata') && !Document.isJsonRecord(collection.metadata)) {
+        if (Object.hasOwn(collection, 'metadata') && !WorkspaceDocument.isJsonRecord(collection.metadata)) {
             errors.push('metadata must be a JSON object')
         }
 
         let secretKey = Object.hasOwn(collection, 'metadata')
-            ? Document.findSecretMetadataKey(collection.metadata, 'layoutCollection.metadata')
+            ? WorkspaceDocument.findSecretMetadataKey(collection.metadata, 'layoutCollection.metadata')
             : null;
 
         if (secretKey) {
             errors.push(`layout collection metadata contains secret-like field "${secretKey.key}" at ${secretKey.path}: ${secretKey.reason}`)
         }
 
-        let unexpectedKey = Document.findUnexpectedKey(collection, PerspectiveLibrary.savedLayoutCollectionKeys, 'layoutCollection');
+        let unexpectedKey = WorkspaceDocument.findUnexpectedKey(collection, PerspectiveLibrary.savedLayoutCollectionKeys, 'layoutCollection');
 
         if (unexpectedKey) {
             errors.push(`layout collection contains unexpected field "${unexpectedKey.key}" at ${unexpectedKey.path}: ${unexpectedKey.reason}`)
         }
 
-        let nonJson = Document.findNonJsonValue(collection, 'layoutCollection');
+        let nonJson = WorkspaceDocument.findNonJsonValue(collection, 'layoutCollection');
 
         if (nonJson) {
             errors.push(`layout collection ${nonJson.path} is not JSON-only: ${nonJson.reason}`)
         }
 
-        if (Document.isJsonRecord(collection.layouts)) {
+        if (WorkspaceDocument.isJsonRecord(collection.layouts)) {
             for (const [layoutId, savedLayout] of Object.entries(collection.layouts)) {
                 if (!layoutId.trim()) {
                     errors.push('layout keys must be non-empty strings');
                     continue
                 }
 
-                if (!Document.isJsonRecord(savedLayout)) {
+                if (!WorkspaceDocument.isJsonRecord(savedLayout)) {
                     errors.push(`layout "${layoutId}" must be a JSON object`);
                     continue
                 }
@@ -184,11 +184,11 @@ class PerspectiveLibrary extends Base {
             }
         }
 
-        let layoutCount = Document.isJsonRecord(collection.layouts) ? Object.keys(collection.layouts).length : 0;
+        let layoutCount = WorkspaceDocument.isJsonRecord(collection.layouts) ? Object.keys(collection.layouts).length : 0;
 
         if (collection.activeLayoutId === null && layoutCount > 0) {
             errors.push('activeLayoutId must name an existing layout when layouts are present')
-        } else if (typeof collection.activeLayoutId === 'string' && Document.isJsonRecord(collection.layouts) && !Object.hasOwn(collection.layouts, collection.activeLayoutId)) {
+        } else if (typeof collection.activeLayoutId === 'string' && WorkspaceDocument.isJsonRecord(collection.layouts) && !Object.hasOwn(collection.layouts, collection.activeLayoutId)) {
             errors.push(`activeLayoutId "${collection.activeLayoutId}" does not exist`)
         }
 
@@ -203,11 +203,11 @@ class PerspectiveLibrary extends Base {
      * @static
      */
     static createSavedLayoutCollection(layouts=[], options={}) {
-        if (!Array.isArray(layouts) && !Document.isJsonRecord(layouts)) {
+        if (!Array.isArray(layouts) && !WorkspaceDocument.isJsonRecord(layouts)) {
             return {collection: null, errors: ['layouts must be an array or JSON object']}
         }
 
-        if (!Document.isJsonRecord(options)) {
+        if (!WorkspaceDocument.isJsonRecord(options)) {
             return {collection: null, errors: ['options must be a JSON object']}
         }
 
@@ -218,7 +218,7 @@ class PerspectiveLibrary extends Base {
                 metadata      : Object.hasOwn(options, 'metadata') ? options.metadata : {}
             },
             entries    = Array.isArray(layouts)
-                ? layouts.map((layout, index) => [Document.isJsonRecord(layout) ? layout.layoutId : `index-${index}`, layout])
+                ? layouts.map((layout, index) => [WorkspaceDocument.isJsonRecord(layout) ? layout.layoutId : `index-${index}`, layout])
                 : Object.entries(layouts),
             errors     = [];
 
@@ -228,7 +228,7 @@ class PerspectiveLibrary extends Base {
                 continue
             }
 
-            collection.layouts[layoutId] = Document.clone(savedLayout)
+            collection.layouts[layoutId] = WorkspaceDocument.clone(savedLayout)
         }
 
         if (!Object.hasOwn(options, 'activeLayoutId')) {
@@ -243,7 +243,7 @@ class PerspectiveLibrary extends Base {
 
         return errors.length
             ? {collection: null, errors}
-            : {collection: Document.clone(collection), errors: []}
+            : {collection: WorkspaceDocument.clone(collection), errors: []}
     }
 
     /**
@@ -267,10 +267,10 @@ class PerspectiveLibrary extends Base {
             return {collection, errors: restored.errors}
         }
 
-        let doc      = Document.clone(collection),
+        let doc      = WorkspaceDocument.clone(collection),
             layoutId = savedLayout.layoutId;
 
-        doc.layouts[layoutId] = Document.clone(savedLayout);
+        doc.layouts[layoutId] = WorkspaceDocument.clone(savedLayout);
 
         if (options?.activate === true || doc.activeLayoutId === null) {
             doc.activeLayoutId = layoutId
@@ -278,7 +278,7 @@ class PerspectiveLibrary extends Base {
 
         errors = PerspectiveLibrary.validateSavedLayoutCollection(doc);
 
-        return errors.length ? {collection, errors} : {collection: Document.clone(doc), errors: []}
+        return errors.length ? {collection, errors} : {collection: WorkspaceDocument.clone(doc), errors: []}
     }
 
     /**
@@ -303,11 +303,11 @@ class PerspectiveLibrary extends Base {
             return {collection, errors: [`layoutId "${layoutId}" does not exist`]}
         }
 
-        let doc = Document.clone(collection);
+        let doc = WorkspaceDocument.clone(collection);
 
         doc.activeLayoutId = layoutId;
 
-        return {collection: Document.clone(doc), errors: []}
+        return {collection: WorkspaceDocument.clone(doc), errors: []}
     }
 
     /**
@@ -348,7 +348,7 @@ class PerspectiveLibrary extends Base {
             }
         }
 
-        let doc = Document.clone(collection);
+        let doc = WorkspaceDocument.clone(collection);
 
         delete doc.layouts[layoutId];
 
@@ -358,7 +358,7 @@ class PerspectiveLibrary extends Base {
 
         errors = PerspectiveLibrary.validateSavedLayoutCollection(doc);
 
-        return errors.length ? {collection, errors} : {collection: Document.clone(doc), errors: []}
+        return errors.length ? {collection, errors} : {collection: WorkspaceDocument.clone(doc), errors: []}
     }
 
     /**
@@ -412,7 +412,7 @@ class PerspectiveLibrary extends Base {
         }
 
         this.lastErrors = [];
-        return Document.clone(value)
+        return WorkspaceDocument.clone(value)
     }
 
     /**
@@ -421,7 +421,7 @@ class PerspectiveLibrary extends Base {
      * @protected
      */
     afterSetCollection(value, oldValue) {
-        oldValue !== undefined && this.fire('collectionChange', {collection: Document.clone(value)})
+        oldValue !== undefined && this.fire('collectionChange', {collection: WorkspaceDocument.clone(value)})
     }
 
     /**
@@ -433,7 +433,7 @@ class PerspectiveLibrary extends Base {
      * @protected
      */
     beforeGetCollection(value) {
-        return value ? Document.clone(value) : value
+        return value ? WorkspaceDocument.clone(value) : value
     }
 
     /**
@@ -463,18 +463,17 @@ class PerspectiveLibrary extends Base {
     }
 
     /**
-     * Read-only record resolve by name — the inspection seam for scope-honest consumers (the
-     * Neural Link restore tool reads the record's `captureScope` through this BEFORE any state
-     * moves). Same resolution rule as every other verb (`perspectiveName` first, `layoutId`
-     * second), returns a clone, advances nothing: no `activeLayoutId` movement, no migration
-     * commit, no lifecycle event — the read-path twin of {@link #loadPerspective}.
+     * Read-only single-workspace layout resolve by name. Same resolution rule as every other verb
+     * (`perspectiveName` first, `layoutId` second), returns a clone, advances nothing: no
+     * `activeLayoutId` movement and no lifecycle event. Topology records have a separate collection
+     * and never enter this library.
      * @param {String} name
      * @returns {{layoutId: String, layout: Object}|null}
      */
     getPerspective(name) {
         let entry = this.resolveEntry(name);
 
-        return entry ? {layout: Document.clone(entry.layout), layoutId: entry.layoutId} : null
+        return entry ? {layout: WorkspaceDocument.clone(entry.layout), layoutId: entry.layoutId} : null
     }
 
     /**
@@ -493,11 +492,11 @@ class PerspectiveLibrary extends Base {
     }
 
     /**
-     * Saves one v2 saved-layout record under its name. The record must validate through the
-     * landed restore seam (which also migrates legacy inputs forward). An existing holder of the
+     * Saves one current saved-layout record under its name. The record must validate through the
+     * single-workspace restore seam. An existing holder of the
      * name (or layoutId) yields the structured collision verdict — nothing saves unless the
      * caller decides with `replace: true`.
-     * @param {Object} layout A `dockLayout.v1` saved-layout record.
+     * @param {Object} layout A `neo.dock.layout.v1` saved-layout record.
      * @param {Object} [options={}]
      * @param {Boolean} [options.replace=false] The caller's explicit collision decision.
      * @param {Boolean} [options.activate=true] Point `activeLayoutId` at the saved record.
@@ -512,7 +511,7 @@ class PerspectiveLibrary extends Base {
             return {collision: null, errors: validated.errors, layoutId: null, saved: false}
         }
 
-        let record = Document.clone(layout),
+        let record = WorkspaceDocument.clone(layout),
             unsafe = [record.layoutId, record.perspectiveName].filter(key => UNSAFE_KEYS.has(key));
 
         if (unsafe.length) {
@@ -548,7 +547,7 @@ class PerspectiveLibrary extends Base {
         }
 
         let base      = me._collection ?? PerspectiveLibrary.createSavedLayoutCollection([], {}).collection,
-            candidate = Document.clone(base);
+            candidate = WorkspaceDocument.clone(base);
 
         // an explicit replace retires every previous holder — one name, one record, never two
         // entries answering to it (in either namespace)
@@ -574,9 +573,8 @@ class PerspectiveLibrary extends Base {
     }
 
     /**
-     * Loads a stored perspective by name: the record runs the landed restore seam (validation +
-     * honest v1→v2 migration), the MIGRATED record re-commits so the collection converges
-     * forward, and both the record and its restored primary document return to the caller.
+     * Loads a stored perspective by name: the record runs the fail-closed single-workspace restore
+     * seam, then both the record and its restored document return to the caller.
      * @param {String} name
      * @returns {{layout: Object|null, document: Object|null, errors: String[]}}
      */
@@ -595,8 +593,8 @@ class PerspectiveLibrary extends Base {
             return {document: null, errors: restored.errors, layout: null}
         }
 
-        let stored    = Document.clone(entry.layout),
-            candidate = Document.clone(me._collection);
+        let stored    = WorkspaceDocument.clone(entry.layout),
+            candidate = WorkspaceDocument.clone(me._collection);
 
         candidate.layouts[entry.layoutId] = stored;
         candidate.activeLayoutId          = entry.layoutId;
@@ -605,7 +603,7 @@ class PerspectiveLibrary extends Base {
             return {document: null, errors: me.lastErrors, layout: null}
         }
 
-        return {document: restored.document, errors: [], layout: Document.clone(stored)}
+        return {document: restored.document, errors: [], layout: WorkspaceDocument.clone(stored)}
     }
 
     /**
@@ -648,7 +646,7 @@ class PerspectiveLibrary extends Base {
             }
         }
 
-        let candidate = Document.clone(me._collection);
+        let candidate = WorkspaceDocument.clone(me._collection);
 
         if (holder) {
             delete candidate.layouts[holder.layoutId];
@@ -719,7 +717,7 @@ class PerspectiveLibrary extends Base {
                 {errors: me.lastErrors, removed: false}
         }
 
-        let candidate = Document.clone(me._collection);
+        let candidate = WorkspaceDocument.clone(me._collection);
 
         delete candidate.layouts[entry.layoutId];
 
@@ -758,7 +756,7 @@ class PerspectiveLibrary extends Base {
         }
 
         try {
-            await me.persistenceAdapter.write(Document.clone(me._collection));
+            await me.persistenceAdapter.write(WorkspaceDocument.clone(me._collection));
             return {errors: [], persisted: true}
         } catch (error) {
             return {errors: [error?.message || 'the persistence adapter rejected the write'], persisted: false}

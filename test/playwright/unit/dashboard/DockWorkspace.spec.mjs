@@ -16,7 +16,7 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
-import Document                 from '../../../../src/dashboard/dock/model/Document.mjs';
+import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
@@ -986,7 +986,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // Reading tab order would pass on a wrong zone: `side-tabs` holds the same two items
             // either way. The node topology is the only witness that distinguishes them.
             expect(doc.nodes['side-tabs'].items).toEqual(['preview', 'terminal']);
-            expect(Document.validate(doc)).toEqual([])
+            expect(WorkspaceDocument.validate(doc)).toEqual([])
         });
 
         test('AC-3 a pane with SIBLINGS returns to its own node at its own index', async () => {
@@ -1034,15 +1034,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
 
-            expect(Document.findContainingTabsId(workspace.dockModel, 'editor'), 'somewhere beats nowhere').toBeTruthy();
-            expect(Document.validate(workspace.dockModel)).toEqual([]);
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'), 'somewhere beats nowhere').toBeTruthy();
+            expect(WorkspaceDocument.validate(workspace.dockModel)).toEqual([]);
             expect(detached.nodes['editor-tabs']).toBeUndefined()
         });
 
         test('a pane docked into the recorded home while the vessel is open is NOT displaced', async () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
 
-            const placement = Document.captureItemPlacement(workspace.dockModel, 'inspector'),
+            const placement = WorkspaceDocument.captureItemPlacement(workspace.dockModel, 'inspector'),
                   detached  = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'inspector'});
 
             expect(detached.errors).toEqual([]);
@@ -1052,22 +1052,22 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // A vessel window is long-lived, so this interleaving is ordinary: while the pane is
             // out, something else takes the edge it left. The occupant must survive — losing a pane
             // the user never touched is strictly worse than the misplacement this seam fixes.
-            const occupied = Document.clone(workspace.dockModel);
+            const occupied = WorkspaceDocument.clone(workspace.dockModel);
 
             occupied.items['late']       = {componentRef: 'Late', title: 'Late', kind: 'panel'};
             occupied.nodes['late-right']  = {type: 'tabs', items: ['late'], activeItemId: 'late'};
-            Document.setZoneNodeId(occupied.nodes[placement.home.parentId], placement.home.slot, 'late-right');
+            WorkspaceDocument.setZoneNodeId(occupied.nodes[placement.home.parentId], placement.home.slot, 'late-right');
             workspace.onDockZoneDocumentChange(occupied);
 
             expect(await workspace.reintegrateTearOutItem('inspector', null)).toBe(true);
 
             const doc = workspace.dockModel;
 
-            expect(Document.getZoneNodeId(doc.nodes[placement.home.parentId].zones[placement.home.slot]),
+            expect(WorkspaceDocument.getZoneNodeId(doc.nodes[placement.home.parentId].zones[placement.home.slot]),
                 'the occupant kept the slot').toBe('late-right');
             expect(doc.nodes['late-right'].items, 'and kept its item').toEqual(['late']);
-            expect(Document.findContainingTabsId(doc, 'inspector'), 'the returner still landed somewhere').toBeTruthy();
-            expect(Document.validate(doc)).toEqual([])
+            expect(WorkspaceDocument.findContainingTabsId(doc, 'inspector'), 'the returner still landed somewhere').toBeTruthy();
+            expect(WorkspaceDocument.validate(doc)).toEqual([])
         });
 
         test('a recorded home that resolves to NOTHING falls back rather than dropping the pane', async () => {
@@ -1080,7 +1080,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             Object.assign(workspace.tearOutPlacements.editor.home, {parentId: 'gone', siblingId: 'gone-too'});
 
             expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
-            expect(Document.findContainingTabsId(workspace.dockModel, 'editor')).toBeTruthy()
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor')).toBeTruthy()
         })
     });
 
@@ -1177,7 +1177,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // The committed document is the witness: the item left the dock through `detachItem`.
             const committed = workspace.getDockZoneDocument();
 
-            expect(Document.findOwningEdge(committed, 'preview'), 'a detached item owns no edge').toBeFalsy();
+            expect(WorkspaceDocument.findOwningEdge(committed, 'preview'), 'a detached item owns no edge').toBeFalsy();
             expect(workspace.tearOutPanes.preview, 'the vessel holds the pane').toBeTruthy()
         });
 
@@ -1244,7 +1244,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // exactly where it was — `wasInTree` was true going in, so this is an observed
             // non-transition rather than the absence of any evidence.
             expect(syncs, 'a refused detach commits nothing').toEqual([]);
-            expect(Document.findContainingTabsId(workspace.getDockZoneDocument(), 'preview'))
+            expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'preview'))
                 .toBe('side-tabs');
 
             // The vessel the refusal opened is retired — once. This is what made the Boolean true,
@@ -2376,7 +2376,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         // The stale window: the model says center, the chrome still says right, and the action that
         // reads `false` above has not been re-synced yet.
-        expect(Document.findOwningEdge(workspace.dockModel, 'inspector'), 'the model moved it to center')
+        expect(WorkspaceDocument.findOwningEdge(workspace.dockModel, 'inspector'), 'the model moved it to center')
             .toBe(null);
         expect(pinAction.hidden, 'the retained action is still visible — that is the window').toBe(false);
 
@@ -3612,7 +3612,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(detached.errors, 'the detach must commit, or the compensation has nothing to undo').toEqual([]);
             workspace.onDockZoneDocumentChange(detached.document);
 
-            expect(Document.findContainingTabsId(workspace.dockModel, 'editor'),
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'),
                 'the item is genuinely out of the tree at this point').toBeFalsy();
 
             // The vessel died. compensateFailedTearOutAdoption is what must put it back — the user
@@ -3621,7 +3621,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             await workspace.refreshPromise;
 
-            expect(Document.findContainingTabsId(workspace.dockModel, 'editor'),
+            expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'),
                 'the item is back in a tabs node').toBeTruthy();
             expect(workspace.dockModel.items.editor, 'and its record survived the round trip').toBeTruthy()
         });

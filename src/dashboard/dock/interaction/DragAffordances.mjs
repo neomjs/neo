@@ -1,5 +1,5 @@
 import Base                 from '../../../core/Base.mjs';
-import Document             from '../model/Document.mjs';
+import WorkspaceDocument    from '../model/WorkspaceDocument.mjs';
 import PreviewProducer      from './PreviewProducer.mjs';
 import {previewToOperation} from '../model/PreviewContract.mjs';
 
@@ -136,7 +136,7 @@ class DragAffordances extends Base {
             // retired string shorthand) — the canonical unwrap keeps the producer's fail-closed
             // id guard from silently dropping every root edge chip
             rootId      = nodes[me.owner.dockModel.root]?.type === 'edge-zone'
-                ? (Document.getZoneNodeId(nodes[me.owner.dockModel.root].zones?.center) ?? me.owner.dockModel.root)
+                ? (WorkspaceDocument.getZoneNodeId(nodes[me.owner.dockModel.root].zones?.center) ?? me.owner.dockModel.root)
                 : me.owner.dockModel.root;
 
         const promise = host.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
