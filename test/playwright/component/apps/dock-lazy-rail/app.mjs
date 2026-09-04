@@ -34,6 +34,25 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
      */
     static raiseSites = []
 
+    /**
+     * Projection passes are numbered in entry order so a load request can name the pass it was
+     * raised in. `refreshDockWorkspace` is the pass owner: it builds the projection and hands it to
+     * `Reconciler.reconcileProjection`, whose `resolvedItems` memo lives and dies with that one call.
+     * @member {Number} passSeq=0
+     * @static
+     */
+    static passSeq = 0
+
+    /**
+     * The passes currently executing, innermost last. A stack rather than a scalar because
+     * `refreshDockWorkspace` is async: a repair pass scheduled by `onDockProjectionFailed` can be in
+     * flight while another is still unwinding, and a scalar would silently report the wrong pass for
+     * a request raised during the overlap. Depth > 1 at request time is itself a finding.
+     * @member {Object[]} activePasses=[]
+     * @static
+     */
+    static activePasses = []
+
     static config = {
         /**
          * @member {String} className='Test.Playwright.Component.DockLazyRail.Workspace'
@@ -72,6 +91,42 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
         const result = this.applyDockZoneOperation(JSON.parse(value));
 
         result && !result.errors?.length && this.onDockZoneDocumentChange(result.document)
+    }
+
+    /**
+     * Numbers each projection pass so a lazy-load request can name the one it was raised in.
+     *
+     * `lazyPaneConstructionTrail` already reports WHO asked; on a duplicate both stacks have been
+     * observed frame-for-frame identical, which leaves the two remaining mechanisms indistinguishable
+     * from the call site alone: one pass resolving the item twice, or two passes each resolving it
+     * once. `Reconciler`'s `resolvedItems` memo is created per `reconcileProjection` call and is
+     * written back on insert, so it dedupes within a pass and has no memory across one — meaning the
+     * pass id, not the caller, is the discriminator.
+     *
+     * The stamp lives here rather than in `src/`: the engine already exposes the pass boundary as
+     * this method, and the `components` job captures no app-worker console output, so a `console`
+     * line could not carry the answer out of CI regardless. The trail travels in the assertion
+     * message instead, which is the only channel that reaches a reader on a loaded runner.
+     * @param {Object|null} [tabInsertDescriptor=null]
+     * @param {Object} [document=this.dockModel]
+     * @param {Object} [refreshOptions={}]
+     * @returns {Promise<*>}
+     */
+    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}) {
+        const
+            cls   = LazyRailFixtureWorkspace,
+            entry = {id: ++cls.passSeq, isRepair: refreshOptions.isDockProjectionRetry === true};
+
+        cls.activePasses.push(entry);
+
+        try {
+            return await super.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+        } finally {
+            // `finally`, so a thrown projection failure — the very path that schedules the repair
+            // pass this instrument exists to catch — cannot leave a stale entry on the stack and
+            // mislabel every later request.
+            cls.activePasses = cls.activePasses.filter(active => active !== entry)
+        }
     }
 
     /**
@@ -134,7 +189,21 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
                 // `container.Base#insert` on the already-active insert path, `afterSetActiveIndex`
                 // on activation.
                 module: () => {
-                    LazyRailFixtureWorkspace.raiseSites.push(
+                    const
+                        cls    = LazyRailFixtureWorkspace,
+                        active = cls.activePasses,
+                        pass   = active[active.length - 1],
+                        // No active pass means the request did not originate inside a projection at
+                        // all — a real answer, not a missing one, so it is spelled out rather than
+                        // rendered as an empty string a reader would take for "same pass".
+                        label  = pass ? `pass ${pass.id}${pass.isRepair ? ' REPAIR' : ''}` : 'no active pass',
+                        // Two passes in flight at request time is a third possible mechanism beside
+                        // cross-pass and within-pass, so it has to be visible rather than collapsed
+                        // into the innermost one.
+                        depth  = active.length > 1 ? ` OVERLAP[${active.map(entry => entry.id).join(',')}]` : '';
+
+                    cls.raiseSites.push(
+                        `[${label}${depth}]\n` +
                         (new Error('lazy module requested').stack || '').split('\n').slice(1, 7).join('\n')
                     );
 
