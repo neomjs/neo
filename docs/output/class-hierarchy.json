@@ -244,6 +244,7 @@
  "Neo.dashboard.dock.projection.Reconciler": "Neo.core.Base",
  "Neo.dashboard.dock.window.DragTarget": "Neo.core.Base",
  "Neo.dashboard.dock.window.Participation": "Neo.core.Base",
+ "Neo.dashboard.dock.window.TopologySeams": "Neo.core.Base",
  "Neo.data.Model": "Neo.core.Base",
  "Neo.data.Pipeline": "Neo.core.Base",
  "Neo.data.RecordFactory": "Neo.core.Base",
