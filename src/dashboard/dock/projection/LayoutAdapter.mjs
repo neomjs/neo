@@ -424,7 +424,9 @@ class LayoutAdapter extends Base {
      * @param {String} [options.dockLockIconCls='fa fa-lock'] Icon while the active item is unlocked.
      * @param {String} [options.dockUnlockIconCls='fa fa-lock-open'] Icon while it is locked.
      * @param {String} [options.dockMaximizeIconCls='far fa-window-maximize'] Icon of the projected
-     *     maximize action in its un-maximized state; the workspace flips it per toggle.
+     *     maximize action while the node is un-maximized.
+     * @param {String} [options.dockMinimizeIconCls='far fa-window-minimize'] Icon of that same
+     *     action while it is maximized. Both sides reach the action, which picks per `pressed`.
      * @param {Boolean} [options.dockPopOutActionAvailable=false] Whether the owner currently has one
      *     effective tear-out handler/admission bundle. The stable pop-out action always projects;
      *     capability changes its hidden state rather than node-level action membership.
@@ -507,6 +509,7 @@ class LayoutAdapter extends Base {
             dockActionTooltips               : options.dockActionTooltips || null,
             dockLockIconCls                  : options.dockLockIconCls || 'fa fa-lock',
             dockMaximizeIconCls              : options.dockMaximizeIconCls || 'far fa-window-maximize',
+            dockMinimizeIconCls              : options.dockMinimizeIconCls || 'far fa-window-minimize',
             dockPopOutActionAvailable        : options.dockPopOutActionAvailable === true,
             dockPopOutIconCls                : options.dockPopOutIconCls || 'far fa-window-restore',
             dockUnlockIconCls                : options.dockUnlockIconCls || 'fa fa-lock-open',
@@ -1114,20 +1117,23 @@ class LayoutAdapter extends Base {
 
         const headerActions = [
             ...hostActions,
-            // Lock leads the frozen engine set. The ordinary lock gesture inherits focus gating;
-            // while the protective state persists, its UNLOCK reversal stays persistent too, so
-            // discoverability never depends on re-entering a transient focus context.
+            // Lock leads the frozen engine set. Both sides of the toggle are DECLARED and `pressed`
+            // picks between them, so one mapping serves the boot config and the runtime alike —
+            // `toolbar.ActionButton#afterSetPressed` owns it, and the focus gate follows `pressed`
+            // at the toolbar, which is why the persistent locked state keeps its unlock reversal
+            // offered without this config deriving that.
             ...(context.enableDockLockAction ? [{
-                action : 'lock',
-                hidden : !activeItemId || context.items[activeItemId]?.lockable === false,
-                iconCls: context.items[activeItemId]?.locked === true
-                    ? context.dockUnlockIconCls
-                    : context.dockLockIconCls,
-                showOnFocus: context.items[activeItemId]?.locked !== true,
-                vdom       : {
-                    'aria-label': context.items[activeItemId]?.locked === true ? 'unlock' : 'lock'
-                },
-                ...tip(context.items[activeItemId]?.locked === true ? 'unlock' : 'lock')
+                action            : 'lock',
+                actionLabel       : 'lock',
+                hidden            : !activeItemId || context.items[activeItemId]?.lockable === false,
+                iconCls           : context.dockLockIconCls,
+                ntype             : 'toolbar-action-button',
+                pressed           : context.items[activeItemId]?.locked === true,
+                pressedActionLabel: 'unlock',
+                pressedIconCls    : context.dockUnlockIconCls,
+                showOnFocus       : true,
+                ...tip('lock'),
+                ...(tips.unlock != null && {pressedTooltip: tips.unlock})
             }] : []),
             // Reload follows lock in the frozen family order (lock · reload · pin · maximize — close
             // always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
@@ -1181,10 +1187,20 @@ class LayoutAdapter extends Base {
             }] : []),
             // Maximize inherits the same focus-gating default; the family ordering contract keeps
             // the engine set between host actions and the always-visible, always-last `close`.
+            //
+            // The second toggle, declared like lock. `pressed` is absent rather than false here:
+            // maximization is runtime view state (`Workspace#maximizedNodeId`), never persisted
+            // topology, so a projection cannot answer it and a boot config that claimed to would
+            // be inventing one. The workspace writes the flag; the mapping is already here.
             ...(context.enableDockMaximizeAction ? [{
-                action : 'maximize',
-                iconCls: context.dockMaximizeIconCls,
-                ...tip('maximize')
+                action            : 'maximize',
+                actionLabel       : 'maximize',
+                iconCls           : context.dockMaximizeIconCls,
+                ntype             : 'toolbar-action-button',
+                pressedActionLabel: 'restore',
+                pressedIconCls    : context.dockMinimizeIconCls,
+                ...tip('maximize'),
+                ...(tips.restore != null && {pressedTooltip: tips.restore})
             }] : []),
             ...(context.enableDockCloseAction ? [{
                 action    : 'close',
