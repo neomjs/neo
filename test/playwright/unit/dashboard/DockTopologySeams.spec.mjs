@@ -166,11 +166,12 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
 
         expect(result.errors).toEqual([]);
         expect(result.documents).toHaveLength(2);
-        // KNOWN GAP, pinned rather than wished away: capture keeps `activeItemId` (asserted above)
-        // and the reconciler leaves the LIVE value standing — the string appears nowhere in
-        // `TopologyReconciler` or `RestorePlanner`. Tab membership and order restore; which tab was
-        // active does not. Flagged separately; this arm exists so the gap cannot close silently.
-        expect(result.documents[0].nodes['main-tabs'].activeItemId, 'live value survives today').toBe('swarm');
+        // The gap this arm was written to pin is CLOSED, and the arm is why we know it: #18257 gave
+        // `TopologyDiff` an `activeItemChanges` bucket and `RestorePlanner` a `setActiveItem` step,
+        // and `TopologyReconciler` reaches both through `RestorePlanner.restoreToward()`. Capture
+        // kept `activeItemId` all along (asserted above); now the restore carries it too, so the
+        // captured value wins over the live one. The arm stays, inverted: it now pins the restore.
+        expect(result.documents[0].nodes['main-tabs'].activeItemId, 'captured value restores (#18257)').toBe('strategy');
 
         const commit = workspace.commitDockTopologyDocuments(result.documents, {operation: 'restorePerspective'});
 
