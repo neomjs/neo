@@ -198,7 +198,15 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         expect(trail, 'one load request, so one call site').toHaveLength(1);
         expect(typeof trail[0], 'each entry is a string').toBe('string');
         expect(trail[0], 'the insert route is named').toContain('insert');
-        expect(trail[0], 'and is not confused with the activation route').not.toContain('afterSetActiveIndex')
+        expect(trail[0], 'and is not confused with the activation route').not.toContain('afterSetActiveIndex');
+
+        // The pass stamp has to be proven on the GREEN path, because the run it exists for produces
+        // no session to attach to. `[no active pass]` is a real, reachable rendering of the same
+        // field — a request raised outside any projection — so asserting a NUMBERED pass is what
+        // separates "the stamp worked" from "the stamp printed something". Without this, a stamp
+        // that silently never populated would reach a duplicate and report two identical labels,
+        // which reads exactly like the within-pass answer.
+        expect(trail[0], 'the request names a numbered projection pass').toMatch(/^\[pass \d+/)
     });
 
     test('the load request from the activation route names that route instead', async ({page}) => {
@@ -214,6 +222,16 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         expect(Array.isArray(trail), 'the trail survives the worker boundary as an array').toBe(true);
         expect(trail, 'one load request, so one call site').toHaveLength(1);
         expect(typeof trail[0], 'each entry is a string').toBe('string');
-        expect(trail[0], 'the activation route is named').toContain('afterSetActiveIndex')
+        expect(trail[0], 'the activation route is named').toContain('afterSetActiveIndex');
+
+        // Only the RENDERING is pinned here, not which of the two readings appears. The activation
+        // route usually raises its request outside any projection — a reactive-config chain,
+        // `Container.set` → `afterSetActiveIndex` → `loadModule`, with no `refreshDockWorkspace`
+        // frame under it — but measured over 10 local runs it lands inside `[pass 2]` in 2 of them,
+        // so activation and projection are not serialized against each other. Asserting
+        // `[no active pass]` here would encode an 80%-true accident as a contract and ship a flaky
+        // arm. The stamp's proof of life lives on the insert arm above, where a numbered pass is
+        // structural rather than timing-dependent.
+        expect(trail[0], 'the request names its projection-pass context').toMatch(/^\[(pass \d+|no active pass)/)
     });
 });
