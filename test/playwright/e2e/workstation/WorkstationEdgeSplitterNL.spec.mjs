@@ -9,6 +9,18 @@ import {test, expect} from '../../fixtures.mjs';
  * projection lands on the same final geometry, and Escape restores the prior presentation without a
  * document write. A non-first tab remains selected through both axes and the cancelled gesture.
  *
+ * **Drag direction is load-bearing, and it is why this spec was red.** Both preview drags used to
+ * SHRINK their band, and at this pinned 1440x900 viewport a band cannot shrink: measured on the left
+ * edge it renders at ratio 0.1271 while its committed extent is 0.11 — already held above its own
+ * committed value by the intrinsic width of the tab header it contains, which flex will not shrink
+ * past. So the gesture armed, the addon took ownership, it named the correct target, and the band
+ * did not move, because there was nowhere for it to go. The assertion was unsatisfiable rather than
+ * failing, and it read as a live-preview regression for as long as nobody measured the geometry.
+ *
+ * Both preview drags therefore GROW their band, where the headroom is. Whether a band SHOULD be
+ * clamped by its content width is a separate question this spec deliberately does not pin: asserting
+ * the clamp here would cement behaviour nobody has ruled on.
+ *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=/path/to/neo-agent-brain npx playwright test
  * test/playwright/e2e/workstation/WorkstationEdgeSplitterNL.spec.mjs
  * -c test/playwright/playwright.config.e2e.mjs --workers=1
@@ -301,11 +313,12 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             return after
         };
 
-        await dragEdge({edge: 'left', dx: -70});
+        // grows the band: the shrink direction has no headroom at this viewport (see the header)
+        await dragEdge({edge: 'left', dx: 70});
         expect((await readDocument()).nodes['right-top-tabs'].activeItemId).toBe('audit');
         expect((await readActiveTabs()).activeIndex).toBe(1);
 
-        await dragEdge({edge: 'bottom', dy: 70});
+        await dragEdge({edge: 'bottom', dy: -70});
         expect((await readDocument()).nodes['right-top-tabs'].activeItemId).toBe('audit');
         expect((await readActiveTabs()).activeIndex).toBe(1);
 
