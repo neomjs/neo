@@ -1081,9 +1081,10 @@ class TreeStore extends Store {
      * @param {Number|null} index
      * @param {Number|Object[]} [removeCountOrToRemoveArray]
      * @param {Object|Object[]} [toAddArray]
+     * @param {Boolean} [silent=false] The unfiltered projection's event-free write, forwarded to the Collection
      * @returns {Object} An object containing the addedItems & removedItems arrays
      */
-    splice(index, removeCountOrToRemoveArray, toAddArray) {
+    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
         let me              = this,
             affectedParents = new Set(),
             visibleToRemove = [],
@@ -1300,7 +1301,7 @@ class TreeStore extends Store {
 
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
         if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
-            return super.splice(insertIndex, visibleToRemove, visibleToAdd)
+            return super.splice(insertIndex, visibleToRemove, visibleToAdd, silent)
         }
 
         // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,

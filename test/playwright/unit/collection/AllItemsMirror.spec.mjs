@@ -149,5 +149,76 @@ test.describe('Neo.collection.Base — allItems mirrors inside the mutation', ()
         // the calculated field is readable through the projection — the filter saw records
         expect(store.allItems.get('b').tier).toBe(1);
         expect(store.items.map(item => item.id)).toEqual(['seed', 'a', 'd'])
+    });
+
+    // The mirror is per splice, not per event: a batch — ordinary or silent — reaches the projection
+    // while the batch is still open, and the projection ends with the primary's row set.
+    for (const silent of [false, true]) {
+        test(`a${silent ? ' silent' : 'n ordinary'} batch — startUpdate(${silent}) … endUpdate(${silent}) — lands in the projection with the primary`, () => {
+            const collection = Neo.create(Collection, {
+                keyProperty: 'id',
+                items      : [{id: 'seed', state: 'ok'}]
+            });
+
+            created.push(collection);
+
+            collection.filters = [{disabled: true, property: 'state', filterBy: ({item}) => item.state === 'idle'}];
+
+            collection.startUpdate(silent);
+            collection.add({id: 'batched', state: 'ok'});
+
+            // inside the open batch: the primary holds the row, and so does the projection
+            expect(collection.map.has('batched')).toBe(true);
+            expect(collection.allItems.get('batched')?.id).toBe('batched');
+
+            collection.endUpdate(silent);
+
+            expect(collection.items.map(item => item.id)).toEqual(['seed', 'batched']);
+            expect(collection.allItems.items.map(item => item.id)).toEqual(['seed', 'batched'])
+        })
+    }
+
+    test('the projection fires nothing of its own — the primary\'s `mutate` is the one event', () => {
+        const collection = Neo.create(Collection, {
+            keyProperty: 'id',
+            items      : [{id: 'seed', state: 'ok'}]
+        });
+
+        created.push(collection);
+
+        collection.filters = [{disabled: true, property: 'state', filterBy: ({item}) => item.state === 'idle'}];
+
+        const events = {primary: 0, projection: 0};
+
+        collection.on('mutate', () => events.primary++);
+        collection.allItems.on('mutate', () => events.projection++);
+
+        collection.add(rows());
+
+        expect(events).toEqual({primary: 1, projection: 0});
+        expect(collection.allItems.count).toBe(5);
+        // the projection is not a derived collection either: no source, no subscription
+        expect(collection.allItems.sourceId).toBeNull()
+    });
+
+    test('a `sourceId` collection keeps receiving its source\'s mutations — that contract is untouched', () => {
+        const source = Neo.create(Collection, {
+            keyProperty: 'id',
+            items      : [{id: 'seed', state: 'ok'}]
+        });
+
+        const derived = Neo.create(Collection, {
+            keyProperty: 'id',
+            sourceId   : source.id
+        });
+
+        created.push(source, derived);
+
+        source.filters = [{disabled: true, property: 'state', filterBy: ({item}) => item.state === 'idle'}];
+
+        source.add(rows());
+
+        expect(['a', 'b', 'c', 'd'].map(id => derived.map.has(id))).toEqual([true, true, true, true]);
+        expect(source.allItems.count).toBe(5)
     })
 });

@@ -811,15 +811,6 @@ class Collection extends Base {
         } else {
             me.calcValueBands();
 
-            // The unfiltered projection is PART of the mutation, never a subscriber racing the
-            // other subscribers for it: mirror before `mutate` fires, so every listener — the
-            // store's own synchronous `load` included — sees `allItems` holding the batch, and a
-            // record hydrated inside a listener lands in both collections.
-            me.allItems?.onMutate({
-                addedItems  : me[toAddArray],
-                removedItems: me[toRemoveArray]
-            });
-
             me.fire('mutate', {
                 addedItems  : me[toAddArray],
                 removedItems: me[toRemoveArray]
@@ -913,18 +904,14 @@ class Collection extends Base {
                 // which stores the unfiltered data. It is crucial to use `me.constructor` here.
                 // If we hardcode `Collection`, subclasses like `data.Store` would lose their specific
                 // functionalities (e.g., lazy record instantiation on `get()`) for the `allItems` collection.
+                // Not a `sourceId` collection: that would subscribe it to `mutate` as one listener
+                // among others, ordered by registration. `splice` writes into it inline instead —
+                // see `mirrorMutation` — so the projection needs neither a subscription nor a source.
                 me.allItems = me.createAllItems({
                     ...Neo.clone(config, true, true),
                     id         : me.id + '-all',
-                    keyProperty: me.keyProperty,
-                    sourceId   : me.id
+                    keyProperty: me.keyProperty
                 });
-
-                // `sourceId` subscribed the projection to this collection's `mutate` — one listener
-                // among others, ordered by registration. `splice` and `endUpdate` mirror into it
-                // inline instead, before the event, so the subscription would only replay an
-                // already-applied mutation.
-                me.un({mutate: me.allItems.onMutate, scope: me.allItems});
 
                 me.allItems.items = me._items.slice();
             }
@@ -1376,6 +1363,19 @@ class Collection extends Base {
     }
 
     /**
+     * @summary The unfiltered projection's write: the rows its collection's `splice` just applied,
+     * applied here without an event. The projection holds what the collection holds before any
+     * listener runs, and fires nothing of its own — it is part of the mutation, not an observer of it.
+     * @param {Object}   opts
+     * @param {Object[]} [opts.addedItems]
+     * @param {Object[]} [opts.removedItems]
+     * @protected
+     */
+    mirrorMutation({addedItems, removedItems}) {
+        this.splice(null, removedItems, addedItems, true)
+    }
+
+    /**
      * @param {Object} opts
      * @protected
      */
@@ -1469,9 +1469,11 @@ class Collection extends Base {
      * @param {Number|null} index
      * @param {Number|Object[]} [removeCountOrToRemoveArray]
      * @param {Object|Object[]} [toAddArray]
+     * @param {Boolean} [silent=false] Applies the mutation without firing `mutate` — the write path of
+     *     the unfiltered projection, which is part of its collection's mutation, never an observer of it
      * @returns {Object} An object containing the addedItems & removedItems arrays
      */
-    splice(index, removeCountOrToRemoveArray, toAddArray) {
+    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
         let me                 = this,
             {keyProperty, map} = me,
             source             = me.getSource(),
@@ -1615,22 +1617,20 @@ class Collection extends Base {
             me[countMutations]++
         }
 
+        // The unfiltered projection is PART of the mutation, never a subscriber racing the other
+        // subscribers for it and never an event consumer: it is written here, on every splice —
+        // batched and silent ones included — before anything can observe the mutation, so a listener
+        // (the store's own synchronous `load` included) sees `allItems` holding the batch, and a
+        // record hydrated inside a listener lands in both collections. The payload is the input
+        // rows, because the projection filters nothing itself.
+        me.allItems?.mirrorMutation({addedItems: toAddArray, removedItems});
+
         if (me[updatingIndex] === 0) {
             me.count = me._items.length;
 
             me.calcValueBands(index || 0);
 
-            // The unfiltered projection is PART of the mutation, never a subscriber racing the
-            // other subscribers for it: mirror before `mutate` fires, so every listener — the
-            // store's own synchronous `load` included — sees `allItems` holding the batch, and a
-            // record hydrated inside a listener lands in both collections. The payload is the
-            // event's own: the INPUT items, because the projection filters nothing itself.
-            me.allItems?.onMutate({
-                addedItems  : toAddArray,
-                removedItems: removedItems
-            });
-
-            me.fire('mutate', {
+            !silent && me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
                 // Always emit actual removed objects, not input keys. `removedItems` (local) is built
