@@ -1747,7 +1747,7 @@ class Workspace extends Container {
             item   = this.dockModel?.items?.[itemId],
             hidden = !itemId || item?.closable === false || item?.locked === true;
 
-        action && action.hidden !== hidden && (action.hidden = hidden)
+        action && (action.hidden = hidden)
     }
 
     /**
@@ -1772,7 +1772,7 @@ class Workspace extends Container {
             itemId = this.getActiveDockItemId(tabContainer),
             hidden = !itemId || !this.dockPopOutActionActive;
 
-        action && action.hidden !== hidden && (action.hidden = hidden)
+        action && (action.hidden = hidden)
     }
 
     /**
@@ -2049,7 +2049,7 @@ class Workspace extends Container {
                 || !model
                 || !Document.findOwningEdge(model, itemId);
 
-        action && action.hidden !== hidden && (action.hidden = hidden)
+        action && (action.hidden = hidden)
     }
 
     /**
@@ -2709,9 +2709,7 @@ class Workspace extends Container {
         // opens its own vdom round trip on the tab bar, and stacked in-flight bar updates racing
         // a following reconcile is exactly the collision that duplicated retained chrome on slow
         // rigs.
-        if (action && (action.disabled !== disabled || action.hidden !== hidden)) {
-            action.set({disabled, hidden})
-        }
+        action?.set({disabled, hidden})
     }
 
     /**
@@ -3213,17 +3211,18 @@ class Workspace extends Container {
 
         if (!action) return;
 
-        let iconCls          = maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls,
-            ariaLabel        = maximized ? 'restore' : 'maximize',
-            ariaLabelChanged = action.vdom?.['aria-label'] !== ariaLabel,
-            changes          = {};
+        let label            = maximized ? 'restore' : 'maximize',
+            ariaLabelChanged = action.vdom?.['aria-label'] !== label,
+            values           = {iconCls: maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls};
 
-        action.iconCls !== iconCls && (changes.iconCls = iconCls);
-        me.syncDockActionTooltip(action, maximized ? 'restore' : 'maximize', changes);
+        me.syncDockActionTooltip(action, label, values);
 
-        if (Object.keys(changes).length || ariaLabelChanged) {
-            Object.keys(changes).length && action.setSilent(changes);
-            ariaLabelChanged && (action.vdom['aria-label'] = ariaLabel);
+        // `iconCls` and `tooltip` are reactive configs — `set()` runs each hook only on a real
+        // change, so an unchanged sync is already a no-op without a hand-written guard.
+        action.set(values);
+
+        if (ariaLabelChanged) {
+            action.vdom['aria-label'] = label;
             action.update()
         }
     }
