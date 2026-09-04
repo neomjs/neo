@@ -156,8 +156,11 @@ test.describe('Neo.dashboard.dock.Workspace back-to-back commits', () => {
 
         await settleRefreshTail(workspace);
 
-        // Pre-fix: the ancestor flight fails on the retired button's reference, the phase rejects into
-        // the recovery, and the workspace reports the failed projection before repairing it.
+        // The receipt's failure mode — the ancestor flight failing on the retired button's reference, the
+        // phase rejecting into the recovery, the workspace reporting the failed projection — is witnessed
+        // red-first in the lifecycle arms this header names. This tier serializes those flights, so the
+        // three logs below read empty before the fix as well; what they pin is that the end state
+        // carries none of it, in the same gesture, and stays that way.
         expect(failures,                                                 'no projection failure').toEqual([]);
         expect(warnings.filter(text => text.includes('Dock projection failed')), 'no recovery warning').toEqual([]);
         expect(errors.filter(text => text.includes('vdom update failed')),   'no failed flight').toEqual([]);
