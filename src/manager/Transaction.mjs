@@ -408,7 +408,16 @@ class Transaction extends Manager {
             // Only the binding this lease was started for; a rebind replaced it with a live one.
             if (group.bindings.get(binding.workspaceKey) === binding && binding.windowId === null) {
                 group.bindings.delete(binding.workspaceKey);
-                me.fire('leaseExpired', {groupId: group.id, workspaceKey: binding.workspaceKey})
+                me.fire('leaseExpired', {groupId: group.id, workspaceKey: binding.workspaceKey});
+
+                // A Group with no binding left holds nothing this manager keeps for it — no history, no
+                // snapshot — so letting it go loses nothing. Conditional, lossless retirement of a
+                // Group that DOES hold state is a later contract; this only stops closed windows from
+                // leaving empty Groups behind in a long-lived worker.
+                if (group.bindings.size === 0 && me.get(group.id) === group) {
+                    me.unregister(group);
+                    me.fire('groupRetired', {groupId: group.id})
+                }
             }
         }, me.reconnectLeaseMs))
     }

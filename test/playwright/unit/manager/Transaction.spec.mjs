@@ -122,10 +122,27 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         expect(expired).toEqual([expect.objectContaining({groupId: a.groupId, workspaceKey: 'main'})]);
         expect(Transaction.getBinding(a.groupId, 'main'), 'the slot is free').toBeNull();
 
+        // Its last slot gone, the Group held nothing else: it is retired rather than left behind.
+        expect(Transaction.get(a.groupId), 'an empty Group does not linger').toBeNull();
+
         const late = Transaction.bind({groupId: a.groupId, workspaceKey: 'main', generationToken: a.generationToken, windowId: 'a2'});
 
-        expect(late.outcome).toBe('bound');
-        expect(late.groupId, 'the Group itself is kept — retirement is a separate, conditional contract').toBe(a.groupId)
+        expect(late.outcome, 'the carried id comes back cold, not into a lingering record').toBe('cold');
+        expect(late.groupId).toBe(a.groupId)
+    });
+
+    test('a lease running out on one slot keeps a Group that still binds another', async () => {
+        Transaction.reconnectLeaseMs = 20;
+
+        const a = Transaction.bind({windowId: 'a1', workspaceKey: 'main'});
+
+        connect('a2', Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:documents'}));
+        Transaction.release('a2');
+
+        await new Promise(resolve => setTimeout(resolve, 60));
+
+        expect(Transaction.getBinding(a.groupId, 'popup:documents'), 'the popup slot is free').toBeNull();
+        expect(Transaction.getBinding(a.groupId, 'main'), 'the root still binds').toEqual({generation: 1, windowId: 'a1', workspaceKey: 'main'})
     });
 
     test('a Group this worker never saw is created cold under the carried id, so persisted state can find it later', () => {
