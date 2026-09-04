@@ -71,7 +71,7 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
     test.setTimeout(90000);
     test.use({ viewport: { width: 1600, height: 900 } });
 
-    test('the reload action asks the contract-bearing pane, commits nothing, and hides without the contract', async ({ page, neuralLink }) => {
+    test('the reload action asks the contract-bearing pane, commits nothing, and recreates the pane without the contract', async ({ page, neuralLink }) => {
         const { app, readModel } = await bootDockExample({ page, neuralLink }),
               before             = await readModel(),
               mainTabsId         = await tabsNodeId(app, 'main-tabs');

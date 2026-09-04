@@ -1,7 +1,8 @@
 import {test, expect} from '@playwright/test';
 
 /**
- * The engine-owned, delegation-only dock reload action
+ * The engine-owned dock reload action — delegation when the pane carries the contract, an engine
+ * recreate when it does not
  * (`Neo.dashboard.dock.Workspace#enableDockReloadAction`), witnessed on a rendered workspace:
  *
  * - **Delegation:** a pane implementing `dockReload()` is asked — invocation counted, instance
@@ -102,7 +103,7 @@ test.beforeEach(async ({page}) => {
     await page.waitForSelector('.neo-tab-header-button',   {state: 'visible'})
 });
 
-test.describe('dock reload — delegation-only, settled, single-flight', () => {
+test.describe('dock reload — delegation or engine recreate, settled, single-flight', () => {
     test('reload leads the engine set, focus-gated like its siblings', async ({page}) => {
         const main     = tabsNodeWith(page, 'Alpha'),
               reload   = actionButton(main, 'fa-rotate-right'),
