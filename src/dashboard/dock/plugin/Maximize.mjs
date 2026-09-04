@@ -331,22 +331,26 @@ class Maximize extends Plugin {
     }
 
     /**
-     * Measures the dock host's live viewport rect — the geometry authority for the maximize
+     * Measures the dock area's live viewport rect — the geometry authority for the maximize
      * presentation. A maximized pane fills the DOCK AREA, not the app view: a workspace that
-     * frames its host with a tour bar or a status bar keeps them in sight. The host is measured
-     * explicitly (the workspace root stands in while no host is mounted): `inset: 0` would answer
-     * to the viewport or an incidental fixed containing block instead. `null` is the fail-safe
-     * trigger (unmounted mid-gesture, zero-area rect).
+     * frames it with a tour bar or a status bar keeps them in sight. The area is measured
+     * explicitly: a named dock host is the consumer's stated dock area; a workspace that is its own
+     * host measures the projected shell at `dockShellIndex` — the chrome it frames the shell with
+     * (a perspective toolbar at index 0) sits outside that rect; the workspace root stands in only
+     * while nothing is mounted. `inset: 0` would answer to the viewport or an incidental fixed
+     * containing block instead. `null` is the fail-safe trigger (unmounted mid-gesture, zero-area
+     * rect).
      * @returns {Promise<Object|null>}
      * @protected
      */
     async measureRect() {
         let {owner} = this,
-            id      = owner.getDockHost()?.id || owner.id,
+            host    = owner.getDockHost(),
+            area    = host === owner ? (owner.items?.[owner.dockShellIndex] || owner) : (host || owner),
             rect    = null;
 
         try {
-            rect = await Neo.main.DomAccess.getBoundingClientRect({id, windowId: owner.windowId})
+            rect = await Neo.main.DomAccess.getBoundingClientRect({id: area.id, windowId: owner.windowId})
         } catch (error) {
             rect = null
         }
