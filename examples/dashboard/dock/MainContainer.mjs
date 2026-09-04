@@ -144,8 +144,6 @@ class MainContainer extends DockWorkspace {
          * @member {Object} layout={ntype:'vbox', align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
-        // `items` is built in construct() — not here — so each projection can carry the instance-bound
-        // reducer and view-sync callbacks the commit loop needs.
     }
 
     /**
@@ -173,6 +171,7 @@ class MainContainer extends DockWorkspace {
     savedPerspectiveCount = 0
 
     /**
+     * @summary Creates example-owned perspective state and toolbar; the engine mounts the first shell.
      * @param {Object} config
      */
     construct(config) {
@@ -183,7 +182,7 @@ class MainContainer extends DockWorkspace {
         me.layoutCollection = me.createDefaultLayoutCollection();
         me.dockModel        = PerspectiveLibrary.restoreActiveSavedLayout(me.layoutCollection).document || Document.clone(initialDockModel);
 
-        me.add(me.buildWorkspaceItems());
+        me.add(me.createPerspectiveToolbar());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
     }
 
@@ -296,19 +295,6 @@ class MainContainer extends DockWorkspace {
         }
 
         return collection
-    }
-
-    /**
-     * Creates the persistent top-level toolbar plus the initial dock projection.
-     * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
-     * captured by the committing refresh; omitted for boot, restore, and unrelated projections.
-     * @returns {Object[]}
-     */
-    buildWorkspaceItems(tabInsertDescriptor=null) {
-        return [
-            this.createPerspectiveToolbar(),
-            this.projectDockModel(tabInsertDescriptor)
-        ]
     }
 
     /**

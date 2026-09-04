@@ -518,6 +518,16 @@ class Workspace extends Container {
     dockMaximizePlay = null
 
     /**
+     * The render target whose geometry stream this Workspace has already armed. This is a
+     * duplicate-call guard, not ownership of the realm-global WindowPosition observation: moving
+     * away never disables a stream another Workspace may still consume.
+     * @member {String|null} observedWindowGeometryId=null
+     * @protected
+     */
+    observedWindowGeometryId = null
+
+    /**
+     * @summary Initializes dock-owned services and arms geometry only when already window-bound.
      * @param {Object} config
      */
     construct(config) {
@@ -548,11 +558,12 @@ class Workspace extends Container {
 
         // Cross-window hit testing reads manager.Window as its one geometry authority, and the
         // manager only learns what the Main realm publishes. The host's own render target publishes
-        // live extents from construction — the same stream every admitted vessel opens on connect —
-        // so a moved or resized main window never claims with a stale frame. Not gated on the
-        // engine lifecycle flag: a host may run its own admission (the Workstation does) and still
-        // dock across windows; the app's opt-in is loading the `WindowPosition` addon at all.
-        this.observeWindowGeometry(this.windowId)
+        // live extents as soon as it exists — during construction for an ordinary host, or from the
+        // reactive window binding for a headless one — through the same stream every admitted vessel
+        // opens on connect. A moved or resized main window therefore never claims with a stale frame.
+        // Not gated on the engine lifecycle flag: a host may run its own admission (the Workstation
+        // does) and still dock across windows; the app's opt-in is loading the addon at all.
+        this.observeBoundWindowGeometry(this.windowId)
     }
 
     /**
@@ -1172,18 +1183,40 @@ class Workspace extends Container {
      * for a titlebar grabbed from outside page content) and `observeResize` (a fixed-origin resize
      * is a geometry change the poll never sees). Without both, the manager's row for that window
      * stays the connect-time snapshot and every cross-window claim hit-tests a stale frame. The
-     * engine host arms both — for its own window at construction, for each admitted vessel before
+     * engine host arms both — for its own first real window binding, for each admitted vessel before
      * ownership publication — so an adopter that EXTENDS this host never has to know the addon
-     * exists. A host COMPOSED from the dock pieces onto a plain container never runs this
-     * constructor and must arm the same pair itself; half of it (resize only) leaves the row blind
-     * to a titlebar drag, which is the defect the composition example carried. Overridable for a
-     * realm that publishes geometry another way.
+     * exists. A host COMPOSED from the dock pieces onto a plain container never runs the binding
+     * hook and must arm the same pair itself; half of it (resize only) leaves the row blind to a
+     * titlebar drag, which is the defect the composition example carried. Overridable for a realm
+     * that publishes geometry another way.
      * @param {String} windowId The render target whose Main realm publishes
      * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` off the browser
      * @protected
      */
     observeWindowGeometry(windowId) {
         return Neo.main?.addon?.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId})
+    }
+
+    /**
+     * @summary Arms geometry once for each real render-target binding this Workspace enters.
+     *
+     * Construction and the reactive window-id hook deliberately share this guard: a Workspace
+     * created with a window must not issue two remote writes, while one created headless must issue
+     * none until a container supplies its first real id. The previous realm stays armed because
+     * WindowPosition's observation flags are realm-global, not Workspace-keyed leases.
+     * @param {String|null} windowId The Workspace's current render target.
+     * @returns {Promise<void>|undefined} The addon's remote settle, or `undefined` when headless,
+     *     already armed, or outside the browser.
+     * @protected
+     */
+    observeBoundWindowGeometry(windowId) {
+        if (!windowId || this.observedWindowGeometryId === windowId) {
+            return
+        }
+
+        this.observedWindowGeometryId = windowId;
+
+        return this.observeWindowGeometry(windowId)
     }
 
     /**
@@ -2043,12 +2076,18 @@ class Workspace extends Container {
     }
 
     /**
-     * The boot-time header-action sync. A consumer may mount its FIRST projection statically —
-     * items assembled in `construct()` — without ever entering {@link #refreshDockWorkspace},
-     * and on that path no header-action sync runs at all: projected action rows are
-     * projection-constant by design (per-item state must never vary the actions array), so a
-     * pane-dependent action such as reload would stay at its projected default forever. Mount is
-     * the one surface every boot path shares.
+     * @summary Projects an unseeded Workspace on first mount, or syncs a statically seeded shell.
+     *
+     * A headless Workspace owns no visible tree before binding. Once mounted, an absent shell at
+     * {@link #dockShellIndex} enters the ordinary committed-document refresh — the same projection
+     * path every later operation uses — rather than asking each consumer constructor to seed engine
+     * chrome. A consumer which already supplied a shell keeps its static boot path below.
+     *
+     * A consumer may mount its first projection statically — items assembled in `construct()` —
+     * without ever entering {@link #refreshDockWorkspace}, and on that path no header-action sync
+     * runs at all: projected action rows are projection-constant by design (per-item state must
+     * never vary the actions array), so a pane-dependent action such as reload would stay at its
+     * projected default forever. Mount is the one surface every boot path shares.
      *
      * A workspace whose boot DID run the refresh already synced on settled chrome (the
      * post-reconcile sweep), so this hook narrows to the never-refreshed case: `refreshPromise`
@@ -2083,13 +2122,19 @@ class Workspace extends Container {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (!value || this.refreshPromise) {
+        const me = this;
+
+        if (!value || me.refreshPromise) {
             return null
         }
 
-        return this.timeout(100).then(async () => {
-            let me = this,
-                awaited;
+        if (!me.getDockHost()?.items?.[me.dockShellIndex]) {
+            me.onDockZoneDocumentChange(me.dockModel);
+            return me.refreshPromise
+        }
+
+        return me.timeout(100).then(async () => {
+            let awaited;
 
             do {
                 awaited = me.refreshPromise;
@@ -2103,6 +2148,19 @@ class Workspace extends Container {
 
             !me.isDestroyed && me.syncDockHeaderActions()
         }).catch(() => null)
+    }
+
+    /**
+     * @summary Opens the Workspace geometry stream when it enters a real render target.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @returns {Promise<void>|undefined}
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        return this.observeBoundWindowGeometry(value)
     }
 
     /**
