@@ -1,3 +1,4 @@
+import ActionButton   from './ActionButton.mjs'; // the ntype an action config may resolve to
 import Button         from '../button/Base.mjs';
 import Component      from '../component/Base.mjs';
 import Container      from '../container/Base.mjs';
@@ -322,12 +323,17 @@ class Toolbar extends Container {
      * One key decides it. `contextual` is the deprecated spelling and is an INPUT alias only:
      * {@link #createActionItemConfig} resolves it into `showOnFocus` and deletes it, so no instance
      * ever carries both and no reader has to know which spelling won.
+     *
+     * A PRESSED action leaves the gate: while a persistent state holds, the affordance that
+     * reverses it stays offered, so discoverability never depends on re-entering a transient focus
+     * context. The consumer's declared `showOnFocus` is never rewritten to express that — it says
+     * what the resting action wants, and the effective gate is derived here.
      * @param {Neo.component.Base} item
      * @returns {Boolean}
      * @protected
      */
     isFocusGatedAction(item) {
-        return item.showOnFocus === true
+        return item.showOnFocus === true && item.pressed !== true
     }
 
     /**

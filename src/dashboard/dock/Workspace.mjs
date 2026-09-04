@@ -241,9 +241,14 @@ class Workspace extends Container {
          * `close`, `revealPin`. A consumer restates wording or language per key: the map deep-merges
          * over these defaults, and a key set to `null` leaves that action without a tooltip — for a
          * toggle, in the state that key names: a `null` `unlock` clears the tooltip while the pane is
-         * locked and `lock` restores it on unlock. Toggles keep text, icon and accessible name
-         * coherent on the retained action instance ({@link #syncDockLockAction},
-         * {@link #syncDockMaximizeActionPresentation}, both through {@link #syncDockActionTooltip}).
+         * locked and `lock` restores it on unlock. Both halves of a toggle reach the action as its
+         * declared pair, and {@link Neo.toolbar.ActionButton} keeps text, icon and accessible name
+         * coherent on the retained instance from whichever half `pressed` selects.
+         *
+         * A half that is simply ABSENT behaves as a `null` one: supplying `lock` without `unlock`
+         * gives that toggle a tooltip while unpressed and none while pressed. The pressed state
+         * never inherits the other half's text, because a tooltip naming the state the control
+         * just left is worse than none.
          * @member {Object} dockActionTooltips_
          * @reactive
          */
@@ -1798,34 +1803,15 @@ class Workspace extends Container {
             action  = tabContainer.getActionItem('lock'),
             itemId  = me.getActiveDockItemId(tabContainer),
             item    = items?.[itemId],
-            locked  = item?.locked === true,
-            // Names the control for what it does NEXT — accessible name and tooltip key are one word.
-            label   = locked ? 'unlock' : 'lock';
+            locked  = item?.locked === true;
 
-        if (action) {
-            let labelChanged = action.vdom['aria-label'] !== label,
-                gateChanged  = action.showOnFocus === locked,
-                values       = {
-                    hidden : !itemId || item?.lockable === false,
-                    iconCls: locked ? me.dockUnlockIconCls : me.dockLockIconCls
-                };
-
-            me.syncDockActionTooltip(action, label, values);
-
-            // `setSilent` rather than `set`: the `aria-label` write and the focus-gate flip have to
-            // publish in the SAME update as the configs, and `set()` publishes at the end of itself.
-            // The configs still self-diff — `setSilent` is `set` with the publish suppressed.
-            gateChanged && (values.showOnFocus = !locked);
-
-            action.setSilent(values);
-            labelChanged && (action.vdom['aria-label'] = label);
-
-            // The toolbar owns the inert/aria/tab-index presentation the gate drives, and must
-            // re-arm it before this one update publishes the changed action.
-            gateChanged && bar.applyContextualActionState(true);
-
-            action.update()
-        }
+        // ONE write of WHAT is true. The action owns the icon / accessible name / tooltip mapping
+        // (`toolbar.ActionButton#afterSetPressed`) and the toolbar derives the focus gate from
+        // `pressed`, so nothing here states how the control should look.
+        action?.set({
+            hidden : !itemId || item?.lockable === false,
+            pressed: locked
+        });
 
         // Buttons are addressed by identity, never by position: `tab.plugin.Overflow` removes
         // overflowing buttons from this collection by design, so `buttons[index]` can name a
@@ -3185,71 +3171,16 @@ class Workspace extends Container {
     }
 
     /**
-     * Flips the node's projected maximize action between its maximize and restore presentation —
-     * icon, accessible name and tooltip together, on the stable action instance, the same
-     * discipline every action consumer relies on. The glyph names the NEXT action, so the name and
-     * the tooltip follow it: `restore` while the node is maximized. One batched update, like
-     * {@link #syncDockLockAction}.
+     * States whether the node is maximized. The action's own `pressed` handler
+     * ({@link Neo.toolbar.ActionButton#afterSetPressed}) turns that into icon, accessible name and
+     * tooltip in one update, from the pair the projection declared — so the glyph naming the NEXT
+     * action is a property of the action, not of each caller that flips it.
      * @param {Neo.tab.Container|null} tabContainer
      * @param {Boolean} maximized
      * @protected
      */
     syncDockMaximizeActionPresentation(tabContainer, maximized) {
-        let me     = this,
-            action = tabContainer?.getActionItem?.('maximize');
-
-        if (!action) return;
-
-        let label            = maximized ? 'restore' : 'maximize',
-            ariaLabelChanged = action.vdom['aria-label'] !== label,
-            values           = {iconCls: maximized ? me.dockMinimizeIconCls : me.dockMaximizeIconCls};
-
-        me.syncDockActionTooltip(action, label, values);
-
-        // `setSilent` rather than `set`: an `aria-label` write has to publish in the SAME update as
-        // the configs, and `set()` publishes at the end of itself. The configs still self-diff —
-        // `setSilent` is `set` with the publish suppressed — so no hand-written guard is needed in
-        // front of them, only the vdom write needs its own.
-        action.setSilent(values);
-        ariaLabelChanged && (action.vdom['aria-label'] = label);
-
-        action.update()
-    }
-
-    /**
-     * The text a projected action currently offers as its tooltip. `component.Base#tooltip` reads
-     * back the shared-instance config object once the tooltip module has loaded and the plain
-     * string before that, so a sync compares text, never the container.
-     * @param {Neo.component.Base|null} action
-     * @returns {String|null}
-     * @protected
-     */
-    readDockActionTooltip(action) {
-        let {tooltip} = action || {};
-
-        return typeof tooltip === 'string' ? tooltip : (tooltip?.text ?? null)
-    }
-
-    /**
-     * Stages the tooltip a toggle state owes its retained action into one batched change set.
-     *
-     * The map distinguishes two things the projection also keeps apart: a key that is ABSENT
-     * leaves whatever the projection gave the action, and a key set to `null` is the documented
-     * opt-out — it clears the tooltip in that state, so a toggle never keeps naming the state it
-     * just left. The opposite half of the pair restores its own text on the way back.
-     * @param {Neo.component.Base} action
-     * @param {String} key One of the map's keys (`lock`, `unlock`, `maximize`, `restore`).
-     * @param {Object} changes The batch handed to `setSilent()`.
-     * @protected
-     */
-    syncDockActionTooltip(action, key, changes) {
-        let tips = this.dockActionTooltips || {};
-
-        if (key in tips) {
-            let tooltip = tips[key] ?? null;
-
-            this.readDockActionTooltip(action) !== tooltip && (changes.tooltip = tooltip)
-        }
+        tabContainer?.getActionItem?.('maximize')?.set({pressed: maximized})
     }
 
     /**
@@ -3757,6 +3688,7 @@ class Workspace extends Container {
                 enableDockReloadAction   : me.enableDockReloadAction,
                 dockActionTooltips       : me.dockActionTooltips,
                 dockMaximizeIconCls      : me.dockMaximizeIconCls,
+                dockMinimizeIconCls      : me.dockMinimizeIconCls,
                 dockPopOutActionAvailable: me.dockPopOutActionActive,
                 dockPopOutIconCls        : me.dockPopOutIconCls,
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),

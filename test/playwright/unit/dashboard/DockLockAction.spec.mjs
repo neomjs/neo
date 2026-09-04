@@ -190,11 +190,17 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
             resolveComponentRef  : () => ({ntype: 'component'})
         }));
 
+        // The projection DECLARES both sides and states which one is live; it no longer derives the
+        // presentation, because it was deriving the same mapping the runtime sync derived again.
+        // `toolbar.ActionButton` owns the choice, so the locked icon and accessible name are
+        // asserted on the instance below rather than on the config here.
         expect(tabs.headerActions.find(action => action.action === 'lock'))
             .toMatchObject({
-                hidden : false,
-                iconCls: 'unlock-action',
-                vdom   : {'aria-label': 'unlock'}
+                hidden            : false,
+                iconCls           : 'lock-action',
+                pressed           : true,
+                pressedActionLabel: 'unlock',
+                pressedIconCls    : 'unlock-action'
             });
         expect(tabs.headerActions.find(action => action.action === 'close').hidden).toBe(true);
 
@@ -291,7 +297,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(tabButton.wrapperCls).not.toContain('neo-draggable');
         expect(lockAction.iconCls).toBe('unlock-action');
         expect(lockAction.vdom['aria-label']).toBe('unlock');
-        expect(lockAction.showOnFocus, 'the reversal stays persistent while the lock persists').toBe(false);
+        expect(tabContainer.getTabBar().isFocusGatedAction(lockAction), 'the reversal stays persistent while the lock persists').toBe(false);
         expect(lockAction.cls).not.toContain('neo-toolbar-action-context-inactive');
         expect(lockAction.vdom.inert).toBeUndefined();
         expect(closeAction.hidden).toBe(true);
