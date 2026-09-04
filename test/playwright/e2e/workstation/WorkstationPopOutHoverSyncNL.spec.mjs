@@ -9,7 +9,9 @@ import {test, expect} from '../../fixtures.mjs';
  * scroll manager resolved the hover-sync addon for its own window but called it without the key, so
  * a scroll in the popup reached the opener's addon — which holds no registration for that grid —
  * while the popup's addon, which does, heard nothing. In one window the misroute is invisible
- * beyond a deprecation warning; two windows make it observable, which is what this arm does.
+ * beyond a deprecation warning; two windows make it observable, which is what this arm does. The
+ * warning is App Worker console output, which the Neural Link session forwards, so the arm also reads
+ * its count for the addon before and after the judged scroll.
  *
  * The addon keeps no "suspended" flag to ask about, so the arm counts the two calls where they land:
  * the main-thread addon instance in each window has its `suspendHover` / `resumeHover` wrapped with a
@@ -31,7 +33,8 @@ const
     HEADER     = '.neo-tab-header-toolbar',
     POP_OUT    = 'window-restore',
     TAB        = '.neo-tab-header-button',
-    VIEW       = '.neo-grid-view';
+    VIEW       = '.neo-grid-view',
+    WARNING    = 'destination "main" is deprecated'; // worker/Base#sendMessage, on a call it routes to the first port
 
 /**
  * Wraps the window's hover-sync addon so every suspend and resume it receives is counted; the
@@ -60,6 +63,16 @@ const countAddonCalls = (page, addonName) => page.evaluate(name => {
 
 const readAddonCalls = (page, addonName) => page.evaluate(name => Neo.main?.addon?.[name]?.__hoverSyncCalls ?? null, addonName);
 
+/**
+ * Counts the worker's deprecated-destination warnings that name the addon: the warning's second
+ * argument is the routed payload, stringified, so the addon's class name is in the message.
+ */
+const countHoverSyncWarnings = async (app, addonName) => {
+    const logs = await app.getConsoleLogs('warn', addonName);
+
+    return logs.filter(log => log.message.includes(WARNING)).length
+};
+
 /** Clicks a pane's tab by its title and returns the tab header toolbar that carries it. */
 const focusPane = async (page, title) => {
     const header = page.locator(HEADER).filter({has: page.locator(TAB, {hasText: title})}).first();
@@ -79,7 +92,7 @@ test.describe('Workstation pop-out — hover sync follows the grid into the popu
         await page.waitForSelector('.workstation-dock-host',            {timeout: 60000});
         await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
 
-        await neuralLink.connectToApp('Workstation');
+        const app = await neuralLink.connectToApp('Workstation');
 
         const header = await focusPane(page, FEED_TITLE),
               popOut = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
@@ -130,6 +143,11 @@ test.describe('Workstation pop-out — hover sync follows the grid into the popu
         expect(await countAddonCalls(page,   ADDON), 'the opener addon is counted').toBe(true);
         expect(await countAddonCalls(vessel, ADDON), 'the popup addon is counted').toBe(true);
 
+        // Both warm-up scrolls carried the routing key, so no hover-sync warning has been logged yet.
+        const warningsBefore = await countHoverSyncWarnings(app, ADDON);
+
+        expect(warningsBefore, 'the warm-up scrolls log no deprecated-destination warning for the hover-sync addon').toBe(0);
+
         // The judged scroll: one real wheel scroll over the popup's grid view.
         await vessel.mouse.wheel(0, 240);
 
@@ -140,6 +158,11 @@ test.describe('Workstation pop-out — hover sync follows the grid into the popu
             .toEqual(expect.arrayContaining(['suspendHover', 'resumeHover']));
 
         expect(await readAddonCalls(page, ADDON), 'the opener addon hears nothing about the popup\'s scroll').toEqual([]);
+
+        // A worker round-trip on the session's connection orders this read after the scroll's console output.
+        await app.checkNamespace('Neo.grid.ScrollManager');
+
+        expect(await countHoverSyncWarnings(app, ADDON), 'the judged scroll logs no deprecated-destination warning for the hover-sync addon').toBe(warningsBefore);
 
         await vessel.close({runBeforeUnload: true})
     })
