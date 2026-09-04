@@ -70,4 +70,13 @@
     --cmp-tooltip-fg                            : var(--sem-color-fg-neutral-inverted);
     --cmp-tooltip-height                        : var(--height-24);
     --cmp-tooltip-spacinghorizontal             : var(--sem-spacing-xsmall);
+    --cmp-global-code-surface      : #E6EDF7;
+    --cmp-global-code-text         : var(--sem-color-fg-neutral-contrast);
+    --cmp-global-heading-code-text : var(--sem-color-fg-neutral-contrast);
+    --cmp-global-heading-text      : var(--sem-color-fg-neutral-contrast);
+    --cmp-global-mark-surface      : var(--green-50);
+    --cmp-global-mark-text         : black;
+    --cmp-global-paragraph-text    : var(--sem-color-fg-neutral-contrast);
+    --cmp-global-code-fontsize          : 14px;
+    --cmp-global-heading-letterspacing  : -0.02em;
 }

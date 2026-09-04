@@ -90,3 +90,70 @@ html, .neo-body-viewport {
 .neo-drag-active iframe:not(.neo-drag-passthrough) {
     pointer-events: none;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Global element typography — structure here, values in the themes (#18232, sweep batch 5 of 5).
+//
+// These selectors lived in `theme-neo-{light,dark}/Global.scss` and were 62 of 66 lines identical
+// between them: the same elements, the same `var(--core-*)` / `var(--sem-*)` reads, five declarations
+// apart. That is structure wearing a theme file's clothes, which is exactly what #18145's rule
+// ("theme value files declare variables only") exists to stop — and two of the five divergences were
+// literals (`#E6EDF7`, `black`) sitting inside the file the rule governs.
+//
+// Themes that carry no design-token layer inherit rather than opt out by hand. Every declaration
+// below reads a token; a theme that does not define it makes the declaration invalid at
+// computed-value time, so inherited properties fall back to `inherit` and non-inherited ones to
+// their initial value. `theme-{light,dark,cyberpunk}` have no `design-tokens/` directory, so they
+// keep exactly the "no typography opinion" stance they wrote out by hand — now structural instead of
+// restated per theme. What DOES reach them is the handful of non-token declarations here: the
+// italic, and `code`/`mark` shape. That is the whole measured delta.
+// ---------------------------------------------------------------------------------------------
+h1, h2, h3 {
+    color         : var(--cmp-global-heading-text);
+    font-family   : var(--core-fontfamily-sans);
+    font-weight   : var(--core-fontweight-semibold);
+    letter-spacing: var(--cmp-global-heading-letterspacing);
+    line-height   : var(--core-lineheight-headline);
+}
+
+h1 { font-size: var(--core-fontsize-h1); }
+h2 { font-size: var(--core-fontsize-h2); }
+h3 { font-size: var(--core-fontsize-h3); }
+
+p {
+    color      : var(--cmp-global-paragraph-text);
+    font-family: var(--core-fontfamily-sans);
+    font-size  : var(--core-fontsize-body);
+    font-weight: var(--core-fontweight-regular);
+    line-height: var(--core-lineheight-paragraph);
+}
+
+i, em {
+    font-style: italic;
+}
+
+code:not(.hljs) {
+    background-color: var(--cmp-global-code-surface);
+    border          : 1px solid var(--sem-color-border-subtle);
+    border-radius   : 4px;
+    color           : var(--cmp-global-code-text);
+    font-family     : var(--core-fontfamily-mono);
+    font-size       : var(--cmp-global-code-fontsize);
+    font-weight     : var(--core-fontweight-regular);
+    line-height     : var(--core-lineheight-headline);
+    padding         : 2px 0.3em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    code:not(.hljs) {
+        color  : var(--cmp-global-heading-code-text);
+        margin : 0 0.15em;
+        padding: 0 0.3em;
+    }
+}
+
+mark {
+    background-color: var(--cmp-global-mark-surface);
+    color           : var(--cmp-global-mark-text);
+    padding         : 0.1em 0.2em;
+}

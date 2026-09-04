@@ -2,36 +2,26 @@
     {
         "file": "resources/scss/theme-cyberpunk/Global.scss",
         "blocks": 1,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
+        "reason": "pending #18145 \u2014 Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
     },
     {
         "file": "resources/scss/theme-dark/Global.scss",
         "blocks": 1,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
+        "reason": "pending #18145 \u2014 Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
     },
     {
         "file": "resources/scss/theme-light/Global.scss",
         "blocks": 1,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
-    },
-    {
-        "file": "resources/scss/theme-neo-dark/Global.scss",
-        "blocks": 10,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
+        "reason": "pending #18145 \u2014 Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
     },
     {
         "file": "resources/scss/theme-neo-dark/dialog/Base.scss",
         "blocks": 3,
-        "reason": "exempt #18145 — see the neo-light entry; same rule, same blocker."
-    },
-    {
-        "file": "resources/scss/theme-neo-light/Global.scss",
-        "blocks": 10,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
+        "reason": "exempt #18145 \u2014 see the neo-light entry; same rule, same blocker."
     },
     {
         "file": "resources/scss/theme-neo-light/dialog/Base.scss",
         "blocks": 3,
-        "reason": "exempt #18145 — the structural rule outweighs 13 of the 16 button background states; the other 3 win on !important and need no token. Tokenising the 13 would close an open extension point. Measurement: #18145."
+        "reason": "exempt #18145 \u2014 the structural rule outweighs 13 of the 16 button background states; the other 3 win on !important and need no token. Tokenising the 13 would close an open extension point. Measurement: #18145."
     }
 ]
