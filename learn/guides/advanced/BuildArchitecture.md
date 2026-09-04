@@ -135,7 +135,7 @@ document.addEventListener('click', function(event) {
     let {target} = event;
     // Walk up to find the anchor tag
     while (target && target.tagName !== 'A') target = target.parentElement;
-    
+
     // If it's a hash link, prevent reload and set hash manually
     if (target?.getAttribute('href')?.startsWith('#')) {
         event.preventDefault();
@@ -171,3 +171,34 @@ output: {
 ```
 
 This isolation ensures that even if Webpack generates conflicting IDs across different builds, the physical files never collide. Each realm loads only its own scoped chunks.
+
+## 7. File-size ownership guard
+
+Large modules are measured by code-bearing lines, not total physical lines. The guard parses every
+in-scope `.mjs` file with Acorn, counts nonblank lines covered by tokens, and reports comment-covered
+lines separately as documentation percentage. Documentation is visible in the report but never changes
+the verdict.
+
+Run the whole-tree audit with:
+
+```bash
+npm run check-file-sizes
+```
+
+The target is at most 1,000 code lines. Counts from 1,500 are labelled yellow and counts from 2,000
+red, but those labels are reporting severity only. The admission gate remains the 1,000-line target.
+Existing offenders live in `buildScripts/util/file-size-baseline.json`.
+
+In pull requests the workflow compares that baseline with its version on the base branch. Equal counts
+preserve the entry; a shrink must lower it in the same change and remove it at the target; raising an
+entry alone cannot disguise growth. Use `--fix` to align the working-tree baseline with measured counts.
+
+Exceptional growth or enrollment requires one current PR-body line per path:
+
+```text
+size-guard-growth: src/path/Module.mjs — why the destination owner does not exist yet
+```
+
+The workflow fetches the current body at run time and passes it as a file. A missing, malformed, or
+wrong-path line provides no hatch, and the reason remains reviewer-owned prose rather than a machine
+judgment.
