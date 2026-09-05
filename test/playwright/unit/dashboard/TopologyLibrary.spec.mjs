@@ -356,6 +356,20 @@ test.describe('Neo.dashboard.dock.persistence.TopologyLibrary', () => {
         expect(state.disposals).toEqual([])
     });
 
+    test('durable retirement publishes exactly one Group retirement event', async () => {
+        const group    = createGroup(), events = [],
+              listener = ({groupId}) => groupId === group.id && events.push(groupId);
+        await expireBinding(group);
+        attachGroup(group);
+        Transaction.on('groupRetired', listener);
+        try {
+            expect(await library.retireIfHeadless()).toBe(true);
+            expect(events).toEqual([group.id])
+        } finally {
+            Transaction.un('groupRetired', listener)
+        }
+    });
+
     test('a warm Group release and rebind performs no topology storage write', async () => {
         const group    = createGroup(), state = attachGroup(group),
               binding  = group.bindings.get('main'),

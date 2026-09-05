@@ -95,10 +95,7 @@ class Placement extends Base {
             groupRetired: ({groupId}) => { if (groupId === me.groupId) me.destroy() },
             bind        : ({groupId, workspaceKey}) => {
                 if (groupId !== me.groupId || !me.#hints[workspaceKey]) return;
-                const group = Transaction.get(groupId);
-                me.applyHint(workspaceKey, me.#hints[workspaceKey], {
-                    transactionId: group.history?.current?.transactionId ?? `${groupId}:snapshot:${group.snapshot?.version ?? 0}`
-                }).catch(error => Neo.logError(error))
+                me.restoreBinding(workspaceKey).catch(error => Neo.logError(error))
             }
         };
         Transaction.on(me.#groupListeners)
@@ -262,6 +259,19 @@ class Placement extends Base {
                 await this.applyHint(key, hint, context)
             }
         }
+    }
+
+    /**
+     * @summary Projects the current saved hint when a bound window's native geometry becomes available.
+     * @param {String} workspaceKey
+     * @returns {Promise<Object|null>} The native outcome, or null for an unbound or unhinted slot.
+     */
+    async restoreBinding(workspaceKey) {
+        const group = Transaction.get(this.groupId), hint = this.#hints[workspaceKey];
+        if (!hint || !group?.bindings.get(workspaceKey)?.windowId) return null;
+        return this.applyHint(workspaceKey, hint, {
+            transactionId: group.history?.current?.transactionId ?? `${this.groupId}:snapshot:${group.snapshot?.version ?? 0}`
+        })
     }
 
     /**

@@ -23,7 +23,7 @@ class WorkspaceController extends Controller {
         return Persistence.captureTopologyPerspective(this.component.getDockTopologyWorkspaces(), {
             layoutId,
             metadata      : selected?.metadata ?? {},
-            placementHints: selected?.placementHints ?? {},
+            placementHints: this.component.getPlacementHints(),
             title         : selected?.title ?? layoutId,
             ...(selected && Object.hasOwn(selected, 'revision') && {revision: selected.revision}),
             ...(selected && Object.hasOwn(selected, 'perspectiveName') && {perspectiveName: selected.perspectiveName})
@@ -108,6 +108,10 @@ class WorkspaceController extends Controller {
         state.renderTarget = target;
         state.windowId = target.windowId;
         state.app = Neo.apps[target.windowId];
+        await this.component.observeWindowGeometry(target.windowId);
+        if (TransactionManager.getBinding(this.component.topologyGroupId, workspaceKey)?.windowId === target.windowId) {
+            await this.component.dockPlacement.restoreBinding(workspaceKey)
+        }
         if (state.host && !state.host.isDestroyed) {
             state.host.parent?.remove(state.host, false, true);
             target.add(state.host);
@@ -194,7 +198,7 @@ class WorkspaceController extends Controller {
                 hostId      : state.host?.id ?? null,
                 windowId    : state.windowId
             }])),
-            workspaceKeys: TransactionManager.participantKeys(group.id)
+            workspaceKeys: this.component.workspaceSet.ids()
         }
     }
 

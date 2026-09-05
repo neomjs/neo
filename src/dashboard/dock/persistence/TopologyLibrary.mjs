@@ -193,7 +193,6 @@ class TopologyLibrary extends Base {
 
             manager.releaseGroup(groupId, this);
             manager.retireGroup(groupId);
-            manager.fire('groupRetired', {groupId});
             attachment.dispose();
             return true
         })().finally(() => {

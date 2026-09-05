@@ -429,7 +429,6 @@ class Workspace extends DockWorkspace {
             collection: Persistence.createTopologyCollection([], {activeLayoutId: null}).collection
         });
         me.workspaceSet = createDockWorkspaceSet({documentModel: WorkspaceDocument, manager: TransactionManager, getGroupId: () => me.topologyGroupId});
-        me.registerMainWorkspace();
 
         for (const [workspaceId, document] of Object.entries(me.initialTopology?.workspaces ?? {})) {
             if (workspaceId === Workspace.MAIN_WORKSPACE_ID) continue;
@@ -447,6 +446,8 @@ class Workspace extends DockWorkspace {
                 setDocument: value => state.document = value
             })
         }
+
+        me.registerMainWorkspace();
 
         me.tourRunner  = Neo.create(TourRunner, {
             componentId   : me.id,
@@ -952,7 +953,9 @@ class Workspace extends DockWorkspace {
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document
         });
-        if (registered) me.dockPlacement ??= Placement.forGroup({groupId: me.topologyGroupId, mainWorkspaceKey: Workspace.MAIN_WORKSPACE_ID});
+        if (registered) me.dockPlacement ??= Placement.forGroup({
+            groupId: me.topologyGroupId, initialHints: me.initialTopology?.placementHints, mainWorkspaceKey: Workspace.MAIN_WORKSPACE_ID
+        });
         return registered
     }
 

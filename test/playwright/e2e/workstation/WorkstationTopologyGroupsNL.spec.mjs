@@ -183,7 +183,10 @@ const expectColdTopology = async (root, record) => {
     const state      = await topologyState(root.app, root.workspaceId),
           collection = (await root.app.getComponent(root.workspaceId, ['topologyLibrary.collection']))['topologyLibrary.collection'];
     expect(state.workspaceKeys.slice().sort()).toEqual(Object.keys(record.workspaces).sort());
-    expect(state.snapshot?.participants, 'cold truth was published through the atomic Group writer').toEqual(record.workspaces);
+    expect(state.snapshot?.participants, 'cold truth includes the auxiliary placement participant').toEqual({
+        ...record.workspaces, placementHints: record.placementHints
+    });
+    expect(await root.app.callMethod(root.workspaceId, 'getPlacementHints')).toEqual(record.placementHints);
     expect(state.historyCount).toBe(0);
     expect(state.historyCursor).toBe(-1);
     expect(collection.activeLayoutId).toBe(record.layoutId);
@@ -329,11 +332,27 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             expect(afterPopup.historyCount).toBe(beforePopup.historyCount);
             expect(afterPopup.historyCursor).toBe(beforePopup.historyCursor);
 
+            const mainRect    = await root.page.evaluate(() => ({x: screenX, y: screenY, width: outerWidth})),
+                  popupCdp    = await coldContext.newCDPSession(popup),
+                  popupWindow = await popupCdp.send('Browser.getWindowForTarget'),
+                  movedLeft   = mainRect.x + mainRect.width + 60;
+            await popupCdp.send('Browser.setWindowBounds', {
+                windowId: popupWindow.windowId, bounds: {left: movedLeft, top: mainRect.y + 60}
+            });
+            await expect.poll(async () => (await root.app.callMethod(root.workspaceId, 'getPlacementHints')).details.dx).toBe(movedLeft - mainRect.x).catch(async error => {
+                const native    = await popup.evaluate(() => ({x: screenX, y: screenY, observed: Neo.main.addon.WindowPosition.observeMovement})),
+                      placement = await root.app.getComponent(root.workspaceId, ['dockPlacement.receipts']);
+                throw new Error(`${error.message}; native=${JSON.stringify(native)}; placement=${JSON.stringify(placement)}`)
+            });
+            const observedHints = await root.app.callMethod(root.workspaceId, 'getPlacementHints');
+            expect(observedHints).not.toEqual(seed.records.b.placementHints);
+
             expect(await root.app.executeDockOperation(root.workspaceId, {operation: 'setActiveItem', tabsNodeId: 'heavy-tabs', itemId: 'activity'})).toMatchObject({applied: true, errors: []});
             const changed = await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces');
             expect(changed['workstation-main'].nodes['heavy-tabs'].activeItemId).toBe('activity');
             await root.page.getByRole('button', {name: 'Save workspace', exact: true}).click();
             await expect.poll(async () => (await root.app.callMethod(root.workspaceId, 'topologyLibrary.persistenceAdapter.read')).topologies['layout-b'].workspaces, {timeout: 15000}).toEqual(changed);
+            expect((await root.app.callMethod(root.workspaceId, 'topologyLibrary.persistenceAdapter.read')).topologies['layout-b'].placementHints).toEqual(observedHints);
             const savedAgain = await coldContext.storageState({indexedDB: true}), carrierAgain = await readCarrier(root.page);
 
             const beforeRootReload = await topologyState(root.app, root.workspaceId);
@@ -373,7 +392,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             contexts.push(secondContext);
             const second = await coldRoot(secondContext, neuralLink, carrierAgain);
             expect(second.app.sessionId).not.toBe(root.app.sessionId);
-            await expectColdTopology(second, {...seed.records.b, workspaces: changed});
+            await expectColdTopology(second, {...seed.records.b, workspaces: changed, placementHints: observedHints});
             expect(secondContext.pages()).toHaveLength(1)
         } finally {
             await Promise.allSettled(contexts.map(current => current.close()))
