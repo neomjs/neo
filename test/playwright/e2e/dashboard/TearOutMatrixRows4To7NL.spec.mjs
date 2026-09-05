@@ -55,13 +55,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             'dockModel',
             'perspectiveStore.collection',
             'tearOutAcquisitionAttempts',
-            'tearOutConnectAdmissions.size',
             'tearOutConnects',
             'tearOutHandlers.activeVessel',
             'tearOutPanes',
             'tearOutPlacements',
             'tearOutRetirements.size',
-            'vesselOwnerGrants.size'
+            'vesselReservations.size'
         ])
     }
 
@@ -153,13 +152,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
      */
     function expectNoTearOutResidue(snapshot) {
         expect(snapshot.lifecycle).toMatchObject({
-            'tearOutConnectAdmissions.size': 0,
-            'tearOutHandlers.activeVessel' : null,
-            'tearOutRetirements.size'      : 0,
-            'vesselOwnerGrants.size'       : 0,
-            tearOutConnects                : {},
-            tearOutPanes                   : {},
-            tearOutPlacements              : {}
+            'tearOutHandlers.activeVessel': null,
+            'tearOutRetirements.size'     : 0,
+            'vesselReservations.size'     : 0,
+            tearOutConnects               : {},
+            tearOutPanes                  : {},
+            tearOutPlacements             : {}
         });
         expect(snapshot.homeCount).toBe(1);
         expect(snapshot.mainRenderCount).toBe(1);
@@ -453,12 +451,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         expect(result.proof.documentBefore).toEqual(before.lifecycle.dockModel);
         expect(committed.lifecycle.dockModel).toEqual(result.proof.documentAfter);
         expect(committed.lifecycle).toMatchObject({
-            'tearOutConnectAdmissions.size': 0,
-            'tearOutHandlers.activeVessel' : null,
-            'tearOutRetirements.size'      : 0,
-            'vesselOwnerGrants.size'       : 0,
-            tearOutAcquisitionAttempts     : 1,
-            tearOutConnects                : {}
+            // the bound vessel's slot lives as long as the vessel: one reservation, no other residue
+            'tearOutHandlers.activeVessel': null,
+            'tearOutRetirements.size'     : 0,
+            'vesselReservations.size'     : 1,
+            tearOutAcquisitionAttempts    : 1,
+            tearOutConnects               : {}
         });
         expect(Object.keys(committed.lifecycle.tearOutPanes)).toEqual(['workbench']);
         expect(Object.keys(committed.lifecycle.tearOutPlacements)).toEqual(['workbench']);
