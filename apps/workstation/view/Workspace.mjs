@@ -1,23 +1,24 @@
-import Component                   from '../../../src/component/Base.mjs';
-import Container                   from '../../../src/container/Base.mjs';
-import DockWorkspace               from '../../../src/dashboard/dock/Workspace.mjs';
-import Feed                        from '../store/Feed.mjs';
-import FeedPane                    from './FeedPane.mjs';
-import Scale                       from '../store/Scale.mjs';
-import ScalePane                   from './ScalePane.mjs';
-import DockDragAffordances         from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
-import DockDropIndicators          from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockLayoutAdapter           from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import PerspectiveLibrary          from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
-import DockPreview                 from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockProjectionReconciler    from '../../../src/dashboard/dock/projection/Reconciler.mjs';
-import DockService                 from '../../../src/ai/client/DockService.mjs';
-import WorkspaceDocument           from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Operations                  from '../../../src/dashboard/dock/model/Operations.mjs';
-import Persistence                 from '../../../src/dashboard/dock/model/Persistence.mjs';
-import InteractionService          from '../../../src/ai/client/InteractionService.mjs';
-import StateProvider               from '../../../src/state/Provider.mjs';
-import TourRunner                  from '../../../src/ai/client/TourRunner.mjs';
+import Component                from '../../../src/component/Base.mjs';
+import Container                from '../../../src/container/Base.mjs';
+import DockWorkspace            from '../../../src/dashboard/dock/Workspace.mjs';
+import Feed                     from '../store/Feed.mjs';
+import FeedPane                 from './FeedPane.mjs';
+import Scale                    from '../store/Scale.mjs';
+import ScalePane                from './ScalePane.mjs';
+import DockDragAffordances      from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
+import DockDropIndicators       from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter        from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import PerspectiveLibrary       from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import DockPreview              from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockProjectionReconciler from '../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockService              from '../../../src/ai/client/DockService.mjs';
+import WorkspaceDocument        from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations               from '../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence              from '../../../src/dashboard/dock/model/Persistence.mjs';
+import InteractionService       from '../../../src/ai/client/InteractionService.mjs';
+import StateProvider            from '../../../src/state/Provider.mjs';
+import TourRunner               from '../../../src/ai/client/TourRunner.mjs';
+import TransactionManager       from '../../../src/manager/Transaction.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
@@ -491,16 +492,14 @@ class Workspace extends DockWorkspace {
             }
         });
 
-        // The cross-window composition (docking design record §2.1/§2.3): one worker-owned
-        // workspace set resolves documents by STABLE workspace identity — windowId, screen
-        // geometry, and projection state never enter it; a window is a render target, not a
-        // state owner. Vessel workspaces register lazily on first dock-INTO (Edit 2).
-        me.workspaceSet = createDockWorkspaceSet();
-
-        me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
-            getDocument: () => me.dockModel,
-            setDocument: document => me.dockModel = document
-        });
+        // The cross-window composition (docking design record §2.1/§2.3): the workspace set resolves
+        // documents by STABLE workspace identity — windowId, screen geometry, and projection state
+        // never enter it; a window is a render target, not a state owner. Its membership lives in
+        // this workspace's Group on `Neo.manager.Transaction`: the app imports the manager, so its
+        // window is admitted at registration and the Group exists before this constructor runs.
+        // Vessel workspaces register lazily on first dock-INTO (Edit 2).
+        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
+        me.registerMainWorkspace();
 
         me.crossWindowParticipationPromise = me.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID)
             .catch(error => {
@@ -899,6 +898,40 @@ class Workspace extends DockWorkspace {
      */
     admitDockPopOut(data) {
         return this.onDockTearOutExit(data)
+    }
+
+    /**
+     * @summary Publishes this workspace's own document as the `main` participant of its Group.
+     *
+     * Membership is the Group's, and a workspace has a Group only once its window is bound — which its
+     * app did at registration, before any view of that window constructed. An instance created
+     * headless has no window yet and joins nothing; {@link #afterSetWindowId} registers it the moment
+     * a container supplies its first real window id.
+     * @returns {Boolean} Whether the participant is registered.
+     * @protected
+     */
+    registerMainWorkspace() {
+        let me = this;
+
+        return me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
+            getDocument: () => me.dockModel,
+            setDocument: document => me.dockModel = document
+        })
+    }
+
+    /**
+     * A headless instance joins its Group when a real render target arrives (see
+     * {@link #registerMainWorkspace}); the engine's geometry binding runs on the same signal.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let me = this;
+
+        value && me.workspaceSet && !me.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID) && me.registerMainWorkspace()
     }
 
     /**

@@ -15,6 +15,7 @@ import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.m
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import TopologyReconciler       from '../../../../src/dashboard/dock/model/TopologyReconciler.mjs';
 import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import TransactionManager       from '../../../../src/manager/Transaction.mjs';
 
 /**
  * @summary The holder seam pair a multi-window perspective restore reaches an app through.
@@ -88,20 +89,27 @@ Neo.setupClass(TopologyWorkspace);
 test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window restore seams', () => {
     let workspace;
 
+    const groups = [];
+
     test.afterEach(() => {
         workspace?.isDestroyed === false && workspace.destroy();
-        workspace = null
+        workspace = null;
+        groups.splice(0).forEach(groupId => TransactionManager.retireGroup(groupId))
     });
 
     /**
      * Registers the primary first, exactly as a host does — `ids()` order IS slot order, and the
-     * capture/restore pair index by it.
+     * capture/restore pair index by it. Membership lives in a Group of its own, bound the way a host
+     * window is at app registration.
      * @returns {Object} `{set, vessel}` — the live set plus a mutable second-slot handle
      */
     function createSet(host) {
         const
-            vessel = {document: vesselDoc()},
-            set    = createDockWorkspaceSet();
+            groupId = TransactionManager.bind({windowId: `seams-host-${groups.length + 1}`, workspaceKey: 'main'}).groupId,
+            vessel  = {document: vesselDoc()},
+            set     = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId});
+
+        groups.push(groupId);
 
         set.register('main', {
             getDocument: () => host.dockModel,

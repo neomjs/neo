@@ -150,6 +150,41 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         expect(Transaction.getBinding(a.groupId, 'main'), 'the root still binds').toEqual({generation: 1, windowId: 'a1', workspaceKey: 'main'})
     });
 
+    test('participants are the Group\'s and outlive its bindings: opaque, replaced by key, kept through release and lease expiry, gone only with the Group', async () => {
+        Transaction.reconnectLeaseMs = 20;
+
+        const a     = Transaction.bind({windowId: 'a1', workspaceKey: 'main'}),
+              owner = {getDocument: () => 'doc'};
+
+        expect(Transaction.registerParticipant({groupId: 'unknown', workspaceKey: 'main', participant: owner}), 'an unknown Group refuses').toBe(false);
+        expect(Transaction.registerParticipant({groupId: a.groupId, workspaceKey: '', participant: owner}), 'a key is required').toBe(false);
+        expect(Transaction.registerParticipant({groupId: a.groupId, workspaceKey: 'main', participant: null}), 'a participant is required').toBe(false);
+        expect(Transaction.registerParticipant({groupId: a.groupId, workspaceKey: 'main', participant: owner})).toBe(true);
+        expect(Transaction.registerParticipant({groupId: a.groupId, workspaceKey: 'vessel', participant: {}})).toBe(true);
+        expect(Transaction.participantKeys(a.groupId)).toEqual(['main', 'vessel']);
+        expect(Transaction.getParticipant(a.groupId, 'main'), 'held opaque, returned as registered').toBe(owner);
+
+        const replacement = {getDocument: () => 'doc2'};
+
+        expect(Transaction.registerParticipant({groupId: a.groupId, workspaceKey: 'main', participant: replacement}), 'the same key replaces').toBe(true);
+        expect(Transaction.getParticipant(a.groupId, 'main')).toBe(replacement);
+        expect(Transaction.participantKeys(a.groupId), 'a replacement keeps its key\'s place').toEqual(['main', 'vessel']);
+
+        // The window dies and its lease runs out: the slot is free; the Group and its participants stay.
+        Transaction.release('a1');
+
+        await new Promise(resolve => setTimeout(resolve, 60));
+
+        expect(Transaction.getBinding(a.groupId, 'main'), 'the slot is free').toBeNull();
+        expect(Transaction.get(a.groupId), 'a Group holding participants is not empty and is not retired').toBeTruthy();
+        expect(Transaction.participantKeys(a.groupId)).toEqual(['main', 'vessel']);
+
+        expect(Transaction.unregisterParticipant({groupId: a.groupId, workspaceKey: 'vessel'})).toBe(true);
+        expect(Transaction.unregisterParticipant({groupId: a.groupId, workspaceKey: 'vessel'}), 'retirement is exact-once').toBe(false);
+        expect(Transaction.retireGroup(a.groupId)).toBe(true);
+        expect(Transaction.getParticipant(a.groupId, 'main'), 'gone with the Group').toBeNull()
+    });
+
     test('a Group this worker never saw is created cold under the carried id, so persisted state can find it later', () => {
         const cold = Transaction.bind({groupId: 'group-from-a-previous-worker', workspaceKey: 'main', generationToken: 'lineage', windowId: 'w1'});
 

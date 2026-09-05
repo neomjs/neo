@@ -623,11 +623,13 @@ class Workspace extends Container {
 
     /**
      * The Group this workspace's window is bound into, or `null` before its window has bound — which
-     * includes the moment before the manager has loaded.
+     * includes the moment before the manager has loaded. Read off the loaded singleton when a
+     * participant loaded it before this instance's own load settled: an app that imports the manager
+     * is admitted at registration, so its host workspace is bound before it constructs.
      * @member {String|null} topologyGroupId
      */
     get topologyGroupId() {
-        return this.transactionManager?.findByWindow(this.windowId)?.groupId ?? null
+        return (this.transactionManager ?? Neo.manager?.Transaction)?.findByWindow(this.windowId)?.groupId ?? null
     }
 
     /**

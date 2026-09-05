@@ -17,9 +17,13 @@ import Manager from './Base.mjs';
  * - A released slot is held for its lineage for {@link #reconnectLeaseMs}; afterwards the slot is free.
  * - An opener reserves a slot for a window it is about to create; the reservation is the token the
  *   child must present, bounded by the same lease.
+ * - A Group also holds keyed participants — the owners its slots resolve to, registered by the hosts
+ *   that live in it. Membership is separate from binding: a participant lives while its Group does,
+ *   whatever its window's generation is doing, and a Group holding participants is never empty.
  *
  * The main thread carries the identity across page loads in `sessionStorage` and rewrites it on request;
- * it never decides. This manager knows windows, keys and tokens — no dock, no document, no app class.
+ * it never decides. This manager knows windows, keys, tokens and opaque participants — no dock, no
+ * document, no app class.
  * @class Neo.manager.Transaction
  * @extends Neo.manager.Base
  * @singleton
@@ -189,9 +193,10 @@ class Transaction extends Manager {
      */
     createGroup(groupId=crypto.randomUUID()) {
         const group = {
-            bindings : new Map(),
-            createdAt: Date.now(),
-            id       : groupId
+            bindings    : new Map(),
+            createdAt   : Date.now(),
+            id          : groupId,
+            participants: new Map()
         };
 
         this.register(group);
@@ -249,6 +254,59 @@ class Transaction extends Manager {
         const binding = this.get(groupId)?.bindings.get(workspaceKey);
 
         return binding ? {generation: binding.generation, windowId: binding.windowId, workspaceKey} : null
+    }
+
+    /**
+     * The participant a Group resolves one key to, or `null`.
+     * @param {String} groupId
+     * @param {String} workspaceKey
+     * @returns {Object|null}
+     */
+    getParticipant(groupId, workspaceKey) {
+        return this.get(groupId)?.participants.get(workspaceKey) ?? null
+    }
+
+    /**
+     * The keys a Group holds participants under, in registration order.
+     * @param {String} groupId
+     * @returns {String[]}
+     */
+    participantKeys(groupId) {
+        return [...(this.get(groupId)?.participants.keys() ?? [])]
+    }
+
+    /**
+     * Registers — or replaces — the participant a Group resolves one key to. What a participant IS is the
+     * host's business: this manager holds it opaque, so a dock host registers document accessors and
+     * another domain registers whatever its slots resolve to. An unknown Group refuses.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @param {Object} data.participant
+     * @returns {Boolean}
+     */
+    registerParticipant({groupId, workspaceKey, participant}) {
+        const group = this.get(groupId);
+
+        if (!group || typeof workspaceKey !== 'string' || !workspaceKey || !participant || typeof participant !== 'object') {
+            return false
+        }
+
+        group.participants.set(workspaceKey, participant);
+
+        return true
+    }
+
+    /**
+     * Retires one participant of a Group — an explicit owner decision, never a side effect of a window's
+     * binding leaving: closing a vessel unbinds a render target, it does not delete worker documents.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @returns {Boolean}
+     */
+    unregisterParticipant({groupId, workspaceKey}) {
+        return this.get(groupId)?.participants.delete(workspaceKey) ?? false
     }
 
     /**
@@ -341,8 +399,9 @@ class Transaction extends Manager {
     }
 
     /**
-     * Retires a Group and every lease it holds. Whether a Group MAY retire — durably persisted, no
-     * retained reference — is the caller's contract; this manager only forgets what it is told to.
+     * Retires a Group with every lease and participant it holds. Whether a Group MAY retire — durably
+     * persisted, no retained reference — is the caller's contract; this manager only forgets what it is
+     * told to.
      * @param {String} groupId
      * @returns {Boolean}
      */
@@ -353,6 +412,7 @@ class Transaction extends Manager {
         if (!group) return false;
 
         group.bindings.forEach(binding => me.clearLease(binding));
+        group.participants.clear();
         me.unregister(group);
 
         return true
@@ -389,11 +449,12 @@ class Transaction extends Manager {
                 group.bindings.delete(binding.workspaceKey);
                 me.fire('leaseExpired', {groupId: group.id, workspaceKey: binding.workspaceKey});
 
-                // A Group with no binding left holds nothing this manager keeps for it — no history, no
-                // snapshot — so letting it go loses nothing. Conditional, lossless retirement of a
-                // Group that DOES hold state is a later contract; this only stops closed windows from
-                // leaving empty Groups behind in a long-lived worker.
-                if (group.bindings.size === 0 && me.get(group.id) === group) {
+                // A Group with no binding AND no participant left holds nothing this manager keeps for
+                // it — no history, no snapshot — so letting it go loses nothing. A Group whose
+                // participants outlive its last window is not empty: its documents are still owned.
+                // Conditional, lossless retirement of a Group that DOES hold state is a later contract;
+                // this only stops closed windows from leaving empty Groups behind in a long-lived worker.
+                if (group.bindings.size === 0 && group.participants.size === 0 && me.get(group.id) === group) {
                     me.unregister(group);
                     me.fire('groupRetired', {groupId: group.id})
                 }

@@ -512,9 +512,11 @@ class DemoBWorkspace extends Container {
         // pieces, as this one is, arms it itself.
         Neo.main.addon.WindowPosition?.setConfigs({observeMovement: true, observeResize: true, windowId: me.windowId});
 
-        // Both workspaces register under their STABLE semantic ids — the seams read/write the
-        // live owner fields, so registry resolution always answers with committed truth.
-        me.workspaceSet = createDockWorkspaceSet();
+        // Every workspace registers under its STABLE semantic id — the seams read/write the live
+        // owner fields, so resolution always answers with committed truth. Membership lives in this
+        // host's Group on `Neo.manager.Transaction`: the app imports the manager, so its window is
+        // admitted at registration and the Group exists before this constructor runs.
+        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
 
         me.workspaceSet.register(DemoBWorkspace.MAIN_WORKSPACE_ID, {
             getDocument: () => me.dockModel,

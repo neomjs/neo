@@ -1,54 +1,74 @@
 /**
- * @summary Pure worker-owned workspace-set registry — the `{workspaceId → document}` composition
- * of the docking design record (§2.1 workspace topology; §2.8.3 vessel lifecycle;
- * `learn/agentos/decisions/0029-docking-design.md`).
+ * @summary The dock adapter over a Group's participant membership — the `{workspaceId → document}`
+ * composition of the docking design record (§2.1 workspace topology; §2.8.3 vessel lifecycle;
+ * `learn/agentos/decisions/0029-docking-design.md`), resolved through `Neo.manager.Transaction`.
  *
- * A workspace is one dock-zone document owned by one workspace container; multi-window
- * composition registers each vessel's document under a STABLE workspace id. This registry is that
- * composition's single source of resolution: cross-window participations resolve foreign
- * documents through it, and an atomic transfer's committed pair is adopted through it —
- * both-or-neither, mirroring the executor's commit-or-neither contract at the ownership tier.
+ * A workspace is one dock-zone document owned by one workspace container; multi-window composition
+ * registers each vessel's document under a STABLE workspace id. That membership lives in the host's
+ * topology Group: the manager holds the participants, this adapter phrases them as the dock's
+ * registry and adds the dock's own adoption semantics — cross-window participations resolve foreign
+ * documents through it, and an atomic transfer's committed pair is adopted through it, both-or-neither,
+ * mirroring the executor's commit-or-neither contract at the ownership tier.
  *
  * Boundary discipline (the §2.1 state-class table, binding):
- * - **Worker-owned shared truth only.** Entries carry document accessors keyed by semantic
- *   workspace identity. `windowId`, screen geometry, and projection state NEVER enter this
- *   registry — a window is a render target, not a state owner, and runtime window identity is
+ * - **No registry of its own.** The adapter keeps no entry map: every registration, lookup and count
+ *   is the Group's. Before the host's window has bound there is no Group and so no membership —
+ *   registration is refused and every lookup fails closed. A host that imports the manager is
+ *   admitted at app registration, before its workspace constructs, so this is the exception path.
+ * - **Worker-owned shared truth only.** Participants carry document accessors keyed by semantic
+ *   workspace identity. `windowId`, screen geometry, and projection state NEVER enter the Group as
+ *   membership — a window is a render target, not a state owner, and runtime window identity is
  *   never persisted workspace identity.
- * - **Retirement is an explicit owner decision.** Closing a vessel unbinds a render target; it
- *   does not delete worker documents — so this registry never auto-retires an entry. Whether an
- *   emptied workspace-set entry is retained or retired is decided and named separately by the
- *   reintegration tier (§2.8.3).
- * - **Projection choreography stays with the owner.** The registry answers "whose document, and
- *   what is it now" — reconcile ordering, generation guards, and render-target sync remain the
- *   workspace container's own contract.
+ * - **Membership is separate from binding.** Closing a vessel unbinds a render target; it does not
+ *   delete worker documents — a participant lives while its Group does, and a Group holding
+ *   participants is never empty. Whether an emptied entry is retained or retired is decided and
+ *   named by the reintegration tier (§2.8.3), through {@link #unregister}.
+ * - **Projection choreography stays with the owner.** The adapter answers "whose document, and what
+ *   is it now" — reconcile ordering, generation guards, and render-target sync remain the workspace
+ *   container's own contract.
  *
- * Dependency-free by design — closure state, injected accessor seams — so witnesses drive the
- * full registry contract without a browser or a model import.
+ * Dependency-free beyond its two seams — the manager and the Group resolver are injected — so
+ * witnesses drive the full contract without a browser or a model import.
  */
 
 /**
- * Creates one worker-owned workspace-set registry.
+ * Creates the dock's view of one Group's participant membership.
+ * @param {Object} seams
+ * @param {Neo.manager.Transaction} seams.manager The worker-wide topology manager.
+ * @param {Function} seams.getGroupId `() => String|null` — the host's Group, `null` while its window has not bound.
  * @returns {Object} workspaceSet
+ * @returns {Function} workspaceSet.adoptAll       `(workspaces)` all-or-nothing adoption of one document per registered key; Boolean.
  * @returns {Function} workspaceSet.adoptTransfer  `({sourceWorkspaceId, sourceDocument, targetWorkspaceId, targetDocument})` both-or-neither pair adoption; Boolean.
- * @returns {Function} workspaceSet.getDocument    `(workspaceId)` → the entry's current document, or `null` (fail closed).
+ * @returns {Function} workspaceSet.getDocument    `(workspaceId)` → the participant's current document, or `null` (fail closed).
  * @returns {Function} workspaceSet.has            `(workspaceId)` → Boolean.
  * @returns {Function} workspaceSet.ids            `()` → registered workspace ids.
- * @returns {Function} workspaceSet.register       `(workspaceId, {getDocument, setDocument})` registers-or-replaces an entry; Boolean.
- * @returns {Number}   workspaceSet.size           Registered entry count.
+ * @returns {Function} workspaceSet.register       `(workspaceId, {getDocument, setDocument})` registers-or-replaces a participant; Boolean.
+ * @returns {Number}   workspaceSet.size           Registered participant count.
  * @returns {Function} workspaceSet.unregister     `(workspaceId)` explicit retirement; Boolean.
  */
-export function createDockWorkspaceSet() {
-    const entries = new Map();
+export function createDockWorkspaceSet({manager, getGroupId}) {
+    const
+        groupId     = () => getGroupId?.() ?? null,
+        participant = workspaceId => {
+            const id = groupId();
+
+            return id ? manager.getParticipant(id, workspaceId) : null
+        },
+        keys        = () => {
+            const id = groupId();
+
+            return id ? manager.participantKeys(id) : []
+        };
 
     return {
         get size() {
-            return entries.size
+            return keys().length
         },
 
         /**
-         * Adopts an atomically-committed document pair into both owning entries — or neither.
+         * Adopts an atomically-committed document pair into both owning participants — or neither.
          * Fail-closed preconditions, all checked BEFORE the first write: distinct source and
-         * target ids, both entries registered, both writable.
+         * target ids, both participants registered, both writable.
          *
          * Both-or-neither against THROWING writers holds by two-sided compensation: BOTH previous
          * documents are captured before the first write, and either write failing compensates
@@ -71,8 +91,8 @@ export function createDockWorkspaceSet() {
          */
         adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}) {
             const
-                source = entries.get(sourceWorkspaceId),
-                target = entries.get(targetWorkspaceId);
+                source = participant(sourceWorkspaceId),
+                target = participant(targetWorkspaceId);
 
             if (
                 sourceWorkspaceId === targetWorkspaceId ||
@@ -117,8 +137,8 @@ export function createDockWorkspaceSet() {
          * Adopts one committed document per registered workspace key.
          *
          * All-or-nothing, like {@link #adoptTransfer} one arity up: the payload must name exactly
-         * the registered semantic keys. Object insertion order and registry order never pair a
-         * document with its owner. A missing/excess key, missing document, or read-only entry
+         * the registered semantic keys. Object insertion order and registration order never pair a
+         * document with its owner. A missing/excess key, missing document, or read-only participant
          * refuses before the first write; a throw mid-write compensates every earlier writer.
          * @param {Object<String,Object>} workspaces Documents keyed by stable workspace identity.
          * @returns {Boolean} true when every workspace adopted its keyed document
@@ -127,13 +147,14 @@ export function createDockWorkspaceSet() {
             const
                 isRecord = workspaces !== null && typeof workspaces === 'object' && !Array.isArray(workspaces) &&
                     (Object.getPrototypeOf(workspaces) === Object.prototype || Object.getPrototypeOf(workspaces) === null),
-                ids      = [...entries.keys()],
-                keys     = isRecord ? Object.keys(workspaces) : [];
+                ids      = keys(),
+                entries  = ids.map(workspaceId => participant(workspaceId)),
+                names    = isRecord ? Object.keys(workspaces) : [];
 
             if (
-                !isRecord || keys.length !== ids.length ||
-                keys.some(workspaceId => !entries.has(workspaceId) || !workspaces[workspaceId]) ||
-                ids.some(workspaceId => !Object.hasOwn(workspaces, workspaceId) || !entries.get(workspaceId).setDocument)
+                !isRecord || names.length !== ids.length ||
+                names.some(workspaceId => !ids.includes(workspaceId) || !workspaces[workspaceId]) ||
+                entries.some((entry, index) => !Object.hasOwn(workspaces, ids[index]) || !entry?.setDocument)
             ) {
                 return false
             }
@@ -141,7 +162,7 @@ export function createDockWorkspaceSet() {
             const written = [];
 
             for (let index = 0; index < ids.length; index++) {
-                const entry = entries.get(ids[index]);
+                const entry = entries[index];
 
                 written.push([entry, entry.getDocument()]);
 
@@ -167,10 +188,10 @@ export function createDockWorkspaceSet() {
 
         /**
          * @param {String} workspaceId
-         * @returns {Object|null} the entry's current document, or null (fail closed)
+         * @returns {Object|null} the participant's current document, or null (fail closed)
          */
         getDocument(workspaceId) {
-            return entries.get(workspaceId)?.getDocument() ?? null
+            return participant(workspaceId)?.getDocument() ?? null
         },
 
         /**
@@ -178,47 +199,55 @@ export function createDockWorkspaceSet() {
          * @returns {Boolean}
          */
         has(workspaceId) {
-            return entries.has(workspaceId)
+            return participant(workspaceId) !== null
         },
 
         /**
          * @returns {String[]}
          */
         ids() {
-            return [...entries.keys()]
+            return keys()
         },
 
         /**
-         * Registers-or-replaces one workspace entry. Replacement is deliberate: a re-embodied
-         * vessel re-registers the SAME stable workspace id with fresh accessor seams, and the
-         * stale seams must not survive it.
+         * Registers-or-replaces one workspace participant in the host's Group. Replacement is
+         * deliberate: a re-embodied vessel re-registers the SAME stable workspace id with fresh
+         * accessor seams, and the stale seams must not survive it. Refused while the host has no
+         * Group — there is no membership to join yet.
          * @param {String} workspaceId Stable semantic identity — never a `windowId`.
          * @param {Object} seams
          * @param {Function} seams.getDocument `()` → the workspace's current committed document.
-         * @param {Function} [seams.setDocument] `(document)` adopts a committed document; an
-         *     entry without one is read-only to `adoptTransfer` (fail closed).
+         * @param {Function} [seams.setDocument] `(document)` adopts a committed document; a
+         *     participant without one is read-only to `adoptTransfer` (fail closed).
          * @returns {Boolean} true when registered
          */
         register(workspaceId, {getDocument, setDocument} = {}) {
-            if (!workspaceId || typeof workspaceId !== 'string' || typeof getDocument !== 'function') {
+            const id = groupId();
+
+            if (!id || !workspaceId || typeof workspaceId !== 'string' || typeof getDocument !== 'function') {
                 return false
             }
 
-            entries.set(workspaceId, {
-                getDocument,
-                setDocument: typeof setDocument === 'function' ? setDocument : null
-            });
-            return true
+            return manager.registerParticipant({
+                groupId    : id,
+                participant: {
+                    getDocument,
+                    setDocument: typeof setDocument === 'function' ? setDocument : null
+                },
+                workspaceKey: workspaceId
+            })
         },
 
         /**
-         * Explicit entry retirement — never invoked by the registry itself (see the class
-         * summary's vessel-lifecycle boundary).
+         * Explicit participant retirement — never a side effect of a window's binding leaving (see
+         * the summary's vessel-lifecycle boundary).
          * @param {String} workspaceId
-         * @returns {Boolean} true when an entry was removed
+         * @returns {Boolean} true when a participant was removed
          */
         unregister(workspaceId) {
-            return entries.delete(workspaceId)
+            const id = groupId();
+
+            return id ? manager.unregisterParticipant({groupId: id, workspaceKey: workspaceId}) : false
         }
     }
 }

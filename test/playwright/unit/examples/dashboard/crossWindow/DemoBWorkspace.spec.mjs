@@ -254,11 +254,11 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         workspace;
 
     test.beforeEach(() => {
-        workspace = Neo.create(DemoBWorkspace, {});
-
-        // The host window binds into a Group the way its app registration does; every slot the
-        // workspace reserves lives in it, and `topologyGroupId` reads it back.
-        hostGroupId = TransactionManager.bind({windowId: workspace.windowId, workspaceKey: 'main'}).groupId
+        // The host window binds into a Group the way its app registration does — before the workspace
+        // constructs, as in production, so its participants register into that Group; every slot the
+        // workspace reserves lives in it too, and `topologyGroupId` reads it back.
+        hostGroupId = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'}).groupId;
+        workspace   = Neo.create(DemoBWorkspace, {windowId: Neo.config.windowId})
     });
 
     test.afterEach(() => {
@@ -509,7 +509,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         // The stub has to be in place before construction, which is where the host arms its own window.
         workspace.destroy();
-        workspace = Neo.create(DemoBWorkspace, {});
+        workspace = Neo.create(DemoBWorkspace, {windowId: Neo.config.windowId});
 
         const harness = installWindowConnectHarness(workspace);
 
