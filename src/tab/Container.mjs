@@ -397,12 +397,12 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Returns a stable header action instance by semantic action name.
-     * @param {String} action
+     * Returns the header action addressed by its `action` name — the tab bar's `toolbar.Base#getAction`.
+     * @param {String} name
      * @returns {Neo.component.Base|null}
      */
-    getActionItem(action) {
-        return this.getTabBar()?.getActionItem(action) || null
+    getAction(name) {
+        return this.getTabBar()?.getAction(name) || null
     }
 
     /**

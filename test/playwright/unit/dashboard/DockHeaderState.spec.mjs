@@ -164,10 +164,10 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         const tabs   = Reconciler.collectProjectedTabs(workspace.items[0]),
               center = tabs.get('center-tabs');
 
-        expect(center.getActionItem('close').hidden, 'alpha is closable').toBe(false);
-        expect(center.getActionItem('reload').hidden, 'alpha carries a dockReload() contract').toBe(false);
-        expect(center.getActionItem('pin').hidden, 'center never rails').toBe(true);
-        expect(tabs.get('side-tabs').getActionItem('pin').hidden, 'an edge-owned item can collapse').toBe(false);
+        expect(center.getAction('close').hidden, 'alpha is closable').toBe(false);
+        expect(center.getAction('reload').hidden, 'alpha carries a dockReload() contract').toBe(false);
+        expect(center.getAction('pin').hidden, 'center never rails').toBe(true);
+        expect(tabs.get('side-tabs').getAction('pin').hidden, 'an edge-owned item can collapse').toBe(false);
 
         evaluations.length = 0;
 
@@ -182,8 +182,8 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         const center = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
               pane   = center.getActiveCard(),
-              lock   = center.getActionItem('lock'),
-              close  = center.getActionItem('close');
+              lock   = center.getAction('lock'),
+              close  = center.getAction('close');
 
         evaluations.length = 0;
 
@@ -216,8 +216,8 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         workspace = Neo.create(HeaderStateWorkspace, {dockModel: createDocument()});
 
         const center = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
-              close  = center.getActionItem('close'),
-              reload = center.getActionItem('reload');
+              close  = center.getAction('close'),
+              reload = center.getAction('reload');
 
         evaluations.length = 0;
 
@@ -252,14 +252,14 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         expect(evaluationsOf(other).length, 'the other workspace evaluated its own headers').toBeGreaterThan(0);
         expect(evaluationsOf(workspace), 'this workspace evaluated nothing').toEqual([]);
-        expect(Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs').getActionItem('lock').pressed).toBe(false)
+        expect(Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs').getAction('lock').pressed).toBe(false)
     });
 
     test('reload follows the published pane contract, the recreate fallback and the flight', async () => {
         workspace = Neo.create(HeaderStateWorkspace, {dockModel: createDocument()});
 
         const center   = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
-              reload   = center.getActionItem('reload'),
+              reload   = center.getAction('reload'),
               provider = workspace.stateProvider;
 
         expect(provider.getData('dock.items.alpha.reloadable'), 'the resolver published alpha\'s contract').toBe(true);
@@ -304,7 +304,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         workspace = host.items[0];
 
         const center   = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
-              lock     = center.getActionItem('lock'),
+              lock     = center.getAction('lock'),
               pane     = center.getActiveCard(),
               provider = workspace.stateProvider;
 
@@ -390,8 +390,8 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         const center   = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
               pane     = center.getActiveCard(),
               button   = center.getTabButtons()[0],
-              lock     = center.getActionItem('lock'),
-              close    = center.getActionItem('close'),
+              lock     = center.getAction('lock'),
+              close    = center.getAction('close'),
               provider = workspace.stateProvider;
 
         expect(button.dockItemId).toBe(itemId);

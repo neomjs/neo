@@ -261,7 +261,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         tab.headerActions = [{action: 'pin', contextual: false, iconCls: 'fa fa-thumbtack'}];
 
-        const action = tab.getActionItem('pin'),
+        const action = tab.getAction('pin'),
               spacer = bar.getActionSpacer();
 
         next.items.beta = {componentRef: 'beta', kind: 'panel', title: 'Beta'};
@@ -291,7 +291,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
             expect(host.items[0]).toBe(tab);
             expect(tab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Beta']);
-            expect(tab.getActionItem('pin'), 'the exact action instance survives projection').toBe(action);
+            expect(tab.getAction('pin'), 'the exact action instance survives projection').toBe(action);
             expect(bar.getActionSpacer(), 'the exact spacer instance survives projection').toBe(spacer);
             expect(bar.items.slice(-2)).toEqual([spacer, action]);
             expect(action.wrapperCls).not.toContain('neo-draggable');

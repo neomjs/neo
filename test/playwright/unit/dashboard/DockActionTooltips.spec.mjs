@@ -92,12 +92,12 @@ test.describe('dock header action tooltips', () => {
               };
 
         for (const [action, text] of Object.entries(expected)) {
-            expect(tipText(main.getActionItem(action)), `${action} names itself`).toBe(text)
+            expect(tipText(main.getAction(action)), `${action} names itself`).toBe(text)
         }
 
         const rail    = workspace.down({ntype: 'dashboard-dock-rail'}),
               overlay = rail.items.at(-1),
-              pin     = overlay.items[0].getActionItem('pin');
+              pin     = overlay.items[0].getAction('pin');
 
         expect(rail.revealPinTooltip, 'the rail carries the text for its overlay').toBe('Pin back into the layout');
         expect(overlay.pinTooltip).toBe('Pin back into the layout');
@@ -110,29 +110,29 @@ test.describe('dock header action tooltips', () => {
 
         expect(overridden.dockActionTooltips.lock,  'the overridden key').toBe('Sperren');
         expect(overridden.dockActionTooltips.close, 'an untouched key keeps the engine default').toBe('Close');
-        expect(tipText(main.getActionItem('lock'))).toBe('Sperren');
-        expect(tipText(main.getActionItem('close'))).toBe('Close');
-        expect(main.getActionItem('reload').tooltip, 'a null key writes no tooltip at all').toBeNull();
+        expect(tipText(main.getAction('lock'))).toBe('Sperren');
+        expect(tipText(main.getAction('close'))).toBe('Close');
+        expect(main.getAction('reload').tooltip, 'a null key writes no tooltip at all').toBeNull();
 
         overridden.destroy();
 
         // The merge lands on the instance, never on the class default.
         create();
         expect(workspace.dockActionTooltips.lock, 'a fresh workspace keeps the engine default').toBe('Lock pane');
-        expect(tipText(tabsOf('main-tabs').getActionItem('reload'))).toBe('Reload pane')
+        expect(tipText(tabsOf('main-tabs').getAction('reload'))).toBe('Reload pane')
     });
 
     test('lock ↔ unlock flips tooltip, icon and accessible name together on the retained instance', () => {
         create();
 
         const main   = tabsOf('main-tabs'),
-              action = main.getActionItem('lock');
+              action = main.getAction('lock');
 
         expect(tipText(action)).toBe('Lock pane');
 
         expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
 
-        expect(main.getActionItem('lock'), 'the same instance').toBe(action);
+        expect(main.getAction('lock'), 'the same instance').toBe(action);
         expect(action.iconCls).toBe(workspace.dockUnlockIconCls);
         expect(action.vdom['aria-label']).toBe('unlock');
         expect(tipText(action)).toBe('Unlock pane');
@@ -148,8 +148,8 @@ test.describe('dock header action tooltips', () => {
         create({dockActionTooltips: {restore: null, unlock: null}});
 
         const main     = tabsOf('main-tabs'),
-              lock     = main.getActionItem('lock'),
-              maximize = main.getActionItem('maximize');
+              lock     = main.getAction('lock'),
+              maximize = main.getAction('maximize');
 
         expect(tipText(lock)).toBe('Lock pane');
         expect(workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer: main}).errors).toEqual([]);
@@ -175,7 +175,7 @@ test.describe('dock header action tooltips', () => {
         create();
 
         const main   = tabsOf('main-tabs'),
-              action = main.getActionItem('maximize'),
+              action = main.getAction('maximize'),
               plugin = workspace.getPlugin('dock-maximize');
 
         expect(action.vdom['aria-label'], 'the derived name before any toggle').toBe('maximize');
@@ -183,7 +183,7 @@ test.describe('dock header action tooltips', () => {
 
         plugin.syncActionPresentation(main, true);
 
-        expect(main.getActionItem('maximize'), 'the same instance').toBe(action);
+        expect(main.getAction('maximize'), 'the same instance').toBe(action);
         expect(action.iconCls).toBe(plugin.restoreIconCls);
         expect(action.vdom['aria-label'], 'the restore glyph is announced as restore').toBe('restore');
         expect(tipText(action)).toBe('Restore');

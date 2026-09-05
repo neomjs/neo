@@ -85,7 +85,7 @@ test.describe('Workstation pop-out — header truth resolves identically from bo
         expect(before.truth,      'and reads the published truth through it').toEqual(control);
 
         const
-            action = await app.callMethod(chrome.containerId, 'getActionItem', ['pop-out']),
+            action = await app.callMethod(chrome.containerId, 'getAction', ['pop-out']),
             popOut = page.locator(`#${action?.id}`);
 
         expect(action?.id, 'pop-out resolves on the live tab owner').toBeTruthy();

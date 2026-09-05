@@ -32,7 +32,9 @@ class Toolbar extends Container {
          */
         actionDefaults: null,
         /**
-         * Optional flat action configs appended after one toolbar-owned flex spacer.
+         * Optional flat action configs appended after one toolbar-owned flex spacer. An action's `action`
+         * name is its address ({@link #getAction}) and is unique within the toolbar: a name repeated here,
+         * or already held by a contributed action, throws when the actions materialise.
          * @member {Object[]|String[]|null} actions=null
          * @reactive
          */
@@ -490,7 +492,33 @@ class Toolbar extends Container {
             return []
         }
 
-        return [this.createActionSpacerConfig(), ...actions.map(action => this.createActionItemConfig(action))]
+        let configs = actions.map(action => this.createActionItemConfig(action));
+
+        this.assertUniqueActionNames(configs);
+
+        return [this.createActionSpacerConfig(), ...configs]
+    }
+
+    /**
+     * Refuses a repeated action name before anything is inserted. A name addresses exactly one action
+     * ({@link #getAction}); two actions sharing it would leave one unaddressable and route every intent by
+     * that name to the other. Unnamed actions cannot be addressed, so they cannot collide.
+     * @param {Object[]} configs The action configs about to be inserted.
+     * @param {Neo.component.Base[]} [existing=[]] Action instances that stay in place beside them.
+     * @protected
+     */
+    assertUniqueActionNames(configs, existing=[]) {
+        let names = new Set(existing.map(item => item.action).filter(Boolean));
+
+        configs.forEach(({action}) => {
+            if (action) {
+                if (names.has(action)) {
+                    throw new Error(this.className + ': duplicate toolbar action "' + action + '"')
+                }
+
+                names.add(action)
+            }
+        })
     }
 
     /**
@@ -537,6 +565,8 @@ class Toolbar extends Container {
             spacer        = me.getActionSpacer(),
             contribution;
 
+        me.assertUniqueActionNames([config], actionItems);
+
         if (!spacer) {
             spacer = me.insert(firstAction ? me.items.indexOf(firstAction) : me.items.length,
                 me.createActionSpacerConfig(), true)
@@ -570,12 +600,18 @@ class Toolbar extends Container {
     }
 
     /**
-     * Returns a stable action instance by semantic action name.
-     * @param {String} action
+     * Returns the action instance addressed by its `action` name — the toolbar's counterpart of
+     * `getPlugin`, `getController` and `getReference`. Names are unique within a toolbar
+     * ({@link #assertUniqueActionNames}); an unnamed action is not addressable, so no name resolves nothing.
+     * @param {String} name
      * @returns {Neo.component.Base|null}
      */
-    getActionItem(action) {
-        return this.getActionItems().find(item => item.action === action) || null
+    getAction(name) {
+        if (typeof name !== 'string' || name === '') {
+            return null
+        }
+
+        return this.getActionItems().find(item => item.action === name) || null
     }
 
     /**
@@ -631,6 +667,10 @@ class Toolbar extends Container {
                     ? actions.map(action => me.createActionItemConfig(action))
                     : []
                 : me.createActionItemConfigs(actions);
+
+        // The consumer actions are rebuilt whole, so they are checked among themselves inside
+        // createActionItemConfigs; against the contributions that stay, they are checked here.
+        contributions.length > 0 && me.assertUniqueActionNames(configs, contributions);
 
         owned
             .map(item => me.items.indexOf(item))

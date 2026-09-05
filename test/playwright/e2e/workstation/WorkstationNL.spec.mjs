@@ -145,7 +145,7 @@ const focusDockAction = async ({app, page, workspaceId, nodeId, itemId, actionNa
 
     await page.locator(`#${buttonId}`).click();
 
-    const action  = await app.callMethod(chrome.containerId, 'getActionItem', [actionName]),
+    const action  = await app.callMethod(chrome.containerId, 'getAction', [actionName]),
           locator = page.locator(`#${action?.id}`);
 
     expect(action?.id, `${actionName} resolves on the live tab owner`).toBeTruthy();
@@ -2638,7 +2638,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['scale']),
             'maximize never recreates the pane').toBe(paneId);
 
-        const restoreAction = await app.callMethod(chrome.containerId, 'getActionItem', ['maximize']);
+        const restoreAction = await app.callMethod(chrome.containerId, 'getAction', ['maximize']);
 
         expect(restoreAction.id, 'the maximize action instance is retained for restore').toBe(action.id);
         await page.locator(`#${restoreAction.id}`).click();

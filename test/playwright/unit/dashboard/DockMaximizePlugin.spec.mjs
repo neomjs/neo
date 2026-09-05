@@ -165,7 +165,7 @@ test.describe('dock maximize as a declinable plugin', () => {
         expect(plugin.resizeObserved, 'no observation before a presentation exists').toBe(false);
 
         expect(actionNames('main-tabs').slice(-2), 'the toggle sits in its frozen slot before close').toEqual(['maximize', 'close']);
-        expect(tabsOf('main-tabs').getActionItem('maximize').iconCls).toBe(plugin.iconCls);
+        expect(tabsOf('main-tabs').getAction('maximize').iconCls).toBe(plugin.iconCls);
 
         const escape = workspace.keys.keys.find(entry => entry.key === 'Escape');
 
@@ -193,7 +193,7 @@ test.describe('dock maximize as a declinable plugin', () => {
 
         expect(maximizePlugins(), 'the switch installs nothing beside the supplied instance').toHaveLength(1);
         expect(plugin.iconCls).toBe('fa fa-expand');
-        expect(tabsOf('main-tabs').getActionItem('maximize').iconCls, 'its options reached the projection').toBe('fa fa-expand')
+        expect(tabsOf('main-tabs').getAction('maximize').iconCls, 'its options reached the projection').toBe('fa fa-expand')
     });
 
     test('a committed operation is announced to collaborators before it applies', () => {
@@ -307,7 +307,7 @@ test.describe('dock maximize as a declinable plugin', () => {
 
         workspace = Neo.create(HookWorkspace, {dockModel: createDocument()});
 
-        expect(tabsOf('main-tabs').getActionItem('maximize').iconCls, 'the hook overrides the collaborator key').toBe('fa fa-host')
+        expect(tabsOf('main-tabs').getAction('maximize').iconCls, 'the hook overrides the collaborator key').toBe('fa fa-host')
     });
 
     test('a collaborator whose refresh sync rejects is reported and skipped, and the refresh still settles', async () => {

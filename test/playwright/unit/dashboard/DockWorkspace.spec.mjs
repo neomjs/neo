@@ -874,7 +874,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // across nothing happening.
         const nodeId       = 'side-tabs',
               tabContainer = tabsOf(workspace.items[0]).get(nodeId),
-              action       = tabContainer.getActionItem('pin');
+              action       = tabContainer.getAction('pin');
 
         // The adapter-level arms prove the projection CONFIG carries the action. This proves the
         // config became a real toolbar item on a live workspace that supplied the resolver through
@@ -913,7 +913,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             'a reprojection was actually scheduled by that commit').not.toBe(refreshBefore);
 
         const afterReproject = [...tabsOf(workspace.items[0]).entries()]
-            .find(([id]) => id === nodeId)?.[1]?.getActionItem('pin');
+            .find(([id]) => id === nodeId)?.[1]?.getAction('pin');
 
         expect(afterReproject, 'the action survives reprojection').toBeTruthy();
         expect(afterReproject, 'and it is the SAME instance, not a rebuilt group').toBe(action);
@@ -1936,7 +1936,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         const
             tabs         = tabsOf(workspace.items[0]),
             side         = tabs.get('side-tabs'),
-            closeAction  = side.getActionItem('close'),
+            closeAction  = side.getAction('close'),
             terminalTab  = side.getTabButtons()[1],
             focusTargets = [],
             commits      = [],
@@ -1962,7 +1962,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(refused.errors).toEqual(['item "terminal" is not closable']);
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].activeItemId).toBe('terminal');
         expect(side.activeIndex).toBe(1);
-        expect(side.getActionItem('close')).toBe(closeAction);
+        expect(side.getAction('close')).toBe(closeAction);
         expect(focusTargets).toEqual([]);
 
         const activationRefresh = workspace.refreshPromise;
@@ -1992,7 +1992,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         ]);
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['terminal']);
         expect(retainedSide).toBe(side);
-        expect(retainedSide.getActionItem('close')).toBe(closeAction);
+        expect(retainedSide.getAction('close')).toBe(closeAction);
         expect(closeAction.hidden).toBe(true);
         expect(focusTargets).toEqual(['terminal'])
     });
@@ -2012,7 +2012,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         const
             tabs      = tabsOf(workspace.items[0]),
             inspector = tabs.get('inspector-tabs'),
-            pinAction = inspector.getActionItem('pin'),
+            pinAction = inspector.getAction('pin'),
             commits   = [],
             apply     = workspace.applyDockZoneOperation.bind(workspace);
 
@@ -2072,7 +2072,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             return apply(descriptor)
         };
 
-        inspector.getActionItem('pin').handler({component: inspector.getActionItem('pin')});
+        inspector.getAction('pin').handler({component: inspector.getAction('pin')});
         await workspace.refreshPromise;
 
         expect(commits.map(descriptor => descriptor.operation)).toEqual(['setItemAutoHidden']);
@@ -2113,9 +2113,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         // ONE post-settle sweep ran. It reached the retained node — that is the control — and it
         // has to reach the node the projection just created.
-        expect(tabs.get('center-tabs').getActionItem('reload').hidden,
+        expect(tabs.get('center-tabs').getAction('reload').hidden,
             'the post-settle sweep reached the retained node').toBe(false);
-        expect(returned.getActionItem('reload')?.hidden,
+        expect(returned.getAction('reload')?.hidden,
             'the returned node offers reload exactly like a never-railed one').toBe(false)
     });
 
@@ -2157,7 +2157,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(flowPane.isDestroyed, 'and it is alive').toBeFalsy();
         expect(Neo.get('fixed-id-pane-inspector'), 'registered under it — the only holder').toBe(flowPane);
         expect(revealPane.isDestroyed, 'the reveal pane was released before the flow pane was minted').toBe(true);
-        expect(returned.getActionItem('reload')?.hidden, 'and the post-settle sweep ran on the returned node').toBe(false)
+        expect(returned.getAction('reload')?.hidden, 'and the post-settle sweep ran on the returned node').toBe(false)
     });
 
     test('a pin retires only its own item — a rail still holding another auto-hidden item survives', async () => {
@@ -2253,7 +2253,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             tabs       = tabsOf(workspace.items[0]),
             inspector  = tabs.get('inspector-tabs'),
             center     = tabs.get('center-tabs'),
-            pinAction  = inspector.getActionItem('pin'),
+            pinAction  = inspector.getAction('pin'),
             visibility = [],
             // The EMITTER of each signal, not just its payload. "The group was not replaced" is a
             // claim about which instance spoke, and a rebuilt group would announce itself here by
@@ -2268,11 +2268,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // Center-owned: §2.7's fail-safe — main content never rails, so the affordance is not offered.
         // Asserted BOTH where the adapter computed it and, below, after the workspace recomputes it:
         // the two derive it independently, and only the switch exercises the workspace's own sync.
-        expect(center.getActionItem('pin').hidden, 'a center-owned pane cannot collapse').toBe(true);
+        expect(center.getAction('pin').hidden, 'a center-owned pane cannot collapse').toBe(true);
 
         await center.set({activeIndex: 1});
 
-        expect(center.getActionItem('pin').hidden, 'still no collapse after the workspace re-syncs a center pane')
+        expect(center.getAction('pin').hidden, 'still no collapse after the workspace re-syncs a center pane')
             .toBe(true);
 
         expect(pinAction.hidden).toBe(false);
@@ -2280,7 +2280,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         await inspector.set({activeIndex: 1});
 
         expect(pinAction.hidden, '`pinnable: false` is refused by the model, so it is not offered').toBe(true);
-        expect(inspector.getActionItem('pin'), 'the SAME instance moved, the group was not replaced').toBe(pinAction);
+        expect(inspector.getAction('pin'), 'the SAME instance moved, the group was not replaced').toBe(pinAction);
         expect(visibility, 'Overflow gets its signal from the instance, not a rebuilt group')
             .toEqual([['pin', true]]);
 
@@ -2307,7 +2307,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         const reconciledTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
 
         expect(reconciledTabs, 'the tabs node is retained across reconciliation').toBe(inspector);
-        expect(reconciledTabs.getActionItem('pin'), 'and so is the action instance on it')
+        expect(reconciledTabs.getAction('pin'), 'and so is the action instance on it')
             .toBe(pinAction);
         expect(pinAction.hidden, 'converging on the active item\'s real policy').toBe(false);
 
@@ -2372,7 +2372,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         const tabs      = tabsOf(workspace.items[0]),
               inspector = tabs.get('inspector-tabs'),
-              pinAction = inspector.getActionItem('pin');
+              pinAction = inspector.getAction('pin');
 
         expect(pinAction, 'the action really was projected in the second run').toBeTruthy();
 
@@ -2439,7 +2439,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         const offTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
 
-        expect(offTabs.getActionItem('pin'), 'nothing is projected while the opt-in is off').toBeFalsy();
+        expect(offTabs.getAction('pin'), 'nothing is projected while the opt-in is off').toBeFalsy();
         expect(workspace.onDockHeaderAction({
             action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: offTabs
         })).toBe(null);
@@ -2470,8 +2470,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         const tabs        = tabsOf(workspace.items[0]),
               center      = tabs.get('center-tabs'),
-              pinAction   = center.getActionItem('pin'),
-              closeAction = center.getActionItem('close');
+              pinAction   = center.getAction('pin'),
+              closeAction = center.getAction('close');
 
         expect(pinAction,   'the host projected `pin` through the documented hook').toBeTruthy();
         expect(closeAction, 'and `close` beside it').toBeTruthy();
@@ -2487,7 +2487,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         expect([closeAction.hidden, pinAction.hidden], 'and so does an active-item change')
             .toEqual([false, false]);
-        expect(center.getActionItem('pin'), 'the same host instances, never replaced').toBe(pinAction)
+        expect(center.getAction('pin'), 'the same host instances, never replaced').toBe(pinAction)
     });
 
     /**
@@ -2509,7 +2509,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         const tabs      = tabsOf(workspace.items[0]),
               inspector = tabs.get('inspector-tabs'),
-              pinAction = inspector.getActionItem('pin');
+              pinAction = inspector.getAction('pin');
 
         expect(pinAction.hidden, 'an edge-owned pane can collapse, so the action is live').toBe(false);
 
@@ -2539,7 +2539,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // Once the refresh settled, the center header agrees with the document on its own.
         await workspace.refreshPromise;
 
-        expect(tabs.get('center-tabs')?.getActionItem('pin')?.hidden ?? true,
+        expect(tabs.get('center-tabs')?.getAction('pin')?.hidden ?? true,
             'a center-owned pane offers no collapse').toBe(true)
     });
 
@@ -2561,7 +2561,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             return apply(descriptor)
         };
 
-        expect(side.getActionItem?.('close')).toBeFalsy();
+        expect(side.getAction?.('close')).toBeFalsy();
 
         await side.set({activeIndex: 1});
         await workspace.refreshPromise;
@@ -2641,7 +2641,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         const
             side         = tabsOf(workspace.items[0]).get('side-tabs'),
-            closeAction  = side.getActionItem('close'),
+            closeAction  = side.getAction('close'),
             focusTargets = [];
 
         workspace.focus = () => focusTargets.push('workspace');
@@ -3350,7 +3350,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // The projection published the header truth before the chrome constructed, so the actions
         // bound to it are right at their first run — no mount-time correction is owed or scheduled.
         expect(['close', 'reload'].map(name => items.filter(item => item.action === name).length), 'one of each').toEqual([1, 1]);
-        expect(side.getActionItem('close').hidden, 'an unclosable active item hides close from the first paint').toBe(true);
+        expect(side.getAction('close').hidden, 'an unclosable active item hides close from the first paint').toBe(true);
 
         workspace.refreshPromise = null;
 
@@ -3518,7 +3518,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockPopOutAction: true});
 
             const side   = tabsOf(workspace.items[0]).get('side-tabs'),
-                  popOut = side.getActionItem('pop-out');
+                  popOut = side.getAction('pop-out');
 
             // pop-out was the one engine action with no sync. Its hidden state was projected once and
             // then lived on a RETAINED instance, so it was correct at boot and silently gone after the
@@ -3530,7 +3530,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace.stateProvider.setData('dock.popOutAvailable', true);
 
             expect(popOut.hidden, 'the capability reaches the retained instance').toBe(false);
-            expect(side.getActionItem('pop-out'), 'the same instance, the group was not replaced').toBe(popOut);
+            expect(side.getAction('pop-out'), 'the same instance, the group was not replaced').toBe(popOut);
 
             workspace.stateProvider.setData('dock.nodes.side-tabs.activeItemId', null);
 
