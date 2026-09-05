@@ -303,8 +303,23 @@ test.describe.skip('Neo.dashboard.dock.Workspace failed-projection recovery', ()
  * the recovery never ran. The probe never reached the state it exists to reach, and therefore says
  * nothing about identity — the poison target is wrong, not the theory.
  *
- * Skipped for that reason, and left in place because the next attempt should start from a measurement
- * of which nodes the host vdom actually carries as `componentId` references, not from another guess.
+ * Skipped, and left in place as the record of what was tried.
+ *
+ * ## Attempt 3 (registry corrected) — also a fixture failure, and the ticket was narrowed
+ *
+ * The poison now targets `Neo.manager.Component`, which is the registry `util.VDom.getVdom` actually
+ * reads — the earlier `Neo.manager.Instance` call removed nothing the vdom layer consults, which is
+ * why no flight rejected. With the registry right, a REAL rejection follows
+ * (`createDeltas() must be called for the same node`) — but it escapes untyped, because unregistering
+ * a shared component also breaks flights the workspace issues OUTSIDE the projection transaction, and
+ * a rejection there is never marked `isDockProjectionFailure`. So the recovery is still not reached,
+ * and the identity question is still not put.
+ *
+ * Three attempts, three fixture obstacles, zero observations of the pane being rebuilt — and in both
+ * runs that ever reached an assertion, identity SURVIVED. The behavioural claim was withdrawn on that
+ * basis and the JSDoc it rested on was corrected instead. A successor wanting to try again needs a
+ * poison scoped to a component referenced ONLY by the swap flight; that is the obstacle, and it is
+ * recorded here so it is not re-derived a fourth time.
  */
 test.describe.skip('Neo.dashboard.dock.Workspace failed-projection recovery — faithful failure', () => {
     let parent, workspace;

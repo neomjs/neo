@@ -652,9 +652,20 @@ class Reconciler extends Base {
      * commits, the staged shell is the survivor and the swap is simply finished.
      *
      * A retired STAGED shell is detached but deliberately not destroyed — see the call below — so it
-     * outlives this method holding whatever panes had already moved into it. That is intentional and
-     * temporary: the repair re-projection re-parents those panes by identity and leaves the detached
-     * shell empty and unreferenced.
+     * outlives this method holding whatever panes had already moved into it. Destroying it would take
+     * the consumer's live panes with it, which is the outcome the detach exists to prevent.
+     *
+     * **What happens to those panes afterwards is the consumer's answer, not this method's.** The
+     * repair re-projection seeds `liveItems` from the SURVIVING shell only ({@link #reconcileTabChrome}),
+     * so a detached shell's panes are not reachable by identity from here; resolution falls through to
+     * the consumer's `resolveItem`. A cache-backed {@link Neo.dashboard.dock.Workspace#resolvePane}
+     * therefore returns the same instances and nothing is rebuilt, while the engine's own default
+     * returns a fresh config literal and the repair builds replacements. Both are legal — the hook's
+     * documented return is `{Object|Neo.component.Base}`.
+     *
+     * This paragraph previously asserted that the repair re-parents those panes by identity. It does
+     * not do so by any mechanism this method controls, and the claim went three attempts without a
+     * witness; the sentence was removed rather than left standing unearned.
      *
      * The recovery commits too, so it can reject in turn. That is reported, never thrown: the caller
      * re-throws the ORIGINAL failure, whose message names the actual cause.
