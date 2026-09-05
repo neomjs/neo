@@ -56,7 +56,20 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
          * @member {String|null} applyOperationJson_=null
          * @reactive
          */
-        applyOperationJson_: null
+        applyOperationJson_: null,
+        /**
+         * Spec trigger: reject the Nth `promiseUpdate` flight of the NEXT projection, so the real
+         * `onDockProjectionFailed` schedules its one clean re-projection.
+         *
+         * Both typed-failure sites in the reconciler wrap `host.promiseUpdate()`, the flight that
+         * follows the reconcile loop's inserts, so a failure is injectable there and nowhere cheaper.
+         * The rejection is armed around the reconciler call rather than the whole refresh: the
+         * workspace makes its own flights outside it, and a rejection there is never typed
+         * `isDockProjectionFailure`, so it escapes raw instead of routing to the repair.
+         * @member {Number|null} failProjectionFlight_=null
+         * @reactive
+         */
+        failProjectionFlight_: null
     }
 
     /**
@@ -72,6 +85,59 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
         const result = this.applyDockZoneOperation(JSON.parse(value));
 
         result && !result.errors?.length && this.onDockZoneDocumentChange(result.document)
+    }
+
+    /**
+     * Arms the injected failure for exactly one projection.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetFailProjectionFlight(value, oldValue) {
+        if (oldValue === undefined || value == null) {
+            return
+        }
+
+        this.pendingFailureFlight = value
+    }
+
+    /**
+     * Wraps the pass so the armed rejection covers the reconciler call only, and disarms after one
+     * use — the repair pass must run for real, or the arm measures the failure instead of the repair.
+     * @param {Object|null} [tabInsertDescriptor=null]
+     * @param {Object} [document=this.dockModel]
+     * @param {Object} [refreshOptions={}]
+     * @returns {Promise<*>}
+     */
+    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}) {
+        const
+            me   = this,
+            host = me.getDockHost();
+
+        if (me.pendingFailureFlight == null || !host) {
+            return super.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+        }
+
+        const
+            target   = me.pendingFailureFlight,
+            original = host.promiseUpdate.bind(host);
+
+        let calls = 0;
+
+        me.pendingFailureFlight = null;
+        host.promiseUpdate      = () => {
+            calls++;
+
+            return calls === target
+                ? Promise.reject(new Error('util.VNode.getVnode: Component not found for id: injected'))
+                : original()
+        };
+
+        try {
+            return await super.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+        } finally {
+            host.promiseUpdate = original
+        }
     }
 
     /**

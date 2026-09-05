@@ -216,4 +216,30 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         expect(typeof trail[0], 'each entry is a string').toBe('string');
         expect(trail[0], 'the activation route is named').toContain('afterSetActiveIndex')
     });
+
+    /**
+     * The duplicate needs the pane built INTO the staged shell of a
+     * pass that then fails: `settleFailedProjection` removes that shell with `destroyItem: false`, so
+     * what it holds is detached but alive, and the repair's `liveItems` — seeded only from the host's
+     * CURRENT tabs — cannot see it and resolves the item again.
+     *
+     * It has to live here rather than in the unit suite: only a real activation drives
+     * `Card#afterSetActiveIndex` into `loadModule`, and unit-scope refreshes that merely flip
+     * `activeItemId` never load the module at all, so the failing pass there builds nothing to
+     * duplicate.
+     */
+    test('a repaired projection leaves ONE Lazy tab, not the failed pass\'s copy plus the repair\'s', async ({page}) => {
+        // Flight 3 is the reject point that lands after the reconcile loop has staged the item's
+        // chrome and before the swap completes — the window the ticket's CI occurrences fall in.
+        // Flights 2 and 4 recover cleanly and 1 fails the projection outright, so neither witnesses.
+        await setWorkspace(page, {failProjectionFlight: 3});
+        await setWorkspace(page, {applyOperationJson: JSON.stringify({operation: 'setItemAutoHidden', itemId: 'lazy', autoHidden: false})});
+
+        const lazyHeaders = page.locator('.neo-tab-header-button', {hasText: 'Lazy'});
+
+        // The duplicate is visible as chrome before it is visible as a construction count: the
+        // repair projects its own header/pane pair while the failed pass's pair is still in the DOM,
+        // because `settleFailedProjection` removed the staged shell with `destroyItem: false`.
+        await expect(lazyHeaders, 'the repair replaces the failed pass\'s chrome rather than adding to it').toHaveCount(1)
+    })
 });
