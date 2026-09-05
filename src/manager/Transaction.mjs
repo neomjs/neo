@@ -53,10 +53,11 @@ class Transaction extends Manager {
          */
         singleton: true,
         /**
-         * How many transaction rows a Group retains, read when the Group is created. Zero — the default —
-         * means the Group keeps no history and never loads `transaction/History.mjs`, so a single-window
-         * or history-disabled app pays nothing for it. A consumer that wants undo sets it before its
-         * Groups exist.
+         * The history depth a Group is born with. Zero — the default — means the Group keeps no history
+         * and never loads `transaction/History.mjs`, so a single-window or history-disabled app pays
+         * nothing for it. Depth is a Group's choice: a consumer that wants undo for its own Group calls
+         * {@link #setHistoryDepth} before that Group's first write, so two independent roots of one app
+         * in one worker never take each other's policy through this worker-wide default.
          * @member {Number} historyDepth=0
          */
         historyDepth: 0,
@@ -472,13 +473,17 @@ class Transaction extends Manager {
     }
 
     /**
-     * Moves a Group's cursor on its queue.
+     * Moves a Group's cursor on its queue — after the row was applied. The row a move would return is
+     * read first, `apply` runs with it inside the queued step, and only when it resolved does the cursor
+     * move and the provider publish; a rejected application leaves cursor and provider where they were,
+     * so nothing ever reads a moved cursor as a completed undo before the application held.
      * @param {String} groupId
      * @param {String} direction `undo` or `redo`
+     * @param {Function} apply Receives the row; may be async
      * @returns {Promise<Object|null>}
      * @protected
      */
-    moveCursor(groupId, direction) {
+    moveCursor(groupId, direction, apply) {
         let me    = this,
             group = me.get(groupId);
 
@@ -486,12 +491,24 @@ class Transaction extends Manager {
             return Promise.reject(new Error(`${me.className}#${direction}: unknown Group ${groupId}`))
         }
 
-        return me.enqueue(group, () => {
+        if (typeof apply !== 'function') {
+            return Promise.reject(new Error(`${me.className}#${direction}: apply(row) is required — the cursor moves only after the row was applied`))
+        }
+
+        return me.enqueue(group, async () => {
             me.assertLive(group, direction);
 
-            const row = group.history?.[direction]() ?? null;
+            const row = group.history?.peek(direction) ?? null;
 
-            row && me.publishHistory(group);
+            if (!row) {
+                return null
+            }
+
+            await apply(row);
+
+            me.assertLive(group, direction);
+            group.history[direction]();
+            me.publishHistory(group);
 
             return row
         })
@@ -520,25 +537,49 @@ class Transaction extends Manager {
     }
 
     /**
-     * Moves a Group's cursor forward and resolves to the row to re-apply — `null` when there is nothing
-     * to redo, or the Group keeps no history. Applying it is the caller's.
+     * Re-applies the row after a Group's cursor and, once `apply` resolved, moves the cursor onto it.
+     * Resolves to that row, or `null` when there is nothing to redo or the Group keeps no history.
      * @param {Object} data
      * @param {String} data.groupId
+     * @param {Function} data.apply Receives the row to re-apply; may be async — a rejection leaves the cursor
      * @returns {Promise<Object|null>}
      */
-    redo({groupId}) {
-        return this.moveCursor(groupId, 'redo')
+    redo({groupId, apply}) {
+        return this.moveCursor(groupId, 'redo', apply)
     }
 
     /**
-     * Moves a Group's cursor back and resolves to the row to reverse — `null` when there is nothing to
-     * undo, or the Group keeps no history. Applying it is the caller's.
+     * Sets the history depth of one Group — the Group's own policy, independent of this worker-wide
+     * default and of any other Group. Refused for an unknown Group, a depth that is not a non-negative
+     * integer, or a Group whose history already loaded: the bound is fixed at that first write.
      * @param {Object} data
      * @param {String} data.groupId
+     * @param {Number} data.depth `0` keeps no history and loads nothing
+     * @returns {Boolean}
+     */
+    setHistoryDepth({groupId, depth}) {
+        const group = this.get(groupId);
+
+        if (!group || group.historyReady || !Number.isInteger(depth) || depth < 0) {
+            return false
+        }
+
+        group.historyDepth = depth;
+        this.publishHistory(group);
+
+        return true
+    }
+
+    /**
+     * Applies the reverse of the row at a Group's cursor and, once `apply` resolved, moves the cursor
+     * back. Resolves to that row, or `null` when there is nothing to undo or the Group keeps no history.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {Function} data.apply Receives the row to reverse; may be async — a rejection leaves the cursor
      * @returns {Promise<Object|null>}
      */
-    undo({groupId}) {
-        return this.moveCursor(groupId, 'undo')
+    undo({groupId, apply}) {
+        return this.moveCursor(groupId, 'undo', apply)
     }
 
     /**
@@ -547,6 +588,12 @@ class Transaction extends Manager {
      * against what the history admits, `adopt` runs with it, the frozen row is appended after the cursor
      * and the provider is published. The descriptor is enqueued exactly once. An `adopt` that throws
      * appends nothing and leaves the cursor where it was; the queue moves on to the next write.
+     *
+     * The body of this step is provisional and owned by the atomic-commit leaf: the participant protocol
+     * (prepare every participant → adopt all with compensation → append the row → move the cursor →
+     * publish one snapshot → release the queue) lands here as ONE step under ONE owner, compensation
+     * across a failed append included. Nothing outside this method may depend on its parts being
+     * separate steps; the queue, the barrier and the History are the primitives it composes.
      * @param {Object} data
      * @param {String} data.groupId
      * @param {Object} data.descriptor Plain data describing the transaction — it becomes the history row

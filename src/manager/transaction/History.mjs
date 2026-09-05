@@ -1,3 +1,4 @@
+import Base       from '../../core/Base.mjs';
 import Collection from '../../collection/Base.mjs';
 
 /**
@@ -53,38 +54,36 @@ function deepFreeze(value) {
 }
 
 /**
- * @summary One Group's bounded, append-only transaction history and its cursor — frozen plain rows in a Collection.
+ * @summary One Group's bounded, append-only transaction history and its cursor — frozen plain rows in an
+ * owned Collection.
  * @description The rows are the authority for what a Group has done: each one is a plain-data descriptor
  * the writer handed to {@link #append}, copied, stamped with `id`, `sequence` and `recordedAt`, and frozen
  * to every depth before it becomes a member. A retained row cannot change — not a nested field, not a
- * whole-field replacement — so the bytes it serializes to are the bytes it was admitted with. Anything a
- * consumer wants mutable (a grid, a Neural Link projection) is a clone, never this collection.
+ * whole-field replacement — so the bytes it serializes to are the bytes it was admitted with. The
+ * Collection that holds them is owned and private, so the only writes that reach the rows are
+ * {@link #append}, {@link #undo} and {@link #redo}; anything a consumer wants mutable (a grid, a Neural
+ * Link projection) is a clone fed from {@link #rows}, never this authority.
  *
  * The cursor names the row the Group's current state reflects: `-1` before the first row, or after every
  * retained row was undone. {@link #undo} and {@link #redo} only move the cursor and return the row —
- * applying it is the caller's, which keeps this class free of participants and documents. An append after
- * an undo drops the redo tail; past {@link #depth} the oldest row is evicted, and the cursor follows.
- * Eviction never reuses a `sequence`.
+ * applying it is the caller's, and {@link #peek} shows the row a move would return without moving, so a
+ * caller can apply first and move the cursor only once the application held. An append after an undo
+ * drops the redo tail; past {@link #depth} the oldest row is evicted, and the cursor follows. Eviction
+ * never reuses a `sequence`.
  *
- * `Neo.manager.Transaction` loads this module on demand at the first write of a Group whose
- * `historyDepth` is above zero — the admission barrier — so a Group at depth zero never imports it and a
- * single-window or history-disabled app never pays for it. The inherited collection surface is the
- * read side; the writes are {@link #append}, {@link #undo} and {@link #redo}.
+ * `Neo.manager.Transaction` loads this module on demand at the first write of a Group whose history depth
+ * is above zero — the admission barrier — so a Group at depth zero never imports it and a single-window
+ * or history-disabled app never pays for it.
  * @class Neo.manager.transaction.History
- * @extends Neo.collection.Base
+ * @extends Neo.core.Base
  */
-class History extends Collection {
+class History extends Base {
     static config = {
         /**
          * @member {String} className='Neo.manager.transaction.History'
          * @protected
          */
         className: 'Neo.manager.transaction.History',
-        /**
-         * Rows keep their admission order.
-         * @member {Boolean} autoSort=false
-         */
-        autoSort: false,
         /**
          * How many rows are retained; the oldest is evicted past it. At least one — a Group that keeps
          * no history never loads this module.
@@ -93,6 +92,12 @@ class History extends Collection {
         depth: 50
     }
 
+    /**
+     * The owned Collection of frozen rows, keyed by `id`, in admission order.
+     * @member {Neo.collection.Base} #rows
+     * @private
+     */
+    #rows = null
     /**
      * The index of the row the Group's current state reflects; `-1` before the first row or after undoing
      * every retained row.
@@ -121,11 +126,36 @@ class History extends Collection {
     }
 
     /**
+     * @member {Number} count The retained rows
+     */
+    get count() {
+        return this.#rows?.count ?? 0
+    }
+
+    /**
      * The row at the cursor, or `null`.
      * @member {Object|null} current
      */
     get current() {
         return this.cursor > -1 ? this.getAt(this.cursor) : null
+    }
+
+    /**
+     * The retained rows in admission order — a fresh array of the frozen rows, so a consumer can project
+     * them without a path back into the authority.
+     * @member {Object[]} rows
+     */
+    get rows() {
+        return this.#rows ? this.#rows.getRange(0, this.#rows.count) : []
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        this.#rows = Neo.create(Collection, {autoSort: false})
     }
 
     /**
@@ -136,12 +166,13 @@ class History extends Collection {
      * @returns {Object} The frozen retained row
      */
     append(descriptor) {
-        let me = this;
+        let me   = this,
+            rows = me.#rows;
 
         me.assertRow(descriptor);
 
         if (me.canRedo) {
-            me.splice(me.cursor + 1, me.count - me.cursor - 1)
+            rows.splice(me.cursor + 1, rows.count - me.cursor - 1)
         }
 
         const row = deepFreeze(structuredClone({
@@ -152,11 +183,11 @@ class History extends Collection {
         }));
 
         // The key is present, so the collection writes nothing onto the frozen row.
-        me.add(row);
-        me.cursor = me.count - 1;
+        rows.add(row);
+        me.cursor = rows.count - 1;
 
-        while (me.count > me.depth) {
-            me.removeAt(0);
+        while (rows.count > me.depth) {
+            rows.removeAt(0);
             me.cursor--
         }
 
@@ -186,6 +217,62 @@ class History extends Collection {
     }
 
     /**
+     * Releases the owned Collection with the rows.
+     */
+    destroy() {
+        this.#rows?.destroy();
+        this.#rows = null;
+
+        super.destroy()
+    }
+
+    /**
+     * The retained row with this id, or `null`.
+     * @param {String} id
+     * @returns {Object|null}
+     */
+    get(id) {
+        return this.#rows?.get(id) ?? null
+    }
+
+    /**
+     * The retained row at this index, or `undefined`.
+     * @param {Number} index
+     * @returns {Object|undefined}
+     */
+    getAt(index) {
+        return this.#rows?.getAt(index)
+    }
+
+    /**
+     * @param {String} id
+     * @returns {Boolean}
+     */
+    has(id) {
+        return this.#rows?.has(id) ?? false
+    }
+
+    /**
+     * The row {@link #undo} or {@link #redo} would return, without moving the cursor — `null` when there
+     * is nothing in that direction.
+     * @param {String} direction `undo` or `redo`
+     * @returns {Object|null}
+     */
+    peek(direction) {
+        let me = this;
+
+        if (direction === 'undo') {
+            return me.current
+        }
+
+        if (direction === 'redo') {
+            return me.canRedo ? me.getAt(me.cursor + 1) : null
+        }
+
+        throw new RangeError(`${me.className}#peek: direction must be undo or redo, got ${direction}`)
+    }
+
+    /**
      * Moves the cursor forward onto the next retained row and returns it, or `null` when there is nothing
      * to redo. Applying the row is the caller's.
      * @returns {Object|null}
@@ -211,9 +298,10 @@ class History extends Collection {
 
         return {
             ...super.toJSON(),
+            count   : me.count,
             cursor  : me.cursor,
             depth   : me.depth,
-            rows    : me.getRange(0, me.count),
+            rows    : me.rows,
             sequence: me.sequence
         }
     }

@@ -12,9 +12,10 @@ import * as core      from '../../../../../src/core/_export.mjs';
 import History        from '../../../../../src/manager/transaction/History.mjs';
 
 /**
- * A Group's history is an append-only Collection of frozen plain rows with one cursor. These arms drive the
+ * A Group's history is an append-only authority over frozen plain rows with one cursor. These arms drive the
  * class alone — no manager, no participants: what is admitted, what a retained row refuses, how the cursor
- * moves, what eviction and the redo tail drop, and what the serialized bytes are.
+ * moves, what eviction and the redo tail drop, what the serialized bytes are, and that the surface a
+ * consumer can reach never mutates a row.
  */
 test.describe('Neo.manager.transaction.History — frozen rows and the cursor', () => {
     let history;
@@ -48,7 +49,9 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
         expect(history.current).toBe(row);
         expect(history.canUndo).toBe(true);
         expect(history.canRedo).toBe(false);
-        expect(history.get(row.id), 'keyed by the id the row carried in; the collection wrote nothing onto it').toBe(row)
+        expect(history.has(row.id)).toBe(true);
+        expect(history.get(row.id), 'keyed by the id the row carried in; the collection wrote nothing onto it').toBe(row);
+        expect(history.getAt(0)).toBe(row)
     });
 
     test('a retained row refuses nested mutation and whole-field replacement; its bytes do not move', () => {
@@ -64,6 +67,24 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
         expect(JSON.stringify(row)).toBe(bytes);
         expect(history.getAt(0)).toBe(row);
         expect(history.cursor).toBe(0)
+    });
+
+    test('the reachable surface is read-only: rows is a fresh array, and the authority has no remove, insert, splice or sort', () => {
+        const a    = history.append({kind: 'a'}),
+              rows = history.rows;
+
+        expect(rows).toEqual([a]);
+        expect(history.rows, 'a new array on every read').not.toBe(rows);
+
+        rows.length = 0;
+        rows.push({kind: 'forged'});
+
+        expect(history.rows, 'a consumer mutating its copy touches no row').toEqual([a]);
+        expect(history.count).toBe(1);
+
+        for (const method of ['remove', 'removeAt', 'insert', 'splice', 'add', 'push', 'pop', 'shift', 'unshift', 'move', 'reverse', 'clear', 'doSort']) {
+            expect(typeof history[method], `${method} is not on the authority`).toBe('undefined')
+        }
     });
 
     test('a descriptor that is not plain data, or an id already retained, is refused and nothing changes', () => {
@@ -115,36 +136,43 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
 
         const d = history.append({kind: 'd'});
 
-        expect(history.getRange(0, history.count)).toEqual([a, d]);
+        expect(history.rows).toEqual([a, d]);
         expect(history.cursor).toBe(1);
         expect(history.canRedo).toBe(false);
         expect(history.redo(), 'the dropped tail cannot come back').toBeNull();
         expect(d.sequence, 'sequence counts admissions, not retained rows').toBe(4)
     });
 
-    test('undo and redo walk the cursor deterministically and return the row to apply', () => {
+    test('undo and redo walk the cursor deterministically and return the row to apply; peek shows it without moving', () => {
         const rows = ['a', 'b', 'c'].map(kind => history.append({kind}));
 
-        expect(history.redo(), 'nothing ahead of the newest row').toBeNull();
+        expect(history.peek('redo'), 'nothing ahead of the newest row').toBeNull();
+        expect(history.peek('undo')).toBe(rows[2]);
+        expect(history.cursor, 'peek moved nothing').toBe(2);
+        expect(history.redo()).toBeNull();
         expect(history.undo()).toBe(rows[2]);
         expect(history.undo()).toBe(rows[1]);
+        expect(history.peek('undo')).toBe(rows[0]);
+        expect(history.peek('redo')).toBe(rows[1]);
         expect(history.undo()).toBe(rows[0]);
         expect(history.cursor).toBe(-1);
         expect(history.current).toBeNull();
         expect(history.canUndo).toBe(false);
+        expect(history.peek('undo')).toBeNull();
         expect(history.undo(), 'nothing behind the first row').toBeNull();
         expect(history.redo()).toBe(rows[0]);
         expect(history.redo()).toBe(rows[1]);
         expect(history.cursor).toBe(1);
         expect(history.current).toBe(rows[1]);
-        expect(history.count, 'undo and redo retain every row').toBe(3)
+        expect(history.count, 'undo and redo retain every row').toBe(3);
+        expect(() => history.peek('sideways')).toThrow(RangeError)
     });
 
     test('past the depth the oldest row is evicted and the cursor follows; a sequence is never reused', () => {
         const rows = ['a', 'b', 'c', 'd', 'e'].map(kind => history.append({kind}));
 
         expect(history.count).toBe(3);
-        expect(history.getRange(0, 3)).toEqual(rows.slice(2));
+        expect(history.rows).toEqual(rows.slice(2));
         expect(history.cursor).toBe(2);
         expect(history.current).toBe(rows[4]);
         expect(rows.map(row => row.sequence)).toEqual([1, 2, 3, 4, 5]);
@@ -152,7 +180,8 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
         expect(history.undo()).toBe(rows[3]);
         expect(history.undo()).toBe(rows[2]);
         expect(history.undo(), 'an evicted row is not undoable').toBeNull();
-        expect(history.get(rows[0].id), 'evicted rows leave the collection').toBeNull()
+        expect(history.get(rows[0].id), 'evicted rows leave the authority').toBeNull();
+        expect(history.has(rows[0].id)).toBe(false)
     });
 
     test('an append behind the newest row drops the tail first, then evicts from the front; the cursor stays on its row', () => {
@@ -162,11 +191,11 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
 
         const d = history.append({kind: 'd'});
 
-        expect(history.getRange(0, 3), 'c dropped, nothing evicted at depth 3').toEqual([rows[0], rows[1], d]);
+        expect(history.rows, 'c dropped, nothing evicted at depth 3').toEqual([rows[0], rows[1], d]);
 
         const e = history.append({kind: 'e'});
 
-        expect(history.getRange(0, 3), 'a evicted').toEqual([rows[1], d, e]);
+        expect(history.rows, 'a evicted').toEqual([rows[1], d, e]);
         expect(history.cursor).toBe(2);
         expect(history.current).toBe(e)
     });
@@ -179,7 +208,7 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
         zero.destroy()
     });
 
-    test('toJSON carries the frozen rows in order, the cursor, the bound and the sequence', () => {
+    test('toJSON carries the frozen rows in order, the count, the cursor, the bound and the sequence', () => {
         const a = history.append({id: 'first', kind: 'a'});
 
         history.append({id: 'second', kind: 'b'});
@@ -188,11 +217,24 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
         const json = JSON.parse(JSON.stringify(history));
 
         expect(json.className).toBe('Neo.manager.transaction.History');
+        expect(json.count).toBe(2);
         expect(json.cursor).toBe(0);
         expect(json.depth).toBe(3);
         expect(json.sequence).toBe(2);
         expect(json.rows.map(row => row.id)).toEqual(['first', 'second']);
         expect(json.rows[0]).toEqual(JSON.parse(JSON.stringify(a)));
         expect(json.rows[1].kind).toBe('b')
+    });
+
+    test('destroy releases the rows; the surface answers empty instead of throwing', () => {
+        history.append({kind: 'a'});
+        history.destroy();
+
+        expect(history.count).toBe(0);
+        expect(history.rows).toEqual([]);
+        expect(history.get('x')).toBeNull();
+        expect(history.has('x')).toBe(false);
+
+        history = Neo.create(History, {depth: 3})
     })
 });
