@@ -100,6 +100,34 @@ async function createGatedTabContainer(page) {
 const actionIds = toolbar => toolbar.locator(':scope > .neo-toolbar-action')
     .evaluateAll(nodes => nodes.map(node => node.id));
 
+/**
+ * Binds the overflow menu's first item ONCE, by id, and reads its label from that same element.
+ *
+ * `page.locator(…).first()` is a live query, not a snapshot: it re-runs on every Playwright retry.
+ * Both arms below previously captured the label from one resolution and clicked on the next, which
+ * carries two defects that look like one.
+ *
+ * The loud one is a hang. CI caught `.first()` resolving to one record and then to another, and
+ * each re-resolution restarts the actionability/stability clock — so `click()` can never settle and
+ * burns the whole test ceiling.
+ *
+ * The quiet one is worse and would have survived any timeout change: when the re-resolution lands
+ * fast enough to click successfully, the arm clicks one item and then asserts about the label it
+ * read from a *different* one. That arm passes while proving something other than what it says.
+ *
+ * Binding by id closes both. If the bound item goes away, the click fails naming that id instead of
+ * chasing a moving target.
+ */
+const firstMenuItem = async page => {
+    const list = page.locator('.neo-tab-overflow-menu:visible .neo-list-item');
+
+    await expect(list.first(), 'overflow menu opens with at least one item').toBeVisible({timeout: 3000});
+
+    const item = page.locator(`#${await list.first().getAttribute('id')}`);
+
+    return {item, label: (await item.innerText()).trim()}
+};
+
 /** Replaces consumer actions through the public TabContainer config path. */
 const replaceHeaderActions = (page, suffix) => page.evaluate(({id, suffix}) =>
     Neo.worker.App.setConfigs({
@@ -142,27 +170,10 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
               host    = toolbar.getByRole('button', {name: 'host action', exact: true}),
               close   = toolbar.getByRole('button', {name: 'close', exact: true});
 
-        // Every wait below carries its own budget AND its own sentence, because this arm's CI failures
-        // arrive as a bare `(30.0s)` with no assertion and therefore name nothing. The cause of that
-        // silence is arithmetic: the config declares no `timeout`, so Playwright's 30s default applies,
-        // and the arm's original waits were 10s + 10s + 10s — the ceiling exactly. Whichever wait
-        // stretched, the TEST died before that wait could exhaust its own budget and speak. The two
-        // `.click()` calls were worse: no override at all, so they inherited whatever remained.
-        //
-        // The budgets here sum to 24s. That headroom is the whole mechanism: while the sum stays under
-        // the ceiling, a single stretched wait is guaranteed to exhaust its OWN budget first and name
-        // itself, which is the property the original 10+10+10 destroyed.
-        //
-        // They are deliberately loose rather than tight. Locally this arm completes in ~410ms total —
-        // the fastest of the five here, 12/12 under `--repeat-each` — so every budget below is 7-20x
-        // the observed cost. Tightening them further would attribute a failure more precisely at the
-        // risk of turning a rare CI flake into a frequent red, which trades a diagnosis problem for a
-        // worse one. `control` keeps the largest share because it is the only wait exposed to cold
-        // boot.
-        //
-        // This does NOT claim to fix the stretch. It is not reproducible off-CI and remains
-        // unexplained; what changes is that the next CI failure reports which waiter did not resolve
-        // instead of dying anonymously at the ceiling.
+        // The labels below are so a failure says which condition was unmet; `control` keeps the
+        // largest budget as the only wait exposed to cold boot. No claim is made that these bounds
+        // guarantee anything about the test ceiling — several waits in this arm still run on default
+        // budgets, so the arm's worst case is not the sum of the explicit ones.
         await expect(control, 'overflow control renders (cold boot)').toBeVisible({timeout: 8000});
         await expect(host, 'host action renders').toBeVisible({timeout: 2000});
         await expect(close, 'close action renders').toBeVisible({timeout: 2000});
@@ -183,20 +194,13 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
         expect(tabBox.x + tabBox.width,
             'the visible tab partition ends before the measured contribution').toBeLessThanOrEqual(controlBox.x + 1);
 
-        // A click waits for actionability — visible, stable, receives events — and an unbounded one on
-        // a surface that keeps re-rendering hangs until the test ceiling with nothing to report. That
-        // is the shape this arm kept failing in, so both clicks are bounded and named.
         await control.click({timeout: 3000});
 
-        const menuItem = page.locator('.neo-tab-overflow-menu:visible .neo-list-item').first();
+        const {item, label} = await firstMenuItem(page);
 
-        await expect(menuItem, 'overflow menu opens with at least one item').toBeVisible({timeout: 3000});
-
-        const selected = (await menuItem.innerText()).trim();
-
-        await menuItem.click({timeout: 3000});
-        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selected}),
-            `menu activation presses the "${selected}" tab`).toHaveCount(1, {timeout: 3000});
+        await item.click({timeout: 3000});
+        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: label}),
+            `menu activation presses the "${label}" tab`).toHaveCount(1, {timeout: 3000});
         expect(errors).toEqual([])
     });
 
@@ -234,18 +238,16 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
         expect(ids[0]).toBe(controlId);
         expect(ids.at(-1)).toBe(await toolbar.getByRole('button', {name: 'close', exact: true}).getAttribute('id'));
 
-        await restored.click();
+        await restored.click({timeout: 3000});
 
-        const menuItem = page.locator('.neo-tab-overflow-menu:visible .neo-list-item').first();
+        // Same `.first()` hole as the arm above. It has never been observed failing, which is exactly
+        // why it is repaired here rather than left for the day it does — a latent wrong-item assertion
+        // is not less wrong for having been lucky.
+        const {item, label} = await firstMenuItem(page);
 
-        await expect(menuItem, 'the recovered contribution keeps its ordinary menu route')
-            .toBeVisible({timeout: 10000});
-
-        const selected = (await menuItem.innerText()).trim();
-
-        await menuItem.click();
-        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selected}),
-            'selection still activates through activeIndex after the hidden replacement').toHaveCount(1)
+        await item.click({timeout: 3000});
+        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: label}),
+            'selection still activates through activeIndex after the hidden replacement').toHaveCount(1, {timeout: 3000})
     });
 
     test('the restored split settles once — no pass re-applies a superseded extent', async ({page}) => {
