@@ -284,6 +284,11 @@ test.describe.skip('Neo.dashboard.dock.Workspace failed-projection recovery', ()
  * unregistering a mounted child of the staged shell right before the swap makes the REAL flight
  * reject — same branch, same `swapped === false`, same casualty, no injected control flow.
  *
+ * **Registry correction.** An earlier revision unregistered the victim from `Neo.manager.Instance`.
+ * `util.VDom.getVdom` resolves ids through `Neo.manager.Component`, which is a SEPARATE singleton
+ * registry — so that poison removed nothing the vdom layer reads, and no flight ever rejected. Against
+ * `manager.Component` a real rejection follows immediately.
+ *
  * Its only job is to decide between two readings of the hang:
  *   (1) the recovery path does not terminate when the retired shell holds live panes; or
  *   (2) a throw and a stub corrupt state a real rejection would not.
@@ -365,7 +370,7 @@ test.describe.skip('Neo.dashboard.dock.Workspace failed-projection recovery — 
 
                 if (victim) {
                     poisonedId = victim.id;
-                    Neo.manager.Instance.unregister(victim)
+                    Neo.manager.Component.unregister(victim)
                 }
             }
 
