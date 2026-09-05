@@ -9,6 +9,7 @@ import Maximize                    from './plugin/Maximize.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
 import Reconciler                  from './projection/Reconciler.mjs';
+import StateProvider               from '../../state/Provider.mjs';
 import {createDockTearOutHandlers} from './window/TearOut.mjs';
 import WorkspaceDocument           from './model/WorkspaceDocument.mjs';
 import Operations                  from './model/Operations.mjs';
@@ -291,6 +292,17 @@ class Workspace extends Container {
          * @member {String} flipMarkerPrefix='dock-flip-item-'
          */
         flipMarkerPrefix: 'dock-flip-item-',
+        /**
+         * The workspace-level node of the app's provider hierarchy. Header truth lives here under
+         * `dock` — per item `closable` / `lockable` / `locked` / `pinnable` / `edge` / `reloadable`, per
+         * tabs node the presented item, flights and capabilities — published once per commit by
+         * {@link Neo.dashboard.dock.projection.HeaderActionPolicy#publishDocument} and bound by the
+         * projected header actions, which resolve this provider through the component tree like any
+         * bound component. A consumer's own `stateProvider` config replaces this default and hosts
+         * the same keys beside its own; the chain above is untouched either way.
+         * @member {Object} stateProvider={module: StateProvider}
+         */
+        stateProvider: {module: StateProvider},
         /**
          * The Group this workspace belongs to — learned from its window's accepted binding and kept for
          * the workspace's lifetime. A reload releases the window's slot and rebinds the next generation,
@@ -1692,7 +1704,8 @@ class Workspace extends Container {
      * **Host header actions** arrive here too: return `resolveDockHeaderActions: nodeId => [...]` to
      * project a host's own actions into that tabs node's header. The set is node-static and lives for
      * the node's retained lifetime — vary an action per active item by moving `hidden` on its stable
-     * instance, the way {@link Neo.dashboard.dock.projection.HeaderActionPolicy#syncCloseAction} does, not by returning a different list. Names
+     * instance, the way the engine's close action binds its `hidden` to the published header truth
+     * ({@link Neo.dashboard.dock.projection.HeaderActionPolicy#createActionBindings}), not by returning a different list. Names
      * must be unique per node, and every engine-owned name is reserved while its own opt-in is on —
      * `close` under {@link #enableDockCloseAction}, `lock` under {@link #enableDockLockAction},
      * `maximize` under {@link #enableDockMaximizeAction}, `pin` under {@link #enableDockPinAction},
@@ -1884,39 +1897,13 @@ class Workspace extends Container {
      * chrome. A consumer which already supplied a shell keeps its static boot path below.
      *
      * A consumer may mount its first projection statically — items assembled in `construct()` —
-     * without ever entering {@link #refreshDockWorkspace}, and on that path no header-action sync
-     * runs at all: projected action rows are projection-constant by design (per-item state must
-     * never vary the actions array), so a pane-dependent action such as reload would stay at its
-     * projected default forever. Mount is the one surface every boot path shares.
-     *
-     * A workspace whose boot DID run the refresh already synced on settled chrome (the
-     * post-reconcile sweep), so this hook narrows to the never-refreshed case: `refreshPromise`
-     * present means the refresh owns boot truth and writing again from the mount window would
-     * only race the initial application train (observed on slow rigs as duplicated bar chrome).
-     * For the static case the sync is additionally deferred off the mount cascade (the
-     * MonacoEditor post-mount idiom) — container mount flips every child's `mounted` in the same
-     * frame. Every write in the sweep is change-guarded and idempotent, and `timeout()` is
-     * destroy-rejected, so a torn-down workspace never runs it.
-     *
-     * The guard is re-derived AT WRITE TIME, not only at mount. The mount-time read proves nothing
-     * beyond "no refresh had started 100ms ago", and a refresh that BEGINS inside the deferral
-     * window owns boot truth exactly as much as one already open when the hook sampled. The
-     * never-refreshed case is unaffected — awaiting `null` is a no-op — while the overlapping case
-     * stops writing into an open application train. Settled tail and not resolution: a rejection
-     * belongs to whoever awaited that commit's snapshot, and chrome still needs its sync either way.
-     *
-     * A SETTLED PROMISE IS NOT THE SETTLED TAIL, because `refreshPromise` is a mutable field. A
-     * second commit can replace it while the snapshot this sweep awaited is still pending; that
-     * snapshot settling would then authorize the write ahead of the reconcile that replaced it —
-     * the same race one door further in. So the wait re-reads the field and repeats until the
-     * promise it awaited is still the one the workspace holds. Each commit chains off its
-     * predecessor's settled tail, so the loop drains rather than spins, and it needs no timer.
-     *
-     * Returns the deferred chain (or `null` when no sweep is scheduled) so the boot path is
-     * awaitable. Callers ignore it; a witness cannot observe a deferral it has no handle on.
+     * without ever entering {@link #refreshDockWorkspace}. That path needs no correction any more:
+     * {@link #projectDockModel} publishes the header truth before the chrome it projects constructs,
+     * and the projected actions and containers bind to it, so a pane-dependent action such as reload
+     * shows its real state from the first paint.
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @returns {Promise|null}
+     * @returns {Promise|null} The seeding refresh, or `null`
      * @protected
      */
     afterSetMounted(value, oldValue) {
@@ -1933,21 +1920,7 @@ class Workspace extends Container {
             return me.refreshPromise
         }
 
-        return me.timeout(100).then(async () => {
-            let awaited;
-
-            do {
-                awaited = me.refreshPromise;
-
-                try {
-                    await awaited
-                } catch (error) {
-                    // Not this sweep's rejection to handle — the chrome still wants syncing.
-                }
-            } while (!me.isDestroyed && me.refreshPromise !== awaited);
-
-            !me.isDestroyed && me.dockHeaderActionPolicy.syncAll()
-        }).catch(() => null)
+        return null
     }
 
     /**
@@ -1985,12 +1958,12 @@ class Workspace extends Container {
             committed = me.dockModel?.nodes?.[dockNodeId]?.activeItemId,
             descriptor, result;
 
-        me.dockHeaderActionPolicy.syncActiveItem(container);
-
         if (!me.dockModel || !itemId || committed === itemId) {
-            // No commit follows (a reconciliation re-emit, or no model): this sync is the only
-            // writer of the reload action's per-item state for this activation.
-            me.dockHeaderActionPolicy.syncReloadAction(container);
+            // No commit follows (a reconciliation re-emit, or no model). The header presents
+            // `itemId` either way, so that is the truth its actions bind to — one self-diffing
+            // leaf, a no-op on the ordinary re-emit.
+            itemId && me.stateProvider?.setData(`dock.nodes.${dockNodeId}.activeItemId`, itemId);
+
             return null
         }
 
@@ -2148,9 +2121,7 @@ class Workspace extends Container {
             result     = me.applyDockZoneOperation(descriptor);
 
         if (result && !result.errors?.length && result.document) {
-            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
-            me.dockHeaderActionPolicy.syncCloseAction(tabContainer);
-            me.dockHeaderActionPolicy.syncLockAction(tabContainer)
+            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
         }
 
         return result
@@ -2317,8 +2288,8 @@ class Workspace extends Container {
      * pinned pane commits twice.
      *
      * **Eligibility is re-derived here, from the current document, and not inherited from the chrome
-     * that emitted the intent.** {@link Neo.dashboard.dock.projection.HeaderActionPolicy#syncPinAction} hides the action wherever no edge owns the
-     * item, but that visibility is a projection of the document as it stood at the last sweep, and the
+     * that emitted the intent.** The pin action's binding ({@link Neo.dashboard.dock.projection.HeaderActionPolicy#createActionBindings}) hides it wherever no edge owns the
+     * item, but that visibility is a projection of the document as it stood at the last publish, and the
      * sweep is deferred behind reconciliation. Between a commit that moves an item to the root center
      * and the refresh that re-hides its action, a retained-but-stale action is still visible and still
      * dispatchable — and collapsing a center item is precisely what §2.7 forbids. Deciding from
@@ -2379,8 +2350,9 @@ class Workspace extends Container {
      * (`{dockNodeId, itemId, errors}`), because the action wire has no result channel
      * (`Observable.fire` discards listener returns). A failing `dockReload()` keeps the pane,
      * always. One invocation per item may be in flight; the action's `disabled` state derives
-     * from the ACTIVE item's in-flight membership through {@link Neo.dashboard.dock.projection.HeaderActionPolicy#syncReloadAction} — both
-     * at the flight edges here and on every active-item change — so switching panes mid-flight
+     * from the ACTIVE item's in-flight membership through its binding
+     * ({@link Neo.dashboard.dock.projection.HeaderActionPolicy#createActionBindings}) on the published `flights` — written at
+     * the flight edges here, re-read on every active-item change — so switching panes mid-flight
      * never inherits another item's window. Teardown mid-flight settles terminally through
      * `core.Base#trap`: destroy rejects the trapped delegation even when the pane's producer
      * never settles, and the post-destroy continuation returns without touching erased state.
@@ -2438,7 +2410,7 @@ class Workspace extends Container {
             recreated?.errors?.length && errors.push(...recreated.errors)
         } else {
             me.dockReloadInFlight.add(itemId);
-            me.dockHeaderActionPolicy.syncReloadAction(tabContainer);
+            me.stateProvider?.setData(`dock.flights.${itemId}`, 'reload');
 
             try {
                 // trap() is the engine-native teardown race: destroy rejects every registered
@@ -2464,7 +2436,7 @@ class Workspace extends Container {
             // beside a reconcile) — a settlement is not latency-sensitive, and the post-reconcile
             // sweep re-derives the same truth anyway when a commit is what changed the item.
             (me.refreshPromise?.catch(() => {}) || Promise.resolve()).then(() => {
-                !me.isDestroyed && me.dockHeaderActionPolicy.syncReloadAction(tabContainer)
+                !me.isDestroyed && me.stateProvider?.setData(`dock.flights.${itemId}`, null)
             })
         }
 
@@ -2720,10 +2692,12 @@ class Workspace extends Container {
         tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         me.dockModel = document;
-        // A currently revealed rail pane is retained outside tab chrome. It already exists at the
-        // commit boundary, so lock presentation follows the sole worker-truth write immediately;
-        // the post-reconcile sweep repeats this for newly materialized/retained surfaces.
-        me.dockHeaderActionPolicy?.syncLockRails();
+
+        // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
+        // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
+        // a revealed rail pane here, as it always did — and nothing else moves. Optional because a
+        // test may drive this hook with a hand-built `this`.
+        me.dockHeaderActionPolicy?.publishDocument(document);
 
         me.refreshPromise = tail
             .then(() => me.timeout(0))
@@ -2760,6 +2734,11 @@ class Workspace extends Container {
         if (!document) {
             config = {ntype: 'container', cls: ['neo-dashboard'], items: []}
         } else {
+            // The header truth this projection's chrome binds to is published first, so a header
+            // created from the config reads committed state on its bindings' first run. After a
+            // commit this is a no-op; for a shell a consumer projects statically it is the publish.
+            me.dockHeaderActionPolicy?.publishDocument(document);
+
             options = me.getDockProjectionOptions();
 
             // A host override that returns its own object without spreading `super` drops the
@@ -2821,10 +2800,19 @@ class Workspace extends Container {
                 dockPopOutIconCls        : me.dockPopOutIconCls,
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
-                resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
+                // A resolved pane's contract is header truth too: the policy publishes what it can
+                // serve as it is resolved, and the reload action's binding reads it.
+                resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.publishPaneContract(itemId, me.resolveProjectedPane(itemId, item))),
                 resolveRevealComponentRef: (componentRef, item, itemId) => me.decorateFlipMarker(me.resolveRevealPane(itemId, item), itemId),
-                syncDockLockPane         : (pane, itemId) => me.dockHeaderActionPolicy.syncLockItemPresentation({
-                    locked: me.dockModel?.items?.[itemId]?.locked === true,
+                // Header state is data the projected chrome binds to, resolved against this
+                // workspace's provider through the tree: the engine actions carry the policy's
+                // formatters, a tabs node's container binds its locked items, a rail its revealed one.
+                dockHeaderActionBindings: nodeId => me.dockHeaderActionPolicy?.createActionBindings(nodeId),
+                dockNodeLockBinding     : nodeId => me.dockHeaderActionPolicy?.createNodeLockBinding(nodeId),
+                dockRailLockBinding     : railId => me.dockHeaderActionPolicy?.createRailLockBinding(railId),
+                dockWorkspaceId         : me.id,
+                syncDockLockPane        : (pane, itemId) => me.dockHeaderActionPolicy?.syncLockItemPresentation({
+                    locked: me.getStateProvider?.()?.getData(`dock.items.${itemId}.locked`) === true,
                     pane
                 }),
                 tabInsertDescriptor
@@ -2952,7 +2940,7 @@ class Workspace extends Container {
                 const item = document?.items?.[itemId];
 
                 return LayoutAdapter.decorateProjectedItem(
-                    me.resolveProjectedPane(itemId, item),
+                    me.publishPaneContract(itemId, me.resolveProjectedPane(itemId, item)),
                     itemId,
                     item,
                     {
@@ -3019,20 +3007,7 @@ class Workspace extends Container {
         }
 
         if (!me.isDestroyed) {
-            await me.afterRefreshDockWorkspace({document, refreshOptions, result, played});
-
-            // Header-action state syncs on the SETTLED tree, never beside the projection
-            // application: a bar write with the refresh's own update train still open is the
-            // collision that duplicated retained chrome on slow rigs. Every write is
-            // change-guarded, so post-settle is both the safe and the idempotent slot.
-            me.dockHeaderActionPolicy.syncAll();
-
-            // Once more on SETTLED chrome: the pre-settle sync above can run while projected
-            // header actions are still instantiating (a fresh boot's first refresh), and a
-            // pane-dependent action state (reload's contract probe) corrected on chrome that
-            // does not exist yet is a correction nobody received. Every write in the sync is
-            // change-guarded, so re-running it on settled chrome is idempotent.
-            me.dockHeaderActionPolicy.syncAll()
+            await me.afterRefreshDockWorkspace({document, refreshOptions, result, played})
         }
     }
 
@@ -3136,6 +3111,19 @@ class Workspace extends Container {
     }
 
     /**
+     * Hands a resolved pane to the header-action policy, which publishes the contract it can serve
+     * ({@link Neo.dashboard.dock.projection.HeaderActionPolicy#publishPaneContract}); a hand-built
+     * `this` without a policy resolves the pane and publishes nothing.
+     * @param {String} itemId
+     * @param {Object|Neo.component.Base|null} pane
+     * @returns {Object|Neo.component.Base|null} The same pane
+     * @protected
+     */
+    publishPaneContract(itemId, pane) {
+        return this.dockHeaderActionPolicy?.publishPaneContract(itemId, pane) ?? pane
+    }
+
+    /**
      * Hook: resolves a catalog item for an auto-hide reveal overlay. Defaults to
      * {@link #resolvePane}; override when a reveal must render differently from the tab flow.
      * @param {String} itemId
@@ -3167,8 +3155,9 @@ class Workspace extends Container {
      * wires one: {@link #resolveFreshPane} delegates to {@link #resolvePane}, so the default answers
      * `true` and a pane without `dockReload()` keeps its reload action.
      *
-     * Never calls the factory: {@link Neo.dashboard.dock.projection.HeaderActionPolicy#syncReloadAction} consults this on every active-item
-     * change, and minting a pane to decide whether to show a button would be a side effect.
+     * Never calls the factory: the answer is published as `recreateFallback` for the reload action's
+     * binding ({@link Neo.dashboard.dock.projection.HeaderActionPolicy#publishDocument}), and minting a pane to
+     * decide whether to show a button would be a side effect.
      *
      * Override to `false` to declare this host serves no recreate; the action then hides for every
      * pane without the contract.
@@ -3351,6 +3340,7 @@ class Workspace extends Container {
         }
 
         me.dockRecreateInFlight.add(itemId);
+        me.stateProvider?.setData(`dock.flights.${itemId}`, 'recreate');
 
         try {
             const prepared = me.prepareRecreateCandidate(itemId, livePane);
@@ -3374,7 +3364,8 @@ class Workspace extends Container {
                 }
             }
         } finally {
-            me.dockRecreateInFlight.delete(itemId)
+            me.dockRecreateInFlight.delete(itemId);
+            !me.isDestroyed && me.stateProvider?.setData(`dock.flights.${itemId}`, null)
         }
 
         settle && !me.isDestroyed && me.fire('dockRecreateSettled', {dockNodeId, errors, itemId});

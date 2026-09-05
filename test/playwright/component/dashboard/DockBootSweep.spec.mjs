@@ -84,40 +84,15 @@ test.describe('dock boot sweep — rendered chrome after a static first projecti
     });
 
 
-    test('no rendered write until the tail that REPLACED the sample settles', async ({page}) => {
-        // The overlap the close target names, in the browser: a refresh begins AFTER the mount-time
-        // sample and BEFORE the deferred write. The fixture installs a tail that replaces itself from
-        // inside its own `then`, so the replacement lands while the sweep is already committed to
-        // awaiting — staging both promises up front cannot reach that state, because the deferral has
-        // not fired and the sweep would simply sample the replacement.
-        await page.goto('test/playwright/component/apps/dock-static-boot-overlap/index.html');
-        await page.waitForSelector('#dock-static-boot-workspace', {state: 'attached'});
-        await page.waitForSelector('.neo-tab-header-button',      {state: 'visible'});
-
-        const header = tabsNodeWith(page, 'Contract'),
-              reload = actionButton(header, 'fa-rotate-right');
+    test('the first paint is the only write: one reload node, no two action nodes share a DOM id', async ({page}) => {
+        const header = tabsNodeWith(page, 'Contract');
 
         await openActionGate(page, header);
+        await expect(actionButton(header, 'fa-rotate-right'), 'bound at construction, rendered from the first paint').toHaveCount(1);
 
-        // Poll the observable rather than a clock: `tailReplaced` flips the instant the sweep consumes
-        // its sampled tail, which is precisely when the contested state exists. No fixed sleep.
-        await expect.poll(async () => (await readWorkspace(page, ['tailReplaced']))[0],
-            {message: 'the sweep must reach its await and consume the sampled tail'}).toBe(true);
-
-        // The SAMPLED tail has now settled while a different promise owns the field. A sweep that
-        // trusts one snapshot writes here — this is the assertion the pre-fix method cannot pass.
-        expect((await readWorkspace(page, ['sweepCount']))[0],
-            'no sweep may run on a tail that no longer owns the field').toBe(0);
-        await expect(reload, 'and nothing may be rendered yet').toHaveCount(0);
-
-        // Release the CURRENT tail.
-        await setWorkspace(page, {releaseTailCount: 1});
-
-        await expect(reload, 'the sweep runs on the current tail and reveals reload').toHaveCount(1);
-        expect((await readWorkspace(page, ['sweepCount']))[0], 'exactly one sweep').toBe(1);
-
-        // Uniqueness is gated on the post-sweep outcome above, so it cannot pass by sampling
-        // pre-sweep DOM — the failure mode a standalone census has.
+        // No boot sweep follows the static projection any more — the header truth was published
+        // before the chrome constructed and the actions bound to it — so a census taken now is the
+        // settled census, not a pre-sweep sample.
         const rendered = await header.locator('.neo-tab-header-toolbar .neo-toolbar-action').evaluateAll(
             nodes => nodes.map(node => ({id: node.id, label: node.getAttribute('aria-label')}))
         );

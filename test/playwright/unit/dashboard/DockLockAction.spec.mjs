@@ -249,7 +249,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(rail.syncDockLockPane).toBe(syncPane)
     });
 
-    test('an empty retained-tabs map falls back to the fresh projected shell', () => {
+    test('a fresh projected shell presents its committed lock at construction — no sweep, no refresh', () => {
         const document = createDocument();
 
         document.items.alpha.locked = true;
@@ -261,9 +261,14 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('main-tabs'),
               pane         = tabContainer.getActiveCard();
 
-        expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
+        // The node's container bound its locked items as it constructed and presented them once
+        // its chrome existed: the pane is inert from the first paint.
+        expect(tabContainer.dockLockedItemIds).toBe('alpha');
+        expect(pane.vdom.inert).toBe(true);
+        expect(pane.cls).toContain('neo-dock-pane-locked');
 
-        workspace.dockHeaderActionPolicy.syncAll();
+        // Re-publishing unchanged truth moves nothing.
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
 
         expect(pane.vdom.inert).toBe(true);
         expect(pane.cls).toContain('neo-dock-pane-locked')
@@ -286,7 +291,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         pane.vdom.inert = false;
         tabButton.addWrapperCls('neo-draggable');
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
 
         expect(tabButton.wrapperCls).toContain('neo-draggable');
 
@@ -372,8 +377,8 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(closeAction.hidden).toBe(true);
 
         // The sweep runs on every active-item change and every settle; the hook must not.
-        workspace.dockHeaderActionPolicy.syncAll();
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
 
         expect(pane.lockCalls, 'once per transition').toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
@@ -387,7 +392,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(tabButton.wrapperCls).toContain('neo-draggable');
         expect(closeAction.hidden).toBe(false);
 
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
 
         expect(pane.lockCalls, 'unlock is a transition too, once').toEqual([true, false]);
 
@@ -478,13 +483,14 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('main-tabs'),
               pane         = tabContainer.getActiveCard();
 
-        expect(pane.lockCalls).toEqual([]);
-
-        workspace.dockHeaderActionPolicy.syncAll();
-
+        // Delegated once, at construction, from the node's bound lock state.
         expect(pane.lockCalls).toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
-        expect(pane.cls).toContain('neo-dock-pane-locked')
+        expect(pane.cls).toContain('neo-dock-pane-locked');
+
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
+
+        expect(pane.lockCalls, 'a re-publish of unchanged truth does not re-delegate').toEqual([true])
     });
 
     /**
@@ -531,7 +537,10 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(pane.lockCalls, 'a re-synchronized identity is not re-locked').toEqual([true]);
 
+        // The callback bound the pane to the item's committed lock, so the unlock reaches it as
+        // published header truth — the same write a commit performs — not through a second call.
         workspace.dockModel.items.reader.locked = false;
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
         rail.syncDockLockPane(pane, 'reader');
 
         expect(pane.lockCalls).toEqual([true, false]);

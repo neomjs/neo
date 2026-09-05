@@ -9,6 +9,8 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+// The splitter reaches the adapter through the namespace at run time; a spec that runs alone must load it.
+import '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 
 /**
  * The live conserved-pair preview contract — worker tier.
