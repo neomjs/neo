@@ -142,9 +142,30 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
               host    = toolbar.getByRole('button', {name: 'host action', exact: true}),
               close   = toolbar.getByRole('button', {name: 'close', exact: true});
 
-        await expect(control).toBeVisible({timeout: 10000});
-        await expect(host).toBeVisible();
-        await expect(close).toBeVisible();
+        // Every wait below carries its own budget AND its own sentence, because this arm's CI failures
+        // arrive as a bare `(30.0s)` with no assertion and therefore name nothing. The cause of that
+        // silence is arithmetic: the config declares no `timeout`, so Playwright's 30s default applies,
+        // and the arm's original waits were 10s + 10s + 10s — the ceiling exactly. Whichever wait
+        // stretched, the TEST died before that wait could exhaust its own budget and speak. The two
+        // `.click()` calls were worse: no override at all, so they inherited whatever remained.
+        //
+        // The budgets here sum to 24s. That headroom is the whole mechanism: while the sum stays under
+        // the ceiling, a single stretched wait is guaranteed to exhaust its OWN budget first and name
+        // itself, which is the property the original 10+10+10 destroyed.
+        //
+        // They are deliberately loose rather than tight. Locally this arm completes in ~410ms total —
+        // the fastest of the five here, 12/12 under `--repeat-each` — so every budget below is 7-20x
+        // the observed cost. Tightening them further would attribute a failure more precisely at the
+        // risk of turning a rare CI flake into a frequent red, which trades a diagnosis problem for a
+        // worse one. `control` keeps the largest share because it is the only wait exposed to cold
+        // boot.
+        //
+        // This does NOT claim to fix the stretch. It is not reproducible off-CI and remains
+        // unexplained; what changes is that the next CI failure reports which waiter did not resolve
+        // instead of dying anonymously at the ceiling.
+        await expect(control, 'overflow control renders (cold boot)').toBeVisible({timeout: 8000});
+        await expect(host, 'host action renders').toBeVisible({timeout: 2000});
+        await expect(close, 'close action renders').toBeVisible({timeout: 2000});
         await expect(control).not.toHaveClass(/neo-toolbar-action-context-inactive/);
         await expect(control).not.toHaveAttribute('aria-hidden');
         await expect(page.locator('body > .neo-tab-overflow-control')).toHaveCount(0);
@@ -162,17 +183,20 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
         expect(tabBox.x + tabBox.width,
             'the visible tab partition ends before the measured contribution').toBeLessThanOrEqual(controlBox.x + 1);
 
-        await control.click();
+        // A click waits for actionability — visible, stable, receives events — and an unbounded one on
+        // a surface that keeps re-rendering hangs until the test ceiling with nothing to report. That
+        // is the shape this arm kept failing in, so both clicks are bounded and named.
+        await control.click({timeout: 3000});
 
         const menuItem = page.locator('.neo-tab-overflow-menu:visible .neo-list-item').first();
 
-        await expect(menuItem).toBeVisible({timeout: 10000});
+        await expect(menuItem, 'overflow menu opens with at least one item').toBeVisible({timeout: 3000});
 
         const selected = (await menuItem.innerText()).trim();
 
-        await menuItem.click();
-        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selected}))
-            .toHaveCount(1, {timeout: 10000});
+        await menuItem.click({timeout: 3000});
+        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selected}),
+            `menu activation presses the "${selected}" tab`).toHaveCount(1, {timeout: 3000});
         expect(errors).toEqual([])
     });
 
