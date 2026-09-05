@@ -46,6 +46,21 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
     }
 
     /**
+     * Re-announces a vessel window's release to the host the way `Neo.manager.Transaction` does for a
+     * physical death — a repeat of a terminal the host already processed must change nothing.
+     * @param {Object} app Neural Link app wrapper.
+     * @param {String} wsId Demo B workspace component id.
+     * @param {String} windowId The vessel's runtime window id.
+     * @param {String} [itemId='workbench'] The torn-out item; its slot key is `popup:<itemId>`.
+     * @returns {Promise<void>}
+     */
+    async function releaseVesselWindow(app, wsId, windowId, itemId='workbench') {
+        const {topologyGroupId} = await app.getComponent(wsId, ['topologyGroupId']);
+
+        await app.callMethod(wsId, 'onTopologyRelease', [{generation: 1, groupId: topologyGroupId, windowId, workspaceKey: `popup:${itemId}`}])
+    }
+
+    /**
      * @param {Object} app Neural Link app wrapper.
      * @param {String} wsId Demo B workspace component id.
      * @returns {Promise<Object>}
@@ -396,7 +411,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             .toEqual({storedDetached, storedReturned});
 
         // Repeat the same terminal signal: all model, identity, and cleanup state must stay still.
-        await app.callMethod(wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+        await releaseVesselWindow(app, wsId, vesselWindowId);
 
         expect(await getLifecycleState(app, wsId)).toEqual(returned);
         expect((await getCounter(app)).id).toBe(paneBefore.id);
@@ -512,7 +527,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             windowId  : before.pane.windowId
         });
 
-        await app.callMethod(wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+        await releaseVesselWindow(app, wsId, vesselWindowId);
 
         expect(await getTerminalSnapshot(page, app, wsId)).toEqual(returned);
         expectNoRuntimeErrors(ledger);
