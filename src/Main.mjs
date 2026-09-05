@@ -1016,7 +1016,6 @@ class Main extends core.Base {
      * @param {String} data.windowName
      * @param {Number|String} data.x
      * @param {Number|String} data.y
-     * @param {Object} [data.nativeEffect] Transaction/effect identity carried by resulting geometry reports.
      * @returns {Promise<Boolean>} True when the popup reaches the requested screen coordinates.
      */
     async windowMoveTo(data) {
@@ -1115,6 +1114,7 @@ class Main extends core.Base {
      * @param {String} data.targetWindowId
      * @param {Number|String} data.x
      * @param {Number|String} data.y
+     * @param {Object} [data.nativeEffect] Transaction/effect identity carried by resulting geometry reports.
      * @returns {Promise<Boolean>}
      */
     async windowNativeMoveTo(data) {

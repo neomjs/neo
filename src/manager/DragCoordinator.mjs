@@ -1254,6 +1254,15 @@ class DragCoordinator extends Manager {
             current    = me.nativeWindowDropCandidates.get(windowId),
             sourceDrag, candidate, dwellRemaining, firstSeenAt, delay, now, preview, previewId;
 
+        if (data.nativeEffect) {
+            if (!current?.phase) {
+                me.updateNativeHover(windowId, null);
+                me.clearNativeWindowDropCandidate(windowId);
+                me.endNativeGesture(windowId)
+            }
+            return
+        }
+
         // Parking, embodiment, target settlement, and strict source retry can all publish geometry
         // of their own. Their retained generation owns the terminal; never reinterpret those
         // effects as a fresh titlebar gesture.

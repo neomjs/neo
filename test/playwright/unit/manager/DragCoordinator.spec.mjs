@@ -472,6 +472,18 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         expect(DragCoordinator.nativeWindowDropCandidates.has(13)).toBe(true)
     });
 
+    test('geometry from an admitted placement effect never starts a native user gesture', () => {
+        const resolve = DragCoordinator.getNativeWindowDragSource;
+        let   calls   = 0;
+        DragCoordinator.getNativeWindowDragSource = () => { calls++; return null };
+        try {
+            DragCoordinator.onWindowPositionChange({
+                windowId: 'effect-window', nativeEffect: {transactionId: 'transaction-1', effectId: 'effect-1'}
+            });
+            expect(calls).toBe(0)
+        } finally { DragCoordinator.getNativeWindowDragSource = resolve }
+    });
+
     test('a mid-gesture vessel departure resolves to a clean terminal, not a commit into a dead window', () => {
         const
             source = createSourceZone(),

@@ -800,6 +800,7 @@ class Transaction extends Manager {
         group.history?.destroy();
         group.provider = group.history = null;
         me.unregister(group);
+        me.fire('groupRetired', {groupId});
 
         return true
     }
@@ -850,7 +851,6 @@ class Transaction extends Manager {
                     group.retainedReferences.size === 0 && !group.history?.count && me.get(group.id) === group
                 ) {
                     me.retireGroup(group.id);
-                    me.fire('groupRetired', {groupId: group.id})
                 }
             }
         }, me.reconnectLeaseMs))

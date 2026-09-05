@@ -2,6 +2,7 @@ import Base            from '../../../core/Base.mjs';
 import Transaction     from '../../../manager/Transaction.mjs';
 import WindowManager   from '../../../manager/Window.mjs';
 import DragCoordinator from '../../../manager/DragCoordinator.mjs';
+import InstanceManager from '../../../manager/Instance.mjs';
 import {buffer}        from '../../../util/Function.mjs';
 import Persistence     from '../model/Persistence.mjs';
 
@@ -16,6 +17,20 @@ import Persistence     from '../model/Persistence.mjs';
  * @extends Neo.core.Base
  */
 class Placement extends Base {
+    /**
+     * @summary Reuses the Group-owned placement controller across render-host replacement.
+     * @param {Object} config Group and main-workspace identity.
+     * @returns {Neo.dashboard.dock.window.Placement}
+     * @static
+     */
+    static forGroup(config) {
+        const entry = Transaction.getParticipant(config.groupId, config.participantKey ?? 'placementHints');
+        if (!entry) return Neo.create(Placement, config);
+        const owner = InstanceManager.get(entry.componentId);
+        if (!(owner instanceof Placement)) throw new Error('the placement participant key belongs to another owner');
+        return owner
+    }
+
     static config = {
         /** @member {String} className='Neo.dashboard.dock.window.Placement' @protected */
         className: 'Neo.dashboard.dock.window.Placement',
@@ -39,6 +54,8 @@ class Placement extends Base {
     #pending = new Map()
     /** @member {Function|null} #listener=null @private */
     #listener = null
+    /** @member {Object|null} #groupListeners=null @private */
+    #groupListeners = null
     /** @member {Object|null} #participant=null @private */
     #participant = null
     /** @member {Map<String,Object>} #receipts @private */
@@ -59,8 +76,9 @@ class Placement extends Base {
 
         me.#hints = me.prepare(me.initialHints ?? me.observedHints());
         me.#participant = {
-            domain : 'dock',
-            capture: () => ({
+            domain     : 'dock',
+            componentId: me.id,
+            capture    : () => ({
                 value     : me.#hints,
                 generation: me.generation(),
                 revision  : me.#revision
@@ -72,7 +90,18 @@ class Placement extends Base {
         };
         Transaction.registerParticipant({groupId: me.groupId, workspaceKey: me.participantKey, participant: me.#participant});
         me.#listener = event => me.onGeometry(event);
-        WindowManager.on('positionchange', me.#listener)
+        WindowManager.on('positionchange', me.#listener);
+        me.#groupListeners = {
+            groupRetired: ({groupId}) => { if (groupId === me.groupId) me.destroy() },
+            bind        : ({groupId, workspaceKey}) => {
+                if (groupId !== me.groupId || !me.#hints[workspaceKey]) return;
+                const group = Transaction.get(groupId);
+                me.applyHint(workspaceKey, me.#hints[workspaceKey], {
+                    transactionId: group.history?.current?.transactionId ?? `${groupId}:snapshot:${group.snapshot?.version ?? 0}`
+                }).catch(error => Neo.logError(error))
+            }
+        };
+        Transaction.on(me.#groupListeners)
     }
 
     /**
@@ -323,6 +352,7 @@ class Placement extends Base {
      */
     destroy() {
         WindowManager.un('positionchange', this.#listener);
+        Transaction.un(this.#groupListeners);
         this.#pending.forEach(pending => pending.flush.cancel());
         this.#pending.clear();
         if (Transaction.getParticipant(this.groupId, this.participantKey) === this.#participant) {

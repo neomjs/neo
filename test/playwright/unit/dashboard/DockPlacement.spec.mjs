@@ -65,6 +65,12 @@ test.describe.serial('Dock relative placement participant', () => {
         expect(() => placement.prepare({popup: {...placement.hints.popup, windowId: popupWindow}})).toThrow(/unexpected/)
     });
 
+    test('render-host replacement reuses one owner and explicit Group retirement destroys it', () => {
+        expect(Placement.forGroup({groupId, mainWorkspaceKey: 'workstation-main'})).toBe(placement);
+        Transaction.retireGroup(groupId);
+        expect(placement.isDestroyed).toBe(true)
+    });
+
     test('a free popup burst appends one observed before/after row after quiescence', async () => {
         move(popupWindow, 510, 310);
         move(popupWindow, 540, 320);
@@ -91,6 +97,30 @@ test.describe.serial('Dock relative placement participant', () => {
         expect(WindowManager.get(popupWindow).outerRect).toBe(popup);
         expect(group.snapshot.participants.placementHints.popup).toMatchObject({dx: 350, dy: 210});
         expect(placement.hints).not.toHaveProperty('workstation-main')
+    });
+
+    test('one main-frame observation rebases two popup hints in one snapshot and keeps headless hints', async () => {
+        let secondDocument = document('second');
+        workspaces.register('popup-two', {getDocument: () => secondDocument, setDocument: value => secondDocument = value});
+        const reserved = Transaction.reserve({groupId, workspaceKey: 'popup-two'});
+        Transaction.bind({...reserved, windowId: 'placement-popup-two'});
+        move('placement-popup-two', 700, 400);
+        await placement.write(placement.observedHints(), 'placement-baseline', 'preserve');
+        move(popupWindow, 560, 350);
+        await expect.poll(() => Transaction.get(groupId).history?.count).toBe(1);
+        const group   = Transaction.get(groupId), version = group.snapshot.version;
+        const history = JSON.stringify(group.history.toJSON());
+        move(mainWindow, 150, 100);
+        await expect.poll(() => placement.hints['popup-two']?.dx).toBe(550);
+        expect(placement.hints.popup).toMatchObject({dx: 410, dy: 250});
+        expect(group.snapshot.version).toBe(version + 1);
+        expect(JSON.stringify(group.history.toJSON())).toBe(history);
+        Transaction.release('placement-popup-two');
+        const headless = placement.hints['popup-two'];
+        move(mainWindow, 180, 110);
+        await expect.poll(() => placement.hints.popup.dx).toBe(380);
+        expect(placement.hints['popup-two']).toEqual(headless);
+        WindowManager.unregister('placement-popup-two')
     });
 
     test('a binding generation changing before settle prevents a stale write', async () => {
