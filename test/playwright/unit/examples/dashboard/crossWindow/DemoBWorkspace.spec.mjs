@@ -1390,7 +1390,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     test('main projection binds the conversion lifecycle to Park while popup projection stays source-disabled', () => {
         const calls    = [];
         const findTabs = (config, nodeId) => {
-            if (config?.ntype === 'tab-container' && config.dockNodeId === nodeId) return config;
+            if (config?.dockNodeType === 'tabs' && config.dockNodeId === nodeId) return config;
 
             for (const item of config?.items || []) {
                 const found = findTabs(item, nodeId);
@@ -1469,7 +1469,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         const popup     = DemoBWorkspace.createPopupDocument();
         const terminals = [];
         const findTabs  = (config, nodeId) => {
-            if (config?.ntype === 'tab-container' && config.dockNodeId === nodeId) return config;
+            if (config?.dockNodeType === 'tabs' && config.dockNodeId === nodeId) return config;
 
             for (const item of config?.items || []) {
                 const found = findTabs(item, nodeId);

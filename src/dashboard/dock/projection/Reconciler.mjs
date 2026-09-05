@@ -902,6 +902,10 @@ class Reconciler extends Base {
                     targetBar.insertTab(targetIndex, buttonConfig, true);
                     commitBars.add(targetBar);
 
+                    // A pane arriving later than its item's committed lock takes the presentation
+                    // its node already holds; the container binds the truth, this hands it the pane.
+                    targetTab.presentDockLock?.(itemId);
+
                     resolvedItems.set(itemId, inserted);
                     return
                 }
@@ -918,6 +922,7 @@ class Reconciler extends Base {
                 state.bar.removeTabAt(state.index, false, true, true);
                 targetBody.insert(targetIndex, pane, true, false);
                 targetBar.insertTab(targetIndex, state.button, true, false);
+                targetTab.presentDockLock?.(itemId);
 
                 // Both sides of a cross-bar move are silent, so neither publishes on its own. The
                 // target renders anyway when it is freshly mounted, which leaves the SOURCE as the one

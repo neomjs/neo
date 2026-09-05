@@ -585,33 +585,35 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
     });
 
     test('an absent dockReload() no longer hides the action when a fallback exists', () => {
-        tabContainer = buildTabs({module: Component, id: 'fallback-live'});
-
-        const action = Neo.create(Component, {appName: 'DashboardDockRecreateCandidateTest'});
-
-        action.set = function(values) { Object.assign(this, values) };
-
-        tabContainer.getActionItem  = () => action;
-        workspace.getActiveDockItemId = () => 'editor';
+        // The reload action's `hidden` is a binding: the policy's formatter over the published header
+        // truth. It is evaluated here directly against the workspace's own dock provider, with the
+        // pane's contract published as a resolved pane without `dockReload()` would publish it.
+        const {dockHeaderActionPolicy: policy, stateProvider: provider} = workspace,
+              {hidden}                                                  = policy.createActionBindings('root').reload,
+              publish                                                   = () => {
+                  policy.publishDocument(workspace.dockModel);
+                  provider.setData('dock.items.editor.reloadable', false)
+              };
 
         // "No fallback" is no longer a state a workspace reaches by writing nothing — the default
         // delegates, so a path is always wired. It is now reached only by a host declaring it
         // outright, which is the remaining purpose of overriding this predicate. Stated explicitly
         // rather than relying on the base default, which is what this half used to lean on.
         workspace.hasDockRecreateFallback = () => false;
-        workspace.dockHeaderActionPolicy.syncReloadAction(tabContainer);
-        expect(action.hidden, 'no delegation, and recreate declared unavailable → hidden').toBe(true);
+        publish();
+        expect(provider.getData('dock.nodes.root.activeItemId'), 'the header presents the editor').toBe('editor');
+        expect(hidden.call(provider), 'no delegation, and recreate declared unavailable → hidden').toBe(true);
 
         // The engine's own default is enough on its own: no host factory, no declared refusal.
         delete workspace.hasDockRecreateFallback;
-        workspace.dockHeaderActionPolicy.syncReloadAction(tabContainer);
-        expect(action.hidden, 'the engine default alone un-hides it').toBe(false);
+        publish();
+        expect(hidden.call(provider), 'the engine default alone un-hides it').toBe(false);
 
         // And a host factory on top is still honoured — the original half of this arm, now the
         // third state rather than the second.
         workspace.resolveFreshPane = () => ({module: Component});
-        workspace.dockHeaderActionPolicy.syncReloadAction(tabContainer);
-        expect(action.hidden, 'no delegation but a host fallback → visible').toBe(false)
+        publish();
+        expect(hidden.call(provider), 'no delegation but a host fallback → visible').toBe(false)
     })
 });
 
@@ -740,6 +742,9 @@ test.describe('Workstation cache adoption', () => {
         workspace.fire                  = () => {};
         workspace.isDestroyed           = false;
         workspace.paneCache             = {[itemId]: livePane};
+        // A hand-built `this` owns no provider: the recreate flight has nowhere to publish, and says
+        // so — as an own value, so the prototype's config accessor is never entered.
+        Object.defineProperty(workspace, 'stateProvider', {value: null});
 
         try {
             const

@@ -462,9 +462,18 @@ class Provider extends Base {
                     hierarchicalData = me.getHierarchyData(),
                     newValue         = Neo.isFunction(formatter) ? formatter.call(me, hierarchicalData) : hierarchicalData[formatter];
 
-                component._skipTwoWayPush = configKey;
-                component[configKey] = newValue;
-                delete component._skipTwoWayPush
+                // The formatter's reads are this effect's dependencies; the writes below are not.
+                // A config's afterSet hooks read other configs of the component on the way to the
+                // DOM, and tracking those would re-run the formatter on every unrelated write.
+                EffectManager.pauseTracking();
+
+                try {
+                    component._skipTwoWayPush = configKey;
+                    component[configKey] = newValue;
+                    delete component._skipTwoWayPush
+                } finally {
+                    EffectManager.resumeTracking()
+                }
             }
         });
 

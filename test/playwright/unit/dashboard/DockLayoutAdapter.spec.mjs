@@ -14,6 +14,7 @@ import Component          from '../../../../src/component/Base.mjs';
 import DockLayoutAdapter  from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockRail           from '../../../../src/dashboard/dock/interaction/Rail.mjs';
 import DockSplitter       from '../../../../src/dashboard/dock/interaction/DockSplitter.mjs';
+import DockTabContainer   from '../../../../src/dashboard/dock/interaction/TabContainer.mjs';
 import DockTabEnterButton from '../../../../src/dashboard/dock/interaction/TabEnterButton.mjs';
 import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 import '../../../../src/dashboard/Panel.mjs'; // registers the `dashboard-panel` ntype the projected items use
@@ -570,7 +571,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             })
         });
 
-        expect(result.items[0].ntype).toBe('tab-container');
+        expect(result.items[0].module, 'the dock\'s own tab container, a tab.Container that binds its lock state').toBe(DockTabContainer);
         expect(result.items[0].activeIndex).toBe(1);
         expect(result.items[0].items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
         expect(result.items[0].items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
@@ -689,7 +690,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(row.dockNodeType).toBe('edge-zone-row');
         expect(row.layout).toEqual({ntype: 'hbox', align: 'stretch'});
 
-        expect(center.ntype).toBe('tab-container');
+        expect(center.module).toBe(DockTabContainer);
         expect(center.activeIndex).toBe(1);
         expect(center.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
 
@@ -1114,7 +1115,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         // every projected tab header toolbar's plugins — a one-directional adapter→plugin consume (the plugin
         // owns its computeOverflow static, so nothing reaches back to the adapter). Wiring, not behavior: this
         // pins that the projection carries the plugin, so a silent drop of the injection is caught in CI.
-        expect(mainTabs.ntype).toBe('tab-container');
+        expect(mainTabs.module).toBe(DockTabContainer);
         expect(mainTabs.ui, 'dock tab strips use the generic embedded-header variant').toBe('inline');
         expect(plugins).toHaveLength(1);
         expect(plugins[0].module).toBe(TabOverflowPlugin);
