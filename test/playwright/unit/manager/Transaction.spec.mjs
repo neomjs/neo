@@ -25,14 +25,19 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
     // The worker admits a window when its config registers, carrying the identity the main thread read.
     const connect = (windowId, topologyIdentity) => Transaction.admit({topologyIdentity, windowId});
 
+    // The manager is a worker-wide singleton, and a Playwright worker runs many spec files: a Group a
+    // sibling spec released and left to its lease would count here. Every arm starts from nothing.
+    const reset = () => {
+        [...Transaction.items].forEach(group => Transaction.retireGroup(group.id));
+        Transaction.reconnectLeaseMs = 20000
+    };
+
     test.beforeAll(async () => {
         Transaction = (await import('../../../../src/manager/Transaction.mjs')).default
     });
 
-    test.afterEach(() => {
-        [...Transaction.items].forEach(group => Transaction.retireGroup(group.id));
-        Transaction.reconnectLeaseMs = 20000
-    });
+    test.beforeEach(reset);
+    test.afterEach(reset);
 
     test('a root without identity mints a Group; a second root of the same app mints another', () => {
         const a = Transaction.bind({windowId: 'a1', workspaceKey: 'main'}),

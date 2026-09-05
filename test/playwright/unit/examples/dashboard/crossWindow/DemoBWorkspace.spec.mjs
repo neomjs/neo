@@ -250,14 +250,15 @@ function installWindowConnectHarness(workspace) {
  * owns it post-merge — these specs pin every seam the workspace itself decides.
  */
 test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
-    let workspace;
+    let hostGroupId,
+        workspace;
 
     test.beforeEach(() => {
         workspace = Neo.create(DemoBWorkspace, {});
 
         // The host window binds into a Group the way its app registration does; every slot the
         // workspace reserves lives in it, and `topologyGroupId` reads it back.
-        TransactionManager.bind({windowId: workspace.windowId, workspaceKey: 'main'})
+        hostGroupId = TransactionManager.bind({windowId: workspace.windowId, workspaceKey: 'main'}).groupId
     });
 
     test.afterEach(() => {
@@ -267,7 +268,11 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         workspace?.destroy?.();
         workspace = null;
 
-        // The host's Group leaves with the arm: nothing of this window survives into the next one.
+        // The host's Group leaves with the arm — released slots and their leases included, which a
+        // live-window lookup could not find — so nothing of this window survives into the next one,
+        // or into the next spec file this worker runs.
+        TransactionManager.retireGroup(hostGroupId);
+
         while ((bound = TransactionManager.findByWindow(windowId))) {
             TransactionManager.retireGroup(bound.groupId)
         }
