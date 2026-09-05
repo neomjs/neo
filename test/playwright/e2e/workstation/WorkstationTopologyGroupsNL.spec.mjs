@@ -339,6 +339,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             await popupCdp.send('Browser.setWindowBounds', {
                 windowId: popupWindow.windowId, bounds: {left: movedLeft, top: mainRect.y + 60}
             });
+            await popupCdp.detach();
             await expect.poll(async () => (await root.app.callMethod(root.workspaceId, 'getPlacementHints')).details.dx).toBe(movedLeft - mainRect.x).catch(async error => {
                 const native    = await popup.evaluate(() => ({x: screenX, y: screenY, observed: Neo.main.addon.WindowPosition.observeMovement})),
                       placement = await root.app.getComponent(root.workspaceId, ['dockPlacement.receipts']);
