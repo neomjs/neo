@@ -215,6 +215,65 @@ test.describe('check-file-sizes', () => {
             expect(result.violations.map(violation => violation.reason).join(' ')).toContain('enroll');
         });
 
+        test('RA-1: a baseline-only change cannot raise an untouched row unchecked', () => {
+            // The two-step ratchet bypass @neo-gpt executed against the first revision of this fix.
+            // `changedFilesAtRef` collects in-scope `.mjs` paths only, so a change touching just the
+            // baseline JSON presents an EMPTY source set. Waiving on source membership alone let it
+            // inflate any ceiling; a later change could then grow that source under the raised limit
+            // and read as a *shrink*, requiring no growth declaration at all.
+            const raised = evaluate({
+                changed: [],
+                current: {[theirs]: 1_200},
+                base   : {[theirs]: 1_200},
+                head   : {[theirs]: 9_000}
+            });
+
+            expect(raised.violations[0].reason).toContain('HEAD baseline must equal the measured count');
+        });
+
+        test('RA-1: step two of the bypass — growth under an inflated ceiling still needs a declaration', () => {
+            // Proves the first arm closes the bypass rather than merely reporting its first step:
+            // with the ceiling raised, growth to 1500 must not pass as a shrink.
+            const grown = evaluate({
+                changed: [theirs],
+                current: {[theirs]: 1_500},
+                base   : {[theirs]: 1_200},
+                head   : {[theirs]: 1_500}
+            });
+
+            expect(grown.violations[0].reason).toContain('size-guard-growth');
+        });
+
+        test('RA-1: a legitimate baseline-only correction still passes', () => {
+            // The positive that keeps the arm above from being a blanket refusal: lowering a row to
+            // a measurement that already shrank on the base branch is exactly the repair we want.
+            const corrected = evaluate({
+                changed: [],
+                current: {[theirs]: 1_199},
+                base   : {[theirs]: 1_200},
+                head   : {[theirs]: 1_199}
+            });
+
+            expect(corrected.violations).toEqual([]);
+        });
+
+        test('RA-1: an untouched unparsable file still fails, never a green with FAIL printed', () => {
+            // The exemption is decided AFTER the measurement branch. Before that, an untouched
+            // `not-measured` row printed `FAIL` while the process exited 0 — a green that means
+            // nothing, which is the defect class this guard exists to prevent.
+            const result = evaluateMeasurements({
+                measurements: {[theirs]: {status: 'not-measured', codeLines: null, docLines: 0, docPercent: 0}},
+                baseBaseline: {[theirs]: 1_200},
+                changedFiles: new Set(),
+                headBaseline: {[theirs]: 1_200},
+                declarations: parseGrowthDeclarations(''),
+                compareBase : true,
+                thresholds  : DEFAULT_THRESHOLDS
+            });
+
+            expect(result.violations[0].reason).toContain('not-measured');
+        });
+
         test('whole-tree mode has no diff to be outside of, so every path stays in scope', () => {
             // `changed: null` is the on-demand audit. Exempting everything there would make the
             // whole-tree run structurally incapable of reporting the very drift it exists to find.

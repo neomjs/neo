@@ -193,11 +193,13 @@ function validateBaseline(baseline, label) {
  * @param {Object<String, Number>} options.headBaseline Baseline in the working tree.
  * @param {{declarations: Map<String, String>, malformed: String[], duplicates: String[]}} options.declarations Parsed PR declarations.
  * @param {Boolean} options.compareBase Whether historical monotonicity is available.
- * @param {Set<String>|null} [options.changedFiles=null] The paths this change actually touched. Row
- * demands are scoped to it, because a baseline row that goes stale on the base branch otherwise
- * fails every unrelated pull request until someone repairs a number nobody involved changed. `null`
- * means no diff scope — the whole-tree audit, where every path is in scope because there is no diff
- * to be outside of.
+ * @param {Set<String>|null} [options.changedFiles=null] The in-scope source paths this change
+ * actually touched. Row demands are waived only where the source is untouched **and** its baseline
+ * row is inherited unchanged, because a row that goes stale on the base branch otherwise fails every
+ * unrelated pull request until someone repairs a number nobody involved changed. Source membership
+ * alone is not sufficient: the changed set holds `.mjs` paths only, so a baseline-only change
+ * presents an empty set and could otherwise raise any row unchecked. `null` means no diff scope —
+ * the whole-tree audit, where every path is in scope because there is no diff to be outside of.
  *
  * **The deleted-path branch is deliberately NOT scoped**, and the asymmetry is load-bearing:
  * `changedFilesAtRef` runs `--diff-filter=d`, so a deletion never appears in the changed set. Scoping
@@ -264,24 +266,31 @@ export function evaluateMeasurements({
 
         rows.push(row);
 
-        // A pull request is accountable for the files it changed. Outside its diff the row is
-        // REPORTED and never gated, because every demand below asks for an edit only the PR that
-        // moved the file can justify — and a stale row therefore failed every unrelated PR,
-        // a bot's included, until a human repaired a number nobody involved cared about.
-        //
-        // Nothing is lost: a file this PR did not touch cannot have been grown by it, so the growth
-        // gate — the reason the ratchet exists — is unaffected. A shrink whose PR forgot to lower
-        // its row is still caught, on the PR that shrank it, which is the only one able to fix it.
-        //
-        // `changedFiles === null` means no diff scope was supplied (the whole-tree audit), and then
-        // every path is in scope because there is no diff to be outside of.
-        if (changedFiles && !changedFiles.has(file)) {
-            return
-        }
-
         if (measurement.status !== 'measured') {
             row.verdict = 'fail';
             fail(file, `not-measured: ${measurement.error || 'parser did not return a measurement'}.`);
+            return
+        }
+
+        // A change is accountable for what it actually altered. Where BOTH the source and its
+        // baseline row are inherited untouched, the row is REPORTED and never gated — otherwise a
+        // row that went stale on the base branch fails every unrelated pull request, a dependency
+        // bot's included, until a human repairs a number nobody involved changed.
+        //
+        // **Both halves are required, and the second is the one that is easy to miss.** The changed
+        // set is built from in-scope `.mjs` paths, so the baseline JSON can never appear in it: a
+        // baseline-only change presents an EMPTY source set. Waiving on source membership alone
+        // therefore let a change raise any row unchecked, and a later change could then grow that
+        // source under the inflated ceiling and read as a shrink — no declaration required. Two
+        // steps, no source edit in the first, and the growth gate defeated. Requiring the row to be
+        // inherited (`headValue === baseValue`) is what makes "untouched" mean untouched.
+        //
+        // A measurement failure is never waived: it is decided above, so an unparsable inherited
+        // file still fails rather than reporting `not-measured` and exiting 0.
+        //
+        // `changedFiles === null` means no diff scope was supplied (the whole-tree audit), and then
+        // every path is in scope because there is no diff to be outside of.
+        if (changedFiles && !changedFiles.has(file) && headValue === baseValue) {
             return
         }
 
