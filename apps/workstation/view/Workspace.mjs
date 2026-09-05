@@ -501,7 +501,7 @@ class Workspace extends DockWorkspace {
         // through `afterSetTopologyGroupId`, which registers the main participant then. The Group is
         // kept for the instance's lifetime: releasing the window's slot never loses the documents.
         // Vessel workspaces register lazily on first dock-INTO (Edit 2).
-        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
+        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId, documentModel: WorkspaceDocument});
         me.registerMainWorkspace();
 
         me.crossWindowParticipationPromise = me.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID)
@@ -918,6 +918,8 @@ class Workspace extends DockWorkspace {
         let me = this;
 
         return me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
+            bindingKey : 'main',
+            componentId: me.id,
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document
         })

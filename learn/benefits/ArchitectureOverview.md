@@ -439,7 +439,7 @@ complete organism where the codebase and the agent co-evolve.
 | `src/data/` | Data layer | `Store`, `Model`, `RecordFactory` | — |
 | `src/state/` | State management | `Provider` | — |
 | `src/worker/` | Thread management | `App`, `VDom`, `Data`, `Manager` | — |
-| `src/manager/` | Worker-side registries and authorities: instances, components, window geometry, drag coordination, and the logical topology Groups a window binds into across reloads — each Group with a bounded, append-only transaction history and one cursor, loaded on demand under `transaction/` | `Instance`, `Component`, `Window`, `DragCoordinator`, `Transaction`, `transaction/History` | [ADR 0029](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0029-docking-design.md) |
+| `src/manager/` | Worker-side registries and authorities: instances, components, window geometry, drag coordination, and logical topology Groups — with serialized compensating writes, immutable snapshots, bounded transaction history and one cursor under `transaction/` | `Instance`, `Component`, `Window`, `DragCoordinator`, `Transaction`, `transaction/Commit`, `transaction/History` | [ADR 0029](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0029-docking-design.md) |
 | `src/vdom/` | Virtual DOM engine | `Helper` | — |
 | `src/main/` | Main thread addons | `DomEvents`, `DomAccess` | — |
 | `src/ai/` | Neural Link client | `Client` | — |
