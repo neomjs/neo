@@ -46,6 +46,21 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
     }
 
     /**
+     * Re-announces a vessel window's release to the host the way `Neo.manager.Transaction` does for a
+     * physical death — a repeat of a terminal the host already processed must change nothing.
+     * @param {Object} app Neural Link app wrapper.
+     * @param {String} wsId Demo B workspace component id.
+     * @param {String} windowId The vessel's runtime window id.
+     * @param {String} [itemId='workbench'] The torn-out item; its slot key is `popup:<itemId>`.
+     * @returns {Promise<void>}
+     */
+    async function releaseVesselWindow(app, wsId, windowId, itemId='workbench') {
+        const {topologyGroupId} = await app.getComponent(wsId, ['topologyGroupId']);
+
+        await app.callMethod(wsId, 'onTopologyRelease', [{generation: 1, groupId: topologyGroupId, windowId, workspaceKey: `popup:${itemId}`}])
+    }
+
+    /**
      * @param {Object} app Neural Link app wrapper.
      * @param {String} wsId Demo B workspace component id.
      * @returns {Promise<Object>}
@@ -55,13 +70,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             'dockModel',
             'perspectiveStore.collection',
             'tearOutAcquisitionAttempts',
-            'tearOutConnectAdmissions.size',
             'tearOutConnects',
             'tearOutHandlers.activeVessel',
             'tearOutPanes',
             'tearOutPlacements',
             'tearOutRetirements.size',
-            'vesselOwnerGrants.size'
+            'vesselReservations.size'
         ])
     }
 
@@ -153,13 +167,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
      */
     function expectNoTearOutResidue(snapshot) {
         expect(snapshot.lifecycle).toMatchObject({
-            'tearOutConnectAdmissions.size': 0,
-            'tearOutHandlers.activeVessel' : null,
-            'tearOutRetirements.size'      : 0,
-            'vesselOwnerGrants.size'       : 0,
-            tearOutConnects                : {},
-            tearOutPanes                   : {},
-            tearOutPlacements              : {}
+            'tearOutHandlers.activeVessel': null,
+            'tearOutRetirements.size'     : 0,
+            'vesselReservations.size'     : 0,
+            tearOutConnects               : {},
+            tearOutPanes                  : {},
+            tearOutPlacements             : {}
         });
         expect(snapshot.homeCount).toBe(1);
         expect(snapshot.mainRenderCount).toBe(1);
@@ -398,7 +411,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             .toEqual({storedDetached, storedReturned});
 
         // Repeat the same terminal signal: all model, identity, and cleanup state must stay still.
-        await app.callMethod(wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+        await releaseVesselWindow(app, wsId, vesselWindowId);
 
         expect(await getLifecycleState(app, wsId)).toEqual(returned);
         expect((await getCounter(app)).id).toBe(paneBefore.id);
@@ -453,12 +466,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         expect(result.proof.documentBefore).toEqual(before.lifecycle.dockModel);
         expect(committed.lifecycle.dockModel).toEqual(result.proof.documentAfter);
         expect(committed.lifecycle).toMatchObject({
-            'tearOutConnectAdmissions.size': 0,
-            'tearOutHandlers.activeVessel' : null,
-            'tearOutRetirements.size'      : 0,
-            'vesselOwnerGrants.size'       : 0,
-            tearOutAcquisitionAttempts     : 1,
-            tearOutConnects                : {}
+            // the bound vessel's slot lives as long as the vessel: one reservation, no other residue
+            'tearOutHandlers.activeVessel': null,
+            'tearOutRetirements.size'     : 0,
+            'vesselReservations.size'     : 1,
+            tearOutAcquisitionAttempts    : 1,
+            tearOutConnects               : {}
         });
         expect(Object.keys(committed.lifecycle.tearOutPanes)).toEqual(['workbench']);
         expect(Object.keys(committed.lifecycle.tearOutPlacements)).toEqual(['workbench']);
@@ -514,7 +527,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             windowId  : before.pane.windowId
         });
 
-        await app.callMethod(wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+        await releaseVesselWindow(app, wsId, vesselWindowId);
 
         expect(await getTerminalSnapshot(page, app, wsId)).toEqual(returned);
         expectNoRuntimeErrors(ledger);

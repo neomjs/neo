@@ -141,6 +141,7 @@ class Main extends core.Base {
                 'reloadWindow',
                 'setNeoConfig',
                 'setRoute',
+                'setTopologyIdentity',
                 'windowClose',
                 'windowCloseAll',
                 'windowFocus',
@@ -335,6 +336,26 @@ class Main extends core.Base {
             },
             screenLeft: win.screenLeft,
             screenTop : win.screenTop
+        }
+    }
+
+    /**
+     * Writes the identity the App Worker bound this window to, so the next page load presents it again
+     * (the worker manager reads it into every worker registration). `Neo.manager.Transaction` asks for
+     * this after it minted, cold-created or forked a Group for the window; a plain bind or rebind writes
+     * nothing, because the carrier already holds what it presented.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @param {String} data.generationToken
+     * @returns {Boolean} Whether the carrier accepted the write.
+     */
+    setTopologyIdentity({generationToken, groupId, workspaceKey}) {
+        try {
+            window.sessionStorage.setItem(WorkerManager.topologyIdentityStorageKey, JSON.stringify({generationToken, groupId, workspaceKey}));
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -1098,7 +1119,7 @@ class Main extends core.Base {
      * @param {String}  data.windowName
      * @return {Boolean}
      */
-    windowOpen({nativeCapabilities, stagedColorScheme, url, useTotalHeight=true, windowFeatures, windowName}) {
+    windowOpen({nativeCapabilities, stagedColorScheme, topologyIdentity=null, url, useTotalHeight=true, windowFeatures, windowName}) {
         let existingWin = this.openWindows[windowName],
             stagedUrl   = null,
             targetName;
@@ -1166,6 +1187,16 @@ class Main extends core.Base {
             } catch {
                 this.#pendingWindowRoutes.delete(token)
             }
+            // A same-origin child inherits a copy of this window's identity at creation. The opener's
+            // reservation replaces it; without one the copy is cleared, so the popup boots as a root of
+            // its own instead of forking the opener's Group on connect.
+            try {
+                if (topologyIdentity) {
+                    openedWindow.sessionStorage.setItem(WorkerManager.topologyIdentityStorageKey, JSON.stringify(topologyIdentity))
+                } else {
+                    openedWindow.sessionStorage.removeItem(WorkerManager.topologyIdentityStorageKey)
+                }
+            } catch {/* Cross-origin or unavailable storage: the child boots as a fresh root. */}
 
             if (useTotalHeight) {
                 openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)

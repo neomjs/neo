@@ -41,8 +41,8 @@
  *     receives the committed post-detach document plus the exact admitted vessel generation (the
  *     same document/operation seam shape the adapter's `moveTo` listener feeds).
  * @param {Function} seams.openVessel Host vessel acquisition:
- *     `({admissionToken, itemId, proxyRect, sortZone}) => Promise<{admissionToken, generation,
- *     popupHeight, popupWidth, windowName}|null>` —
+ *     `({gestureToken, itemId, proxyRect, sortZone}) => Promise<{generationToken, popupHeight,
+ *     popupWidth, windowName, workspaceKey}|null>` —
  *     the host performs the platform work (URL, geometry, `windowOpen`) and resolves FALSY on any
  *     failed admission (`windowOpen` returns a Boolean — a blocked popup never throws, so the host
  *     must check the Boolean, not catch).
@@ -63,20 +63,20 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
      * @summary Creates the exact vessel identity without widening its enumerable public payload.
      * @param {String} itemId
      * @param {Object} vessel
-     * @param {Number} fallbackGeneration
+     * @param {Number} fallbackToken The gesture's own correlation id, when the host did not echo it.
      * @returns {Object}
      */
-    const createVesselIdentity = (itemId, vessel, fallbackGeneration) => {
-        const identity = {itemId, windowName: vessel.windowName};
+    const createVesselIdentity = (itemId, vessel, fallbackToken) => {
+        const identity = {itemId, windowName: vessel.windowName},
+              token    = Number.isFinite(vessel.gestureToken) ? vessel.gestureToken : fallbackToken;
 
-        Object.defineProperties(identity, {
-            admissionToken: {
-                value: Number.isFinite(vessel.admissionToken) ? vessel.admissionToken : fallbackGeneration
-            },
-            generation: {
-                value: Number.isFinite(vessel.generation) ? vessel.generation : fallbackGeneration
-            }
-        });
+        // The slot and its lineage token, when the host's admission carries them: a retirement that
+        // presents a superseded token then names a vessel this machine no longer holds.
+        vessel.generationToken !== undefined && (identity.generationToken = vessel.generationToken);
+        vessel.workspaceKey    !== undefined && (identity.workspaceKey    = vessel.workspaceKey);
+
+        // The gesture pair's own correlation id, echoed unread by the host — never part of the public payload.
+        Object.defineProperty(identity, 'gestureToken', {value: token});
 
         return identity
     };
@@ -176,23 +176,27 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
         /**
          * @summary Clears one exact vessel after its external owner observed physical retirement.
          * @param {Object} identity
+         * @param {String} [identity.generationToken] The slot's lineage token; a superseded one clears nothing.
+         * @param {Number} [identity.gestureToken] The gesture pair's correlation id, when the owner echoes it.
          * @param {String} identity.itemId
          * @param {String} identity.windowName
          * @returns {Boolean}
          */
-        onVesselRetired({admissionToken, generation, itemId, windowName} = {}) {
+        onVesselRetired({generationToken, gestureToken, itemId, windowName} = {}) {
             if (
                 pendingAdmission?.itemId === itemId &&
-                pendingAdmission.token === admissionToken
+                pendingAdmission.token === gestureToken
             ) {
                 pendingAdmission.externallyRetired = true;
                 return invalidateAdmission(itemId)
             }
 
+            // A superseded lineage token names a vessel this machine no longer holds — a successor
+            // admission for the same item shares the name, never the token — so it clears nothing.
             const matches = vessel => Boolean(
                 vessel && vessel.itemId === itemId && vessel.windowName === windowName &&
-                (!Number.isFinite(generation) || vessel.generation === generation) &&
-                (!Number.isFinite(admissionToken) || vessel.admissionToken === admissionToken)
+                (!Number.isFinite(gestureToken) || vessel.gestureToken === gestureToken) &&
+                (!generationToken || !vessel.generationToken || vessel.generationToken === generationToken)
             );
 
             let vessel = matches(activeVessel) ? activeVessel : lateVessel;
@@ -273,10 +277,10 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
 
             try {
                 vessel = await openVessel({
-                    admissionToken: state.token,
-                    itemId        : data.itemId,
-                    proxyRect     : data.proxyRect,
-                    sortZone      : data.sortZone
+                    gestureToken: state.token,
+                    itemId      : data.itemId,
+                    proxyRect   : data.proxyRect,
+                    sortZone    : data.sortZone
                 })
             } catch {
                 vessel = null

@@ -14,9 +14,10 @@ import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/Wo
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import {previewToOperation}     from '../../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import '../../../../../src/manager/Instance.mjs';
-import FeedPane  from '../../../../../apps/workstation/view/FeedPane.mjs';
-import ScalePane from '../../../../../apps/workstation/view/ScalePane.mjs';
-import Workspace from '../../../../../apps/workstation/view/Workspace.mjs';
+import TransactionManager from '../../../../../src/manager/Transaction.mjs';
+import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
+import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
+import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
 
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
@@ -121,12 +122,54 @@ const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='s
 };
 
 /**
+ * @summary Binds the fixture's host window into a Group the way the app boot does — once the
+ * workspace has loaded `Neo.manager.Transaction` — and returns the Group id.
+ * @param {Workstation.view.Workspace} workspace
+ * @returns {Promise<String>}
+ */
+const bindHost = async workspace => {
+    const manager = await workspace.transactionManagerReady;
+
+    manager.bind({windowId: workspace.windowId, workspaceKey: 'main'});
+
+    return workspace.topologyGroupId
+};
+
+/**
+ * @summary Releases one vessel's binding the way the manager announces a physical window death.
+ * @param {Workstation.view.Workspace} workspace
+ * @param {String} windowId
+ * @param {String} [itemId='alerts']
+ * @returns {Promise<void>}
+ */
+const releaseVessel = async (workspace, windowId, itemId='alerts') => {
+    const groupId = workspace.topologyGroupId ?? await bindHost(workspace);
+
+    await workspace.onTopologyRelease({generation: 1, groupId, windowId, workspaceKey: `popup:${itemId}`})
+};
+
+/**
  * @summary Pins the composition choices Workstation itself owns: one provider with two stores,
  * an exact 100k Turbo scale set, a growing capped feed, and stable pane/store identities
  * across a reducer-driven coarse projection. Primitive grid/Canvas stress remains in its
  * existing suites; the browser journey owns rendered continuity.
  */
 test.describe.serial('Workstation.view.Workspace', () => {
+    // The app imports the manager and is admitted at registration, so a Workspace constructs with its
+    // window already bound into a Group and registers its participants there. The fixture binds the
+    // unit window the same way before every arm, and retires the Group after it.
+    test.beforeEach(() => {
+        TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'})
+    });
+
+    test.afterEach(() => {
+        let bound;
+
+        while ((bound = TransactionManager.findByWindow(Neo.config.windowId))) {
+            TransactionManager.retireGroup(bound.groupId)
+        }
+    });
+
     test('renderer-rich scale columns carry unique pooling keys', () => {
         const
             dataFields     = ScalePane.config.columns.map(column => column.dataField),
@@ -156,7 +199,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     test('film cursor retirement awaits physical body-node removal before settling', async () => {
         const
             realApplyDeltas = Neo.applyDeltas,
-            workspace       = Neo.create(Workspace, {}),
+            workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             calls           = [],
             cursorDot       = {
                 isDestroyed: false,
@@ -209,7 +252,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     test('non-film mode keeps all six cursor retirement boundaries side-effect free', async () => {
         const
             realApplyDeltas = Neo.applyDeltas,
-            workspace       = Neo.create(Workspace, {}),
+            workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             deltaCalls      = [];
 
         try {
@@ -279,7 +322,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('provider-owned stores and cached data panes survive split + return', async () => {
-        const workspace = Neo.create(Workspace, {});
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
 
         try {
             const
@@ -452,8 +495,14 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             // This unit instance has no render target. Geometry begins only when a real container
             // supplies its window id; the focused DockWorkspace first-projection spec owns that
-            // positive bind arm.
+            // positive bind arm. Membership follows the same signal: without a window there is no
+            // Group to join, and the main participant registers the moment the window id arrives.
             expect(resizeCalls).toEqual([]);
+            expect(workspace.workspaceSet.ids(), 'no window, no Group, no membership yet').toEqual([]);
+
+            workspace.windowId = Neo.config.windowId;
+
+            expect(resizeCalls).toEqual([{observeMovement: true, observeResize: true, windowId: Neo.config.windowId}]);
             expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
             expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
             expect(workspace.vesselConversionTargetWindowId).toBe('window-alerts');
@@ -479,7 +528,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('target-proxy staging uses the physical parked popup instead of the source sort-zone window', async () => {
         const
-            workspace       = Neo.create(Workspace, {}),
+            workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalProxy   = workspace.vesselProxyEmbodiment,
             settledPayloads = [],
             stagedPayloads  = [];
@@ -540,7 +589,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('large-over-small park uses both live extents and restores the same exact popup', async () => {
         const
-            workspace          = Neo.create(Workspace, {}),
+            workspace          = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop   = Neo.main.addon.DragDrop,
             originalFocus      = Neo.Main.windowNativeFocus,
             originalManagerGet = Neo.manager.Window.get,
@@ -682,7 +731,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             parkResizeAdmitted = true;
 
         const
-            workspace        = Neo.create(Workspace, {}),
+            workspace        = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop = Neo.main.addon.DragDrop,
             originalMove     = Neo.Main.windowNativeMoveTo,
             originalResize   = Neo.Main.windowNativeResizeTo,
@@ -799,7 +848,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('target refocus refusal never admits conversion, regardless of source-restore outcome', async () => {
         const
-            workspace          = Neo.create(Workspace, {}),
+            workspace          = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop   = Neo.main.addon.DragDrop,
             originalFocus      = Neo.Main.windowNativeFocus,
             originalManagerGet = Neo.manager.Window.get,
@@ -887,7 +936,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('convert-out restores the target proxy before the exact parked popup is re-shown', () => {
-        const workspace = Neo.create(Workspace, {});
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const
             chrome        = readTabChrome(workspace),
             originalPark  = workspace.vesselParkHandlers,
@@ -943,7 +992,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('a connected vessel stays unregistered until an accepted drop seeds document ownership', async () => {
         const
-            workspace   = Neo.create(Workspace, {}),
+            workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             workspaceId = Workspace.vesselWorkspaceId('alerts'),
             classes     = [],
             destroyed   = [],
@@ -1080,7 +1129,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('remote main previews resolve through the affordance geometry: the full grammar on the pointed zone, the stored-home tab-into off-zone', async () => {
         const
-            workspace         = Neo.create(Workspace, {}),
+            workspace         = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             sourceWorkspaceId = Workspace.vesselWorkspaceId('queues'),
             hostRect          = {x: 100, y: 80, width: 900, height: 600},
             leftRect          = {x: 160, y: 140, width: 260, height: 260},
@@ -1217,7 +1266,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('the remote affordance feed never clears the semantic stored-home renderer after it settles (#16309)', async () => {
         const
-            workspace         = Neo.create(Workspace, {}),
+            workspace         = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             sourceWorkspaceId = Workspace.vesselWorkspaceId('queues'),
             hostRect          = {x: 100, y: 80, width: 900, height: 600},
             targetRect        = {x: 120, y: 120, width: 260, height: 260};
@@ -1288,7 +1337,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('pane identity remains readable after the catalog moves into a vessel workspace', () => {
-        const workspace = Neo.create(Workspace, {});
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
 
         try {
             const
@@ -1308,7 +1357,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('native-titlebar source discovery resolves the exact live bare-vessel pane and rejects stale topology', () => {
         const
-            workspace   = Neo.create(Workspace, {}),
+            workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             itemId      = 'alerts',
             pane        = workspace.paneCache[itemId],
             workspaceId = Workspace.vesselWorkspaceId(itemId),
@@ -1372,7 +1421,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         // focus and no move, so the coordinator proceeds to embodiment and the commit — and the receipt
         // says the park was not physical.
         const
-            workspace           = Neo.create(Workspace, {}),
+            workspace           = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalManagerGet  = Neo.manager.Window.get,
             originalNativeFocus = Neo.Main.windowNativeFocus,
             originalNativeMove  = Neo.Main.windowNativeMoveTo,
@@ -1421,7 +1470,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         // moves behind it, the refocus decides the outcome. (A main-window target no longer parks
         // physically — the arm above — so this arm targets a popup, where the choreography still runs.)
         const
-            workspace           = Neo.create(Workspace, {}),
+            workspace           = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop    = Neo.main.addon.DragDrop,
             originalManagerGet  = Neo.manager.Window.get,
             originalNativeFocus = Neo.Main.windowNativeFocus,
@@ -1540,7 +1589,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
      */
     test('a refused park counts its attempts per vessel, and the count resets after a park', async () => {
         const
-            workspace           = Neo.create(Workspace, {}),
+            workspace           = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop    = Neo.main.addon.DragDrop,
             originalManagerGet  = Neo.manager.Window.get,
             originalNativeFocus = Neo.Main.windowNativeFocus,
@@ -1619,7 +1668,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('control: a POPUP target still refuses the park when its owner-routed focus is refused', async () => {
         const
-            workspace           = Neo.create(Workspace, {}),
+            workspace           = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalDragDrop    = Neo.main.addon.DragDrop,
             originalManagerGet  = Neo.manager.Window.get,
             originalNativeFocus = Neo.Main.windowNativeFocus,
@@ -1677,7 +1726,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('first dock adopts A+B once; whole-stack return projects main before a refused close', async () => {
         const
-            workspace     = Neo.create(Workspace, {}),
+            workspace     = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             workspaceId   = Workspace.vesselWorkspaceId('alerts'),
             tabsNodeId    = Workspace.vesselTabsNodeId('alerts'),
             originalAdopt = workspace.workspaceSet.adoptTransfer,
@@ -1856,9 +1905,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('unexpected vessel death atomically recovers the whole A+B stack', () => {
+    test('unexpected vessel death atomically recovers the whole A+B stack', async () => {
         const
-            workspace              = Neo.create(Workspace, {}),
+            workspace              = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             {state, workspaceId}   = stageCommittedVessel(workspace),
             originalTearOut        = workspace.tearOutHandlers,
             originalPark           = workspace.vesselParkHandlers,
@@ -1868,10 +1917,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
             workspace.tearOutPanes.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'window-alerts',
-                windowName    : 'tearout-alerts'
+                generationToken: 'lineage-3',
+                windowId       : 'window-alerts',
+                windowName     : 'tearout-alerts'
             };
             workspace.tearOutHandlers = {onVesselRetired() {}};
             workspace.vesselParkHandlers = {onVesselRetired() {}};
@@ -1879,7 +1927,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 projections.push({document, options})
             };
 
-            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+            await releaseVessel(workspace, 'window-alerts');
 
             expect(workspace.dockModel.items.alerts).toEqual(initialDocument.items.alerts);
             expect(workspace.dockModel.items.security).toEqual(initialDocument.items.security);
@@ -1905,9 +1953,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('a refused disconnect recovery retains the only A+B truth as a headless workspace', () => {
+    test('a refused disconnect recovery retains the only A+B truth as a headless workspace', async () => {
         const
-            workspace            = Neo.create(Workspace, {}),
+            workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             {state, workspaceId} = stageCommittedVessel(workspace),
             originalAdopt        = workspace.workspaceSet.adoptTransfer,
             originalTearOut      = workspace.tearOutHandlers,
@@ -1916,16 +1964,15 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
             workspace.tearOutPanes.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'window-alerts',
-                windowName    : 'tearout-alerts'
+                generationToken: 'lineage-3',
+                windowId       : 'window-alerts',
+                windowName     : 'tearout-alerts'
             };
             workspace.tearOutHandlers = {onVesselRetired() {}};
             workspace.vesselParkHandlers = {onVesselRetired() {}};
             workspace.workspaceSet.adoptTransfer = () => false;
 
-            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+            await releaseVessel(workspace, 'window-alerts');
 
             expect(workspace.dockModel.items.alerts).toBeUndefined();
             expect(workspace.dockModel.items.security).toBeUndefined();
@@ -1955,7 +2002,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('close acknowledgement retains workspace truth until exact topology exit', async () => {
         const
-            workspace              = Neo.create(Workspace, {}),
+            workspace              = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             {state, workspaceId}   = stageCommittedVessel(workspace),
             originalClose          = workspace.closeTearOutVessel,
             originalTearOut        = workspace.tearOutHandlers,
@@ -1989,10 +2036,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
             workspace.crossWindowParticipations.set(workspaceId, state.participation);
             workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
             workspace.tearOutPanes.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'window-alerts',
-                windowName    : 'tearout-alerts'
+                generationToken: 'lineage-3',
+                windowId       : 'window-alerts',
+                windowName     : 'tearout-alerts'
             };
             workspace.lastCrossWindowTransfer = {
                 applied          : true,
@@ -2024,7 +2070,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             workspace.tearOutHandlers = {onVesselRetired() {}};
             workspace.vesselParkHandlers = {onVesselRetired() {}};
-            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+            await releaseVessel(workspace, 'window-alerts');
 
             expect(workspace.vesselWorkspaces.has(workspaceId)).toBe(false);
             expect(workspace.workspaceSet.has(workspaceId)).toBe(false);
@@ -2040,7 +2086,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('vessel projection retires its one-shot incoming target after paint', async () => {
         const
-            workspace   = Neo.create(Workspace, {}),
+            workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             workspaceId = Workspace.vesselWorkspaceId('alerts'),
             provisional = workspace.createVesselWorkspaceDocument('alerts'),
             moved       = Operations.transferItem(workspace.dockModel, provisional, {
@@ -2099,7 +2145,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('cross-window hit-testing follows live manager.Window dimensions', async () => {
         const
-            workspace   = Neo.create(Workspace, {}),
+            workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             workspaceId = Workspace.vesselWorkspaceId('alerts');
 
         try {
@@ -2139,9 +2185,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('physical vessel death clears both tear-out and park lifecycle owners', () => {
+    test('physical vessel death clears both tear-out and park lifecycle owners', async () => {
         const
-            workspace       = Neo.create(Workspace, {}),
+            workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalTearOut = workspace.tearOutHandlers,
             originalPark    = workspace.vesselParkHandlers,
             originalProxy   = workspace.vesselProxyEmbodiment,
@@ -2149,9 +2195,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             workspace.tearOutConnects.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'tear-child'
+                generationToken: 'lineage-3',
+                windowId       : 'tear-child',
+                windowName     : 'tearout-alerts'
             };
             workspace.tearOutParkGeometries.alerts = {
                 park   : {height: 260, width: 360, x: 800, y: 120},
@@ -2170,17 +2216,17 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 }
             };
 
-            workspace.onWindowDisconnect({windowId: 'tear-child'});
+            await releaseVessel(workspace, 'tear-child');
 
             expect(workspace.tearOutConnects.alerts).toBeUndefined();
             expect(workspace.tearOutParkGeometries.alerts).toBeUndefined();
             expect(calls).toEqual([
                 ['proxy', 'tear-child'],
                 ['tear-out', {
-                    admissionToken: 7,
-                    generation    : 3,
-                    itemId        : 'alerts',
-                    windowName    : 'tearout-alerts'
+                    generationToken: 'lineage-3',
+                    itemId         : 'alerts',
+                    windowId       : 'tear-child',
+                    windowName     : 'tearout-alerts'
                 }],
                 ['park', {itemId: 'alerts', retirement: true}]
             ])
@@ -2194,7 +2240,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('tear-out navigation carries the workspace active theme into each admitted child', async () => {
         const
-            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light'}),
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light', windowId: Neo.config.windowId}),
             originalGetByPath  = Neo.Main.getByPath,
             originalWindowData = Neo.Main.getWindowData,
             originalWindowOpen = Neo.Main.windowOpen,
@@ -2224,31 +2270,40 @@ test.describe.serial('Workstation.view.Workspace', () => {
             return true
         };
 
+        // The slot the engine reserved rides `windowOpen` into the vessel's carrier; the URL names the
+        // pane and the theme, never the owner.
+        const identity = itemId => ({generationToken: `lineage-${itemId}`, groupId: 'group-a', workspaceKey: `popup:${itemId}`});
+
         try {
             await workspace.openTearOutVessel({
-                itemId   : 'alerts',
-                proxyRect: {height: 320, width: 480, x: 40, y: 60}
+                itemId          : 'alerts',
+                proxyRect       : {height: 320, width: 480, x: 40, y: 60},
+                topologyIdentity: identity('alerts')
             });
 
             workspace.theme = 'neo-theme-neo-dark';
 
             await workspace.openTearOutVessel({
-                itemId   : 'security',
-                proxyRect: {height: 320, width: 480, x: 80, y: 100}
+                itemId          : 'security',
+                proxyRect       : {height: 320, width: 480, x: 80, y: 100},
+                topologyIdentity: identity('security')
             });
 
             workspace.theme = 'neo-theme-candidate';
 
             await workspace.openTearOutVessel({
-                itemId   : 'memory',
-                proxyRect: {height: 320, width: 480, x: 120, y: 140}
+                itemId          : 'memory',
+                proxyRect       : {height: 320, width: 480, x: 120, y: 140},
+                topologyIdentity: identity('memory')
             });
 
             expect(calls).toHaveLength(3);
             expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('theme')))
                 .toEqual(['neo-theme-neo-light', 'neo-theme-neo-dark', 'neo-theme-neo-dark']);
-            expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('vesselFlow')))
-                .toEqual(['tear-out', 'tear-out', 'tear-out']);
+            expect(calls.map(call => [...new URL(call.url, 'https://example.test').searchParams.keys()]), 'content and theme only — no owner in the URL')
+                .toEqual([['popout', 'theme'], ['popout', 'theme'], ['popout', 'theme']]);
+            expect(calls.map(call => call.topologyIdentity))
+                .toEqual([identity('alerts'), identity('security'), identity('memory')]);
             expect(calls.map(call => call.stagedColorScheme))
                 .toEqual(['light', 'dark', 'dark']);
             expect(bootstrapCalls).toEqual([
@@ -2266,7 +2321,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('a missing theme bootstrap fails loud before an unthemed tear-out can open', async () => {
         const
-            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light'}),
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light', windowId: Neo.config.windowId}),
             originalGetByPath  = Neo.Main.getByPath,
             originalWindowData = Neo.Main.getWindowData,
             originalWindowOpen = Neo.Main.windowOpen,
@@ -2298,8 +2353,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 error : 'WorkstationBootstrap unavailable',
                 itemId: 'alerts',
                 stage : 'threw'
-            });
-            expect(workspace.vesselOwnerGrants.has('tear-out:alerts')).toBe(false)
+            })
         } finally {
             Neo.Main.getByPath    = originalGetByPath;
             Neo.Main.getWindowData = originalWindowData;
@@ -2308,9 +2362,79 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('a retirement presenting a superseded lineage token is refused, and the live vessel survives it', async () => {
+        // The control the ticket's author ran against dev: a stale retirement matching item and window
+        // name but carrying a superseded generation was refused there and must stay refused here — the
+        // reservation's lineage token is the generation now.
+        const
+            workspace     = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalClose = Neo.Main.windowClose,
+            closes        = [];
+
+        Neo.Main.windowClose = async data => {
+            closes.push(data);
+            return true
+        };
+
+        try {
+            workspace.tearOutConnects.alerts = {generationToken: 'lineage-2', windowId: 'tear-live', windowName: 'tearout-alerts'};
+
+            await expect(workspace.closeTearOutVessel({generationToken: 'lineage-1', itemId: 'alerts', windowName: 'tearout-alerts'}))
+                .resolves.toBe(false);
+            expect(workspace.lastTearOutClose).toMatchObject({identity: {lineageMatches: false}, stage: 'identity-refused'});
+            expect(workspace.tearOutConnects.alerts, 'the live vessel survives the stale retirement').toMatchObject({windowId: 'tear-live'});
+            expect(closes, 'nothing reached the platform').toEqual([]);
+
+            await expect(workspace.closeTearOutVessel({generationToken: 'lineage-2', itemId: 'alerts', windowName: 'tearout-alerts'}))
+                .resolves.toBe(true);
+            expect(workspace.lastTearOutClose.stage).toBe('acknowledged');
+            expect(closes).toEqual([{names: ['tearout-alerts'], windowId: workspace.windowId}])
+        } finally {
+            Neo.Main.windowClose = originalClose;
+            workspace.destroy()
+        }
+    });
+
+    test('the production resolver keeps the main participant through the root\'s release and lease expiry; a never-bound first boot joins when its binding is accepted', async () => {
+        // The window is NOT pre-bound: a first boot, whose minted identity the carrier accepts after
+        // this instance constructed. Until then there is no Group to join — registration refuses.
+        const workspace = Neo.create(Workspace, {windowId: 'workstation-first-boot'}),
+              manager   = await workspace.transactionManagerReady;
+
+        try {
+            expect(workspace.topologyGroupId).toBeNull();
+            expect(workspace.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID), 'never bound: nothing to join').toBe(false);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBeNull();
+
+            const minted = await manager.admit({topologyIdentity: {}, windowId: 'workstation-first-boot'});
+
+            expect(minted.outcome).toBe('minted');
+            expect(workspace.topologyGroupId, 'learned from the accepted binding').toBe(minted.groupId);
+            expect(workspace.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID), 'registered when the Group arrived').toBe(true);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
+
+            // The root window dies and its lease runs out: the live binding is gone, the resolver the
+            // WorkspaceSet was built with — `() => me.topologyGroupId` — still reaches the documents.
+            manager.reconnectLeaseMs = 20;
+            manager.release('workstation-first-boot');
+
+            await expect.poll(() => manager.getBinding(minted.groupId, 'main')).toBeNull();
+
+            expect(manager.findByWindow('workstation-first-boot')).toBeNull();
+            expect(workspace.topologyGroupId).toBe(minted.groupId);
+            expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID), 'the headless document is still the Group\'s').toBe(workspace.dockModel);
+            expect(manager.get(minted.groupId), 'the Group outlives its last binding').toBeTruthy()
+        } finally {
+            manager.reconnectLeaseMs = 20000;
+            workspace.destroy();
+            workspace.topologyGroupId && manager.retireGroup(workspace.topologyGroupId)
+        }
+    });
+
     test('a successor tear-out retries retained retirement before opening a fresh vessel', async () => {
         const
-            workspace       = Neo.create(Workspace, {}),
+            workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalTearOut = workspace.tearOutHandlers,
             originalPark    = workspace.vesselParkHandlers,
             active          = {itemId: 'alerts', windowName: 'tearout-alerts'},
@@ -2358,7 +2482,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('previewLanguage maps to the dock-host modifier: initial, live swap, null reset, open values', () => {
-        const workspace = Neo.create(Workspace, {previewLanguage: 'signal'});
+        const workspace = Neo.create(Workspace, {previewLanguage: 'signal', windowId: Neo.config.windowId});
 
         try {
             const host = workspace.getReference('dock-host');
@@ -2758,7 +2882,7 @@ test.describe('refreshDockWorkspace — DockFlip is told the OUTCOME, not the re
         const
             originalReconcile = DockProjectionReconciler.reconcileProjection,
             originalAddon     = Neo.main?.addon,
-            workspace         = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest'});
+            workspace         = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest', windowId: Neo.config.windowId});
 
         let flipOptions = null;
 
@@ -2833,7 +2957,7 @@ test.describe('Workspace — the theme toggle reveals from the pointer (#18125)'
         };
 
         try {
-            workspace = Neo.create(Workspace, {theme: startingTheme});
+            workspace = Neo.create(Workspace, {theme: startingTheme, windowId: Neo.config.windowId});
 
             try {
                 themeAfter = await workspace.toggleWorkspaceTheme(data)
@@ -2928,7 +3052,7 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
         const
             enginePrototype = Object.getPrototypeOf(Workspace.prototype),
             original        = enginePrototype.getRefreshOptions,
-            workspace       = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest'});
+            workspace       = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest', windowId: Neo.config.windowId});
 
         neuterEngine && (enginePrototype.getRefreshOptions = () => ({}));
 

@@ -837,13 +837,18 @@ class App extends Base {
     }
 
     /**
-     * Only needed for SharedWorkers
+     * An Application instance announces itself for its window. The port bookkeeping matters only for
+     * SharedWorkers; the topology admission runs for both worker types — this is the first moment the
+     * window has a live app, and the window's config carries the identity its carrier presented. The
+     * manager is loaded by the first multi-window participant, never here: an app that loaded none is
+     * admitted by the manager's own sweep the moment one does.
      * @param {String} appName
      * @param {String} windowId
      */
     registerApp(appName, windowId) {
         // register the name as fast as possible
         this.onRegisterApp({appName}, this.getPort({windowId}));
+        Neo.manager.Transaction?.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId});
         this.sendMessage(windowId, {action: 'registerAppName', appName})
     }
 

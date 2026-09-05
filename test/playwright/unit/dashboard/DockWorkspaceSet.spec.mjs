@@ -9,19 +9,32 @@ setup({
 });
 
 import {test, expect}           from '@playwright/test';
+import Neo                      from '../../../../src/Neo.mjs';
+import * as core                from '../../../../src/core/_export.mjs';
+import TransactionManager       from '../../../../src/manager/Transaction.mjs';
 import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 
 /**
- * @summary The worker-owned `{workspaceId → document}` registry contract (docking design
- * record §2.1 / §2.8.3): stable semantic identity in, document truth out, fail-closed everywhere
- * a resolution cannot be proven, and both-or-neither adoption for an atomic transfer's committed
- * pair. Retirement never happens implicitly — the registry outlives any render target.
+ * @summary The dock's `{workspaceId → document}` view of a Group's participant membership (docking
+ * design record §2.1 / §2.8.3): stable semantic identity in, document truth out, fail-closed everywhere
+ * a resolution cannot be proven, and both-or-neither adoption for an atomic transfer's committed pair.
+ * Membership is the Group's, never the adapter's; retirement never happens implicitly — a participant
+ * outlives any render target, and its Group outlives its last binding.
  */
-test.describe('Neo.dashboard.dock.window.WorkspaceSet — the workspace-set registry', () => {
-    let set;
+test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over Group membership', () => {
+    let groupId,
+        set;
 
     test.beforeEach(() => {
-        set = createDockWorkspaceSet()
+        // The host window binds into a Group the way its app registration does; the adapter reads
+        // that Group back through the same seam the hosts hand it.
+        groupId = TransactionManager.bind({windowId: 'workspace-set-host', workspaceKey: 'main'}).groupId;
+        set     = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId})
+    });
+
+    test.afterEach(() => {
+        TransactionManager.retireGroup(groupId);
+        TransactionManager.reconnectLeaseMs = 20000
     });
 
     /**
@@ -39,6 +52,54 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the workspace-set regi
 
         return holder
     }
+
+    test('before the host binds there is no membership: registration is refused and every lookup fails closed', () => {
+        const unbound = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => null}),
+              holder  = createHolder({rootId: 'root-early'});
+
+        expect(unbound.register('main', holder.seams), 'no Group to join').toBe(false);
+        expect(unbound.has('main')).toBe(false);
+        expect(unbound.getDocument('main')).toBeNull();
+        expect(unbound.ids()).toEqual([]);
+        expect(unbound.size).toBe(0);
+        expect(unbound.unregister('main')).toBe(false);
+        expect(unbound.adoptAll({main: {rootId: 'x'}}), 'nothing to adopt into').toBe(false);
+        expect(TransactionManager.participantKeys(groupId), 'the refusal wrote nowhere').toEqual([])
+    });
+
+    test('membership is the Group\'s, and it outlives the binding: a released and expired slot keeps the participants and the Group', async () => {
+        const holder = createHolder({rootId: 'root-main'});
+
+        expect(set.register('main', holder.seams)).toBe(true);
+        expect(TransactionManager.getParticipant(groupId, 'main'), 'the adapter kept no entry of its own — the Group holds it')
+            .toEqual({getDocument: holder.seams.getDocument, setDocument: holder.seams.setDocument});
+
+        // The host window dies; its binding is released and its lease runs out.
+        TransactionManager.reconnectLeaseMs = 20;
+        TransactionManager.release('workspace-set-host');
+
+        await new Promise(resolve => setTimeout(resolve, 60));
+
+        expect(TransactionManager.getBinding(groupId, 'main'), 'the slot is free').toBeNull();
+        expect(TransactionManager.get(groupId), 'a Group holding participants is not empty and is not retired').toBeTruthy();
+        expect(set.ids(), 'the participant survived its window').toEqual(['main']);
+        expect(set.getDocument('main')).toEqual({rootId: 'root-main'});
+
+        // The fixture's resolver is the hosts' shape: a Group remembered once, never re-derived. A
+        // resolver reading the LIVE binding instead loses the membership with the window — which is
+        // why the engine Workspace, the Workstation and DemoB remember their Group.
+        const liveResolver = createDockWorkspaceSet({
+            getGroupId: () => TransactionManager.findByWindow('workspace-set-host')?.groupId ?? null,
+            manager   : TransactionManager
+        });
+
+        expect(liveResolver.ids(), 'a live-binding resolver reaches nothing after release').toEqual([]);
+        expect(liveResolver.getDocument('main')).toBeNull();
+
+        // Retirement stays the owner's explicit decision.
+        expect(set.unregister('main')).toBe(true);
+        expect(set.ids()).toEqual([])
+    });
 
     test('register → resolve: document truth flows through the owner seam, live', () => {
         const holder = createHolder({rootId: 'root-main'});

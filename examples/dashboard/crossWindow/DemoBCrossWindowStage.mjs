@@ -38,7 +38,6 @@ import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContr
  * @param {Object} seams.workspaceIds `{main, popup, popup2}` semantic workspace ids (`popup2`
  *     optional — the stage parameterizes over every popup id the host registers).
  * @param {String} seams.sortGroup The shared cross-window coordinator sort group.
- * @param {String} seams.hostComponentId The workspace component id, stamped into stage URLs as `hostId`.
  * @param {Function} seams.applyWorkspaceOperation `(workspaceId, descriptor) => {document, errors}|null`
  * @param {Function} seams.adoptCommittedTransferPair `(pair) => Boolean` — the HOST's wrappable
  *     adoption facade; `commitWholeStackReturn` routes through it (never its own internal twin)
@@ -51,7 +50,6 @@ import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContr
  * @param {Function} seams.clearWorkspaceAffordances `(workspaceId)`
  * @param {Function} seams.commitCrossWindowTransfer `(data)` — the host's gesture transfer commit (Phase 2 surface).
  * @param {Function} seams.createPopupDocument `() => Object` — a valid empty popup workspace document.
- * @param {Function} seams.createVesselOwnerGrant `(flow, itemId) => {generation, token}`
  * @param {Function} seams.ensurePopupRegistered `(workspaceId) => Boolean` — re-registers the popup workspace's live accessors.
  * @param {Function} seams.getPopupDocument `(workspaceId) => Object|null`
  * @param {Function} seams.getStagePromise `(workspaceId) => Promise|null`
@@ -71,8 +69,10 @@ import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContr
  * @param {Function} seams.projectDockModel `(resolveComponentRef|null, workspaceId) => Object`
  * @param {Function} seams.refreshWorkspace `(workspaceId, document) => Promise`
  * @param {Function} seams.renderWorkspacePreview `(workspaceId, data) => Object|null`
+ * @param {Function} seams.reserveVessel `(workspaceKey, flow, windowName) => identity|null` — reserves the
+ *     target's slot in the host's Group; the identity rides `windowOpen` into the popup's carrier.
  * @param {Function} seams.resolveGesture `(receipt)` — consumes the host's gesture settlement resolver.
- * @param {Function} seams.revokeVesselOwnerGrant `(flow, itemId)`
+ * @param {Function} seams.revokeVessel `(workspaceKey)` — gives an unbound reservation back.
  * @param {Function} seams.setPopupDocument `(workspaceId, document)`
  * @param {Function} seams.setStagePromise `(workspaceId, promise|null)`
  * @param {Function} seams.setStageReject `(workspaceId, fn|null)`
@@ -95,7 +95,6 @@ export function createCrossWindowStage(seams) {
         clearWorkspaceAffordances,
         commitCrossWindowTransfer,
         createPopupDocument,
-        createVesselOwnerGrant,
         ensurePopupRegistered,
         getPopupDocument,
         getStagePromise,
@@ -115,8 +114,9 @@ export function createCrossWindowStage(seams) {
         projectDockModel,
         refreshWorkspace,
         renderWorkspacePreview,
+        reserveVessel,
         resolveGesture,
-        revokeVesselOwnerGrant,
+        revokeVessel,
         setPopupDocument,
         setStagePromise,
         setStageReject,
@@ -329,28 +329,33 @@ export function createCrossWindowStage(seams) {
         setStageResolve(workspaceId, stageResolve);
         setStageReject(workspaceId, stageReject);
 
-        let ownerGrant = createVesselOwnerGrant('workspace-target', workspaceId);
+        // The target's slot in the host's Group: the popup presents this identity when it binds, and
+        // the host mounts the workspace into it from that binding — the URL names the workspace only.
+        const reservation = reserveVessel(workspaceId, 'workspace-target', getStageWindowName(workspaceId));
 
         try {
+            if (!reservation) {
+                throw new Error('cross-window stage could not reserve its Group slot')
+            }
+
             let winData = await Neo.Main.getWindowData({windowId: getWindowId()}),
                 left    = winData.screenLeft > 660
                     ? winData.screenLeft - 640
                     : winData.screenLeft + (winData.innerWidth || 1280) + 40,
                 top     = winData.screenTop,
                 opened  = await Neo.Main.windowOpen({
-                    url           : `./index.html?workspaceId=${workspaceId}&hostId=${seams.hostComponentId}`
-                        + `&vesselFlow=workspace-target&vesselGrant=${ownerGrant.token}`
-                        + `&vesselGeneration=${ownerGrant.generation}`,
-                    windowFeatures: `height=520,width=600,left=${left},top=${top}`,
-                    windowId      : getWindowId(),
-                    windowName    : getStageWindowName(workspaceId)
+                    topologyIdentity: reservation,
+                    url             : `./index.html?workspaceId=${workspaceId}`,
+                    windowFeatures  : `height=520,width=600,left=${left},top=${top}`,
+                    windowId        : getWindowId(),
+                    windowName      : getStageWindowName(workspaceId)
                 });
 
             if (opened === false) {
                 throw new Error('cross-window popup blocked')
             }
         } catch (error) {
-            revokeVesselOwnerGrant('workspace-target', workspaceId);
+            revokeVessel(workspaceId);
             getStageReject(workspaceId)?.(error);
             setStagePromise(workspaceId, null);
             setStageResolve(workspaceId, null);
@@ -365,7 +370,7 @@ export function createCrossWindowStage(seams) {
         try {
             return await Promise.race([stagePromise, timeout])
         } catch (error) {
-            revokeVesselOwnerGrant('workspace-target', workspaceId);
+            revokeVessel(workspaceId);
             setStagePromise(workspaceId, null);
             throw error
         }

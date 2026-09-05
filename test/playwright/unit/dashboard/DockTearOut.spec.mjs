@@ -78,8 +78,9 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
 
         await handlers.onDockTearOutExit(data);
 
+        // `gestureToken` is the pair's own correlation id, echoed unread by the host
         expect(calls.opened[0]).toEqual({
-            admissionToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone
+            gestureToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone
         });
         expect(calls.ended).toBe(0);
         expect(calls.started).toEqual([{
@@ -213,24 +214,22 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
             openResult: request => ++attempt === 1
                 ? new Promise(resolve => resolveOpen = resolve)
                 : {
-                    admissionToken: request.admissionToken,
-                    generation    : 22,
-                    popupHeight   : 480,
-                    popupWidth    : 640,
-                    windowName    : 'vessel-graph'
+                    gestureToken: request.gestureToken,
+                    popupHeight : 480,
+                    popupWidth  : 640,
+                    windowName  : 'vessel-graph'
                 }
         });
 
         const first = handlers.onDockTearOutExit(exitData(sortZone));
 
         expect(handlers.onVesselRetired({
-            admissionToken: 1,
-            generation    : 17,
-            itemId        : 'graph',
-            windowName    : 'vessel-graph'
+            gestureToken: 1,
+            itemId      : 'graph',
+            windowName  : 'vessel-graph'
         })).toBe(true);
 
-        resolveOpen({admissionToken: 1, generation: 17, windowName: 'vessel-graph'});
+        resolveOpen({gestureToken: 1, windowName: 'vessel-graph'});
 
         await expect(first).resolves.toBe(false);
         expect(calls.closed, 'the already-dead physical generation is not closed by semantic name').toHaveLength(0);
@@ -239,6 +238,29 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
         await expect(handlers.onDockTearOutExit(exitData(sortZone))).resolves.toBe(true);
         expect(calls.started).toHaveLength(1);
         expect(handlers.activeVessel).toEqual({itemId: 'graph', windowName: 'vessel-graph'})
+    });
+
+    test('a retirement presenting a superseded lineage token clears nothing; the live vessel survives it', async () => {
+        // The host's admission carries the slot's lineage token; a successor admission for the same
+        // item shares the window name, never the token. A stale retirement — the old generation's
+        // disconnect arriving after its successor bound — must not clear the successor's vessel.
+        const {handlers, sortZone} = harness({
+            openResult: () => ({generationToken: 'lineage-2', popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph', workspaceKey: 'popup:graph'})
+        });
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.activeVessel).toEqual({
+            generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph', workspaceKey: 'popup:graph'
+        });
+
+        expect(handlers.onVesselRetired({generationToken: 'lineage-1', itemId: 'graph', windowName: 'vessel-graph'}),
+            'the superseded lineage names no vessel this machine holds').toBe(false);
+        expect(handlers.activeVessel, 'the live vessel survives the stale retirement').toMatchObject({generationToken: 'lineage-2'});
+
+        expect(handlers.onVesselRetired({generationToken: 'lineage-2', itemId: 'graph', windowName: 'vessel-graph'}),
+            'the exact lineage retires it').toBe(true);
+        expect(handlers.activeVessel).toBeNull()
     });
 
     test('an explicit close refusal retains the active vessel and coalesces one in-flight retirement', async () => {

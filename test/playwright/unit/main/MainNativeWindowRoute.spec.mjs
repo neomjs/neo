@@ -340,6 +340,48 @@ async function runNativeWindowRouteProbe(scenario) {
                 released,
                 secondHandle: second?.nativeHandleKey ?? null
             }))
+        } else if (scenario === 'topology-identity') {
+            // The boot-time reader lives on the worker manager; Main only writes and hands off.
+            const {default: WorkerManager} = await import('./src/worker/Manager.mjs');
+            const
+                storage      = new Map(),
+                childStorage = new Map(),
+                inherited    = () => childStorage.set('neo-topology-identity', JSON.stringify({generationToken: 't1', groupId: 'g1', workspaceKey: 'main'}));
+            globalThis.sessionStorage = {
+                getItem   : key => storage.get(key) ?? null,
+                removeItem: key => storage.delete(key),
+                setItem   : (key, value) => storage.set(key, value)
+            };
+            const empty    = WorkerManager.readTopologyIdentity();
+            const accepted = Main.setTopologyIdentity({generationToken: 't1', groupId: 'g1', workspaceKey: 'main'});
+            const carried  = WorkerManager.readTopologyIdentity();
+            storage.set('neo-topology-identity', '{not json');
+            const malformed = WorkerManager.readTopologyIdentity();
+            storage.set('neo-topology-identity', JSON.stringify({groupId: 'g1'}));
+            const partial = WorkerManager.readTopologyIdentity();
+            const popup = {
+                closed        : false,
+                innerHeight   : 500,
+                outerWidth    : 600,
+                document      : {createElement: () => ({}), head: {append() {}}},
+                location      : {replace() {}},
+                resizeTo() {},
+                sessionStorage: {
+                    getItem   : key => childStorage.get(key) ?? null,
+                    removeItem: key => childStorage.delete(key),
+                    setItem   : (key, value) => childStorage.set(key, value)
+                }
+            };
+            globalThis.open       = () => popup;
+            globalThis.setTimeout = () => 1;
+            Main.openWindows      = {};
+            inherited();
+            Main.windowOpen({topologyIdentity: {generationToken: 't2', groupId: 'g1', workspaceKey: 'popup:documents'}, url: './popup.html', windowName: 'reserved'});
+            const reserved = JSON.parse(childStorage.get('neo-topology-identity'));
+            inherited();
+            Main.windowOpen({url: './popup.html', windowName: 'plain'});
+            const cleared = !childStorage.has('neo-topology-identity');
+            console.log(JSON.stringify({accepted, carried, cleared, empty, malformed, partial, reserved}))
         } else {
             const
                 events   = [],
@@ -807,5 +849,17 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.consumed.map(item => item.token)).toEqual(['token-a']);
         expect(result.released).toEqual(['handle-token-a']);
         expect(result.remainingToken).toBe('token-b')
+    });
+
+    test('the topology identity rides the native route carrier: read on boot, written back, reserved for a staged child, cleared when nothing was reserved', async () => {
+        const result = await runNativeWindowRouteProbe('topology-identity');
+
+        expect(result.empty, 'no carrier yet: the worker mints').toEqual({});
+        expect(result.accepted).toBe(true);
+        expect(result.carried, 'the next page load presents what the worker wrote back').toEqual({generationToken: 't1', groupId: 'g1', workspaceKey: 'main'});
+        expect(result.malformed, 'a broken record boots a fresh root').toEqual({});
+        expect(result.partial, 'an incomplete record boots a fresh root').toEqual({});
+        expect(result.reserved, 'the staged child carries the slot its opener reserved').toEqual({generationToken: 't2', groupId: 'g1', workspaceKey: 'popup:documents'});
+        expect(result.cleared, 'a child opened without a reservation boots as its own root').toBe(true)
     })
 });

@@ -1,7 +1,8 @@
-import Base      from './Base.mjs';
-import Component from './Component.mjs';
-import DomEvent  from './DomEvent.mjs';
-import Focus     from './Focus.mjs';
-import Instance  from './Instance.mjs';
+import Base        from './Base.mjs';
+import Component   from './Component.mjs';
+import DomEvent    from './DomEvent.mjs';
+import Focus       from './Focus.mjs';
+import Instance    from './Instance.mjs';
+import Transaction from './Transaction.mjs';
 
-export {Base, Component, DomEvent, Instance, Focus};
+export {Base, Component, DomEvent, Instance, Focus, Transaction};

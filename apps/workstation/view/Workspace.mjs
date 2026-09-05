@@ -1,24 +1,24 @@
-import Component                   from '../../../src/component/Base.mjs';
-import Container                   from '../../../src/container/Base.mjs';
-import DockWorkspace               from '../../../src/dashboard/dock/Workspace.mjs';
-import Feed                        from '../store/Feed.mjs';
-import FeedPane                    from './FeedPane.mjs';
-import Scale                       from '../store/Scale.mjs';
-import ScalePane                   from './ScalePane.mjs';
-import DockDragAffordances         from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
-import DockDropIndicators          from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockLayoutAdapter           from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import PerspectiveLibrary          from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
-import DockPreview                 from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockProjectionReconciler    from '../../../src/dashboard/dock/projection/Reconciler.mjs';
-import DockService                 from '../../../src/ai/client/DockService.mjs';
-import WorkspaceDocument           from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Operations                  from '../../../src/dashboard/dock/model/Operations.mjs';
-import Persistence                 from '../../../src/dashboard/dock/model/Persistence.mjs';
-import InteractionService          from '../../../src/ai/client/InteractionService.mjs';
-import StateProvider               from '../../../src/state/Provider.mjs';
-import TourRunner                  from '../../../src/ai/client/TourRunner.mjs';
-import {createDockTearOutHandlers} from '../../../src/dashboard/dock/window/TearOut.mjs';
+import Component                from '../../../src/component/Base.mjs';
+import Container                from '../../../src/container/Base.mjs';
+import DockWorkspace            from '../../../src/dashboard/dock/Workspace.mjs';
+import Feed                     from '../store/Feed.mjs';
+import FeedPane                 from './FeedPane.mjs';
+import Scale                    from '../store/Scale.mjs';
+import ScalePane                from './ScalePane.mjs';
+import DockDragAffordances      from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
+import DockDropIndicators       from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter        from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import PerspectiveLibrary       from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import DockPreview              from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockProjectionReconciler from '../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockService              from '../../../src/ai/client/DockService.mjs';
+import WorkspaceDocument        from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations               from '../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence              from '../../../src/dashboard/dock/model/Persistence.mjs';
+import InteractionService       from '../../../src/ai/client/InteractionService.mjs';
+import StateProvider            from '../../../src/state/Provider.mjs';
+import TourRunner               from '../../../src/ai/client/TourRunner.mjs';
+import TransactionManager       from '../../../src/manager/Transaction.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
@@ -121,6 +121,12 @@ class Workspace extends DockWorkspace {
          * @protected
          */
         className: 'Workstation.view.Workspace',
+        /**
+         * The engine's tear-out lifecycle: the workspace reserves each vessel's slot in its Group and
+         * admits the window that binds it. This host supplies the platform seams and its own receipts.
+         * @member {Boolean} enableDockTearOutLifecycle=true
+         */
+        enableDockTearOutLifecycle: true,
         /**
          * @member {String[]} additionalThemeFiles
          */
@@ -232,29 +238,6 @@ class Workspace extends DockWorkspace {
      */
     vesselProxyEmbodiment = null
     /**
-     * The tear-out gesture choreography (admission chain + commit-at-terminal routing).
-     * @member {Object|null} tearOutHandlers=null
-     */
-    tearOutHandlers = null
-    /**
-     * Connect-time admission tokens for tear-out vessels whose render stage is still settling.
-     * @member {Map} tearOutConnectAdmissions=new Map()
-     * @protected
-     */
-    tearOutConnectAdmissions = new Map()
-    /**
-     * Pre-terminal connected tear-out vessels by item id.
-     * @member {Object} tearOutConnects={}
-     * @protected
-     */
-    tearOutConnects = {}
-    /**
-     * Post-commit vessel-owned panes by item id (the detached terminal committed).
-     * @member {Object} tearOutPanes={}
-     * @protected
-     */
-    tearOutPanes = {}
-    /**
      * Exact pre-conversion and target-cover outer geometry for parked tear-out vessels.
      * Runtime-only physical recovery authority; never persisted workspace state.
      * @member {Object} tearOutParkGeometries={}
@@ -268,18 +251,6 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     tearOutParkAttempts = {}
-    /**
-     * Exact `{tabsNodeId, index}` placement captured at each detach commit — the return truth.
-     * @member {Object} tearOutPlacements={}
-     * @protected
-     */
-    tearOutPlacements = {}
-    /**
-     * Retirement fences: items whose vessel close is in flight (connects stay cleanup-only).
-     * @member {Set} tearOutRetirements=new Set()
-     * @protected
-     */
-    tearOutRetirements = new Set()
     /**
      * The runtime window id of the vessel an in-flight conversion is hovering over — stashed by
      * the conversion-in seam so the park's cover geometry resolves the exact target. Never
@@ -357,18 +328,6 @@ class Workspace extends DockWorkspace {
      * @member {Object|null} lastTearOutClose=null
      */
     lastTearOutClose = null
-    /**
-     * Product-semantic vessel owner grants by `flow:itemId`.
-     * @member {Map} vesselOwnerGrants=new Map()
-     * @protected
-     */
-    vesselOwnerGrants = new Map()
-    /**
-     * Monotonic grant generation counter.
-     * @member {Number} vesselOwnerGrantGeneration=0
-     * @protected
-     */
-    vesselOwnerGrantGeneration = 0
     /**
      * Number of coalesced producer batches appended over this workspace lifetime.
      * @member {Number} feedBatchCount=0
@@ -476,18 +435,6 @@ class Workspace extends DockWorkspace {
 
         me.appendFeedBatch(25);
 
-        // The gesture tear-out choreography. A vessel never writes shared detach bookkeeping
-        // mid-gesture — model truth stays untouched until the detached terminal. Create the ONE
-        // effective bundle before first projection: pop-out membership is stable, while its initial
-        // hidden state samples bundle availability. Constructing it after `projectDockModel()`
-        // strands the retained action hidden until an unrelated refresh.
-        me.tearOutHandlers = createDockTearOutHandlers({
-            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
-            closeVessel     : vessel => me.closeTearOutVessel(vessel),
-            onDocumentChange: (document, operation, vessel) => me.onTearOutDocumentChange(document, operation, vessel),
-            openVessel      : request => me.openTearOutVessel(request)
-        });
-
         me.add([me.createTourBar(), me.createStatusBar(), {
             module: Container,
             cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
@@ -545,16 +492,17 @@ class Workspace extends DockWorkspace {
             }
         });
 
-        // The cross-window composition (docking design record §2.1/§2.3): one worker-owned
-        // workspace set resolves documents by STABLE workspace identity — windowId, screen
-        // geometry, and projection state never enter it; a window is a render target, not a
-        // state owner. Vessel workspaces register lazily on first dock-INTO (Edit 2).
-        me.workspaceSet = createDockWorkspaceSet();
-
-        me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
-            getDocument: () => me.dockModel,
-            setDocument: document => me.dockModel = document
-        });
+        // The cross-window composition (docking design record §2.1/§2.3): the workspace set resolves
+        // documents by STABLE workspace identity — windowId, screen geometry, and projection state
+        // never enter it; a window is a render target, not a state owner. Its membership lives in
+        // this workspace's Group on `Neo.manager.Transaction`: the app imports the manager, so its
+        // window is admitted at registration, and a Group the carrier already held is known before
+        // this constructor runs. A first boot's minted identity arrives once the carrier accepted it,
+        // through `afterSetTopologyGroupId`, which registers the main participant then. The Group is
+        // kept for the instance's lifetime: releasing the window's slot never loses the documents.
+        // Vessel workspaces register lazily on first dock-INTO (Edit 2).
+        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
+        me.registerMainWorkspace();
 
         me.crossWindowParticipationPromise = me.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID)
             .catch(error => {
@@ -575,14 +523,6 @@ class Workspace extends DockWorkspace {
             disposeVessel: ({itemId}) => me.retireReturnedVessel(Workspace.vesselWorkspaceId(itemId)),
             parkVessel   : vessel => me.parkTearOutVessel({...vessel, nativeTitlebar: true}),
             reshowVessel : vessel => me.reshowTearOutVessel(vessel)
-        });
-
-        // vessel lifecycle: a granted `?popout=` window adopts the live pane on connect,
-        // and a vessel death brings its item home on disconnect
-        Neo.currentWorker.on({
-            connect   : me.onWindowConnect,
-            disconnect: me.onWindowDisconnect,
-            scope     : me
         });
 
         // The reactive afterSet fires before the dock host exists during construction —
@@ -964,6 +904,56 @@ class Workspace extends DockWorkspace {
     }
 
     /**
+     * @summary Publishes this workspace's own document as the `main` participant of its Group.
+     *
+     * Membership is the Group's, and a workspace has a Group only once its window's binding is
+     * accepted — which its app did at registration, before any view of that window constructed, unless
+     * a first boot is still awaiting its carrier; {@link #afterSetTopologyGroupId} registers it then.
+     * An instance created headless has no window yet and joins nothing; {@link #afterSetWindowId}
+     * registers it the moment a container supplies its first real window id.
+     * @returns {Boolean} Whether the participant is registered.
+     * @protected
+     */
+    registerMainWorkspace() {
+        let me = this;
+
+        return me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
+            getDocument: () => me.dockModel,
+            setDocument: document => me.dockModel = document
+        })
+    }
+
+    /**
+     * A headless instance joins its Group when a real render target arrives (see
+     * {@link #registerMainWorkspace}); the engine's geometry binding runs on the same signal.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let me = this;
+
+        value && me.workspaceSet && !me.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID) && me.registerMainWorkspace()
+    }
+
+    /**
+     * The Group arrived after construction — a first boot's minted identity, accepted by its carrier —
+     * so the main participant registers now (see {@link #registerMainWorkspace}).
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTopologyGroupId(value, oldValue) {
+        super.afterSetTopologyGroupId(value, oldValue);
+
+        let me = this;
+
+        value && me.workspaceSet && !me.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID) && me.registerMainWorkspace()
+    }
+
+    /**
      * The workstation's full multi-window projection surface: cross-window participation, the
      * tear-out and vessel-conversion opt-ins with their handler seams, the drag-affordance
      * layer's cross-zone seams, and the stable workspace identity. The class threads the reducer,
@@ -975,6 +965,9 @@ class Workspace extends DockWorkspace {
         let me = this;
 
         return {
+            // The engine's tear-out opt-in and its gesture handler bundle come first; this host wraps
+            // one of them (the exit, with its park retirement) and adds the flagship's own surfaces.
+            ...super.getDockProjectionOptions(),
             // Dense Workstation panes need more than the engine's compact 25% reveal floor. The
             // committed edge extent still wins whenever it is larger.
             defaultRevealFraction      : 0.35,
@@ -982,11 +975,10 @@ class Workspace extends DockWorkspace {
             // coordinator-visible drag source under one sort group; the workspace id rides the
             // payload for the receiving window's `transferItem` resolution.
             crossWindowSortGroup        : Workspace.CROSS_WINDOW_SORT_GROUP,
-            // Tear-out opt-in (§2.8): every tab zone shares the Workstation root as its physical
+            // Tear-out boundary (§2.8): every tab zone shares the Workstation root as its physical
             // window boundary. Exiting a source toolbar remains ordinary cross-zone motion; only
             // leaving this app/window root enters the vessel outcome machine.
             dockTearOutBoundaryContainerId: me.id,
-            enableDockTearOut             : true,
             // Vessel conversion (the multi-window amendment): popup-over-vessel converts to a
             // proxy over the target while the park keeps the real vessel alive — the projection
             // threads the opt-in; this host owns every platform effect.
@@ -994,10 +986,7 @@ class Workspace extends DockWorkspace {
             onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
             onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
             onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
-            onDockTearOutCancel      : data => me.tearOutHandlers.onDockTearOutCancel(data),
-            onDockTearOutEntry       : data => me.tearOutHandlers.onDockTearOutEntry(data),
             onDockTearOutExit        : data => me.onDockTearOutExit(data),
-            onDockTearOutTerminal    : data => me.tearOutHandlers.onDockTearOutTerminal(data),
             onDockVesselConversionIn : data => {
                 let targetWorkspaceId = data.targetId,
                     targetState       = me.vesselWorkspaces.get(targetWorkspaceId);
@@ -1959,7 +1948,9 @@ class Workspace extends DockWorkspace {
             receipt.phases.push('close-dispatched')
         }
 
-        const closed = await me.closeTearOutVessel(vessel);
+        // Through the engine's retirement, not the platform seam directly: the fence it holds keeps a
+        // late bind for the same item cleanup-only while the close is in flight.
+        const closed = await me.retireTearOutVessel(vessel);
 
         if (closed) {
             state.closeRequested = true;
@@ -2790,102 +2781,33 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary Mints one product-semantic vessel grant and supersedes the prior generation for
-     * the same flow/item. The token is a bearer hint only; {@link #consumeVesselOwnerGrant}
-     * additionally requires the opener-minted native route for the exact connected child.
-     * @param {String} flow Vessel flow discriminator (`tear-out`).
-     * @param {String} itemId
-     * @returns {{generation: Number, token: String}}
-     * @protected
-     */
-    createVesselOwnerGrant(flow, itemId) {
-        let grant = {
-            generation: ++this.vesselOwnerGrantGeneration,
-            token     : crypto.randomUUID()
-        };
-
-        this.vesselOwnerGrants.set(`${flow}:${itemId}`, grant);
-
-        return grant
-    }
-
-    /**
-     * @summary Consumes one exact product grant after validating the generic native route.
-     * Consumption precedes every reparent, making replay and same-name reuse inert.
-     * @param {Object} data
-     * @param {Object} data.windowData
-     * @param {String} flow
-     * @param {Number} generation
-     * @param {String} grant
-     * @param {String} itemId
-     * @param {String} windowId
-     * @returns {Boolean}
-     * @protected
-     */
-    consumeVesselOwnerGrant({data, flow, generation, grant, itemId, windowId}) {
-        let me     = this,
-            key    = `${flow}:${itemId}`,
-            stored = me.vesselOwnerGrants.get(key),
-            route  = data.windowData?.nativeRoute;
-
-        if (
-            !stored || !grant || stored.token !== grant || stored.generation !== generation ||
-            !route?.nativeHandleKey || route.ownerWindowId !== me.windowId || route.targetWindowId !== windowId
-        ) {
-            return false
-        }
-
-        me.vesselOwnerGrants.delete(key);
-
-        return true
-    }
-
-    /**
-     * @summary Revokes the current semantic grant for one flow/item admission.
-     * @param {String} flow
-     * @param {String} itemId
-     * @protected
-     */
-    revokeVesselOwnerGrant(flow, itemId) {
-        this.vesselOwnerGrants.delete(`${flow}:${itemId}`)
-    }
-
-    /**
      * @summary Opens one theme-correct vessel window for a mid-gesture boundary exit.
      *
-     * Reuses the workstation viewport's `?popout=` pure-pane-host mode. The granted child
+     * Reuses the workstation viewport's `?popout=` pure-pane-host mode. The vessel carries the slot the
+     * engine reserved in this workspace's Group through `Main.windowOpen`; which pane it shows is
+     * content and stays in the URL, whom it belongs to is identity and never does. The bound child
      * immediately carries the same live pane through {@link Neo.dashboard.dock.window.VesselEmbodiment};
      * it owns no workspace document. Fail-closed per the admission contract: `windowOpen` returns
      * a BOOLEAN (a blocked popup never throws), and any falsy/throwing acquisition returns `null`
      * so the gesture degrades to its in-window fallback. The theme bootstrap is part of that
      * acquisition rather than optional presentation: an unavailable authority reaches the outer
-     * diagnostic boundary, revokes the owner grant, and prevents an unthemed child from opening.
+     * diagnostic boundary and prevents an unthemed child from opening.
      * @param {Object} request
-     * @param {Number} request.admissionToken
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
-     * @returns {Promise<{admissionToken: Number, generation: Number, popupHeight: Number, popupWidth: Number, windowName: String}|null>}
+     * @param {Object} request.topologyIdentity The reserved slot, written into the vessel's carrier.
+     * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({admissionToken, itemId, proxyRect}) {
+    async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
-            windowName = `tearout-${itemId}`,
-            ownerGrant = me.createVesselOwnerGrant('tear-out', itemId);
-
-        admissionToken = Number.isFinite(admissionToken) ? admissionToken : ownerGrant.generation;
-        ownerGrant.admissionToken = admissionToken;
+            windowName = `tearout-${itemId}`;
 
         // Diagnostic trail for the birth gate: absence has three distinct layers (admission
-        // refused / platform refused the window / window granted but never connected), and the
+        // refused / platform refused the window / window granted but never bound), and the
         // failure diag must name which one this gesture died in.
         me.lastVesselOpen = {itemId, stage: 'invoked'};
-
-        if (me.tearOutRetirements.has(itemId)) {
-            me.lastVesselOpen.stage = 'blocked-by-retirement';
-            me.revokeVesselOwnerGrant('tear-out', itemId);
-            return null
-        }
 
         try {
             let [winData, bootstrap] = await Promise.all([
@@ -2904,12 +2826,9 @@ class Workspace extends DockWorkspace {
             let opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
                 stagedColorScheme : schemes[selectedTheme],
-                url               : `./index.html?popout=${itemId}&hostId=${me.id}`
-                    + `&vesselFlow=tear-out&vesselGrant=${ownerGrant.token}`
-                    + `&vesselGeneration=${ownerGrant.generation}`
-                    + `&vesselAdmission=${admissionToken}`
-                    + `&theme=${encodeURIComponent(selectedTheme)}`,
-                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                topologyIdentity,
+                url               : `./index.html?popout=${itemId}&theme=${encodeURIComponent(selectedTheme)}`,
+                windowFeatures    : `height=${height},left=${left},top=${top},width=${width}`,
                 windowId,
                 windowName
             });
@@ -2917,61 +2836,49 @@ class Workspace extends DockWorkspace {
             me.lastVesselOpen.stage = opened === false ? 'windowOpen-false' : 'granted';
 
             if (opened === false) {
-                me.revokeVesselOwnerGrant('tear-out', itemId);
                 return null
             }
 
             me.tearOutVesselDims = {height, width};
 
-            return {
-                admissionToken,
-                generation : ownerGrant.generation,
-                popupHeight: height,
-                popupWidth : width,
-                windowName
-            }
+            return {popupHeight: height, popupWidth: width, windowName}
         } catch (error) {
             me.lastVesselOpen.stage = 'threw';
             me.lastVesselOpen.error = String(error?.message || error);
-            me.revokeVesselOwnerGrant('tear-out', itemId);
             return null
         }
     }
 
     /**
-     * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry,
-     * cancel, or a refused model commit). The live connection and owner grant remain recoverable
-     * until the platform strictly admits the close; an explicit refusal can therefore be retried
-     * instead of orphaning a parked native generation.
+     * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
+     * or a refused model commit). Identity is the slot's lineage token — a successor admission for
+     * the same item shares the window name, never the token — so a retirement presenting a superseded
+     * token is refused and the live vessel survives it. The engine's `retireTearOutVessel` holds the
+     * retirement fence and clears the ownership records around this call; the platform close and its
+     * receipt are this host's, and an explicit refusal retains exact retry authority.
      * @param {Object} vessel
-     * @param {Number} [vessel.admissionToken]
-     * @param {Number} [vessel.generation]
+     * @param {String} [vessel.generationToken] The reservation's lineage token.
      * @param {String} vessel.itemId
      * @param {Object} [vessel.nativeRoute] Exact opener-minted physical route when available.
-     * @param {Boolean} [vessel.nativeTitlebar=false] Use the exact Main native route rather than
-     *     pointer-follow DragDrop state after a terminal popup was dropped.
      * @param {String} vessel.windowName
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async closeTearOutVessel({admissionToken, generation, itemId, nativeRoute, windowName}) {
+    async closeTearOutVessel({generationToken, itemId, nativeRoute, windowName}) {
         let me               = this,
             entry            = me.resolveTearOutVessel(itemId),
-            admission        = me.tearOutConnectAdmissions.get(itemId),
-            ownerGrant       = me.vesselOwnerGrants.get(`tear-out:${itemId}`),
+            admission        = me.tearOutAdmissions.get(itemId),
             expected         = `tearout-${itemId}`,
-            exactGeneration  = entry?.generation ?? admission?.generation ?? ownerGrant?.generation,
-            exactToken       = entry?.admissionToken ?? admission?.admissionToken ?? ownerGrant?.admissionToken,
+            exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
             embodiedWindowId = entry?.windowId ?? admission?.windowId ?? me.tearOutEmbodiment.getWindowId(itemId),
             closed           = false;
 
         const closeReceipt = me.lastTearOutClose = {
             identity: {
-                admissionMatches : !Number.isFinite(admissionToken) || admissionToken === exactToken,
                 entryNameMatches : !entry || entry.windowName === windowName,
-                generationMatches: !Number.isFinite(generation) || generation === exactGeneration,
                 hasEntry         : Boolean(entry),
                 hasItemId        : Boolean(itemId),
+                lineageMatches   : !generationToken || !exactToken || generationToken === exactToken,
                 windowNameMatches: windowName === expected
             },
             itemId: itemId ?? null,
@@ -2980,14 +2887,13 @@ class Workspace extends DockWorkspace {
 
         if (
             !itemId || windowName !== expected || (entry && entry.windowName !== windowName) ||
-            (Number.isFinite(generation) && generation !== exactGeneration) ||
-            (Number.isFinite(admissionToken) && admissionToken !== exactToken)
+            (generationToken && exactToken && generationToken !== exactToken)
         ) {
             closeReceipt.stage = 'identity-refused';
             return false
         }
 
-        nativeRoute ??= entry?.nativeRoute ?? admission?.nativeRoute ?? (
+        nativeRoute ??= entry?.nativeRoute ?? (
             admission?.windowId && Neo.manager?.Window?.get(admission.windowId)?.nativeRoute
         );
 
@@ -3014,12 +2920,8 @@ class Workspace extends DockWorkspace {
             return false
         }
 
-        // Establish retirement before restoring any source embodiment or awaiting the platform.
-        // A refused close retains the exact route + tear-out machine slot for retry, but the
-        // content stays safely home.
-        me.tearOutRetirements.add(itemId);
-        admission && (admission.invalidated = true);
-
+        // The engine established retirement before this call; a refused close retains the exact
+        // route + tear-out machine slot for retry, but the content goes safely home first.
         if (embodiedWindowId && me.tearOutEmbodiment.isStaged(itemId)) {
             const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
                   settled    = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
@@ -3063,11 +2965,7 @@ class Workspace extends DockWorkspace {
             return false
         }
 
-        delete me.tearOutConnects[itemId];
         delete me.tearOutParkGeometries[itemId];
-        me.tearOutConnectAdmissions.delete(itemId);
-        me.revokeVesselOwnerGrant('tear-out', itemId);
-        me.tearOutRetirements.delete(itemId);
         closeReceipt.stage = 'acknowledged';
 
         return true
@@ -3084,19 +2982,12 @@ class Workspace extends DockWorkspace {
 
         if (!entry?.windowId) return null;
 
-        const resolved = {
+        return {
             ...entry,
             itemId,
             nativeRoute: entry.nativeRoute ?? Neo.manager?.Window?.get(entry.windowId)?.nativeRoute ?? null,
             windowName : entry.windowName ?? `tearout-${itemId}`
-        };
-
-        Object.defineProperties(resolved, {
-            admissionToken: {value: entry.admissionToken},
-            generation    : {value: entry.generation}
-        });
-
-        return resolved
+        }
     }
 
     /**
@@ -3542,7 +3433,7 @@ class Workspace extends DockWorkspace {
      * the source reconciler must preserve the pane until the granted child arrives.
      * @param {Object} document
      * @param {Object} operation
-     * @param {Object} vessel Exact admitted vessel identity, including its private generation.
+     * @param {Object} vessel The admitted vessel identity: the reservation's slot and lineage token.
      * @protected
      */
     onTearOutDocumentChange(document, operation, vessel) {
@@ -3559,70 +3450,35 @@ class Workspace extends DockWorkspace {
             operation      : operation.operation,
             preserveItemIds: me.tearOutEmbodiment.isStaged(itemId) ? [] : [itemId]
         });
-        me.adoptTearOutPane(itemId, vessel?.generation, vessel?.admissionToken)
+        me.adoptTearOutPane(itemId, vessel)
     }
 
     /**
-     * The post-commit adoption: the detached terminal committed `detachItem` (the item left the
-     * tree, catalog preserved), so the vessel now OWNS the pane. Writes the {@link #tearOutPanes}
-     * entry and — if the vessel already connected ({@link #tearOutConnects}, the long-drag order)
-     * — reparents the live pane into it immediately; otherwise {@link #onWindowConnect} adopts on
-     * arrival (the fast-terminal order).
-     * @param {String} itemId
-     * @param {Number} [generation] Exact owner-grant generation for terminal-first adoption.
-     * @param {Number} [admissionToken] Exact gesture admission for terminal-first adoption.
+     * The vessel owns the pane now. If it had already bound (the long-drag order) it also becomes a
+     * dock target — a vessel workspace registers lazily on its first dock-INTO, this only opens the
+     * door. A vessel that binds later registers from {@link #afterTearOutWindowConnect}.
+     * @param {Object} data
+     * @param {Object|null} data.connection The connection the engine adopted, when the vessel had already bound.
+     * @param {String} data.itemId
      * @protected
      */
-    adoptTearOutPane(itemId, generation, admissionToken) {
-        let me        = this,
-            connected = me.tearOutConnects[itemId];
+    afterTearOutPaneAdopt({connection, itemId}) {
+        let me = this;
 
-        me.tearOutPanes[itemId] = connected
-            ? {...connected}
-            : {windowName: `tearout-${itemId}`, windowId: null};
-
-        Object.defineProperties(me.tearOutPanes[itemId], {
-            admissionToken: {
-                configurable: true,
-                value       : connected?.admissionToken ?? admissionToken ?? null,
-                writable    : true
-            },
-            generation: {
-                configurable: true,
-                value       : connected?.generation ?? generation ?? null,
-                writable    : true
-            },
-            nativeRoute: {
-                configurable: true,
-                value       : connected?.nativeRoute ?? null,
-                writable    : true
-            }
-        });
-
-        if (connected) {
-            // Promotion is synchronous and single-owner: committed disconnects may only match
-            // tearOutPanes from this point onward, never the pre-terminal connect branch first.
-            delete me.tearOutConnects[itemId];
-
-            if (me.tearOutEmbodiment.isStaged(itemId)) {
-                me.tearOutEmbodiment.promote({itemId, windowId: connected.windowId})
-            } else {
-                me.reparentTearOutPane(itemId, connected)
-            }
-
-            me.registerVesselWorkspaceTarget({
-                app     : Neo.apps[connected.windowId],
-                itemId,
-                windowId: connected.windowId
-            }).catch(error => {
-                me.lastCrossWindowTransfer = {applied: false, errors: [error.message]}
-            })
-        }
+        connection && me.registerVesselWorkspaceTarget({
+            app     : Neo.apps[connection.windowId],
+            itemId,
+            windowId: connection.windowId
+        }).catch(error => {
+            me.lastCrossWindowTransfer = {applied: false, errors: [error.message]}
+        })
     }
 
     /**
-     * Moves the LIVE cached pane into a connected tear-out vessel — pure render-target work;
-     * the model already committed at the terminal.
+     * Moves the LIVE cached pane into a bound tear-out vessel — pure render-target work; the model
+     * already committed at the terminal. A pane the connect-first order already staged into the
+     * vessel stays where it is: the exact-slot placeholder retires with the promotion instead of the
+     * pane moving twice.
      * @param {String} itemId
      * @param {Object} target `{windowId}`
      * @returns {Boolean}
@@ -3634,9 +3490,13 @@ class Workspace extends DockWorkspace {
             app        = Neo.apps[windowId],
             pane       = me.paneCache[itemId];
 
-        if (!app || !pane || pane.isDestroyed) return false;
-
         me.tearOutPanes[itemId] && Object.assign(me.tearOutPanes[itemId], target);
+
+        if (me.tearOutEmbodiment.isStaged(itemId)) {
+            return me.tearOutEmbodiment.promote({itemId, windowId}) !== false
+        }
+
+        if (!app || !pane || pane.isDestroyed) return false;
 
         if (pane.parent !== app.mainView) {
             pane.parent?.remove(pane, false);
@@ -3683,241 +3543,148 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * A popup window joined the shared heap: if it is one of OURS (the pop-out URL carries
-     * `popout=<itemId>&hostId=<this.id>` plus an exact vessel grant), reparent the LIVE cached
-     * pane into its main view. The instance moves trees; nothing is recreated.
-     * @param {Object} data `{appName, windowId, windowData}`
+     * Retirement authority is established before any awaited close: a vessel that binds while its
+     * retirement is in flight is cleanup-only, and no content is ever staged into a closing realm.
+     * The engine's `retireTearOutVessel` holds the fence; this host only reads it.
+     * @param {Object} context
+     * @param {String} context.itemId
+     * @returns {Boolean}
+     * @protected
      */
-    async onWindowConnect(data) {
-        let me         = this,
-            {windowId} = data,
-            app        = Neo.apps[windowId];
-
-        if (!app || me.isDestroyed) return;
-
-        let url            = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-            params         = new URL(url).searchParams,
-            itemId         = params.get('popout'),
-            flow           = params.get('vesselFlow'),
-            grant          = params.get('vesselGrant'),
-            admissionValue = params.get('vesselAdmission'),
-            admissionToken = admissionValue === null ? NaN : Number(admissionValue),
-            generation     = Number(params.get('vesselGeneration'));
-
-        if (params.get('hostId') !== me.id) return;
-        if (!itemId || flow !== 'tear-out' || !Number.isFinite(admissionToken)) return;
-
-        // Geometry-ready is part of child admission: the vessel's Main realm publishes movement and
-        // resize (the engine host's stream) before the connection reaches any ownership branch.
-        await me.observeWindowGeometry(windowId);
-
-        // Retirement authority is established before any awaited close. A connect continuation
-        // that resumes after that boundary is cleanup-only. Consume its exact grant and retain
-        // the route for a refused-close retry, but never stage content into the closing realm.
-        if (me.tearOutRetirements.has(itemId)) {
-            if (me.consumeVesselOwnerGrant({data, flow, generation, grant, itemId, windowId})) {
-                const admission = {admissionToken, generation, invalidated: true, windowId};
-
-                Object.defineProperty(admission, 'nativeRoute', {value: data.windowData.nativeRoute});
-                me.tearOutConnectAdmissions.set(itemId, admission)
-            }
-            return
+    admitTearOutConnection({itemId}) {
+        for (const vessel of this.tearOutRetirements.values()) {
+            if (vessel.itemId === itemId) return false
         }
 
-        if (!me.consumeVesselOwnerGrant({data, flow, generation, grant, itemId, windowId})) return;
+        return true
+    }
 
-        // A granted tear-out embodies immediately: the same live pane moves into the vessel while
-        // a hidden exact-slot placeholder keeps source tab/card indices coherent. Model truth
-        // remains untouched until the terminal.
-        const
-            admission  = {admissionToken, generation, invalidated: false, windowId},
-            connection = {windowId};
+    /**
+     * A vessel bound its reserved slot: the engine recorded the connection (pre-terminal) or moved the
+     * committed pane into it (terminal-first). Pre-terminal, the SAME live pane embodies into the
+     * vessel right away while a hidden exact-slot placeholder keeps the source tab/card indices
+     * coherent — model truth stays untouched until the terminal. Terminal-first, the vessel becomes a
+     * dock target. The instance moves trees; nothing is recreated.
+     * @param {Object} context
+     * @param {Neo.controller.Application} context.app
+     * @param {Object} context.connection
+     * @param {String} context.itemId
+     * @param {String} context.windowId
+     * @protected
+     */
+    async afterTearOutWindowConnect({app, connection, itemId, windowId}) {
+        let me = this;
 
-        Object.defineProperties(connection, {
-            admissionToken: {value: admissionToken},
-            generation    : {value: generation},
-            nativeRoute   : {value: data.windowData.nativeRoute}
-        });
-        Object.defineProperty(admission, 'nativeRoute', {value: data.windowData.nativeRoute});
-        me.tearOutConnectAdmissions.set(itemId, admission);
+        if (me.tearOutPanes[itemId]?.windowId === windowId) {
+            await me.registerVesselWorkspaceTarget({app, itemId, windowId});
+            return
+        }
 
         const staged = await me.tearOutEmbodiment.stage({itemId, windowId});
 
-        // A re-entry/cancel may retire the semantic vessel while the cross-window render
-        // transaction is still painting. The exact admission token is durable across a close
-        // acknowledgement clearing the transient retirement fence, so a dead generation can
-        // never resume here and publish itself after its disconnect already fired.
+        // A re-entry, cancel or physical death may retire the vessel while the cross-window render
+        // transaction is still painting; the connection this stage began for is then gone, and a dead
+        // generation must never publish itself. A terminal landing meanwhile promoted the stage.
         if (
-            me.tearOutConnectAdmissions.get(itemId) !== admission || admission.invalidated ||
-            me.tearOutRetirements.has(itemId)
+            staged && (me.isDestroyed || (
+                me.tearOutConnects[itemId] !== connection && me.tearOutPanes[itemId]?.windowId !== windowId
+            ))
         ) {
-            staged && me.tearOutEmbodiment.restore({itemId, windowId});
-            return
-        }
-
-        me.tearOutConnectAdmissions.delete(itemId);
-
-        if (me.tearOutPanes[itemId]) {
-            Object.assign(me.tearOutPanes[itemId], connection);
-            Object.defineProperties(me.tearOutPanes[itemId], {
-                admissionToken: {configurable: true, value: admissionToken, writable: true},
-                generation    : {configurable: true, value: generation, writable: true},
-                nativeRoute   : {configurable: true, value: data.windowData.nativeRoute, writable: true}
-            });
-
-            if (staged) {
-                me.tearOutEmbodiment.promote({itemId, windowId})
-            } else {
-                me.reparentTearOutPane(itemId, connection)
-            }
-        } else {
-            me.tearOutConnects[itemId] = connection
-        }
-
-        if (me.tearOutPanes[itemId]) {
-            await me.registerVesselWorkspaceTarget({app, itemId, windowId})
+            me.tearOutEmbodiment.restore({itemId, windowId})
         }
     }
 
     /**
-     * A vessel window left the shared heap. Physical death is authoritative: clear every state
-     * owner so a successor gesture cannot inherit or be blocked by the retired generation, and
-     * bring a committed item HOME (model commit precedes every render effect; the reintegration
-     * is exact-once and idempotent).
-     * @param {Object} data `{appName, windowId}`
+     * A vessel window left the shared heap. Physical death is authoritative: before the engine clears
+     * the ownership records and brings a committed item home, this host retires what only it knows —
+     * the native drop candidate, the target-proxy embodiment, a pane still staged in the dying realm,
+     * and a committed vessel WORKSPACE, whose whole stack comes home atomically or, when recovery is
+     * refused, survives headless as the only A+B truth.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.windowId
+     * @protected
      */
-    onWindowDisconnect(data) {
-        let me = this;
+    async onTopologyRelease(data) {
+        let me         = this,
+            {windowId} = data;
 
-        if (me.isDestroyed) return;
+        if (me.isDestroyed || data.groupId !== me.topologyGroupId) return;
 
         // Physical source death is the one cancellation that must NOT attempt a restore. Retire
-        // the coordinator's exact candidate/retry generation before the app-owned vessel machines
-        // clear their matching slots below.
-        Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(data.windowId, {
-            restoreSource: false
-        });
-        Neo.manager.DragCoordinator?.endNativeGesture(data.windowId);
+        // the coordinator's exact candidate/retry generation before the vessel machines clear
+        // their matching slots.
+        Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(windowId, {restoreSource: false});
+        Neo.manager.DragCoordinator?.endNativeGesture(windowId);
 
         // A disconnect can invalidate either side of the nested popup→target-proxy transaction.
-        // Restore it before the outer main→popup embodiment below decides restore vs promote.
-        me.vesselProxyEmbodiment.restoreByWindow(data.windowId);
+        // Restore it before the outer main→popup embodiment decides restore vs promote.
+        me.vesselProxyEmbodiment.restoreByWindow(windowId);
 
-        // A child can disconnect while its live-pane stage is still awaiting renderer settlement.
-        // The connect is not in tearOutConnects yet, so this private generation token is the only
-        // exact owner. Retire it now; the stage continuation observes the deleted token and cannot
-        // republish the dead window.
-        for (const [itemId, admission] of me.tearOutConnectAdmissions) {
-            if (admission.windowId === data.windowId) {
-                const
-                    committed  = Boolean(me.tearOutPanes[itemId]),
-                    windowName = `tearout-${itemId}`;
+        const
+            committedItemId = Object.entries(me.tearOutPanes).find(([, entry]) => entry.windowId === windowId)?.[0],
+            itemId          = committedItemId ?? Object.entries(me.tearOutConnects).find(([, entry]) => entry.windowId === windowId)?.[0];
 
-                me.tearOutConnectAdmissions.delete(itemId);
-                delete me.tearOutParkGeometries[itemId];
-                me.tearOutRetirements.add(itemId);
+        if (itemId && me.tearOutEmbodiment.isStaged(itemId)) {
+            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId));
 
-                if (me.tearOutEmbodiment.isStaged(itemId)) {
-                    me.tearOutEmbodiment.restore({itemId, windowId: data.windowId})
-                }
+            me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({itemId, windowId})
+        }
 
-                me.tearOutHandlers.onVesselRetired({
-                    admissionToken: admission.admissionToken,
-                    generation    : admission.generation,
-                    itemId,
-                    windowName
-                });
-                me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
-                me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
-                me.revokeVesselOwnerGrant('tear-out', itemId);
-                me.retireVesselWorkspaceTarget(itemId);
-                me.tearOutRetirements.delete(itemId);
-                delete me.tearOutPanes[itemId];
-                committed && me.reintegrateTearOutItem(itemId);
+        if (committedItemId) {
+            const
+                workspaceId = Workspace.vesselWorkspaceId(committedItemId),
+                state       = me.vesselWorkspaces.get(workspaceId);
+
+            if (
+                state?.committed && Object.keys(state.document?.items || {}).length &&
+                !me.recoverDisconnectedVesselWorkspace(committedItemId)
+            ) {
+                // Recovery refused: the headless document is the only surviving A+B truth, so the item
+                // does not come home and only the dead render-target seams go.
+                const entry = me.tearOutPanes[committedItemId];
+
+                delete me.tearOutPanes[committedItemId];
+                delete me.tearOutConnects[committedItemId];
+                me.clearTearOutAdmission(committedItemId);
+                me.tearOutHandlers?.onVesselRetired({...entry, itemId: committedItemId});
+                me.afterTearOutWindowDisconnect({committed: true, data, entry, itemId: committedItemId, pane: null, recovered: false});
+                me.demoteDisconnectedVesselWorkspace(state);
                 return
             }
-        }
 
-        // A pre-terminal tear-out may disconnect after an exact close returned false (the native
-        // event can outrun its Boolean acknowledgement) or after the user closes the retained
-        // window manually. Clear BOTH state owners.
-        for (const [itemId, entry] of Object.entries(me.tearOutConnects)) {
-            if (entry.windowId === data.windowId) {
-                const windowName = `tearout-${itemId}`;
-
-                me.tearOutRetirements.add(itemId);
-
-                if (me.tearOutEmbodiment.isStaged(itemId)) {
-                    const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId));
-
-                    me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({itemId, windowId: entry.windowId})
-                }
-
-                delete me.tearOutConnects[itemId];
-                delete me.tearOutParkGeometries[itemId];
-                me.tearOutHandlers.onVesselRetired({
-                    admissionToken: entry.admissionToken,
-                    generation    : entry.generation,
-                    itemId,
-                    windowName
-                });
-                me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
-                me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
-                me.revokeVesselOwnerGrant('tear-out', itemId);
-                me.retireVesselWorkspaceTarget(itemId);
-                me.tearOutRetirements.delete(itemId);
-                return
+            if (
+                state?.committed &&
+                me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
+                me.lastCrossWindowTransfer.targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
+            ) {
+                me.lastCrossWindowTransfer.topologyExited = true;
+                me.lastCrossWindowTransfer.phases ??= [];
+                me.lastCrossWindowTransfer.phases.push('topology-exited')
             }
+
+            me.retireVesselWorkspaceTarget(committedItemId)
         }
 
-        // Tear-out vessel death after the commit: the item comes HOME. A pre-terminal disconnect
-        // has no entry in either map and needs nothing.
-        for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
-            if (entry.windowId === data.windowId) {
-                const
-                    windowName     = entry.windowName ?? `tearout-${itemId}`,
-                    workspaceId    = Workspace.vesselWorkspaceId(itemId),
-                    workspaceState = me.vesselWorkspaces.get(workspaceId);
-                let workspaceSettled = true;
+        await super.onTopologyRelease(data)
+    }
 
-                if (workspaceState?.committed) {
-                    workspaceSettled = Object.keys(workspaceState.document?.items || {}).length === 0
-                        || me.recoverDisconnectedVesselWorkspace(itemId)
-                }
+    /**
+     * The engine cleared a vessel's ownership records — on its release, its lease running out, or a
+     * refused recovery — and brought a committed item home. The park and native-park machines, the
+     * park geometry and, unless the workspace survives headless, the vessel target retire with it.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Boolean} [data.recovered=true] `false` when the vessel's workspace stays registered headless.
+     * @protected
+     */
+    afterTearOutWindowDisconnect({itemId, recovered=true}) {
+        let me = this;
 
-                delete me.tearOutPanes[itemId];
-                delete me.tearOutConnects[itemId];
-                delete me.tearOutParkGeometries[itemId];
-                me.tearOutRetirements.delete(itemId);
-                me.tearOutHandlers.onVesselRetired({
-                    admissionToken: entry.admissionToken,
-                    generation    : entry.generation,
-                    itemId,
-                    windowName
-                });
-                me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
-                me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
-
-                if (workspaceSettled) {
-                    if (
-                        workspaceState?.committed &&
-                        me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
-                        me.lastCrossWindowTransfer.targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
-                    ) {
-                        me.lastCrossWindowTransfer.topologyExited = true;
-                        me.lastCrossWindowTransfer.phases ??= [];
-                        me.lastCrossWindowTransfer.phases.push('topology-exited')
-                    }
-
-                    me.retireVesselWorkspaceTarget(itemId);
-                    me.reintegrateTearOutItem(itemId)
-                } else {
-                    me.demoteDisconnectedVesselWorkspace(workspaceState)
-                }
-
-                break
-            }
-        }
+        delete me.tearOutParkGeometries[itemId];
+        me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
+        me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
+        recovered && me.retireVesselWorkspaceTarget(itemId)
     }
 
     /**
@@ -5011,7 +4778,8 @@ class Workspace extends DockWorkspace {
      *
      * Arms a tab drag, flings the proxy past the window boundary so
      * {@link Neo.dashboard.dock.interaction.TabSortZone} fires `dockTearOutExit`, the host opens a `?popout=`
-     * vessel, then — gated on that vessel's ACTUAL birth ({@link #onWindowConnect}) — survives
+     * vessel, then — gated on that vessel's ACTUAL birth (its slot binding through
+     * {@link Neo.dashboard.dock.Workspace#onTopologyBind}) — survives
      * deliberate post-birth moves and settles one of three terminals: release while detached
      * (`dockTearOutTerminal` → the `detachItem` commit + adoption), Escape-cancel (zero-mutation
      * vessel close), or RE-ENTRY (`reenter` — the drag walks back inside past the reattach
@@ -5174,7 +4942,7 @@ class Workspace extends DockWorkspace {
                 await moveTo(p.x, p.y)
             }
 
-            // Gate on the vessel's ACTUAL birth: a `?popout=` window connecting through onWindowConnect.
+            // Gate on the vessel's ACTUAL birth: a `?popout=` window binding its reserved slot.
             let born = await me.waitForTearOutVessel(itemId, {attempts: birthAttempts});
 
             sortZone.un('dragBoundaryEntry', preBirthBoundaryProbe);
@@ -5349,8 +5117,9 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Gates on the tear-out vessel's ACTUAL birth: the `?popout=<itemId>` window connecting
-     * through {@link #onWindowConnect}. Polls that observable rather than any internal drag flag.
+     * Gates on the tear-out vessel's ACTUAL birth: the `?popout=<itemId>` window binding its
+     * reserved slot ({@link Neo.dashboard.dock.Workspace#onTopologyBind}). Polls that observable
+     * rather than any internal drag flag.
      * @param {String} itemId
      * @param {Object} [options={}]
      * @param {Number} [options.attempts=180]
@@ -5383,7 +5152,7 @@ class Workspace extends DockWorkspace {
     async waitForTearOutVesselRetired(itemId, {attempts=180, delay=16}={}) {
         let me      = this,
             retired = () => Boolean(
-                !me.tearOutConnects[itemId] && !me.tearOutConnectAdmissions.has(itemId) &&
+                !me.tearOutConnects[itemId] && !me.tearOutAdmissions.has(itemId) &&
                 !me.tearOutEmbodiment.isStaged(itemId) && !me.tearOutHandlers.activeVessel
             );
 
@@ -5485,11 +5254,10 @@ class Workspace extends DockWorkspace {
             me.#feedIntervalId = null
         }
 
-        Neo.currentWorker.un({
-            connect   : me.onWindowConnect,
-            disconnect: me.onWindowDisconnect,
-            scope     : me
-        });
+        // Vessels close through this host's seam, which settles a staged pane through the embodiment
+        // first — so the sweep runs while the embodiments are alive, and the engine's own sweep in
+        // `super.destroy` finds nothing left.
+        me.retireTearOutState();
 
         me.crossWindowParticipations.forEach(participation => participation?.destroy());
         me.crossWindowParticipations.clear();

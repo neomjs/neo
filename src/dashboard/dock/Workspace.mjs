@@ -280,11 +280,6 @@ class Workspace extends Container {
          */
         enableDockTearOutLifecycle: false,
         /**
-         * Maximum time between an opened gesture vessel and its admitted worker connection.
-         * @member {Number} tearOutConnectWindowMs=20000
-         */
-        tearOutConnectWindowMs: 20000,
-        /**
          * Index of the projected shell inside the dock host — `1` when one toolbar precedes it.
          * @member {Number} dockShellIndex=0
          */
@@ -297,12 +292,17 @@ class Workspace extends Container {
          */
         flipMarkerPrefix: 'dock-flip-item-',
         /**
-         * URL-search parameter whose value identifies this workspace as a tear-out vessel's
-         * owner. The engine default is product-neutral; legacy consumers may select their
-         * existing parameter name without teaching the engine that name.
-         * @member {String} tearOutHostParam='hostId'
+         * The Group this workspace belongs to — learned from its window's accepted binding and kept for
+         * the workspace's lifetime. A reload releases the window's slot and rebinds the next generation,
+         * a vessel closes, a lease runs out: the documents this workspace's host registered stay this
+         * Group's, reached through this value and never through the live binding. `null` until the
+         * binding is accepted — a first boot mints its identity and awaits the carrier, so the value
+         * arrives through {@link #onTopologyBind} after construction; a never-bound host has no
+         * membership to reach. Hosts register their participants from {@link #afterSetTopologyGroupId}.
+         * @member {String|null} topologyGroupId_=null
+         * @reactive
          */
-        tearOutHostParam: 'hostId'
+        topologyGroupId_: null
     }
 
     /**
@@ -336,19 +336,30 @@ class Workspace extends Container {
     refreshPromise = null
 
     /**
-     * Gesture admission tokens keyed by item while the platform vessel is opening or waiting to
-     * connect. The token is engine-owned gesture identity, distinct from optional product grants.
+     * Host-side context of a reserved tear-out slot, keyed by item, while the platform vessel is
+     * opening or waiting to bind: the sort zone that started the gesture and the vessel's window name.
+     * Identity, lineage token and clock live with the reservation in `Neo.manager.Transaction`.
      * @member {Map<String,Object>} tearOutAdmissions=new Map()
      * @protected
      */
     tearOutAdmissions = new Map()
 
     /**
-     * Monotonic engine generation for opened-vessel admission records.
-     * @member {Number} tearOutAdmissionGeneration=0
+     * `Neo.manager.Transaction`, once the tear-out lifecycle loaded it — `null` until then, and for a
+     * workspace that never opted in. The module is not part of a single-window app's closure: the
+     * opt-in is the load, so a host with the lifecycle off pays no Group machinery.
+     * @member {Neo.manager.Transaction|null} transactionManager=null
      * @protected
      */
-    tearOutAdmissionGeneration = 0
+    transactionManager = null
+
+    /**
+     * Resolves to {@link #transactionManager} once it is loaded and this workspace observes its Group;
+     * `null` for a workspace that never asked (see {@link #loadTransactionManager}).
+     * @member {Promise<Neo.manager.Transaction>|null} transactionManagerReady=null
+     * @protected
+     */
+    transactionManagerReady = null
 
     /**
      * Tear-out windows that connected before the detach terminal committed.
@@ -456,12 +467,14 @@ class Workspace extends Container {
                 openVessel      : request => this.acquireTearOutVessel(request)
             });
 
-            Neo.currentWorker.on({
-                connect   : this.onWindowConnect,
-                disconnect: this.onWindowDisconnect,
-                scope     : this
-            })
+            // One worker lifecycle subscriber exists — `Neo.manager.Transaction`. This workspace only
+            // observes its own Group: slots it reserved bind, release, or run out their lease.
+            this.loadTransactionManager()
         }
+
+        // A host that imported the manager was admitted at app registration, before this instance
+        // constructed: its Group is readable now. One still awaiting its carrier learns it on bind.
+        this.resolveTopologyGroup();
 
         // Cross-window hit testing reads manager.Window as its one geometry authority, and the
         // manager only learns what the Main realm publishes. The host's own render target publishes
@@ -486,39 +499,55 @@ class Workspace extends Container {
     }
 
     /**
-     * @summary Opens one platform vessel under the gesture admission token the engine owns.
+     * @summary Opens one platform vessel under a slot reserved in this workspace's Group.
      * @param {Object} request
-     * @param {Number} request.admissionToken
+     * @param {Number} [request.gestureToken] The gesture pair's own correlation id, echoed on every vessel record.
      * @param {String} request.itemId
      * @returns {Promise<Object|null>}
      * @protected
      */
     async acquireTearOutVessel(request={}) {
-        let me                       = this,
-            {admissionToken, itemId} = request,
-            admission, vessel;
+        let me       = this,
+            {itemId} = request,
+            admission, groupId, manager, reservation, vessel;
 
         if (typeof itemId !== 'string' || !itemId) {
             return null
         }
 
+        manager = await me.loadTransactionManager();
+        groupId = me.resolveTopologyGroup(manager);
+
+        if (me.isDestroyed) {
+            return null
+        }
+
+        if (!groupId) {
+            console.warn(`Dock tear-out: workspace ${me.id} has no topology Group — its window has not bound`, itemId);
+            return null
+        }
+
         if (!await me.retryTearOutRetirements(itemId)) return null;
 
-        if (!Number.isFinite(admissionToken)) {
-            admissionToken = me.tearOutAdmissionGeneration + 1;
-            request = {...request, admissionToken}
+        // The reservation IS the admission: `Neo.manager.Transaction` holds the slot, the lineage
+        // token the vessel must present and the clock. This map keeps only what the host needs to
+        // answer the binding — the gesture's sort zone and, once the platform names it, the window.
+        reservation = manager.reserve({groupId, workspaceKey: me.tearOutWorkspaceKey(itemId)});
+
+        if (!reservation) {
+            return null
         }
 
         admission = {
             connected         : false,
             connectingWindowId: null,
-            generation        : ++me.tearOutAdmissionGeneration,
+            generationToken   : reservation.generationToken,
+            gestureToken      : request.gestureToken ?? null,
             itemId,
             sortZone          : request.sortZone || null,
-            timerId           : null,
-            token             : admissionToken,
             windowId          : null,
-            windowName        : null
+            windowName        : null,
+            workspaceKey      : reservation.workspaceKey
         };
         me.tearOutAdmissions.set(itemId, admission);
 
@@ -527,13 +556,14 @@ class Workspace extends Container {
         const closeVessel = me.closeTearOutVessel.bind(me);
 
         try {
-            vessel = await me.openTearOutVessel(request)
+            vessel = await me.openTearOutVessel({...request, topologyIdentity: reservation})
         } catch (error) {
             vessel = null
         }
 
         if (!vessel) {
             me.tearOutAdmissions.get(itemId) === admission && me.clearTearOutAdmission(itemId, admission);
+            manager.revoke(reservation);
             return null
         }
 
@@ -555,26 +585,21 @@ class Workspace extends Container {
         // Exactly once: this branch runs at most once per admission and then refuses, so no later
         // path can retire the same vessel again. Wrapped because a hook that throws here would
         // surface as an unhandled rejection — the caller discards this promise.
+        // Every record of this vessel carries the same exact identity: the reservation's slot and
+        // lineage token, and the gesture pair's own correlation id, echoed unread.
+        const identity = {...reservation, gestureToken: admission.gestureToken, itemId};
+
         if (me.isDestroyed) {
             try {
-                await closeVessel({...vessel, admissionToken, generation: admission.generation, itemId})
+                await closeVessel({...vessel, ...identity})
             } catch (error) {}
 
             return null
         }
 
-        // The engine token is exact. A product hook may not replace the gesture identity it was
-        // asked to carry, and a stale async open may never orphan the OS window it already created.
-        if (
-            me.tearOutAdmissions.get(itemId) !== admission ||
-            (Number.isFinite(vessel.admissionToken) && vessel.admissionToken !== admissionToken)
-        ) {
-            await me.retireTearOutVessel({
-                ...vessel,
-                admissionToken,
-                generation: admission.generation,
-                itemId
-            });
+        // A stale async open may never orphan the OS window it already created.
+        if (me.tearOutAdmissions.get(itemId) !== admission) {
+            await me.retireTearOutVessel({...vessel, ...identity});
             return null
         }
 
@@ -584,21 +609,88 @@ class Workspace extends Container {
 
         connection && !connection.windowName && (connection.windowName = admission.windowName);
 
-        if (!admission.connected) {
-            admission.timerId = setTimeout(() => {
-                me.expireTearOutAdmission(itemId, admission)
-            }, me.tearOutConnectWindowMs)
-        }
-
-        return {
-            ...vessel,
-            admissionToken,
-            generation: admission.generation
-        }
+        return {...vessel, ...identity}
     }
 
     /**
-     * @summary Clears one exact admission record and its connect bound.
+     * Loads `Neo.manager.Transaction` and observes this workspace's Group on it — once. The load is the
+     * opt-in: the tear-out lifecycle asks at construction, a host running its own admission asks the
+     * moment it reserves a slot, and a workspace that does neither never loads the module — which is
+     * how a single-window app's closure stays without Group machinery.
+     * @returns {Promise<Neo.manager.Transaction>}
+     * @protected
+     */
+    loadTransactionManager() {
+        return this.transactionManagerReady ??= import('../../manager/Transaction.mjs').then(({default: manager}) => {
+            if (!this.isDestroyed) {
+                this.transactionManager = manager;
+
+                manager.on({
+                    bind        : this.onTopologyBind,
+                    leaseExpired: this.onTopologyLeaseExpired,
+                    release     : this.onTopologyRelease,
+                    scope       : this
+                });
+
+                // A window bound before this subscription existed announces nothing further.
+                this.resolveTopologyGroup(manager)
+            }
+
+            return manager
+        })
+    }
+
+    /**
+     * Hook: this workspace learned its Group. A host whose participants could not register at
+     * construction — its window's binding was still awaiting the carrier — registers them here.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTopologyGroupId(value, oldValue) {}
+
+    /**
+     * Learns this workspace's Group from an accepted binding of its window, if there is one: at
+     * construction, when the app imported the manager and its window bound before this instance
+     * existed; when the manager this instance loads on demand has resolved; and when a headless
+     * instance receives its window. A window whose binding is still awaiting the carrier learns it
+     * later, through {@link #onTopologyBind}. Once learned the Group is kept — see {@link #topologyGroupId}.
+     * @param {Neo.manager.Transaction} [manager=this.transactionManager ?? Neo.manager?.Transaction]
+     * @returns {String|null}
+     * @protected
+     */
+    resolveTopologyGroup(manager=this.transactionManager ?? Neo.manager?.Transaction) {
+        let me = this;
+
+        if (!me.topologyGroupId && me.windowId) {
+            const groupId = manager?.findByWindow(me.windowId)?.groupId;
+
+            groupId && (me.topologyGroupId = groupId)
+        }
+
+        return me.topologyGroupId
+    }
+
+    /**
+     * The workspace key a torn-out item's vessel binds under: one slot per item, prefixed so the
+     * host can tell its own vessels from the other slots of its Group.
+     * @param {String} itemId
+     * @returns {String}
+     */
+    tearOutWorkspaceKey(itemId) {
+        return `popup:${itemId}`
+    }
+
+    /**
+     * @param {String} workspaceKey
+     * @returns {String|null} The item id a vessel key names, or `null` for any other slot.
+     */
+    tearOutItemIdFor(workspaceKey) {
+        return typeof workspaceKey === 'string' && workspaceKey.startsWith('popup:') ? workspaceKey.slice(6) : null
+    }
+
+    /**
+     * @summary Clears one exact admission record.
      * @param {String} itemId
      * @param {Object|null} [admission=this.tearOutAdmissions.get(itemId)]
      * @protected
@@ -606,14 +698,32 @@ class Workspace extends Container {
     clearTearOutAdmission(itemId, admission=this.tearOutAdmissions.get(itemId)) {
         if (!admission || this.tearOutAdmissions.get(itemId) !== admission) return false;
 
-        admission.timerId && clearTimeout(admission.timerId);
         this.tearOutAdmissions.delete(itemId);
 
         return true
     }
 
     /**
-     * @summary Expires an opened vessel that never established an admitted worker connection.
+     * A reserved slot in this workspace's Group ran out its lease without a window binding: the
+     * vessel the host opened for it is retired.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @protected
+     */
+    onTopologyLeaseExpired({groupId, workspaceKey}) {
+        let me     = this,
+            itemId = me.tearOutItemIdFor(workspaceKey);
+
+        if (me.isDestroyed || groupId !== me.topologyGroupId || !itemId) return;
+
+        const admission = me.tearOutAdmissions.get(itemId);
+
+        admission && !admission.connected && me.expireTearOutAdmission(itemId, admission)
+    }
+
+    /**
+     * @summary Retires an opened vessel whose slot ran out its lease without ever binding.
      * @param {String} itemId
      * @param {Object} admission
      * @protected
@@ -621,16 +731,17 @@ class Workspace extends Container {
     async expireTearOutAdmission(itemId, admission) {
         let me = this;
 
-        // An expiry already queued when the instance went away has nothing left to expire.
+        // A lease that ran out after the instance went away has nothing left to expire.
         if (me.isDestroyed || admission?.connected) return;
         if (!admission || me.tearOutAdmissions.get(itemId) !== admission) return;
 
         const entry  = me.tearOutPanes[itemId],
               vessel = {
-                  admissionToken: admission.token,
-                  generation    : admission.generation,
+                  generationToken: admission.generationToken,
+                  gestureToken   : admission.gestureToken,
                   itemId,
-                  windowName    : admission.windowName || entry?.windowName
+                  windowName     : admission.windowName || entry?.windowName,
+                  workspaceKey   : admission.workspaceKey
               };
 
         if (!await me.retireTearOutVessel(vessel)) return;
@@ -700,11 +811,12 @@ class Workspace extends Container {
         if (closed !== false) {
             key && me.tearOutRetirements.get(key) === vessel && me.tearOutRetirements.delete(key);
 
+            // Exact identity: the reservation's lineage token when the vessel carries one, else the
+            // window name — a successor admission for the same item shares the name, never the token.
             const matches = entry => Boolean(entry &&
-                (Number.isFinite(vessel.admissionToken)
-                    ? (entry.token ?? entry.admissionToken) === vessel.admissionToken
-                    : entry.windowName === vessel.windowName) &&
-                (!Number.isFinite(vessel.generation) || entry.generation === vessel.generation)
+                (vessel.generationToken
+                    ? entry.generationToken === vessel.generationToken
+                    : entry.windowName === vessel.windowName)
             );
 
             const admission = me.tearOutAdmissions.get(vessel.itemId);
@@ -717,26 +829,23 @@ class Workspace extends Container {
     }
 
     /**
-     * @summary Opens the tear-out vessel, defaulting to the engine's own connect vocabulary.
+     * @summary Opens the tear-out vessel, defaulting to the host's own document.
      *
      * This hook used to return `null`, so pop-out and drag tear-out were both inert for any host
      * that wrote no window code: the action rendered, the click opened nothing, and no signal said
-     * why. The engine was asking each consumer to re-implement a SENDER for a protocol only the
-     * engine defines — `onWindowConnect` parses `tearout`, the host param, `vesselFlow` and
-     * `vesselAdmission` off the vessel's own URL — from a specification that existed nowhere but
-     * one app's source.
-     *
-     * Nothing in those four parameters is app-specific, so the default constructs them and reopens
-     * the host's own document. A consumer that wants a dedicated vessel shell, its own routing or
-     * staged theming still overrides, and the override remains authoritative.
+     * why. The default reopens the host's document with the item as its one content parameter and
+     * hands the reserved slot to `Main.windowOpen`, which carries it to the vessel; the owner is never
+     * in the URL. A consumer that wants a dedicated vessel shell, its own routing or staged theming
+     * still overrides, and the override remains authoritative.
      * @param {Object} request
-     * @param {Number} request.admissionToken The engine's gesture token; echoed back in the URL.
      * @param {String} request.itemId
      * @param {Object} [request.proxyRect] Where the user released the drag proxy.
-     * @returns {Promise<Object|null>} `{admissionToken, windowName}`, or `null` when no vessel opened.
+     * @param {Object} request.topologyIdentity The slot the host reserved; `Main.windowOpen` writes it
+     *   into the vessel's carrier, and the vessel presents it when it connects.
+     * @returns {Promise<Object|null>} `{windowName}`, or `null` when no vessel opened.
      * @protected
      */
-    async openTearOutVessel({admissionToken, itemId, proxyRect}={}) {
+    async openTearOutVessel({itemId, proxyRect, topologyIdentity}={}) {
         let me         = this,
             {windowId} = me;
 
@@ -755,17 +864,12 @@ class Workspace extends Container {
                 ]),
                 url = new URL(hostUrl);
 
-            // The vessel boots the SAME document with the engine's own connect vocabulary — the
-            // exact four parameters `onWindowConnect` parses. Nothing about them is app-specific,
-            // which is why the engine can construct this and every consumer was re-deriving it.
-            // Stripping first matters: a vessel re-torn from a vessel would otherwise inherit the
-            // parent's item and admission and connect as the wrong pane.
-            ['tearout', 'vesselFlow', 'vesselAdmission', me.tearOutHostParam].forEach(param => url.searchParams.delete(param));
-
-            url.searchParams.set('tearout',         itemId);
-            url.searchParams.set(me.tearOutHostParam, me.id);
-            url.searchParams.set('vesselFlow',      'tear-out');
-            url.searchParams.set('vesselAdmission', String(admissionToken));
+            // The vessel boots the SAME document. Which pane it shows is content, so `tearout` stays a
+            // URL parameter; whom it belongs to is identity, which rides the topology carrier — nothing
+            // about the owner is in the URL. Stripping first matters: a vessel re-torn from a vessel
+            // would otherwise inherit the parent's item and connect as the wrong pane.
+            url.searchParams.delete('tearout');
+            url.searchParams.set('tearout', itemId);
 
             // The proxy rect is the pane the user dragged, so the vessel opens where they let go.
             // Floors keep a degenerate rect (a collapsed rail tab) from opening an unusable window.
@@ -777,6 +881,7 @@ class Workspace extends Container {
 
             const opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
+                topologyIdentity,
                 url               : url.href,
                 windowFeatures    : `height=${height},left=${left},top=${top},width=${width}`,
                 windowId,
@@ -790,7 +895,7 @@ class Workspace extends Container {
                 return null
             }
 
-            return {admissionToken, windowName}
+            return {windowName}
         } catch (error) {
             console.warn(`Dock tear-out: opening a vessel for "${itemId}" threw`, me.id, error);
             return null
@@ -868,10 +973,12 @@ class Workspace extends Container {
         let me         = this,
             connection = me.tearOutConnects[itemId],
             entry      = {
-                admissionToken: vessel.admissionToken ?? connection?.admissionToken ?? null,
-                generation    : vessel.generation ?? connection?.generation ?? null,
-                windowId      : connection?.windowId ?? null,
-                windowName    : vessel.windowName || connection?.windowName || `tearout-${itemId}`
+                generation     : vessel.generation ?? connection?.generation ?? null,
+                generationToken: vessel.generationToken ?? connection?.generationToken ?? null,
+                gestureToken   : vessel.gestureToken ?? connection?.gestureToken ?? null,
+                windowId       : connection?.windowId ?? null,
+                windowName     : vessel.windowName || connection?.windowName || `tearout-${itemId}`,
+                workspaceKey   : vessel.workspaceKey ?? connection?.workspaceKey ?? null
             };
 
         me.tearOutPanes[itemId] = entry;
@@ -1006,7 +1113,7 @@ class Workspace extends Container {
         });
         // Reported HERE because this is the one place both failing paths already meet: the
         // document-change adoption and the window-connect adoption each call it before throwing.
-        // Their throws do not reach anyone — `onWindowConnect` is registered as a worker event
+        // Their throws do not reach anyone — `onTopologyBind` is registered as a manager event
         // listener, so an async throw becomes a rejected promise the emitter drops, which is why a
         // vessel could die with nothing but an unattributed unhandled rejection in the console.
         //
@@ -1146,71 +1253,43 @@ class Workspace extends Container {
     afterTearOutWindowConnect(context) {}
 
     /**
-     * Hook: handles an owner-matching worker connection that is not a gesture tear-out.
+     * @summary Admits the window that bound one of this workspace's reserved tear-out slots.
+     * @description `Neo.manager.Transaction` announces every binding in the worker; this workspace
+     * answers only for its own Group and only for slots it reserved — a `popup:<itemId>` key with a
+     * pending admission. Nothing about the owner travels in the vessel's URL.
      * @param {Object} data
-     * @param {Object} context
-     * @returns {Promise<void>|void}
+     * @param {Number} data.generation
+     * @param {String} data.groupId
+     * @param {String} data.windowId
+     * @param {String} data.workspaceKey
      * @protected
      */
-    onUnhandledWindowConnect(data, context) {}
+    async onTopologyBind(data) {
+        let me                                            = this,
+            {generation, groupId, windowId, workspaceKey} = data,
+            itemId                                        = me.tearOutItemIdFor(workspaceKey),
+            app                                           = Neo.apps[windowId];
 
-    /**
-     * Hook: captures app-owned generation state synchronously before the worker URL round trip.
-     * @param {Object} data
-     * @returns {*}
-     * @protected
-     */
-    captureWindowConnectContext(data) {
-        return null
-    }
+        if (me.isDestroyed) return;
 
-    /**
-     * @summary Admits one worker window into pre-terminal or committed tear-out ownership.
-     * @param {Object} data
-     * @protected
-     */
-    async onWindowConnect(data) {
-        let me              = this,
-            {windowId}      = data,
-            app             = Neo.apps[windowId],
-            consumerContext = me.captureWindowConnectContext(data);
-
-        if (!app || me.isDestroyed) return;
-
-        let url, params;
-
-        try {
-            url    = await Neo.Main.getByPath({path: 'document.URL', windowId});
-            params = new URL(url).searchParams
-        } catch (error) {
-            return
+        // The host's own window: a first boot's minted identity binds once its carrier accepted it,
+        // after this instance constructed. The Group is learned here, before any vessel logic runs.
+        if (windowId === me.windowId && !me.topologyGroupId) {
+            me.topologyGroupId = groupId
         }
 
-        if (me.isDestroyed || params.get(me.tearOutHostParam) !== me.id) return;
-
-        let itemId         = params.get('tearout'),
-            flow           = params.get('vesselFlow'),
-            admissionToken = Number(params.get('vesselAdmission'));
-
-        if (!itemId) {
-            await me.onUnhandledWindowConnect(data, {app, consumerContext, params});
-            return
-        }
-        if (flow === null) return;
-        if (flow !== 'tear-out') return;
+        if (!itemId || !app || groupId !== me.topologyGroupId) return;
 
         const admission = me.tearOutAdmissions.get(itemId);
 
-        if (!Number.isFinite(admissionToken) || !admission || admission.token !== admissionToken) {
-            return
-        }
+        if (!admission || admission.connected) return;
 
         if (admission.connectingWindowId && admission.connectingWindowId !== windowId) return;
 
         admission.connectingWindowId = windowId;
 
         const activeVessel = me.tearOutHandlers?.activeVessel,
-              context      = {activeVessel, admission, admissionToken, app, consumerContext, data, itemId, params, windowId};
+              context      = {activeVessel, admission, app, data, generation, itemId, windowId, workspaceKey};
 
         try {
             if (await me.admitTearOutConnection(context) === false) {
@@ -1228,7 +1307,7 @@ class Workspace extends Container {
         // page content and never emits the `mouseout` that would otherwise arm the poll.
         await me.observeWindowGeometry(windowId);
 
-        // The grant hook and the geometry arming are async boundaries. Retirement, timeout or a
+        // The grant hook and the geometry arming are async boundaries. Retirement, the lease or a
         // successor admission may have replaced this exact record while they were pending.
         if (
             me.isDestroyed || me.tearOutAdmissions.get(itemId) !== admission ||
@@ -1238,16 +1317,16 @@ class Workspace extends Container {
         }
 
         const connection = {
-            admissionToken,
-            generation: me.tearOutPanes[itemId]?.generation ?? activeVessel?.generation ?? admission.generation,
+            generation,
+            generationToken: admission.generationToken,
+            gestureToken   : admission.gestureToken,
             windowId,
-            windowName: activeVessel?.windowName || me.tearOutPanes[itemId]?.windowName || admission.windowName
+            windowName     : activeVessel?.windowName || me.tearOutPanes[itemId]?.windowName || admission.windowName,
+            workspaceKey
         };
 
         admission.connected = true;
         admission.windowId  = windowId;
-        admission.timerId && clearTimeout(admission.timerId);
-        admission.timerId = null;
 
         if (me.tearOutPanes[itemId]) {
             if (!me.reparentTearOutPane(itemId, connection)) {
@@ -1363,21 +1442,20 @@ class Workspace extends Container {
     }
 
     /**
-     * Hook: handles a disconnect unrelated to an engine-owned gesture tear-out.
+     * @summary Reconciles a released vessel binding against pre-terminal or committed ownership.
+     * @description Fired by `Neo.manager.Transaction` when the window holding a binding disconnects.
+     * Releasing a binding never destroys anything on its own — the Group keeps the slot for its
+     * lineage — so this is where the host decides what the pane does now that its vessel is gone.
      * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.windowId
+     * @param {String} data.workspaceKey
      * @protected
      */
-    onUnhandledWindowDisconnect(data) {}
-
-    /**
-     * @summary Reconciles physical vessel death against pre-terminal or committed ownership.
-     * @param {Object} data
-     * @protected
-     */
-    async onWindowDisconnect(data) {
+    async onTopologyRelease(data) {
         let me = this;
 
-        if (me.isDestroyed) return;
+        if (me.isDestroyed || data.groupId !== me.topologyGroupId) return;
 
         for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
             if (entry.windowId === data.windowId) {
@@ -1405,8 +1483,6 @@ class Workspace extends Container {
                 return
             }
         }
-
-        me.onUnhandledWindowDisconnect(data)
     }
 
     /**
@@ -1540,17 +1616,18 @@ class Workspace extends Container {
      * every pending/connected/committed vessel, every admission with its expiry timer, every
      * owner-held pane — retires exactly once whether or not the lifecycle opt-in is on, because
      * `acquireTearOutVessel()` arms an admission and opens its vessel without it. Only the worker
-     * route subscription is the opt-in's to unregister, since only the opt-in subscribed. A refresh
+     * Group subscription is the opt-in's to unregister, since only the opt-in subscribed. A refresh
      * scheduled before teardown no-ops on its `isDestroyed` guard.
      * @param {...*} args
      */
     destroy(...args) {
         let me = this;
 
-        me.enableDockTearOutLifecycle && Neo.currentWorker.un({
-            connect   : me.onWindowConnect,
-            disconnect: me.onWindowDisconnect,
-            scope     : me
+        me.transactionManager?.un({
+            bind        : me.onTopologyBind,
+            leaseExpired: me.onTopologyLeaseExpired,
+            release     : me.onTopologyRelease,
+            scope       : me
         });
 
         me.retireTearOutState();
@@ -1882,6 +1959,9 @@ class Workspace extends Container {
      */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
+
+        // A headless instance receiving its first window may find that window already bound.
+        this.resolveTopologyGroup();
 
         return this.observeBoundWindowGeometry(value)
     }

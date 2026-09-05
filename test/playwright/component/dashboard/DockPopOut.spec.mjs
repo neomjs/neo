@@ -73,6 +73,29 @@ test.beforeEach(async ({page}) => {
     await page.waitForSelector('.neo-tab-header-button', {state: 'visible'})
 });
 
+test('the host window is bound into a Group on connect — the identity every pop-out reserves its vessel under', async ({page}) => {
+    // A real worker, a real connect: `Neo.manager.Transaction` must have heard it and bound the
+    // window as `main` before the first pop-out asks for a reservation. Read through the fixture's
+    // mirror, because the manager lives in the App Worker.
+    await setWorkspace(page, {readTopologyIdentity: 1});
+
+    let topology;
+
+    await expect.poll(async () => {
+        topology = JSON.parse((await readWorkspace(page, ['topologyJson']))[0] ?? 'null');
+        return topology?.binding?.workspaceKey ?? null
+    }).toBe('main');
+
+    expect(topology.binding).toEqual({generation: 1, groupId: expect.any(String), workspaceKey: 'main'});
+    expect(topology.groups, 'one root, one Group').toBe(1);
+
+    // The carrier: the worker's word reached the page, so the next load of this window presents the
+    // same Group. Read from the page itself — the only realm that can read its own sessionStorage.
+    const carried = await page.evaluate(() => JSON.parse(sessionStorage.getItem('neo-topology-identity') ?? 'null'));
+
+    expect(carried).toEqual({generationToken: expect.any(String), groupId: topology.binding.groupId, workspaceKey: 'main'})
+});
+
 test.describe('dock pop-out — the click is the drag terminal', () => {
     test('pop-out holds the frozen family slot, focus-gated beside an always-visible close', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');

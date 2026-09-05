@@ -17,6 +17,7 @@ import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 import HeaderActionPolicy       from '../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
+import TransactionManager       from '../../../../src/manager/Transaction.mjs';
 import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
@@ -142,6 +143,8 @@ class PlainWorkspace extends DockWorkspace {
 
     construct(config) {
         super.construct(config);
+        // The app boot the fixture stands in for: the host window bound into its Group at connect.
+        TransactionManager.bind({windowId: this.windowId, workspaceKey: 'main'});
         this.add(this.projectDockModel())
     }
 }
@@ -315,21 +318,49 @@ class TearOutWorkspace extends DockWorkspace {
     static config = {
         className                 : 'Test.Unit.Dashboard.DockWorkspace.TearOutWorkspace',
         enableDockTearOutLifecycle: true,
-        layout                    : {ntype: 'vbox', align: 'stretch'},
-        tearOutConnectWindowMs    : 20
+        layout                    : {ntype: 'vbox', align: 'stretch'}
     }
 
-    closeRequests     = []
-    closeResult       = true
-    grant             = null
-    lifecycleEvents   = []
-    openDeferred      = null
-    openRequests      = []
-    unhandledConnects = []
+    /**
+     * `false` leaves the host window unbound, for the arms that admit it after construction.
+     * @member {Boolean} bindHostAtConstruct=true
+     */
+    bindHostAtConstruct = true
+    binds               = []
+    closeRequests       = []
+    closeResult         = true
+    grant               = null
+    lifecycleEvents     = []
+    openDeferred        = null
+    openRequests        = []
+    releases            = []
 
     construct(config) {
+        // Every instance renders in its own host window: a real window id, unique per arm, so the
+        // Group the fixture binds below is the one this instance resolves — never a sibling arm's.
+        config.windowId ??= `tearout-host-${++TearOutWorkspace.hostSeq}`;
+
         super.construct(config);
+        // The app boot the fixture stands in for: the host window bound into its Group at connect.
+        this.bindHostAtConstruct && TransactionManager.bind({windowId: this.windowId, workspaceKey: 'main'});
         this.add(this.projectDockModel())
+    }
+
+    static hostSeq = 0
+
+    // The manager fires and forgets; the arms need the handler's promise to await or to see reject.
+    onTopologyBind(data) {
+        const pending = super.onTopologyBind(data);
+
+        this.binds.push(pending);
+        return pending
+    }
+
+    onTopologyRelease(data) {
+        const pending = super.onTopologyRelease(data);
+
+        this.releases.push(pending);
+        return pending
     }
 
     admitTearOutConnection(context) {
@@ -352,18 +383,13 @@ class TearOutWorkspace extends DockWorkspace {
         return this.closeResult
     }
 
-    onUnhandledWindowConnect(data) {
-        this.unhandledConnects.push(data)
-    }
-
     openTearOutVessel(request) {
         this.openRequests.push(request);
 
         return this.openDeferred || {
-            admissionToken: request.admissionToken,
-            popupHeight   : 360,
-            popupWidth    : 480,
-            windowName    : `tearout-${request.itemId}-${this.id}`
+            popupHeight: 360,
+            popupWidth : 480,
+            windowName : `tearout-${request.itemId}-${this.id}`
         }
     }
 
@@ -515,7 +541,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
     test.afterEach(() => {
         workspace?.destroy?.();
-        workspace = null
+        workspace = null;
+        // Every fixture bound its host into a Group; retire them so no arm inherits another's slots.
+        [...TransactionManager.items].forEach(group => TransactionManager.retireGroup(group.id));
+        TransactionManager.reconnectLeaseMs = 20000
     });
 
     test.describe('#17947 pop-out dispatches the drag terminal, never a second lifecycle', () => {
@@ -940,8 +969,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         for (const method of [
             'adoptTearOutPane',
             'applyTearOutOperation',
-            'onWindowConnect',
-            'onWindowDisconnect',
+            'onTopologyBind',
+            'onTopologyRelease',
             'reintegrateTearOutItem',
             'reparentTearOutPane'
         ]) {
@@ -1094,7 +1123,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
     });
 
     test.describe('#17681 engine tear-out lifecycle matrix', () => {
-        let previousApps, previousGetByPath, urls;
+        let previousApps;
 
         const createSortZone = () => {
             const calls = {ended: 0, started: []};
@@ -1106,28 +1135,28 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             }
         };
 
-        const vesselUrl = (request, itemId, {
-            flow  = 'tear-out',
-            hostId = workspace.id,
-            token = request.admissionToken
-        } = {}) => {
-            const url = new URL('https://unit.test/widget/index.html');
-
-            url.searchParams.set('tearout', itemId);
-            url.searchParams.set('hostId', hostId);
-            flow !== null && url.searchParams.set('vesselFlow', flow);
-            token !== null && url.searchParams.set('vesselAdmission', String(token));
-
-            return url.href
-        };
-
-        const addWindow = (windowId, url) => {
+        const addWindow = windowId => {
             const mainView = Neo.create(Container, {});
 
             Neo.apps[windowId] = {mainView};
-            urls[windowId] = url;
 
             return mainView
+        };
+
+        // The vessel's arrival, as the worker admits it: the carried identity its config registered
+        // with. An identity the carrier holds binds synchronously inside the admission and fires; a
+        // forked one binds after the carrier answered — so the admission is awaited before the host's
+        // async handler promises are. The host observes its Group once the manager it loads on demand
+        // has resolved — a real vessel binds long after that, a unit arm may not.
+        const connectVessel = async (windowId, topologyIdentity) => {
+            await workspace.transactionManagerReady;
+            await TransactionManager.admit({topologyIdentity, windowId});
+            await Promise.all(workspace.binds)
+        };
+
+        const disconnectVessel = async windowId => {
+            TransactionManager.onWindowDisconnect({windowId});
+            await Promise.all(workspace.releases)
         };
 
         const beginExit = async itemId => {
@@ -1143,18 +1172,14 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         };
 
         test.beforeEach(() => {
-            previousApps      = Neo.apps;
-            previousGetByPath = Neo.Main.getByPath;
-            urls              = {};
-            Neo.apps          = {};
-            Neo.Main.getByPath = async ({windowId}) => urls[windowId]
+            previousApps = Neo.apps;
+            Neo.apps     = {}
         });
 
         test.afterEach(() => {
             workspace?.destroy?.();
             workspace = null;
-            Neo.apps = previousApps;
-            Neo.Main.getByPath = previousGetByPath
+            Neo.apps  = previousApps
         });
 
         test('#17947 pop-out commits detachItem through the REAL lifecycle, not a stubbed pair', async () => {
@@ -1294,7 +1319,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             ws.openTearOutVessel = request => {
                 opens.push(request);
 
-                return {admissionToken: request.admissionToken, windowName: 'tearout-unreachable'}
+                return {windowName: 'tearout-unreachable'}
             };
 
             // Teardown lands inside the FIRST await. Nothing has been admitted yet, so the only
@@ -1373,10 +1398,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             ws.destroy();
 
             admitLate({
-                admissionToken: opens[0]?.admissionToken,
-                popupHeight   : 360,
-                popupWidth    : 480,
-                windowName    : 'tearout-late-preview'
+                popupHeight: 360,
+                popupWidth : 480,
+                windowName : 'tearout-late-preview'
             });
 
             const result = await pending;
@@ -1423,15 +1447,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.tearOutPaneHandles.preview).toBe(pane);
             await workspace.refreshPromise;
 
-            const mainView = addWindow('terminal-first', vesselUrl(request, 'preview'));
+            const mainView = addWindow('terminal-first');
 
-            await workspace.onWindowConnect({windowId: 'terminal-first'});
+            await connectVessel('terminal-first', request.topologyIdentity);
 
             expect(mainView.items).toContain(pane);
             expect(workspace.tearOutPanes.preview.windowId).toBe('terminal-first');
             expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
 
-            await workspace.onWindowDisconnect({windowId: 'terminal-first'});
+            await disconnectVessel('terminal-first');
 
             expect(mainView.items).not.toContain(pane);
             expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
@@ -1506,11 +1530,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
                 await workspace.refreshPromise;
 
-                const mainView = addWindow('vessel-window', vesselUrl(request, 'preview'));
+                const mainView = addWindow('vessel-window');
 
                 workspace.afterTearOutWindowConnect = () => calls.push('afterTearOutWindowConnect');
 
-                await workspace.onWindowConnect({windowId: 'vessel-window'});
+                await connectVessel('vessel-window', request.topologyIdentity);
 
                 expect(calls, 'host at construction, vessel on admission, observers last').toEqual([
                     {observeMovement: true, observeResize: true, windowId: 'host-window'},
@@ -1527,12 +1551,12 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             const
                 pane            = workspace.getReference('tearout-pane-preview'),
                 {request, zone} = await beginExit('preview'),
-                mainView        = addWindow('connect-first', vesselUrl(request, 'preview'));
+                mainView        = addWindow('connect-first');
 
-            await workspace.onWindowConnect({windowId: 'connect-first'});
+            await connectVessel('connect-first', request.topologyIdentity);
 
-            expect(workspace.tearOutConnects.preview).toMatchObject({windowId: 'connect-first'});
-            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, timerId: null});
+            expect(workspace.tearOutConnects.preview).toMatchObject({windowId: 'connect-first', workspaceKey: 'popup:preview'});
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, workspaceKey: 'popup:preview'});
             expect(mainView.items).not.toContain(pane);
 
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
@@ -1558,16 +1582,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             const
                 request  = workspace.openRequests[0],
-                mainView = addWindow('early-connect', vesselUrl(request, 'preview'));
+                mainView = addWindow('early-connect');
 
-            await workspace.onWindowConnect({windowId: 'early-connect'});
+            await connectVessel('early-connect', request.topologyIdentity);
             expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true});
 
             resolveOpen({
-                admissionToken: request.admissionToken,
-                popupHeight   : 360,
-                popupWidth    : 480,
-                windowName    : `tearout-preview-${workspace.id}`
+                popupHeight: 360,
+                popupWidth : 480,
+                windowName : `tearout-preview-${workspace.id}`
             });
             await exit;
 
@@ -1576,27 +1599,169 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(mainView.items).toContain(workspace.tearOutPaneHandles.preview)
         });
 
-        test('wrong host, missing/wrong flow and wrong token never reach product continuation or ownership', async () => {
+        test('a foreign Group, a stranger token and an unreserved slot never reach product continuation or ownership', async () => {
             workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
 
             const {request} = await beginExit('preview'),
+                  identity  = request.topologyIdentity,
                   cases     = [
-                      ['wrong-host', vesselUrl(request, 'preview', {hostId: 'other'})],
-                      ['missing-flow', vesselUrl(request, 'preview', {flow: null})],
-                      ['wrong-flow', vesselUrl(request, 'preview', {flow: 'transfer'})],
-                      ['wrong-token', vesselUrl(request, 'preview', {token: request.admissionToken + 1})]
+                      // Another Group's identity: the manager creates that Group cold and binds the
+                      // window there — never into this host's slot.
+                      ['foreign-group',   {...identity, groupId: 'some-other-group'}],
+                      // A copied pair with the wrong lineage token: the manager forks it away.
+                      ['stranger-token',  {...identity, generationToken: 'not-the-reservation'}],
+                      // A slot this host never reserved is no door into its Group: the presenter forks.
+                      ['unreserved-slot', {...identity, workspaceKey: 'popup:terminal'}]
                   ];
 
-            for (const [windowId, url] of cases) {
-                addWindow(windowId, url);
-                await workspace.onWindowConnect({windowId})
+            for (const [windowId, topologyIdentity] of cases) {
+                addWindow(windowId);
+                await connectVessel(windowId, topologyIdentity)
             }
 
-            expect(workspace.unhandledConnects).toEqual([]);
             expect(workspace.tearOutConnects.preview).toBeUndefined();
-            expect(workspace.tearOutAdmissions.get('preview').token).toBe(request.admissionToken);
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: false, windowId: null});
+            expect(TransactionManager.getBinding(identity.groupId, 'popup:preview').windowId,
+                'the reservation still waits for its own vessel').toBeNull();
+            expect(TransactionManager.getBinding(identity.groupId, 'popup:terminal'), 'the unreserved slot stays absent').toBeNull();
+            expect(TransactionManager.findByWindow('unreserved-slot').groupId).not.toBe(identity.groupId);
 
             await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('two overlapping opens for one item: the older open\'s late failure cannot revoke the replacement reservation, whose vessel is admitted', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const opens = [],
+                  zone  = createSortZone();
+
+            workspace.openTearOutVessel = request => new Promise(resolve => opens.push({request, resolve}));
+
+            // The acquisition method itself, twice for one item while the first platform open is still
+            // pending: the second reservation supersedes the first in the manager and in the host. (The
+            // gesture handler serializes exits; this is the seam an asynchronous host reaches directly.)
+            const first = workspace.acquireTearOutVessel({itemId: 'preview', sortZone: zone});
+
+            await expect.poll(() => opens.length).toBe(1);
+
+            const second = workspace.acquireTearOutVessel({itemId: 'preview', sortZone: zone});
+
+            await expect.poll(() => opens.length).toBe(2);
+
+            const [s1, s2] = opens.map(open => open.request.topologyIdentity);
+
+            expect(s2.groupId).toBe(s1.groupId);
+            expect(s2.generationToken, 'the slot was reserved again under a fresh lineage').not.toBe(s1.generationToken);
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({generationToken: s2.generationToken});
+
+            // The older platform open fails late and cleans up after itself.
+            opens[0].resolve(null);
+
+            expect(await first, 'the older acquisition reports its failure').toBeNull();
+            expect(TransactionManager.getBinding(s2.groupId, 'popup:preview'), 'the replacement reservation survives the older failure')
+                .toEqual({generation: 0, windowId: null, workspaceKey: 'popup:preview'});
+            expect(workspace.tearOutAdmissions.get('preview'), 'the replacement admission survives it too').toMatchObject({generationToken: s2.generationToken});
+
+            // The replacement's open succeeds and its child binds the reserved slot.
+            opens[1].resolve({popupHeight: 360, popupWidth: 480, windowName: 'tearout-preview-second'});
+
+            expect(await second).toMatchObject({generationToken: s2.generationToken, windowName: 'tearout-preview-second', workspaceKey: 'popup:preview'});
+
+            addWindow('second-child');
+            await connectVessel('second-child', s2);
+
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, generationToken: s2.generationToken, windowId: 'second-child'});
+            expect(workspace.tearOutConnects.preview).toMatchObject({windowId: 'second-child'})
+        });
+
+        test('a late child presenting an expired reservation forks and never connects; a fresh reservation still admits its child', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            TransactionManager.reconnectLeaseMs = 20;
+
+            try {
+                const {request} = await beginExit('preview'),
+                      identity  = request.topologyIdentity;
+
+                // The reservation runs out its lease with no window binding: the manager frees the slot,
+                // and the host retires the vessel it had opened for it.
+                await expect.poll(() => TransactionManager.getBinding(identity.groupId, 'popup:preview')).toBeNull();
+                await expect.poll(() => workspace.tearOutAdmissions.has('preview')).toBe(false);
+                expect(workspace.closeRequests.map(vessel => vessel.itemId)).toEqual(['preview']);
+
+                const lateView = addWindow('late-child');
+
+                await connectVessel('late-child', identity);
+
+                expect(TransactionManager.findByWindow('late-child').groupId, 'the dead lineage forked away').not.toBe(identity.groupId);
+                expect(TransactionManager.getBinding(identity.groupId, 'popup:preview'), 'nothing entered the Group').toBeNull();
+                expect(workspace.tearOutConnects.preview).toBeUndefined();
+                expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
+                expect(lateView.items).toEqual([]);
+
+                // Positive control: a fresh exit reserves again, and its own child is admitted.
+                TransactionManager.reconnectLeaseMs = 20000;
+
+                const {request: fresh} = await beginExit('preview');
+
+                addWindow('fresh-child');
+                await connectVessel('fresh-child', fresh.topologyIdentity);
+
+                expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, windowId: 'fresh-child'});
+
+                await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+            } finally {
+                TransactionManager.reconnectLeaseMs = 20000
+            }
+        });
+
+        test('the host keeps the Group it learned: its own window\'s release and lease expiry change nothing it resolves, and a first boot learns the Group from its accepted binding', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const manager = await workspace.transactionManagerReady,
+                  groupId = workspace.topologyGroupId;
+
+            expect(groupId, 'learned when the manager resolved: the window bound before this instance subscribed').toBeTruthy();
+
+            // A host registers its documents into the Group; that is what keeps the Group alive.
+            manager.registerParticipant({groupId, workspaceKey: 'main', participant: {getDocument: () => workspace.dockModel}});
+            manager.reconnectLeaseMs = 20;
+
+            try {
+                manager.release(workspace.windowId);
+
+                await expect.poll(() => manager.getBinding(groupId, 'main')).toBeNull();
+
+                expect(manager.findByWindow(workspace.windowId), 'the live binding is gone').toBeNull();
+                expect(workspace.topologyGroupId, 'the Group is remembered, not re-derived').toBe(groupId);
+                expect(manager.get(groupId), 'a Group holding a participant survives its last binding').toBeTruthy();
+                expect(manager.participantKeys(groupId)).toEqual(['main']);
+
+                // The host still acts for its Group: a vessel it reserves lands in it.
+                const {request} = await beginExit('preview');
+
+                expect(request.topologyIdentity.groupId).toBe(groupId);
+                await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+            } finally {
+                manager.reconnectLeaseMs = 20000
+            }
+
+            // A first boot: the window's minted identity is accepted by its carrier after construction.
+            const firstBoot = Neo.create(TearOutWorkspace, {bindHostAtConstruct: false, dockModel: createDocument(), windowId: 'first-boot'});
+
+            try {
+                await firstBoot.transactionManagerReady;
+
+                expect(firstBoot.topologyGroupId, 'nothing to learn yet').toBeNull();
+
+                const minted = await manager.admit({topologyIdentity: {}, windowId: 'first-boot'});
+
+                expect(minted.outcome).toBe('minted');
+                expect(firstBoot.topologyGroupId, 'learned from the accepted binding').toBe(minted.groupId)
+            } finally {
+                firstBoot.destroy();
+                manager.retireGroup(manager.findByWindow('first-boot')?.groupId)
+            }
         });
 
         test('an async grant cannot publish a connection after its exact admission was retired', async () => {
@@ -1607,8 +1772,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace.grant = () => new Promise(resolve => {releaseGrant = resolve});
 
             const {request} = await beginExit('preview'),
-                  mainView  = addWindow('grant-race', vesselUrl(request, 'preview')),
-                  connect   = workspace.onWindowConnect({windowId: 'grant-race'});
+                  mainView  = addWindow('grant-race');
+
+            TransactionManager.admit({topologyIdentity: request.topologyIdentity, windowId: 'grant-race'});
+
+            const connect = workspace.binds.at(-1);
 
             await expect.poll(() => typeof releaseGrant).toBe('function');
 
@@ -1635,7 +1803,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             expect(JSON.stringify(workspace.dockModel)).toBe(before);
             expect(workspace.closeRequests).toHaveLength(1);
-            expect(workspace.closeRequests[0].admissionToken).toBe(request.admissionToken);
+            expect(workspace.closeRequests[0]).toMatchObject({itemId: 'preview', workspaceKey: 'popup:preview'});
             expect(workspace.tearOutPlacements.preview).toBeUndefined();
             expect(workspace.tearOutPaneHandles.preview).toBeUndefined()
         });
@@ -1647,9 +1815,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 before          = JSON.stringify(workspace.dockModel),
                 {request, zone} = await beginExit('preview');
 
-            addWindow('preterminal-disconnect', vesselUrl(request, 'preview'));
-            await workspace.onWindowConnect({windowId: 'preterminal-disconnect'});
-            await workspace.onWindowDisconnect({windowId: 'preterminal-disconnect'});
+            addWindow('preterminal-disconnect');
+            await connectVessel('preterminal-disconnect', request.topologyIdentity);
+            await disconnectVessel('preterminal-disconnect');
 
             expect(JSON.stringify(workspace.dockModel)).toBe(before);
             expect(workspace.tearOutConnects.preview).toBeUndefined();
@@ -1659,10 +1827,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.lifecycleEvents).toEqual(['disconnect'])
         });
 
-        test('connect timeout closes and ends the in-window embodiment, while explicit close refusal retains authority', async () => {
-            workspace = Neo.create(TearOutWorkspace, {
-                dockModel: createDocument(), tearOutConnectWindowMs: 1
-            });
+        test('a lease that runs out closes and ends the in-window embodiment, while explicit close refusal retains authority', async () => {
+            // The clock is the manager's: the reservation's lease, not a per-workspace timer.
+            TransactionManager.reconnectLeaseMs = 1;
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
 
             let observeClose;
 
@@ -1679,9 +1847,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.tearOutHandlers.activeVessel).toBeNull();
 
             workspace.destroy();
-            workspace = Neo.create(TearOutWorkspace, {
-                dockModel: createDocument(), tearOutConnectWindowMs: 1
-            });
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
             workspace.closeResult = false;
 
             const refused = new Promise(resolve => {workspace.onClose = resolve});
@@ -1700,14 +1866,18 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         test('stale-open close refusal remains tracked and blocks a successor until exact retry succeeds', async () => {
             workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
             workspace.closeResult = false;
-            workspace.openTearOutVessel = request => ({
-                admissionToken: request.admissionToken + 1,
-                popupHeight   : 360,
-                popupWidth    : 480,
-                windowName    : `stale-preview-${workspace.id}`
-            });
 
-            const vessel = await workspace.acquireTearOutVessel({admissionToken: 7, itemId: 'preview'});
+            // Stale: the admission was replaced while the host was still opening, so the record the
+            // open returns into is no longer the one the acquisition made.
+            workspace.openTearOutVessel = request => {
+                const admission = workspace.tearOutAdmissions.get(request.itemId);
+
+                workspace.tearOutAdmissions.set(request.itemId, {...admission});
+
+                return {popupHeight: 360, popupWidth: 480, windowName: `stale-preview-${workspace.id}`}
+            };
+
+            const vessel = await workspace.acquireTearOutVessel({itemId: 'preview'});
 
             expect(vessel).toBeNull();
             expect(workspace.tearOutRetirements.size).toBe(1);
@@ -1715,7 +1885,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             const closeCount = workspace.closeRequests.length;
 
-            expect(await workspace.acquireTearOutVessel({admissionToken: 8, itemId: 'preview'})).toBeNull();
+            expect(await workspace.acquireTearOutVessel({itemId: 'preview'})).toBeNull();
             expect(workspace.closeRequests.length).toBe(closeCount + 1);
 
             workspace.closeResult = true;
@@ -1734,12 +1904,13 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
             await workspace.refreshPromise;
 
-            const mainView = addWindow('reparent-failure', vesselUrl(request, 'preview'));
+            const mainView = addWindow('reparent-failure');
 
             mainView.add = () => {throw new Error('reparent refused')};
             workspace.closeResult = false;
 
-            await expect(workspace.onWindowConnect({windowId: 'reparent-failure'})).rejects.toThrow(/could not enter/);
+            TransactionManager.admit({topologyIdentity: request.topologyIdentity, windowId: 'reparent-failure'});
+            await expect(workspace.binds.at(-1)).rejects.toThrow(/could not enter/);
             await expect.poll(() => workspace.dockModel.nodes['side-tabs'].items.includes('preview')).toBe(true);
             await workspace.refreshPromise;
             await expect.poll(() => workspace.tearOutRetirements.size).toBe(1);
@@ -3608,7 +3779,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             class OpenerOnlyWorkspace extends PlainWorkspace {
                 static config = {className: 'Test.Unit.Dashboard.DockWorkspace.OpenerOnlyWorkspace'}
 
-                openTearOutVessel({admissionToken, itemId}) {return {admissionToken, windowName: `own-${itemId}`}}
+                openTearOutVessel({itemId}) {return {windowName: `own-${itemId}`}}
             }
 
             Neo.setupClass(OpenerOnlyWorkspace);
@@ -3641,7 +3812,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 // to claim the capability must not be silently opted in.
                 get canOpenTearOutVessel() {return true}
 
-                openTearOutVessel({admissionToken, itemId}) {return {admissionToken, windowName: `native-${itemId}`}}
+                openTearOutVessel({itemId}) {return {windowName: `native-${itemId}`}}
             }
 
             Neo.setupClass(TransportWorkspace);
@@ -3705,7 +3876,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 'while a real pane is untouched by the widening').toBe(true)
         });
 
-        test('the engine opens its own vessel, carrying the four params onWindowConnect parses', async () => {
+        test('the engine opens its own vessel: the item as content in the URL, the reserved slot as the carrier', async () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
             const opens              = [],
@@ -3721,56 +3892,57 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             Neo.config.useSharedWorkers = true;
 
             try {
-                const vessel = await workspace.openTearOutVessel({admissionToken: 7, itemId: 'editor', proxyRect: {height: 500, width: 640, x: 100, y: 60}});
+                const identity = {generationToken: 'lineage-7', groupId: 'group-a', workspaceKey: 'popup:editor'},
+                      vessel   = await workspace.openTearOutVessel({itemId: 'editor', proxyRect: {height: 500, width: 640, x: 100, y: 60}, topologyIdentity: identity});
 
                 expect(opens.length, 'the engine opened a window without any consumer hook').toBe(1);
 
                 const url = new URL(opens[0].url);
 
-                // The exact vocabulary onWindowConnect parses. A consumer re-deriving these from
-                // one app's source is the defect; the engine defines them, so it can write them.
+                // Content in the URL, identity in the carrier: the item is the one parameter the vessel
+                // needs to render; whom it belongs to travels through `Main.windowOpen`.
                 expect(url.searchParams.get('tearout')).toBe('editor');
-                expect(url.searchParams.get(workspace.tearOutHostParam)).toBe(workspace.id);
-                expect(url.searchParams.get('vesselFlow')).toBe('tear-out');
-                expect(url.searchParams.get('vesselAdmission')).toBe('7');
+                expect([...url.searchParams.keys()].sort(), 'no owner, flow or admission in the URL').toEqual(['existing', 'tearout']);
                 expect(url.searchParams.get('existing'), 'the host document\'s own params survive').toBe('keep');
+                expect(opens[0].topologyIdentity, 'the reserved slot rides the staged-open carrier').toEqual(identity);
 
                 // The proxy rect is where the user let go, offset into screen space.
                 expect(opens[0].windowFeatures).toContain('width=640');
                 expect(opens[0].windowFeatures).toContain('height=500');
 
-                expect(vessel).toMatchObject({admissionToken: 7, windowName: 'neo-dock-tearout-editor'})
+                expect(vessel).toMatchObject({windowName: 'neo-dock-tearout-editor'})
             } finally {
                 Neo.Main = originalMain;
                 Neo.config.useSharedWorkers = useSharedWorkers
             }
         });
 
-        test('a vessel re-torn from a vessel does not inherit the parent\'s item or admission', async () => {
+        test('a vessel re-torn from a vessel does not inherit the parent\'s item', async () => {
             workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
             const opens              = [],
                   {useSharedWorkers} = Neo.config,
                   originalMain       = Neo.Main;
 
-            // The host document ALREADY carries vessel params — the case a re-tear produces.
+            // The host document ALREADY names an item — the case a re-tear produces.
             Neo.Main = {
-                getByPath    : () => Promise.resolve(`https://example.test/i.html?tearout=preview&vesselFlow=tear-out&vesselAdmission=3&${workspace.tearOutHostParam}=stale-host`),
+                getByPath    : () => Promise.resolve('https://example.test/i.html?tearout=preview'),
                 getWindowData: () => Promise.resolve({innerHeight: 800, outerHeight: 860, screenLeft: 0, screenTop: 0}),
                 windowOpen   : data => { opens.push(data); return Promise.resolve(true) }
             };
             Neo.config.useSharedWorkers = true;
 
             try {
-                await workspace.openTearOutVessel({admissionToken: 9, itemId: 'terminal'});
+                const identity = {generationToken: 'lineage-9', groupId: 'group-a', workspaceKey: 'popup:terminal'};
+
+                await workspace.openTearOutVessel({itemId: 'terminal', topologyIdentity: identity});
 
                 const url = new URL(opens[0].url);
 
-                // Without the strip, the vessel would connect as the PARENT's pane against a stale
-                // host id — a wrong pane in a real window, which reads as a success.
+                // Without the strip, the vessel would render the PARENT's pane — a wrong pane in a real
+                // window, which reads as a success. Its owner was never in the URL to inherit.
                 expect(url.searchParams.getAll('tearout')).toEqual(['terminal']);
-                expect(url.searchParams.getAll('vesselAdmission')).toEqual(['9']);
-                expect(url.searchParams.get(workspace.tearOutHostParam)).toBe(workspace.id)
+                expect(opens[0].topologyIdentity).toEqual(identity)
             } finally {
                 Neo.Main = originalMain;
                 Neo.config.useSharedWorkers = useSharedWorkers
@@ -3785,13 +3957,16 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
                 openTearOutVessel(request) {
                     this.hostOpens.push(request);
-                    return {admissionToken: request.admissionToken, windowName: `host-${request.itemId}`}
+                    return {windowName: `host-${request.itemId}`}
                 }
             }
 
             Neo.setupClass(HostOpenerWorkspace);
 
-            workspace = Neo.create(HostOpenerWorkspace, {dockModel: createDocument()});
+            // A host that runs no lifecycle still reserves its vessel's slot in its window's Group,
+            // so the window is bound the way its app registration binds it.
+            workspace = Neo.create(HostOpenerWorkspace, {dockModel: createDocument(), windowId: 'host-opener-window'});
+            TransactionManager.bind({windowId: 'host-opener-window', workspaceKey: 'main'});
 
             const opens              = [],
                   {useSharedWorkers} = Neo.config,
@@ -3809,7 +3984,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             Neo.config.useSharedWorkers = true;
 
             try {
-                const vessel = await workspace.acquireTearOutVessel({admissionToken: 5, itemId: 'editor'});
+                const vessel = await workspace.acquireTearOutVessel({itemId: 'editor'});
 
                 expect(workspace.hostOpens, 'the host opener ran exactly once').toHaveLength(1);
                 expect(vessel).toMatchObject({windowName: 'host-editor'});
@@ -3828,13 +4003,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             const closes = [];
 
             class ShortWindowOpenerWorkspace extends PlainWorkspace {
-                static config = {
-                    className             : 'Test.Unit.Dashboard.DockWorkspace.ShortWindowOpenerWorkspace',
-                    tearOutConnectWindowMs: 20
-                }
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.ShortWindowOpenerWorkspace'}
 
                 openTearOutVessel(request) {
-                    return {admissionToken: request.admissionToken, windowName: `short-${request.itemId}`}
+                    return {windowName: `short-${request.itemId}`}
                 }
 
                 closeTearOutVessel(vessel) {
@@ -3845,9 +4017,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             Neo.setupClass(ShortWindowOpenerWorkspace);
 
-            // The lifecycle opt-in is OFF here (the default), so `destroy()` does not run the retire that
-            // sweeps admissions — while `acquireTearOutVessel` arms the expiry timer regardless.
-            workspace = Neo.create(ShortWindowOpenerWorkspace, {dockModel: createDocument()});
+            // The lifecycle opt-in is OFF here (the default) — while `acquireTearOutVessel` reserves a
+            // slot whose lease runs in the manager regardless.
+            TransactionManager.reconnectLeaseMs = 20;
+            workspace = Neo.create(ShortWindowOpenerWorkspace, {dockModel: createDocument(), windowId: 'short-opener-window'});
+            TransactionManager.bind({windowId: 'short-opener-window', workspaceKey: 'main'});
 
             const
                 {useSharedWorkers} = Neo.config,
@@ -3863,25 +4037,27 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             try {
                 expect(workspace.enableDockTearOutLifecycle, 'the lifecycle opt-in is off').toBe(false);
 
-                await workspace.acquireTearOutVessel({admissionToken: 7, itemId: 'editor'});
+                await workspace.acquireTearOutVessel({itemId: 'editor'});
 
                 const admission = workspace.tearOutAdmissions.get('editor');
 
-                expect(admission?.timerId, 'the admission armed its expiry').toBeTruthy();
-                expect(admission?.windowName, 'and holds the vessel the host opened').toBe('short-editor');
+                expect(TransactionManager.getBinding(workspace.topologyGroupId, 'popup:editor'),
+                    'the slot is reserved in the manager, its lease running').toMatchObject({windowId: null});
+                expect(admission?.windowName, 'and the admission holds the vessel the host opened').toBe('short-editor');
 
                 workspace.destroy();
                 workspace = null;
 
-                // Pre-fix the 20 ms expiry fires on the destroyed instance and dereferences a field core
-                // destroy removed — an uncaught TypeError charged to whichever test is running by then.
-                // Waiting past the window inside THIS arm makes that test this one.
+                // The lease runs out after the instance is gone. The manager's event finds no listener
+                // on this workspace — nothing fires into a destroyed instance — and waiting past the
+                // lease inside THIS arm makes it the test that would be charged if it did.
                 await new Promise(resolve => setTimeout(resolve, 60));
 
-                // The admission is one ownership unit: its timer, its record, and the native vessel it
-                // opened retire together, and the vessel exactly once.
+                // The admission is one ownership unit: its record and the native vessel it opened
+                // retire together, and the vessel exactly once.
                 expect(closes.map(vessel => vessel.windowName), 'the opened vessel was closed exactly once').toEqual(['short-editor'])
             } finally {
+                TransactionManager.reconnectLeaseMs = 20000;
                 Neo.Main = originalMain;
                 Neo.config.useSharedWorkers = useSharedWorkers
             }
@@ -3900,7 +4076,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             try {
                 // A live pane cannot be served to a second window without a shared worker, so
                 // opening one would produce an empty vessel — worse than not opening it.
-                expect(await workspace.openTearOutVessel({admissionToken: 1, itemId: 'editor'})).toBeNull();
+                expect(await workspace.openTearOutVessel({itemId: 'editor'})).toBeNull();
                 expect(opens, 'no window is opened').toEqual([])
             } finally {
                 Neo.Main = originalMain;
