@@ -142,6 +142,8 @@ class Main extends core.Base {
                 'setNeoConfig',
                 'setRoute',
                 'setTopologyIdentity',
+                'clearTopologyIdentity',
+                'closeTopologyWindow',
                 'windowClose',
                 'windowCloseAll',
                 'windowFocus',
@@ -340,7 +342,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Writes the identity the App Worker bound this window to, so the next page load presents it again
+     * @summary Writes the identity the App Worker bound this window to, so the next page load presents it again
      * (the worker manager reads it into every worker registration). `Neo.manager.Transaction` asks for
      * this after it minted, cold-created or forked a Group for the window; a plain bind or rebind writes
      * nothing, because the carrier already holds what it presented.
@@ -348,15 +350,51 @@ class Main extends core.Base {
      * @param {String} data.groupId
      * @param {String} data.workspaceKey
      * @param {String} data.generationToken
+     * @param {Boolean} [data.onlyIfEmpty=false] Compensates a refused close without overwriting a newer carrier.
      * @returns {Boolean} Whether the carrier accepted the write.
      */
-    setTopologyIdentity({generationToken, groupId, workspaceKey}) {
+    setTopologyIdentity({generationToken, groupId, workspaceKey, onlyIfEmpty=false}) {
         try {
+            if (onlyIfEmpty && window.sessionStorage.getItem(WorkerManager.topologyIdentityStorageKey) !== null) return false;
             window.sessionStorage.setItem(WorkerManager.topologyIdentityStorageKey, JSON.stringify({generationToken, groupId, workspaceKey}));
             return true
         } catch {
             return false
         }
+    }
+
+    /**
+     * @summary Clears only the closing Group's carrier; a different root's identity is untouched.
+     * @param {Object} data
+     * @param {String} data.groupId The Group whose close-all operation was durably acknowledged.
+     * @returns {Boolean}
+     */
+    clearTopologyIdentity({groupId}) {
+        try {
+            const key     = WorkerManager.topologyIdentityStorageKey,
+                  current = JSON.parse(window.sessionStorage.getItem(key) || 'null');
+            if (current?.groupId !== groupId) return false;
+            window.sessionStorage.removeItem(key);
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /**
+     * @summary Ends this render target after its Group's durable close cleared the carrier.
+     * @description Each realm closes itself, including popups whose opener reloaded. A browser-owned
+     * tab that refuses close navigates to a blank document, releasing its worker port just the same.
+     * The scheduled effect lets the remote response leave first; Group disconnect is the receipt.
+     * @returns {Boolean} Whether closure was scheduled; a carried identity refuses the request.
+     */
+    closeTopologyWindow() {
+        if (window.sessionStorage.getItem(WorkerManager.topologyIdentityStorageKey) !== null) return false;
+        setTimeout(() => {
+            window.close();
+            if (!window.closed) window.location.replace('about:blank')
+        }, 0);
+        return true
     }
 
     /**

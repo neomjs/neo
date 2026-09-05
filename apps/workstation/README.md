@@ -24,3 +24,21 @@ Pane, store, component, and relevant DOM identities remain stable while the layo
 
 The data-only screenplay lives in `apps/workstation/tour/denseWorkstation.mjs`; the mounted
 whitebox journey is the runtime and visual falsifier.
+
+## Save and reopen a workspace
+
+**Save workspace** stores the complete keyed topology in IndexedDB, separately from undo history.
+Each logical root has its own collection. Cold boot uses its saved active layout; `?layout=<id>`
+explicitly selects another record in that collection. An unusable selection offers **Start a new
+workspace**, which preserves the saved collection and creates a new root.
+
+Saved window documents hydrate before presentation. **Open … as window** requests a popup from
+the button click; **Show … here** presents the same document in the root if a popup is unavailable.
+Reloading a root or a restored popup while its SharedWorker survives reuses the live Workspace,
+host and pane instances without replaying history or writing a new topology.
+
+**Close workspace** waits for a current durable save, clears its windows' session carriers, and
+ends each render target. Browser-owned tabs that cannot close return to a blank document. The
+Group keeps its existing reconnect lease and only retires after storage acknowledges current
+truth and no retained reference remains. A failed final write keeps a `headless-dirty` Group and
+retries instead of discarding its documents.

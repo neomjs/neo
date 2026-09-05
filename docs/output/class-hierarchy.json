@@ -239,6 +239,7 @@
  "Neo.dashboard.dock.model.WorkspaceDocument": "Neo.core.Base",
  "Neo.dashboard.dock.persistence.PerspectiveLibrary": "Neo.core.Base",
  "Neo.dashboard.dock.persistence.RestorePlanner": "Neo.core.Base",
+ "Neo.dashboard.dock.persistence.TopologyLibrary": "Neo.core.Base",
  "Neo.dashboard.dock.plugin.Maximize": "Neo.plugin.Base",
  "Neo.dashboard.dock.projection.HeaderActionPolicy": "Neo.core.Base",
  "Neo.dashboard.dock.projection.LayoutAdapter": "Neo.core.Base",
