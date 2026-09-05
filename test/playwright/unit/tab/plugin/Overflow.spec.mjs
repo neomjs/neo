@@ -117,8 +117,12 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
     });
 
-    /** A lean toolbar-owner stub: two header buttons, a controllable getDomRect. */
-    const createPlugin = getDomRect => {
+    /**
+     * A lean toolbar-owner stub: two header buttons, a controllable getDomRect, and an optional event
+     * collector standing in for the owner's `fire` — attached before construction, because the plugin
+     * runs its first projection pass while constructing against a mounted owner.
+     */
+    const createPlugin = (getDomRect, fire) => {
         const items = [{id: 'b1'}, {id: 'b2'}];
 
         const plugin = Neo.create(Overflow, {
@@ -137,6 +141,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 getDomRect,
                 add            : () => ({}),
                 addDomListeners: () => {},
+                fire,
                 on             : () => {},
                 un             : () => {},
                 remove         : () => {},
@@ -222,6 +227,86 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         expect(plugin.projectQueued, 'the queued flag is consumed by the drain').toBe(false);
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
+    });
+
+    test('the repartition lifecycle is published on the owner as one start/idle pair per transaction — a coalesced rerun keeps it open, a thrown measure still closes it', async () => {
+        let release,
+            callCount = 0;
+
+        const
+            gate   = new Promise(resolve => {release = resolve}),
+            events = [];
+
+        const plugin = createPlugin(async ids => {
+            callCount++;
+            if (callCount === 1) { await gate }
+            return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]
+        }, (name, data) => events.push([name, data.owner === data.plugin.owner]));
+
+        // Construction against a mounted owner runs the first pass; its measure blocks on the gate, so
+        // the start edge is observable in flight, with the owner and plugin in its payload.
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(plugin.measuring, 'the construct-time pass holds the latch').toBe(true);
+        expect(plugin.projectionBusy).toBe(true);
+        expect(events, 'the start edge fired when the latch armed').toEqual([['overflowProjectionStart', true]]);
+
+        // A pass requested mid-flight is the same transaction: no second start, no premature idle.
+        plugin.project(true);
+
+        expect(plugin.projectQueued).toBe(true);
+        expect(events).toHaveLength(1);
+
+        release();
+        await plugin.whenProjectionIdle();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(plugin.measuring).toBe(false);
+        expect(plugin.projectQueued).toBe(false);
+        expect(events.map(([name]) => name), 'one pair for the pass and its coalesced rerun').toEqual(['overflowProjectionStart', 'overflowProjectionIdle']);
+        expect(plugin.projectionBusy).toBe(false);
+
+        // A later pass is a second transaction: a second pair, never an unbalanced edge.
+        await plugin.project(false);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(events.map(([name]) => name)).toEqual(['overflowProjectionStart', 'overflowProjectionIdle', 'overflowProjectionStart', 'overflowProjectionIdle']);
+
+        // A measure that throws against a live owner is caught, the latch releases, and the idle edge
+        // still publishes — the pair never stays open on an error.
+        const thrown = [],
+              error  = console.error;
+
+        let throwing;
+
+        console.error = () => {};
+
+        try {
+            // the construct-time pass is the throwing one: caught, latch released, pair closed
+            throwing = createPlugin(async () => { throw new Error('measure failed') }, name => thrown.push(name));
+            await throwing.whenProjectionIdle();
+            await new Promise(resolve => setTimeout(resolve, 0))
+        } finally {
+            console.error = error
+        }
+
+        expect(thrown).toEqual(['overflowProjectionStart', 'overflowProjectionIdle']);
+        expect(throwing.measuring).toBe(false);
+        expect(throwing.projectionBusy).toBe(false);
+
+        // Idle paths that never armed a pass publish nothing: a destroying plugin resolves its waiters
+        // silently, with no edge.
+        const seen  = [],
+              quiet = createPlugin(async () => [], name => seen.push(name));
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const before = seen.length;
+
+        quiet.isDestroying = true;
+        await quiet.project(false);
+
+        expect(seen.length, 'no pass, no edge').toBe(before)
     });
 
     test('action mode excludes its own geometry and visibility feedback, but not other actions', () => {
