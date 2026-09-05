@@ -800,6 +800,10 @@ class DragCoordinator extends Manager {
      * Dock-blindness holds: this method consumes registered zone identity and the main-thread
      * window geometry only — never dock semantics. Zones WITHOUT a `stableTargetId` never claim;
      * they stay on the legacy first-intersecting resolution their callers pin.
+     *
+     * Ownership admission (§2.3) runs before the claim pass, and the winner is revalidated against it:
+     * a zone whose ownership was admitted when it claimed and is not admitted now is released and never
+     * returned, so a target that turns foreign or unresolved mid-gesture stops previewing at the next pass.
      * @param {Object} data
      * @param {Object} data.arbiter The gesture's claim arbiter.
      * @param {Set<String>|null} [data.excludedWindowIds=null] Window ids that cannot host a valid
@@ -831,6 +835,10 @@ class DragCoordinator extends Manager {
 
         const
             candidates = [],
+            // The zones this pass admitted all the way to the hit-test: only one of these may be
+            // returned, whatever the arbiter still holds from an earlier pass.
+            eligible   = new Set(),
+            retired    = [],
             // ONE acquisition instant for the whole pass. Every zone below is evaluated against the
             // SAME pointer event, so none of them holds seniority over another — they must tie, so
             // that `resolve()` settles them on stable-identity lexicographic order. Sampling the
@@ -845,7 +853,7 @@ class DragCoordinator extends Manager {
                 windowId === sourceWindowId ||
                 excludedWindowIds?.has(windowId)
             ) {
-                zone.stableTargetId != null && arbiter.release(zone.stableTargetId);
+                zone.stableTargetId != null && arbiter.release(zone.stableTargetId, zone);
                 candidates.push({windowId, skipped: 'source-or-excluded'});
                 continue
             }
@@ -854,7 +862,11 @@ class DragCoordinator extends Manager {
             // claim set — it neither claims nor releases here, so two roots with equal stable identities
             // never meet in one arbiter.
             if (!this.admitsOwnership(sourceOwnershipId, zone.ownershipId)) {
-                candidates.push({windowId, stableTargetId: zone.stableTargetId ?? null, ownershipId: zone.ownershipId, skipped: 'ownership'});
+                // Ownership is read live: a claim this zone won while it was admitted must not outlive
+                // its admission. A same-identity claim another zone holds is not this zone's to release.
+                const released = zone.stableTargetId != null && arbiter.release(zone.stableTargetId, zone);
+
+                candidates.push({windowId, stableTargetId: zone.stableTargetId ?? null, ownershipId: zone.ownershipId, skipped: 'ownership', released});
                 continue
             }
 
@@ -870,6 +882,8 @@ class DragCoordinator extends Manager {
                 candidates.push({windowId, stableTargetId: zone.stableTargetId, skipped: 'no-accepts-handler'});
                 continue
             }
+
+            eligible.add(zone);
 
             let inner = Window.get(windowId)?.innerRect;
 
@@ -891,18 +905,29 @@ class DragCoordinator extends Manager {
             if (intersects && accepts) {
                 arbiter.claim(zone.stableTargetId, zone, passInstant)
             } else {
-                arbiter.release(zone.stableTargetId)
+                arbiter.release(zone.stableTargetId, zone)
             }
         }
 
-        const claimed = arbiter.resolve();
+        let claimed = arbiter.resolve();
+
+        // The arbiter keeps a live claim for as long as it is refreshed or unexpired, and admission is
+        // read live — so its winner can be a claim that survived from a pass in which the zone was still
+        // admitted and registered. Only a zone this pass admitted is returned; anything else is released
+        // and the arbiter asked again, until an eligible claim remains or none does (fail closed).
+        while (claimed && !eligible.has(claimed.zone)) {
+            retired.push(claimed.stableId);
+            arbiter.release(claimed.stableId, claimed.zone);
+            claimed = arbiter.resolve()
+        }
 
         this.recordClaimResolution({
             sortGroup,
             sourceOwnershipId,
-            groupSize      : group.size,
-            outcome        : claimed ? 'claimed' : 'no-claim',
-            claimedStableId: claimed?.stableId ?? null,
+            groupSize       : group.size,
+            outcome         : claimed ? 'claimed' : 'no-claim',
+            claimedStableId : claimed?.stableId ?? null,
+            retiredStableIds: retired,
             candidates
         }, arbiter.token);
 

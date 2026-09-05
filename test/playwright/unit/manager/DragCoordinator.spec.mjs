@@ -1106,6 +1106,121 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(DragCoordinator.admitsOwnership(undefined, 'group-a')).toBe(false)
     });
 
+    test('a claim does not outlive its admission: a winner whose ownership turns foreign mid-gesture stops previewing at the next pass and a remaining same-Group candidate takes over; turned unresolved with nobody left, the gesture fails closed', () => {
+        const source = createSource();
+
+        source.ownershipId = 'group-a';
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a',      0,     0, 800, 600);
+        registerWindow('win-b',      100, 100, 800, 600);
+
+        const
+            zoneA = createZone('workspace-a', 'win-a'),
+            zoneB = createZone('workspace-b', 'win-b');
+
+        zoneA.ownershipId = 'group-a';
+        zoneB.ownershipId = 'group-a';
+
+        DragCoordinator.register(zoneA);
+        DragCoordinator.register(zoneB);
+
+        // the target-facing events only: the source's suspend/resume bookkeeping is not under test here
+        const targetEvents = () => calls.filter(([name]) => name === 'leave' || name === 'move' || name === 'drop');
+
+        // both contain the point; the same-tick tie resolves lexicographically to workspace-a
+        move(source, 300, 300);
+
+        expect(targetEvents()).toEqual([['move', 'workspace-a', 300, 300]]);
+
+        // the winner's Group turns foreign while its claim is still live: the next pass retires the
+        // claim, the previous target is left, and the eligible sibling previews instead
+        zoneA.ownershipId = 'group-b';
+        move(source, 310, 310);
+
+        expect(targetEvents().slice(1)).toEqual([['leave', 'workspace-a'], ['move', 'workspace-b', 210, 210]]);
+
+        // the stale claim was released where the zone fell out of admission, so nothing was left for
+        // the winner revalidation to retire
+        const record = DragCoordinator.claimTrace.at(-1);
+
+        expect(record).toMatchObject({outcome: 'claimed', claimedStableId: 'workspace-b', retiredStableIds: []});
+        expect(record.candidates.find(candidate => candidate.windowId === 'win-a')).toMatchObject({skipped: 'ownership', released: true});
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'workspace-b', 'tab-1']]);
+
+        // turned unresolved with nobody else eligible: the gesture fails closed instead of keeping the
+        // stale winner
+        calls.length = 0;
+        zoneA.ownershipId = 'group-a';
+        zoneB.ownershipId = 'group-a';
+
+        move(source, 300, 300);
+        expect(targetEvents()).toEqual([['move', 'workspace-a', 300, 300]]);
+
+        zoneA.ownershipId = null;
+        zoneB.ownershipId = null;
+        move(source, 310, 310);
+
+        expect(targetEvents().slice(1)).toEqual([['leave', 'workspace-a']]);
+
+        const unresolved = DragCoordinator.claimTrace.at(-1);
+
+        expect(unresolved).toMatchObject({outcome: 'no-claim', retiredStableIds: []});
+        // both had claimed on the previous pass (the tie went to workspace-a); both released their own
+        expect(unresolved.candidates.filter(candidate => candidate.skipped === 'ownership').map(candidate => candidate.released)).toEqual([true, true]);
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([])
+    });
+
+    test('same-identity safety across an ownership change: the zone leaving the claim set releases only its own claim, so a same-Group zone with the same stable identity claims fresh and a foreign holder can never take it', () => {
+        const source = createSource();
+
+        source.ownershipId = 'group-a';
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-f',      0,     0, 800, 600);
+        registerWindow('win-a',      100, 100, 800, 600);
+
+        const
+            zoneF = createZone('workspace-x', 'win-f'),
+            zoneA = createZone('workspace-x', 'win-a');
+
+        zoneF.ownershipId      = 'group-a';
+        zoneF.onRemoteDragMove = () => calls.push(['move', 'F']);
+        zoneA.ownershipId      = 'group-a';
+        zoneA.onRemoteDragMove = () => calls.push(['move', 'A']);
+
+        // F alone wins the identity
+        DragCoordinator.register(zoneF);
+        move(source, 300, 300);
+
+        expect(calls.filter(([name]) => name === 'move')).toEqual([['move', 'F']]);
+
+        // F turns foreign and a same-Group zone with the SAME stable identity registers: F's stale claim
+        // is released (it held the record), so A acquires the identity fresh in the same pass
+        zoneF.ownershipId = 'group-b';
+        DragCoordinator.register(zoneA);
+        move(source, 310, 310);
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['F', 'A']);
+
+        // on later passes the foreign holder is skipped without releasing A's claim
+        move(source, 320, 320);
+        move(source, 330, 330);
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['F', 'A', 'A', 'A']);
+        expect(DragCoordinator.claimTrace.at(-1)).toMatchObject({outcome: 'claimed', claimedStableId: 'workspace-x', retiredStableIds: []});
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'workspace-x', 'tab-1']])
+    });
+
     test('claim seniority holds the winner steady — a later valid claimant cannot steal the hover', () => {
         const source = createSource();
 
