@@ -65,7 +65,7 @@ jobs:
           permission-contents: write
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # A dispatch resolves the WORKFLOW FILE from the chosen ref but this step decided the
           # SOURCE, and it was pinned to `dev` — so dispatching from a branch ran that branch's
@@ -101,7 +101,7 @@ jobs:
           token: ${{ steps.publisher-token.outputs.token }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
