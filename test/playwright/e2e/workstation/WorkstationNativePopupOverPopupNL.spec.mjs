@@ -196,7 +196,7 @@ async function popOut({app, page, workspaceId, itemId}) {
 
     await page.locator(`#${chrome.buttons[itemId]}`).click();
 
-    const action = await app.callMethod(chrome.containerId, 'getActionItem', ['pop-out']);
+    const action = await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
 
     expect(action?.id, `pop-out resolves on ${itemId}'s tab owner`).toBeTruthy();
     await expect(page.locator(`#${action.id}`), `pop-out is user-reachable for ${itemId}`).toBeVisible({timeout: 10000});

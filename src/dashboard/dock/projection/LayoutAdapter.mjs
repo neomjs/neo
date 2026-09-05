@@ -1103,7 +1103,6 @@ class LayoutAdapter extends Base {
         // cost by keeping one instance and binding `hidden` to the header truth the workspace
         // publishes; a host needing per-item behaviour has the same mechanism, on actions it owns.
         const hostActions = context.resolveDockHeaderActions?.(nodeId) || [],
-              seen        = new Set(),
               // Every action name is reserved exactly while its projection flag is on. A Map (not
               // an object literal) because
               // the key is host-supplied — `constructor` and `__proto__` must miss, exactly as they do
@@ -1120,17 +1119,14 @@ class LayoutAdapter extends Base {
         for (const action of hostActions) {
             const name = action?.action;
 
-            // Semantic names address actions: `getActionItem(name)` returns the FIRST match, and
-            // intents are routed by name. A duplicate makes one of them unaddressable; a host `close`
-            // while the engine's is enabled would additionally capture the engine's own policy sync
-            // and its intent. Both are host programming errors, and both are silent — so they throw
-            // here, as malformed action configs already do in `toolbar.Base#createActionItemConfig`.
+            // Intents are routed by name, so a host header action must carry one, and the engine's own
+            // names are reserved while their flag is on — a host `close` beside the enabled engine close
+            // would capture the engine's policy sync and its intent. Both are host programming errors,
+            // and both would be silent, so they throw here. That a name is unique within the header is
+            // the toolbar's own invariant (`toolbar.Base#getAction`), enforced when the projected header
+            // materialises its actions.
             if (!name) {
                 throw new Error('Neo.dashboard.dock.projection.LayoutAdapter: a host header action requires a semantic `action` name')
-            }
-
-            if (seen.has(name)) {
-                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: duplicate host header action "${name}" on dock node "${nodeId}"`)
             }
 
             const reservedBy = reservedActionNames.get(name);
@@ -1138,8 +1134,6 @@ class LayoutAdapter extends Base {
             if (reservedBy) {
                 throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "${name}" is reserved by ${reservedBy} (dock node "${nodeId}")`)
             }
-
-            seen.add(name)
         }
 
         // The engine actions bind their runtime state: the workspace's header-action policy hands one

@@ -496,7 +496,7 @@ class RevealOverlay extends Container {
      * @returns {Neo.button.Base}
      */
     get pinButton() {
-        return this.items[0].getActionItem('pin')
+        return this.items[0].getAction('pin')
     }
 
     /**

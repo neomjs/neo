@@ -142,7 +142,7 @@ test.describe('Neo.toolbar.ActionButton', () => {
             }]
         });
 
-        const action = toolbar.getActionItem('lock');
+        const action = toolbar.getAction('lock');
 
         // Focus has not arrived, so a gated action is withdrawn: same instance, no node.
         expect(action.vdom.removeDom, 'withdrawn while resting and unfocused').toBe(true);

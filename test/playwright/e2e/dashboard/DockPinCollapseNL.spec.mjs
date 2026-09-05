@@ -161,8 +161,8 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
         expect(inspectorTabsId, 'the inspector band projects a live TabContainer').toBeTruthy();
         expect(mainTabsId,      'the center stack projects a live TabContainer').toBeTruthy();
 
-        // Product truth #1: the opt-in projects a real action instance on the edge-owned pane.
-        await expect.poll(async () => (await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']))?.id, {
+        // Product truth 1: the opt-in projects a real action instance on the edge-owned pane.
+        await expect.poll(async () => (await app.callMethod(inspectorTabsId, 'getAction', ['pin']))?.id, {
             message: 'the opt-in projection materialises one persistent pin action',
             timeout: 10000
         }).toBeTruthy();
@@ -171,12 +171,12 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
         // action that is withdrawn has no DOM node at all (the toolbar withholds it rather than
         // hiding it, so no stylesheet can resurrect it), and this header holds no focus yet. The
         // accessible name and glyph are read below, once the gate is open.
-        const pinAction = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']),
+        const pinAction = await app.callMethod(inspectorTabsId, 'getAction', ['pin']),
               pinButton = page.locator(`#${pinAction.id}`);
 
         await expect(pinButton, 'a withdrawn action has no node before its header has focus').toHaveCount(0);
 
-        // Product truth #4: §2.7's fail-safe reaches the real product — the center stack projects the
+        // Product truth 4: §2.7's fail-safe reaches the real product — the center stack projects the
         // action too, but hidden, because main content never rails.
         //
         // The center pane is FOCUSED first on purpose. The engine set is focus-gated, so an unfocused
@@ -185,7 +185,7 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
         // the policy under test.
         await focusPane(app, page, 'strategy');
 
-        const centerPin = await app.callMethod(mainTabsId, 'getActionItem', ['pin']);
+        const centerPin = await app.callMethod(mainTabsId, 'getAction', ['pin']);
 
         expect(centerPin?.id, 'the center stack projects the action instance').toBeTruthy();
         expect(centerPin.hidden, 'a center-owned pane must not offer the collapse').toBe(true);
@@ -193,7 +193,7 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
 
         // The control arm for that gate: the close action, which opts OUT of focus gating, IS visible
         // on the very same focused header — so "hidden" above is this action's policy, not the gate.
-        const centerClose = await app.callMethod(mainTabsId, 'getActionItem', ['close']);
+        const centerClose = await app.callMethod(mainTabsId, 'getAction', ['close']);
 
         await expect(page.locator(`#${centerClose.id}`), 'the ungated close action proves the header is live').toBeVisible();
 
@@ -204,7 +204,7 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
         await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
         await pinButton.click();
 
-        // Product truth #2: worker truth carries the collapse, committed through the semantic path.
+        // Product truth 2: worker truth carries the collapse, committed through the semantic path.
         await expect.poll(async () => (await readModel())?.items?.inspector?.autoHidden, {
             message: 'the real header action commits the collapse through the model',
             timeout: 10000
@@ -224,7 +224,7 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
             'the rail is the one on its OWNING edge, not merely some rail'
         ).toHaveCount(1);
 
-        // Product truth #3: the loop closes. The existing reveal path takes it from here.
+        // Product truth 3: the loop closes. The existing reveal path takes it from here.
         await railTab.click();
         await page.waitForTimeout(600);
 
@@ -266,10 +266,10 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
 
             const
                 inspectorTabsId = await tabsNodeId(app, 'inspector-tabs'),
-                pinAction        = await app.callMethod(inspectorTabsId, 'getActionItem', ['pin']),
-                pinButton        = page.locator(`#${pinAction.id}`),
-                inlineAction     = await readRevealPinStyle(pinButton),
-                inlineTitle      = await readInlineTitleChrome(page.locator(`#${inspectorButtonId}`));
+                pinAction       = await app.callMethod(inspectorTabsId, 'getAction', ['pin']),
+                pinButton       = page.locator(`#${pinAction.id}`),
+                inlineAction    = await readRevealPinStyle(pinButton),
+                inlineTitle     = await readInlineTitleChrome(page.locator(`#${inspectorButtonId}`));
 
             await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
             await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);

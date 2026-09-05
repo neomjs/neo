@@ -85,7 +85,7 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
         // the workspace's boot sync reveals it for the contract-bearing active pane — so the
         // reveal itself is the settle surface, not the action's existence.
         await expect.poll(async () => {
-            const action = await app.callMethod(mainTabsId, 'getActionItem', ['reload']);
+            const action = await app.callMethod(mainTabsId, 'getAction', ['reload']);
 
             return action ? action.hidden !== true : null
         }, {
@@ -93,7 +93,7 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
             timeout: 10000
         }).toBe(true);
 
-        const reloadAction = await app.callMethod(mainTabsId, 'getActionItem', ['reload']);
+        const reloadAction = await app.callMethod(mainTabsId, 'getAction', ['reload']);
 
         // The focus consequence, as its own settle surface: the engine set ungates in the DOM.
         await expect(page.locator(`#${reloadAction.id}`)).not.toHaveClass(/neo-toolbar-action-context-inactive/);
@@ -113,7 +113,7 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
         // opt-out) stays visible on that focused header, proving the header itself is live.
         await focusPane(app, page, 'swarm');
 
-        await expect.poll(async () => (await app.callMethod(mainTabsId, 'getActionItem', ['reload']))?.hidden, {
+        await expect.poll(async () => (await app.callMethod(mainTabsId, 'getAction', ['reload']))?.hidden, {
             message: 'a pane without the contract keeps the reload action',
             timeout: 10000
         }).toBe(false);
@@ -136,7 +136,7 @@ test.describe('Dock reload action — delegation into the pane (Neural Link)', (
 
         expect(JSON.stringify(await readModel()), 'a recreate commits nothing').toBe(swarmDoc);
 
-        const closeAction = await app.callMethod(mainTabsId, 'getActionItem', ['close']);
+        const closeAction = await app.callMethod(mainTabsId, 'getAction', ['close']);
 
         expect(closeAction?.id, 'the control arm: close projects on the same header').toBeTruthy();
         await expect(page.locator(`#${closeAction.id}`)).toBeVisible()

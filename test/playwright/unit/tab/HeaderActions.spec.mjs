@@ -259,7 +259,7 @@ test.describe.serial('Neo tab header actions', () => {
 
         toolbar.actions = [{action: 'replaced', contextual: true, iconCls: 'fa fa-x'}];
 
-        const replaced = toolbar.getActionItem('replaced');
+        const replaced = toolbar.getAction('replaced');
 
         expect(replaced.vdom.removeDom, 'a replaced gated action is withdrawn before it renders').toBe(true);
         expect(late.vdom.removeDom, 'the contribution survives the replacement, still withdrawn').toBe(true);
@@ -488,8 +488,8 @@ test.describe.serial('Neo tab header actions', () => {
                   ],
                   items        : [{module: Component, header: {text: 'One'}}]
               })),
-              action = tabs.getActionItem('reversible'),
-              sibling = tabs.getActionItem('sibling'),
+              action = tabs.getAction('reversible'),
+              sibling = tabs.getAction('sibling'),
               bar    = tabs.getTabBar();
 
         // The tab header defaults to gated and starts outside focus.
@@ -589,8 +589,8 @@ test.describe.serial('Neo tab header actions', () => {
             livePreview = Neo.create(LivePreview, {enableFullscreen: true});
 
             const tabs       = livePreview.tabContainer,
-                  fullscreen = tabs.getActionItem('fullscreen'),
-                  popout     = tabs.getActionItem('popout'),
+                  fullscreen = tabs.getAction('fullscreen'),
+                  popout     = tabs.getAction('popout'),
                   handler    = fullscreen.handler;
 
             expect(tabs.getCount()).toBe(2);
@@ -603,8 +603,8 @@ test.describe.serial('Neo tab header actions', () => {
             tabs.activeIndex = 1;
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            expect(tabs.getActionItem('fullscreen')).toBe(fullscreen);
-            expect(tabs.getActionItem('popout')).toBe(popout);
+            expect(tabs.getAction('fullscreen')).toBe(fullscreen);
+            expect(tabs.getAction('popout')).toBe(popout);
             expect(fullscreen.handler).toBe(handler);
             expect(popout.hidden).toBe(false);
 
