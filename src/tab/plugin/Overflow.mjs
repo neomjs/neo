@@ -27,6 +27,14 @@ import Plugin from '../../plugin/Base.mjs';
  * changes) and caches them; a plain resize only re-reads the always-visible strip extent and recomputes
  * against that cache.
  *
+ * Lifecycle publication: a repartition removes and restores header nodes, so a pointer that aimed at a
+ * button before the pass can land on nothing after it. The plugin publishes the transaction it already
+ * brackets for {@link #whenProjectionIdle} as two events on its owner toolbar — `overflowProjectionStart`
+ * when a measuring pass arms, `overflowProjectionIdle` when the pass and its coalesced rerun have settled —
+ * so a host can expose "in flight" where its consumers look (the dock routes it into its motion signal).
+ * A projection parked behind an open menu or a drag is not in flight: the header is stable until it drains,
+ * so a pass that parks closes its pair and the pass that resumes after the drain opens a new one.
+ *
  * @class Neo.tab.plugin.Overflow
  * @extends Neo.plugin.Base
  */
@@ -233,6 +241,14 @@ class Overflow extends Plugin {
      * @member {Boolean} sortDragDrainScheduled=false
      */
     sortDragDrainScheduled = false
+    /**
+     * Whether the published projection lifecycle is currently open: `true` between the
+     * `overflowProjectionStart` a measuring pass fired and the `overflowProjectionIdle` its settle fires.
+     * A coalesced rerun keeps it open, so one transaction publishes one pair.
+     * @member {Boolean} projectionBusy=false
+     * @protected
+     */
+    projectionBusy = false
     /**
      * Drag-start callers waiting for the complete projection transaction to settle.
      * @member {Function[]|null} projectionIdleWaiters=null
@@ -498,7 +514,33 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Resolves drag-start callers after the projection and any coalesced rerun are idle.
+     * Publishes the projection lifecycle on the owner toolbar at its edges only: `overflowProjectionStart`
+     * when a measuring pass arms while nothing was in flight, `overflowProjectionIdle` when neither a pass
+     * nor a coalesced rerun remains. Called when a pass arms and after every pass releases, so intermediate
+     * states publish nothing and one transaction is exactly one pair. A pass parked behind an open menu
+     * has stopped moving header nodes: it closes its pair here while the drag-start waiters keep waiting,
+     * and the pass that resumes after the drain opens a new one. A destroyed owner has no listeners left
+     * to reach.
+     * @protected
+     */
+    publishProjectionState() {
+        let me      = this,
+            {owner} = me,
+            busy    = me.measuring || me.projectQueued;
+
+        if (busy === me.projectionBusy) return;
+
+        me.projectionBusy = busy;
+
+        if (owner && !owner.isDestroyed) {
+            owner.fire?.(busy ? 'overflowProjectionStart' : 'overflowProjectionIdle', {owner, plugin: me})
+        }
+    }
+
+    /**
+     * Resolves drag-start callers after the projection and any coalesced rerun are idle. The published
+     * lifecycle has its own, narrower edge in {@link #publishProjectionState}: an open menu holds these
+     * waiters, not the signal.
      * @protected
      */
     resolveProjectionIdle() {
@@ -631,6 +673,7 @@ class Overflow extends Plugin {
         }
 
         me.measuring = true;
+        me.publishProjectionState();
 
         try {
             let controlIconCls = geometry.dimension === 'height'
@@ -788,6 +831,12 @@ class Overflow extends Plugin {
         } else if (!me.menuProjectionQueued) {
             me.resolveProjectionIdle()
         }
+
+        // The signal's edge, apart from the waiter's: it closes whenever nothing is measuring or queued —
+        // including a pass parked behind an open menu, which the waiter above keeps waiting on, and a
+        // coalesced rerun that returned early because it found the menu open. A pass that resumes after
+        // the drain therefore opens a fresh pair.
+        me.publishProjectionState()
     }
 
     /**
@@ -1153,7 +1202,7 @@ class Overflow extends Plugin {
 
         me.hiddenSignature = signature;
 
-        // RA-13: re-align against the CURRENT owner rect. A floating component aligns once at mount and does
+        // Re-align against the CURRENT owner rect: a floating component aligns once at mount and does
         // NOT re-align when its target moves. Re-aligning on each sync re-pins it to the current action or
         // owner edge — cheap + idempotent. The e2e owner-exact geometry assertion falsifies its absence.
         if (me.control) {

@@ -3,7 +3,8 @@
     // transitions — splitter ease, tab insert/remove morphing, auto-hide rail slide, and the
     // FLIP commit layer all read THESE (a call-site duration/easing literal is a contract
     // violation). Motion lifecycle is observable via the `neo-dashboard-dock-animating` class
-    // (present during motion, removed on settle — see Neo.dashboard.dock.projection.MotionSignal).
+    // (present during motion AND during a tab header's overflow repartition, removed on settle —
+    // see Neo.dashboard.dock.projection.MotionSignal).
     //
     // Layering: these are the DOCK-DOMAIN aliases of the product motion vocabulary (the
     // motion-standards tier owns the semantic set — panel-move duration, settle easing). Dock
