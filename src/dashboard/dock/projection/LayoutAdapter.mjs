@@ -1077,7 +1077,7 @@ class LayoutAdapter extends Base {
         // invite a per-item action LIST, and a list that changes between projections replaces the
         // action group — destroying the stable instances `actionVisibilityChange` consumers such as
         // tab Overflow depend on. The engine's own close action varies per active item without that
-        // cost by keeping one instance and moving `hidden` (`Workspace#syncDockCloseAction`); a host
+        // cost by keeping one instance and moving `hidden` (`HeaderActionPolicy#syncCloseAction`); a host
         // needing per-item behaviour has the same mechanism, on actions it owns.
         const hostActions = context.resolveDockHeaderActions?.(nodeId) || [],
               seen        = new Set(),
@@ -1146,7 +1146,7 @@ class LayoutAdapter extends Base {
             // Reload follows lock in the frozen family order (lock · reload · pin · maximize — close
             // always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
             // CONSTANT true here — per-item availability must ride the ONE retained instance's
-            // runtime state (`Workspace#syncDockReloadAction`, the `syncDockCloseAction`
+            // runtime state (`HeaderActionPolicy#syncReloadAction`, the `syncCloseAction`
             // pattern), never this config: a row that varies between projections changes the
             // actions array, and replacing the action group mid-reconcile is exactly what the
             // stable-instance note below forbids. Fresh boots reveal through the workspace's
@@ -1169,7 +1169,7 @@ class LayoutAdapter extends Base {
                 // collapse the model or the projection would refuse: no active item, an item whose
                 // policy forbids pinning (`Operations.setItemAutoHidden` rejects `pinnable: false`),
                 // or a center-owned item (§2.7 — center never rails, main content does not auto-hide).
-                // `Workspace#syncDockPinAction` recomputes exactly this on every active-item change.
+                // `HeaderActionPolicy#syncPinAction` recomputes exactly this on every active-item change.
                 hidden    : !activeItemId
                     || context.items[activeItemId]?.pinnable === false
                     || !WorkspaceDocument.findOwningEdge({nodes: context.nodes}, activeItemId),

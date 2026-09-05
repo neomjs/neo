@@ -262,7 +262,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
 
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.vdom.inert).toBe(true);
         expect(pane.cls).toContain('neo-dock-pane-locked')
@@ -285,7 +285,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         pane.vdom.inert = false;
         tabButton.addWrapperCls('neo-draggable');
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(tabButton.wrapperCls).toContain('neo-draggable');
 
@@ -371,8 +371,8 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(closeAction.hidden).toBe(true);
 
         // The sweep runs on every active-item change and every settle; the hook must not.
-        workspace.syncDockHeaderActions();
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.lockCalls, 'once per transition').toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
@@ -386,17 +386,17 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(tabButton.wrapperCls).toContain('neo-draggable');
         expect(closeAction.hidden).toBe(false);
 
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.lockCalls, 'unlock is a transition too, once').toEqual([true, false]);
 
         // The same sweep keeps the inert default, exact restore included, for the sibling.
-        workspace.syncDockLockItemPresentation({locked: true, pane: beta});
+        workspace.dockHeaderActionPolicy.syncLockItemPresentation({locked: true, pane: beta});
 
         expect(beta.vdom.inert).toBe(true);
         expect(beta.cls).toContain('neo-dock-pane-locked');
 
-        workspace.syncDockLockItemPresentation({locked: false, pane: beta});
+        workspace.dockHeaderActionPolicy.syncLockItemPresentation({locked: false, pane: beta});
 
         expect(Object.hasOwn(beta.vdom, 'inert')).toBe(false);
         expect(beta.cls).not.toContain('neo-dock-pane-locked')
@@ -416,7 +416,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(pane.lockCalls).toEqual([]);
 
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.lockCalls).toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);

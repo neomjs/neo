@@ -599,18 +599,18 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         // outright, which is the remaining purpose of overriding this predicate. Stated explicitly
         // rather than relying on the base default, which is what this half used to lean on.
         workspace.hasDockRecreateFallback = () => false;
-        workspace.syncDockReloadAction(tabContainer);
+        workspace.dockHeaderActionPolicy.syncReloadAction(tabContainer);
         expect(action.hidden, 'no delegation, and recreate declared unavailable → hidden').toBe(true);
 
         // The engine's own default is enough on its own: no host factory, no declared refusal.
         delete workspace.hasDockRecreateFallback;
-        workspace.syncDockReloadAction(tabContainer);
+        workspace.dockHeaderActionPolicy.syncReloadAction(tabContainer);
         expect(action.hidden, 'the engine default alone un-hides it').toBe(false);
 
         // And a host factory on top is still honoured — the original half of this arm, now the
         // third state rather than the second.
         workspace.resolveFreshPane = () => ({module: Component});
-        workspace.syncDockReloadAction(tabContainer);
+        workspace.dockHeaderActionPolicy.syncReloadAction(tabContainer);
         expect(action.hidden, 'no delegation but a host fallback → visible').toBe(false)
     })
 });

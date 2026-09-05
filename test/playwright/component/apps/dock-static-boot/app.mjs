@@ -1,6 +1,7 @@
-import Component     from '../../../../../src/component/Base.mjs';
-import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
-import Viewport      from '../../../../../src/container/Viewport.mjs';
+import Component          from '../../../../../src/component/Base.mjs';
+import DockWorkspace      from '../../../../../src/dashboard/dock/Workspace.mjs';
+import HeaderActionPolicy from '../../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
+import Viewport           from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 /**
@@ -23,6 +24,27 @@ class ContractPane extends Component {
 }
 
 ContractPane = Neo.setupClass(ContractPane);
+
+/**
+ * @summary The engine policy, counting its sweeps on the workspace: the spec asserts the absence
+ * of a write, not merely the absence of a rendered symptom — a hidden action and an un-run sweep
+ * look identical in the DOM.
+ */
+class CountingSweepPolicy extends HeaderActionPolicy {
+    static config = {
+        className: 'Test.Playwright.Component.DockStaticBoot.CountingSweepPolicy'
+    }
+
+    /**
+     * @returns {*}
+     */
+    syncAll() {
+        this.workspace.sweepCount++;
+        return super.syncAll()
+    }
+}
+
+CountingSweepPolicy = Neo.setupClass(CountingSweepPolicy);
 
 const staticDocument = {
     schema: 'neo.dock.zone.v1',
@@ -106,7 +128,13 @@ class StaticBootFixtureWorkspace extends DockWorkspace {
          * await. The spec polls this instead of sleeping.
          * @member {Boolean} tailReplaced=false
          */
-        tailReplaced_: false
+        tailReplaced_: false,
+        /**
+         * The counting policy stands in for the engine default through the one seam a consumer
+         * replaces it by.
+         * @member {Object} dockHeaderActionPolicy={module: CountingSweepPolicy}
+         */
+        dockHeaderActionPolicy: {module: CountingSweepPolicy}
     }
 
     /**
@@ -114,16 +142,6 @@ class StaticBootFixtureWorkspace extends DockWorkspace {
      * @member {Function|null} releaseTail=null
      */
     releaseTail = null
-
-    /**
-     * Counts real sweeps so the spec can assert the absence of a write, not merely the absence of
-     * a rendered symptom — a hidden action and an un-run sweep look identical in the DOM.
-     * @returns {*}
-     */
-    syncDockHeaderActions() {
-        this.sweepCount++;
-        return super.syncDockHeaderActions()
-    }
 
     /**
      * Installs the self-replacing tail AFTER the hook has sampled, so the sweep is already

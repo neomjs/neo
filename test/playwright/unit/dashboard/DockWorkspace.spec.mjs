@@ -16,6 +16,7 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+import HeaderActionPolicy       from '../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
 import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
@@ -396,19 +397,27 @@ Neo.setupClass(HostBothActionsWorkspace);
  * owns no `dockReload()`, so the action projects visible and only this sweep can hide it. Deleting
  * the `super` call leaves the log intact and reds the state assertions, which is the point.
  */
+class SweepWitnessPolicy extends HeaderActionPolicy {
+    static config = {className: 'Test.Unit.Dashboard.DockWorkspace.SweepWitnessPolicy'}
+
+    syncAll() {
+        this.workspace.sweepLog.push('sweep');
+        return super.syncAll()
+    }
+}
+
+Neo.setupClass(SweepWitnessPolicy);
+
 class SweepWitnessWorkspace extends PlainWorkspace {
     static config = {
         className             : 'Test.Unit.Dashboard.DockWorkspace.SweepWitnessWorkspace',
+        // The policy is the seam a consumer replaces — one config, no workspace method overridden.
+        dockHeaderActionPolicy: {module: SweepWitnessPolicy},
         enableDockCloseAction : true,
         enableDockReloadAction: true
     }
 
     sweepLog = []
-
-    syncDockHeaderActions() {
-        this.sweepLog.push('sweep');
-        return super.syncDockHeaderActions()
-    }
 }
 
 Neo.setupClass(SweepWitnessWorkspace);
@@ -2333,7 +2342,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect([closeAction.hidden, pinAction.hidden], 'the host owns their initial visibility')
             .toEqual([false, false]);
 
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect([closeAction.hidden, pinAction.hidden], 'the reconciliation sweep leaves host names alone')
             .toEqual([false, false]);
@@ -2391,7 +2400,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         // Once the deferred sweep does run, the action agrees with the document on its own.
         await workspace.refreshPromise;
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(tabs.get('center-tabs')?.getActionItem('pin')?.hidden ?? true,
             'a center-owned pane offers no collapse').toBe(true)
@@ -3483,25 +3492,34 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('the post-commit sweep re-evaluates pop-out, so it survives a layout commit', () => {
-            class PopOutSweepWitness extends PlainWorkspace {
-                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.PopOutSweepWitness'}
-
-                popOutSyncLog = []
+            class PopOutSweepPolicy extends HeaderActionPolicy {
+                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.PopOutSweepPolicy'}
 
                 // Deliberately does NOT call super: the defect is that the SWEEP never reached this
                 // action at all, so the witness is whether it is invoked — not what it computes.
                 // Calling super would make the arm red on the base class missing the method, which
                 // is a different (and weaker) claim.
-                syncDockPopOutAction(tabContainer) {
-                    this.popOutSyncLog.push(tabContainer)
+                syncPopOutAction(tabContainer) {
+                    this.workspace.popOutSyncLog.push(tabContainer)
                 }
+            }
+
+            Neo.setupClass(PopOutSweepPolicy);
+
+            class PopOutSweepWitness extends PlainWorkspace {
+                static config = {
+                    className             : 'Test.Unit.Dashboard.DockWorkspace.PopOutSweepWitness',
+                    dockHeaderActionPolicy: {module: PopOutSweepPolicy}
+                }
+
+                popOutSyncLog = []
             }
 
             Neo.setupClass(PopOutSweepWitness);
 
             workspace = Neo.create(PopOutSweepWitness, {dockModel: createDocument()});
 
-            workspace.syncDockHeaderActions();
+            workspace.dockHeaderActionPolicy.syncAll();
 
             // close, lock, pin and reload were all swept; pop-out was the one engine action with no
             // sync. Its hidden state is projected once and then lives on a RETAINED instance, so it
