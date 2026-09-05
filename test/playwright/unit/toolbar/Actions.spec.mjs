@@ -113,6 +113,27 @@ test.describe('Neo.toolbar.Base — actions resolve by name, and names are uniqu
         expect(toolbar.getAction('save'), 'the refused rebuild removed nothing').toBe(before[2])
     });
 
+    test('a contribution whose name arrives from actionDefaults is refused like an explicit one: the config that would materialise is checked, not the raw one', () => {
+        const toolbar = own(Neo.create(Toolbar, {
+            appName,
+            actionDefaults: {action: 'save'},
+            actions       : [{text: 'Save'}],
+            items         : [{module: Component, flag: 'ordinary'}]
+        }));
+
+        const
+            before = [...toolbar.items],
+            save   = toolbar.getAction('save');
+
+        expect(save?.text, 'the consumer action took its name from the defaults').toBe('Save');
+
+        expect(() => toolbar.addActionContribution({text: 'Inherited duplicate', handler: Neo.emptyFn}))
+            .toThrow(/duplicate toolbar action "save"/);
+
+        expect(toolbar.items, 'neither a spacer nor the contribution was inserted').toEqual(before);
+        expect(toolbar.getAction('save'), 'the address still resolves the consumer action').toBe(save)
+    });
+
     test('the dialog header resolves its mapped string actions by name', () => {
         const header = own(Neo.create(DialogToolbar, {appName}));
 

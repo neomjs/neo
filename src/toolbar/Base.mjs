@@ -553,28 +553,29 @@ class Toolbar extends Container {
     /**
      * Adds one toolbar-owned action contribution ahead of consumer actions. Contributions are not
      * written into {@link #actions}; the consumer remains the sole owner of that config, while the
-     * toolbar preserves the contributed instance across every consumer action rebuild.
+     * toolbar preserves the contributed instance across every consumer action rebuild. A name the
+     * contribution would carry — its own or one from {@link #actionDefaults} — must be unique among the
+     * live actions ({@link #assertUniqueActionNames}); a refused contribution inserts nothing.
      * @param {Object} config Action config.
      * @returns {Neo.component.Base} The stable contributed action instance.
      */
     addActionContribution(config) {
-        let me            = this,
-            actionItems   = me.getActionItems(),
-            firstAction   = actionItems[0],
-            firstConsumer = actionItems.find(item => item.isToolbarActionContribution !== true),
-            spacer        = me.getActionSpacer(),
-            contribution;
+        let me          = this,
+            actionItems = me.getActionItems(),
+            firstAction = actionItems[0],
+            // Resolved before it is checked: the name that must be unique is the one that will
+            // materialise, which `actionDefaults` may supply, and the checked config is the inserted one.
+            contribution = me.createActionItemConfig({...config, isToolbarActionContribution: true}),
+            firstConsumer;
 
-        me.assertUniqueActionNames([config], actionItems);
+        me.assertUniqueActionNames([contribution], actionItems);
 
-        if (!spacer) {
-            spacer = me.insert(firstAction ? me.items.indexOf(firstAction) : me.items.length,
-                me.createActionSpacerConfig(), true)
+        if (!me.getActionSpacer()) {
+            me.insert(firstAction ? me.items.indexOf(firstAction) : me.items.length, me.createActionSpacerConfig(), true)
         }
 
         firstConsumer = me.getActionItems().find(item => item.isToolbarActionContribution !== true);
-        contribution  = me.insert(firstConsumer ? me.items.indexOf(firstConsumer) : me.items.length,
-            me.createActionItemConfig({...config, isToolbarActionContribution: true}));
+        contribution  = me.insert(firstConsumer ? me.items.indexOf(firstConsumer) : me.items.length, contribution);
 
         me.bindActionItems([contribution]);
         me.applyContextualActionState(true);
