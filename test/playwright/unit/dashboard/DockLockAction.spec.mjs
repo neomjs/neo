@@ -263,7 +263,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
 
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.bindChrome(workspace.items[0]);
 
         expect(pane.vdom.inert).toBe(true);
         expect(pane.cls).toContain('neo-dock-pane-locked')
@@ -286,7 +286,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         pane.vdom.inert = false;
         tabButton.addWrapperCls('neo-draggable');
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.bindChrome(workspace.items[0]);
 
         expect(tabButton.wrapperCls).toContain('neo-draggable');
 
@@ -372,8 +372,8 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(closeAction.hidden).toBe(true);
 
         // The sweep runs on every active-item change and every settle; the hook must not.
-        workspace.dockHeaderActionPolicy.syncAll();
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.bindChrome(workspace.items[0]);
+        workspace.dockHeaderActionPolicy.bindChrome(workspace.items[0]);
 
         expect(pane.lockCalls, 'once per transition').toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
@@ -387,7 +387,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(tabButton.wrapperCls).toContain('neo-draggable');
         expect(closeAction.hidden).toBe(false);
 
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.bindChrome(workspace.items[0]);
 
         expect(pane.lockCalls, 'unlock is a transition too, once').toEqual([true, false]);
 
@@ -480,7 +480,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(pane.lockCalls).toEqual([]);
 
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.bindChrome(workspace.items[0]);
 
         expect(pane.lockCalls).toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
@@ -531,7 +531,10 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(pane.lockCalls, 'a re-synchronized identity is not re-locked').toEqual([true]);
 
+        // The callback bound the pane to the item's committed lock, so the unlock reaches it as
+        // published header truth — the same write a commit performs — not through a second call.
         workspace.dockModel.items.reader.locked = false;
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
         rail.syncDockLockPane(pane, 'reader');
 
         expect(pane.lockCalls).toEqual([true, false]);

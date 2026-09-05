@@ -1,34 +1,58 @@
 import Base              from '../../../core/Base.mjs';
+import Effect            from '../../../core/Effect.mjs';
+import EffectManager     from '../../../core/EffectManager.mjs';
 import NeoArray          from '../../../util/Array.mjs';
 import Reconciler        from './Reconciler.mjs';
 import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
 
 /**
- * @summary The header-action presentation policy of a dock workspace: which engine action is
- * shown, enabled or pressed for which pane in which committed state, re-derived onto the retained
- * action instances after every commit and every active-item change.
+ * The item a tabs node presents: the committed active item unless it is railed (committed
+ * auto-hidden, surfaced by its owning edge zone), then the first item still in the tab flow — the
+ * same fallback `LayoutAdapter.projectTabsNode` projects.
+ * @param {Object} document
+ * @param {Object} node
+ * @returns {String|null}
+ */
+function effectiveActiveItemId(document, node) {
+    const items = (Array.isArray(node?.items) ? node.items : []).filter(itemId => document?.items?.[itemId]?.autoHidden !== true),
+          index = items.indexOf(node?.activeItemId);
+
+    return items[index < 0 ? 0 : index] ?? null
+}
+
+/**
+ * @summary The header-action presentation policy of a dock workspace: what each engine action shows,
+ * enables or presses for the item its header presents — published once as data on the workspace's
+ * dock state provider, which the retained action instances bind to.
+ * @description Membership is owned elsewhere — `toolbar.Base#getActionItems` and
+ * `tab.header.Toolbar#isTabButton` decide which actions exist, and the projection emits them once as
+ * a constant row. This class owns the second layer, as two halves:
  *
- * Membership is owned elsewhere — `toolbar.Base#getActionItems` and `tab.header.Toolbar#isTabButton`
- * decide which actions exist, and the projection emits them once as a constant row. This class owns
- * the second layer: reading committed truth and runtime state and writing `hidden` / `disabled` /
- * `pressed` onto the instance that survives re-projection, so the Overflow plugin receives its
- * existing `actionVisibilityChange` signal instead of an action-group replacement. Every write is
- * change-guarded, so re-walking retained nodes is idempotent. Command execution stays with the
- * workspace: its `onDockHeaderAction` router and `handleDock*Action` handlers are the mutation
- * boundary this policy reads the results of.
+ * **Header truth as data.** {@link #publishDocument} projects the committed document onto the
+ * workspace's `dockStateProvider`: `items.<itemId>.{closable, lockable, locked, pinnable, edge}` and
+ * `nodes.<tabsNodeId>.activeItemId`, plus `popOutAvailable` and `recreateFallback`. The workspace
+ * publishes the runtime facts the document does not carry: `items.<itemId>.reloadable` when it
+ * resolves a pane, `flights.<itemId>` at a reload's or recreate's edges. Every leaf is a
+ * `core.Config` that self-diffs, so publishing an unchanged document moves nothing.
  *
- * The state this class owns is the lock presentation's exact-restore memory — which panes it made
- * inert and what they owned before, which tab buttons it disarmed — so an unlock reverses along the
- * path that locked and never hands a pane an unlock it never received a lock for.
+ * **Bindings instead of sweeps.** {@link #createActionBindings} hands the projection one formatter
+ * per action config key (`hidden`, `pressed`, `disabled`), closed over the tabs node. Each projected
+ * tab header carries a child provider of the dock provider, so the action instance binds to it and
+ * `state.Provider#createBinding` runs the formatter as a `core.Effect`: it reads through
+ * `getData`, which registers exactly the leaf configs it touched, and re-runs only when one of them
+ * changes. A commit that changes no header input — a split resize, another workspace's transaction
+ * — evaluates nothing; a lock toggle re-evaluates the close and lock actions of the one header that
+ * presents the item. The one presentation that is not a button config, the lock's pane `inert` and
+ * tab-button drag token with their exact-restore memory, is a reactor of the same kind:
+ * {@link #bindLockPresentation} binds an `Effect` over the item's `locked` for a pane or a header's
+ * item, and {@link #bindChrome} registers those reactors for the live chrome — registration by
+ * identity, never a re-derivation.
  *
- * The workspace surface it reads, and nothing more: `dockModel`, the `enableDock*Action` opt-ins,
- * `getActiveDockItemId()`, `dockPopOutActionActive`, `dockReloadInFlight`, `dockRecreateInFlight`,
- * `hasDockRecreateFallback()`, `forEachDockRail()`, `getDockHost()` and `dockShellIndex`. The
- * workspace resolves one instance through its `dockHeaderActionPolicy` config, so a consumer
- * replaces the policy with one config rather than overriding workspace methods — at construction
- * or live: a replacement inherits the retiring policy's restore memory
- * ({@link #inheritRestoreState}) before the workspace destroys it, so a lock the old policy
- * applied unwinds through the new one.
+ * Command execution stays with the workspace: its `onDockHeaderAction` router and `handleDock*Action`
+ * handlers are the mutation boundary whose results reach this policy as published data. The
+ * workspace resolves one instance through its `dockHeaderActionPolicy` config; a replacement
+ * inherits the retiring policy's restore memory ({@link #inheritRestoreState}) before the workspace
+ * destroys it, so a lock the old policy applied unwinds through the new one.
  *
  * @class Neo.dashboard.dock.projection.HeaderActionPolicy
  * @extends Neo.core.Base
@@ -54,7 +78,6 @@ class HeaderActionPolicy extends Base {
      * @protected
      */
     lockPaneState = new WeakMap()
-
     /**
      * Whether each live tab button owned the SortZone's `neo-draggable` token before lock
      * suppressed it. Unlock restores that exact ownership instead of globally arming drag.
@@ -62,6 +85,14 @@ class HeaderActionPolicy extends Base {
      * @protected
      */
     lockDragState = new WeakMap()
+    /**
+     * The lock reactors, keyed by the component they present for — a header's tab container
+     * (one reactor per item it holds) or a rail's reveal pane (one reactor). An owner's entry is
+     * released when it is destroyed, so the map holds only live chrome.
+     * @member {Map<Neo.component.Base,Map<String,Neo.core.Effect>>} lockEffects=new Map()
+     * @protected
+     */
+    lockEffects = new Map()
 
     /**
      * Takes over the exact-restore memory of the policy this instance replaces. The memory is
@@ -79,152 +110,233 @@ class HeaderActionPolicy extends Base {
     }
 
     /**
-     * Releases the workspace reference; the WeakMaps retire with the instance unless a
-     * replacement inherited them first ({@link #inheritRestoreState}).
+     * Releases the reactors and the workspace reference; the WeakMaps retire with the instance
+     * unless a replacement inherited them first ({@link #inheritRestoreState}).
      * @param {...*} args
      */
     destroy(...args) {
-        this.workspace = null;
+        let me = this;
+
+        me.lockEffects.forEach(byItem => byItem.forEach(effect => effect.destroy()));
+        me.lockEffects.clear();
+        me.workspace = null;
+
         super.destroy(...args)
     }
 
     /**
-     * Synchronizes every projected engine header action after reconciliation, including retained tabs
-     * whose action instance outlived a model-policy or active-item change.
-     *
-     * Walks the SETTLED shell, never a map handed in from the reconciler: that map is the OLD shell's
-     * tabs (`Reconciler.collectProjectedTabs(oldShell)`), so a node the projection just CREATED — a
-     * railed item pinned back into flow, a fresh boot's placeholders — is not in it, and `reload`'s
-     * availability, projected as a constant `hidden: true` by the stable-instance rule, is revealed
-     * by nothing else. Every write below is change-guarded, so re-walking retained nodes is idempotent.
-     *
-     * Each action's own sync guards on its own opt-in and is a no-op when the action was never
-     * projected — the opt-in guard is load-bearing, not redundant: a host may legally own an
-     * engine action NAME while that engine flag is off (the reserved-name guard fires only for
-     * enabled actions), and `getActionItem` finds the host's action by name. Without the guard,
-     * this sweep would rewrite consumer-owned action state.
+     * Registers the lock reactors the live chrome needs: one per item a tab container holds,
+     * released when the item leaves it. Reactors are keyed by identity, so a container already bound
+     * costs a lookup, never a write — this pass registers, it re-derives nothing. The workspace runs
+     * it wherever chrome can be new: at a commit (a statically projected shell), once a refresh
+     * settled, and when a never-refreshed shell mounts.
+     * @param {Neo.component.Base|null} shell The dock shell
      */
-    syncAll() {
-        let me          = this,
-            {workspace} = me,
-            shell       = workspace?.getDockHost()?.items?.[workspace.dockShellIndex];
-
-        shell && Reconciler.collectProjectedTabs(shell).forEach(tab => {
-            me.syncCloseAction(tab);
-            me.syncLockAction(tab);
-            me.syncPinAction(tab);
-            me.syncPopOutAction(tab);
-            me.syncReloadAction(tab)
-        });
-
-        workspace?.enableDockLockAction && me.syncLockRails()
-    }
-
-    /**
-     * Synchronizes the actions whose answer depends on which item is active: close, lock and pin.
-     * The reload action is synced separately by the caller, because on the commit path the
-     * post-reconcile sweep is its writer.
-     * @param {Neo.tab.Container|null} tabContainer
-     */
-    syncActiveItem(tabContainer) {
-        this.syncCloseAction(tabContainer);
-        this.syncLockAction(tabContainer);
-        this.syncPinAction(tabContainer)
-    }
-
-    /**
-     * Synchronizes one retained close action against the live active item and committed policy.
-     * Hidden-state changes stay on the stable action instance so Overflow receives its existing
-     * `actionVisibilityChange` signal instead of an action-group replacement.
-     *
-     * Gated on the workspace's `enableDockCloseAction` for the reason given on {@link #syncPinAction}:
-     * the name is only the engine's while its own opt-in is on.
-     * @param {Neo.tab.Container|null} tabContainer
-     */
-    syncCloseAction(tabContainer) {
-        let {workspace} = this;
-
-        if (!workspace?.enableDockCloseAction) return;
-
-        let action = tabContainer?.getActionItem?.('close'),
-            itemId = workspace.getActiveDockItemId(tabContainer),
-            item   = workspace.dockModel?.items?.[itemId],
-            hidden = !itemId || item?.closable === false || item?.locked === true;
-
-        action && (action.hidden = hidden)
-    }
-
-    /**
-     * @summary Re-evaluates the retained pop-out action against current truth after every commit.
-     *
-     * Pop-out was the one engine action with no sync. Its `hidden` is projected once as
-     * `!activeItemId || !dockPopOutActionAvailable` and then lives on a RETAINED action instance
-     * that survives re-projection, so nothing ever recomputed it: the control was correct at boot
-     * and silently gone after the first layout commit. For a consumer whose reason to be here is
-     * multi-window, the feature disappeared until reload.
-     *
-     * Mirrors the projected expression from the same reader (`dockPopOutActionActive`), so the
-     * projected and the synced answer cannot drift. Change-guarded like its siblings, so re-walking
-     * retained nodes stays idempotent.
-     * @param {Neo.tab.Container} tabContainer
-     */
-    syncPopOutAction(tabContainer) {
-        let {workspace} = this;
-
-        if (!workspace?.enableDockPopOutAction) return;
-
-        let action = tabContainer?.getActionItem?.('pop-out'),
-            itemId = workspace.getActiveDockItemId(tabContainer),
-            hidden = !itemId || !workspace.dockPopOutActionActive;
-
-        action && (action.hidden = hidden)
-    }
-
-    /**
-     * Synchronizes the retained lock action and every projected pane/button against committed
-     * item truth. The action stays one stable instance; per-item hidden/icon state moves on it.
-     *
-     * Presentation is deliberately a second layer beneath the model guards. Lock stamps
-     * `vdom.inert` plus `neo-dock-pane-locked` in one pane update and removes only the tab
-     * button's `neo-draggable` source token. Unlock restores the exact prior inert ownership/value
-     * and exact prior drag-token ownership. Locked headers remain legal drop targets. The ordinary
-     * lock gesture is focus-gated; once the protective state persists, its unlock reversal becomes
-     * persistent too, so discoverability never depends on re-entering a transient focus context.
-     * @param {Neo.tab.Container|null} tabContainer
-     */
-    syncLockAction(tabContainer) {
+    bindChrome(shell) {
         let me          = this,
             {workspace} = me;
 
-        if (!workspace?.enableDockLockAction || !tabContainer) return;
+        if (!shell || !workspace?.enableDockLockAction || workspace.isDestroyed) return;
 
-        let {items} = workspace.dockModel || {},
-            bar     = tabContainer.getTabBar(),
-            action  = tabContainer.getActionItem('lock'),
-            itemId  = workspace.getActiveDockItemId(tabContainer),
-            item    = items?.[itemId],
-            locked  = item?.locked === true;
+        Reconciler.collectProjectedTabs(shell).forEach(tabContainer => {
+            const itemIds = tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || [];
 
-        // ONE write of WHAT is true. The action owns the icon / accessible name / tooltip mapping
-        // (`toolbar.ActionButton#afterSetPressed`) and the toolbar derives the focus gate from
-        // `pressed`, so nothing here states how the control should look.
-        action?.set({
-            hidden : !itemId || item?.lockable === false,
-            pressed: locked
+            itemIds.forEach(itemId => me.bindLockPresentation({itemId, tabContainer}));
+
+            me.lockEffects.get(tabContainer)?.forEach((effect, itemId) => {
+                if (!itemIds.includes(itemId)) {
+                    effect.destroy();
+                    me.lockEffects.get(tabContainer).delete(itemId)
+                }
+            })
+        })
+    }
+
+    /**
+     * Binds the lock presentation of one item — the pane's `inert` and `neo-dock-pane-locked`, the
+     * tab button's drag token — to the item's committed `locked`, through one `core.Effect` that
+     * re-runs only when that leaf changes. For a header, pass the tab container: the pane and the
+     * button are resolved by item identity at each run, so an item whose pane materializes later,
+     * or whose button Overflow moved, is presented from the same reactor. For a rail's reveal pane,
+     * pass the pane: the rail materialization callback covers first reveal and every later switch.
+     * Binding twice is a lookup; the reactor is released with its component.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Neo.component.Base} [data.pane] A reveal pane outside tab chrome
+     * @param {Neo.tab.Container} [data.tabContainer] The header presenting the item
+     */
+    bindLockPresentation({itemId, pane=null, tabContainer=null}={}) {
+        let me     = this,
+            owner  = tabContainer || pane,
+            byItem = owner && me.lockEffects.get(owner);
+
+        if (!owner || owner.isDestroyed || !itemId) return;
+
+        if (byItem?.has(itemId)) return;
+
+        if (!byItem) {
+            byItem = new Map();
+            me.lockEffects.set(owner, byItem);
+
+            me.observeConfig(owner.id, 'isDestroying', value => {
+                if (value) {
+                    me.lockEffects.get(owner)?.forEach(effect => effect.destroy());
+                    me.lockEffects.delete(owner)
+                }
+            })
+        }
+
+        byItem.set(itemId, new Effect(() => {
+            const {workspace} = me,
+                  provider    = workspace?.dockStateProvider;
+
+            if (!provider || owner.isDestroyed) return;
+
+            // The one dependency: the item's committed lock state. Everything below resolves the
+            // chrome by identity and writes presentation — reads of component configs on the way
+            // must not become dependencies, or a `cls` write would re-run the reactor against a
+            // pane a direct presentation call just changed.
+            const locked = provider.getData(`items.${itemId}.locked`) === true;
+
+            EffectManager.pauseTracking();
+
+            try {
+                if (tabContainer) {
+                    const index   = (tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || []).indexOf(itemId),
+                          buttons = tabContainer.getTabButtons?.() || [];
+
+                    me.syncLockItemPresentation({
+                        button: buttons.find(button => button.dockItemId === itemId) || null,
+                        locked,
+                        pane  : index > -1 ? tabContainer.getCard(index) : null
+                    })
+                } else {
+                    me.syncLockItemPresentation({locked, pane})
+                }
+            } finally {
+                EffectManager.resumeTracking()
+            }
+        }))
+    }
+
+    /**
+     * The formatters the projection binds onto the engine actions of one tabs node: one function
+     * per action config key, each closed over the node and reading the dock provider through
+     * `getData`, so an `Effect` running it depends on exactly the leaves it read — the node's active
+     * item and that item's fields. `this` is the header's own provider, a child of the dock provider.
+     *
+     * Every formatter answers for the ACTIVE item: `close` hides for an unclosable or locked item,
+     * `lock` hides for an unlockable one and presses while locked, `pin` hides where the collapse
+     * could not complete (no owning edge — §2.7, center never rails — or `pinnable: false`),
+     * `pop-out` hides while no vessel can open, `reload` hides while neither path can serve the item
+     * — no `dockReload()` contract and no recreate fallback — and disables while the item has a
+     * flight. Each is the expression its projection constant and its former sync computed, in one
+     * place.
+     * @param {String} nodeId The tabs node
+     * @returns {Object} `{close, lock, pin, 'pop-out', reload}` → `{configKey: formatter}`
+     */
+    createActionBindings(nodeId) {
+        const active = provider => provider.getData(`nodes.${nodeId}.activeItemId`) || null,
+              field  = (provider, itemId, key) => provider.getData(`items.${itemId}.${key}`);
+
+        return {
+            close: {
+                hidden() {
+                    const itemId = active(this);
+
+                    return !itemId || field(this, itemId, 'closable') === false || field(this, itemId, 'locked') === true
+                }
+            },
+            lock: {
+                hidden() {
+                    const itemId = active(this);
+
+                    return !itemId || field(this, itemId, 'lockable') === false
+                },
+                pressed() {
+                    const itemId = active(this);
+
+                    return !!itemId && field(this, itemId, 'locked') === true
+                }
+            },
+            pin: {
+                hidden() {
+                    const itemId = active(this);
+
+                    return !itemId || field(this, itemId, 'pinnable') === false || !field(this, itemId, 'edge')
+                }
+            },
+            'pop-out': {
+                hidden() {
+                    return !active(this) || this.getData('popOutAvailable') !== true
+                }
+            },
+            reload: {
+                disabled() {
+                    const itemId = active(this);
+
+                    return !!itemId && !!this.getData(`flights.${itemId}`)
+                },
+                hidden() {
+                    const itemId = active(this);
+
+                    return !itemId || (field(this, itemId, 'reloadable') !== true && this.getData('recreateFallback') !== true)
+                }
+            }
+        }
+    }
+
+    /**
+     * Publishes the header truth a committed document carries onto the dock provider: per item
+     * `closable`, `lockable`, `locked`, `pinnable` and the owning `edge`
+     * ({@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge}, the derivation the
+     * projection rails by); per tabs node the item it presents; the workspace's `popOutAvailable`
+     * and `recreateFallback`. Leaves self-diff, so an unchanged document evaluates nothing.
+     *
+     * The workspace publishes at the commit boundary — a retained action whose inputs changed
+     * re-evaluates there — and again as it projects, which is a no-op after a commit and the one
+     * publish a statically projected shell gets, so a header's bindings read committed truth on
+     * their first run either way. The mount path of a never-refreshed shell publishes once more
+     * before it registers the chrome.
+     * @param {Object|null} document The committed document
+     */
+    publishDocument(document) {
+        let me          = this,
+            {workspace} = me,
+            provider    = workspace?.dockStateProvider,
+            flights     = {},
+            items       = {},
+            nodes       = {};
+
+        if (!provider) return;
+
+        Object.entries(document?.items || {}).forEach(([itemId, item]) => {
+            items[itemId] = {
+                closable: item?.closable !== false,
+                edge    : WorkspaceDocument.findOwningEdge(document, itemId) || null,
+                lockable: item?.lockable !== false,
+                locked  : item?.locked   === true,
+                pinnable: item?.pinnable !== false
+            };
+
+            // A leaf a binding reads must exist before the binding's first run: a formatter
+            // registers the configs it read, and a key created later is not one of them. The
+            // flight is owned by the workspace's reload path, so an existing value is never touched.
+            !provider.getDataConfig(`flights.${itemId}`) && (flights[itemId] = null)
         });
 
-        // Buttons are addressed by identity, never by position: `tab.plugin.Overflow` removes
-        // overflowing buttons from this collection by design, so `buttons[index]` can name a
-        // different item than `dockItemIds[index]` does.
-        let buttons = tabContainer.getTabButtons(),
-            panes   = tabContainer.getCardContainer().items;
+        Object.entries(document?.nodes || {}).forEach(([nodeId, node]) => {
+            if (node?.type === 'tabs') {
+                nodes[nodeId] = {activeItemId: effectiveActiveItemId(document, node)}
+            }
+        });
 
-        bar.sortZoneConfig?.dockItemIds?.forEach((id, index) => {
-            me.syncLockItemPresentation({
-                button: buttons.find(button => button.dockItemId === id) || null,
-                locked: items?.[id]?.locked === true,
-                pane  : panes[index]
-            })
+        provider.setData({
+            ...(Object.keys(flights).length > 0 && {flights}),
+            items,
+            nodes,
+            popOutAvailable : workspace.dockPopOutActionActive === true,
+            recreateFallback: workspace.hasDockRecreateFallback() === true
         })
     }
 
@@ -235,16 +347,16 @@ class HeaderActionPolicy extends Base {
      * `dockLock(locked)` owns what locked means for its content — a form disables its fields, a
      * grid turns cell editing off, a stream keeps scrolling — and the engine writes no `inert` for
      * it. The probe is a pure `typeof` on the live card, never a resolver call. The hook fires
-     * once per transition, recorded in the same per-pane state as the inert snapshot, so a sweep
-     * that runs on every active-item change never re-locks a pane its author already locked.
+     * once per transition, recorded in the same per-pane state as the inert snapshot, so a reactor
+     * that runs on every `locked` change never re-locks a pane its author already locked.
      * Without the hook the engine's inert default stands, byte-identical, with its exact-restore
      * clause.
      * @param {Object} data
-     * @param {Neo.tab.header.Button|null} data.button
+     * @param {Neo.tab.header.Button|null} [data.button]
      * @param {Boolean} data.locked
-     * @param {Neo.component.Base|null} data.pane
+     * @param {Neo.component.Base|null} [data.pane]
      */
-    syncLockItemPresentation({button, locked, pane}={}) {
+    syncLockItemPresentation({button=null, locked, pane=null}={}) {
         let me = this;
 
         if (pane && !pane.isDestroyed) {
@@ -310,117 +422,6 @@ class HeaderActionPolicy extends Base {
         }
     }
 
-    /**
-     * Synchronizes the currently materialized rail-reveal panes against committed lock truth.
-     *
-     * Rails are synthetic affordances retained across stable-topology reconciliation, so their
-     * projection config is not a state-update channel. The materialization callback covers first
-     * reveal; this sweep covers a lock transition while the same overlay remains open. Dismissed
-     * cached panes restore on their next materialization callback.
-     */
-    syncLockRails() {
-        let me          = this,
-            {workspace} = me;
-
-        if (!workspace?.enableDockLockAction) return;
-
-        let {items} = workspace.dockModel || {};
-
-        workspace.forEachDockRail(({revealOverlay}) => {
-            let pane = revealOverlay?.paneSlot.items[0];
-
-            pane && me.syncLockItemPresentation({
-                locked: items?.[revealOverlay.revealPaneItemId]?.locked === true,
-                pane
-            })
-        })
-    }
-
-    /**
-     * Synchronizes one retained pin action against the live active item and committed policy.
-     *
-     * Hidden wherever the collapse could not complete, so the header never offers a gesture the model
-     * or the projection would refuse: no active item, `pinnable: false` (which
-     * {@link Neo.dashboard.dock.model.Operations#setItemAutoHidden} rejects), or an item no edge owns
-     * (§2.7 — center never rails). The edge answer comes from
-     * {@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge}, the same derivation the projection
-     * rails by, so the action cannot disagree with the rail it would collapse into.
-     *
-     * Like {@link #syncCloseAction}, hidden-state changes stay on the stable action instance so
-     * Overflow receives its existing `actionVisibilityChange` signal instead of an action-group
-     * replacement.
-     *
-     * **The opt-in gates policy synchronization, not only projection and dispatch.** `pin` is a
-     * reserved engine name exactly while the workspace's `enableDockPinAction` is on — that is the
-     * contract `Workspace#getDockProjectionOptions` states and the throw it enforces. While the flag
-     * is off the name belongs to whoever projected it through `resolveDockHeaderActions`, so
-     * resolving it here would let a disabled engine action move a host's `hidden` on every
-     * active-item change and reconciliation sweep. Default-off has to mean behaviorally inert, not
-     * merely unprojected.
-     * @param {Neo.tab.Container|null} tabContainer
-     */
-    syncPinAction(tabContainer) {
-        let {workspace} = this;
-
-        if (!workspace?.enableDockPinAction) return;
-
-        let action = tabContainer?.getActionItem?.('pin'),
-            itemId = workspace.getActiveDockItemId(tabContainer),
-            model  = workspace.dockModel,
-            hidden = !itemId
-                || model?.items?.[itemId]?.pinnable === false
-                || !model
-                || !WorkspaceDocument.findOwningEdge(model, itemId);
-
-        action && (action.hidden = hidden)
-    }
-
-    /**
-     * Synchronizes one retained reload action against the live active pane, owning BOTH state
-     * axes: `hidden` while no active item resolves, or while neither path can serve it — no
-     * `dockReload()` contract on the active card AND the host declared no recreate through
-     * `Workspace#hasDockRecreateFallback`; `disabled` while the ACTIVE item — not whichever item
-     * started a flight — has a reload or recreate in flight. Deriving both here (called at the
-     * flight edges and on every active-item change) is what keeps per-item single-flight and the one
-     * node-level action instance consistent when the active item changes mid-flight. The contract
-     * probe is pure — a `typeof` on the card instance, or on its config's `module` prototype while
-     * the card container has not instantiated the slot yet (the post-reconcile sync runs before
-     * card children materialize) — never a resolver call, which may be side-effectful.
-     * @param {Neo.tab.Container|null} tabContainer
-     */
-    syncReloadAction(tabContainer) {
-        let {workspace} = this;
-
-        // Opt-in guard first (the pin precedent): while the engine flag is off, a host may own
-        // the semantic name `reload` — getActionItem() would find THAT action, and writing to it
-        // here would overwrite consumer-owned state. Default-off means behaviorally inert.
-        if (!workspace?.enableDockReloadAction) return;
-
-        let action   = tabContainer?.getActionItem?.('reload'),
-            itemId   = workspace.getActiveDockItemId(tabContainer),
-            disabled = false,
-            hidden   = true;
-
-        if (action && itemId) {
-            let itemIds = tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || [],
-                index   = itemIds.indexOf(itemId),
-                pane    = index > -1 ? tabContainer.getCard(index) : null,
-                carrier = pane?.isDestroyed ? null : (pane?.dockReload ?? pane?.module?.prototype?.dockReload);
-
-            disabled = workspace.dockReloadInFlight.has(itemId) || workspace.dockRecreateInFlight.has(itemId);
-
-            // An absent delegation hook no longer hides the action on its own: the recreate
-            // fallback serves exactly those panes, so hiding them would hide the only recovery
-            // they have. Hidden only when NEITHER path can serve the item.
-            hidden = typeof carrier !== 'function' && !workspace.hasDockRecreateFallback()
-        }
-
-        // ONE batched update for both axes (`set()`), never two sequential writes: each write
-        // opens its own vdom round trip on the tab bar, and stacked in-flight bar updates racing
-        // a following reconcile is exactly the collision that duplicated retained chrome on slow
-        // rigs.
-        action?.set({disabled, hidden})
-    }
 }
 
 export default Neo.setupClass(HeaderActionPolicy);

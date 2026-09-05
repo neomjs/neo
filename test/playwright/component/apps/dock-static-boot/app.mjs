@@ -36,11 +36,12 @@ class CountingSweepPolicy extends HeaderActionPolicy {
     }
 
     /**
+     * @param {Neo.component.Base|null} shell
      * @returns {*}
      */
-    syncAll() {
+    bindChrome(shell) {
         this.workspace.sweepCount++;
-        return super.syncAll()
+        return super.bindChrome(shell)
     }
 }
 

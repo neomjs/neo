@@ -461,8 +461,15 @@ class LayoutAdapter extends Base {
      *     | instance | null`; a `null` answer falls through to the item's persisted `blueprint` when
      *     present, otherwise to a recoverable placeholder config — neither constructs an instance.
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
+     * @param {Function} [options.dockHeaderActionBindings] `(nodeId) => {close, lock, pin, 'pop-out',
+     *     reload}`, each `{configKey: formatter}` — the workspace's header-action policy's bindings
+     *     for the engine actions of one tabs node, placed on the action configs as `bind`. Without it
+     *     the projected constants stand.
+     * @param {Neo.state.Provider|null} [options.dockHeaderStateProvider] The workspace's dock state
+     *     provider; when present every tabs node's header toolbar owns a child provider of it, so the
+     *     action bindings resolve header truth there while panes keep the consumer's chain.
      * @param {Function} [options.syncDockLockPane] Workspace-owned lock presentation for a resolved
-     *     rail reveal pane: `(pane, itemId) => void`.
+     *     rail reveal pane: `(pane, itemId) => void`, binding the pane to the item's committed lock.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
      * correlation consumed by this projection; never part of `model`.
      * @param {Number} [options.vesselConversionConvertThreshold] Provisional convert-in threshold;
@@ -549,6 +556,8 @@ class LayoutAdapter extends Base {
                 || options.resolveComponentRef
                 || (() => null),
             stackDragNodeId,
+            dockHeaderActionBindings          : options.dockHeaderActionBindings,
+            dockHeaderStateProvider           : options.dockHeaderStateProvider ?? null,
             syncDockLockPane                  : options.syncDockLockPane,
             tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
             vesselConversionConvertThreshold  : options.vesselConversionConvertThreshold,
@@ -1078,8 +1087,8 @@ class LayoutAdapter extends Base {
         // invite a per-item action LIST, and a list that changes between projections replaces the
         // action group — destroying the stable instances `actionVisibilityChange` consumers such as
         // tab Overflow depend on. The engine's own close action varies per active item without that
-        // cost by keeping one instance and moving `hidden` (`HeaderActionPolicy#syncCloseAction`); a host
-        // needing per-item behaviour has the same mechanism, on actions it owns.
+        // cost by keeping one instance and binding `hidden` to the header truth the workspace
+        // publishes; a host needing per-item behaviour has the same mechanism, on actions it owns.
         const hostActions = context.resolveDockHeaderActions?.(nodeId) || [],
               seen        = new Set(),
               // Every action name is reserved exactly while its projection flag is on. A Map (not
@@ -1120,9 +1129,15 @@ class LayoutAdapter extends Base {
             seen.add(name)
         }
 
-        const tips = context.dockActionTooltips || {},
+        // The engine actions bind their runtime state: the workspace's header-action policy hands one
+        // formatter per config key, closed over this node, and the header's own provider (a child
+        // of the workspace's dock provider, see the returned `headerToolbar`) runs them as Effects.
+        // The constants below are the first paint; the bindings own every later change. Without a
+        // workspace (a direct adapter consumer) there are no bindings and the constants stand.
+        const bindings = context.dockHeaderActionBindings?.(nodeId) || {},
+              tips     = context.dockActionTooltips || {},
               // Only a present key becomes a config: an absent tooltip must not write `tooltip: undefined`.
-              tip  = key => tips[key] != null ? {tooltip: tips[key]} : {};
+              tip      = key => tips[key] != null ? {tooltip: tips[key]} : {};
 
         const headerActions = [
             ...hostActions,
@@ -1134,6 +1149,7 @@ class LayoutAdapter extends Base {
             ...(context.enableDockLockAction ? [{
                 action            : 'lock',
                 actionLabel       : 'lock',
+                bind              : bindings.lock,
                 hidden            : !activeItemId || context.items[activeItemId]?.lockable === false,
                 iconCls           : context.dockLockIconCls,
                 ntype             : 'toolbar-action-button',
@@ -1146,14 +1162,15 @@ class LayoutAdapter extends Base {
             }] : []),
             // Reload follows lock in the frozen family order (lock · reload · pin · maximize — close
             // always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
-            // CONSTANT true here — per-item availability must ride the ONE retained instance's
-            // runtime state (`HeaderActionPolicy#syncReloadAction`, the `syncCloseAction`
-            // pattern), never this config: a row that varies between projections changes the
+            // CONSTANT true here — per-item availability rides the ONE retained instance's
+            // binding (the pane's published `dockReload()` contract and the host's recreate
+            // fallback), never this config: a row that varies between projections changes the
             // actions array, and replacing the action group mid-reconcile is exactly what the
-            // stable-instance note below forbids. Fresh boots reveal through the workspace's
-            // shell-walk sync, which reaches chrome the reconciler retained nothing of.
+            // stable-instance note below forbids. A fresh boot reveals it the moment the header
+            // truth is published, on chrome the reconciler retained nothing of.
             ...(context.enableDockReloadAction ? [{
                 action : 'reload',
+                bind   : bindings.reload,
                 hidden : true,
                 iconCls: 'fa fa-rotate-right',
                 ...tip('reload')
@@ -1170,8 +1187,9 @@ class LayoutAdapter extends Base {
                 // collapse the model or the projection would refuse: no active item, an item whose
                 // policy forbids pinning (`Operations.setItemAutoHidden` rejects `pinnable: false`),
                 // or a center-owned item (§2.7 — center never rails, main content does not auto-hide).
-                // `HeaderActionPolicy#syncPinAction` recomputes exactly this on every active-item change.
-                hidden    : !activeItemId
+                // The binding recomputes exactly this whenever the active item or its edge changes.
+                bind  : bindings.pin,
+                hidden: !activeItemId
                     || context.items[activeItemId]?.pinnable === false
                     || !WorkspaceDocument.findOwningEdge({nodes: context.nodes}, activeItemId),
                 // Like maximize → minimize, the glyph names the NEXT action, not current state:
@@ -1190,6 +1208,7 @@ class LayoutAdapter extends Base {
             // header that pre-guessed the host's answer would hide a control that would have worked.
             ...(context.enableDockPopOutAction ? [{
                 action : 'pop-out',
+                bind   : bindings['pop-out'],
                 hidden : !activeItemId || !context.dockPopOutActionAvailable,
                 iconCls: context.dockPopOutIconCls,
                 ...tip('popOut')
@@ -1213,6 +1232,7 @@ class LayoutAdapter extends Base {
             }] : []),
             ...(context.enableDockCloseAction ? [{
                 action    : 'close',
+                bind      : bindings.close,
                 contextual: false,
                 hidden    : !activeItemId
                     || context.items[activeItemId]?.closable === false
@@ -1246,6 +1266,10 @@ class LayoutAdapter extends Base {
             // (below), cross-zone drops report their release point to `onDockCrossZoneDrop` so the owner can
             // hit-test the target zone and commit a `moveItem`. Still one drag system — no parallel pipeline.
             headerToolbar : {
+                // The header owns a child of the workspace's dock provider, so its action bindings
+                // resolve header truth there while the panes below keep the consumer's provider chain.
+                // Absent for a direct adapter consumer, whose actions then keep their constants.
+                ...(context.dockHeaderStateProvider && {stateProvider: {parent: context.dockHeaderStateProvider}}),
                 // The overflow plugin publishes its repartition as a start/idle pair on this toolbar; a
                 // repartition removes and restores header nodes, so it enters the dock motion signal like
                 // any motion does — counted, instance-keyed, fail-safe — and a consumer waiting for

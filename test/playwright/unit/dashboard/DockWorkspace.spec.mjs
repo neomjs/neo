@@ -415,20 +415,19 @@ Neo.setupClass(HostActionWorkspace);
 Neo.setupClass(HostBothActionsWorkspace);
 
 /**
- * Observes the boot sweep on BOTH axes: when it ran, and what it did.
+ * Observes the boot registration on BOTH axes: when it ran, and what the mount path wrote.
  *
- * The log alone is not a witness — it survives deleting the consumed `super` call, so it certifies
- * scheduling and nothing else. Every arm below therefore also reads the projected `reload` action,
- * whose row is projection-CONSTANT while its `hidden` state is pane-dependent: a placeholder pane
- * owns no `dockReload()`, so the action projects visible and only this sweep can hide it. Deleting
- * the `super` call leaves the log intact and reds the state assertions, which is the point.
+ * The log alone is not a witness — it certifies scheduling and nothing else. Every arm below
+ * therefore also reads the projected `close` action after the model changed underneath the static
+ * projection: only the mount path's publish can reconcile the two, and it runs beside this
+ * registration, so a mount path that skipped the boot work reds the state assertions too.
  */
 class SweepWitnessPolicy extends HeaderActionPolicy {
     static config = {className: 'Test.Unit.Dashboard.DockWorkspace.SweepWitnessPolicy'}
 
-    syncAll() {
+    bindChrome(shell) {
         this.workspace.sweepLog.push('sweep');
-        return super.syncAll()
+        return super.bindChrome(shell)
     }
 }
 
@@ -2513,9 +2512,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect([closeAction.hidden, pinAction.hidden], 'the host owns their initial visibility')
             .toEqual([false, false]);
 
-        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
+        workspace.dockHeaderActionPolicy.bindChrome(workspace.items[0]);
 
-        expect([closeAction.hidden, pinAction.hidden], 'the reconciliation sweep leaves host names alone')
+        expect([closeAction.hidden, pinAction.hidden], 'the published header truth leaves host names alone — nothing binds them')
             .toEqual([false, false]);
 
         workspace.onDockActiveIndexChange({dockNodeId: 'center-tabs', tabContainer: center});
@@ -2554,11 +2554,13 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(moved.errors, 'the move itself is a clean commit').toEqual([]);
         workspace.onDockZoneDocumentChange(moved.document, descriptor, inspector);
 
-        // The stale window: the model says center, the chrome still says right, and the action that
-        // reads `false` above has not been re-synced yet.
+        // No stale window any more: the commit published the header truth, and the retained action
+        // — bound to its header's active item and that item's edge — re-evaluated at the boundary,
+        // before any reconciliation. The dispatch below still decides from the document, because a
+        // host can always bypass the hidden flag.
         expect(WorkspaceDocument.findOwningEdge(workspace.dockModel, 'inspector'), 'the model moved it to center')
             .toBe(null);
-        expect(pinAction.hidden, 'the retained action is still visible — that is the window').toBe(false);
+        expect(pinAction.hidden, 'the retained action refuses at the commit boundary').toBe(true);
 
         const refused = workspace.onDockHeaderAction({
             action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
@@ -2569,9 +2571,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(workspace.getDockZoneDocument().items.inspector.autoHidden, 'and commits nothing')
             .toBeUndefined();
 
-        // Once the deferred sweep does run, the action agrees with the document on its own.
+        // Once the refresh settled, the center header agrees with the document on its own.
         await workspace.refreshPromise;
-        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(tabs.get('center-tabs')?.getActionItem('pin')?.hidden ?? true,
             'a center-owned pane offers no collapse').toBe(true)
@@ -3662,42 +3663,27 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             held.destroy()
         });
 
-        test('the post-commit sweep re-evaluates pop-out, so it survives a layout commit', () => {
-            class PopOutSweepPolicy extends HeaderActionPolicy {
-                static config = {className: 'Test.Unit.Dashboard.DockWorkspace.PopOutSweepPolicy'}
+        test('pop-out is bound like every sibling action, so a capability or active-item change reaches the retained instance', () => {
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockPopOutAction: true});
 
-                // Deliberately does NOT call super: the defect is that the SWEEP never reached this
-                // action at all, so the witness is whether it is invoked — not what it computes.
-                // Calling super would make the arm red on the base class missing the method, which
-                // is a different (and weaker) claim.
-                syncPopOutAction(tabContainer) {
-                    this.workspace.popOutSyncLog.push(tabContainer)
-                }
-            }
+            const side   = tabsOf(workspace.items[0]).get('side-tabs'),
+                  popOut = side.getActionItem('pop-out');
 
-            Neo.setupClass(PopOutSweepPolicy);
+            // pop-out was the one engine action with no sync. Its hidden state was projected once and
+            // then lived on a RETAINED instance, so it was correct at boot and silently gone after the
+            // first commit — measured on a real consumer as the control disappearing from the header
+            // after one addTab plus one close. Bound, the same instance follows the published truth.
+            expect(popOut, 'projected once').toBeTruthy();
+            expect(popOut.hidden, 'no vessel can open in this rig, so it is withheld').toBe(true);
 
-            class PopOutSweepWitness extends PlainWorkspace {
-                static config = {
-                    className             : 'Test.Unit.Dashboard.DockWorkspace.PopOutSweepWitness',
-                    dockHeaderActionPolicy: {module: PopOutSweepPolicy}
-                }
+            workspace.dockStateProvider.setData('popOutAvailable', true);
 
-                popOutSyncLog = []
-            }
+            expect(popOut.hidden, 'the capability reaches the retained instance').toBe(false);
+            expect(side.getActionItem('pop-out'), 'the same instance, the group was not replaced').toBe(popOut);
 
-            Neo.setupClass(PopOutSweepWitness);
+            workspace.dockStateProvider.setData('nodes.side-tabs.activeItemId', null);
 
-            workspace = Neo.create(PopOutSweepWitness, {dockModel: createDocument()});
-
-            workspace.dockHeaderActionPolicy.syncAll();
-
-            // close, lock, pin and reload were all swept; pop-out was the one engine action with no
-            // sync. Its hidden state is projected once and then lives on a RETAINED instance, so it
-            // was correct at boot and silently gone after the first commit — measured on a real
-            // consumer as the control disappearing from the header after one addTab plus one close.
-            expect(workspace.popOutSyncLog.length, 'the sweep reaches pop-out like every sibling action')
-                .toBeGreaterThan(0)
+            expect(popOut.hidden, 'and so does the header presenting no item').toBe(true)
         });
 
         test('a destroyed handle does not shadow the tree', () => {

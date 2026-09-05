@@ -119,8 +119,9 @@ class Rail extends Container {
         resolveComponentRef: null,
         /**
          * Workspace-owned lock presentation callback for the materialized reveal pane:
-         * `(pane, itemId) => void`. Reveal remains policy-free; this callback only derives inert
-         * presentation from committed item truth.
+         * `(pane, itemId) => void`. Reveal remains policy-free; the workspace binds the pane's inert
+         * presentation to the item's committed lock, so a later lock transition reaches the pane
+         * without a second call.
          * @member {Function|null} syncDockLockPane=null
          */
         syncDockLockPane: null,
