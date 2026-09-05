@@ -634,12 +634,13 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
 
         const readId = result => result?.properties?.id ?? result?.id ?? (Array.isArray(result) ? readId(result[0]) : null);
 
-        const [tourBar, statusBar, dockHost] = await Promise.all([
+        const [tourBar, statusBar, topologyBar, dockHost] = await Promise.all([
                 app.queryComponent({reference: 'tour-bar'},   ['id']),
                 app.queryComponent({reference: 'status-bar'}, ['id']),
+                app.queryComponent({reference: 'topology-toolbar'}, ['id']),
                 app.queryComponent({reference: 'dock-host'},  ['id'])
             ]),
-            ids = {dockHostId: readId(dockHost), statusBarId: readId(statusBar), tourBarId: readId(tourBar)};
+            ids = {dockHostId: readId(dockHost), statusBarId: readId(statusBar), topologyBarId: readId(topologyBar), tourBarId: readId(tourBar)};
 
         expect(ids.tourBarId,   'the tour bar must expose a component id (reference: tour-bar)').toBeTruthy();
         expect(ids.statusBarId, 'the status bar must expose a component id').toBeTruthy();

@@ -9,10 +9,12 @@ import DockDragAffordances      from '../../../src/dashboard/dock/interaction/Dr
 import DockDropIndicators       from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockLayoutAdapter        from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import PerspectiveLibrary       from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import TopologyLibrary          from '../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import DockPreview              from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockProjectionReconciler from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../src/ai/client/DockService.mjs';
 import WorkspaceDocument        from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceController      from './WorkspaceController.mjs';
 import Operations               from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../src/dashboard/dock/model/Persistence.mjs';
 import InteractionService       from '../../../src/ai/client/InteractionService.mjs';
@@ -121,6 +123,8 @@ class Workspace extends DockWorkspace {
          * @protected
          */
         className: 'Workstation.view.Workspace',
+        /** @member {Neo.controller.Component} controller */
+        controller: WorkspaceController,
         /**
          * The engine's tear-out lifecycle: the workspace reserves each vessel's slot in its Group and
          * admits the window that binds it. This host supplies the platform seams and its own receipts.
@@ -198,12 +202,15 @@ class Workspace extends DockWorkspace {
      */
     perspectiveStore = null
     /**
-     * Keyed multi-workspace records remain separate from the Workspace layout library. The future
-     * Group owner adopts this collection; until then DockService can capture/list/restore the wire
-     * without widening `PerspectiveLibrary`.
-     * @member {Object|null} topologyCollection=null
+     * One Group's durable keyed records, independent of the single-Workspace perspective library.
+     * @member {Neo.dashboard.dock.persistence.TopologyLibrary|null} topologyLibrary=null
      */
-    topologyCollection = null
+    topologyLibrary = null
+    /**
+     * Validated cold-boot input. Every keyed semantic document exists before its render host mounts.
+     * @member {Object|null} initialTopology=null
+     */
+    initialTopology = null
     /**
      * @member {Neo.ai.client.TourRunner|null} tourRunner=null
      */
@@ -404,6 +411,7 @@ class Workspace extends DockWorkspace {
     #feedIntervalId = null
 
     /**
+     * @summary Creates all cold semantic owners before constructing their presentation.
      * @param {Object} config
      */
     construct(config) {
@@ -411,10 +419,31 @@ class Workspace extends DockWorkspace {
 
         let me = this;
 
-        me.dockModel         = WorkspaceDocument.clone(initialDocument);
+        me.dockModel         = WorkspaceDocument.clone(me.initialTopology?.workspaces[Workspace.MAIN_WORKSPACE_ID] ?? initialDocument);
         me.dockService       = Neo.create(DockService, {});
         me.perspectiveStore  = Neo.create(PerspectiveLibrary, {});
-        me.topologyCollection = Persistence.createTopologyCollection().collection;
+        me.topologyLibrary ??= Neo.create(TopologyLibrary, {
+            collection: Persistence.createTopologyCollection([], {activeLayoutId: null}).collection
+        });
+        me.workspaceSet = createDockWorkspaceSet({documentModel: WorkspaceDocument, manager: TransactionManager, getGroupId: () => me.topologyGroupId});
+        me.registerMainWorkspace();
+
+        for (const [workspaceId, document] of Object.entries(me.initialTopology?.workspaces ?? {})) {
+            if (workspaceId === Workspace.MAIN_WORKSPACE_ID) continue;
+            const state = {
+                committed   : true,
+                disconnected: true,
+                document    : WorkspaceDocument.clone(document),
+                windowId    : null,
+                workspaceId
+            };
+            me.vesselWorkspaces.set(workspaceId, state);
+            me.workspaceSet.register(workspaceId, {
+                componentId: me.id,
+                getDocument: () => state.document,
+                setDocument: value => state.document = value
+            })
+        }
 
         me.tourRunner  = Neo.create(TourRunner, {
             componentId   : me.id,
@@ -435,7 +464,7 @@ class Workspace extends DockWorkspace {
 
         me.appendFeedBatch(25);
 
-        me.add([me.createTourBar(), me.createStatusBar(), {
+        me.add([me.createTourBar(), me.createStatusBar(), me.getController().createTopologyBar(), {
             module: Container,
             cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
             flex  : 1,
@@ -501,9 +530,6 @@ class Workspace extends DockWorkspace {
         // through `afterSetTopologyGroupId`, which registers the main participant then. The Group is
         // kept for the instance's lifetime: releasing the window's slot never loses the documents.
         // Vessel workspaces register lazily on first dock-INTO (Edit 2).
-        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
-        me.registerMainWorkspace();
-
         me.crossWindowParticipationPromise = me.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID)
             .catch(error => {
                 me.lastCrossWindowTransfer = {applied: false, errors: [error.message]};
@@ -918,9 +944,36 @@ class Workspace extends DockWorkspace {
         let me = this;
 
         return me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
+            bindingKey : 'main',
+            componentId: me.id,
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document
         })
+    }
+
+    /**
+     * @summary The topology collection belongs to the Group library, including writes from DockService.
+     * @returns {Object|null}
+     */
+    get topologyCollection() {
+        return this.topologyLibrary?.collection ?? null
+    }
+
+    /**
+     * @summary Routes a validated collection adoption through its one owner.
+     * @param {Object} value
+     */
+    set topologyCollection(value) {
+        this.topologyLibrary.collection = value
+    }
+
+    /**
+     * @summary Saves the current topology through the root controller and waits for durability.
+     * @param {String} [layoutId]
+     * @returns {Promise<Object>}
+     */
+    saveTopology(layoutId) {
+        return this.getController().saveTopology(layoutId)
     }
 
     /**
@@ -1865,7 +1918,7 @@ class Workspace extends DockWorkspace {
         let me       = this,
             state    = me.vesselWorkspaces.get(workspaceId),
             document = state?.document,
-            mainView = state?.app?.mainView;
+            mainView = state?.renderTarget ?? state?.app?.mainView;
 
         if (!state || !document || !mainView || mainView.isDestroyed) return false;
         if (state.host && !state.host.isDestroyed) return false;
@@ -5243,7 +5296,7 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Tears down the workspace-owned producer, tour seams, and cached pane instances.
+     * @summary Tears down the workspace-owned producer, topology library, tour seams, and panes.
      * @param {...*} args
      */
     destroy(...args) {
@@ -5266,6 +5319,7 @@ class Workspace extends DockWorkspace {
         me.tourRunner?.destroy();
         me.dockService?.destroy();
         me.perspectiveStore?.destroy();
+        me.topologyLibrary?.destroy();
         me.dragAffordances?.destroy();
         me.interactionService?.destroy();
         me.vesselProxyEmbodiment?.destroy();

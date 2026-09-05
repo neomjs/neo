@@ -152,6 +152,76 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         expect(Transaction.getBinding(a.groupId, 'main'), 'the root still binds').toEqual({generation: 1, windowId: 'a1', workspaceKey: 'main'})
     });
 
+    test('retained references require an existing Group and release only the exact owner token', () => {
+        const a     = Transaction.bind({windowId: 'a1'}),
+              b     = Transaction.bind({windowId: 'b1'}),
+              first = {owner: 'same-name'},
+              next  = {owner: 'same-name'},
+              group = Transaction.get(a.groupId);
+
+        expect(Transaction.retainGroup('unknown', first)).toBe(false);
+        expect(Transaction.retainGroup(a.groupId, null)).toBe(false);
+        expect(Transaction.retainGroup(a.groupId, undefined)).toBe(false);
+        expect(Transaction.retainGroup(a.groupId, first)).toBe(true);
+        expect(Transaction.retainGroup(a.groupId, first), 'one token retains once').toBe(false);
+        expect(Transaction.retainGroup(a.groupId, next)).toBe(true);
+
+        expect(Transaction.releaseGroup('unknown', first)).toBe(false);
+        expect(Transaction.releaseGroup(b.groupId, first), 'another Group cannot release this ownership').toBe(false);
+        expect(Transaction.releaseGroup(a.groupId, null)).toBe(false);
+        expect(Transaction.releaseGroup(a.groupId, undefined)).toBe(false);
+        expect(Transaction.releaseGroup(a.groupId, {owner: 'same-name'}), 'equal-looking tokens are distinct owners').toBe(false);
+        expect(group.retainedReferences.size).toBe(2);
+        expect(Transaction.get(b.groupId).retainedReferences.size).toBe(0);
+
+        expect(Transaction.releaseGroup(a.groupId, first)).toBe(true);
+        expect(Transaction.releaseGroup(a.groupId, first), 'one release cannot consume another owner').toBe(false);
+        expect(group.retainedReferences.size).toBe(1);
+        expect(group.retainedReferences.has(next)).toBe(true);
+        expect(Transaction.releaseGroup(a.groupId, next)).toBe(true);
+        expect(group.retainedReferences.size).toBe(0);
+        expect(Transaction.get(a.groupId), 'releasing ownership does not force retirement').toBe(group)
+    });
+
+    test('retained references keep an otherwise empty Group through lease expiry while an unreferenced Group retires', async () => {
+        Transaction.reconnectLeaseMs = 20;
+
+        const held     = Transaction.bind({windowId: 'held'}),
+              ordinary = Transaction.bind({windowId: 'ordinary'}),
+              group    = Transaction.get(held.groupId),
+              owner    = {},
+              expired  = new Set();
+        let listener;
+
+        const leasesExpired = new Promise(resolve => {
+            listener = {
+                leaseExpired: ({groupId}) => {
+                    if (groupId === held.groupId || groupId === ordinary.groupId) expired.add(groupId);
+                    if (expired.size === 2) resolve()
+                },
+                scope: {id: 'transaction-spec-retained-reference-lease'}
+            };
+            Transaction.on(listener)
+        });
+
+        try {
+            expect(Transaction.retainGroup(held.groupId, owner)).toBe(true);
+            Transaction.release('held');
+            Transaction.release('ordinary');
+            await leasesExpired;
+
+            expect(Transaction.getBinding(held.groupId, 'main')).toBeNull();
+            expect(group.participants.size).toBe(0);
+            expect(group.history).toBeNull();
+            expect(Transaction.get(held.groupId), 'the owner still retains its headless Group').toBe(group);
+            expect(Transaction.get(ordinary.groupId), 'ordinary empty Groups still retire').toBeNull();
+            expect(Transaction.releaseGroup(held.groupId, owner)).toBe(true);
+            expect(group.retainedReferences.size).toBe(0)
+        } finally {
+            Transaction.un(listener)
+        }
+    });
+
     test('participants are the Group\'s and outlive its bindings: opaque, replaced by key, kept through release and lease expiry, gone only with the Group', async () => {
         Transaction.reconnectLeaseMs = 20;
 

@@ -116,6 +116,21 @@
 
 }
 
+.workstation-topologybar {
+    background   : var(--workstation-panel);
+    border-bottom: 1px solid var(--workstation-line);
+    gap          : 6px;
+    padding      : 6px 12px;
+
+    .neo-button {
+        --button-background-color      : var(--workstation-panel-2);
+        --button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --button-border                : 1px solid var(--workstation-line);
+        --button-height                : 32px;
+        --button-text-color            : var(--workstation-ink);
+    }
+}
+
 .workstation-tourbar {
     --button-height: 34px;
 

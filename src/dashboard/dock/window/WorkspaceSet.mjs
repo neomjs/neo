@@ -27,15 +27,16 @@
  *   is it now" — reconcile ordering, generation guards, and render-target sync remain the workspace
  *   container's own contract.
  *
- * Dependency-free beyond its two seams — the manager and the Group resolver are injected — so
- * witnesses drive the full contract without a browser or a model import.
+ * The manager, Group resolver and document model are injected. Synchronous adoption remains available;
+ * write() enters the Group's complete transaction protocol without importing its machinery here.
  */
 
 /**
- * Creates the dock's view of one Group's participant membership.
+ * @summary Creates the dock's view of one Group's participant membership and transaction entry.
  * @param {Object} seams
  * @param {Neo.manager.Transaction} seams.manager The worker-wide topology manager.
  * @param {Function} seams.getGroupId `() => String|null` — the host's Group, `null` while its window has not bound.
+ * @param {Object} [seams.documentModel] WorkspaceDocument's pure validate/clone surface, required for writes.
  * @returns {Object} workspaceSet
  * @returns {Function} workspaceSet.adoptAll       `(workspaces)` all-or-nothing adoption of one document per registered key; Boolean.
  * @returns {Function} workspaceSet.adoptTransfer  `({sourceWorkspaceId, sourceDocument, targetWorkspaceId, targetDocument})` both-or-neither pair adoption; Boolean.
@@ -45,8 +46,9 @@
  * @returns {Function} workspaceSet.register       `(workspaceId, {getDocument, setDocument})` registers-or-replaces a participant; Boolean.
  * @returns {Number}   workspaceSet.size           Registered participant count.
  * @returns {Function} workspaceSet.unregister     `(workspaceId)` explicit retirement; Boolean.
+ * @returns {Function} workspaceSet.write          `(workspaces, options)` queued atomic adoption of keyed documents; Promise.
  */
-export function createDockWorkspaceSet({manager, getGroupId}) {
+export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
     const
         groupId     = () => getGroupId?.() ?? null,
         participant = workspaceId => {
@@ -210,7 +212,7 @@ export function createDockWorkspaceSet({manager, getGroupId}) {
         },
 
         /**
-         * Registers-or-replaces one workspace participant in the host's Group. Replacement is
+         * @summary Registers-or-replaces one workspace participant in the host's Group. Replacement is
          * deliberate: a re-embodied vessel re-registers the SAME stable workspace id with fresh
          * accessor seams, and the stale seams must not survive it. Refused while the host has no
          * Group — there is no membership to join yet.
@@ -219,22 +221,99 @@ export function createDockWorkspaceSet({manager, getGroupId}) {
          * @param {Function} seams.getDocument `()` → the workspace's current committed document.
          * @param {Function} [seams.setDocument] `(document)` adopts a committed document; a
          *     participant without one is read-only to `adoptTransfer` (fail closed).
+         * @param {Function} [seams.getRevision] Owner-supplied revision stamp; otherwise reference changes are counted.
+         * @param {Function} [seams.project] Post-commit projection receiving the transaction context.
+         * @param {String} [seams.bindingKey=workspaceId] Window slot whose generation fences this document.
+         * @param {String} [seams.componentId] Opaque live owner lookup; excluded from captured document truth.
          * @returns {Boolean} true when registered
          */
-        register(workspaceId, {getDocument, setDocument} = {}) {
+        register(workspaceId, {getDocument, setDocument, getRevision, project, bindingKey = workspaceId, componentId} = {}) {
             const id = groupId();
 
-            if (!id || !workspaceId || typeof workspaceId !== 'string' || typeof getDocument !== 'function') {
+            if (!id || !workspaceId || typeof workspaceId !== 'string' || typeof getDocument !== 'function' ||
+                (getRevision !== undefined && typeof getRevision !== 'function')) {
                 return false
             }
 
+            let initialized = false, lastDocument, revision = 0;
+
+            // Registration never reads a document: the first transaction establishes the reference.
+            const observeDocument = () => {
+                const value = getDocument();
+                if (!getRevision && initialized && value !== lastDocument) revision++;
+                initialized = true;
+                lastDocument = value;
+                return value
+            };
+            const cloneDocument = value => {
+                if (typeof documentModel?.clone !== 'function' || typeof documentModel?.validate !== 'function') {
+                    throw new TypeError('WorkspaceSet transactions require an injected documentModel')
+                }
+                return documentModel.clone(value)
+            };
+            const entry = {
+                domain     : 'dock',
+                getDocument,
+                setDocument: typeof setDocument === 'function' ? setDocument : null,
+                capture    : () => ({
+                    value     : observeDocument(),
+                    generation: manager.getBinding(id, bindingKey)?.generation || 0,
+                    revision  : getRevision ? getRevision() : revision
+                }),
+                prepare: input => {
+                    const candidate = cloneDocument(input), errors = documentModel.validate(candidate);
+                    if (errors.length) throw new TypeError(`invalid dock document: ${errors.join('; ')}`);
+                    return candidate
+                }
+            };
+
+            if (entry.setDocument) {
+                entry.adopt = (candidate, context) => {
+                    const result = setDocument(cloneDocument(candidate), context);
+                    if (result === false || result?.then) return result;
+                    observeDocument();
+                    return result
+                };
+                entry.compensate = (captured, context) => {
+                    const result = setDocument(cloneDocument(captured.value), context);
+                    if (result === false || result?.then) return result;
+                    lastDocument = getDocument();
+                    initialized = true;
+                    if (!getRevision) revision = captured.revision;
+                    return result
+                }
+            }
+
+            if (typeof project === 'function') entry.project = project;
+            if (componentId !== undefined) entry.componentId = componentId;
+
             return manager.registerParticipant({
-                groupId    : id,
-                participant: {
-                    getDocument,
-                    setDocument: typeof setDocument === 'function' ? setDocument : null
-                },
+                groupId     : id,
+                participant : entry,
                 workspaceKey: workspaceId
+            })
+        },
+
+        /**
+         * @summary Queues keyed document candidates through the Group's participant protocol.
+         * @param {Object<String,Object>} workspaces The workspace keys changed by this transaction.
+         * @param {Object} options Cause, provenance, descriptor and cursorAction for the Group write.
+         * @returns {Promise<Object>} The manager's complete transaction result.
+         */
+        async write(workspaces, {cause, provenance = {}, descriptor = {}, cursorAction = 'append'} = {}) {
+            const id = groupId();
+            if (!id) throw new Error('WorkspaceSet.write requires a bound Group');
+            if (!workspaces || typeof workspaces !== 'object' || Array.isArray(workspaces) ||
+                (Object.getPrototypeOf(workspaces) !== Object.prototype && Object.getPrototypeOf(workspaces) !== null)) {
+                throw new TypeError('WorkspaceSet.write requires documents keyed by workspace')
+            }
+            return manager.write({
+                groupId: id,
+                cause,
+                provenance,
+                descriptor,
+                cursorAction,
+                changes: Object.entries(workspaces).map(([workspaceKey, input]) => ({workspaceKey, input}))
             })
         },
 

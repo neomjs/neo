@@ -1,5 +1,6 @@
 import Manager       from './Base.mjs';
 import StateProvider from '../state/Provider.mjs';
+import Commit        from './transaction/Commit.mjs';
 
 /**
  * @summary The worker-side authority for logical topology Groups, their window bindings and their history.
@@ -298,24 +299,25 @@ class Transaction extends Manager {
     }
 
     /**
-     * Registers a new Group. The id is minted here unless a carrier presents one this worker never saw.
-     * The history bound is read now: a Group born at depth zero stays without history.
+     * @summary Registers a new Group. The id is minted here unless a carrier presents one this worker never saw.
+     * The default history bound is sampled now; the Group may choose its own before loading history.
      * @param {String} [groupId]
      * @returns {Object} The Group record: `{id, bindings, createdAt, participants, historyDepth, history,
-     *   historyReady, provider, queue}`
+     *   historyReady, provider, queue, retainedReferences}`
      * @protected
      */
     createGroup(groupId=crypto.randomUUID()) {
         const group = {
-            bindings    : new Map(),
-            createdAt   : Date.now(),
-            history     : null,
-            historyDepth: this.historyDepth,
-            historyReady: null,
-            id          : groupId,
-            participants: new Map(),
-            provider    : null,
-            queue       : Promise.resolve()
+            bindings          : new Map(),
+            createdAt         : Date.now(),
+            history           : null,
+            historyDepth      : this.historyDepth,
+            historyReady      : null,
+            id                : groupId,
+            participants      : new Map(),
+            provider          : null,
+            queue             : Promise.resolve(),
+            retainedReferences: new Set()
         };
 
         this.register(group);
@@ -480,48 +482,9 @@ class Transaction extends Manager {
             group.history = Neo.create(History, {depth: group.historyDepth});
 
             return group.history
-        })
-    }
-
-    /**
-     * Moves a Group's cursor on its queue — after the row was applied. The row a move would return is
-     * read first, `apply` runs with it inside the queued step, and only when it resolved does the cursor
-     * move and the provider publish; a rejected application leaves cursor and provider where they were,
-     * so nothing ever reads a moved cursor as a completed undo before the application held.
-     * @param {String} groupId
-     * @param {String} direction `undo` or `redo`
-     * @param {Function} apply Receives the row; may be async
-     * @returns {Promise<Object|null>}
-     * @protected
-     */
-    moveCursor(groupId, direction, apply) {
-        let me    = this,
-            group = me.get(groupId);
-
-        if (!group) {
-            return Promise.reject(new Error(`${me.className}#${direction}: unknown Group ${groupId}`))
-        }
-
-        if (typeof apply !== 'function') {
-            return Promise.reject(new Error(`${me.className}#${direction}: apply(row) is required — the cursor moves only after the row was applied`))
-        }
-
-        return me.enqueue(group, async () => {
-            me.assertLive(group, direction);
-
-            const row = group.history?.peek(direction) ?? null;
-
-            if (!row) {
-                return null
-            }
-
-            await apply(row);
-
-            me.assertLive(group, direction);
-            group.history[direction]();
-            me.publishHistory(group);
-
-            return row
+        }).catch(error => {
+            group.historyReady = null;
+            throw error
         })
     }
 
@@ -567,15 +530,17 @@ class Transaction extends Manager {
     }
 
     /**
-     * Re-applies the row after a Group's cursor and, once `apply` resolved, moves the cursor onto it.
-     * Resolves to that row, or `null` when there is nothing to redo or the Group keeps no history.
+     * @summary Re-applies the next row through the complete compensating participant protocol.
      * @param {Object} data
      * @param {String} data.groupId
-     * @param {Function} data.apply Receives the row to re-apply; may be async — a rejection leaves the cursor
-     * @returns {Promise<Object|null>}
+     * @param {String} [data.cause='redo']
+     * @param {Object} [data.provenance={}]
+     * @param {Object[]} [data.effects=[]]
+     * @returns {Promise<Object>} The same result as write(); row is null at the cursor bound.
      */
-    redo({groupId, apply}) {
-        return this.moveCursor(groupId, 'redo', apply)
+    redo({groupId, cause = 'redo', provenance = {}, effects = [], apply}) {
+        if (apply !== undefined) return Promise.reject(new TypeError('redo applies registered participants; an external apply callback is not supported'));
+        return this.write({groupId, cause, provenance, effects, cursorAction: 'redo'})
     }
 
     /**
@@ -601,58 +566,61 @@ class Transaction extends Manager {
     }
 
     /**
-     * Applies the reverse of the row at a Group's cursor and, once `apply` resolved, moves the cursor
-     * back. Resolves to that row, or `null` when there is nothing to undo or the Group keeps no history.
+     * @summary Reverses the current row through the complete compensating participant protocol.
      * @param {Object} data
      * @param {String} data.groupId
-     * @param {Function} data.apply Receives the row to reverse; may be async — a rejection leaves the cursor
-     * @returns {Promise<Object|null>}
+     * @param {String} [data.cause='undo']
+     * @param {Object} [data.provenance={}]
+     * @param {Object[]} [data.effects=[]]
+     * @returns {Promise<Object>} The same result as write(); row is null at the cursor bound.
      */
-    undo({groupId, apply}) {
-        return this.moveCursor(groupId, 'undo', apply)
+    undo({groupId, cause = 'undo', provenance = {}, effects = [], apply}) {
+        if (apply !== undefined) return Promise.reject(new TypeError('undo applies registered participants; an external apply callback is not supported'));
+        return this.write({groupId, cause, provenance, effects, cursorAction: 'undo'})
     }
 
     /**
-     * Admits one transaction to a Group. The call joins the Group's queue; at its head the history module
-     * is awaited if the Group keeps history — before any participant mutation — the descriptor is checked
-     * against what the history admits, `adopt` runs with it, the frozen row is appended after the cursor
-     * and the provider is published. The descriptor is enqueued exactly once. An `adopt` that throws
-     * appends nothing and leaves the cursor where it was; the queue moves on to the next write.
-     *
-     * The body of this step is provisional and owned by the atomic-commit leaf: the participant protocol
-     * (prepare every participant → adopt all with compensation → append the row → move the cursor →
-     * publish one snapshot → release the queue) lands here as ONE step under ONE owner, compensation
-     * across a failed append included. Nothing outside this method may depend on its parts being
-     * separate steps; the queue, the barrier and the History are the primitives it composes.
-     * @param {Object} data
-     * @param {String} data.groupId
-     * @param {Object} data.descriptor Plain data describing the transaction — it becomes the history row
-     * @param {Function} [data.adopt] The participant-mutation slot; receives the descriptor, may be async
-     * @returns {Promise<{result: *, row: Object|null}>} `result` is what `adopt` returned; `row` the frozen
-     *   retained row, or `null` for a Group that keeps no history
+     * @summary Captures and prepares at the queue head, then commits participants, history and snapshot
+     * in one compensating critical section. Request data is copied at admission; participants remain
+     * live owners until capture. Presentation runs after queue release and cannot reject the commit.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.cause Explicit reason for this write, separate from cursorAction.
+     * @param {Object} [request.provenance={}] Plain origin metadata.
+     * @param {Object} [request.descriptor={}] Plain transaction metadata.
+     * @param {Object[]} [request.changes=[]] Unique {workspaceKey, input} entries.
+     * @param {String} [request.cursorAction='append'] append, preserve, undo or redo.
+     * @param {Object[]} [request.effects=[]] {effectId, run} callbacks, invoked after semantic commit.
+     * @returns {Promise<Object>} {row, snapshot, transactionId, notificationErrors}; row/snapshot may be null.
      */
-    write({groupId, descriptor, adopt}) {
+    write(request) {
         let me    = this,
-            group = me.get(groupId);
+            group = me.get(request.groupId);
 
         if (!group) {
-            return Promise.reject(new Error(`${me.className}#write: unknown Group ${groupId}`))
+            return Promise.reject(new Error(`${me.className}#write: unknown Group ${request.groupId}`))
         }
 
-        return me.enqueue(group, async () => {
-            me.assertLive(group, 'write');
+        try {
+            request = Object.freeze({
+                ...request,
+                changes   : Commit.copy(request.changes ?? []),
+                descriptor: Commit.copy(request.descriptor ?? {}),
+                provenance: Commit.copy(request.provenance ?? {}),
+                effects   : (request.effects ?? []).map(effect => Object.freeze({...effect}))
+            })
+        } catch (error) {
+            return Promise.reject(error)
+        }
 
-            const history = await me.loadHistory(group);
-
-            me.assertLive(group, 'write');
-            history?.assertRow(descriptor);
-
-            const result = await adopt?.(descriptor),
-                  row    = history ? history.append(descriptor) : null;
-
-            row && me.publishHistory(group);
-
-            return {result, row}
+        return me.enqueue(group, () => Commit.run(me, group, request)).then(result => {
+            Commit.complete(me, group, result);
+            return {
+                row               : result.row,
+                snapshot          : result.snapshot,
+                transactionId     : result.transactionId,
+                notificationErrors: result.notificationErrors.map(error => error.message)
+            }
         })
     }
 
@@ -728,6 +696,16 @@ class Transaction extends Manager {
     }
 
     /**
+     * @summary Releases one exact ownership token without deciding whether the Group may retire.
+     * @param {String} groupId
+     * @param {*} reference The same non-null token supplied to retainGroup().
+     * @returns {Boolean} Whether that token was retained and removed.
+     */
+    releaseGroup(groupId, reference) {
+        return reference != null && (this.get(groupId)?.retainedReferences.delete(reference) ?? false)
+    }
+
+    /**
      * Reserves a slot for a window the caller is about to open. The returned identity is what the opener
      * writes into the child's carrier; the child's `connect` then binds with the reserved token. A slot
      * with a live binder cannot be reserved.
@@ -760,6 +738,21 @@ class Transaction extends Manager {
         me.startLease(group, binding);
 
         return {generationToken: binding.generationToken, groupId, workspaceKey}
+    }
+
+    /**
+     * @summary Retains a Group for an opaque owner independently of windows, participants and history.
+     * @param {String} groupId
+     * @param {*} reference A non-null ownership token, compared by Set identity.
+     * @returns {Boolean} Whether a new token was retained; duplicates and absent Groups return false.
+     */
+    retainGroup(groupId, reference) {
+        const group = this.get(groupId);
+
+        if (!group || reference == null || group.retainedReferences.has(reference)) return false;
+
+        group.retainedReferences.add(reference);
+        return true
     }
 
     /**
@@ -831,7 +824,7 @@ class Transaction extends Manager {
     }
 
     /**
-     * Holds a released or reserved slot for its lineage; on expiry the slot is free.
+     * @summary Holds a released or reserved slot for its lineage; on expiry the slot is free.
      * @param {Object} group
      * @param {Object} binding
      * @protected
@@ -849,13 +842,11 @@ class Transaction extends Manager {
                 group.bindings.delete(binding.workspaceKey);
                 me.fire('leaseExpired', {groupId: group.id, workspaceKey: binding.workspaceKey});
 
-                // A Group with no binding, no participant and no retained history row holds nothing this
-                // manager keeps for it, so letting it go loses nothing. A Group whose participants or rows
-                // outlive its last window is not empty: its documents are still owned, its history is
-                // still the truth of what they did. Conditional, lossless retirement of a Group that DOES
-                // hold state is a later contract; this only stops closed windows from leaving empty Groups
-                // behind in a long-lived worker.
-                if (group.bindings.size === 0 && group.participants.size === 0 && !group.history?.count && me.get(group.id) === group) {
+                // Only empty, unreferenced Groups may expire automatically. Owners decide when a
+                // Group retaining participants, history or external references can be retired.
+                if (group.bindings.size === 0 && group.participants.size === 0 &&
+                    group.retainedReferences.size === 0 && !group.history?.count && me.get(group.id) === group
+                ) {
                     me.retireGroup(group.id);
                     me.fire('groupRetired', {groupId: group.id})
                 }

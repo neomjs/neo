@@ -355,6 +355,24 @@ async function runNativeWindowRouteProbe(scenario) {
             const empty    = WorkerManager.readTopologyIdentity();
             const accepted = Main.setTopologyIdentity({generationToken: 't1', groupId: 'g1', workspaceKey: 'main'});
             const carried  = WorkerManager.readTopologyIdentity();
+            const foreignClear = Main.clearTopologyIdentity({groupId: 'unrelated'});
+            const protectedCarrier = WorkerManager.readTopologyIdentity();
+            const ownClear = Main.clearTopologyIdentity({groupId: 'g1'});
+            const restored = Main.setTopologyIdentity({...carried, onlyIfEmpty: true});
+            Main.setTopologyIdentity({generationToken: 't2', groupId: 'g2', workspaceKey: 'main'});
+            const staleRestore = Main.setTopologyIdentity({...carried, onlyIfEmpty: true});
+            const newerCarrier = WorkerManager.readTopologyIdentity();
+            const closeWithCarrier = Main.closeTopologyWindow();
+            Main.clearTopologyIdentity({groupId: 'g2'});
+            let closeEffect;
+            const closeEvents = [];
+            globalThis.setTimeout = fn => {closeEffect = fn; return 1};
+            globalThis.close = () => closeEvents.push('close');
+            globalThis.closed = false;
+            globalThis.location.replace = url => closeEvents.push(url);
+            const closeScheduled = Main.closeTopologyWindow();
+            const beforeCloseEffect = closeEvents.length;
+            closeEffect();
             storage.set('neo-topology-identity', '{not json');
             const malformed = WorkerManager.readTopologyIdentity();
             storage.set('neo-topology-identity', JSON.stringify({groupId: 'g1'}));
@@ -381,7 +399,9 @@ async function runNativeWindowRouteProbe(scenario) {
             inherited();
             Main.windowOpen({url: './popup.html', windowName: 'plain'});
             const cleared = !childStorage.has('neo-topology-identity');
-            console.log(JSON.stringify({accepted, carried, cleared, empty, malformed, partial, reserved}))
+            console.log(JSON.stringify({accepted, carried, cleared, empty, malformed, partial, reserved,
+                foreignClear, protectedCarrier, ownClear, restored, staleRestore, newerCarrier,
+                closeWithCarrier, closeScheduled, beforeCloseEffect, closeEvents}))
         } else {
             const
                 events   = [],
@@ -860,6 +880,16 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.malformed, 'a broken record boots a fresh root').toEqual({});
         expect(result.partial, 'an incomplete record boots a fresh root').toEqual({});
         expect(result.reserved, 'the staged child carries the slot its opener reserved').toEqual({generationToken: 't2', groupId: 'g1', workspaceKey: 'popup:documents'});
-        expect(result.cleared, 'a child opened without a reservation boots as its own root').toBe(true)
+        expect(result.cleared, 'a child opened without a reservation boots as its own root').toBe(true);
+        expect(result.foreignClear).toBe(false);
+        expect(result.protectedCarrier).toEqual(result.carried);
+        expect(result.ownClear).toBe(true);
+        expect(result.restored, 'a partial close can compensate an emptied carrier').toBe(true);
+        expect(result.staleRestore, 'compensation cannot overwrite a newer Group').toBe(false);
+        expect(result.newerCarrier.groupId).toBe('g2');
+        expect(result.closeWithCarrier).toBe(false);
+        expect(result.closeScheduled).toBe(true);
+        expect(result.beforeCloseEffect, 'the reply precedes the close effect').toBe(0);
+        expect(result.closeEvents).toEqual(['close', 'about:blank'])
     })
 });

@@ -77,29 +77,33 @@ export function intersectsRect(first, second) {
  * displacement broke: when the indicator layer rooted at the viewport instead of the host,
  * the header bands were the first surface it bled into.
  *
- * Asserts: tourBar.bottom = statusBar.top, statusBar.bottom = dockHost.top (adjacency, ±1px),
+ * Asserts adjacency through tour, status and topology bars into the dock host (±1px),
  * and the dock host reaches the window's bottom edge.
  *
  * @param {Object} app the connected neuralLink app wrapper
- * @param {Object} ids {tourBarId, statusBarId, dockHostId} component ids (the tour bar needs
+ * @param {Object} ids {tourBarId, statusBarId, topologyBarId, dockHostId} component ids (the tour bar needs
  *   `reference: 'tour-bar'` on the workspace — added with this family)
  * @param {Object} [options] {viewportHeight} expected window inner height; omit to skip the
  *   bottom-edge leg (e.g. when the host's own bottom chrome is intentional)
  */
-export async function assertBootContainmentChain(app, {tourBarId, statusBarId, dockHostId}, {viewportHeight} = {}) {
-    const rects  = await readComponentRects(app, [tourBarId, statusBarId, dockHostId]),
-          tour   = rects[tourBarId],
-          status = rects[statusBarId],
-          host   = rects[dockHostId];
+export async function assertBootContainmentChain(app, {tourBarId, statusBarId, topologyBarId, dockHostId}, {viewportHeight} = {}) {
+    const rects    = await readComponentRects(app, [tourBarId, statusBarId, topologyBarId, dockHostId]),
+          tour     = rects[tourBarId],
+          status   = rects[statusBarId],
+          topology = rects[topologyBarId],
+          host     = rects[dockHostId];
 
     expect(tour?.height,   'tour bar must render with height').toBeGreaterThan(0);
     expect(status?.height, 'status bar must render with height').toBeGreaterThan(0);
+    expect(topology?.height, 'topology bar must render with height').toBeGreaterThan(0);
     expect(host?.height,   'dock host must render with height').toBeGreaterThan(0);
 
     expect(Math.abs(tour.bottom - status.top),
         'tour bar and status bar must tile without gap or overlap').toBeLessThanOrEqual(1);
-    expect(Math.abs(status.bottom - host.top),
-        'status bar and dock host must tile without gap or overlap').toBeLessThanOrEqual(1);
+    expect(Math.abs(status.bottom - topology.top),
+        'status bar and topology bar must tile without gap or overlap').toBeLessThanOrEqual(1);
+    expect(Math.abs(topology.bottom - host.top),
+        'topology bar and dock host must tile without gap or overlap').toBeLessThanOrEqual(1);
 
     if (viewportHeight !== undefined) {
         expect(Math.abs(host.bottom - viewportHeight),
