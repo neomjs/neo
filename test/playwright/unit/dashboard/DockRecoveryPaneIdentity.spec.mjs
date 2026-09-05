@@ -270,3 +270,119 @@ test.describe.skip('Neo.dashboard.dock.Workspace failed-projection recovery', ()
         expect(projectedPane.isDestroyed, 'the preserved pane was never destroyed').not.toBe(true)
     })
 });
+
+/**
+ * @summary The same state, reached by the failure production actually suffers.
+ *
+ * The parked arm above reaches the retired-staged state by throwing inside the transaction, and the
+ * engine then never returns. That observation cannot be attributed while the only two ways of
+ * producing it are a synchronous throw and a stubbed rejection — neither is a rejected vdom flight,
+ * and both are mine.
+ *
+ * This one fails the way the reported occurrences do. `util.VDom.getVdom` throws
+ * `Component not found for id: …` when a vdom tree still names a component the registry has lost, so
+ * unregistering a mounted child of the staged shell right before the swap makes the REAL flight
+ * reject — same branch, same `swapped === false`, same casualty, no injected control flow.
+ *
+ * Its only job is to decide between two readings of the hang:
+ *   (1) the recovery path does not terminate when the retired shell holds live panes; or
+ *   (2) a throw and a stub corrupt state a real rejection would not.
+ *
+ * ## Result: it answered the hang and FAILED its own control
+ *
+ * It does not hang — it runs to the assertions. So the OOM belongs to the injected control flow, not
+ * to the engine: reading (2).
+ *
+ * But its control `recoveries === ['retired-staged']` came back EMPTY. Unregistering the staged
+ * shell's bar/card ancestor did not make the swap flight reject, so no projection failure occurred and
+ * the recovery never ran. The probe never reached the state it exists to reach, and therefore says
+ * nothing about identity — the poison target is wrong, not the theory.
+ *
+ * Skipped for that reason, and left in place because the next attempt should start from a measurement
+ * of which nodes the host vdom actually carries as `componentId` references, not from another guess.
+ */
+test.describe.skip('Neo.dashboard.dock.Workspace failed-projection recovery — faithful failure', () => {
+    let parent, workspace;
+
+    const
+        originalMoveRetainedTabChrome = DockReconciler.moveRetainedTabChrome,
+        originalWarn                  = console.warn,
+        originalError                 = console.error;
+
+    test.afterEach(() => {
+        DockReconciler.moveRetainedTabChrome = originalMoveRetainedTabChrome;
+        console.warn  = originalWarn;
+        console.error = originalError;
+
+        parent?.destroy?.();
+        parent    = null;
+        workspace = null
+    });
+
+    test('a REAL rejected swap flight reaches the recovery and the repair settles', async () => {
+        const recoveries = [], logs = [];
+        const capture    = (...args) => { logs.push(String(args[0]).split('\n')[0].slice(0, 160)) };
+
+        console.warn  = capture;
+        console.error = capture;
+
+        workspace = Neo.create(DockWorkspace, {dockModel: createDocument()});
+        parent    = await bindAndMount(workspace);
+
+        await settleRefreshTail(workspace);
+
+        const projectedPane = paneFor(workspace, 'side-tabs', 'terminal');
+
+        expect(projectedPane, 'the first projection built a pane for the item').toBeTruthy();
+
+        const projectedPaneId = projectedPane.id;
+
+        workspace.on('dockProjectionFailed', data => recoveries.push(data.recovery));
+
+        let injected = false, poisonedId = null, paneShellIndexAtFailure = null;
+
+        DockReconciler.moveRetainedTabChrome = function(...args) {
+            const result = originalMoveRetainedTabChrome.apply(this, args);
+
+            if (!injected) {
+                injected = true;
+
+                let node = projectedPane, hops = 0;
+
+                while (node && hops++ < 12) {
+                    const index = workspace.items.indexOf(node);
+
+                    if (index > -1) { paneShellIndexAtFailure = index; break }
+
+                    node = Neo.getComponent(node.parentId)
+                }
+
+                // The poison: a component the staged shell's vdom still names, removed from the
+                // registry but NOT destroyed. The swap flight's `getVdom` walk then throws exactly
+                // the error the reported occurrences carry, from inside the awaited flight.
+                const staged = workspace.items[1],
+                      victim = staged?.getTabBar?.() || Neo.getComponent(projectedPane.parentId);
+
+                if (victim) {
+                    poisonedId = victim.id;
+                    Neo.manager.Instance.unregister(victim)
+                }
+            }
+
+            return result
+        };
+
+        workspace.onDockZoneDocumentChange(moveTerminalAcross(createDocument()));
+
+        await settleRefreshTail(workspace);
+
+        expect(poisonedId,              'a component was actually unregistered').toBeTruthy();
+        expect(paneShellIndexAtFailure, 'the pane was inside the STAGED shell at poisoning time').toBe(1);
+        expect(recoveries,              'a REAL flight rejection routed through the staged-shell recovery').toEqual(['retired-staged']);
+
+        const repairedPane = paneFor(workspace, 'editor-tabs', 'terminal');
+
+        expect(repairedPane, 'the repair projected the item').toBeTruthy();
+        expect(repairedPane.id, 'the repair resolved the SAME pane the recovery kept alive').toBe(projectedPaneId)
+    })
+});
