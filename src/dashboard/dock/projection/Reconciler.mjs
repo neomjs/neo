@@ -463,7 +463,8 @@ class Reconciler extends Base {
             host.update();
             await host.promiseUpdate()
         } catch (error) {
-            if (!initialProjection) {
+            // The destroy sentinel is a Symbol; annotating it throws, and a destroyed host has nothing to repair into.
+            if (!initialProjection || error === Neo.isDestroyed) {
                 throw error
             }
 
@@ -558,6 +559,11 @@ class Reconciler extends Base {
                 await host.promiseUpdate()
             }
         } catch (error) {
+            // As in the staging catch above: annotating the Symbol sentinel would cost both it and the recovery.
+            if (error === Neo.isDestroyed) {
+                throw error
+            }
+
             error.isDockProjectionFailure = true;
             error.projectionRecovery      = initialProjection
                 ? await this.settleFailedInitialProjection({host, nextShell, shellIndex})
