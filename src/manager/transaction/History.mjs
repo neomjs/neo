@@ -70,8 +70,9 @@ function deepFreeze(value) {
  * to every depth before it becomes a member. A retained row cannot change — not a nested field, not a
  * whole-field replacement — so the bytes it serializes to are the bytes it was admitted with. The
  * Collection that holds them is owned and private, so the only writes that reach the rows are
- * {@link #append}, {@link #undo} and {@link #redo}; anything a consumer wants mutable (a grid, a Neural
- * Link projection) is a clone fed from {@link #rows}, never this authority.
+ * {@link #append}, {@link #undo} and {@link #redo}, plus queued-write rollback through an issued
+ * {@link #captureState} checkpoint. Anything a consumer wants mutable (a grid, a Neural Link projection)
+ * is a clone fed from {@link #rows}, never this authority.
  *
  * The cursor names the row the Group's current state reflects: `-1` before the first row, or after every
  * retained row was undone. {@link #undo} and {@link #redo} only move the cursor and return the row —
@@ -109,6 +110,13 @@ class History extends Base {
      * @private
      */
     #rows = null
+    /**
+     * Rollback state keyed by the opaque checkpoint held by a queued writer. Weak keys release it
+     * when that writer finishes without rollback; no second retained log survives the token.
+     * @member {WeakMap<Object, Object>} #checkpoints
+     * @private
+     */
+    #checkpoints = new WeakMap()
     /**
      * The index of the row the Group's current state reflects; `-1` before the first row or after undoing
      * every retained row.
@@ -243,6 +251,26 @@ class History extends Base {
     }
 
     /**
+     * @summary Captures the exact rows, cursor and sequence for one queued write's rollback.
+     * @returns {Object} Frozen opaque checkpoint, usable once by this live History only.
+     */
+    captureState() {
+        if (!this.#rows || this.isDestroying) {
+            throw new TypeError(`${this.className}: cannot checkpoint a retired history`)
+        }
+
+        const checkpoint = Object.freeze({});
+
+        this.#checkpoints.set(checkpoint, Object.freeze({
+            cursor  : this.cursor,
+            rows    : Object.freeze(this.rows),
+            sequence: this.sequence
+        }));
+
+        return checkpoint
+    }
+
+    /**
      * A bound that cannot be enforced is refused before the instance exists: construction is the one place
      * a refusal can be a throw without leaving a half-set config behind.
      * @param {Object} config
@@ -272,11 +300,12 @@ class History extends Base {
     }
 
     /**
-     * Releases the owned Collection with the rows.
+     * @summary Releases the owned Collection and invalidates issued checkpoints.
      */
     destroy() {
         this.#rows?.destroy();
         this.#rows = null;
+        this.#checkpoints = new WeakMap();
 
         super.destroy()
     }
@@ -342,6 +371,36 @@ class History extends Base {
         me.cursor++;
 
         return me.getAt(me.cursor)
+    }
+
+    /**
+     * @summary Rolls back one issued checkpoint without cloning rows or publishing a Collection
+     * mutation. The queued writer owns observer publication; a failed restore keeps its token.
+     * @param {Object} checkpoint The unmodified token returned by this History's captureState().
+     */
+    restoreState(checkpoint) {
+        const
+            rows  = this.#rows,
+            state = this.#checkpoints.get(checkpoint);
+
+        if (!rows || this.isDestroying || !state) {
+            throw new TypeError(`${this.className}: checkpoint must belong to this live history`)
+        }
+
+        rows.startUpdate(true);
+
+        try {
+            rows.splice(0, rows.getRange().length);
+            rows.add(state.rows);
+            // Silent update brackets leave count unchanged; restore its public cache explicitly.
+            rows.count = state.rows.length;
+            this.cursor = state.cursor;
+            this.sequence = state.sequence
+        } finally {
+            rows.endUpdate(true)
+        }
+
+        this.#checkpoints.delete(checkpoint)
     }
 
     /**
