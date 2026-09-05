@@ -188,8 +188,9 @@ class Window extends Manager {
      */
     onWindowPositionChange(data) {
         const
-            me   = this,
-            item = me.get(data.windowId);
+            me     = this,
+            item   = me.get(data.windowId),
+            before = item?.outerRect ?? null;
 
         const {chrome, innerRect, outerRect} = me.calculateGeometry(data);
 
@@ -207,6 +208,8 @@ class Window extends Manager {
                 outerRect
             })
         }
+
+        me.fire('positionchange', {windowId: data.windowId, before, after: outerRect, nativeEffect: data.nativeEffect ?? null})
     }
 
     /**

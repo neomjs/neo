@@ -123,7 +123,6 @@ class Commit extends Base {
         const snapshot = this.copy({version: (group.snapshot?.version ?? 0) + 1, participants: values});
         const history  = cursorAction === 'preserve' ? group.history : await manager.loadHistory(group);
         if (cursorAction === 'append') history?.assertRow(rowData);
-        if (cursorAction === 'preserve' && history?.count) throw new Error('preserve is only valid for an empty history baseline');
         manager.assertLive(group, 'write');
         if (group.participants.size !== members.length || members.some(([key, entry]) => {
             if (group.participants.get(key) !== entry) return true;

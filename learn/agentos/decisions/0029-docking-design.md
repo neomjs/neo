@@ -80,6 +80,18 @@ Its durable half lives in the keyed topology envelope; it does not mint a standa
 
 **Fallback is semantic recovery, not geometry:** restoring a detached item whose window cannot be re-created re-enters the item at its `fallbackTarget`; if that node no longer exists, at the nearest surviving ancestor placement; never at stored pixel coordinates.
 
+**Observed placement transactions.** A Group-owned placement participant captures only relative hints.
+Free movement of a document-bearing popup slot appends one before/after row after the native quiet
+period; movement of the main frame rebases the live popup hints in one preserve write, without
+changing history, its cursor or redo tail, and without moving the popups. Headless hints remain
+semantic intent until their render target exists. The main slot has no placement hint.
+
+Undo/redo adopts the relative hint before requesting the native effect. Resulting geometry reports
+carry the request's transaction/effect identity only while that exact native operation owns them;
+they produce an observed receipt rather than another free-movement row. Refusal and screen clamping
+are reported from observed coordinates, and a late result from a retired binding never updates its
+successor. Runtime effect markers, native handles and screen rectangles stay outside persisted hints.
+
 #### The SharedWorker seam — normative state-class table
 
 | State class | Examples | Owner | Persistence |

@@ -202,6 +202,30 @@ test.describe.serial('Neo.manager.Transaction atomic participant writes', () => 
         expect(history.count).toBe(1)
     });
 
+    test('a main-frame rebase preserves existing history, cursor and redo while publishing current hints', async () => {
+        const groupId   = group(), log = [];
+        const placement = participant(groupId, 'placementHints', log);
+        await write({groupId, changes: [{workspaceKey: 'placementHints', input: {count: 100}}]});
+        await write({groupId, changes: [{workspaceKey: 'placementHints', input: {count: 200}}]});
+        await manager.undo({groupId});
+        const history = manager.get(groupId).history, before = JSON.stringify(history.toJSON());
+
+        const result = await write({
+            groupId,
+            cause       : 'main-frame-rebase',
+            cursorAction: 'preserve',
+            changes     : [{workspaceKey: 'placementHints', input: {count: 80}}]
+        });
+
+        expect(placement.state.value.count).toBe(80);
+        expect(result.snapshot.participants.placementHints.count).toBe(80);
+        expect(result.row).toBeNull();
+        expect(JSON.stringify(history.toJSON())).toBe(before);
+        expect(history.canRedo).toBe(true);
+        await manager.redo({groupId});
+        expect(placement.state.value.count).toBe(200)
+    });
+
     test('a cursor update throwing after it moved rolls back participant, cursor and snapshot', async () => {
         const groupId = group(), log = [];
         const a       = participant(groupId, 'a', log);

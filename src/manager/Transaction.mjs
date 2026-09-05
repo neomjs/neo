@@ -583,6 +583,8 @@ class Transaction extends Manager {
      * @summary Captures and prepares at the queue head, then commits participants, history and snapshot
      * in one compensating critical section. Request data is copied at admission; participants remain
      * live owners until capture. Presentation runs after queue release and cannot reject the commit.
+     * Preserve writes publish current state without changing history, including an existing redo tail;
+     * cold hydration and observed reference-frame rebasing use this mode.
      * @param {Object} request
      * @param {String} request.groupId
      * @param {String} request.cause Explicit reason for this write, separate from cursorAction.
