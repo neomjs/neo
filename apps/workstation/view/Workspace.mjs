@@ -1080,7 +1080,9 @@ class Workspace extends DockWorkspace {
                 targetWindowId: windowId
             }),
             resolveNativeWindowDrag: isMain ? movingWindowId => me.resolveNativeTearOutDrag(movingWindowId) : null,
-            restoreDragEmbodiment  : data => me.vesselProxyEmbodiment.restore({
+            // Docking design record §2.3: every window of this root declares the root's Group as its commit authority.
+            resolveOwnershipId   : () => me.resolveTopologyGroup() ?? null,
+            restoreDragEmbodiment: data => me.vesselProxyEmbodiment.restore({
                 itemId        : data.draggedItem?.dockItemId,
                 targetWindowId: windowId
             }),
@@ -1170,6 +1172,7 @@ class Workspace extends DockWorkspace {
 
             delete pane.dockGroupNodeId;
             pane.dockItemId            = itemId;
+            pane.dockSourceOwnershipId = me.resolveTopologyGroup() ?? null;
             pane.dockSourceWorkspaceId = Workspace.MAIN_WORKSPACE_ID;
 
             return {

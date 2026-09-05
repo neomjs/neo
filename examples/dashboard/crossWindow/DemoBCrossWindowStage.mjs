@@ -72,6 +72,8 @@ import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContr
  * @param {Function} seams.reserveVessel `(workspaceKey, flow, windowName) => identity|null` — reserves the
  *     target's slot in the host's Group; the identity rides `windowOpen` into the popup's carrier.
  * @param {Function} seams.resolveGesture `(receipt)` — consumes the host's gesture settlement resolver.
+ * @param {Function} seams.resolveOwnershipId `() => String|null` — the host's topology Group id, the commit
+ *     authority every popup participation declares (docking design record §2.3); `null` while unresolved.
  * @param {Function} seams.revokeVessel `(workspaceKey)` — gives an unbound reservation back.
  * @param {Function} seams.setPopupDocument `(workspaceId, document)`
  * @param {Function} seams.setStagePromise `(workspaceId, promise|null)`
@@ -116,6 +118,7 @@ export function createCrossWindowStage(seams) {
         renderWorkspacePreview,
         reserveVessel,
         resolveGesture,
+        resolveOwnershipId,
         revokeVessel,
         setPopupDocument,
         setStagePromise,
@@ -180,6 +183,7 @@ export function createCrossWindowStage(seams) {
             hitTest           : (localX, localY) => hitTestWorkspace(workspaceId, localX, localY),
             previewFor        : data => renderWorkspacePreview(workspaceId, data),
             previewToOperation,
+            resolveOwnershipId,
             sortGroup,
             windowId,
             workspaceId

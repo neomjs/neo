@@ -678,6 +678,11 @@ class DragCoordinator extends Manager {
             if (targetSortZone?.stableTargetId != null) {
                 return null
             }
+
+            // The legacy door obeys the same ownership admission as the claim pass.
+            if (targetSortZone && !me.admitsOwnership(me.resolveSourceOwnership(sourceSortZone, sourceWindowId), targetSortZone.ownershipId)) {
+                return null
+            }
         }
 
         targetWindow = Window.get(targetWindowId);
@@ -742,6 +747,47 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * @summary The ownership admission of the docking design record's §2.3: may these two surfaces share one
+     * commit authority?
+     *
+     * Two opaque strings the surfaces declared — the coordinator stays dock-blind. A source that declares
+     * no ownership (`undefined`) is outside the Group world and meets only targets that declare none; a
+     * declared `null` is participating but unresolved and matches nothing; two declared ids must be equal.
+     * `sortGroup` answers a different question (protocol compatibility), and the two are never combined.
+     * @param {String|null|undefined} sourceOwnershipId
+     * @param {String|null|undefined} targetOwnershipId
+     * @returns {Boolean}
+     */
+    admitsOwnership(sourceOwnershipId, targetOwnershipId) {
+        if (sourceOwnershipId === undefined) {
+            return targetOwnershipId === undefined
+        }
+
+        return sourceOwnershipId !== null && targetOwnershipId === sourceOwnershipId
+    }
+
+    /**
+     * @summary The ownership a source drags under, read at gesture time.
+     *
+     * A source that declares `ownershipId` answers for itself. A source that does not — the header sort
+     * zone of a dock window — drags under the surface registered for its own window in the same
+     * `sortGroup`: registry identity, not dock semantics. A window with no registered surface drags as
+     * undeclared.
+     * @param {Object} sourceSortZone
+     * @param {String|Number} [sourceWindowId=sourceSortZone.windowId]
+     * @returns {String|null|undefined}
+     */
+    resolveSourceOwnership(sourceSortZone, sourceWindowId=sourceSortZone?.windowId) {
+        if (!sourceSortZone || sourceSortZone.ownershipId !== undefined) {
+            return sourceSortZone?.ownershipId
+        }
+
+        let registered = this.sortZones.get(sourceSortZone.sortGroup)?.get(sourceWindowId);
+
+        return registered && registered !== sourceSortZone ? registered.ownershipId : undefined
+    }
+
+    /**
      * @summary Resolves the gesture's single claimed target among stable-identity zones.
      *
      * The claim pass of the §2.8.1 protocol (docking design record): every registered
@@ -773,12 +819,13 @@ class DragCoordinator extends Manager {
         sourceSortZone,
         sourceWindowId=sourceSortZone.windowId
     }) {
-        let group = this.sortZones.get(sortGroup);
+        let group             = this.sortZones.get(sortGroup),
+            sourceOwnershipId = this.resolveSourceOwnership(sourceSortZone, sourceWindowId);
 
         if (!group) {
             // The group being ABSENT and the group yielding no claim are different failures with
             // different repairs, and a resolver that returns `null` for both cannot say which.
-            this.recordClaimResolution({sortGroup, groupSize: null, outcome: 'group-absent'}, arbiter?.token ?? null);
+            this.recordClaimResolution({sortGroup, groupSize: null, outcome: 'group-absent', sourceOwnershipId}, arbiter?.token ?? null);
             return null
         }
 
@@ -800,6 +847,14 @@ class DragCoordinator extends Manager {
             ) {
                 zone.stableTargetId != null && arbiter.release(zone.stableTargetId);
                 candidates.push({windowId, skipped: 'source-or-excluded'});
+                continue
+            }
+
+            // §2.3 admission (docking design record): a target of another commit authority is outside this gesture's
+            // claim set — it neither claims nor releases here, so two roots with equal stable identities
+            // never meet in one arbiter.
+            if (!this.admitsOwnership(sourceOwnershipId, zone.ownershipId)) {
+                candidates.push({windowId, stableTargetId: zone.stableTargetId ?? null, ownershipId: zone.ownershipId, skipped: 'ownership'});
                 continue
             }
 
@@ -844,6 +899,7 @@ class DragCoordinator extends Manager {
 
         this.recordClaimResolution({
             sortGroup,
+            sourceOwnershipId,
             groupSize      : group.size,
             outcome        : claimed ? 'claimed' : 'no-claim',
             claimedStableId: claimed?.stableId ?? null,
@@ -919,7 +975,7 @@ class DragCoordinator extends Manager {
             if (targetWindowId && targetWindowId !== sourceSortZone.windowId) {
                 let zone = me.sortZones.get(sortGroup)?.get(targetWindowId);
 
-                if (zone && zone.stableTargetId == null) {
+                if (zone && zone.stableTargetId == null && me.admitsOwnership(me.resolveSourceOwnership(sourceSortZone), zone.ownershipId)) {
                     let targetWindow = Window.get(targetWindowId);
 
                     if (zone.acceptsRemoteDrag(screenX - targetWindow.innerRect.x, screenY - targetWindow.innerRect.y)) {
