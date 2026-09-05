@@ -193,12 +193,25 @@ function validateBaseline(baseline, label) {
  * @param {Object<String, Number>} options.headBaseline Baseline in the working tree.
  * @param {{declarations: Map<String, String>, malformed: String[], duplicates: String[]}} options.declarations Parsed PR declarations.
  * @param {Boolean} options.compareBase Whether historical monotonicity is available.
+ * @param {Set<String>|null} [options.changedFiles=null] The in-scope source paths this change
+ * actually touched. Row demands are waived only where the source is untouched **and** its baseline
+ * row is inherited unchanged, because a row that goes stale on the base branch otherwise fails every
+ * unrelated pull request until someone repairs a number nobody involved changed. Source membership
+ * alone is not sufficient: the changed set holds `.mjs` paths only, so a baseline-only change
+ * presents an empty set and could otherwise raise any row unchecked. `null` means no diff scope —
+ * the whole-tree audit, where every path is in scope because there is no diff to be outside of.
+ *
+ * **The deleted-path branch is deliberately NOT scoped**, and the asymmetry is load-bearing:
+ * `changedFilesAtRef` runs `--diff-filter=d`, so a deletion never appears in the changed set. Scoping
+ * that branch would let a pull request delete a baselined file and silently orphan its row — trading
+ * a real guard for a rare transitional block.
  * @param {{target: Number, yellow: Number, red: Number}} options.thresholds Threshold inputs.
  * @returns {{rows: Object[], violations: Object[], unusedDeclarations: String[], malformedDeclarations: String[], monotonicityEvaluated: Boolean}}
  */
 export function evaluateMeasurements({
     measurements,
     baseBaseline = {},
+    changedFiles = null,
     headBaseline = {},
     declarations = parseGrowthDeclarations(''),
     compareBase  = true,
@@ -256,6 +269,28 @@ export function evaluateMeasurements({
         if (measurement.status !== 'measured') {
             row.verdict = 'fail';
             fail(file, `not-measured: ${measurement.error || 'parser did not return a measurement'}.`);
+            return
+        }
+
+        // A change is accountable for what it actually altered. Where BOTH the source and its
+        // baseline row are inherited untouched, the row is REPORTED and never gated — otherwise a
+        // row that went stale on the base branch fails every unrelated pull request, a dependency
+        // bot's included, until a human repairs a number nobody involved changed.
+        //
+        // **Both halves are required, and the second is the one that is easy to miss.** The changed
+        // set is built from in-scope `.mjs` paths, so the baseline JSON can never appear in it: a
+        // baseline-only change presents an EMPTY source set. Waiving on source membership alone
+        // therefore let a change raise any row unchecked, and a later change could then grow that
+        // source under the inflated ceiling and read as a shrink — no declaration required. Two
+        // steps, no source edit in the first, and the growth gate defeated. Requiring the row to be
+        // inherited (`headValue === baseValue`) is what makes "untouched" mean untouched.
+        //
+        // A measurement failure is never waived: it is decided above, so an unparsable inherited
+        // file still fails rather than reporting `not-measured` and exiting 0.
+        //
+        // `changedFiles === null` means no diff scope was supplied (the whole-tree audit), and then
+        // every path is in scope because there is no diff to be outside of.
+        if (changedFiles && !changedFiles.has(file) && headValue === baseValue) {
             return
         }
 
@@ -517,6 +552,7 @@ async function main() {
     try {
         let headBaseline = readBaselineFile(baselinePath, 'HEAD baseline'),
             baseBaseline = {},
+            changedFiles = null,
             compareBase  = false,
             selected;
 
@@ -525,6 +561,9 @@ async function main() {
 
             baseBaseline = baseState.baseline;
             compareBase  = baseState.exists;
+            // Captured before the union below folds the baselines in: after that, `selected` is the
+            // measurement population and no longer says which paths this change actually touched.
+            changedFiles = compareBase ? new Set(changedFilesAtRef(options.base)) : null;
             selected     = compareBase
                 ? changedFilesAtRef(options.base)
                 : await fg(DEFAULT_SCAN_ROOTS.map(root => `${root}/**/*.mjs`), {
@@ -566,6 +605,7 @@ async function main() {
         const result = evaluateMeasurements({
             measurements,
             baseBaseline,
+            changedFiles,
             headBaseline,
             declarations,
             compareBase,
