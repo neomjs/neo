@@ -18,6 +18,38 @@ const fixtureDocument = {
 };
 
 /**
+ * @summary Renders the projection-pass context a lazy-load request was raised in.
+ *
+ * **It never names a primary pass while more than one is pending, and that restraint is the whole
+ * contract.** `refreshDockWorkspace` is async, so `activePasses` is a set of passes that have
+ * ENTERED, in entry order — not a stack of executing frames. Resuming an ordinary pass while a repair
+ * merely sits pending puts the repair last, so any last-entry heuristic names a pass that is not
+ * running and lends the request a `REPAIR` flag that is not its own. An `OVERLAP` hint beside a
+ * confident primary does not repair that; it decorates a false attribution.
+ *
+ * So the renderings are:
+ * - `no active pass` — raised outside any projection; a real answer, not a missing one
+ * - `pass N` / `pass N REPAIR` — exactly one pending context, so attribution is unambiguous
+ * - `ambiguous: pass 1, pass 2 REPAIR` — every pending context with its OWN flag and no primary
+ *
+ * A reader can still draw the cross-pass conclusion from two unambiguous entries; they cannot draw
+ * it from an ambiguous one, which is the correct amount of confidence for what this observes.
+ * @param {Object[]} active Pending pass descriptors, entry order.
+ * @returns {String}
+ */
+const describePassContext = active => {
+    const render = entry => `pass ${entry.id}${entry.isRepair ? ' REPAIR' : ''}`;
+
+    if (!active?.length) {
+        return 'no active pass'
+    }
+
+    return active.length === 1
+        ? render(active[0])
+        : `ambiguous: ${active.map(render).join(', ')}`
+};
+
+/**
  * @summary Browser fixture for a lazy rail item: an edge tabs node with one visible pane and one
  * auto-hidden item whose pane config is a lazy `module` function — the shape a tab container's
  * card layout loads on activation. The module lives in its own file (`LazyPane.mjs`) so that its
@@ -37,17 +69,22 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
     /**
      * Projection passes are numbered in entry order so a load request can name the pass it was
      * raised in. `refreshDockWorkspace` is the pass owner: it builds the projection and hands it to
-     * `Reconciler.reconcileProjection`, whose `resolvedItems` memo lives and dies with that one call.
+     * `Reconciler.reconcileProjection`, which reaches `Reconciler.reconcileTabChrome` — the function
+     * that actually owns the `resolvedItems` memo — exactly once per pass, through either the
+     * stable-topology branch or the full path.
      * @member {Number} passSeq=0
      * @static
      */
     static passSeq = 0
 
     /**
-     * The passes currently executing, innermost last. A stack rather than a scalar because
-     * `refreshDockWorkspace` is async: a repair pass scheduled by `onDockProjectionFailed` can be in
-     * flight while another is still unwinding, and a scalar would silently report the wrong pass for
-     * a request raised during the overlap. Depth > 1 at request time is itself a finding.
+     * The passes that have ENTERED and not yet settled, in entry order.
+     *
+     * Deliberately not described as a stack: `refreshDockWorkspace` is async, so entry order is not
+     * execution order, and the last entry is not the frame whose continuation is running. Reading it
+     * as a stack is what made the first version of {@link describePassContext} attribute a request to
+     * the wrong pass — see that function for the falsifier. Depth > 1 at request time means the
+     * attribution is ambiguous, which is reported rather than resolved.
      * @member {Object[]} activePasses=[]
      * @static
      */
@@ -75,7 +112,20 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
          * @member {String|null} applyOperationJson_=null
          * @reactive
          */
-        applyOperationJson_: null
+        applyOperationJson_: null,
+        /**
+         * Spec trigger for the attribution contract itself: a JSON array of synthetic pass
+         * descriptors, rendered through the same {@link describePassContext} the loader uses and
+         * exposed on {@link #passContextProbeResult}.
+         *
+         * Synthetic on purpose. The case that matters — an ordinary pass resuming while a repair
+         * stays suspended — is a property of the pending SET, and driving it through two real
+         * overlapping projections would make a contract test depend on scheduler timing, which is
+         * the class of arm this ticket already spent an evening distrusting.
+         * @member {String|null} passContextProbeJson_=null
+         * @reactive
+         */
+        passContextProbeJson_: null
     }
 
     /**
@@ -94,14 +144,34 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
     }
 
     /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetPassContextProbeJson(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        this.passContextProbeResult = describePassContext(JSON.parse(value))
+    }
+
+    /**
+     * Spec-readable rendering of the last {@link #passContextProbeJson_} set.
+     * @member {String|null} passContextProbeResult=null
+     */
+    passContextProbeResult = null
+
+    /**
      * Numbers each projection pass so a lazy-load request can name the one it was raised in.
      *
      * `lazyPaneConstructionTrail` already reports WHO asked; on a duplicate both stacks have been
      * observed frame-for-frame identical, which leaves the two remaining mechanisms indistinguishable
      * from the call site alone: one pass resolving the item twice, or two passes each resolving it
-     * once. `Reconciler`'s `resolvedItems` memo is created per `reconcileProjection` call and is
-     * written back on insert, so it dedupes within a pass and has no memory across one — meaning the
-     * pass id, not the caller, is the discriminator.
+     * once. The `resolvedItems` memo is created inside `Reconciler.reconcileTabChrome` — not
+     * `reconcileProjection`, which only reaches it — and is written back on insert. Since a pass
+     * reaches that function exactly once, the memo dedupes within a pass and has no memory across
+     * one, meaning the pass id, not the caller, is the discriminator.
      *
      * The stamp lives here rather than in `src/`: the engine already exposes the pass boundary as
      * this method, and the `components` job captures no app-worker console output, so a `console`
@@ -189,21 +259,8 @@ class LazyRailFixtureWorkspace extends DockWorkspace {
                 // `container.Base#insert` on the already-active insert path, `afterSetActiveIndex`
                 // on activation.
                 module: () => {
-                    const
-                        cls    = LazyRailFixtureWorkspace,
-                        active = cls.activePasses,
-                        pass   = active[active.length - 1],
-                        // No active pass means the request did not originate inside a projection at
-                        // all — a real answer, not a missing one, so it is spelled out rather than
-                        // rendered as an empty string a reader would take for "same pass".
-                        label  = pass ? `pass ${pass.id}${pass.isRepair ? ' REPAIR' : ''}` : 'no active pass',
-                        // Two passes in flight at request time is a third possible mechanism beside
-                        // cross-pass and within-pass, so it has to be visible rather than collapsed
-                        // into the innermost one.
-                        depth  = active.length > 1 ? ` OVERLAP[${active.map(entry => entry.id).join(',')}]` : '';
-
-                    cls.raiseSites.push(
-                        `[${label}${depth}]\n` +
+                    LazyRailFixtureWorkspace.raiseSites.push(
+                        `[${describePassContext(LazyRailFixtureWorkspace.activePasses)}]\n` +
                         (new Error('lazy module requested').stack || '').split('\n').slice(1, 7).join('\n')
                     );
 
