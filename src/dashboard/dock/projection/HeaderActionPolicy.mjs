@@ -1,20 +1,27 @@
 import Base              from '../../../core/Base.mjs';
-import Effect            from '../../../core/Effect.mjs';
-import EffectManager     from '../../../core/EffectManager.mjs';
 import NeoArray          from '../../../util/Array.mjs';
-import Reconciler        from './Reconciler.mjs';
 import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
 
 /**
- * The item a tabs node presents: the committed active item unless it is railed (committed
- * auto-hidden, surfaced by its owning edge zone), then the first item still in the tab flow — the
- * same fallback `LayoutAdapter.projectTabsNode` projects.
+ * The items of a tabs node that are in its tab flow: every item not railed (committed auto-hidden,
+ * surfaced by its owning edge zone) — the same filter `LayoutAdapter.projectTabsNode` projects.
+ * @param {Object} document
+ * @param {Object} node
+ * @returns {String[]}
+ */
+function tabFlowItems(document, node) {
+    return (Array.isArray(node?.items) ? node.items : []).filter(itemId => document?.items?.[itemId]?.autoHidden !== true)
+}
+
+/**
+ * The item a tabs node presents: the committed active item unless it is railed, then the first item
+ * still in the tab flow — the same fallback `LayoutAdapter.projectTabsNode` projects.
  * @param {Object} document
  * @param {Object} node
  * @returns {String|null}
  */
 function effectiveActiveItemId(document, node) {
-    const items = (Array.isArray(node?.items) ? node.items : []).filter(itemId => document?.items?.[itemId]?.autoHidden !== true),
+    const items = tabFlowItems(document, node),
           index = items.indexOf(node?.activeItemId);
 
     return items[index < 0 ? 0 : index] ?? null
@@ -23,30 +30,32 @@ function effectiveActiveItemId(document, node) {
 /**
  * @summary The header-action presentation policy of a dock workspace: what each engine action shows,
  * enables or presses for the item its header presents — published once as data on the workspace's
- * dock state provider, which the retained action instances bind to.
+ * state provider, which the retained action instances bind to.
  * @description Membership is owned elsewhere — `toolbar.Base#getActionItems` and
  * `tab.header.Toolbar#isTabButton` decide which actions exist, and the projection emits them once as
  * a constant row. This class owns the second layer, as two halves:
  *
  * **Header truth as data.** {@link #publishDocument} projects the committed document onto the
- * workspace's `dockStateProvider`: `items.<itemId>.{closable, lockable, locked, pinnable, edge}` and
- * `nodes.<tabsNodeId>.activeItemId`, plus `popOutAvailable` and `recreateFallback`. The workspace
- * publishes the runtime facts the document does not carry: `items.<itemId>.reloadable` when it
- * resolves a pane, `flights.<itemId>` at a reload's or recreate's edges. Every leaf is a
- * `core.Config` that self-diffs, so publishing an unchanged document moves nothing.
+ * workspace's `stateProvider` — the workspace-level node of the app's provider hierarchy, engine
+ * default or consumer-owned alike — under the `dock` namespace: `dock.items.<itemId>.{closable,
+ * lockable, locked, pinnable, edge}` and `dock.nodes.<tabsNodeId>.activeItemId`, plus
+ * `dock.popOutAvailable` and `dock.recreateFallback`. The workspace publishes the runtime facts the
+ * document does not carry: `dock.items.<itemId>.reloadable` when it resolves a pane,
+ * `dock.flights.<itemId>` at a reload's or recreate's edges. Every leaf is a `core.Config` that
+ * self-diffs, so publishing an unchanged document moves nothing.
  *
  * **Bindings instead of sweeps.** {@link #createActionBindings} hands the projection one formatter
- * per action config key (`hidden`, `pressed`, `disabled`), closed over the tabs node. Each projected
- * tab header carries a child provider of the dock provider, so the action instance binds to it and
- * `state.Provider#createBinding` runs the formatter as a `core.Effect`: it reads through
+ * per action config key (`hidden`, `pressed`, `disabled`), closed over the tabs node. A projected
+ * action resolves the workspace's provider through the component tree, like any bound component,
+ * and `state.Provider#createBinding` runs the formatter as a `core.Effect`: it reads through
  * `getData`, which registers exactly the leaf configs it touched, and re-runs only when one of them
  * changes. A commit that changes no header input — a split resize, another workspace's transaction
  * — evaluates nothing; a lock toggle re-evaluates the close and lock actions of the one header that
- * presents the item. The one presentation that is not a button config, the lock's pane `inert` and
- * tab-button drag token with their exact-restore memory, is a reactor of the same kind:
- * {@link #bindLockPresentation} binds an `Effect` over the item's `locked` for a pane or a header's
- * item, and {@link #bindChrome} registers those reactors for the live chrome — registration by
- * identity, never a re-derivation.
+ * presents the item. The one presentation that is not an action config — the lock's pane `inert`
+ * and tab-button drag token, with their exact-restore memory in {@link #syncLockItemPresentation} —
+ * is bound the same way onto the dock's own chrome: the tabs node's container binds
+ * {@link #createNodeLockBinding} and presents the items whose lock changed, a rail binds
+ * {@link #createRailLockBinding} for the pane it reveals.
  *
  * Command execution stays with the workspace: its `onDockHeaderAction` router and `handleDock*Action`
  * handlers are the mutation boundary whose results reach this policy as published data. The
@@ -85,14 +94,6 @@ class HeaderActionPolicy extends Base {
      * @protected
      */
     lockDragState = new WeakMap()
-    /**
-     * The lock reactors, keyed by the component they present for — a header's tab container
-     * (one reactor per item it holds) or a rail's reveal pane (one reactor). An owner's entry is
-     * released when it is destroyed, so the map holds only live chrome.
-     * @member {Map<Neo.component.Base,Map<String,Neo.core.Effect>>} lockEffects=new Map()
-     * @protected
-     */
-    lockEffects = new Map()
 
     /**
      * Takes over the exact-restore memory of the policy this instance replaces. The memory is
@@ -110,120 +111,66 @@ class HeaderActionPolicy extends Base {
     }
 
     /**
-     * Releases the reactors and the workspace reference; the WeakMaps retire with the instance
-     * unless a replacement inherited them first ({@link #inheritRestoreState}).
+     * Releases the workspace reference; the WeakMaps retire with the instance unless a
+     * replacement inherited them first ({@link #inheritRestoreState}).
      * @param {...*} args
      */
     destroy(...args) {
-        let me = this;
-
-        me.lockEffects.forEach(byItem => byItem.forEach(effect => effect.destroy()));
-        me.lockEffects.clear();
-        me.workspace = null;
-
+        this.workspace = null;
         super.destroy(...args)
     }
 
     /**
-     * Registers the lock reactors the live chrome needs: one per item a tab container holds,
-     * released when the item leaves it. Reactors are keyed by identity, so a container already bound
-     * costs a lookup, never a write — this pass registers, it re-derives nothing. The workspace runs
-     * it wherever chrome can be new: at a commit (a statically projected shell), once a refresh
-     * settled, and when a never-refreshed shell mounts.
-     * @param {Neo.component.Base|null} shell The dock shell
+     * The formatter a tabs node's container binds to its `dockLockedItemIds`: the ids of the node's
+     * items that are committed locked, comma-joined. It reads the node's published item list and each
+     * item's `locked` leaf, so it re-runs when an item of this node locks or unlocks, or the node's
+     * items change — and for nothing else. `this` is the workspace's provider.
+     * @param {String} nodeId The tabs node
+     * @returns {Function}
      */
-    bindChrome(shell) {
-        let me          = this,
-            {workspace} = me;
+    createNodeLockBinding(nodeId) {
+        return function() {
+            const items = this.getData(`dock.nodes.${nodeId}.items`) || '';
 
-        if (!shell || !workspace?.enableDockLockAction || workspace.isDestroyed) return;
-
-        Reconciler.collectProjectedTabs(shell).forEach(tabContainer => {
-            const itemIds = tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || [];
-
-            itemIds.forEach(itemId => me.bindLockPresentation({itemId, tabContainer}));
-
-            me.lockEffects.get(tabContainer)?.forEach((effect, itemId) => {
-                if (!itemIds.includes(itemId)) {
-                    effect.destroy();
-                    me.lockEffects.get(tabContainer).delete(itemId)
-                }
-            })
-        })
+            return items.split(',').filter(itemId => itemId && this.getData(`dock.items.${itemId}.locked`) === true).join(',')
+        }
     }
 
     /**
-     * Binds the lock presentation of one item — the pane's `inert` and `neo-dock-pane-locked`, the
-     * tab button's drag token — to the item's committed `locked`, through one `core.Effect` that
-     * re-runs only when that leaf changes. For a header, pass the tab container: the pane and the
-     * button are resolved by item identity at each run, so an item whose pane materializes later,
-     * or whose button Overflow moved, is presented from the same reactor. For a rail's reveal pane,
-     * pass the pane: the rail materialization callback covers first reveal and every later switch.
-     * Binding twice is a lookup; the reactor is released with its component.
-     * @param {Object} data
-     * @param {String} data.itemId
-     * @param {Neo.component.Base} [data.pane] A reveal pane outside tab chrome
-     * @param {Neo.tab.Container} [data.tabContainer] The header presenting the item
+     * Publishes what a resolved pane can serve — `dock.items.<itemId>.reloadable`, a `dockReload()`
+     * contract on the instance or on its config's module prototype (the card container has not
+     * instantiated the slot yet when a projection resolves) — so the reload action's binding reads it
+     * instead of probing chrome on every activation. A pure `typeof`, never a resolver call.
+     * @param {String} itemId
+     * @param {Object|Neo.component.Base|null} pane The resolved config or instance
+     * @returns {Object|Neo.component.Base|null} The same pane
      */
-    bindLockPresentation({itemId, pane=null, tabContainer=null}={}) {
-        let me     = this,
-            owner  = tabContainer || pane,
-            byItem = owner && me.lockEffects.get(owner);
+    publishPaneContract(itemId, pane) {
+        this.workspace?.stateProvider?.setData(`dock.items.${itemId}.reloadable`, typeof (pane?.dockReload ?? pane?.module?.prototype?.dockReload) === 'function');
 
-        if (!owner || owner.isDestroyed || !itemId) return;
+        return pane
+    }
 
-        if (byItem?.has(itemId)) return;
+    /**
+     * The formatter a rail binds to its `dockRevealLocked`: whether the item the rail currently
+     * reveals is committed locked. The rail publishes what it reveals (`dock.rails.<railId>.revealed`),
+     * so the binding depends on that leaf and on the revealed item's `locked` alone.
+     * @param {String} railId The rail's `dockNodeId`
+     * @returns {Function}
+     */
+    createRailLockBinding(railId) {
+        return function() {
+            const itemId = this.getData(`dock.rails.${railId}.revealed`);
 
-        if (!byItem) {
-            byItem = new Map();
-            me.lockEffects.set(owner, byItem);
-
-            me.observeConfig(owner.id, 'isDestroying', value => {
-                if (value) {
-                    me.lockEffects.get(owner)?.forEach(effect => effect.destroy());
-                    me.lockEffects.delete(owner)
-                }
-            })
+            return !!itemId && this.getData(`dock.items.${itemId}.locked`) === true
         }
-
-        byItem.set(itemId, new Effect(() => {
-            const {workspace} = me,
-                  provider    = workspace?.dockStateProvider;
-
-            if (!provider || owner.isDestroyed) return;
-
-            // The one dependency: the item's committed lock state. Everything below resolves the
-            // chrome by identity and writes presentation — reads of component configs on the way
-            // must not become dependencies, or a `cls` write would re-run the reactor against a
-            // pane a direct presentation call just changed.
-            const locked = provider.getData(`items.${itemId}.locked`) === true;
-
-            EffectManager.pauseTracking();
-
-            try {
-                if (tabContainer) {
-                    const index   = (tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || []).indexOf(itemId),
-                          buttons = tabContainer.getTabButtons?.() || [];
-
-                    me.syncLockItemPresentation({
-                        button: buttons.find(button => button.dockItemId === itemId) || null,
-                        locked,
-                        pane  : index > -1 ? tabContainer.getCard(index) : null
-                    })
-                } else {
-                    me.syncLockItemPresentation({locked, pane})
-                }
-            } finally {
-                EffectManager.resumeTracking()
-            }
-        }))
     }
 
     /**
      * The formatters the projection binds onto the engine actions of one tabs node: one function
-     * per action config key, each closed over the node and reading the dock provider through
+     * per action config key, each closed over the node and reading the workspace's provider through
      * `getData`, so an `Effect` running it depends on exactly the leaves it read — the node's active
-     * item and that item's fields. `this` is the header's own provider, a child of the dock provider.
+     * item and that item's fields. `this` is the provider the action resolved, the workspace's.
      *
      * Every formatter answers for the ACTIVE item: `close` hides for an unclosable or locked item,
      * `lock` hides for an unlockable one and presses while locked, `pin` hides where the collapse
@@ -236,8 +183,8 @@ class HeaderActionPolicy extends Base {
      * @returns {Object} `{close, lock, pin, 'pop-out', reload}` → `{configKey: formatter}`
      */
     createActionBindings(nodeId) {
-        const active = provider => provider.getData(`nodes.${nodeId}.activeItemId`) || null,
-              field  = (provider, itemId, key) => provider.getData(`items.${itemId}.${key}`);
+        const active = provider => provider.getData(`dock.nodes.${nodeId}.activeItemId`) || null,
+              field  = (provider, itemId, key) => provider.getData(`dock.items.${itemId}.${key}`);
 
         return {
             close: {
@@ -268,27 +215,27 @@ class HeaderActionPolicy extends Base {
             },
             'pop-out': {
                 hidden() {
-                    return !active(this) || this.getData('popOutAvailable') !== true
+                    return !active(this) || this.getData('dock.popOutAvailable') !== true
                 }
             },
             reload: {
                 disabled() {
                     const itemId = active(this);
 
-                    return !!itemId && !!this.getData(`flights.${itemId}`)
+                    return !!itemId && !!this.getData(`dock.flights.${itemId}`)
                 },
                 hidden() {
                     const itemId = active(this);
 
-                    return !itemId || (field(this, itemId, 'reloadable') !== true && this.getData('recreateFallback') !== true)
+                    return !itemId || (field(this, itemId, 'reloadable') !== true && this.getData('dock.recreateFallback') !== true)
                 }
             }
         }
     }
 
     /**
-     * Publishes the header truth a committed document carries onto the dock provider: per item
-     * `closable`, `lockable`, `locked`, `pinnable` and the owning `edge`
+     * Publishes the header truth a committed document carries onto the workspace's provider, under
+     * `dock`: per item `closable`, `lockable`, `locked`, `pinnable` and the owning `edge`
      * ({@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge}, the derivation the
      * projection rails by); per tabs node the item it presents; the workspace's `popOutAvailable`
      * and `recreateFallback`. Leaves self-diff, so an unchanged document evaluates nothing.
@@ -303,7 +250,7 @@ class HeaderActionPolicy extends Base {
     publishDocument(document) {
         let me          = this,
             {workspace} = me,
-            provider    = workspace?.dockStateProvider,
+            provider    = workspace?.stateProvider,
             flights     = {},
             items       = {},
             nodes       = {};
@@ -322,21 +269,26 @@ class HeaderActionPolicy extends Base {
             // A leaf a binding reads must exist before the binding's first run: a formatter
             // registers the configs it read, and a key created later is not one of them. The
             // flight is owned by the workspace's reload path, so an existing value is never touched.
-            !provider.getDataConfig(`flights.${itemId}`) && (flights[itemId] = null)
+            !provider.getDataConfig(`dock.flights.${itemId}`) && (flights[itemId] = null)
         });
 
         Object.entries(document?.nodes || {}).forEach(([nodeId, node]) => {
             if (node?.type === 'tabs') {
-                nodes[nodeId] = {activeItemId: effectiveActiveItemId(document, node)}
+                nodes[nodeId] = {
+                    activeItemId: effectiveActiveItemId(document, node),
+                    items       : tabFlowItems(document, node).join(',')
+                }
             }
         });
 
         provider.setData({
-            ...(Object.keys(flights).length > 0 && {flights}),
-            items,
-            nodes,
-            popOutAvailable : workspace.dockPopOutActionActive === true,
-            recreateFallback: workspace.hasDockRecreateFallback() === true
+            dock: {
+                ...(Object.keys(flights).length > 0 && {flights}),
+                items,
+                nodes,
+                popOutAvailable : workspace.dockPopOutActionActive === true,
+                recreateFallback: workspace.hasDockRecreateFallback() === true
+            }
         })
     }
 

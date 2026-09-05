@@ -118,10 +118,17 @@ class Rail extends Container {
          */
         resolveComponentRef: null,
         /**
+         * Whether the item this rail currently reveals is committed locked — bound by the projection
+         * to the workspace's header truth, so a lock transition while the reveal stays open reaches
+         * the revealed pane through {@link #syncDockLockPane} without a second materialization.
+         * @member {Boolean} dockRevealLocked_=false
+         * @reactive
+         */
+        dockRevealLocked_: false,
+        /**
          * Workspace-owned lock presentation callback for the materialized reveal pane:
-         * `(pane, itemId) => void`. Reveal remains policy-free; the workspace binds the pane's inert
-         * presentation to the item's committed lock, so a later lock transition reaches the pane
-         * without a second call.
+         * `(pane, itemId) => void`. Reveal remains policy-free; this callback presents the item's
+         * committed lock on the pane, on first reveal and on every later transition.
          * @member {Function|null} syncDockLockPane=null
          */
         syncDockLockPane: null,
@@ -951,6 +958,32 @@ class Rail extends Container {
     }
 
     /**
+     * A lock transition while the reveal stays open: the bound truth changed, so the revealed pane
+     * is presented again through the same workspace callback its first reveal went through.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDockRevealLocked(value, oldValue) {
+        let me     = this,
+            itemId = me.revealOverlay?.revealPaneItemId,
+            pane   = me.revealOverlay?.paneSlot?.items?.[0];
+
+        me.isConstructed && itemId && pane && me.syncDockLockPane?.(pane, itemId)
+    }
+
+    /**
+     * Publishes which item this rail reveals onto the workspace's provider (`dock.rails.<railId>.revealed`),
+     * the leaf {@link #dockRevealLocked}'s binding reads beside that item's committed lock. A rail is
+     * dock chrome, so its one runtime fact lives with the rest of the header truth.
+     * @param {String|null} itemId
+     * @protected
+     */
+    publishRevealedItem(itemId) {
+        this.getStateProvider()?.setData(`dock.rails.${this.dockNodeId}.revealed`, itemId || null)
+    }
+
+    /**
      * Materializes the revealed item's pane into the overlay's slot through the adapter's durable
      * reveal resolver, with the `componentRef` read from the committed document (the rail's copy
      * re-projects on every change). This resolver must outlive any transaction-only in-flow staging
@@ -1043,7 +1076,8 @@ class Rail extends Container {
             }
         }
 
-        me.revealOverlay.revealPaneItemId = nextId
+        me.revealOverlay.revealPaneItemId = nextId;
+        me.publishRevealedItem(nextId);
 
         child = slot.items?.[0];
         child && nextId && me.syncDockLockPane?.(child, nextId)

@@ -10,6 +10,7 @@ import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import HeaderActionPolicy from '../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
 import Reconciler         from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
@@ -46,6 +47,17 @@ class CountingPolicy extends HeaderActionPolicy {
         });
 
         return bindings
+    }
+
+    createNodeLockBinding(nodeId) {
+        const me        = this,
+              formatter = super.createNodeLockBinding(nodeId);
+
+        return function(data) {
+            evaluations.push([me.workspace.id, `${nodeId}:dockLockedItemIds`]);
+
+            return formatter.call(this, data)
+        }
     }
 }
 
@@ -109,7 +121,9 @@ const createDocument = () => ({
     }
 });
 
-const ENGINE_KEYS = ['close.hidden', 'lock.hidden', 'lock.pressed', 'pin.hidden', 'pop-out.hidden', 'reload.disabled', 'reload.hidden'];
+const ENGINE_KEYS = ['close.hidden', 'lock.hidden', 'lock.pressed', 'pin.hidden', 'pop-out.hidden', 'reload.disabled', 'reload.hidden'],
+      // The engine actions' seven formatters plus the node container's own lock binding.
+      NODE_KEYS   = [...ENGINE_KEYS, 'dockLockedItemIds'];
 
 const commit = (workspace, descriptor) => {
     const result = workspace.applyDockZoneOperation(descriptor);
@@ -142,9 +156,9 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
     test('the first paint evaluates each bound formatter once per header; a geometry-only commit evaluates nothing', async () => {
         workspace = Neo.create(HeaderStateWorkspace, {dockModel: createDocument()});
 
-        const expected = ['center-tabs', 'side-tabs'].flatMap(nodeId => ENGINE_KEYS.map(key => `${nodeId}:${key}`)).sort();
+        const expected = ['center-tabs', 'side-tabs'].flatMap(nodeId => NODE_KEYS.map(key => `${nodeId}:${key}`)).sort();
 
-        expect(evaluationsOf(workspace), 'seven formatters per header, each run once on creation').toEqual(expected);
+        expect(evaluationsOf(workspace), 'eight formatters per node, each run once on creation').toEqual(expected);
 
         const tabs   = Reconciler.collectProjectedTabs(workspace.items[0]),
               center = tabs.get('center-tabs');
@@ -174,16 +188,17 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         expect(workspace.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
 
-        expect(evaluationsOf(workspace), 'close reads locked, lock reads locked for pressed; nothing else, nowhere else')
-            .toEqual(['center-tabs:close.hidden', 'center-tabs:lock.pressed']);
+        expect(evaluationsOf(workspace), 'close reads locked, lock reads locked for pressed, the node re-derives its locked items; nothing else, nowhere else')
+            .toEqual(['center-tabs:close.hidden', 'center-tabs:dockLockedItemIds', 'center-tabs:lock.pressed']);
         expect(lock.pressed).toBe(true);
         expect(close.hidden, 'a locked item is not closable').toBe(true);
-        expect(pane.vdom.inert, 'the lock reactor reached the pane at the commit boundary').toBe(true);
+        expect(center.dockLockedItemIds, 'the node binds its locked items').toBe('alpha');
+        expect(pane.vdom.inert, 'and presented the pane at the commit boundary').toBe(true);
 
         await workspace.refreshPromise;
 
         expect(evaluationsOf(workspace), 'the settled refresh re-evaluated nothing')
-            .toEqual(['center-tabs:close.hidden', 'center-tabs:lock.pressed']);
+            .toEqual(['center-tabs:close.hidden', 'center-tabs:dockLockedItemIds', 'center-tabs:lock.pressed']);
 
         evaluations.length = 0;
 
@@ -193,7 +208,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         expect(lock.pressed).toBe(false);
         expect(close.hidden).toBe(false);
         expect(Object.hasOwn(pane.vdom, 'inert'), 'exact restore: the pane never owned inert').toBe(false);
-        expect(evaluationsOf(workspace)).toEqual(['center-tabs:close.hidden', 'center-tabs:lock.pressed'])
+        expect(evaluationsOf(workspace)).toEqual(['center-tabs:close.hidden', 'center-tabs:dockLockedItemIds', 'center-tabs:lock.pressed'])
     });
 
     test('an activation re-evaluates the header that switched, and only that header', async () => {
@@ -214,7 +229,12 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         await workspace.refreshPromise;
 
-        expect(evaluationsOf(workspace).filter(entry => entry.startsWith('side-tabs')), 'the other header was not touched').toEqual([])
+        // The other header's ACTIONS were not touched. Its container may be re-parented into the
+        // refreshed shell, and `container.Base#insert` re-registers a moved component's bindings —
+        // one run of the node's own lock formatter, the framework's re-registration, not a header
+        // re-derivation.
+        expect(evaluationsOf(workspace).filter(entry => entry.startsWith('side-tabs') && !entry.endsWith('dockLockedItemIds')),
+            'no action formatter of the other header ran').toEqual([])
     });
 
     test('a second workspace\'s transaction in the same worker evaluates nothing on the first', async () => {
@@ -239,11 +259,11 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         const center   = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
               reload   = center.getActionItem('reload'),
-              provider = workspace.dockStateProvider;
+              provider = workspace.stateProvider;
 
-        expect(provider.getData('items.alpha.reloadable'), 'the resolver published alpha\'s contract').toBe(true);
-        expect(provider.getData('items.beta.reloadable'), 'and beta\'s absence of one').toBe(false);
-        expect(provider.getData('recreateFallback'), 'the engine default recreates').toBe(true);
+        expect(provider.getData('dock.items.alpha.reloadable'), 'the resolver published alpha\'s contract').toBe(true);
+        expect(provider.getData('dock.items.beta.reloadable'), 'and beta\'s absence of one').toBe(false);
+        expect(provider.getData('dock.recreateFallback'), 'the engine default recreates').toBe(true);
 
         await center.set({activeIndex: 1});
         expect(reload.hidden, 'beta: no contract, recreate available').toBe(false);
@@ -256,35 +276,54 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         expect(reload.hidden, 'alpha keeps its own contract').toBe(false);
         expect(reload.disabled).toBe(false);
 
-        provider.setData('flights.alpha', 'reload');
+        provider.setData('dock.flights.alpha', 'reload');
         expect(reload.disabled, 'a flight on the active item disables').toBe(true);
 
         await center.set({activeIndex: 1});
         expect(reload.disabled, 'the flight belongs to alpha, not to the header').toBe(false);
 
-        provider.setData('flights.alpha', null);
+        provider.setData('dock.flights.alpha', null);
         await center.set({activeIndex: 0});
         expect(reload.disabled, 'settled').toBe(false)
     });
 
-    test('the header\'s provider is a child of the dock provider, which reaches the consumer\'s chain; panes keep the consumer\'s provider', () => {
-        workspace = Neo.create(HeaderStateWorkspace, {
-            dockModel    : createDocument(),
-            stateProvider: {data: {theme: 'dark'}}
+    test('header truth lives on the workspace\'s own provider — engine default or consumer-owned — inside the app\'s provider hierarchy', () => {
+        // A consumer-owned provider on the workspace hosts the engine's `dock` keys beside its own,
+        // and an ancestor's provider stays reachable through the ordinary hierarchy.
+        const host = Neo.create(Container, {
+            appName      : 'NeoDashboardDockHeaderStateTest',
+            stateProvider: {data: {appTheme: 'dark'}},
+            items        : [{
+                module       : HeaderStateWorkspace,
+                dockModel    : createDocument(),
+                stateProvider: {data: {panelTitle: 'Inspector'}}
+            }]
         });
 
-        const center   = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
-              header   = center.getTabBar().stateProvider,
-              pane     = center.getActiveCard(),
-              consumer = workspace.stateProvider;
+        workspace = host.items[0];
 
-        expect(header, 'the header owns a provider').toBeTruthy();
-        expect(header.getParent(), 'whose parent is the engine\'s dock provider').toBe(workspace.dockStateProvider);
-        expect(workspace.dockStateProvider.getParent(), 'which resolves its parent through the workspace').toBe(consumer);
-        expect(header.getData('theme'), 'so a header binding can still read the consumer\'s data').toBe('dark');
-        expect(header.getData('nodes.center-tabs.activeItemId'), 'and the engine\'s').toBe('alpha');
-        expect(pane.getStateProvider(), 'a pane never sees the engine provider').toBe(consumer);
-        expect(center.getActionItem('lock').getStateProvider(), 'an action binds to the header\'s').toBe(header)
+        const center   = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
+              lock     = center.getActionItem('lock'),
+              pane     = center.getActiveCard(),
+              provider = workspace.stateProvider;
+
+        expect(provider.getData('panelTitle'), 'the consumer\'s own key').toBe('Inspector');
+        expect(provider.getData('dock.nodes.center-tabs.activeItemId'), 'beside the engine\'s').toBe('alpha');
+        expect(provider.getData('appTheme'), 'and the ancestor\'s, through the hierarchy').toBe('dark');
+        expect(provider.getParent(), 'the workspace provider\'s parent is the host\'s').toBe(host.stateProvider);
+        expect(lock.getStateProvider(), 'an action resolves the workspace\'s provider through the tree').toBe(provider);
+        expect(pane.getStateProvider(), 'so does a pane').toBe(provider);
+        expect(Object.keys(host.stateProvider.data), 'nothing engine-owned leaked upward').toEqual(['appTheme']);
+
+        host.destroy();
+        workspace = null
+    });
+
+    test('the engine default provider is created when a consumer supplies none', () => {
+        workspace = Neo.create(HeaderStateWorkspace, {dockModel: createDocument()});
+
+        expect(workspace.stateProvider?.className).toBe('Neo.state.Provider');
+        expect(workspace.stateProvider.getData('dock.items.beta.closable'), 'and carries the header truth').toBe(false)
     });
 
     test('a header retired by a commit takes its bindings with it', async () => {
@@ -299,8 +338,38 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         evaluations.length = 0;
 
-        workspace.dockStateProvider.setData('nodes.side-tabs.activeItemId', null);
+        workspace.stateProvider.setData('dock.nodes.side-tabs.activeItemId', null);
 
         expect(evaluationsOf(workspace), 'no retired formatter ran').toEqual([])
+    });
+
+    test('a rail binds whether the item it reveals is committed locked', () => {
+        const document = createDocument();
+
+        document.items.side.autoHidden = true;
+        document.items.side.locked     = true;
+
+        workspace = Neo.create(HeaderStateWorkspace, {dockModel: createDocument()});
+        workspace.destroy();
+        workspace = Neo.create(HeaderStateWorkspace, {dockModel: document});
+
+        let rail = null;
+
+        workspace.forEachDockRail(candidate => rail = candidate);
+
+        expect(rail, 'the auto-hidden item projected its rail').toBeTruthy();
+        expect(rail.dockNodeId).toBe('root:edge-rail:right');
+        expect(rail.dockRevealLocked, 'nothing revealed yet').toBe(false);
+
+        // The rail publishes what it reveals; the binding reads that leaf and the item's lock.
+        rail.publishRevealedItem('side');
+        expect(rail.dockRevealLocked, 'the revealed item is locked').toBe(true);
+
+        workspace.dockModel.items.side.locked = false;
+        workspace.dockHeaderActionPolicy.publishDocument(workspace.dockModel);
+        expect(rail.dockRevealLocked, 'and follows the commit').toBe(false);
+
+        rail.publishRevealedItem(null);
+        expect(rail.dockRevealLocked, 'dismissed: nothing revealed').toBe(false)
     })
 });

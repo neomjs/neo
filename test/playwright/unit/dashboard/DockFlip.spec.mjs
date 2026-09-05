@@ -115,6 +115,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 onDockHeaderAction() {},
                 onDockCrossZoneDrop() {},
                 onDockZoneDocumentChange() {},
+                publishPaneContract : DockWorkspace.prototype.publishPaneContract,
                 resolvePane         : DockWorkspace.prototype.resolvePane,
                 resolveProjectedPane: DockWorkspace.prototype.resolveProjectedPane,
                 resolveRevealPane   : DockWorkspace.prototype.resolveRevealPane

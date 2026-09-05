@@ -588,11 +588,11 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         // The reload action's `hidden` is a binding: the policy's formatter over the published header
         // truth. It is evaluated here directly against the workspace's own dock provider, with the
         // pane's contract published as a resolved pane without `dockReload()` would publish it.
-        const {policy = workspace.dockHeaderActionPolicy, dockStateProvider: provider} = workspace,
-              {hidden} = policy.createActionBindings('root').reload,
-              publish  = () => {
+        const {dockHeaderActionPolicy: policy, stateProvider: provider} = workspace,
+              {hidden}                                                  = policy.createActionBindings('root').reload,
+              publish                                                   = () => {
                   policy.publishDocument(workspace.dockModel);
-                  provider.setData('items.editor.reloadable', false)
+                  provider.setData('dock.items.editor.reloadable', false)
               };
 
         // "No fallback" is no longer a state a workspace reaches by writing nothing — the default
@@ -601,7 +601,7 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
         // rather than relying on the base default, which is what this half used to lean on.
         workspace.hasDockRecreateFallback = () => false;
         publish();
-        expect(provider.getData('nodes.root.activeItemId'), 'the header presents the editor').toBe('editor');
+        expect(provider.getData('dock.nodes.root.activeItemId'), 'the header presents the editor').toBe('editor');
         expect(hidden.call(provider), 'no delegation, and recreate declared unavailable → hidden').toBe(true);
 
         // The engine's own default is enough on its own: no host factory, no declared refusal.
@@ -742,6 +742,9 @@ test.describe('Workstation cache adoption', () => {
         workspace.fire                  = () => {};
         workspace.isDestroyed           = false;
         workspace.paneCache             = {[itemId]: livePane};
+        // A hand-built `this` owns no provider: the recreate flight has nowhere to publish, and says
+        // so — as an own value, so the prototype's config accessor is never entered.
+        Object.defineProperty(workspace, 'stateProvider', {value: null});
 
         try {
             const

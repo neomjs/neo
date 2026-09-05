@@ -1,6 +1,7 @@
 import Base              from '../../../core/Base.mjs';
 import Rail              from '../interaction/Rail.mjs';
 import DockSplitter      from '../interaction/DockSplitter.mjs';
+import TabContainer      from '../interaction/TabContainer.mjs';
 import TabEnterButton    from '../interaction/TabEnterButton.mjs';
 import TabSortZone       from '../interaction/TabSortZone.mjs';
 import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
@@ -463,11 +464,16 @@ class LayoutAdapter extends Base {
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
      * @param {Function} [options.dockHeaderActionBindings] `(nodeId) => {close, lock, pin, 'pop-out',
      *     reload}`, each `{configKey: formatter}` — the workspace's header-action policy's bindings
-     *     for the engine actions of one tabs node, placed on the action configs as `bind`. Without it
-     *     the projected constants stand.
-     * @param {Neo.state.Provider|null} [options.dockHeaderStateProvider] The workspace's dock state
-     *     provider; when present every tabs node's header toolbar owns a child provider of it, so the
-     *     action bindings resolve header truth there while panes keep the consumer's chain.
+     *     for the engine actions of one tabs node, placed on the action configs as `bind`; an action
+     *     resolves the workspace's own provider through the component tree. Without it the projected
+     *     constants stand.
+     * @param {Function} [options.dockNodeLockBinding] `(nodeId) => formatter` for the tabs node
+     *     container's `dockLockedItemIds` — the node's committed-locked items, which the container
+     *     presents on its own buttons and panes. Absent for a direct adapter consumer.
+     * @param {Function} [options.dockRailLockBinding] `(railId) => formatter` for a rail's
+     *     `dockRevealLocked` — whether the item it reveals is committed locked.
+     * @param {String|null} [options.dockWorkspaceId] The workspace whose header-action policy the
+     *     projected containers present locks through.
      * @param {Function} [options.syncDockLockPane] Workspace-owned lock presentation for a resolved
      *     rail reveal pane: `(pane, itemId) => void`, binding the pane to the item's committed lock.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
@@ -557,7 +563,9 @@ class LayoutAdapter extends Base {
                 || (() => null),
             stackDragNodeId,
             dockHeaderActionBindings          : options.dockHeaderActionBindings,
-            dockHeaderStateProvider           : options.dockHeaderStateProvider ?? null,
+            dockNodeLockBinding               : options.dockNodeLockBinding,
+            dockRailLockBinding               : options.dockRailLockBinding,
+            dockWorkspaceId                   : options.dockWorkspaceId ?? null,
             syncDockLockPane                  : options.syncDockLockPane,
             tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
             vesselConversionConvertThreshold  : options.vesselConversionConvertThreshold,
@@ -656,12 +664,17 @@ class LayoutAdapter extends Base {
      * @static
      */
     static createEdgeRail(itemIds, edge, context, nodeId) {
+        const railId = `${nodeId}:edge-rail:${edge}`;
+
         return {
             applyDockZoneOperation  : context.applyDockZoneOperation,
             autoHideRevealOnHover   : context.autoHideRevealOnHover === true,
+            // The rail binds whether the item it reveals is committed locked; presenting it is the
+            // workspace's `syncDockLockPane`, the same callback first reveal goes through.
+            ...(context.dockRailLockBinding && {bind: {dockRevealLocked: context.dockRailLockBinding(railId)}}),
             defaultRevealFraction   : context.defaultRevealFraction ?? null,
             dockEdge                : edge,
-            dockNodeId              : `${nodeId}:edge-rail:${edge}`,
+            dockNodeId              : railId,
             dockNodeType            : 'edge-rail',
             dockZoneDocument        : context.dockZoneDocument,
             edge,
@@ -1130,10 +1143,10 @@ class LayoutAdapter extends Base {
         }
 
         // The engine actions bind their runtime state: the workspace's header-action policy hands one
-        // formatter per config key, closed over this node, and the header's own provider (a child
-        // of the workspace's dock provider, see the returned `headerToolbar`) runs them as Effects.
-        // The constants below are the first paint; the bindings own every later change. Without a
-        // workspace (a direct adapter consumer) there are no bindings and the constants stand.
+        // formatter per config key, closed over this node, and the workspace's provider — the one an
+        // action resolves through the component tree — runs them as Effects. The constants below are
+        // the first paint; the bindings own every later change. Without a workspace (a direct adapter
+        // consumer) there are no bindings and the constants stand.
         const bindings = context.dockHeaderActionBindings?.(nodeId) || {},
               tips     = context.dockActionTooltips || {},
               // Only a present key becomes a config: an absent tooltip must not write `tooltip: undefined`.
@@ -1266,10 +1279,6 @@ class LayoutAdapter extends Base {
             // (below), cross-zone drops report their release point to `onDockCrossZoneDrop` so the owner can
             // hit-test the target zone and commit a `moveItem`. Still one drag system — no parallel pipeline.
             headerToolbar : {
-                // The header owns a child of the workspace's dock provider, so its action bindings
-                // resolve header truth there while the panes below keep the consumer's provider chain.
-                // Absent for a direct adapter consumer, whose actions then keep their constants.
-                ...(context.dockHeaderStateProvider && {stateProvider: {parent: context.dockHeaderStateProvider}}),
                 // The overflow plugin publishes its repartition as a start/idle pair on this toolbar; a
                 // repartition removes and restores header nodes, so it enters the dock motion signal like
                 // any motion does — counted, instance-keyed, fail-safe — and a consumer waiting for
@@ -1398,7 +1407,14 @@ class LayoutAdapter extends Base {
                     }
                 }
             },
-            ntype: 'tab-container'
+            // The dock's own tab container: it binds this node's committed lock state to the
+            // workspace's header truth and presents it on its buttons and panes. Without a workspace
+            // (a direct adapter consumer) the binding is absent and the container behaves generically.
+            module: TabContainer,
+            ...(context.dockNodeLockBinding && {
+                bind           : {dockLockedItemIds: context.dockNodeLockBinding(nodeId)},
+                dockWorkspaceId: context.dockWorkspaceId ?? null
+            })
         }
     }
 }

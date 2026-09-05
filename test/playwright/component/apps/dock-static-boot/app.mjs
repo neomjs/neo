@@ -1,13 +1,12 @@
-import Component          from '../../../../../src/component/Base.mjs';
-import DockWorkspace      from '../../../../../src/dashboard/dock/Workspace.mjs';
-import HeaderActionPolicy from '../../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
-import Viewport           from '../../../../../src/container/Viewport.mjs';
+import Component     from '../../../../../src/component/Base.mjs';
+import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
+import Viewport      from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 /**
  * @summary A pane owning the reload contract. Its mere presence is what makes the contract-free
- * sibling's corrected state observable: the projection cannot tell the two apart, so a header
- * showing reload for one and not the other can only be the sweep's doing.
+ * sibling's state observable: the projection cannot tell the two apart, so a header showing reload
+ * for one and not the other can only be the published pane contract the action is bound to.
  */
 class ContractPane extends Component {
     static config = {
@@ -25,28 +24,6 @@ class ContractPane extends Component {
 
 ContractPane = Neo.setupClass(ContractPane);
 
-/**
- * @summary The engine policy, counting its sweeps on the workspace: the spec asserts the absence
- * of a write, not merely the absence of a rendered symptom — a hidden action and an un-run sweep
- * look identical in the DOM.
- */
-class CountingSweepPolicy extends HeaderActionPolicy {
-    static config = {
-        className: 'Test.Playwright.Component.DockStaticBoot.CountingSweepPolicy'
-    }
-
-    /**
-     * @param {Neo.component.Base|null} shell
-     * @returns {*}
-     */
-    bindChrome(shell) {
-        this.workspace.sweepCount++;
-        return super.bindChrome(shell)
-    }
-}
-
-CountingSweepPolicy = Neo.setupClass(CountingSweepPolicy);
-
 const staticDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'static-root',
@@ -57,9 +34,9 @@ const staticDocument = {
     nodes: {
         // `contract` is ACTIVE at boot on purpose. The projection hardcodes reload to
         // `hidden: true` (`LayoutAdapter`), so ABSENCE is the projected default and asserting it
-        // would hold with the sweep removed — the direction that discriminates is REVEAL: only the
-        // sweep can turn the projected-hidden row into rendered chrome for a pane that owns the
-        // contract. `bare` sits beside it as the untouched negative.
+        // would hold with the binding removed — the direction that discriminates is REVEAL: only the
+        // action's binding, reading the pane contract the resolver published, can turn the
+        // projected-hidden row into rendered chrome. `bare` sits beside it as the untouched negative.
         'static-root': {type: 'tabs', items: ['contract', 'bare'], activeItemId: 'contract'}
     }
 };
@@ -68,13 +45,12 @@ const staticDocument = {
  * @summary The STATIC-FIRST-PROJECTION consumer: items assembled in `construct()` and never a
  * refresh.
  *
- * This is the boot path `Workspace#afterSetMounted` exists for, and the only fixture in the tree
- * that takes it. Every other dock fixture calls `onDockZoneDocumentChange` during construct, which
- * sets `refreshPromise` before mount — so the mount hook returns null there and the post-reconcile
- * sweep does the correcting instead. A witness booted on one of those cannot observe this hook at
- * all: disabling the hook outright leaves those fixtures green.
+ * Every other dock fixture calls `onDockZoneDocumentChange` during construct. This one takes the
+ * path a consumer takes when it projects its first shell itself: `projectDockModel()` publishes the
+ * header truth, the projected chrome binds to it as it constructs, and no refresh ever runs. A
+ * witness booted on any other fixture cannot observe that path at all.
  *
- * Nothing here may open a refresh. Adding one would silently re-route the correction and turn any
+ * Nothing here may open a refresh. Adding one would silently re-route the first paint and turn any
  * arm riding this fixture back into decoration.
  */
 class StaticBootFixtureWorkspace extends DockWorkspace {
@@ -102,82 +78,7 @@ class StaticBootFixtureWorkspace extends DockWorkspace {
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * Arms the overlap: after the mount hook has taken its (empty) sample, install a tail that
-         * REPLACES itself from inside its own `then`. The replacement therefore lands while the
-         * deferred sweep is awaiting — the only moment the contested state exists. Staging both
-         * promises up front cannot reach it: the deferral has not fired, so the sweep would sample
-         * the replacement and never enter the race.
-         * @member {Boolean} armTailReplacement=false
-         */
-        armTailReplacement_: false,
-        /**
-         * Spec trigger: settles the replacement tail. Each bump releases it once.
-         * @member {Number} releaseTailCount=0
-         */
-        releaseTailCount_: 0,
-        /**
-         * Observable: how many times the boot sweep has actually run. The spec asserts this is
-         * still 0 after the sampled tail settles, which is exactly what a single-sample await
-         * cannot satisfy.
-         * @member {Number} sweepCount=0
-         */
-        sweepCount_: 0,
-        /**
-         * Observable: set the instant the sampled tail is consumed, i.e. the sweep has reached its
-         * await. The spec polls this instead of sleeping.
-         * @member {Boolean} tailReplaced=false
-         */
-        tailReplaced_: false,
-        /**
-         * The counting policy stands in for the engine default through the one seam a consumer
-         * replaces it by.
-         * @member {Object} dockHeaderActionPolicy={module: CountingSweepPolicy}
-         */
-        dockHeaderActionPolicy: {module: CountingSweepPolicy}
-    }
-
-    /**
-     * The resolver of the replacement tail, held until `releaseTailCount` bumps.
-     * @member {Function|null} releaseTail=null
-     */
-    releaseTail = null
-
-    /**
-     * Installs the self-replacing tail AFTER the hook has sampled, so the sweep is already
-     * committed to awaiting when the replacement arrives.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @returns {Promise|null}
-     */
-    afterSetMounted(value, oldValue) {
-        const chain = super.afterSetMounted(value, oldValue);
-
-        if (value && this.armTailReplacement) {
-            const me          = this,
-                  replacement = new Promise(resolve => {me.releaseTail = resolve});
-
-            me.refreshPromise = {
-                then(onFulfilled) {
-                    me.refreshPromise = replacement;
-                    me.tailReplaced   = true;
-                    onFulfilled?.();
-                    return Promise.resolve()
-                }
-            }
-        }
-
-        return chain
-    }
-
-    /**
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetReleaseTailCount(value, oldValue) {
-        oldValue !== undefined && value > 0 && this.releaseTail?.()
+        layout: {ntype: 'vbox', align: 'stretch'}
     }
 
     /**
@@ -204,17 +105,11 @@ class StaticBootFixtureWorkspace extends DockWorkspace {
 
 StaticBootFixtureWorkspace = Neo.setupClass(StaticBootFixtureWorkspace);
 
-// The overlap arm boots this SAME module from a sibling page whose `neo-config.json` sets
-// `dockStaticBootOverlap`, so one app serves both the plain static-boot witness and the
-// contested-tail witness. A URL query cannot carry it: this module runs in the App Worker, where
-// `location` is the worker script rather than the page.
-const overlapArmed = Neo.config.dockStaticBootOverlap === true;
-
 export const onStart = () => Neo.app({
     mainView: {
         module: Viewport,
         items : [
-            {module: StaticBootFixtureWorkspace, armTailReplacement: overlapArmed, dockModel: staticDocument, flex: 1}
+            {module: StaticBootFixtureWorkspace, dockModel: staticDocument, flex: 1}
         ]
     },
     name: 'Test.Playwright.DockStaticBoot'
