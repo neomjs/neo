@@ -9,7 +9,11 @@ import Base from '../../../core/Base.mjs';
  * class leaves. Assertion surfaces (`observe_motion` e2e specs, tour-runner step gating) key off
  * exactly this signal, and every motion producer — the choreography transitions AND the FLIP
  * commit layer — routes through it rather than toggling classes ad hoc, so there is ONE lifecycle
- * to observe no matter how many mechanisms animate.
+ * to observe no matter how many mechanisms animate. A header's overflow repartition is the one
+ * non-animated producer: it removes and restores header nodes, so the dock's projection adapter
+ * routes the tab-overflow plugin's `overflowProjectionStart` / `overflowProjectionIdle` pair through
+ * here too, carried by the header toolbar itself — "do not act on this DOM yet" is one question
+ * whether the cause moves or replaces, and a consumer asks it of the dock host's subtree.
  *
  * Semantics (binding):
  *

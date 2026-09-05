@@ -1113,6 +1113,105 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(plugins[0].projectAsAction, 'dock headers project Overflow into their action rail').toBe(true);
     });
 
+    test('a projected header routes the overflow plugin\'s start/idle pair into the dock motion signal, carried by the header toolbar itself — one entry per header, a nested pass counted, an idle without a start a no-op', async () => {
+        const
+            MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
+            result       = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            listeners    = result.items[0].headerToolbar.listeners,
+            makeToolbar  = id => ({id, isDestroyed: false, isDestroying: false, cls: [], addCls(cls) { this.cls.push(cls) }, removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) }}),
+            headerA      = makeToolbar('header-a'),
+            headerB      = makeToolbar('header-b');
+
+        MotionSignal.activeMotions.clear();
+
+        try {
+            expect(typeof listeners.overflowProjectionStart).toBe('function');
+            expect(typeof listeners.overflowProjectionIdle).toBe('function');
+
+            // Each header toolbar carries its own signal: the class lands where the nodes move.
+            listeners.overflowProjectionStart({owner: headerA});
+            listeners.overflowProjectionStart({owner: headerB});
+
+            expect(headerA.cls).toEqual(['neo-dashboard-dock-animating']);
+            expect(headerB.cls).toEqual(['neo-dashboard-dock-animating']);
+            expect(MotionSignal.isAnimating('header-a')).toBe(true);
+
+            listeners.overflowProjectionIdle({owner: headerA});
+
+            expect(headerA.cls, 'A settled').toEqual([]);
+            expect(headerB.cls, 'B is still in flight').toEqual(['neo-dashboard-dock-animating']);
+
+            listeners.overflowProjectionIdle({owner: headerB});
+
+            expect(headerB.cls).toEqual([]);
+            expect(MotionSignal.isAnimating('header-b')).toBe(false);
+
+            // Counted: a second producer on the same toolbar (a FLIP or reveal nesting a repartition)
+            // keeps the class until the last one leaves; an idle without a start changes nothing.
+            listeners.overflowProjectionStart({owner: headerA});
+            MotionSignal.enter(headerA);
+            listeners.overflowProjectionIdle({owner: headerA});
+
+            expect(headerA.cls, 'the other producer still holds it').toEqual(['neo-dashboard-dock-animating']);
+
+            MotionSignal.leave(headerA);
+            listeners.overflowProjectionIdle({owner: headerA});
+
+            expect(headerA.cls).toEqual([]);
+            expect(MotionSignal.activeMotions.size, 'an unbalanced idle registers nothing').toBe(0)
+        } finally {
+            MotionSignal.activeMotions.clear()
+        }
+    });
+
+    test('a header re-projected mid-pass cannot wedge the signal: the destroyed toolbar\'s entry clears through the fail-safe, its late idle is a no-op, and the new header\'s pass is a clean pair', async () => {
+        const
+            MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
+            result       = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            listeners    = result.items[0].headerToolbar.listeners,
+            makeToolbar  = id => ({id, isDestroyed: false, isDestroying: false, cls: [], addCls(cls) { this.cls.push(cls) }, removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) }}),
+            oldHeader    = makeToolbar('header-old'),
+            newHeader    = makeToolbar('header-new'),
+            failSafeMs   = MotionSignal.FAIL_SAFE_MS;
+
+        MotionSignal.activeMotions.clear();
+        MotionSignal.FAIL_SAFE_MS = 30;
+
+        try {
+            // The old header arms a pass, then the dock re-projects and destroys it mid-flight: its idle
+            // never publishes (a destroyed owner has no listeners), so its entry outlives it — until the
+            // fail-safe clears it. Nothing else carries a stale class.
+            listeners.overflowProjectionStart({owner: oldHeader});
+            expect(MotionSignal.isAnimating('header-old')).toBe(true);
+
+            oldHeader.isDestroyed = true;
+
+            await new Promise(resolve => setTimeout(resolve, 80));
+
+            expect(MotionSignal.isAnimating('header-old'), 'the fail-safe cleared the destroyed header\'s entry').toBe(false);
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            // A late idle from the destroyed header — the pass's finally reaching a listener after all —
+            // registers nothing and touches no other component.
+            listeners.overflowProjectionIdle({owner: oldHeader});
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            // The re-projected header's own pass is a clean pair.
+            listeners.overflowProjectionStart({owner: newHeader});
+            expect(newHeader.cls).toEqual(['neo-dashboard-dock-animating']);
+            listeners.overflowProjectionIdle({owner: newHeader});
+            expect(newHeader.cls).toEqual([]);
+            expect(MotionSignal.isAnimating('header-new')).toBe(false)
+        } finally {
+            MotionSignal.FAIL_SAFE_MS = failSafeMs;
+            MotionSignal.activeMotions.clear()
+        }
+    });
+
     test.describe('tab sort boundary + tear-out projection threading', () => {
         test('a workspace boundary enables ordinary cross-zone motion without arming tear-out', () => {
             const result = DockLayoutAdapter.project(createModel(), {

@@ -4,6 +4,7 @@ import DockSplitter      from '../interaction/DockSplitter.mjs';
 import TabEnterButton    from '../interaction/TabEnterButton.mjs';
 import TabSortZone       from '../interaction/TabSortZone.mjs';
 import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
+import MotionSignal      from './MotionSignal.mjs';
 import TabOverflowPlugin from '../../../tab/plugin/Overflow.mjs';
 
 // Private runtime restoration slot for live component instances projected through the popup
@@ -1245,6 +1246,19 @@ class LayoutAdapter extends Base {
             // (below), cross-zone drops report their release point to `onDockCrossZoneDrop` so the owner can
             // hit-test the target zone and commit a `moveItem`. Still one drag system — no parallel pipeline.
             headerToolbar : {
+                // The overflow plugin publishes its repartition as a start/idle pair on this toolbar; a
+                // repartition removes and restores header nodes, so it enters the dock motion signal like
+                // any motion does — counted, instance-keyed, fail-safe — and a consumer waiting for
+                // `neo-dashboard-dock-animating` to be absent from the dock host waits for both. The
+                // carrier is the toolbar ITSELF, the producer's own component (the tab-enter button's
+                // precedent): a class toggled on the workspace root from inside a header pass forces a
+                // whole-tree vnode sync while that header's buttons are being replaced, and at boot that
+                // sync fails on a retired button id and strands the projection. The generic plugin stays
+                // dock-blind: the routing lives here, in the config that installs it.
+                listeners: {
+                    overflowProjectionIdle : ({owner}) => MotionSignal.leave(owner),
+                    overflowProjectionStart: ({owner}) => MotionSignal.enter(owner)
+                },
                 // Tab-overflow affordance: when the projected headers exceed the toolbar width, the
                 // overflowing tabs collapse behind the first stable header action whose menu reaches them
                 // (Neo.tab.plugin.Overflow — a generic tab-subsystem plugin the dock only consumes). The
