@@ -57,6 +57,7 @@ class Commit extends Base {
 
     /**
      * @summary Runs at the Group queue head; no awaited work occurs inside adoption/rollback.
+     * Transaction id, cause, provenance and participant endpoints override descriptor fields in the retained row.
      * @param {Neo.manager.Transaction} manager
      * @param {Object} group
      * @param {Object} request

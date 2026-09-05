@@ -503,6 +503,6 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
               dynamic = [...source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g)].map(match => match[1]);
 
         expect(statics.some(specifier => specifier.includes('transaction/History')), 'a static import would put the module into every consumer\'s closure').toBe(false);
-        expect(dynamic.filter(specifier => specifier.includes('transaction/History'))).toEqual(['./transaction/History.mjs'])
+        expect(dynamic).toEqual(['./transaction/History.mjs'])
     })
 });
