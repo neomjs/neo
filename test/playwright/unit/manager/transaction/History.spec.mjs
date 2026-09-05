@@ -9,6 +9,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
+import Collection     from '../../../../../src/collection/Base.mjs';
 import History        from '../../../../../src/manager/transaction/History.mjs';
 
 /**
@@ -122,6 +123,132 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
         expect(row.left).toEqual({size: 0.5});
         expect(row.right).toEqual({size: 0.5});
         expect(JSON.parse(JSON.stringify(row)).right.size).toBe(0.5)
+    });
+
+    test('a checkpoint restores a partially admitted append and its redo tail without mutation events, then normal notifications resume', () => {
+        const originalAdd = Collection.prototype.add;
+        let collection, first;
+
+        try {
+            Collection.prototype.add = function(item) {
+                collection = this;
+                return originalAdd.call(this, item)
+            };
+            first = history.append({id: 'a', payload: {value: 1}})
+        } finally {
+            Collection.prototype.add = originalAdd
+        }
+
+        const
+            rows          = [first, history.append({id: 'b'}), history.append({id: 'c'})],
+            notifications = [],
+            scope         = {id: 'history-checkpoint-observer'};
+
+        history.undo();
+        history.undo();
+
+        const checkpoint = history.captureState(),
+              bytes      = JSON.stringify(history);
+
+        collection.on('mutate', event => {
+            notifications.push(event);
+            if (event.addedItems?.some(row => row.id === 'failed')) {
+                throw new Error('failure after Collection admission')
+            }
+        }, scope);
+
+        expect(() => history.append({id: 'failed'})).toThrow('failure after Collection admission');
+        expect(history.rows.map(row => row.id)).toEqual(['a', 'failed']);
+        notifications.length = 0;
+
+        history.restoreState(checkpoint);
+
+        expect(JSON.stringify(history)).toBe(bytes);
+        history.rows.forEach((row, index) => expect(row).toBe(rows[index]));
+        expect(history.get('failed')).toBeNull();
+        expect(history.canRedo).toBe(true);
+        expect(notifications).toEqual([]);
+
+        // A restore error must release its silent bracket and leave the checkpoint retryable.
+        const retry  = history.captureState(),
+              splice = collection.splice;
+
+        history.redo();
+        collection.splice = () => { throw new Error('restore fault') };
+
+        try {
+            expect(() => history.restoreState(retry)).toThrow('restore fault')
+        } finally {
+            collection.splice = splice
+        }
+
+        history.restoreState(retry);
+        expect(JSON.stringify(history)).toBe(bytes);
+        expect(notifications).toEqual([]);
+
+        history.append({id: 'next'});
+        expect(notifications.some(event => event.addedItems?.some(row => row.id === 'next'))).toBe(true)
+    });
+
+    test('checkpoints restore evicted row identities, cursor moves and an empty initial history', () => {
+        const empty = history.captureState(),
+              rows  = ['a', 'b', 'c'].map(id => history.append({id, payload: {id}}));
+
+        history.undo();
+
+        const checkpoint = history.captureState(),
+              bytes      = JSON.stringify(history);
+
+        expect(Object.isFrozen(checkpoint)).toBe(true);
+        expect(() => { checkpoint.rows = [] }).toThrow(TypeError);
+
+        history.redo();
+        history.append({id: 'd'});
+        history.append({id: 'e'});
+        history.undo();
+        expect(history.has('a')).toBe(false);
+
+        history.restoreState(checkpoint);
+
+        expect(JSON.stringify(history)).toBe(bytes);
+        rows.forEach((row, index) => expect(history.getAt(index)).toBe(row));
+        expect(history.peek('redo')).toBe(rows[2]);
+
+        history.restoreState(empty);
+
+        expect(history.rows).toEqual([]);
+        expect(history.count).toBe(0);
+        expect(history.cursor).toBe(-1);
+        expect(history.sequence).toBe(0);
+        expect(history.canUndo).toBe(false);
+        expect(history.canRedo).toBe(false);
+        expect(history.append({id: 'first-again'}).sequence).toBe(1)
+    });
+
+    test('foreign, forged, consumed and retired checkpoints cannot mutate a History', () => {
+        const other = Neo.create(History, {depth: 3});
+
+        try {
+            history.append({id: 'owned'});
+            const checkpoint = history.captureState(),
+                  bytes      = JSON.stringify(history);
+
+            for (const invalid of [null, {}, {...checkpoint}, other.captureState()]) {
+                expect(() => history.restoreState(invalid)).toThrow(/belong to this live history/);
+                expect(JSON.stringify(history)).toBe(bytes)
+            }
+
+            history.restoreState(checkpoint);
+            expect(() => history.restoreState(checkpoint)).toThrow(/belong to this live history/);
+
+            const retired = other.captureState();
+
+            other.destroy();
+            expect(() => other.restoreState(retired)).toThrow(/belong to this live history/);
+            expect(() => other.captureState()).toThrow(/retired history/)
+        } finally {
+            !other.isDestroyed && other.destroy()
+        }
     });
 
     test('append after undo drops the redo tail, and only the tail', () => {

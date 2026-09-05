@@ -518,7 +518,7 @@ class DemoBWorkspace extends Container {
         // admitted at registration, and a Group the carrier already held is known before this
         // constructor runs; a first boot's minted identity arrives with its accepted binding, and
         // `onTopologyBind` registers the participants then.
-        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
+        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId, documentModel: WorkspaceDocument});
         me.adoptTopologyGroup(TransactionManager.findByWindow(me.windowId)?.groupId ?? null);
 
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
@@ -3014,6 +3014,7 @@ class DemoBWorkspace extends Container {
         me.topologyGroupId = groupId;
 
         me.workspaceSet.register(DemoBWorkspace.MAIN_WORKSPACE_ID, {
+            bindingKey : 'main',
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document
         });

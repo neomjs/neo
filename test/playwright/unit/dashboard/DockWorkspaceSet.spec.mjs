@@ -72,7 +72,7 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over 
 
         expect(set.register('main', holder.seams)).toBe(true);
         expect(TransactionManager.getParticipant(groupId, 'main'), 'the adapter kept no entry of its own — the Group holds it')
-            .toEqual({getDocument: holder.seams.getDocument, setDocument: holder.seams.setDocument});
+            .toMatchObject({getDocument: holder.seams.getDocument, setDocument: holder.seams.setDocument});
 
         // The host window dies; its binding is released and its lease runs out.
         TransactionManager.reconnectLeaseMs = 20;
