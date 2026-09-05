@@ -6,13 +6,14 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Component      from '../../../../src/component/Base.mjs';
-import DockWorkspace  from '../../../../src/dashboard/dock/Workspace.mjs';
-import LayoutAdapter  from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import Reconciler     from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
+import HeaderActionPolicy from '../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
+import LayoutAdapter      from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import Reconciler         from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/tab/Container.mjs';
 
@@ -262,7 +263,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
 
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.vdom.inert).toBe(true);
         expect(pane.cls).toContain('neo-dock-pane-locked')
@@ -285,7 +286,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         pane.vdom.inert = false;
         tabButton.addWrapperCls('neo-draggable');
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(tabButton.wrapperCls).toContain('neo-draggable');
 
@@ -371,8 +372,8 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(closeAction.hidden).toBe(true);
 
         // The sweep runs on every active-item change and every settle; the hook must not.
-        workspace.syncDockHeaderActions();
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.lockCalls, 'once per transition').toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
@@ -386,20 +387,83 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         expect(tabButton.wrapperCls).toContain('neo-draggable');
         expect(closeAction.hidden).toBe(false);
 
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.lockCalls, 'unlock is a transition too, once').toEqual([true, false]);
 
         // The same sweep keeps the inert default, exact restore included, for the sibling.
-        workspace.syncDockLockItemPresentation({locked: true, pane: beta});
+        workspace.dockHeaderActionPolicy.syncLockItemPresentation({locked: true, pane: beta});
 
         expect(beta.vdom.inert).toBe(true);
         expect(beta.cls).toContain('neo-dock-pane-locked');
 
-        workspace.syncDockLockItemPresentation({locked: false, pane: beta});
+        workspace.dockHeaderActionPolicy.syncLockItemPresentation({locked: false, pane: beta});
 
         expect(Object.hasOwn(beta.vdom, 'inert')).toBe(false);
         expect(beta.cls).not.toContain('neo-dock-pane-locked')
+    });
+
+    /**
+     * The restore memory is keyed by panes and tab buttons that outlive the policy that locked
+     * them. A replacement installed while a lock is held must inherit it, or the next unlock finds
+     * empty maps: the pane keeps `inert`, the tab button stays disarmed, the delegated hook never
+     * receives its `false`. Three ownership shapes, one swap, one unlock each — and the same-instance
+     * assignment as the control that must retire nothing.
+     */
+    test('a live policy replacement inherits the held lock\'s restore memory, so the next unlock reverses it exactly', () => {
+        workspace = Neo.create(DelegatingLockWorkspace, {
+            dockModel            : createDocument(),
+            enableDockCloseAction: true,
+            enableDockLockAction : true
+        });
+
+        const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('main-tabs'),
+              alpha        = tabContainer.getActiveCard(),
+              beta         = tabContainer.getCardContainer().items[1],
+              tabButton    = tabContainer.getTabButtons()[0],
+              before       = workspace.dockHeaderActionPolicy;
+
+        // beta owned an explicit `inert: false` before its lock — the exact value the unlock owes.
+        beta.vdom.inert = false;
+        tabButton.addWrapperCls('neo-draggable');
+
+        const locked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+
+        expect(locked.errors).toEqual([]);
+        expect(alpha.lockCalls, 'the delegated pane was locked by the first policy').toEqual([true]);
+        expect(tabButton.wrapperCls).not.toContain('neo-draggable');
+
+        before.syncLockItemPresentation({locked: true, pane: beta});
+
+        expect(beta.vdom.inert).toBe(true);
+
+        // The supported live replacement: a fresh instance through the one config.
+        workspace.set({dockHeaderActionPolicy: {module: HeaderActionPolicy}});
+
+        const after = workspace.dockHeaderActionPolicy;
+
+        expect(after).not.toBe(before);
+        expect(after.workspace).toBe(workspace);
+        expect(before.isDestroyed, 'the retired policy is gone').toBe(true);
+
+        const unlocked = workspace.handleDockLockAction({dockNodeId: 'main-tabs', tabContainer});
+
+        expect(unlocked.errors).toEqual([]);
+        expect(alpha.lockCalls, 'the delegated pane gets its false from the policy that did not lock it').toEqual([true, false]);
+        expect(Object.hasOwn(alpha.vdom, 'inert'), 'and still gains no inert').toBe(false);
+        expect(tabButton.wrapperCls, 'the drag token the first policy took is restored').toContain('neo-draggable');
+
+        after.syncLockItemPresentation({locked: false, pane: beta});
+
+        expect(Object.hasOwn(beta.vdom, 'inert'), 'ownership is restored, not deleted').toBe(true);
+        expect(beta.vdom.inert, 'to the exact prior value').toBe(false);
+        expect(beta.cls).not.toContain('neo-dock-pane-locked');
+
+        // Control: assigning the SAME instance is not a replacement — nothing retires.
+        workspace.set({dockHeaderActionPolicy: after});
+
+        expect(workspace.dockHeaderActionPolicy).toBe(after);
+        expect(after.isDestroyed).toBeFalsy()
     });
 
     test('a committed lock reaches a delegating pane from the fresh projected shell', () => {
@@ -416,7 +480,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         expect(pane.lockCalls).toEqual([]);
 
-        workspace.syncDockHeaderActions();
+        workspace.dockHeaderActionPolicy.syncAll();
 
         expect(pane.lockCalls).toEqual([true]);
         expect(Object.hasOwn(pane.vdom, 'inert')).toBe(false);
