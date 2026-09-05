@@ -263,7 +263,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
         // The node's container bound its locked items as it constructed and presented them once
         // its chrome existed: the pane is inert from the first paint.
-        expect(tabContainer.dockLockedItemIds).toBe('alpha');
+        expect(tabContainer.dockLockedItemIds).toEqual(['alpha']);
         expect(pane.vdom.inert).toBe(true);
         expect(pane.cls).toContain('neo-dock-pane-locked');
 

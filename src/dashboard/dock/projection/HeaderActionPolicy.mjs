@@ -38,7 +38,7 @@ function effectiveActiveItemId(document, node) {
  * **Header truth as data.** {@link #publishDocument} projects the committed document onto the
  * workspace's `stateProvider` — the workspace-level node of the app's provider hierarchy, engine
  * default or consumer-owned alike — under the `dock` namespace: `dock.items.<itemId>.{closable,
- * lockable, locked, pinnable, edge}` and `dock.nodes.<tabsNodeId>.activeItemId`, plus
+ * lockable, locked, pinnable, edge}` and `dock.nodes.<tabsNodeId>.{activeItemId, items}`, plus
  * `dock.popOutAvailable` and `dock.recreateFallback`. The workspace publishes the runtime facts the
  * document does not carry: `dock.items.<itemId>.reloadable` when it resolves a pane,
  * `dock.flights.<itemId>` at a reload's or recreate's edges. Every leaf is a `core.Config` that
@@ -50,8 +50,9 @@ function effectiveActiveItemId(document, node) {
  * and `state.Provider#createBinding` runs the formatter as a `core.Effect`: it reads through
  * `getData`, which registers exactly the leaf configs it touched, and re-runs only when one of them
  * changes. A commit that changes no header input — a split resize, another workspace's transaction
- * — evaluates nothing; a lock toggle re-evaluates the close and lock actions of the one header that
- * presents the item. The one presentation that is not an action config — the lock's pane `inert`
+ * — re-evaluates no formatter (the publish itself walks the committed document once); a lock toggle
+ * re-evaluates the close and lock actions of the one header that presents the item. The one
+ * presentation that is not an action config — the lock's pane `inert`
  * and tab-button drag token, with their exact-restore memory in {@link #syncLockItemPresentation} —
  * is bound the same way onto the dock's own chrome: the tabs node's container binds
  * {@link #createNodeLockBinding} and presents the items whose lock changed, a rail binds
@@ -122,17 +123,16 @@ class HeaderActionPolicy extends Base {
 
     /**
      * The formatter a tabs node's container binds to its `dockLockedItemIds`: the ids of the node's
-     * items that are committed locked, comma-joined. It reads the node's published item list and each
-     * item's `locked` leaf, so it re-runs when an item of this node locks or unlocks, or the node's
-     * items change — and for nothing else. `this` is the workspace's provider.
+     * items that are committed locked. It reads the node's published item list and each item's
+     * `locked` leaf, so it re-runs when an item of this node locks or unlocks, or the node's items
+     * change — and for nothing else. Ids travel whole, as array leaves: a delimiter would narrow the
+     * identity domain the document validator admits. `this` is the workspace's provider.
      * @param {String} nodeId The tabs node
-     * @returns {Function}
+     * @returns {Function} `() => String[]`
      */
     createNodeLockBinding(nodeId) {
         return function() {
-            const items = this.getData(`dock.nodes.${nodeId}.items`) || '';
-
-            return items.split(',').filter(itemId => itemId && this.getData(`dock.items.${itemId}.locked`) === true).join(',')
+            return (this.getData(`dock.nodes.${nodeId}.items`) || []).filter(itemId => this.getData(`dock.items.${itemId}.locked`) === true)
         }
     }
 
@@ -237,8 +237,9 @@ class HeaderActionPolicy extends Base {
      * Publishes the header truth a committed document carries onto the workspace's provider, under
      * `dock`: per item `closable`, `lockable`, `locked`, `pinnable` and the owning `edge`
      * ({@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge}, the derivation the
-     * projection rails by); per tabs node the item it presents; the workspace's `popOutAvailable`
-     * and `recreateFallback`. Leaves self-diff, so an unchanged document evaluates nothing.
+     * projection rails by); per tabs node the item it presents and its items in tab flow; the
+     * workspace's `popOutAvailable` and `recreateFallback`. Leaves self-diff, so an unchanged
+     * document evaluates nothing.
      *
      * The workspace publishes at the commit boundary — a retained action whose inputs changed
      * re-evaluates there — and again as it projects, which is a no-op after a commit and the one
@@ -276,7 +277,7 @@ class HeaderActionPolicy extends Base {
             if (node?.type === 'tabs') {
                 nodes[nodeId] = {
                     activeItemId: effectiveActiveItemId(document, node),
-                    items       : tabFlowItems(document, node).join(',')
+                    items       : tabFlowItems(document, node)
                 }
             }
         });

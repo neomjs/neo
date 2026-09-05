@@ -1,7 +1,5 @@
 import BaseTabContainer from '../../../tab/Container.mjs';
 
-const split = value => (value || '').split(',').filter(Boolean);
-
 /**
  * @summary The tab container a dock tabs node projects into: a generic {@link Neo.tab.Container} that
  * additionally binds the committed lock state of its items and presents it on its own chrome.
@@ -25,12 +23,13 @@ class TabContainer extends BaseTabContainer {
         // No own `ntype`: the inherited `tab-container` keeps the ui class family
         // (`neo-tab-container-inline`) the dock's stylesheets address, and registers nothing new.
         /**
-         * The ids of this node's items that are committed locked, comma-joined — bound by the
-         * projection to the workspace's published header truth.
-         * @member {String} dockLockedItemIds_=''
+         * The ids of this node's items that are committed locked — bound by the projection to the
+         * workspace's published header truth. Ids travel whole, never delimited: every id the
+         * document validator admits presents.
+         * @member {String[]} dockLockedItemIds_=[]
          * @reactive
          */
-        dockLockedItemIds_: '',
+        dockLockedItemIds_: [],
         /**
          * The id of the workspace whose header-action policy presents a lock on this node's chrome.
          * @member {String|null} dockWorkspaceId=null
@@ -41,8 +40,8 @@ class TabContainer extends BaseTabContainer {
     /**
      * Presents the items whose lock changed, and only those. An item that left this node keeps its
      * presentation: its lock did not change, another node now presents it.
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String[]} value
+     * @param {String[]} oldValue
      * @protected
      */
     afterSetDockLockedItemIds(value, oldValue) {
@@ -51,8 +50,8 @@ class TabContainer extends BaseTabContainer {
         // Buttons and cards exist only once construction completed; onConstructed presents then.
         if (!me.isConstructed) return;
 
-        const next     = new Set(split(value)),
-              prev     = new Set(split(oldValue)),
+        const next     = new Set(value    || []),
+              prev     = new Set(oldValue || []),
               provider = me.getStateProvider();
 
         next.forEach(itemId => !prev.has(itemId) && me.presentDockLock(itemId, true));
@@ -68,7 +67,7 @@ class TabContainer extends BaseTabContainer {
      */
     onConstructed() {
         super.onConstructed();
-        split(this.dockLockedItemIds).forEach(itemId => this.presentDockLock(itemId, true))
+        (this.dockLockedItemIds || []).forEach(itemId => this.presentDockLock(itemId, true))
     }
 
     /**
@@ -78,7 +77,7 @@ class TabContainer extends BaseTabContainer {
      * @param {String} itemId
      * @param {Boolean} [locked] Defaults to this node's bound truth for the item
      */
-    presentDockLock(itemId, locked=split(this.dockLockedItemIds).includes(itemId)) {
+    presentDockLock(itemId, locked=(this.dockLockedItemIds || []).includes(itemId)) {
         let me     = this,
             policy = Neo.get(me.dockWorkspaceId)?.dockHeaderActionPolicy;
 

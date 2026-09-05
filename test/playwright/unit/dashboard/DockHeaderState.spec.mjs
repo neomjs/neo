@@ -14,6 +14,7 @@ import Container          from '../../../../src/container/Base.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import HeaderActionPolicy from '../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
 import Reconciler         from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/tab/Container.mjs';
 
@@ -192,7 +193,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
             .toEqual(['center-tabs:close.hidden', 'center-tabs:dockLockedItemIds', 'center-tabs:lock.pressed']);
         expect(lock.pressed).toBe(true);
         expect(close.hidden, 'a locked item is not closable').toBe(true);
-        expect(center.dockLockedItemIds, 'the node binds its locked items').toBe('alpha');
+        expect(center.dockLockedItemIds, 'the node binds its locked items').toEqual(['alpha']);
         expect(pane.vdom.inert, 'and presented the pane at the commit boundary').toBe(true);
 
         await workspace.refreshPromise;
@@ -371,5 +372,52 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         rail.publishRevealedItem(null);
         expect(rail.dockRevealLocked, 'dismissed: nothing revealed').toBe(false)
+    });
+
+    test('an item id the document accepts is carried whole through the lock bindings — a comma is not a delimiter', async () => {
+        const document = createDocument(),
+              itemId   = 'a,b';
+
+        document.items[itemId] = document.items.alpha;
+        delete document.items.alpha;
+        document.nodes['center-tabs'].items        = [itemId, 'beta'];
+        document.nodes['center-tabs'].activeItemId = itemId;
+
+        expect(WorkspaceDocument.validate(document), 'the identity domain admits the id').toEqual([]);
+
+        workspace = Neo.create(HeaderStateWorkspace, {dockModel: document});
+
+        const center   = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
+              pane     = center.getActiveCard(),
+              button   = center.getTabButtons()[0],
+              lock     = center.getActionItem('lock'),
+              close    = center.getActionItem('close'),
+              provider = workspace.stateProvider;
+
+        expect(button.dockItemId).toBe(itemId);
+        expect(provider.getData('dock.nodes.center-tabs.items'), 'the published item list keeps the id whole').toEqual([itemId, 'beta']);
+
+        // The sort zone arms the drag token against a mounted DOM; the unit harness arms it by hand.
+        button.addWrapperCls('neo-draggable');
+
+        expect(workspace.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
+
+        expect(lock.pressed).toBe(true);
+        expect(close.hidden).toBe(true);
+        expect(center.dockLockedItemIds, 'the node binds the locked item by its whole id').toEqual([itemId]);
+        expect(pane.vdom.inert, 'and presents the pane').toBe(true);
+        expect(pane.cls).toContain('neo-dock-pane-locked');
+        expect(button.wrapperCls, 'the locked tab is not draggable').not.toContain('neo-draggable');
+
+        await workspace.refreshPromise;
+
+        expect(workspace.handleDockLockAction({dockNodeId: 'center-tabs', tabContainer: center}).errors).toEqual([]);
+        await workspace.refreshPromise;
+
+        expect(lock.pressed).toBe(false);
+        expect(center.dockLockedItemIds).toEqual([]);
+        expect(Object.hasOwn(pane.vdom, 'inert'), 'exact restore: the pane never owned inert').toBe(false);
+        expect(pane.cls).not.toContain('neo-dock-pane-locked');
+        expect(button.wrapperCls, 'unlock restores the drag token').toContain('neo-draggable')
     })
 });
