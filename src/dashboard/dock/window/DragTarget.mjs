@@ -12,8 +12,9 @@ import DragCoordinator from '../../../manager/DragCoordinator.mjs';
  * `Neo.manager.DragCoordinator` arbitrates WHICH window's target receives a drag that originated
  * in a sibling window on the same App-Worker heap; this class is what a dock workspace registers
  * to participate. It fulfils the §2.3 target-side contract — registry identity (`sortGroup`,
- * `windowId`) plus the four mandatory hooks (`acceptsRemoteDrag`, `onRemoteDragMove`,
- * `onRemoteDragLeave`, `onRemoteDrop`). A product owner may additionally bind the optional native
+ * `windowId`), the declared commit authority (`ownershipId`) the coordinator admits candidates by,
+ * plus the four mandatory hooks (`acceptsRemoteDrag`, `onRemoteDragMove`, `onRemoteDragLeave`,
+ * `onRemoteDrop`). A product owner may additionally bind the optional native
  * popup source seams, letting the SAME stable registration describe a physical popup gesture
  * without competing for the coordinator's one target slot:
  *
@@ -110,6 +111,16 @@ class DragTarget extends Base {
          */
         promoteDragEmbodiment: null,
         /**
+         * Owner seam: the commit authority this surface belongs to — the topology Group of the workspace
+         * it renders for (`Neo.manager.Transaction`), returned as its id, or `null` while unresolved.
+         * Read through {@link #ownershipId} at claim time, so a host that learns its Group after this
+         * target registered is covered. Every dock surface declares: a target without the seam reads
+         * `null`, never `undefined`, so it is never a candidate for a source outside the Group world.
+         * Docking design record §2.3.
+         * @member {Function|null} resolveOwnershipId=null
+         */
+        resolveOwnershipId: null,
+        /**
          * Optional owner seam: restores a staged target-local drag embodiment on leave, refusal,
          * cancellation, or a throwing commit. Receives the exact hover payload that staged it.
          * @member {Function|null} restoreDragEmbodiment=null
@@ -169,6 +180,15 @@ class DragTarget extends Base {
      * @member {Object|null} currentDragPayload=null
      */
     currentDragPayload = null
+
+    /**
+     * The declared ownership the coordinator admits candidates by (docking design record §2.3): the seam's answer,
+     * `null` while unresolved, never `undefined` — see {@link #resolveOwnershipId}.
+     * @member {String|null} ownershipId
+     */
+    get ownershipId() {
+        return this.resolveOwnershipId?.() ?? null
+    }
 
     /**
      * Registers with the coordinator once the §2.3 registry identity is complete.

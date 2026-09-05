@@ -44,7 +44,10 @@ import {previewToOperation as toDockOperation} from '../model/PreviewContract.mj
  * discriminator keys on the LATTER's identity with this workspace — item-id presence in the
  * target catalog is never ownership evidence (a foreign item with a colliding id must reach the
  * executor's fail-closed collision rejection, not commit the local record) — and a payload
- * missing either stamp fails closed (no signal-free guessing).
+ * missing any of its stamps fails closed (no signal-free guessing). `draggedItem.dockSourceOwnershipId`
+ * names the commit authority the item departs — the source window's topology Group — and the commit
+ * re-checks it against this workspace's own (docking design record §2.3), so an equal bare workspace id across two
+ * Groups never reads as local.
  */
 class Participation extends Base {
     static config = {
@@ -124,6 +127,14 @@ class Participation extends Base {
          * @member {Function|null} resolveNativeWindowDrag=null
          */
         resolveNativeWindowDrag: null,
+        /**
+         * Owner seam: the commit authority this workspace's surfaces belong to — its topology Group id
+         * (`Neo.manager.Transaction`), or `null` while unresolved — read live through {@link #ownershipId}
+         * at claim time and at commit. Defaults to the owning {@link #workspace}'s Group; a host that
+         * passes no workspace supplies it here (docking design record §2.3).
+         * @member {Function|null} resolveOwnershipId=null
+         */
+        resolveOwnershipId: null,
         /**
          * Optional product-owned native-popup restore seam forwarded to the stable participation.
          * @member {Function|null} resumeNativeWindowDrag=null
@@ -241,6 +252,7 @@ class Participation extends Base {
             previewToOperation     : me.previewToOperation      ?? toDockOperation,
             promoteDragEmbodiment  : me.promoteDragEmbodiment,
             resolveNativeWindowDrag: me.resolveNativeWindowDrag ?? me.defaultResolveNativeWindowDrag.bind(me),
+            resolveOwnershipId     : () => me.ownershipId,
             restoreDragEmbodiment  : me.restoreDragEmbodiment,
             resumeNativeWindowDrag : me.resumeNativeWindowDrag,
             retireNativeWindowDrag : me.retireNativeWindowDrag,
@@ -428,6 +440,7 @@ class Participation extends Base {
         }
 
         pane.dockItemId            = itemId;
+        pane.dockSourceOwnershipId = me.ownershipId;
         pane.dockSourceWorkspaceId = me.workspaceId;
 
         return {
@@ -450,6 +463,27 @@ class Participation extends Base {
     }
 
     /**
+     * The commit authority this workspace's surfaces declare (docking design record §2.3): the seam's answer, `null`
+     * while unresolved. The registered target reads it at claim time; {@link #commitDrop} re-checks it.
+     * @member {String|null} ownershipId
+     */
+    get ownershipId() {
+        return (this.resolveOwnershipId ?? this.defaultResolveOwnershipId).call(this) ?? null
+    }
+
+    /**
+     * Engine default for {@link #resolveOwnershipId}: the owning workspace's topology Group, resolved
+     * live so a Group learned after this participation registered is covered.
+     * @returns {String|null}
+     * @protected
+     */
+    defaultResolveOwnershipId() {
+        let {workspace} = this;
+
+        return workspace ? (workspace.resolveTopologyGroup?.() ?? workspace.topologyGroupId ?? null) : null
+    }
+
+    /**
      * @summary The discriminated commit — the one decision this class adds. A payload whose
      * `dockSourceWorkspaceId` IS this workspace commits through the landed single-document seam;
      * any other source workspace composes ONE `transferItem` descriptor (the converted operation
@@ -464,18 +498,27 @@ class Participation extends Base {
      * @param {Object} operation The converted `addTab`/`splitNode` descriptor from the target's
      *     preview→operation pipeline.
      * @param {Object} draggedItem The coordinator's drag payload — carries `dockItemId` +
-     *     `dockSourceWorkspaceId` and optional `dockGroupNodeId` per the class-summary payload contract.
+     *     `dockSourceWorkspaceId` + `dockSourceOwnershipId` and optional `dockGroupNodeId` per the
+     *     class-summary payload contract.
      * @returns {Object|null} the owner commit result, or null when nothing committed.
      */
     commitDrop(operation, draggedItem) {
         let me                = this,
             groupNodeId       = draggedItem?.dockGroupNodeId,
             itemId            = draggedItem?.dockItemId,
+            sourceOwnershipId = draggedItem?.dockSourceOwnershipId,
             sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId,
             publishTransfer   = me.resolveCommitTransfer(),
             document          = (me.getDocument ?? me.defaultGetDocument).call(me);
 
         if (!operation || !itemId || !document) {
+            return null
+        }
+
+        // Docking design record §2.3, re-checked at commit: the coordinator admitted this target by ownership, and the
+        // payload proves it again here. An equal bare workspace id across two Groups is not local, and an
+        // unstamped payload proves nothing — both fail closed before the local/foreign discrimination.
+        if (sourceOwnershipId == null || sourceOwnershipId !== me.ownershipId) {
             return null
         }
 

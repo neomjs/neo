@@ -31,6 +31,26 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
         expect(DragCoordinator.sortZones.has('dock-main')).toBe(false)
     });
 
+    test('ownershipId is the owner seam\'s live answer — null without a seam or while unresolved, never undefined (ADR 0029 §2.3)', () => {
+        let groupId = null;
+
+        const
+            declared   = Neo.create(CrossWindowDragTarget, {resolveOwnershipId: () => groupId, sortGroup: 'dock-own', windowId: 3}),
+            undeclared = Neo.create(CrossWindowDragTarget, {sortGroup: 'dock-own', windowId: 4});
+
+        expect(declared.ownershipId, 'unresolved yet: declared null').toBeNull();
+
+        groupId = 'group-x';
+        expect(declared.ownershipId, 'learned after registration: read live, nothing cached').toBe('group-x');
+
+        expect(undeclared.ownershipId, 'a dock surface without the seam is still in the Group world: null, not undefined').toBeNull();
+        expect(DragCoordinator.admitsOwnership('group-x', declared.ownershipId)).toBe(true);
+        expect(DragCoordinator.admitsOwnership(undefined, undeclared.ownershipId), 'so a source outside the Group world never meets it').toBe(false);
+
+        declared.destroy();
+        undeclared.destroy()
+    });
+
     test('an incomplete registry identity never registers (§2.3: sortGroup + windowId are mandatory)', () => {
         const target = Neo.create(CrossWindowDragTarget, {
             windowId: 3

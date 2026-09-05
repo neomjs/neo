@@ -232,7 +232,8 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                     getDomRect: async () => ({x: 10, y: 20, width: 300, height: 32}),
                     items     : [strategy, swarm],
                     getTabButtons() { return this.items }
-                }
+                },
+                resolveSourceOwnershipId: () => 'group-popup'
             };
             // Production DragDrop shape: the original nested mousedown survives as `target`,
             // while the custom drag:start `path` begins at the draggable button.
@@ -253,6 +254,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
             expect(swarm).toMatchObject({
                 dockGroupNodeId      : 'main-tabs',
                 dockItemId           : 'swarm',
+                dockSourceOwnershipId: 'group-popup',
                 dockSourceWorkspaceId: 'popup'
             })
         });
