@@ -100,6 +100,34 @@ async function createGatedTabContainer(page) {
 const actionIds = toolbar => toolbar.locator(':scope > .neo-toolbar-action')
     .evaluateAll(nodes => nodes.map(node => node.id));
 
+/**
+ * Binds the overflow menu's first item ONCE, by id, and reads its label from that same element.
+ *
+ * `page.locator(…).first()` is a live query, not a snapshot: it re-runs on every Playwright retry.
+ * Both arms below previously captured the label from one resolution and clicked on the next, which
+ * carries two defects that look like one.
+ *
+ * The loud one is a hang. CI caught `.first()` resolving to one record and then to another, and
+ * each re-resolution restarts the actionability/stability clock — so `click()` can never settle and
+ * burns the whole test ceiling.
+ *
+ * The quiet one is worse and would have survived any timeout change: when the re-resolution lands
+ * fast enough to click successfully, the arm clicks one item and then asserts about the label it
+ * read from a *different* one. That arm passes while proving something other than what it says.
+ *
+ * Binding by id closes both. If the bound item goes away, the click fails naming that id instead of
+ * chasing a moving target.
+ */
+const firstMenuItem = async page => {
+    const list = page.locator('.neo-tab-overflow-menu:visible .neo-list-item');
+
+    await expect(list.first(), 'overflow menu opens with at least one item').toBeVisible({timeout: 3000});
+
+    const item = page.locator(`#${await list.first().getAttribute('id')}`);
+
+    return {item, label: (await item.innerText()).trim()}
+};
+
 /** Replaces consumer actions through the public TabContainer config path. */
 const replaceHeaderActions = (page, suffix) => page.evaluate(({id, suffix}) =>
     Neo.worker.App.setConfigs({
@@ -142,9 +170,13 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
               host    = toolbar.getByRole('button', {name: 'host action', exact: true}),
               close   = toolbar.getByRole('button', {name: 'close', exact: true});
 
-        await expect(control).toBeVisible({timeout: 10000});
-        await expect(host).toBeVisible();
-        await expect(close).toBeVisible();
+        // The labels below are so a failure says which condition was unmet; `control` keeps the
+        // largest budget as the only wait exposed to cold boot. No claim is made that these bounds
+        // guarantee anything about the test ceiling — several waits in this arm still run on default
+        // budgets, so the arm's worst case is not the sum of the explicit ones.
+        await expect(control, 'overflow control renders (cold boot)').toBeVisible({timeout: 8000});
+        await expect(host, 'host action renders').toBeVisible({timeout: 2000});
+        await expect(close, 'close action renders').toBeVisible({timeout: 2000});
         await expect(control).not.toHaveClass(/neo-toolbar-action-context-inactive/);
         await expect(control).not.toHaveAttribute('aria-hidden');
         await expect(page.locator('body > .neo-tab-overflow-control')).toHaveCount(0);
@@ -162,17 +194,13 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
         expect(tabBox.x + tabBox.width,
             'the visible tab partition ends before the measured contribution').toBeLessThanOrEqual(controlBox.x + 1);
 
-        await control.click();
+        await control.click({timeout: 3000});
 
-        const menuItem = page.locator('.neo-tab-overflow-menu:visible .neo-list-item').first();
+        const {item, label} = await firstMenuItem(page);
 
-        await expect(menuItem).toBeVisible({timeout: 10000});
-
-        const selected = (await menuItem.innerText()).trim();
-
-        await menuItem.click();
-        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selected}))
-            .toHaveCount(1, {timeout: 10000});
+        await item.click({timeout: 3000});
+        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: label}),
+            `menu activation presses the "${label}" tab`).toHaveCount(1, {timeout: 3000});
         expect(errors).toEqual([])
     });
 
@@ -210,18 +238,16 @@ test.describe('Neo.tab.plugin.Overflow — toolbar action projection', () => {
         expect(ids[0]).toBe(controlId);
         expect(ids.at(-1)).toBe(await toolbar.getByRole('button', {name: 'close', exact: true}).getAttribute('id'));
 
-        await restored.click();
+        await restored.click({timeout: 3000});
 
-        const menuItem = page.locator('.neo-tab-overflow-menu:visible .neo-list-item').first();
+        // Same `.first()` hole as the arm above. It has never been observed failing, which is exactly
+        // why it is repaired here rather than left for the day it does — a latent wrong-item assertion
+        // is not less wrong for having been lucky.
+        const {item, label} = await firstMenuItem(page);
 
-        await expect(menuItem, 'the recovered contribution keeps its ordinary menu route')
-            .toBeVisible({timeout: 10000});
-
-        const selected = (await menuItem.innerText()).trim();
-
-        await menuItem.click();
-        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selected}),
-            'selection still activates through activeIndex after the hidden replacement').toHaveCount(1)
+        await item.click({timeout: 3000});
+        await expect(toolbar.locator('.neo-tab-header-button.pressed:visible').filter({hasText: label}),
+            'selection still activates through activeIndex after the hidden replacement').toHaveCount(1, {timeout: 3000})
     });
 
     test('the restored split settles once — no pass re-applies a superseded extent', async ({page}) => {
