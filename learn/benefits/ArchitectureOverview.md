@@ -443,10 +443,11 @@ complete organism where the codebase and the agent co-evolve.
 | `src/main/` | Main thread addons | `DomEvents`, `DomAccess` | — |
 | `src/ai/` | Neural Link client | `Client` | — |
 
-### Agent OS (Node.js)
+### Agent OS (Brain repository)
 
-All `ai/**` paths in this section are relative to the sibling
-[`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) repository.
+All paths in this table are relative to the sibling
+[`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) repository, including its
+canonical `src/**` domains. They are separate from the Engine's `src/**` packages listed above.
 
 Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-server services were lifted from `ai/mcp/server/<name>/services/` into the flat SDK boundary at `ai/services/<name>/`. The `ai/mcp/server/<name>/` directories now host only the server entry-point (`Server.mjs`), config templates, logger, and shared helpers; the service implementations live under `ai/services/<name>/`. Both rows are listed below for navigability.
 
@@ -463,6 +464,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/services/knowledge-base/` | Semantic RAG services (post-M6 SDK location) | `QueryService`, `SearchService`, `KBRecorderService` | — |
 | `ai/services/memory-core/` | Episodic memory services (post-M6 SDK location) | `MemoryService`, `SessionService`, `GraphService`, `MailboxService` | [ADR 0001](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0002](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0030](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0030-work-graph-stall-inference.md), [ADR 0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md), [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
 | `ai/services/fleet/` | Fleet Manager registry, tenant, lifecycle, projection adapters, and the optional composed Fleet HTTP service | `FleetControlBridge`, `FleetRegistryService`, `FleetTenantService`, `fleetServer.mjs` | [ADR 0038](../agentos/decisions/0038-fm-client-topology.md) |
+| `src/fleet/contract/` | Client-safe Fleet vocabulary and wire helpers, exported as `neo-agent-brain/fleet-contract`; no Node, Neo-class, service or credential-policy imports | Harness/MCP catalogs, protocol negotiation and envelopes, cockpit source identifiers | [ADR 0038](../agentos/decisions/0038-fm-client-topology.md) |
 | `ai/services/graph/` | Dream Pipeline graph analysis, Golden Path synthesis, handoff rendering, and deterministic gap/finding inference | `GapInferenceEngine`, `GoldenPathSynthesizer`, graph-section helpers | [ADR 0023](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0023-dreamservice-organism-map-fidelity-consolidation-liveness.md), [ADR 0024](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0024-native-edge-graph-model.md), [ADR 0030](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0030-work-graph-stall-inference.md), [ADR 0035](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0035-live-lane-awareness-composition.md) |
 | `ai/services/github-workflow/` | Issue/PR management services (post-M6 SDK location) | `IssueService`, `SyncService`, `LabelService` | [ADR 0036](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0036-durable-community-activity-authority.md) |
 | `ai/services/gitlab-workflow/` | GitLab project workflow services when enabled | GitLab issue/MR service classes | — |
