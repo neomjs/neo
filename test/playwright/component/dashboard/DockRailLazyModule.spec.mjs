@@ -198,7 +198,15 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         expect(trail, 'one load request, so one call site').toHaveLength(1);
         expect(typeof trail[0], 'each entry is a string').toBe('string');
         expect(trail[0], 'the insert route is named').toContain('insert');
-        expect(trail[0], 'and is not confused with the activation route').not.toContain('afterSetActiveIndex')
+        expect(trail[0], 'and is not confused with the activation route').not.toContain('afterSetActiveIndex');
+
+        // The pass stamp has to be proven on the GREEN path, because the run it exists for produces
+        // no session to attach to. `[no active pass]` is a real, reachable rendering of the same
+        // field — a request raised outside any projection — so asserting a NUMBERED pass is what
+        // separates "the stamp worked" from "the stamp printed something". Without this, a stamp
+        // that silently never populated would reach a duplicate and report two identical labels,
+        // which reads exactly like the within-pass answer.
+        expect(trail[0], 'the request names a numbered projection pass').toMatch(/^\[pass \d+/)
     });
 
     test('the load request from the activation route names that route instead', async ({page}) => {
@@ -214,6 +222,55 @@ test.describe('dock rail — a lazy module item loads on its first reveal', () =
         expect(Array.isArray(trail), 'the trail survives the worker boundary as an array').toBe(true);
         expect(trail, 'one load request, so one call site').toHaveLength(1);
         expect(typeof trail[0], 'each entry is a string').toBe('string');
-        expect(trail[0], 'the activation route is named').toContain('afterSetActiveIndex')
+        expect(trail[0], 'the activation route is named').toContain('afterSetActiveIndex');
+
+        // Only the RENDERING is pinned here, not which of the two readings appears. The activation
+        // route usually raises its request outside any projection — a reactive-config chain,
+        // `Container.set` → `afterSetActiveIndex` → `loadModule`, with no `refreshDockWorkspace`
+        // frame under it — but measured over 10 local runs it lands inside `[pass 2]` in 2 of them,
+        // so activation and projection are not serialized against each other. Asserting
+        // `[no active pass]` here would encode an 80%-true accident as a contract and ship a flaky
+        // arm. The stamp's proof of life lives on the insert arm above, where a numbered pass is
+        // structural rather than timing-dependent.
+        expect(trail[0], 'the request names its projection-pass context').toMatch(/^\[(pass \d+|ambiguous: pass \d+|no active pass)/)
+    });
+
+    /**
+     * The attribution contract itself, driven from synthetic pending sets rather than from two real
+     * overlapping projections: the property under test belongs to the SET, and racing two refreshes
+     * to produce it would make the arm depend on scheduler timing.
+     *
+     * The case that forced this contract is the third one: a last-entry heuristic emits
+     * `pass 2 REPAIR` when an ORDINARY pass resumes while a repair merely sits pending, naming a pass
+     * that is not running and a flag that is not the request's.
+     */
+    test.describe('the pass stamp reports ambiguity instead of guessing an owner', () => {
+        const probe = async (page, contexts) => {
+            await setWorkspace(page, {passContextProbeJson: JSON.stringify(contexts)});
+
+            const [result] = await readWorkspace(page, ['passContextProbeResult']);
+
+            return result
+        };
+
+        test('one pending context is attributed, and carries its own repair flag', async ({page}) => {
+            expect(await probe(page, [{id: 7, isRepair: false}])).toBe('pass 7');
+            expect(await probe(page, [{id: 8, isRepair: true}])).toBe('pass 8 REPAIR')
+        });
+
+        test('an empty set is spelled out rather than rendered blank', async ({page}) => {
+            expect(await probe(page, [])).toBe('no active pass')
+        });
+
+        test('two pending contexts name BOTH with their own flags and no primary', async ({page}) => {
+            const label = await probe(page, [{id: 1, isRepair: false}, {id: 2, isRepair: true}]);
+
+            expect(label, 'every pending context is listed').toBe('ambiguous: pass 1, pass 2 REPAIR');
+
+            // The regression this pins: the old rendering answered `pass 2 REPAIR` here, which reads
+            // as a finding — a repair pass owning the request — when the request may equally have
+            // been raised by pass 1, which is not a repair at all.
+            expect(label, 'no single pass is presented as the owner').not.toMatch(/^\[?pass \d+( REPAIR)?$/)
+        })
     });
 });
