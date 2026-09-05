@@ -392,7 +392,7 @@ class LivePreview extends Container {
             me.getReference('preview').removeAll()
         }
 
-        let popoutButton = me.tabContainer.getActionItem('popout');
+        let popoutButton = me.tabContainer.getAction('popout');
 
         popoutButton && (popoutButton.hidden = !isPreview);
         me.disableRunSource = false;
@@ -520,7 +520,7 @@ class LivePreview extends Container {
             me.disableRunSource = true; // will get reset after the next activeIndex change (async)
             tabContainer.activeIndex = 1;        // switch to the source view
 
-            tabContainer.getActionItem('popout').disabled = false;
+            tabContainer.getAction('popout').disabled = false;
             tabContainer.getTabAtIndex(1).disabled = false;
 
             me.connectedWindowId = null

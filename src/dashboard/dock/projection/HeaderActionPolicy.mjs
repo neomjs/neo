@@ -101,7 +101,7 @@ class HeaderActionPolicy extends Base {
      * Each action's own sync guards on its own opt-in and is a no-op when the action was never
      * projected — the opt-in guard is load-bearing, not redundant: a host may legally own an
      * engine action NAME while that engine flag is off (the reserved-name guard fires only for
-     * enabled actions), and `getActionItem` finds the host's action by name. Without the guard,
+     * enabled actions), and `getAction` finds the host's action by name. Without the guard,
      * this sweep would rewrite consumer-owned action state.
      */
     syncAll() {
@@ -146,7 +146,7 @@ class HeaderActionPolicy extends Base {
 
         if (!workspace?.enableDockCloseAction) return;
 
-        let action = tabContainer?.getActionItem?.('close'),
+        let action = tabContainer?.getAction?.('close'),
             itemId = workspace.getActiveDockItemId(tabContainer),
             item   = workspace.dockModel?.items?.[itemId],
             hidden = !itemId || item?.closable === false || item?.locked === true;
@@ -173,7 +173,7 @@ class HeaderActionPolicy extends Base {
 
         if (!workspace?.enableDockPopOutAction) return;
 
-        let action = tabContainer?.getActionItem?.('pop-out'),
+        let action = tabContainer?.getAction?.('pop-out'),
             itemId = workspace.getActiveDockItemId(tabContainer),
             hidden = !itemId || !workspace.dockPopOutActionActive;
 
@@ -200,7 +200,7 @@ class HeaderActionPolicy extends Base {
 
         let {items} = workspace.dockModel || {},
             bar     = tabContainer.getTabBar(),
-            action  = tabContainer.getActionItem('lock'),
+            action  = tabContainer.getAction('lock'),
             itemId  = workspace.getActiveDockItemId(tabContainer),
             item    = items?.[itemId],
             locked  = item?.locked === true;
@@ -364,7 +364,7 @@ class HeaderActionPolicy extends Base {
 
         if (!workspace?.enableDockPinAction) return;
 
-        let action = tabContainer?.getActionItem?.('pin'),
+        let action = tabContainer?.getAction?.('pin'),
             itemId = workspace.getActiveDockItemId(tabContainer),
             model  = workspace.dockModel,
             hidden = !itemId
@@ -392,11 +392,11 @@ class HeaderActionPolicy extends Base {
         let {workspace} = this;
 
         // Opt-in guard first (the pin precedent): while the engine flag is off, a host may own
-        // the semantic name `reload` — getActionItem() would find THAT action, and writing to it
+        // the semantic name `reload` — getAction() would find THAT action, and writing to it
         // here would overwrite consumer-owned state. Default-off means behaviorally inert.
         if (!workspace?.enableDockReloadAction) return;
 
-        let action   = tabContainer?.getActionItem?.('reload'),
+        let action   = tabContainer?.getAction?.('reload'),
             itemId   = workspace.getActiveDockItemId(tabContainer),
             disabled = false,
             hidden   = true;

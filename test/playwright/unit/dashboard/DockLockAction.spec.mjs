@@ -281,8 +281,8 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
         const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('main-tabs'),
               pane         = tabContainer.getActiveCard(),
               tabButton    = tabContainer.getTabButtons()[0],
-              lockAction   = tabContainer.getActionItem('lock'),
-              closeAction  = tabContainer.getActionItem('close');
+              lockAction   = tabContainer.getAction('lock'),
+              closeAction  = tabContainer.getAction('close');
 
         pane.vdom.inert = false;
         tabButton.addWrapperCls('neo-draggable');
@@ -355,7 +355,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
               pane         = tabContainer.getActiveCard(),
               beta         = tabContainer.getCardContainer().items[1],
               tabButton    = tabContainer.getTabButtons()[0],
-              closeAction  = tabContainer.getActionItem('close');
+              closeAction  = tabContainer.getAction('close');
 
         expect(pane.lockCalls, 'the fixture pane carries the hook').toEqual([]);
         expect(typeof beta.dockLock, 'and its sibling does not').toBe('undefined');
