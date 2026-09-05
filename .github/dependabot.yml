@@ -18,6 +18,9 @@ updates:
     groups:
       all-deps:
         patterns: ["*"]
+        # Monaco is exact-pinned: a version bump requires addon/wrapper compatibility checks.
+        # Keep its update in a standalone PR so it cannot hide inside the bulk dependency diff.
+        exclude-patterns: ["monaco-editor"]
 
   - package-ecosystem: github-actions
     directory: "/"

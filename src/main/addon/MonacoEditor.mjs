@@ -60,38 +60,39 @@ class MonacoEditor extends Base {
     map = {}
 
     /**
+     * @summary Creates one native editor per mounted wrapper and routes its model changes to the worker.
      * For a complete list of options see:
      * https://microsoft.github.io/monaco-editor/typedoc/interfaces/editor.IEditorOptions.html
      * @param {Object} data
      */
     createInstance(data) {
-        let me   = this,
-            {id} = data,
-            node = DomAccess.getElement(id),
+        let me                                  = this,
+            {appName, id, windowId, ...options} = data,
+            node                                = DomAccess.getElement(id),
             editor;
-
-        delete data.appName;
-        delete data.id;
 
         if (me.map[id]) {
             return
         }
 
         if (node) {
-            editor = me.map[id] = monaco.editor.create(node, data);
+            editor = me.map[id] = monaco.editor.create(node, options);
 
-            editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
+            editor.onDidChangeModelContent(me.onContentChange.bind(me, id))
         } else if (Neo.config.environment === 'development') {
             console.warn(`addon.MonacoEditor: node ${id} not found`)
         }
     }
 
     /**
+     * @summary Releases the editor and its owned model/listeners before forgetting the holder.
+     * Monaco owns models created from value/language options; externally supplied models remain
+     * caller-owned, so model disposal must stay with the editor's ownership rules.
      * @param {Object} data
      * @param {String} data.id
      */
     destroyInstance(data) {
-        // todo: destroy the editor instance if possible
+        this.map[data.id]?.dispose();
         delete this.map[data.id]
     }
 
@@ -114,21 +115,30 @@ class MonacoEditor extends Base {
     }
 
     /**
-     *
+     * @summary Awaits Monaco's AMD entry, including its NLS, stylesheet and worker configuration.
+     * Loading editor.main.js as a script only registers its module; addon readiness requires the
+     * AMD factory to finish. The entry owns its version-specific dependency and asset filenames.
+     * @returns {Promise<void>}
      */
     async loadFiles() {
         let me   = this,
             path = me.libraryBasePath;
 
-        window.require = {paths: {vs: path}};
+        if (typeof window.require?.config !== 'function') {
+            try {
+                await DomAccess.loadScript(path + '/loader.js')
+            } catch (error) {
+                throw new Error(`Monaco AMD loader failed: ${path}/loader.js`, {cause: error})
+            }
+        }
 
-        await DomAccess.loadScript(path + '/loader.js');
+        window.require.config({paths: {vs: path}});
 
-        await Promise.all([
-            DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
-            DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
-            DomAccess.loadScript(path + '/editor/editor.main.js')
-        ])
+        await new Promise((resolve, reject) => {
+            window.require(['vs/editor/editor.main'], () => resolve(), error => {
+                reject(new Error(`Monaco editor module failed: ${path}/editor/editor.main.js`, {cause: error}))
+            })
+        })
     }
 
     /**
@@ -150,21 +160,25 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * @summary Changes the current model's language through Monaco's public editor API.
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.value
      */
     setLanguage(data) {
-        this.map[data.id].getModel().setLanguage(data.value)
+        const model = this.map[data.id]?.getModel();
+
+        model && monaco.editor.setModelLanguage(model, data.value)
     }
 
     /**
+     * @summary Applies the main realm's Monaco theme through its public editor API.
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.value
      */
     setTheme(data) {
-        this.map[data.id]._themeService.setTheme(data.value)
+        this.map[data.id] && monaco.editor.setTheme(data.value)
     }
 
     /**

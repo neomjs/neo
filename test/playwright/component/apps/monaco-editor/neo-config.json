@@ -1,0 +1,9 @@
+{
+    "appPath"         : "test/playwright/component/apps/monaco-editor/app.mjs",
+    "basePath"        : "../../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "MonacoEditor", "Navigator", "ResizeObserver", "Stylesheet"],
+    "themes"          : ["neo-theme-neo-light"],
+    "useSharedWorkers": false
+}
