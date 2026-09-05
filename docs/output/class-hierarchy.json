@@ -438,6 +438,7 @@
  "Neo.manager.Window": "Neo.manager.Base",
  "Neo.manager.rpc.Api": "Neo.manager.Base",
  "Neo.manager.rpc.Message": "Neo.manager.Base",
+ "Neo.manager.transaction.History": "Neo.collection.Base",
  "Neo.menu.List": "Neo.list.Base",
  "Neo.menu.Model": "Neo.data.Model",
  "Neo.menu.Panel": "Neo.container.Panel",
