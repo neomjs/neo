@@ -1385,6 +1385,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
             };
             workspace.vesselWorkspaces.set(workspaceId, state);
 
+            // the root's Group is the commit authority the payload departs from (docking design record §2.3)
+            workspace.topologyGroupId = 'group-workstation-spec';
+
             const source = workspace.resolveNativeTearOutDrag('window-alerts');
 
             expect(source).toMatchObject({
@@ -1396,6 +1399,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(source.draggedItem).toBe(pane);
             expect(pane.dockItemId).toBe(itemId);
             expect(pane.dockSourceWorkspaceId).toBe(Workspace.MAIN_WORKSPACE_ID);
+            expect(pane.dockSourceOwnershipId, 'the payload carries the root\'s Group as its commit authority').toBe('group-workstation-spec');
             expect(pane.dockGroupNodeId).toBeUndefined();
             expect(workspace.resolveNativeTearOutDrag('window-other')).toBeNull();
 

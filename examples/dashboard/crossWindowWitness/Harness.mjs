@@ -104,9 +104,20 @@ class Harness extends Viewport {
             hitTest           : () => true,
             previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
             previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            resolveOwnershipId: () => 'cw-group',
             sortGroup         : 'cw-witness',
             windowId          : 'cw-win-b',
             workspaceId       : 'B'
+        });
+
+        // window A's own registered surface: the source zone below drags under ITS ownership (docking design record §2.3),
+        // exactly as a dock window's header drags under the participation its workspace registered
+        const sourceParticipation = Neo.create(Participation, {
+            getDocument       : () => sourceDoc(),
+            resolveOwnershipId: () => 'cw-group',
+            sortGroup         : 'cw-witness',
+            windowId          : 'cw-win-a',
+            workspaceId       : 'A'
         });
 
         // COLD source zone in window A — construct() kicks off the coordinator preload; we NEVER await it
@@ -119,7 +130,7 @@ class Harness extends Viewport {
             windowId        : 'cw-win-a'
         });
 
-        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'cw-group', dockSourceWorkspaceId: 'A'};
         zone.dragProxy     = {hidden: false};
         zone.startIndex    = 0;
 
@@ -140,6 +151,7 @@ class Harness extends Viewport {
               };
 
         participation.destroy();
+        sourceParticipation.destroy();
         zone.destroy();
         WindowManager.unregister(WindowManager.get('cw-win-a'));
         WindowManager.unregister(WindowManager.get('cw-win-b'));

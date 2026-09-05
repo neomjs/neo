@@ -592,9 +592,10 @@ class DemoBWorkspace extends Container {
                 me.crossWindowGestureResolve?.(receipt);
                 me.crossWindowGestureResolve = null
             },
-            reserveVessel   : (workspaceKey, flow, windowName) => me.reserveVessel(workspaceKey, flow, windowName),
-            revokeVessel    : workspaceKey => me.revokeVessel(workspaceKey),
-            setPopupDocument: (workspaceId, document) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+            resolveOwnershipId: () => me.topologyGroupId ?? null,
+            reserveVessel     : (workspaceKey, flow, windowName) => me.reserveVessel(workspaceKey, flow, windowName),
+            revokeVessel      : workspaceKey => me.revokeVessel(workspaceKey),
+            setPopupDocument  : (workspaceId, document) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
                 ? me.popup2Document = document
                 : me.popupDocument = document,
             setStagePromise          : (workspaceId, promise) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
