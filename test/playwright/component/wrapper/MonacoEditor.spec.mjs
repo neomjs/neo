@@ -30,7 +30,7 @@ const readConfigs = async (page, id, keys) => {
 const expectEditor = async page => {
     await expect.poll(() => page.evaluate(id => {
         const addon  = globalThis.Neo?.main?.addon?.MonacoEditor,
-              editor = addon?.map[id];
+              editor = addon?.map?.[id];
 
         return !!(addon?.isReady && editor?.getModel())
     }, EDITOR_ID), {message: 'the real Monaco AMD module and native editor become ready', timeout: 20000}).toBe(true);
