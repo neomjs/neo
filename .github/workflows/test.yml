@@ -276,11 +276,11 @@ jobs:
 
       - name: Checkout repository
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -318,7 +318,7 @@ jobs:
       - name: Restore Playwright Chromium
         id: playwright-cache
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
@@ -329,7 +329,7 @@ jobs:
 
       - name: Save Playwright Chromium
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' && steps.playwright-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
@@ -359,7 +359,7 @@ jobs:
 
       - name: Upload test artifacts on failure
         if: ${{ failure() && matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.suite }}-${{ github.run_id }}
           path: test/playwright/test-results/
