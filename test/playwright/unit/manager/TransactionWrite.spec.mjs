@@ -19,13 +19,49 @@ import StateProvider   from '../../../../src/state/Provider.mjs';
  * The write side of a Group: the serialized queue, the admission barrier that loads the history module once
  * and only for a Group that keeps history, the cursor moves that wait for their application, the Group-local
  * depth, and the Group provider every bound window reads. The manager is driven the way a host does —
- * `bind`, then `write` / `undo` / `redo` — with `adopt` and `apply` as observed slots standing in for the
- * participant protocol a later leaf fills.
+ * `bind`, then `write` / `undo` / `redo` — with registered, versioned participants applying their own
+ * prepared values and the history's retained endpoints.
  */
 test.describe.serial('Neo.manager.Transaction — history admission, the queue and the Group provider', () => {
     let Transaction, importHistory, imports, log;
 
-    const noop = () => {};
+    /** @summary Supplies write metadata while retaining explicit participant changes. @param {Object} data @returns {Promise<Object>} */
+    const write = data => Transaction.write({cause: 'test-write', provenance: {origin: 'unit'}, changes: [], ...data});
+    /** @summary Reverses retained participant endpoints through the queued command. @param {Object} data @returns {Promise<Object>} */
+    const undo = data => Transaction.undo({cause: 'undo', provenance: {origin: 'unit'}, ...data});
+    /** @summary Reapplies retained participant endpoints through the queued command. @param {Object} data @returns {Promise<Object>} */
+    const redo = data => Transaction.redo({cause: 'redo', provenance: {origin: 'unit'}, ...data});
+
+    /** @summary Writes one prepared value through the registered main participant. @param {String} groupId @param {String} kind @returns {Promise<Object>} */
+    const writeValue = (groupId, kind) => write({
+        groupId,
+        descriptor: {kind},
+        changes   : [{workspaceKey: 'main', input: {kind}}]
+    });
+
+    /**
+     * @summary Registers a versioned value owner whose adoption can be observed or refused.
+     * @param {String} groupId
+     * @param {Function} [onAdopt]
+     * @returns {Object} The participant's mutable source state.
+     */
+    const registerValue = (groupId, onAdopt = () => {}) => {
+        const state = {value: {kind: 'initial'}, generation: 1, revision: 0};
+
+        expect(Transaction.registerParticipant({groupId, workspaceKey: 'main', participant: {
+            domain : 'dock',
+            capture: () => ({...state, value: structuredClone(state.value)}),
+            prepare: input => input,
+            adopt  : (value, context) => {
+                onAdopt(value, context);
+                state.value = structuredClone(value);
+                state.revision++
+            },
+            compensate: captured => Object.assign(state, captured, {value: structuredClone(captured.value)})
+        }})).toBe(true);
+
+        return state
+    };
 
     const reset = () => {
         [...Transaction.items].forEach(group => Transaction.retireGroup(group.id));
@@ -59,44 +95,45 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
 
     test.afterEach(reset);
 
-    test('a Group at depth zero admits writes without the history module: adopt runs once, no row, no import', async () => {
+    test('a Group at depth zero admits participant writes without the history module: one adoption, no row, no import', async () => {
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
               seen      = [],
-              outcome   = await Transaction.write({
-                  groupId,
-                  descriptor: {kind: 'move'},
-                  adopt     : descriptor => { seen.push(descriptor); return 'adopted' }
-              });
+              state     = registerValue(groupId, value => seen.push(value)),
+              outcome   = await writeValue(groupId, 'move');
 
-        expect(seen).toHaveLength(1);
-        expect(seen[0]).toEqual({kind: 'move'});
-        expect(outcome).toEqual({result: 'adopted', row: null});
+        expect(seen).toEqual([{kind: 'move'}]);
+        expect(state.value).toEqual({kind: 'move'});
+        expect(outcome).toMatchObject({
+            row               : null,
+            snapshot          : {version: 1, participants: {main: {kind: 'move'}}},
+            transactionId     : expect.any(String),
+            notificationErrors: []
+        });
+        expect(outcome).not.toHaveProperty('result');
         expect(imports).toBe(0);
         expect(Transaction.get(groupId).history).toBeNull();
         expect(Transaction.get(groupId).historyReady).toBeNull();
-        expect(await Transaction.undo({groupId, apply: noop}), 'nothing to undo without history').toBeNull();
-        expect(await Transaction.redo({groupId, apply: noop})).toBeNull();
+        expect((await undo({groupId})).row, 'nothing to undo without history').toBeNull();
+        expect((await redo({groupId})).row).toBeNull();
         expect(Transaction.getProvider(groupId).getData('canUndo')).toBe(false);
         expect(Transaction.getProvider(groupId).getData('historyDepth')).toBe(0);
         expect(imports, 'still nothing loaded').toBe(0)
     });
 
-    test('the first write of a Group that keeps history awaits one import before adopt; later writes queue behind it, each descriptor once', async () => {
+    test('the first write of a Group that keeps history awaits one import before adoption; queued descriptors are applied once in order', async () => {
         Transaction.historyDepth = 5;
 
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
-              adopt     = descriptor => { log.push(`adopt:${descriptor.kind}`); return descriptor.kind },
-              outcomes  = await Promise.all([
-                  Transaction.write({groupId, descriptor: {kind: 'a'}, adopt}),
-                  Transaction.write({groupId, descriptor: {kind: 'b'}, adopt}),
-                  Transaction.write({groupId, descriptor: {kind: 'c'}, adopt})
-              ]);
+              state     = registerValue(groupId, value => log.push(`adopt:${value.kind}`)),
+              outcomes  = await Promise.all(['a', 'b', 'c'].map(kind => writeValue(groupId, kind)));
 
         expect(imports).toBe(1);
-        expect(log, 'the barrier resolves before the first adopt; the writes run in call order').toEqual(['import:start', 'import:done', 'adopt:a', 'adopt:b', 'adopt:c']);
-        expect(outcomes.map(outcome => outcome.result)).toEqual(['a', 'b', 'c']);
+        expect(log, 'the barrier resolves before the first adoption; writes keep call order').toEqual(['import:start', 'import:done', 'adopt:a', 'adopt:b', 'adopt:c']);
+        expect(outcomes.map(outcome => outcome.row.kind)).toEqual(['a', 'b', 'c']);
+        expect(outcomes.map(outcome => outcome.snapshot.participants.main.kind)).toEqual(['a', 'b', 'c']);
         expect(outcomes.map(outcome => outcome.row.sequence)).toEqual([1, 2, 3]);
         expect(outcomes.every(outcome => Object.isFrozen(outcome.row))).toBe(true);
+        expect(state.value.kind).toBe('c');
 
         const {history} = Transaction.get(groupId);
 
@@ -105,10 +142,11 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         expect(history.count).toBe(3);
         expect(history.cursor).toBe(2);
 
-        await Transaction.write({groupId, descriptor: {kind: 'd'}, adopt});
+        await writeValue(groupId, 'd');
 
         expect(imports, 'a loaded Group imports nothing more').toBe(1);
-        expect(history.count).toBe(4)
+        expect(history.count).toBe(4);
+        expect(state.value.kind).toBe('d')
     });
 
     test('depth is a Group\'s own choice: two roots in one worker keep their own policy, whichever was admitted first', async () => {
@@ -119,8 +157,8 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         expect(Transaction.getProvider(second.groupId).getData('historyDepth')).toBe(50);
         expect(Transaction.getProvider(first.groupId).getData('historyDepth'), 'A was born at zero and stays there').toBe(0);
 
-        await Transaction.write({groupId: first.groupId,  descriptor: {kind: 'a'}});
-        await Transaction.write({groupId: second.groupId, descriptor: {kind: 'b'}});
+        await write({groupId: first.groupId,  descriptor: {kind: 'a'}});
+        await write({groupId: second.groupId, descriptor: {kind: 'b'}});
 
         expect(Transaction.get(first.groupId).history, 'A loads no history').toBeNull();
         expect(Transaction.get(second.groupId).history.depth).toBe(50);
@@ -135,8 +173,8 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
 
         const early = Transaction.bind({windowId: 'a2', workspaceKey: 'main'});
 
-        await Transaction.write({groupId: early.groupId, descriptor: {kind: 'a'}});
-        await Transaction.write({groupId: late.groupId,  descriptor: {kind: 'b'}});
+        await write({groupId: early.groupId, descriptor: {kind: 'a'}});
+        await write({groupId: late.groupId,  descriptor: {kind: 'b'}});
 
         expect(Transaction.get(early.groupId).history).toBeNull();
         expect(Transaction.get(late.groupId).history.depth).toBe(2);
@@ -157,119 +195,143 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
 
         const after = Transaction.bind({windowId: 'w2', workspaceKey: 'main'});
 
-        await Transaction.write({groupId: before.groupId, descriptor: {kind: 'a'}});
-        await Transaction.write({groupId: after.groupId,  descriptor: {kind: 'a'}});
+        await write({groupId: before.groupId, descriptor: {kind: 'a'}});
+        await write({groupId: after.groupId,  descriptor: {kind: 'a'}});
 
         expect(Transaction.get(before.groupId).history, 'born at zero, stays at zero').toBeNull();
         expect(Transaction.get(after.groupId).history.depth).toBe(2);
         expect(imports).toBe(1)
     });
 
-    test('a rejected adopt appends nothing, keeps the cursor, and releases the queue for the next write', async () => {
+    test('a rejected participant adoption appends nothing, keeps the cursor, and releases the queue for the next write', async () => {
         Transaction.historyDepth = 5;
 
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
-              provider  = Transaction.getProvider(groupId);
+              provider  = Transaction.getProvider(groupId),
+              state     = registerValue(groupId, value => {
+                  if (value.kind === 'b') throw new Error('participant refused')
+              });
 
-        await Transaction.write({groupId, descriptor: {kind: 'a'}, adopt: () => 'ok'});
+        await writeValue(groupId, 'a');
 
         expect(provider.getData('canUndo')).toBe(true);
         expect(provider.getData('historyLength')).toBe(1);
 
-        const failing = Transaction.write({groupId, descriptor: {kind: 'b'}, adopt: () => { throw new Error('second participant refused') }}),
-              next    = Transaction.write({groupId, descriptor: {kind: 'c'}, adopt: () => 'ok'});
+        const failing = writeValue(groupId, 'b'),
+              next    = writeValue(groupId, 'c');
 
-        await expect(failing).rejects.toThrow('second participant refused');
+        await expect(failing).rejects.toThrow('participant refused');
 
         const {history} = Transaction.get(groupId);
 
         expect((await next).row.kind, 'the queue survived the failure').toBe('c');
         expect(history.rows.map(row => row.kind)).toEqual(['a', 'c']);
         expect(history.cursor).toBe(1);
+        expect(state.value.kind).toBe('c');
+        expect(state.revision).toBe(2);
         expect(provider.getData('historyLength')).toBe(2)
     });
 
-    test('a descriptor the history would refuse is refused before adopt runs: no participant change without a row', async () => {
+    test('a descriptor that cannot become immutable data is refused before participant adoption', async () => {
         Transaction.historyDepth = 5;
 
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
-              adopted   = [];
+              adopted   = [],
+              state     = registerValue(groupId, value => adopted.push(value));
 
-        await expect(Transaction.write({groupId, descriptor: {kind: 'a', apply: () => {}}, adopt: descriptor => adopted.push(descriptor)})).rejects.toThrow(TypeError);
+        await expect(write({
+            groupId,
+            descriptor: {kind: 'a', apply: () => {}},
+            changes   : [{workspaceKey: 'main', input: {kind: 'a'}}]
+        })).rejects.toThrow(/clon|plain|JSON/i);
 
         expect(adopted).toHaveLength(0);
-        expect(Transaction.get(groupId).history.count).toBe(0);
+        expect(state.value.kind).toBe('initial');
+        expect(Transaction.get(groupId).history?.count ?? 0).toBe(0);
         expect(Transaction.getProvider(groupId).getData('canUndo')).toBe(false)
     });
 
-    test('undo and redo apply first and move the cursor after; the provider follows; an append after undo drops the tail', async () => {
+    test('undo and redo adopt stored participant endpoints before moving the cursor; the provider follows and append drops the redo tail', async () => {
         Transaction.historyDepth = 5;
 
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
               provider  = Transaction.getProvider(groupId),
               applied   = [],
-              apply     = row => { applied.push([row.kind, Transaction.get(groupId).history.cursor]) },
+              state     = registerValue(groupId, (value, context) => {
+                  if (context.cursorAction !== 'append') {
+                      applied.push([context.cursorAction, value.kind, Transaction.get(groupId).history.cursor])
+                  }
+              }),
               rows      = [];
 
         for (const kind of ['a', 'b', 'c']) {
-            rows.push((await Transaction.write({groupId, descriptor: {kind}})).row)
+            rows.push((await writeValue(groupId, kind)).row)
         }
 
         expect(provider.getData('canUndo')).toBe(true);
         expect(provider.getData('canRedo')).toBe(false);
         expect(provider.getData('historyCursor')).toBe(2);
 
-        expect(await Transaction.undo({groupId, apply})).toBe(rows[2]);
-        expect(await Transaction.undo({groupId, apply})).toBe(rows[1]);
-        expect(applied, 'apply sees the cursor still on the row it reverses').toEqual([['c', 2], ['b', 1]]);
+        expect((await undo({groupId})).row).toBe(rows[2]);
+        expect((await undo({groupId})).row).toBe(rows[1]);
+        expect(applied, 'adoption sees the cursor before the move').toEqual([['undo', 'b', 2], ['undo', 'a', 1]]);
+        expect(state.value.kind).toBe('a');
         expect(provider.getData('canRedo')).toBe(true);
         expect(provider.getData('historyCursor')).toBe(0);
-        expect(await Transaction.redo({groupId, apply})).toBe(rows[1]);
-        expect(applied.at(-1), 'redo applies before the cursor moves onto the row').toEqual(['b', 0]);
+        expect((await redo({groupId})).row).toBe(rows[1]);
+        expect(applied.at(-1), 'redo adopts before moving onto its row').toEqual(['redo', 'b', 0]);
+        expect(state.value.kind).toBe('b');
         expect(provider.getData('historyCursor')).toBe(1);
 
-        const {row} = await Transaction.write({groupId, descriptor: {kind: 'd'}});
+        const {row} = await writeValue(groupId, 'd');
 
         expect(Transaction.get(groupId).history.rows.map(item => item.kind)).toEqual(['a', 'b', 'd']);
         expect(row.sequence).toBe(4);
         expect(provider.getData('canRedo')).toBe(false);
         expect(provider.getData('historyLength')).toBe(3);
-        expect(await Transaction.redo({groupId, apply})).toBeNull()
+        expect((await redo({groupId})).row).toBeNull()
     });
 
-    test('a rejected application moves nothing: cursor and provider stay, and the next move still works; undo without apply is refused', async () => {
+    test('a rejected endpoint adoption leaves participant, cursor and provider unchanged, and the next move still works', async () => {
         Transaction.historyDepth = 5;
+        let refuseUndo = true;
 
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
-              provider  = Transaction.getProvider(groupId);
+              provider  = Transaction.getProvider(groupId),
+              state     = registerValue(groupId, (value, context) => {
+                  if (context.cursorAction === 'undo' && refuseUndo) throw new Error('reverse refused by a participant')
+              });
 
-        await Transaction.write({groupId, descriptor: {kind: 'a'}});
-        await Transaction.write({groupId, descriptor: {kind: 'b'}});
+        await writeValue(groupId, 'a');
+        await writeValue(groupId, 'b');
 
-        await expect(Transaction.undo({groupId, apply: async () => { throw new Error('reverse refused by a participant') }})).rejects.toThrow('reverse refused');
+        await expect(undo({groupId})).rejects.toThrow('reverse refused');
 
         expect(Transaction.get(groupId).history.cursor, 'the cursor did not move').toBe(1);
+        expect(state.value.kind).toBe('b');
+        expect(state.revision).toBe(2);
         expect(provider.getData('historyCursor')).toBe(1);
         expect(provider.getData('canRedo')).toBe(false);
 
-        expect((await Transaction.undo({groupId, apply: noop})).kind, 'the queue is free for the next move').toBe('b');
+        refuseUndo = false;
+        expect((await undo({groupId})).row.kind, 'the queue is free for the next move').toBe('b');
+        expect(state.value.kind).toBe('a');
         expect(provider.getData('historyCursor')).toBe(0);
-
-        await expect(Transaction.undo({groupId})).rejects.toThrow('apply(row) is required');
-        await expect(Transaction.redo({groupId, apply: 'later'})).rejects.toThrow('apply(row) is required');
         expect(Transaction.get(groupId).history.cursor).toBe(0)
     });
 
-    test('an undo issued while the first write is still loading waits for it and moves the cursor off the row that write admitted', async () => {
+    test('an undo issued while the first write is loading waits for its stored participant endpoints', async () => {
         Transaction.historyDepth = 5;
 
-        const {groupId}       = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
-              [{row}, undone] = await Promise.all([
-                  Transaction.write({groupId, descriptor: {kind: 'a'}}),
-                  Transaction.undo({groupId, apply: noop})
+        const {groupId}         = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
+              state             = registerValue(groupId),
+              [written, undone] = await Promise.all([
+                  writeValue(groupId, 'a'),
+                  undo({groupId})
               ]);
 
-        expect(undone).toBe(row);
+        expect(undone.row).toBe(written.row);
+        expect(state.value.kind).toBe('initial');
         expect(Transaction.get(groupId).history.cursor).toBe(-1);
         expect(Transaction.getProvider(groupId).getData('canRedo')).toBe(true)
     });
@@ -292,7 +354,7 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         expect(provider.getData('canUndo')).toBe(false);
         expect(host.getData('canUndo'), 'read through the explicit parent, no component tree involved').toBe(false);
 
-        await Transaction.write({groupId: a.groupId, descriptor: {kind: 'a'}});
+        await write({groupId: a.groupId, descriptor: {kind: 'a'}});
 
         expect(provider.getData('canUndo')).toBe(true);
         expect(host.getData('canUndo')).toBe(true);
@@ -316,7 +378,7 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
 
         Transaction.on('groupRetired', onRetired);
 
-        await Transaction.write({groupId: kept.groupId, descriptor: {kind: 'a'}});
+        await write({groupId: kept.groupId, descriptor: {kind: 'a'}});
 
         const emptyProvider = Transaction.getProvider(empty.groupId);
 
@@ -335,9 +397,9 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
     });
 
     test('a write, undo or redo against an unknown Group rejects', async () => {
-        await expect(Transaction.write({groupId: 'nowhere', descriptor: {kind: 'a'}})).rejects.toThrow('unknown Group');
-        await expect(Transaction.undo({groupId: 'nowhere', apply: noop})).rejects.toThrow('unknown Group');
-        await expect(Transaction.redo({groupId: 'nowhere', apply: noop})).rejects.toThrow('unknown Group')
+        await expect(write({groupId: 'nowhere', descriptor: {kind: 'a'}})).rejects.toThrow('unknown Group');
+        await expect(undo({groupId: 'nowhere'})).rejects.toThrow('unknown Group');
+        await expect(redo({groupId: 'nowhere'})).rejects.toThrow('unknown Group')
     });
 
     test('the worker-wide default and the Group-local bound refuse anything but a non-negative integer, so no Group is born with an unbounded log', async () => {
@@ -362,7 +424,7 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         const born = Transaction.bind({windowId: 'w0', workspaceKey: 'main'});
 
         expect(Transaction.get(born.groupId).historyDepth).toBe(0);
-        await Transaction.write({groupId: born.groupId, descriptor: {kind: 'a'}});
+        await write({groupId: born.groupId, descriptor: {kind: 'a'}});
         expect(Transaction.get(born.groupId).history, 'depth zero loads nothing').toBeNull();
 
         Transaction.historyDepth = 2;
@@ -370,7 +432,7 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'});
 
         for (const kind of ['a', 'b', 'c']) {
-            await Transaction.write({groupId, descriptor: {kind}})
+            await write({groupId, descriptor: {kind}})
         }
 
         const {history} = Transaction.get(groupId);
@@ -379,12 +441,13 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         expect(history.rows.map(row => row.kind), 'a valid bound evicts exactly').toEqual(['b', 'c'])
     });
 
-    test('a Group retired while its history module is still loading gets no History: the write rejects, nothing is adopted, and no orphan is registered', async () => {
+    test('a Group retired while its history module loads gets no History, no adoption and no registered orphan', async () => {
         Transaction.historyDepth = 5;
 
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
               record    = Transaction.get(groupId),
               adopted   = [],
+              state     = registerValue(groupId, value => adopted.push(value)),
               instances = () => InstanceManager.find('className', 'Neo.manager.transaction.History').length;
 
         let resolveImport, started = false;
@@ -394,46 +457,44 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
             return new Promise(resolve => { resolveImport = resolve })
         };
 
-        const write  = Transaction.write({groupId, descriptor: {kind: 'a'}, adopt: descriptor => adopted.push(descriptor)}),
-              before = instances();
+        const pendingWrite = writeValue(groupId, 'a'),
+              before       = instances();
 
-        while (!started) {
-            await new Promise(resolve => setTimeout(resolve, 0))
-        }
-
+        await expect.poll(() => started).toBe(true);
         expect(Transaction.retireGroup(groupId), 'retired while the import is pending').toBe(true);
-
         resolveImport(await importHistory.call(Transaction));
 
-        await expect(write).rejects.toThrow('retired while queued');
+        await expect(pendingWrite).rejects.toThrow('retired while queued');
         expect(adopted).toHaveLength(0);
+        expect(state.value.kind).toBe('initial');
         expect(record.history, 'the retired record never received a History').toBeNull();
         expect(instances(), 'no History was registered for the dead Group').toBe(before);
 
-        // Control: the same pending import with the Group alive creates exactly one History.
+        // The same import with a live Group creates one History and ordinary retirement releases it.
         Transaction.importHistory = importHistory;
-
         const live = Transaction.bind({windowId: 'w2', workspaceKey: 'main'});
 
-        await Transaction.write({groupId: live.groupId, descriptor: {kind: 'a'}});
+        await write({groupId: live.groupId, descriptor: {kind: 'a'}});
 
         expect(instances()).toBe(before + 1);
         expect(Transaction.retireGroup(live.groupId)).toBe(true);
-        expect(instances(), 'ordinary retirement releases it').toBe(before)
+        expect(instances()).toBe(before)
     });
 
-    test('a write queued behind the barrier when its Group is retired rejects instead of touching what the retirement released', async () => {
+    test('a write queued behind the barrier rejects after Group retirement without mutating a participant', async () => {
         Transaction.historyDepth = 5;
 
         const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
               adopted   = [],
-              queued    = Transaction.write({groupId, descriptor: {kind: 'a'}, adopt: descriptor => adopted.push(descriptor)});
+              state     = registerValue(groupId, value => adopted.push(value)),
+              queued    = writeValue(groupId, 'a');
 
         expect(Transaction.retireGroup(groupId)).toBe(true);
 
         await expect(queued).rejects.toThrow('retired while queued');
-        expect(adopted, 'no participant mutation for a Group that is gone').toHaveLength(0);
-        expect(imports, 'the barrier had already started loading; the module is simply not used').toBeLessThanOrEqual(1)
+        expect(adopted).toHaveLength(0);
+        expect(state.value.kind).toBe('initial');
+        expect(imports, 'at most the one barrier import could have started').toBeLessThanOrEqual(1)
     });
 
     test('the manager never imports the history module statically: the lazy boundary is mechanical', () => {
@@ -442,6 +503,6 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
               dynamic = [...source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g)].map(match => match[1]);
 
         expect(statics.some(specifier => specifier.includes('transaction/History')), 'a static import would put the module into every consumer\'s closure').toBe(false);
-        expect(dynamic).toEqual(['./transaction/History.mjs'])
+        expect(dynamic.filter(specifier => specifier.includes('transaction/History'))).toEqual(['./transaction/History.mjs'])
     })
 });
