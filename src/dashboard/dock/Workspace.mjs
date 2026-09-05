@@ -290,7 +290,19 @@ class Workspace extends Container {
          * config, so consumers never carry the marker by hand.
          * @member {String} flipMarkerPrefix='dock-flip-item-'
          */
-        flipMarkerPrefix: 'dock-flip-item-'
+        flipMarkerPrefix: 'dock-flip-item-',
+        /**
+         * The Group this workspace belongs to — learned from its window's accepted binding and kept for
+         * the workspace's lifetime. A reload releases the window's slot and rebinds the next generation,
+         * a vessel closes, a lease runs out: the documents this workspace's host registered stay this
+         * Group's, reached through this value and never through the live binding. `null` until the
+         * binding is accepted — a first boot mints its identity and awaits the carrier, so the value
+         * arrives through {@link #onTopologyBind} after construction; a never-bound host has no
+         * membership to reach. Hosts register their participants from {@link #afterSetTopologyGroupId}.
+         * @member {String|null} topologyGroupId_=null
+         * @reactive
+         */
+        topologyGroupId_: null
     }
 
     /**
@@ -460,6 +472,10 @@ class Workspace extends Container {
             this.loadTransactionManager()
         }
 
+        // A host that imported the manager was admitted at app registration, before this instance
+        // constructed: its Group is readable now. One still awaiting its carrier learns it on bind.
+        this.resolveTopologyGroup();
+
         // Cross-window hit testing reads manager.Window as its one geometry authority, and the
         // manager only learns what the Main realm publishes. The host's own render target publishes
         // live extents as soon as it exists — during construction for an ordinary host, or from the
@@ -500,7 +516,7 @@ class Workspace extends Container {
         }
 
         manager = await me.loadTransactionManager();
-        groupId = me.topologyGroupId;
+        groupId = me.resolveTopologyGroup(manager);
 
         if (me.isDestroyed) {
             return null
@@ -614,7 +630,10 @@ class Workspace extends Container {
                     leaseExpired: this.onTopologyLeaseExpired,
                     release     : this.onTopologyRelease,
                     scope       : this
-                })
+                });
+
+                // A window bound before this subscription existed announces nothing further.
+                this.resolveTopologyGroup(manager)
             }
 
             return manager
@@ -622,14 +641,34 @@ class Workspace extends Container {
     }
 
     /**
-     * The Group this workspace's window is bound into, or `null` before its window has bound — which
-     * includes the moment before the manager has loaded. Read off the loaded singleton when a
-     * participant loaded it before this instance's own load settled: an app that imports the manager
-     * is admitted at registration, so its host workspace is bound before it constructs.
-     * @member {String|null} topologyGroupId
+     * Hook: this workspace learned its Group. A host whose participants could not register at
+     * construction — its window's binding was still awaiting the carrier — registers them here.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
      */
-    get topologyGroupId() {
-        return (this.transactionManager ?? Neo.manager?.Transaction)?.findByWindow(this.windowId)?.groupId ?? null
+    afterSetTopologyGroupId(value, oldValue) {}
+
+    /**
+     * Learns this workspace's Group from an accepted binding of its window, if there is one: at
+     * construction, when the app imported the manager and its window bound before this instance
+     * existed; when the manager this instance loads on demand has resolved; and when a headless
+     * instance receives its window. A window whose binding is still awaiting the carrier learns it
+     * later, through {@link #onTopologyBind}. Once learned the Group is kept — see {@link #topologyGroupId}.
+     * @param {Neo.manager.Transaction} [manager=this.transactionManager ?? Neo.manager?.Transaction]
+     * @returns {String|null}
+     * @protected
+     */
+    resolveTopologyGroup(manager=this.transactionManager ?? Neo.manager?.Transaction) {
+        let me = this;
+
+        if (!me.topologyGroupId && me.windowId) {
+            const groupId = manager?.findByWindow(me.windowId)?.groupId;
+
+            groupId && (me.topologyGroupId = groupId)
+        }
+
+        return me.topologyGroupId
     }
 
     /**
@@ -1231,7 +1270,15 @@ class Workspace extends Container {
             itemId                                        = me.tearOutItemIdFor(workspaceKey),
             app                                           = Neo.apps[windowId];
 
-        if (me.isDestroyed || !itemId || !app || groupId !== me.topologyGroupId) return;
+        if (me.isDestroyed) return;
+
+        // The host's own window: a first boot's minted identity binds once its carrier accepted it,
+        // after this instance constructed. The Group is learned here, before any vessel logic runs.
+        if (windowId === me.windowId && !me.topologyGroupId) {
+            me.topologyGroupId = groupId
+        }
+
+        if (!itemId || !app || groupId !== me.topologyGroupId) return;
 
         const admission = me.tearOutAdmissions.get(itemId);
 
@@ -1912,6 +1959,9 @@ class Workspace extends Container {
      */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
+
+        // A headless instance receiving its first window may find that window already bound.
+        this.resolveTopologyGroup();
 
         return this.observeBoundWindowGeometry(value)
     }

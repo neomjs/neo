@@ -515,23 +515,11 @@ class DemoBWorkspace extends Container {
         // Every workspace registers under its STABLE semantic id — the seams read/write the live
         // owner fields, so resolution always answers with committed truth. Membership lives in this
         // host's Group on `Neo.manager.Transaction`: the app imports the manager, so its window is
-        // admitted at registration and the Group exists before this constructor runs.
+        // admitted at registration, and a Group the carrier already held is known before this
+        // constructor runs; a first boot's minted identity arrives with its accepted binding, and
+        // `onTopologyBind` registers the participants then.
         me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
-
-        me.workspaceSet.register(DemoBWorkspace.MAIN_WORKSPACE_ID, {
-            getDocument: () => me.dockModel,
-            setDocument: document => me.dockModel = document
-        });
-
-        me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
-            getDocument: () => me.popupDocument,
-            setDocument: document => me.popupDocument = document
-        });
-
-        me.workspaceSet.register(DemoBWorkspace.POPUP2_WORKSPACE_ID, {
-            getDocument: () => me.popup2Document,
-            setDocument: document => me.popup2Document = document
-        });
+        me.adoptTopologyGroup(TransactionManager.findByWindow(me.windowId)?.groupId ?? null);
 
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
         me.dockService      = Neo.create(DockService, {});
@@ -703,9 +691,10 @@ class DemoBWorkspace extends Container {
         // this workspace answers only for the slots it reserved in its own Group — the pop-out pane
         // reparents when its vessel binds, comes home when the binding is released.
         TransactionManager.on({
-            bind   : me.onTopologyBind,
-            release: me.onTopologyRelease,
-            scope  : me
+            bind        : me.onTopologyBind,
+            leaseExpired: me.onTopologyLeaseExpired,
+            release     : me.onTopologyRelease,
+            scope       : me
         });
 
         me.add([me.createTourBar(), me.createSwitcherBar(), {
@@ -1142,13 +1131,17 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Resolves worker-owned document truth by semantic workspace id — through the workspace-set
-     * registry, so an unknown id fails closed instead of guessing.
+     * Resolves worker-owned document truth by semantic workspace id. The main document is the host's
+     * own for the host's lifetime and resolves from its owner field — the same truth its participant
+     * seam reads, available before the window's binding is accepted, when there is no membership yet
+     * and the first projection cannot wait for one. Every vessel workspace resolves through the
+     * workspace set, whose registration IS that workspace's lifetime: a retired popup resolves to
+     * `null`, and an unknown id fails closed instead of guessing.
      * @param {String} workspaceId
      * @returns {Object|null}
      */
     getWorkspaceDocument(workspaceId) {
-        return this.workspaceSet.getDocument(workspaceId)
+        return workspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID ? this.dockModel : this.workspaceSet.getDocument(workspaceId)
     }
 
     /**
@@ -2999,11 +2992,59 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * The Group this workspace's window is bound into, or `null` before its window has bound.
-     * @member {String|null} topologyGroupId
+     * The Group this workspace belongs to — learned from its window's accepted binding and kept for
+     * the instance's lifetime, so the documents it registered stay reachable after the window's slot
+     * is released or its lease runs out. `null` until the binding is accepted: a first boot mints its
+     * identity and awaits the carrier, so {@link #onTopologyBind} adopts the Group after construction.
+     * @member {String|null} topologyGroupId=null
      */
-    get topologyGroupId() {
-        return TransactionManager.findByWindow(this.windowId)?.groupId ?? null
+    topologyGroupId = null
+
+    /**
+     * @summary Learns the Group and registers the three workspace participants into it — at
+     * construction when the window bound before this instance existed, else when its binding arrives.
+     * @param {String|null} groupId
+     * @protected
+     */
+    adoptTopologyGroup(groupId) {
+        let me = this;
+
+        if (!groupId || me.topologyGroupId) return;
+
+        me.topologyGroupId = groupId;
+
+        me.workspaceSet.register(DemoBWorkspace.MAIN_WORKSPACE_ID, {
+            getDocument: () => me.dockModel,
+            setDocument: document => me.dockModel = document
+        });
+
+        me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
+            getDocument: () => me.popupDocument,
+            setDocument: document => me.popupDocument = document
+        });
+
+        me.workspaceSet.register(DemoBWorkspace.POPUP2_WORKSPACE_ID, {
+            getDocument: () => me.popup2Document,
+            setDocument: document => me.popup2Document = document
+        })
+    }
+
+    /**
+     * A slot this workspace reserved ran out its lease without a window binding: the manager freed
+     * it, and a window presenting that reservation later forks into its own Group. The pending record
+     * leaves with the slot, so no handler here still expects that child.
+     * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @protected
+     */
+    onTopologyLeaseExpired({groupId, workspaceKey}) {
+        let me          = this,
+            reservation = me.vesselReservations.get(workspaceKey);
+
+        if (me.isDestroyed || groupId !== me.topologyGroupId || !reservation || reservation.windowId) return;
+
+        me.vesselReservations.delete(workspaceKey)
     }
 
     /**
@@ -3071,7 +3112,13 @@ class DemoBWorkspace extends Container {
             app         = Neo.apps[windowId],
             reservation = me.vesselReservations.get(workspaceKey);
 
-        if (!app || me.isDestroyed || groupId !== me.topologyGroupId || !reservation || reservation.windowId) return;
+        if (me.isDestroyed) return;
+
+        // The host's own window binding, accepted after construction: the Group is learned and the
+        // participants register before any reserved slot is answered.
+        windowId === me.windowId && me.adoptTopologyGroup(groupId);
+
+        if (!app || groupId !== me.topologyGroupId || !reservation || reservation.windowId) return;
 
         reservation.windowId = windowId;
 
@@ -4495,9 +4542,10 @@ class DemoBWorkspace extends Container {
         me.crossWindowGeometry.clear();
         me.workspaceProjectionRequests.clear();
         TransactionManager.un({
-            bind   : me.onTopologyBind,
-            release: me.onTopologyRelease,
-            scope  : me
+            bind        : me.onTopologyBind,
+            leaseExpired: me.onTopologyLeaseExpired,
+            release     : me.onTopologyRelease,
+            scope       : me
         });
         me.vesselReservations.clear();
         me.tearOutEmbodiment?.destroy();

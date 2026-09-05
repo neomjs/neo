@@ -2395,6 +2395,43 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('the production resolver keeps the main participant through the root\'s release and lease expiry; a never-bound first boot joins when its binding is accepted', async () => {
+        // The window is NOT pre-bound: a first boot, whose minted identity the carrier accepts after
+        // this instance constructed. Until then there is no Group to join — registration refuses.
+        const workspace = Neo.create(Workspace, {windowId: 'workstation-first-boot'}),
+              manager   = await workspace.transactionManagerReady;
+
+        try {
+            expect(workspace.topologyGroupId).toBeNull();
+            expect(workspace.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID), 'never bound: nothing to join').toBe(false);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBeNull();
+
+            const minted = await manager.admit({topologyIdentity: {}, windowId: 'workstation-first-boot'});
+
+            expect(minted.outcome).toBe('minted');
+            expect(workspace.topologyGroupId, 'learned from the accepted binding').toBe(minted.groupId);
+            expect(workspace.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID), 'registered when the Group arrived').toBe(true);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
+
+            // The root window dies and its lease runs out: the live binding is gone, the resolver the
+            // WorkspaceSet was built with — `() => me.topologyGroupId` — still reaches the documents.
+            manager.reconnectLeaseMs = 20;
+            manager.release('workstation-first-boot');
+
+            await expect.poll(() => manager.getBinding(minted.groupId, 'main')).toBeNull();
+
+            expect(manager.findByWindow('workstation-first-boot')).toBeNull();
+            expect(workspace.topologyGroupId).toBe(minted.groupId);
+            expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID), 'the headless document is still the Group\'s').toBe(workspace.dockModel);
+            expect(manager.get(minted.groupId), 'the Group outlives its last binding').toBeTruthy()
+        } finally {
+            manager.reconnectLeaseMs = 20000;
+            workspace.destroy();
+            workspace.topologyGroupId && manager.retireGroup(workspace.topologyGroupId)
+        }
+    });
+
     test('a successor tear-out retries retained retirement before opening a fresh vessel', async () => {
         const
             workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),

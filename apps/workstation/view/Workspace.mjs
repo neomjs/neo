@@ -496,7 +496,10 @@ class Workspace extends DockWorkspace {
         // documents by STABLE workspace identity — windowId, screen geometry, and projection state
         // never enter it; a window is a render target, not a state owner. Its membership lives in
         // this workspace's Group on `Neo.manager.Transaction`: the app imports the manager, so its
-        // window is admitted at registration and the Group exists before this constructor runs.
+        // window is admitted at registration, and a Group the carrier already held is known before
+        // this constructor runs. A first boot's minted identity arrives once the carrier accepted it,
+        // through `afterSetTopologyGroupId`, which registers the main participant then. The Group is
+        // kept for the instance's lifetime: releasing the window's slot never loses the documents.
         // Vessel workspaces register lazily on first dock-INTO (Edit 2).
         me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId});
         me.registerMainWorkspace();
@@ -903,10 +906,11 @@ class Workspace extends DockWorkspace {
     /**
      * @summary Publishes this workspace's own document as the `main` participant of its Group.
      *
-     * Membership is the Group's, and a workspace has a Group only once its window is bound — which its
-     * app did at registration, before any view of that window constructed. An instance created
-     * headless has no window yet and joins nothing; {@link #afterSetWindowId} registers it the moment
-     * a container supplies its first real window id.
+     * Membership is the Group's, and a workspace has a Group only once its window's binding is
+     * accepted — which its app did at registration, before any view of that window constructed, unless
+     * a first boot is still awaiting its carrier; {@link #afterSetTopologyGroupId} registers it then.
+     * An instance created headless has no window yet and joins nothing; {@link #afterSetWindowId}
+     * registers it the moment a container supplies its first real window id.
      * @returns {Boolean} Whether the participant is registered.
      * @protected
      */
@@ -928,6 +932,21 @@ class Workspace extends DockWorkspace {
      */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
+
+        let me = this;
+
+        value && me.workspaceSet && !me.workspaceSet.has(Workspace.MAIN_WORKSPACE_ID) && me.registerMainWorkspace()
+    }
+
+    /**
+     * The Group arrived after construction — a first boot's minted identity, accepted by its carrier —
+     * so the main participant registers now (see {@link #registerMainWorkspace}).
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTopologyGroupId(value, oldValue) {
+        super.afterSetTopologyGroupId(value, oldValue);
 
         let me = this;
 

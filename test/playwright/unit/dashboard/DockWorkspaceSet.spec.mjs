@@ -85,6 +85,17 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over 
         expect(set.ids(), 'the participant survived its window').toEqual(['main']);
         expect(set.getDocument('main')).toEqual({rootId: 'root-main'});
 
+        // The fixture's resolver is the hosts' shape: a Group remembered once, never re-derived. A
+        // resolver reading the LIVE binding instead loses the membership with the window — which is
+        // why the engine Workspace, the Workstation and DemoB remember their Group.
+        const liveResolver = createDockWorkspaceSet({
+            getGroupId: () => TransactionManager.findByWindow('workspace-set-host')?.groupId ?? null,
+            manager   : TransactionManager
+        });
+
+        expect(liveResolver.ids(), 'a live-binding resolver reaches nothing after release').toEqual([]);
+        expect(liveResolver.getDocument('main')).toBeNull();
+
         // Retirement stays the owner's explicit decision.
         expect(set.unregister('main')).toBe(true);
         expect(set.ids()).toEqual([])

@@ -321,21 +321,32 @@ class TearOutWorkspace extends DockWorkspace {
         layout                    : {ntype: 'vbox', align: 'stretch'}
     }
 
-    binds           = []
-    closeRequests   = []
-    closeResult     = true
-    grant           = null
-    lifecycleEvents = []
-    openDeferred    = null
-    openRequests    = []
-    releases        = []
+    /**
+     * `false` leaves the host window unbound, for the arms that admit it after construction.
+     * @member {Boolean} bindHostAtConstruct=true
+     */
+    bindHostAtConstruct = true
+    binds               = []
+    closeRequests       = []
+    closeResult         = true
+    grant               = null
+    lifecycleEvents     = []
+    openDeferred        = null
+    openRequests        = []
+    releases            = []
 
     construct(config) {
+        // Every instance renders in its own host window: a real window id, unique per arm, so the
+        // Group the fixture binds below is the one this instance resolves — never a sibling arm's.
+        config.windowId ??= `tearout-host-${++TearOutWorkspace.hostSeq}`;
+
         super.construct(config);
         // The app boot the fixture stands in for: the host window bound into its Group at connect.
-        TransactionManager.bind({windowId: this.windowId, workspaceKey: 'main'});
+        this.bindHostAtConstruct && TransactionManager.bind({windowId: this.windowId, workspaceKey: 'main'});
         this.add(this.projectDockModel())
     }
+
+    static hostSeq = 0
 
     // The manager fires and forgets; the arms need the handler's promise to await or to see reject.
     onTopologyBind(data) {
@@ -1133,12 +1144,13 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         };
 
         // The vessel's arrival, as the worker admits it: the carried identity its config registered
-        // with. The manager binds synchronously and fires; the host's handler is async, so the arms
-        // await the promises the fixture captured. The host observes its Group once the manager it
-        // loads on demand has resolved — a real vessel binds long after that, a unit arm may not.
+        // with. An identity the carrier holds binds synchronously inside the admission and fires; a
+        // forked one binds after the carrier answered — so the admission is awaited before the host's
+        // async handler promises are. The host observes its Group once the manager it loads on demand
+        // has resolved — a real vessel binds long after that, a unit arm may not.
         const connectVessel = async (windowId, topologyIdentity) => {
             await workspace.transactionManagerReady;
-            TransactionManager.admit({topologyIdentity, windowId});
+            await TransactionManager.admit({topologyIdentity, windowId});
             await Promise.all(workspace.binds)
         };
 
@@ -1598,7 +1610,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                       ['foreign-group',   {...identity, groupId: 'some-other-group'}],
                       // A copied pair with the wrong lineage token: the manager forks it away.
                       ['stranger-token',  {...identity, generationToken: 'not-the-reservation'}],
-                      // A slot this host never reserved binds in the Group; the host has no admission for it.
+                      // A slot this host never reserved is no door into its Group: the presenter forks.
                       ['unreserved-slot', {...identity, workspaceKey: 'popup:terminal'}]
                   ];
 
@@ -1611,8 +1623,145 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: false, windowId: null});
             expect(TransactionManager.getBinding(identity.groupId, 'popup:preview').windowId,
                 'the reservation still waits for its own vessel').toBeNull();
+            expect(TransactionManager.getBinding(identity.groupId, 'popup:terminal'), 'the unreserved slot stays absent').toBeNull();
+            expect(TransactionManager.findByWindow('unreserved-slot').groupId).not.toBe(identity.groupId);
 
             await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('two overlapping opens for one item: the older open\'s late failure cannot revoke the replacement reservation, whose vessel is admitted', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const opens = [],
+                  zone  = createSortZone();
+
+            workspace.openTearOutVessel = request => new Promise(resolve => opens.push({request, resolve}));
+
+            // The acquisition method itself, twice for one item while the first platform open is still
+            // pending: the second reservation supersedes the first in the manager and in the host. (The
+            // gesture handler serializes exits; this is the seam an asynchronous host reaches directly.)
+            const first = workspace.acquireTearOutVessel({itemId: 'preview', sortZone: zone});
+
+            await expect.poll(() => opens.length).toBe(1);
+
+            const second = workspace.acquireTearOutVessel({itemId: 'preview', sortZone: zone});
+
+            await expect.poll(() => opens.length).toBe(2);
+
+            const [s1, s2] = opens.map(open => open.request.topologyIdentity);
+
+            expect(s2.groupId).toBe(s1.groupId);
+            expect(s2.generationToken, 'the slot was reserved again under a fresh lineage').not.toBe(s1.generationToken);
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({generationToken: s2.generationToken});
+
+            // The older platform open fails late and cleans up after itself.
+            opens[0].resolve(null);
+
+            expect(await first, 'the older acquisition reports its failure').toBeNull();
+            expect(TransactionManager.getBinding(s2.groupId, 'popup:preview'), 'the replacement reservation survives the older failure')
+                .toEqual({generation: 0, windowId: null, workspaceKey: 'popup:preview'});
+            expect(workspace.tearOutAdmissions.get('preview'), 'the replacement admission survives it too').toMatchObject({generationToken: s2.generationToken});
+
+            // The replacement's open succeeds and its child binds the reserved slot.
+            opens[1].resolve({popupHeight: 360, popupWidth: 480, windowName: 'tearout-preview-second'});
+
+            expect(await second).toMatchObject({generationToken: s2.generationToken, windowName: 'tearout-preview-second', workspaceKey: 'popup:preview'});
+
+            addWindow('second-child');
+            await connectVessel('second-child', s2);
+
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, generationToken: s2.generationToken, windowId: 'second-child'});
+            expect(workspace.tearOutConnects.preview).toMatchObject({windowId: 'second-child'})
+        });
+
+        test('a late child presenting an expired reservation forks and never connects; a fresh reservation still admits its child', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            TransactionManager.reconnectLeaseMs = 20;
+
+            try {
+                const {request} = await beginExit('preview'),
+                      identity  = request.topologyIdentity;
+
+                // The reservation runs out its lease with no window binding: the manager frees the slot,
+                // and the host retires the vessel it had opened for it.
+                await expect.poll(() => TransactionManager.getBinding(identity.groupId, 'popup:preview')).toBeNull();
+                await expect.poll(() => workspace.tearOutAdmissions.has('preview')).toBe(false);
+                expect(workspace.closeRequests.map(vessel => vessel.itemId)).toEqual(['preview']);
+
+                const lateView = addWindow('late-child');
+
+                await connectVessel('late-child', identity);
+
+                expect(TransactionManager.findByWindow('late-child').groupId, 'the dead lineage forked away').not.toBe(identity.groupId);
+                expect(TransactionManager.getBinding(identity.groupId, 'popup:preview'), 'nothing entered the Group').toBeNull();
+                expect(workspace.tearOutConnects.preview).toBeUndefined();
+                expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
+                expect(lateView.items).toEqual([]);
+
+                // Positive control: a fresh exit reserves again, and its own child is admitted.
+                TransactionManager.reconnectLeaseMs = 20000;
+
+                const {request: fresh} = await beginExit('preview');
+
+                addWindow('fresh-child');
+                await connectVessel('fresh-child', fresh.topologyIdentity);
+
+                expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, windowId: 'fresh-child'});
+
+                await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+            } finally {
+                TransactionManager.reconnectLeaseMs = 20000
+            }
+        });
+
+        test('the host keeps the Group it learned: its own window\'s release and lease expiry change nothing it resolves, and a first boot learns the Group from its accepted binding', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const manager = await workspace.transactionManagerReady,
+                  groupId = workspace.topologyGroupId;
+
+            expect(groupId, 'learned when the manager resolved: the window bound before this instance subscribed').toBeTruthy();
+
+            // A host registers its documents into the Group; that is what keeps the Group alive.
+            manager.registerParticipant({groupId, workspaceKey: 'main', participant: {getDocument: () => workspace.dockModel}});
+            manager.reconnectLeaseMs = 20;
+
+            try {
+                manager.release(workspace.windowId);
+
+                await expect.poll(() => manager.getBinding(groupId, 'main')).toBeNull();
+
+                expect(manager.findByWindow(workspace.windowId), 'the live binding is gone').toBeNull();
+                expect(workspace.topologyGroupId, 'the Group is remembered, not re-derived').toBe(groupId);
+                expect(manager.get(groupId), 'a Group holding a participant survives its last binding').toBeTruthy();
+                expect(manager.participantKeys(groupId)).toEqual(['main']);
+
+                // The host still acts for its Group: a vessel it reserves lands in it.
+                const {request} = await beginExit('preview');
+
+                expect(request.topologyIdentity.groupId).toBe(groupId);
+                await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+            } finally {
+                manager.reconnectLeaseMs = 20000
+            }
+
+            // A first boot: the window's minted identity is accepted by its carrier after construction.
+            const firstBoot = Neo.create(TearOutWorkspace, {bindHostAtConstruct: false, dockModel: createDocument(), windowId: 'first-boot'});
+
+            try {
+                await firstBoot.transactionManagerReady;
+
+                expect(firstBoot.topologyGroupId, 'nothing to learn yet').toBeNull();
+
+                const minted = await manager.admit({topologyIdentity: {}, windowId: 'first-boot'});
+
+                expect(minted.outcome).toBe('minted');
+                expect(firstBoot.topologyGroupId, 'learned from the accepted binding').toBe(minted.groupId)
+            } finally {
+                firstBoot.destroy();
+                manager.retireGroup(manager.findByWindow('first-boot')?.groupId)
+            }
         });
 
         test('an async grant cannot publish a connection after its exact admission was retired', async () => {
@@ -3814,7 +3963,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             Neo.setupClass(HostOpenerWorkspace);
 
-            workspace = Neo.create(HostOpenerWorkspace, {dockModel: createDocument()});
+            // A host that runs no lifecycle still reserves its vessel's slot in its window's Group,
+            // so the window is bound the way its app registration binds it.
+            workspace = Neo.create(HostOpenerWorkspace, {dockModel: createDocument(), windowId: 'host-opener-window'});
+            TransactionManager.bind({windowId: 'host-opener-window', workspaceKey: 'main'});
 
             const opens              = [],
                   {useSharedWorkers} = Neo.config,
@@ -3868,7 +4020,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // The lifecycle opt-in is OFF here (the default) — while `acquireTearOutVessel` reserves a
             // slot whose lease runs in the manager regardless.
             TransactionManager.reconnectLeaseMs = 20;
-            workspace = Neo.create(ShortWindowOpenerWorkspace, {dockModel: createDocument()});
+            workspace = Neo.create(ShortWindowOpenerWorkspace, {dockModel: createDocument(), windowId: 'short-opener-window'});
+            TransactionManager.bind({windowId: 'short-opener-window', workspaceKey: 'main'});
 
             const
                 {useSharedWorkers} = Neo.config,

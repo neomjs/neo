@@ -194,7 +194,9 @@ function installWindowConnectHarness(workspace) {
                 }
             };
 
-            TransactionManager.admit({topologyIdentity, windowId});
+            // An identity the carrier holds binds synchronously inside the admission; a forked one
+            // after the carrier answered — awaited, so the handler's promise exists when read.
+            await TransactionManager.admit({topologyIdentity, windowId});
 
             await bindings.get(windowId)
         },
@@ -493,6 +495,90 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         } finally {
             harness.restore()
         }
+    });
+
+    test('a child presenting an expired or revoked reservation forks and reparents nothing — the pending record left with the slot', async () => {
+        const harness = installWindowConnectHarness(workspace);
+        let clickOpen;
+
+        // The popup opens but its window never connects.
+        Neo.Main.windowOpen = async data => {
+            clickOpen = data;
+            return true
+        };
+        TransactionManager.reconnectLeaseMs = 20;
+
+        try {
+            expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
+            expect(workspace.vesselReservations.get('popup:workbench')).toMatchObject({flow: 'click-popout', windowId: null});
+
+            // The lease runs out: the manager frees the slot, the workspace forgets the pending child.
+            await expect.poll(() => TransactionManager.getBinding(workspace.topologyGroupId, 'popup:workbench')).toBeNull();
+
+            expect(workspace.vesselReservations.has('popup:workbench'), 'the pending record left with the slot').toBe(false);
+
+            await harness.connect('late-child', clickOpen.topologyIdentity);
+
+            expect(TransactionManager.findByWindow('late-child').groupId, 'a dead lineage forks away').not.toBe(workspace.topologyGroupId);
+            expect(harness.addedTo('late-child'), 'nothing was reparented into the late window').toEqual([]);
+            expect(workspace.detachedPanes.workbench.windowId).toBeNull();
+
+            // A revoked reservation is dead the same way.
+            TransactionManager.reconnectLeaseMs = 20000;
+
+            const revoked = workspace.reserveVessel('popup:revoked', 'click-popout', 'demo-b-revoked');
+
+            workspace.revokeVessel('popup:revoked');
+
+            expect(workspace.vesselReservations.has('popup:revoked')).toBe(false);
+
+            await harness.connect('revoked-child', revoked);
+
+            expect(TransactionManager.findByWindow('revoked-child').groupId).not.toBe(workspace.topologyGroupId);
+            expect(harness.addedTo('revoked-child')).toEqual([])
+        } finally {
+            TransactionManager.reconnectLeaseMs = 20000;
+            harness.restore()
+        }
+    });
+
+    test('the production resolver keeps the three participants through the host window\'s release and lease expiry; a first boot registers them when its binding is accepted', async () => {
+        const groupId = workspace.topologyGroupId,
+              keys    = [DemoBWorkspace.MAIN_WORKSPACE_ID, DemoBWorkspace.POPUP_WORKSPACE_ID, DemoBWorkspace.POPUP2_WORKSPACE_ID];
+
+        expect(groupId).toBe(hostGroupId);
+        expect(workspace.workspaceSet.ids()).toEqual(keys);
+
+        TransactionManager.reconnectLeaseMs = 20;
+
+        try {
+            TransactionManager.release(Neo.config.windowId);
+
+            await expect.poll(() => TransactionManager.getBinding(groupId, 'main')).toBeNull();
+
+            expect(TransactionManager.findByWindow(Neo.config.windowId), 'the live binding is gone').toBeNull();
+            expect(workspace.topologyGroupId, 'the Group is remembered, not re-derived').toBe(groupId);
+            expect(workspace.workspaceSet.ids(), 'the documents are still the Group\'s').toEqual(keys);
+            expect(workspace.workspaceSet.getDocument(DemoBWorkspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel)
+        } finally {
+            TransactionManager.reconnectLeaseMs = 20000
+        }
+
+        // A first boot: the window is not bound when the workspace constructs; its participants
+        // register when the minted identity is accepted and announced. The fixture instance goes
+        // first — this class hosts one live instance at a time — and the afterEach retires the
+        // first boot's Group through its window id.
+        workspace.destroy();
+        workspace = Neo.create(DemoBWorkspace, {windowId: 'demo-b-first-boot'});
+
+        expect(workspace.topologyGroupId).toBeNull();
+        expect(workspace.workspaceSet.ids(), 'nothing to join yet').toEqual([]);
+
+        const minted = await TransactionManager.admit({topologyIdentity: {}, windowId: 'demo-b-first-boot'});
+
+        expect(minted.outcome).toBe('minted');
+        expect(workspace.topologyGroupId, 'learned from the accepted binding').toBe(minted.groupId);
+        expect(workspace.workspaceSet.ids(), 'registered when the Group arrived').toEqual(keys)
     });
 
     test('the composition host arms BOTH geometry streams: its own window at construction, each admitted vessel before publication', async () => {
