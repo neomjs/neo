@@ -232,7 +232,9 @@ class Workspace extends Container {
          * The header-action presentation policy: which engine action is shown, enabled or pressed
          * for which pane, re-derived onto the retained action instances after every commit and
          * active-item change. Resolved to one instance bound to this workspace — a module config or
-         * an instance replaces the engine policy without overriding workspace methods.
+         * an instance replaces the engine policy without overriding workspace methods, at
+         * construction or live: the replacement inherits the retiring policy's lock-restore memory
+         * before that policy is destroyed, so a lock held across the swap still unwinds exactly.
          * @member {Neo.dashboard.dock.projection.HeaderActionPolicy|Object|null} dockHeaderActionPolicy_=null
          * @reactive
          */
@@ -1578,13 +1580,18 @@ class Workspace extends Container {
     }
 
     /**
-     * A replaced policy retires, and its lock-presentation memory with it.
+     * A replaced policy hands its lock-presentation memory to the replacement and retires. The
+     * memory is keyed by panes and tab buttons that outlive the policy, so a swap while a lock is
+     * held must not lose the record of what that lock changed — the next unlock reverses along it.
      * @param {Neo.dashboard.dock.projection.HeaderActionPolicy} value
      * @param {Neo.dashboard.dock.projection.HeaderActionPolicy|null} oldValue
      * @protected
      */
     afterSetDockHeaderActionPolicy(value, oldValue) {
-        oldValue?.destroy()
+        if (oldValue && oldValue !== value) {
+            value.inheritRestoreState(oldValue);
+            oldValue.destroy()
+        }
     }
 
     /**

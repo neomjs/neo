@@ -25,7 +25,10 @@ import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
  * `getActiveDockItemId()`, `dockPopOutActionActive`, `dockReloadInFlight`, `dockRecreateInFlight`,
  * `hasDockRecreateFallback()`, `forEachDockRail()`, `getDockHost()` and `dockShellIndex`. The
  * workspace resolves one instance through its `dockHeaderActionPolicy` config, so a consumer
- * replaces the policy with one config rather than overriding workspace methods.
+ * replaces the policy with one config rather than overriding workspace methods — at construction
+ * or live: a replacement inherits the retiring policy's restore memory
+ * ({@link #inheritRestoreState}) before the workspace destroys it, so a lock the old policy
+ * applied unwinds through the new one.
  *
  * @class Neo.dashboard.dock.projection.HeaderActionPolicy
  * @extends Neo.core.Base
@@ -61,7 +64,23 @@ class HeaderActionPolicy extends Base {
     lockDragState = new WeakMap()
 
     /**
-     * Releases the workspace reference; the WeakMaps retire with the instance.
+     * Takes over the exact-restore memory of the policy this instance replaces. The memory is
+     * keyed by the live panes and tab buttons — components that outlive the policy that locked
+     * them — so a replacement installed while a lock is held must inherit it, or the next unlock
+     * would find empty maps and leave a pane inert, a tab button disarmed, or a delegated
+     * `dockLock(true)` without its `false`. The maps transfer whole; nothing is copied.
+     * @param {Neo.dashboard.dock.projection.HeaderActionPolicy|null} previous
+     */
+    inheritRestoreState(previous) {
+        if (!previous || previous === this) return;
+
+        this.lockPaneState = previous.lockPaneState;
+        this.lockDragState = previous.lockDragState
+    }
+
+    /**
+     * Releases the workspace reference; the WeakMaps retire with the instance unless a
+     * replacement inherited them first ({@link #inheritRestoreState}).
      * @param {...*} args
      */
     destroy(...args) {
