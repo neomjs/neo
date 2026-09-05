@@ -42,6 +42,12 @@ test.describe('#15065 cross-window drag safety witness (L3, cold first gesture)'
         expect(vdom['data-drop-fires'],        'the source local dockCrossZoneDrop is SUPPRESSED (never fires) on a committed remote drop').toBe('0');
         expect(vdom['data-remote-committed'],  'the one-shot suppression flag is consumed, not sticky').toBe('false');
         expect(vdom['data-coordinator-warmed'],'construct-preload warmed the coordinator BEFORE the cold first gesture').toBe('true');
+        // the same gesture crossed a second root's popup first — same bare workspace ids, another
+        // commit authority: no preview, no staged embodiment, no commit, its documents byte-identical
+        expect(vdom['data-foreign-previews'],     'a target of another Group never previews').toBe('0');
+        expect(vdom['data-foreign-transfers'],    'a target of another Group never commits, locally or by transfer').toBe('0');
+        expect(vdom['data-foreign-proxy-hidden'], 'no staged embodiment: the source proxy stayed visible over the foreign popup').toBe('false');
+        expect(vdom['data-foreign-docs-intact'],  'the other root\'s documents are byte-identical after the gesture').toBe('true');
         expect(vdom['data-pass'],              'the AC2 cross-window safety witness passes end-to-end').toBe('true')
     });
 });
