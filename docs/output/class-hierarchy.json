@@ -433,6 +433,7 @@
  "Neo.manager.Store": "Neo.manager.Base",
  "Neo.manager.Task": "Neo.manager.Base",
  "Neo.manager.Toast": "Neo.manager.Base",
+ "Neo.manager.Transaction": "Neo.manager.Base",
  "Neo.manager.VDomUpdate": "Neo.collection.Base",
  "Neo.manager.Window": "Neo.manager.Base",
  "Neo.manager.rpc.Api": "Neo.manager.Base",
