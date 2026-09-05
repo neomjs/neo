@@ -130,6 +130,13 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Invalidates mounted callbacks when a holder unmounts or moves to another browser window.
+     * @member {Number} editorMountGeneration=0
+     * @protected
+     */
+    editorMountGeneration = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -175,7 +182,9 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * @summary Starts native editor creation after DOM mount and accepts only the current mount's reply.
+     * The mounted signal already observes DOM admission; no elapsed-time guess is needed before
+     * sending the create request. Unmounting or moving windows invalidates its completion callback.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -183,13 +192,17 @@ class MonacoEditor extends Base {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this;
+        let me         = this,
+            generation = ++me.editorMountGeneration,
+            windowId   = me.windowId;
 
-        value && me.timeout(150).then(() => {
-            Neo.main.addon.MonacoEditor.createInstance(me.getInitialOptions()).then(() => {
+        value && Neo.main.addon.MonacoEditor.createInstance(me.getInitialOptions()).then(() => {
+            if (!me.isDestroyed && me.mounted && me.windowId === windowId && me.editorMountGeneration === generation) {
                 // use this custom method as needed inside your class extensions
                 me.onEditorMounted?.()
-            })
+            }
+        }).catch(error => {
+            if (error !== Neo.isDestroyed) throw error
         })
     }
 
@@ -330,13 +343,15 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * Triggered after the windowId config got changed
+     * @summary Retires the old window's native editor and invalidates pending mount callbacks.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
+
+        this.editorMountGeneration++;
 
         oldValue && Neo.main.addon.MonacoEditor.destroyInstance({
             id      : this.id,
