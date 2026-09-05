@@ -123,10 +123,19 @@ export function createGestureClaimArbiter({claimTtlMs = 300, now = Date.now} = {
         },
 
         /**
+         * Releases the claim under `stableId`. With `holder` given, only a record that zone holds is
+         * released: two surfaces can share a stable identity across commit authorities, and the one
+         * leaving the claim set must not take the other's claim with it.
          * @param {String} stableId
+         * @param {Object} [holder] The zone that must hold the record for the release to apply.
+         * @returns {Boolean} Whether a record was released.
          */
-        release(stableId) {
-            claims.delete(stableId)
+        release(stableId, holder) {
+            if (holder === undefined || claims.get(stableId)?.zone === holder) {
+                return claims.delete(stableId)
+            }
+
+            return false
         },
 
         reset() {

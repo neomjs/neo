@@ -65,6 +65,10 @@ class Harness extends Viewport {
         el.vdom['data-drop-fires']         = String(results.dropFires ?? '');
         el.vdom['data-remote-committed']   = String(results.remoteDropCommitted ?? '');
         el.vdom['data-coordinator-warmed'] = String(results.coordinatorWarmed ?? '');
+        el.vdom['data-foreign-previews']   = String(results.foreignPreviews ?? '');
+        el.vdom['data-foreign-transfers']  = String(results.foreignTransfers ?? '');
+        el.vdom['data-foreign-proxy-hidden'] = String(results.foreignProxyHidden ?? '');
+        el.vdom['data-foreign-docs-intact']  = String(results.foreignDocsIntact ?? '');
         el.vdom.text                       = JSON.stringify(results, null, 2);
         el.update()
     }
@@ -104,10 +108,46 @@ class Harness extends Viewport {
             hitTest           : () => true,
             previewFor        : payload => ({itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}}),
             previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            resolveOwnershipId: () => 'cw-group',
             sortGroup         : 'cw-witness',
             windowId          : 'cw-win-b',
             workspaceId       : 'B'
         });
+
+        // window A's own registered surface: the source zone below drags under ITS ownership (docking design record §2.3),
+        // exactly as a dock window's header drags under the participation its workspace registered
+        const sourceParticipation = Neo.create(Participation, {
+            getDocument       : () => sourceDoc(),
+            resolveOwnershipId: () => 'cw-group',
+            sortGroup         : 'cw-witness',
+            windowId          : 'cw-win-a',
+            workspaceId       : 'A'
+        });
+
+        // A SECOND root on the same heap, with the same bare workspace ids 'A' and 'B' but its own commit
+        // authority. Its windows sit below root A's; the gesture crosses its popup before it reaches the
+        // real target, and nothing here may preview, stage or commit (docking design record §2.3).
+        const
+            foreign     = {previews: 0, transfers: 0, localCommits: 0},
+            foreignDocs = {A: sourceDoc(), B: targetDoc()},
+            foreignSnap = JSON.stringify(foreignDocs);
+
+        WindowManager.register({id: 'cw-root-b-main',  innerRect: new Rectangle(0, 700, 800, 600),    outerRect: new Rectangle(0, 700, 800, 600)});
+        WindowManager.register({id: 'cw-root-b-popup', innerRect: new Rectangle(1000, 700, 800, 600), outerRect: new Rectangle(1000, 700, 800, 600)});
+
+        const foreignParticipations = [['A', 'cw-root-b-main'], ['B', 'cw-root-b-popup']].map(([workspaceId, windowId]) => Neo.create(Participation, {
+            commitLocal       : () => { foreign.localCommits++; return null },
+            commitTransfer    : () => { foreign.transfers++; return true },
+            getDocument       : () => foreignDocs[workspaceId],
+            getForeignDocument: id => foreignDocs[id] ?? null,
+            hitTest           : () => true,
+            previewFor        : payload => { foreign.previews++; return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
+            previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            resolveOwnershipId: () => 'cw-group-b',
+            sortGroup         : 'cw-witness',
+            windowId,
+            workspaceId
+        }));
 
         // COLD source zone in window A — construct() kicks off the coordinator preload; we NEVER await it
         const zone = Neo.create(DockTabSortZone, {
@@ -119,7 +159,7 @@ class Harness extends Viewport {
             windowId        : 'cw-win-a'
         });
 
-        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'cw-group', dockSourceWorkspaceId: 'A'};
         zone.dragProxy     = {hidden: false};
         zone.startIndex    = 0;
 
@@ -127,19 +167,35 @@ class Harness extends Viewport {
         // purely via construct() — NOT via an explicit resolveDragCoordinator await
         await me.timeout(32);
 
+        // ONE gesture: first over the other root's popup (same bare id 'B', another authority — must
+        // preview nothing and hide no proxy), then over root A's own target, where it commits once.
+        await zone.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 1400, screenY: 1000});
+
+        const foreignProxyHidden = zone.dragProxy.hidden === true;
+
         await zone.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 1400, screenY: 300});
         await zone.processDragEnd({clientX: 60, clientY: 20});
 
-        const dropFires = fires.filter(([name]) => name === 'dockCrossZoneDrop').length,
-              results   = {
+        const dropFires         = fires.filter(([name]) => name === 'dockCrossZoneDrop').length,
+              foreignDocsIntact = JSON.stringify(foreignDocs) === foreignSnap,
+              foreignUntouched  = foreign.previews === 0 && foreign.transfers === 0 && foreign.localCommits === 0 && !foreignProxyHidden && foreignDocsIntact,
+              results           = {
                   transferCount      : transfers.length,
                   dropFires,
                   remoteDropCommitted: zone.remoteDropCommitted,
                   coordinatorWarmed  : !!zone.dragCoordinator,
-                  pass               : transfers.length === 1 && dropFires === 0 && zone.remoteDropCommitted === false && !!zone.dragCoordinator
+                  foreignPreviews    : foreign.previews,
+                  foreignTransfers   : foreign.transfers + foreign.localCommits,
+                  foreignProxyHidden,
+                  foreignDocsIntact,
+                  pass               : transfers.length === 1 && dropFires === 0 && zone.remoteDropCommitted === false && !!zone.dragCoordinator && foreignUntouched
               };
 
         participation.destroy();
+        sourceParticipation.destroy();
+        foreignParticipations.forEach(foreignParticipation => foreignParticipation.destroy());
+        WindowManager.unregister(WindowManager.get('cw-root-b-main'));
+        WindowManager.unregister(WindowManager.get('cw-root-b-popup'));
         zone.destroy();
         WindowManager.unregister(WindowManager.get('cw-win-a'));
         WindowManager.unregister(WindowManager.get('cw-win-b'));

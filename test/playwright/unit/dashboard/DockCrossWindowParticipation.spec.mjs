@@ -170,12 +170,13 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             hitTest           : () => true,
             previewFor        : payload => { seen.previews.push(payload); return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
             previewToOperation: preview => { seen.conversions.push(preview); return {operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'} },
+            resolveOwnershipId: () => 'group-1',
             sortGroup         : 'dock-demo',
             windowId          : 'window-b',
             workspaceId       : 'B'
         });
 
-        const draggedItem = {dockItemId: 'alpha', dockSourceWorkspaceId: 'B'};
+        const draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'};
         const payload     = {draggedItem, localX: 10, localY: 10, offsetX: 0, offsetY: 0, proxyRect: null};
 
         // hover computes through the owner's landed path and the drop converts THAT preview
@@ -203,6 +204,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             dragCoordinator   : createCoordinatorStub([]),
             getDocument       : () => targetDoc(),
             getForeignDocument: workspaceId => workspaceId === 'A' ? source : null,
+            resolveOwnershipId: () => 'group-1',
             sortGroup         : 'dock-demo',
             windowId          : 'window-b',
             workspaceId       : 'B'
@@ -210,7 +212,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
         const result = participation.commitDrop(
             {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},
-            {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'}
+            {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'}
         );
 
         expect(result).not.toBeNull();
@@ -248,6 +250,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             dragCoordinator   : createCoordinatorStub([]),
             getDocument       : () => target,
             getForeignDocument: workspaceId => workspaceId === 'A' ? source : null,
+            resolveOwnershipId: () => 'group-1',
             sortGroup         : 'dock-demo',
             windowId          : 'window-b',
             workspaceId       : 'B'
@@ -257,7 +260,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             nodeId   : 'main-tabs',
             target   : {targetNodeId: 'target-tabs', placement: {kind: 'tab-into'}}
         };
-        const drag     = {dockGroupNodeId: 'main-tabs', dockItemId: 'strategy', dockSourceWorkspaceId: 'A'};
+        const drag     = {dockGroupNodeId: 'main-tabs', dockItemId: 'strategy', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
         const accepted = create(pair => transfers.push(pair));
         const result   = accepted.commitDrop(operation, drag);
 
@@ -306,12 +309,13 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                 dragCoordinator   : createCoordinatorStub([]),
                 getDocument       : () => target,
                 getForeignDocument: () => source,
-                sortGroup         : 'dock-demo',
+                resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-demo',
                 windowId          : 'window-b',
                 workspaceId       : 'B'
             });
 
-            const result = participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'});
+            const result = participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'});
 
             expect(result).not.toBeNull();
             expect(transfers).toHaveLength(1);
@@ -355,6 +359,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             dragCoordinator   : createCoordinatorStub([]),
             getDocument       : () => targetDoc(),
             getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            resolveOwnershipId: () => 'group-1',
             sortGroup         : 'dock-demo',
             windowId          : 'window-b',
             workspaceId       : 'B'
@@ -365,9 +370,13 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         // no dockItemId stamped on the payload → no guessing, no commit
         expect(participation.commitDrop(operation, {id: 'anonymous'})).toBeNull();
         // an unknown source workspace resolves no document → no commit
-        expect(participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceWorkspaceId: 'ghost'})).toBeNull();
+        expect(participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'ghost'})).toBeNull();
         // the executor rejects an invalid nested target → commit-or-neither holds, nothing publishes
-        expect(participation.commitDrop({operation: 'moveItem', itemId: 'terminal'}, {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'})).toBeNull();
+        expect(participation.commitDrop({operation: 'moveItem', itemId: 'terminal'}, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'})).toBeNull();
+        // no ownership stamped → the payload cannot prove the source's commit authority → no commit
+        expect(participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'})).toBeNull();
+        // another Group's payload naming THIS workspace's bare id → not local, not foreign: nothing (docking design record §2.3)
+        expect(participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-2', dockSourceWorkspaceId: 'B'})).toBeNull();
 
         expect(transfers).toHaveLength(0);
 
@@ -395,13 +404,14 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             dragCoordinator   : createCoordinatorStub([]),
             getDocument,
             getForeignDocument: workspaceId => workspaceId === 'A' ? sourceDoc() : null,
+            resolveOwnershipId: () => 'group-1',
             sortGroup         : 'dock-demo',
             windowId          : 'window-b',
             workspaceId       : 'B'
         });
 
         const operation   = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'};
-        const foreignDrag = {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        const foreignDrag = {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
 
         // source workspace A → target workspace B, both cataloging `terminal`: the discriminator
         // sends it FOREIGN, the executor's collision precondition rejects, commit-or-neither holds
@@ -447,9 +457,20 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             hitTest           : () => true,
             previewFor        : payload => { previews.push(payload); return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
             previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            resolveOwnershipId: () => 'group-1',
             sortGroup         : 'dock-crosswindow-source-test',
             windowId          : 'cwd-win-b',
             workspaceId       : 'B'
+        });
+
+        // window A's own registered surface (docking design record §2.3): the header zone below drags under its
+        // ownership, as a dock window's header drags under the participation its workspace registered
+        const sourceParticipation = Neo.create(DockCrossWindowParticipation, {
+            getDocument       : () => sourceDoc(),
+            resolveOwnershipId: () => 'group-1',
+            sortGroup         : 'dock-crosswindow-source-test',
+            windowId          : 'cwd-win-a',
+            workspaceId       : 'A'
         });
 
         const zone = Neo.create(DockTabSortZone, {
@@ -476,7 +497,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
         // seed the mid-gesture drag state exactly as the base drag-start leaves it, with the
         // payload stamps exactly as this class's onDragStart writes them
-        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
         zone.dragProxy     = {hidden: false};
         zone.startIndex    = 0;
 
@@ -501,7 +522,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         // …suppressed exactly ONCE: the next gesture (no remote target engaged) fires the local
         // cross-zone drop again, and no second transfer occurs
         zone.dockItemIds   = ['strategy'];
-        zone.dragComponent = {id: 'tab-proxy-2', dockItemId: 'strategy', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy-2', dockItemId: 'strategy', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
         zone.startIndex    = 0;
 
         await zone.processDragEnd({clientX: 40, clientY: 10});
@@ -510,9 +531,109 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         expect(transfers).toHaveLength(1);
 
         participation.destroy();
+        sourceParticipation.destroy();
         zone.destroy();
         WindowManager.unregister(WindowManager.get('cwd-win-a'));
         WindowManager.unregister(WindowManager.get('cwd-win-b'))
+    });
+
+    test('two same-shape roots on one App-Worker heap (docking design record §2.3): a drag from root A over root B previews nothing and commits nothing — both documents byte-identical — while A root → A popup still commits exactly once, in the same arm', async () => {
+        const
+            fires    = [],
+            previews = [],
+            commits  = [],
+            docs     = {
+                'a-main' : sourceDoc(),
+                'a-popup': targetDoc(),
+                'b-main' : sourceDoc(),
+                'b-popup': targetDoc()
+            },
+            snapshot = () => JSON.stringify(docs),
+            windows  = {
+                'root-a-main' : new Rectangle(0,    0,   800, 600),
+                'root-a-popup': new Rectangle(1000, 0,   800, 600),
+                'root-b-main' : new Rectangle(0,    700, 800, 600),
+                'root-b-popup': new Rectangle(1000, 700, 800, 600)
+            };
+
+        Object.entries(windows).forEach(([id, rect]) => WindowManager.register({id, innerRect: rect, outerRect: rect}));
+
+        // Both roots use the SAME bare workspace ids — 'workstation-main' for the root document and
+        // 'vessel-1' for the popup — exactly as two Workstation instances do. Only the Group differs.
+        const participate = (root, key, workspaceId, windowId) => Neo.create(DockCrossWindowParticipation, {
+            commitLocal   : () => { throw new Error(`${root}/${key}: a remote drop must never ride the local seam`) },
+            commitTransfer: published => {
+                commits.push([root, key, published.descriptor.itemId]);
+                docs[`${root}-main`]   = published.sourceDocument;
+                docs[`${root}-${key}`] = published.targetDocument;
+                return true
+            },
+            getDocument       : () => docs[`${root}-${key}`],
+            getForeignDocument: sourceWorkspaceId => sourceWorkspaceId === 'workstation-main' ? docs[`${root}-main`] : null,
+            hitTest           : () => true,
+            previewFor        : payload => { previews.push([root, key]); return {itemId: payload.draggedItem.dockItemId, placement: {kind: 'tab-into'}} },
+            previewToOperation: preview => ({operation: 'addTab', itemId: preview.itemId, tabsNodeId: 'main-tabs'}),
+            resolveOwnershipId: () => `group-${root}`,
+            sortGroup         : 'dock-two-roots-test',
+            windowId,
+            workspaceId
+        });
+
+        const
+            aMain  = participate('a', 'main',  'workstation-main', 'root-a-main'),
+            aPopup = participate('a', 'popup', 'vessel-1',         'root-a-popup'),
+            bMain  = participate('b', 'main',  'workstation-main', 'root-b-main'),
+            bPopup = participate('b', 'popup', 'vessel-1',         'root-b-popup');
+
+        // The header zone of root A's main window registers nothing and declares nothing: it drags under
+        // aMain's ownership — the surface registered for its own window.
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds     : ['terminal'],
+            dockSourceNodeId: 'side-tabs',
+            dockWorkspaceId : 'workstation-main',
+            owner           : {addDomListeners: () => {}, cls: [], dragResortable: false, items: [], on: () => {}, style: {}, up: () => ({fire: (name, data) => fires.push([name, data])})},
+            sortGroup       : 'dock-two-roots-test',
+            windowId        : 'root-a-main'
+        });
+
+        await zone.resolveDragCoordinator();
+
+        const
+            before = snapshot(),
+            frame  = (screenX, screenY) => ({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX, screenY}),
+            arm    = id => {
+                zone.dragComponent = {id, dockItemId: 'terminal', dockSourceOwnershipId: zone.resolveSourceOwnershipId(), dockSourceWorkspaceId: 'workstation-main'};
+                zone.dragProxy     = {hidden: false};
+                zone.startIndex    = 0
+            };
+
+        arm('tab-proxy');
+        expect(zone.dragComponent.dockSourceOwnershipId, 'the header zone drags under its window\'s registered surface').toBe('group-a');
+
+        // NEGATIVE: over root B's main window (the same bare workspace id, another Group), then its popup.
+        await zone.onDragMove(frame(400, 1000));
+        await zone.onDragMove(frame(1400, 1000));
+        await zone.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(previews, 'no preview for a target that cannot legally receive the item').toEqual([]);
+        expect(commits).toEqual([]);
+        expect(zone.dragProxy.hidden, 'no staged embodiment: the source proxy never hid').toBe(false);
+        expect(snapshot(), 'both roots\' documents are byte-identical afterwards').toBe(before);
+
+        // POSITIVE, same arm: A root → A popup previews once and commits exactly once.
+        arm('tab-proxy-2');
+        await zone.onDragMove(frame(1400, 300));
+        await zone.processDragEnd({clientX: 60, clientY: 20});
+
+        expect(previews).toEqual([['a', 'popup']]);
+        expect(commits).toEqual([['a', 'popup', 'terminal']]);
+        expect(docs['a-popup'].items.terminal).toBeDefined();
+        expect(docs['a-main'].items.terminal, 'the source document lost the item').toBeUndefined();
+        expect(JSON.stringify([docs['b-main'], docs['b-popup']]), 'root B is untouched by root A\'s gesture').toBe(JSON.stringify([sourceDoc(), targetDoc()]));
+
+        [aMain, aPopup, bMain, bPopup].forEach(participation => participation.destroy());
+        zone.destroy();
+        Object.keys(windows).forEach(id => WindowManager.unregister(WindowManager.get(id)))
     });
 
     test('fire-and-forget move/end: the coordinator engages on move-ENTRY, so a release that does NOT await the move still commits once and suppresses the local drop once', async () => {
@@ -560,7 +681,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         await zone.resolveDragCoordinator();
         zone.dragCoordinator = coordinator;
 
-        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
         zone.dragProxy     = {hidden: false};
         zone.startIndex    = 0;
 
@@ -605,7 +726,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
         await zone.resolveDragCoordinator();
         zone.dragCoordinator = DragCoordinator;
-        zone.dragComponent   = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent   = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
         zone.startIndex      = 0;
 
         DragCoordinator.activeTargetZone = {
@@ -646,7 +767,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             // no sortGroup — the §2.3 opt-in axis stays unset
         });
 
-        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
         zone.dragProxy     = {hidden: false};
         zone.startIndex    = 0;
 
@@ -668,11 +789,13 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
      * capability REMOVAL wearing the shape of an addition.
      */
     test.describe('seams the engine answers from workspace state', () => {
-        const createWorkspaceStub = ({dockModel, projectionOptions, resolvePane, tearOutPanes} = {}) => ({
+        const createWorkspaceStub = ({dockModel, projectionOptions, resolvePane, tearOutPanes, topologyGroupId='group-1'} = {}) => ({
             applied     : [],
             changes     : [],
             dockModel   : dockModel ?? targetDoc(),
             tearOutPanes: tearOutPanes ?? {},
+            // the workspace's bound Group: the default commit authority its participation declares
+            topologyGroupId,
 
             applyDockZoneOperation(descriptor) {
                 this.applied.push(descriptor);
@@ -736,12 +859,34 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             participation.destroy()
         });
 
+        test('an unset resolveOwnershipId rides the workspace\'s topology Group, read live — a workspace whose Group is unresolved declares null, never undefined, and commits nothing (docking design record §2.3)', () => {
+            const
+                workspace = createWorkspaceStub(),
+                bound     = createParticipation({sortGroup: 'dock-engine', workspace}),
+                unbound   = createParticipation({sortGroup: 'dock-engine', workspace: createWorkspaceStub({topologyGroupId: null})}),
+                operation = {operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'};
+
+            expect(bound.ownershipId).toBe('group-1');
+            expect(bound.target.ownershipId, 'the registered target reads the same authority').toBe('group-1');
+
+            // learned after registration: the next read sees it — nothing was cached at construct
+            workspace.topologyGroupId = 'group-1b';
+            expect(bound.target.ownershipId).toBe('group-1b');
+
+            expect(unbound.ownershipId).toBeNull();
+            expect(unbound.target.ownershipId, 'declared but unresolved is null, never undefined').toBeNull();
+            expect(unbound.commitDrop(operation, {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'})).toBeNull();
+
+            bound.destroy();
+            unbound.destroy()
+        });
+
         test('an unset commitLocal rides the workspace reducer pair', () => {
             const
                 workspace     = createWorkspaceStub(),
                 participation = createParticipation({sortGroup: 'dock-engine', workspace}),
                 operation     = {operation: 'addTab', itemId: 'alpha', tabsNodeId: 'main-tabs'},
-                result        = participation.commitDrop(operation, {dockItemId: 'alpha', dockSourceWorkspaceId: 'B'});
+                result        = participation.commitDrop(operation, {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'});
 
             expect(workspace.applied).toEqual([operation]);
             expect(workspace.changes).toHaveLength(1);
@@ -755,7 +900,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                 adopted   = [],
                 source    = sourceDoc(),
                 operation = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},
-                payload   = {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+                payload   = {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'};
 
             const joined = createParticipation({
                 sortGroup   : 'dock-engine',

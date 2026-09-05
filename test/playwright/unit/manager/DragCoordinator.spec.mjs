@@ -268,10 +268,10 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     });
 
     test('an ASYNC target resolving null does NOT retire — a Promise is truthy, so testing it IS the defect', async () => {
-        // @neo-gpt's RA-1. `onDragEnd` is synchronous; `draggable/dashboard/SortZone.onRemoteDrop` is
-        // async. `if (operation)` on a Promise is `if (true)` — so the outcome-aware gate read EVERY
-        // async target as committed and retired the source anyway. The fix's own shape hid the fix's
-        // own defect, and my sync-only stub could not see it.
+        // `onDragEnd` is synchronous; `draggable/dashboard/SortZone.onRemoteDrop` is async. `if (operation)`
+        // on a Promise is `if (true)` — so an outcome-aware gate that tests the raw return value reads EVERY
+        // async target as committed and retires the source anyway. A sync-only stub cannot see this shape;
+        // only an async target resolving null does.
         const
             source = createSourceZone(),
             target = {
@@ -339,9 +339,9 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     });
 
     test('the NATIVE-titlebar path obeys the same rule — the defect had a twin behind a different door', async () => {
-        // @neo-gpt-emmy's delta: the pointer fix left `commitNativeWindowDrop` discarding
-        // `await onRemoteDrop(...)` and retiring the source anyway. Same defect class, different
-        // entry point — fixing the instance the ticket named is not fixing the class.
+        // The pointer path's outcome gate has a twin: `commitNativeWindowDrop` must not discard
+        // `await onRemoteDrop(...)` and retire the source anyway. Same defect class, different entry
+        // point — fixing one instance is not fixing the class.
         const
             draggedItem  = {id: 'tab-1'},
             movePayloads = [],
@@ -425,10 +425,10 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     });
 
     test('a departing vessel takes its candidate timers with it — on either side of the gesture', () => {
-        // AC-3 names the candidate timer as a cleanup surface, so it is pinned rather than assumed.
-        // Unlike the witnesses above this one PASSES against dev: @neo-gpt-emmy read the loop as already
-        // correct and I agree, so this is a regression guard, not a bite. Naming that is the point —
-        // a test that cannot fail today should say why it exists.
+        // The candidate timer is a cleanup surface, so it is pinned rather than assumed. Unlike the
+        // witnesses above, this one passed before the outcome-aware gate existed: the loop was already
+        // correct, so this is a regression guard, not a bite. Naming that is the point — a test that
+        // cannot fail today should say why it exists.
         const
             source = createSourceZone(),
             target = createTargetZone({type: 'transferItem'});
@@ -938,6 +938,287 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(calls.filter(([name]) => name === 'move')).toEqual([]);
         expect(calls.filter(([name]) => name === 'drop')).toEqual([]);
         expect(calls.filter(([name]) => name === 'dropOut')).toEqual([])
+    });
+
+    test('ownership admission (ADR 0029 §2.3): a target of another commit authority never claims, previews or commits — a declared null matches nothing, an undeclared surface meets only an undeclared source', () => {
+        const source = createSource();
+
+        source.ownershipId = 'group-a';
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a',      0,     0, 800, 600);
+        registerWindow('win-b',      100, 100, 800, 600);
+        registerWindow('win-null',   200, 200, 800, 600);
+        registerWindow('win-plain',  300, 300, 800, 600);
+
+        // Four targets all containing (350, 350). The other root's surface carries the SAME stable
+        // identity as ours — the collision the admission keeps out of one arbiter.
+        const
+            zoneA     = createZone('workspace-main', 'win-a'),
+            zoneB     = createZone('workspace-main', 'win-b'),
+            zoneNull  = createZone('workspace-null', 'win-null'),
+            zonePlain = createZone('workspace-plain', 'win-plain');
+
+        zoneA.ownershipId    = 'group-a';
+        zoneB.ownershipId    = 'group-b';
+        zoneNull.ownershipId = null;
+
+        zoneB.onRemoteDragMove = () => calls.push(['move', 'other-root']);
+        zoneB.onRemoteDrop     = () => { calls.push(['drop', 'other-root']); return {type: 'transferItem'} };
+
+        DragCoordinator.register(zoneB);
+        DragCoordinator.register(zoneNull);
+        DragCoordinator.register(zonePlain);
+        DragCoordinator.register(zoneA);
+
+        move(source, 350, 350);
+
+        const record = DragCoordinator.claimTrace.at(-1);
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id), 'only the same-Group surface previews').toEqual(['workspace-main']);
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'workspace-main', 'tab-1']]);
+
+        expect(record.sourceOwnershipId).toBe('group-a');
+        expect(record.candidates.filter(c => c.skipped === 'ownership').map(c => c.windowId).sort()).toEqual(['win-b', 'win-null', 'win-plain']);
+        expect(record.candidates.find(c => c.windowId === 'win-b')).toMatchObject({ownershipId: 'group-b', stableTargetId: 'workspace-main'})
+    });
+
+    test('ownership tiers: a source whose Group is unresolved admits nothing, and a source outside the Group world meets only surfaces that declare none', () => {
+        const source = createSource();
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a',     0,   0,   800, 600);
+        registerWindow('win-plain', 100, 100, 800, 600);
+
+        const
+            zoneA     = createZone('workspace-a', 'win-a'),
+            zonePlain = createZone('workspace-plain', 'win-plain');
+
+        zoneA.ownershipId = 'group-a';
+
+        DragCoordinator.register(zoneA);
+        DragCoordinator.register(zonePlain);
+
+        // declared but unresolved: fails closed — nothing previews, nothing commits
+        source.ownershipId = null;
+        move(source, 300, 300);
+
+        expect(DragCoordinator.claimTrace.at(-1)).toMatchObject({outcome: 'no-claim', sourceOwnershipId: null});
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'move' || name === 'drop')).toEqual([]);
+
+        // outside the Group world: the undeclared surface is met, the declared one is not
+        delete source.ownershipId;
+        move(source, 300, 300);
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['workspace-plain']);
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'workspace-plain', 'tab-1']])
+    });
+
+    test('the legacy first-intersecting door obeys the same admission: a stable-identity-free zone of another Group is never reached', () => {
+        const source = createSource();
+
+        source.ownershipId = 'group-a';
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-legacy', 0,    0, 800, 600);
+
+        const legacy = createZone(null, 'win-legacy'); // no stable identity → the pinned legacy path
+
+        legacy.ownershipId = 'group-b';
+        DragCoordinator.register(legacy);
+
+        move(source, 300, 300);
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'move'), 'another Group\'s legacy zone is not reached').toEqual([]);
+
+        legacy.ownershipId = 'group-a';
+        move(source, 300, 300);
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'move')).toEqual([['move', 'win-legacy', 300, 300]]);
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'win-legacy', 'tab-1']])
+    });
+
+    test('the native path\'s legacy door obeys the admission too: a popup over another Group\'s stable-identity-free zone resolves no candidate', () => {
+        const
+            draggedItem = {id: 'tab-1'},
+            source      = {
+                ownershipId: 'group-a',
+                sortGroup  : 'dock',
+                windowId   : 'win-source',
+                getNativeWindowDrag(windowId) {
+                    return windowId === 'win-popup' ? {draggedItem, widgetName: 'tab-1'} : null
+                },
+                async suspendWindowDrag(widgetName) {
+                    calls.push(['suspend', widgetName])
+                }
+            },
+            legacy = createZone(null, 'win-target');
+
+        legacy.ownershipId = 'group-b';
+
+        registerWindow('win-source', 2000,   0, 400, 400);
+        registerWindow('win-popup',   500, 500, 300, 200);
+        registerWindow('win-target',  400, 400, 400, 400); // covers the popup's inset corner anchor
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(legacy);
+
+        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+        expect(calls.filter(([name]) => name === 'move'), 'another Group\'s zone is never asked').toEqual([]);
+
+        legacy.ownershipId = 'group-a';
+        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['win-target'])
+    });
+
+    test('a source that declares no ownership drags under the surface registered for its own window — registry identity, not dock semantics', () => {
+        const
+            headerZone = {sortGroup: 'dock', windowId: 'win-a'}, // a header sort zone: registers nothing, declares nothing
+            surface    = createZone('workspace-a', 'win-a'),      // the window's registered surface
+            lone       = {sortGroup: 'dock', windowId: 'win-lone'};
+
+        surface.ownershipId = 'group-a';
+
+        DragCoordinator.register(surface);
+        DragCoordinator.register(lone);
+
+        expect(DragCoordinator.resolveSourceOwnership(headerZone)).toBe('group-a');
+        expect(DragCoordinator.resolveSourceOwnership(lone), 'a registered surface that is the source itself answers for itself').toBeUndefined();
+        expect(DragCoordinator.resolveSourceOwnership({sortGroup: 'dock', windowId: 'win-none'}), 'no registered surface: undeclared').toBeUndefined();
+        expect(DragCoordinator.resolveSourceOwnership({sortGroup: 'dock', windowId: 'win-a', ownershipId: null}), 'a declared null is not overridden by the registry').toBeNull();
+
+        expect(DragCoordinator.admitsOwnership('group-a', 'group-a')).toBe(true);
+        expect(DragCoordinator.admitsOwnership('group-a', 'group-b')).toBe(false);
+        expect(DragCoordinator.admitsOwnership('group-a', undefined)).toBe(false);
+        expect(DragCoordinator.admitsOwnership('group-a', null)).toBe(false);
+        expect(DragCoordinator.admitsOwnership(null, null)).toBe(false);
+        expect(DragCoordinator.admitsOwnership(undefined, undefined)).toBe(true);
+        expect(DragCoordinator.admitsOwnership(undefined, 'group-a')).toBe(false)
+    });
+
+    test('a claim does not outlive its admission: a winner whose ownership turns foreign mid-gesture stops previewing at the next pass and a remaining same-Group candidate takes over; turned unresolved with nobody left, the gesture fails closed', () => {
+        const source = createSource();
+
+        source.ownershipId = 'group-a';
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a',      0,     0, 800, 600);
+        registerWindow('win-b',      100, 100, 800, 600);
+
+        const
+            zoneA = createZone('workspace-a', 'win-a'),
+            zoneB = createZone('workspace-b', 'win-b');
+
+        zoneA.ownershipId = 'group-a';
+        zoneB.ownershipId = 'group-a';
+
+        DragCoordinator.register(zoneA);
+        DragCoordinator.register(zoneB);
+
+        // the target-facing events only: the source's suspend/resume bookkeeping is not under test here
+        const targetEvents = () => calls.filter(([name]) => name === 'leave' || name === 'move' || name === 'drop');
+
+        // both contain the point; the same-tick tie resolves lexicographically to workspace-a
+        move(source, 300, 300);
+
+        expect(targetEvents()).toEqual([['move', 'workspace-a', 300, 300]]);
+
+        // the winner's Group turns foreign while its claim is still live: the next pass retires the
+        // claim, the previous target is left, and the eligible sibling previews instead
+        zoneA.ownershipId = 'group-b';
+        move(source, 310, 310);
+
+        expect(targetEvents().slice(1)).toEqual([['leave', 'workspace-a'], ['move', 'workspace-b', 210, 210]]);
+
+        // the stale claim was released where the zone fell out of admission, so nothing was left for
+        // the winner revalidation to retire
+        const record = DragCoordinator.claimTrace.at(-1);
+
+        expect(record).toMatchObject({outcome: 'claimed', claimedStableId: 'workspace-b', retiredStableIds: []});
+        expect(record.candidates.find(candidate => candidate.windowId === 'win-a')).toMatchObject({skipped: 'ownership', released: true});
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'workspace-b', 'tab-1']]);
+
+        // turned unresolved with nobody else eligible: the gesture fails closed instead of keeping the
+        // stale winner
+        calls.length = 0;
+        zoneA.ownershipId = 'group-a';
+        zoneB.ownershipId = 'group-a';
+
+        move(source, 300, 300);
+        expect(targetEvents()).toEqual([['move', 'workspace-a', 300, 300]]);
+
+        zoneA.ownershipId = null;
+        zoneB.ownershipId = null;
+        move(source, 310, 310);
+
+        expect(targetEvents().slice(1)).toEqual([['leave', 'workspace-a']]);
+
+        const unresolved = DragCoordinator.claimTrace.at(-1);
+
+        expect(unresolved).toMatchObject({outcome: 'no-claim', retiredStableIds: []});
+        // both had claimed on the previous pass (the tie went to workspace-a); both released their own
+        expect(unresolved.candidates.filter(candidate => candidate.skipped === 'ownership').map(candidate => candidate.released)).toEqual([true, true]);
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([])
+    });
+
+    test('same-identity safety across an ownership change: the zone leaving the claim set releases only its own claim, so a same-Group zone with the same stable identity claims fresh and a foreign holder can never take it', () => {
+        const source = createSource();
+
+        source.ownershipId = 'group-a';
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-f',      0,     0, 800, 600);
+        registerWindow('win-a',      100, 100, 800, 600);
+
+        const
+            zoneF = createZone('workspace-x', 'win-f'),
+            zoneA = createZone('workspace-x', 'win-a');
+
+        zoneF.ownershipId      = 'group-a';
+        zoneF.onRemoteDragMove = () => calls.push(['move', 'F']);
+        zoneA.ownershipId      = 'group-a';
+        zoneA.onRemoteDragMove = () => calls.push(['move', 'A']);
+
+        // F alone wins the identity
+        DragCoordinator.register(zoneF);
+        move(source, 300, 300);
+
+        expect(calls.filter(([name]) => name === 'move')).toEqual([['move', 'F']]);
+
+        // F turns foreign and a same-Group zone with the SAME stable identity registers: F's stale claim
+        // is released (it held the record), so A acquires the identity fresh in the same pass
+        zoneF.ownershipId = 'group-b';
+        DragCoordinator.register(zoneA);
+        move(source, 310, 310);
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['F', 'A']);
+
+        // on later passes the foreign holder is skipped without releasing A's claim
+        move(source, 320, 320);
+        move(source, 330, 330);
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['F', 'A', 'A', 'A']);
+        expect(DragCoordinator.claimTrace.at(-1)).toMatchObject({outcome: 'claimed', claimedStableId: 'workspace-x', retiredStableIds: []});
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'workspace-x', 'tab-1']])
     });
 
     test('claim seniority holds the winner steady — a later valid claimant cannot steal the hover', () => {

@@ -37,7 +37,8 @@ import TabHeaderSortZone              from '../../../draggable/tab/header/toolba
  * {@link #sortGroup} (the §2.3 registry identity) — a dock composition that never sets one stays
  * fully in-window with zero coordinator traffic. This class also implements the contract's three
  * mandatory source hooks per that same constraint and stamps the cross-window payload
- * identity at drag start: `dragComponent.dockItemId` + `dragComponent.dockSourceWorkspaceId` — what a
+ * identity at drag start: `dragComponent.dockItemId` + `dragComponent.dockSourceWorkspaceId` +
+ * `dragComponent.dockSourceOwnershipId` (the commit authority, docking design record §2.3) — what a
  * receiving {@link Neo.dashboard.dock.window.Participation} needs to discriminate foreign drops
  * and compose `transferItem`. The source NEVER mutates documents on a remote drop: the target side
  * owns the atomic two-document commit (both workspace documents live on the one App-Worker heap);
@@ -966,6 +967,7 @@ class TabSortZone extends TabHeaderSortZone {
 
             draggedItem.dockGroupNodeId       = me.dockGroupNodeId;
             draggedItem.dockItemId            = me.dockItemIds?.[index] ?? me.dockItemIds?.[0] ?? null;
+            draggedItem.dockSourceOwnershipId = me.resolveSourceOwnershipId();
             draggedItem.dockSourceWorkspaceId = me.dockWorkspaceId;
 
             await me.dragStart(data);
@@ -985,8 +987,9 @@ class TabSortZone extends TabHeaderSortZone {
 
         if (item) {
             delete item.dockGroupNodeId;
-            item.dockItemId              = me.dockItemIds?.[me.startIndex] ?? null;
-            item.dockSourceWorkspaceId   = me.dockWorkspaceId
+            item.dockItemId            = me.dockItemIds?.[me.startIndex] ?? null;
+            item.dockSourceOwnershipId = me.resolveSourceOwnershipId();
+            item.dockSourceWorkspaceId = me.dockWorkspaceId
         }
     }
 
@@ -1368,6 +1371,18 @@ class TabSortZone extends TabHeaderSortZone {
      */
     resolveDragCoordinator() {
         return this._dragCoordinatorPromise ??= import('../../../manager/DragCoordinator.mjs').then(module => this.dragCoordinator = module.default)
+    }
+
+    /**
+     * The commit authority this zone's drags depart from: the ownership the coordinator resolves for this
+     * window's registered surface (docking design record §2.3), `null` until the coordinator has loaded or while the
+     * host's Group is unresolved. Stamped on the payload at drag start beside `dockSourceWorkspaceId`;
+     * the receiving participation re-checks it at commit.
+     * @returns {String|null}
+     * @protected
+     */
+    resolveSourceOwnershipId() {
+        return this.dragCoordinator?.resolveSourceOwnership?.(this) ?? null
     }
 
     /**
