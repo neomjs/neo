@@ -14,16 +14,22 @@ import Manager from './Base.mjs';
  *   nothing — it cannot unbind its successor.
  * - An identity presented while its binder is live, or against a released slot with a foreign token,
  *   forks: the newcomer receives a fresh Group and the caller rewrites the boot carrier.
- * - A released slot is held for its lineage for {@link #reconnectLeaseMs}; afterwards the slot is free.
+ * - A released or reserved slot is held for its lineage for {@link #reconnectLeaseMs}; afterwards the
+ *   lineage is dead — a window presenting it finds no slot in its Group and forks, a revocation naming
+ *   it is refused. Only a Group this worker never saw admits a carried identity into an absent slot: a
+ *   cold root returning after the worker restarted.
  * - An opener reserves a slot for a window it is about to create; the reservation is the token the
- *   child must present, bounded by the same lease.
+ *   child must present, bounded by the same lease, and the only token that may give the slot back.
+ * - A minted or forked identity exists once its window's carrier holds it: admission awaits the main
+ *   thread's acknowledgement, and a pending, refused or rejected write binds nothing and publishes
+ *   nothing. An identity the carrier already holds — a rebind, a cold root — binds at once.
  * - A Group also holds keyed participants — the owners its slots resolve to, registered by the hosts
  *   that live in it. Membership is separate from binding: a participant lives while its Group does,
  *   whatever its window's generation is doing, and a Group holding participants is never empty.
  *
  * The main thread carries the identity across page loads in `sessionStorage` and rewrites it on request;
- * it never decides. This manager knows windows, keys, tokens and opaque participants — no dock, no
- * document, no app class.
+ * it never decides — it only says whether it could. This manager knows windows, keys, tokens and opaque
+ * participants — no dock, no document, no app class.
  * @class Neo.manager.Transaction
  * @extends Neo.manager.Base
  * @singleton
@@ -57,6 +63,14 @@ class Transaction extends Manager {
     leaseTimers = new Map()
 
     /**
+     * Admissions whose carrier write is still in flight, keyed by `windowId`. A window that leaves
+     * while its write is pending is refused when the answer arrives — never bound to a gone window.
+     * @member {Map} pendingAdmissions=new Map()
+     * @protected
+     */
+    pendingAdmissions = new Map()
+
+    /**
      * This module loads on demand — the first multi-window participant imports it — so windows whose apps
      * registered before that moment are admitted here, with the identity their config registered with.
      * Every later window is admitted as its app registers (`worker/App#registerApp`).
@@ -78,38 +92,84 @@ class Transaction extends Manager {
     }
 
     /**
-     * Admits a window the worker just learned of: binds it under the identity its carrier presented and
-     * tells the carrier what to hold from now on when that differs — a minted, cold or forked identity.
-     * A plain bind or rebind changes nothing the window did not already carry.
+     * Admits a window the worker just learned of: binds it under the identity its carrier presented.
+     * An identity the carrier already holds — a rebind, a reserved slot, a cold root — binds and is
+     * published at once. A minted or forked outcome names an identity the carrier does not hold yet, so
+     * the write is awaited and only an accepted write binds and publishes: while it is pending nothing
+     * is registered or announced; a refused or rejected write, or a window that left meanwhile, admits
+     * nothing and fires `admissionRefused`.
      * @param {Object} data
      * @param {Object} data.topologyIdentity `{}` for a first boot; else `{groupId, workspaceKey, generationToken}`
      * @param {String} data.windowId
-     * @returns {Object} The binding description, see {@link #bind}.
+     * @returns {Promise<Object>} The binding description, see {@link #bind}, or `{outcome: 'refused',
+     *   groupId: null, generationToken: null, generation: 0, windowId, workspaceKey}` when nothing was admitted.
      */
-    admit({topologyIdentity, windowId}) {
+    async admit({topologyIdentity, windowId}) {
         let me       = this,
             identity = topologyIdentity || {},
-            result   = me.bind({...identity, windowId});
+            plan     = me.plan({...identity, windowId});
 
         if (
-            result.groupId         !== identity.groupId      ||
-            result.workspaceKey    !== identity.workspaceKey ||
-            result.generationToken !== identity.generationToken
+            plan.groupId         === identity.groupId      &&
+            plan.workspaceKey    === identity.workspaceKey &&
+            plan.generationToken === identity.generationToken
         ) {
-            me.writeCarrier(windowId, {
-                generationToken: result.generationToken,
-                groupId        : result.groupId,
-                workspaceKey   : result.workspaceKey
-            })
+            return me.settle(plan)
         }
 
-        return result
+        const pending = {cancelled: false};
+
+        me.pendingAdmissions.set(windowId, pending);
+
+        const accepted = await me.writeCarrier(windowId, {
+            generationToken: plan.generationToken,
+            groupId        : plan.groupId,
+            workspaceKey   : plan.workspaceKey
+        });
+
+        me.pendingAdmissions.get(windowId) === pending && me.pendingAdmissions.delete(windowId);
+
+        if (!accepted || pending.cancelled) {
+            const description = {
+                generation     : 0,
+                generationToken: null,
+                groupId        : null,
+                outcome        : 'refused',
+                windowId,
+                workspaceKey   : plan.workspaceKey
+            };
+
+            me.fire('admissionRefused', {...description, presented: identity, reason: pending.cancelled ? 'window-gone' : 'carrier-refused'});
+
+            return description
+        }
+
+        // Only a minted or forked identity waits, and both name a Group that does not exist yet, so the
+        // registry cannot have moved under the plan — except by admitting this same window elsewhere,
+        // in which case that binding stands and nothing new is published.
+        const settled = me.findByWindow(windowId);
+
+        if (settled) {
+            const binding = me.get(settled.groupId).bindings.get(settled.workspaceKey);
+
+            return {
+                generation     : binding.generation,
+                generationToken: binding.generationToken,
+                groupId        : settled.groupId,
+                outcome        : 'bound',
+                windowId,
+                workspaceKey   : settled.workspaceKey
+            }
+        }
+
+        return me.settle(plan)
     }
 
     /**
-     * Binds a window into a Group under a workspace key. Without an identity the window is a new root and
-     * receives a freshly minted Group. Every outcome names the identity the caller must carry from now on:
-     * after `forked` it differs from the one presented.
+     * Binds a window into a Group under a workspace key, synchronously and published at once — the
+     * registry operation {@link #admit} runs after the carrier accepted. Without an identity the window is
+     * a new root and receives a freshly minted Group. Every outcome names the identity the caller must
+     * carry from now on: after `forked` it differs from the one presented.
      * @param {Object} data
      * @param {String} [data.groupId] The presented Group, absent for a first boot.
      * @param {String} [data.workspaceKey='main'] One key per full Workspace slot.
@@ -117,57 +177,91 @@ class Transaction extends Manager {
      * @param {String} data.windowId The runtime generation binding now.
      * @returns {{outcome: String, groupId: String, workspaceKey: String, generationToken: String, windowId: String, generation: Number}}
      *   `outcome` is one of `minted` (no identity presented), `cold` (a Group this worker never saw),
-     *   `bound` (a free or reserved slot), `rebound` (a released slot, token matched) or `forked`.
+     *   `bound` (a reserved slot, or this window's own live binding), `rebound` (a released slot, token
+     *   matched) or `forked` (a live binder's copy, a stranger's token, or a slot the Group no longer holds).
      */
-    bind({groupId, workspaceKey='main', generationToken, windowId}) {
-        let me = this,
-            group, binding, outcome;
+    bind(data) {
+        return this.settle(this.plan(data))
+    }
+
+    /**
+     * Decides what binding a presented identity gets, without touching the registry. The plan carries
+     * everything {@link #settle} needs, so a decision can wait for the carrier and land unchanged.
+     * @param {Object} data See {@link #bind}.
+     * @returns {{outcome: String, groupId: String, workspaceKey: String, generationToken: String, windowId: String, group: Object|null, binding: Object|null}}
+     *   `group` is the existing Group the binding lands in, `null` when {@link #settle} creates it;
+     *   `binding` is the existing slot the window takes over, `null` when a new one is added.
+     * @protected
+     */
+    plan({groupId, workspaceKey='main', generationToken, windowId}) {
+        let me      = this,
+            group   = groupId ? me.get(groupId) : null,
+            binding = group?.bindings.get(workspaceKey) ?? null,
+            outcome;
 
         if (!groupId) {
-            group   = me.createGroup();
             outcome = 'minted'
+        } else if (!group) {
+            outcome = 'cold'
+        } else if (!binding) {
+            // The presented lineage names a slot this Group does not hold: never reserved here, revoked,
+            // or its lease ran out. A dead lineage is not a door into a live Group.
+            outcome = 'forked'
+        } else if (binding.windowId !== null) {
+            // A copied identity while the binder lives forks; the binder is never superseded from outside.
+            outcome = binding.windowId === windowId ? 'bound' : 'forked'
+        } else if (binding.generationToken !== generationToken) {
+            outcome = 'forked'
         } else {
-            group = me.get(groupId);
-
-            if (!group) {
-                group   = me.createGroup(groupId);
-                outcome = 'cold'
-            }
+            outcome = binding.generation === 0 ? 'bound' : 'rebound'
         }
 
-        binding = group.bindings.get(workspaceKey);
+        const fresh = outcome === 'minted' || outcome === 'forked';
 
-        if (binding) {
-            const live = binding.windowId !== null;
-
-            if (live && binding.windowId === windowId) {
-                return me.describe(group, binding, 'bound')
-            }
-
-            if (live || binding.generationToken !== generationToken) {
-                // A copied identity while the binder lives, or a stranger on a held slot: the newcomer
-                // gets its own Group. The current binder is never superseded from the outside.
-                group   = me.createGroup();
-                binding = null;
-                outcome = 'forked'
-            } else {
-                me.clearLease(binding);
-                binding.windowId = windowId;
-                binding.generation++;
-                return me.describe(group, binding, 'rebound')
-            }
-        }
-
-        binding = {
-            generation     : 1,
-            generationToken: (outcome === 'forked' || !generationToken) ? crypto.randomUUID() : generationToken,
+        return {
+            binding        : fresh ? null : binding,
+            generationToken: fresh || !generationToken ? crypto.randomUUID() : generationToken,
+            group          : fresh ? null : group,
+            groupId        : fresh ? crypto.randomUUID() : groupId,
+            outcome,
             windowId,
             workspaceKey
-        };
+        }
+    }
 
-        group.bindings.set(workspaceKey, binding);
+    /**
+     * Lands a {@link #plan}: creates the Group a fresh or cold identity names, takes over or adds the
+     * slot, and publishes the binding.
+     * @param {Object} plan
+     * @returns {Object} The binding description, see {@link #bind}.
+     * @protected
+     */
+    settle(plan) {
+        let me                                = this,
+            {outcome, windowId, workspaceKey} = plan,
+            group                             = plan.group ?? me.createGroup(plan.groupId),
+            binding                           = plan.binding;
 
-        return me.describe(group, binding, outcome || 'bound')
+        if (binding) {
+            if (binding.windowId === windowId) {
+                return me.describe(group, binding, outcome)
+            }
+
+            me.clearLease(binding);
+            binding.windowId = windowId;
+            binding.generation++
+        } else {
+            binding = {
+                generation     : 1,
+                generationToken: plan.generationToken,
+                windowId,
+                workspaceKey
+            };
+
+            group.bindings.set(workspaceKey, binding)
+        }
+
+        return me.describe(group, binding, outcome)
     }
 
     /**
@@ -321,12 +415,16 @@ class Transaction extends Manager {
     }
 
     /**
-     * Releases the binding a window holds and starts its lease.
+     * Releases the binding a window holds and starts its lease. A window still waiting for its carrier's
+     * answer holds no binding yet; its admission is cancelled instead, so the answer binds nothing.
      * @param {String} windowId
      * @returns {Boolean} Whether a binding was released.
      */
     release(windowId) {
-        let me = this;
+        let me      = this,
+            pending = me.pendingAdmissions.get(windowId);
+
+        pending && (pending.cancelled = true);
 
         for (const group of me.items) {
             for (const binding of group.bindings.values()) {
@@ -379,18 +477,21 @@ class Transaction extends Manager {
 
     /**
      * Gives a reserved or released slot back before its lease ends — the opener's vessel never came,
-     * or the host retired it. A slot with a live binder is not the caller's to revoke.
+     * or the host retired it. Only the lineage holding the slot may give it back: an older reservation's
+     * failure or cleanup, arriving after the slot was reserved again, names a token the slot no longer
+     * carries and is refused. A slot with a live binder is not the caller's to revoke.
      * @param {Object} data
      * @param {String} data.groupId
      * @param {String} data.workspaceKey
+     * @param {String} data.generationToken The reservation's own token.
      * @returns {Boolean}
      */
-    revoke({groupId, workspaceKey}) {
+    revoke({groupId, workspaceKey, generationToken}) {
         let me      = this,
             group   = me.get(groupId),
             binding = group?.bindings.get(workspaceKey);
 
-        if (!binding || binding.windowId !== null) return false;
+        if (!binding || binding.windowId !== null || !generationToken || binding.generationToken !== generationToken) return false;
 
         me.clearLease(binding);
         group.bindings.delete(workspaceKey);
@@ -419,15 +520,24 @@ class Transaction extends Manager {
     }
 
     /**
-     * Tells a window's carrier what to hold from now on. A window is admitted once its app registered,
-     * which is after the main realm registered its remote surface; the optional call only spares a unit
-     * harness that mocks no `Neo.Main`.
+     * Tells a window's carrier what to hold from now on and reports whether it took. A window is admitted
+     * once its app registered, which is after the main realm registered its remote surface; a realm
+     * without the setter — a unit harness that mocks no `Neo.Main` — has no carrier to disagree, so its
+     * absence accepts. A present setter must answer exactly `true`: a pending answer is awaited, and
+     * `false`, a rejection or anything else refuses.
      * @param {String} windowId
      * @param {{groupId: String, workspaceKey: String, generationToken: String}} identity
+     * @returns {Promise<Boolean>}
      * @protected
      */
-    writeCarrier(windowId, identity) {
-        Neo.Main?.setTopologyIdentity?.({...identity, windowId})
+    async writeCarrier(windowId, identity) {
+        if (typeof Neo.Main?.setTopologyIdentity !== 'function') return true;
+
+        try {
+            return await Neo.Main.setTopologyIdentity({...identity, windowId}) === true
+        } catch (error) {
+            return false
+        }
     }
 
     /**

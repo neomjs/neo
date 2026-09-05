@@ -12,7 +12,7 @@ import * as core      from '../../../../src/core/_export.mjs';
 
 /**
  * A Group is the identity of one multi-window topology instance; `appName` only routes. These arms drive
- * the manager the way the worker does — `onWindowConnect` with the carrier's identity inside `windowData`,
+ * the manager the way the worker does — `admit` with the identity the carrier presented at registration,
  * `onWindowDisconnect` with the generation that left — and read the outcomes back.
  *
  * The falsifier is two Workstation roots under one worker: A and its popup share a Group, B shares only
@@ -23,6 +23,8 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
     let Transaction;
 
     // The worker admits a window when its config registers, carrying the identity the main thread read.
+    // Admission is a promise: an identity the carrier already holds settles synchronously inside it, a
+    // minted or forked one only after the carrier answered — so every arm awaits it.
     const connect = (windowId, topologyIdentity) => Transaction.admit({topologyIdentity, windowId});
 
     // The manager is a worker-wide singleton, and a Playwright worker runs many spec files: a Group a
@@ -51,7 +53,7 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         expect(Transaction.findByWindow('b1')).toEqual({generation: 1, groupId: b.groupId, workspaceKey: 'main'})
     });
 
-    test('the two-Workstation falsifier: a reload moves one generation, and a late disconnect cannot unbind the successor', () => {
+    test('the two-Workstation falsifier: a reload moves one generation, and a late disconnect cannot unbind the successor', async () => {
         const a = Transaction.bind({windowId: 'a1', workspaceKey: 'main'}),
               b = Transaction.bind({windowId: 'b1', workspaceKey: 'main'});
 
@@ -60,7 +62,7 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
 
         expect(reservation).toEqual({generationToken: expect.any(String), groupId: a.groupId, workspaceKey: 'popup:documents'});
 
-        connect('a2', reservation);
+        expect((await connect('a2', reservation)).outcome, 'a reserved slot binds').toBe('bound');
 
         expect(Transaction.findByWindow('a2')).toEqual({generation: 1, groupId: a.groupId, workspaceKey: 'popup:documents'});
 
@@ -141,7 +143,7 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
 
         const a = Transaction.bind({windowId: 'a1', workspaceKey: 'main'});
 
-        connect('a2', Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:documents'}));
+        await connect('a2', Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:documents'}));
         Transaction.release('a2');
 
         await new Promise(resolve => setTimeout(resolve, 60));
@@ -194,7 +196,7 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         expect(Transaction.getBinding('group-from-a-previous-worker', 'main').windowId).toBe('w1')
     });
 
-    test('a reserved slot cannot be reserved again while live, and an empty carrier admits a fresh root', () => {
+    test('a reserved slot cannot be reserved again while live, and an empty carrier admits a fresh root', async () => {
         const a = Transaction.bind({windowId: 'a1', workspaceKey: 'main'});
 
         expect(Transaction.reserve({groupId: a.groupId, workspaceKey: 'main'}), 'a live slot').toBeNull();
@@ -202,11 +204,154 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
 
         const before = Transaction.items.length;
 
-        expect(connect('fresh-root', {}).outcome, 'no carrier yet: a Group is minted').toBe('minted');
+        expect((await connect('fresh-root', {})).outcome, 'no carrier yet: a Group is minted').toBe('minted');
         expect(Transaction.items).toHaveLength(before + 1)
     });
 
-    test('a manager loading after apps registered admits every live window with the identity its config carried', () => {
+    test('a revocation is fenced by lineage: an older reservation\'s failure cannot give back its replacement\'s slot, the holder can', () => {
+        const a  = Transaction.bind({windowId: 'a1', workspaceKey: 'main'}),
+              s1 = Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:x'}),
+              // A second open for the same item while the first is still pending: the slot is
+              // reserved again under a fresh token, and the first token is superseded.
+              s2 = Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:x'});
+
+        expect(s2.generationToken).not.toBe(s1.generationToken);
+
+        // The older open fails late and cleans up after itself — naming a token the slot no longer carries.
+        expect(Transaction.revoke(s1), 'a superseded reservation revokes nothing').toBe(false);
+        expect(Transaction.getBinding(a.groupId, 'popup:x'), 'the replacement is untouched').toEqual({generation: 0, windowId: null, workspaceKey: 'popup:x'});
+        expect(Transaction.revoke({groupId: a.groupId, workspaceKey: 'popup:x'}), 'no token, no revocation').toBe(false);
+
+        expect(Transaction.revoke(s2), 'the holder gives its slot back').toBe(true);
+        expect(Transaction.getBinding(a.groupId, 'popup:x')).toBeNull();
+        expect(Transaction.revoke(s2), 'exact-once').toBe(false)
+    });
+
+    test('a dead lineage is not a door: an expired or revoked reservation presented late forks, an active one binds, a cold root still returns', async () => {
+        Transaction.reconnectLeaseMs = 20;
+
+        const a       = Transaction.bind({windowId: 'a1', workspaceKey: 'main'}),
+              expired = Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:documents'});
+
+        await new Promise(resolve => setTimeout(resolve, 60));
+
+        expect(Transaction.getBinding(a.groupId, 'popup:documents'), 'the lease ran out; the root keeps the Group alive').toBeNull();
+
+        const late = await connect('late-child', expired);
+
+        expect(late.outcome, 'the presented lineage names a slot the Group no longer holds').toBe('forked');
+        expect(late.groupId).not.toBe(a.groupId);
+        expect(Transaction.getBinding(a.groupId, 'popup:documents'), 'nothing entered the Group').toBeNull();
+
+        const revoked = Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:documents'});
+
+        expect(Transaction.revoke(revoked)).toBe(true);
+        expect((await connect('revoked-child', revoked)).outcome).toBe('forked');
+
+        // The root's own token presented for a slot it never reserved is a dead lineage for that slot too.
+        expect((await connect('unreserved', {...a, workspaceKey: 'popup:terminal'})).outcome).toBe('forked');
+        expect(Transaction.getBinding(a.groupId, 'popup:terminal')).toBeNull();
+
+        // Positive control: the reservation that is live admits its child into the Group.
+        const active = Transaction.reserve({groupId: a.groupId, workspaceKey: 'popup:documents'}),
+              child  = await connect('child', active);
+
+        expect(child).toMatchObject({generation: 1, groupId: a.groupId, outcome: 'bound', workspaceKey: 'popup:documents'});
+
+        // Cold control: a Group this worker never saw still admits the identity its carrier holds.
+        expect(Transaction.bind({groupId: 'from-a-dead-worker', workspaceKey: 'popup:notes', generationToken: 'lineage', windowId: 'c1'}).outcome).toBe('cold')
+    });
+
+    test('a minted or forked identity is published once its carrier accepted it: pending exposes nothing, false or a rejection admits nothing, a gone window is refused, and the accepted root rebinds on reload', async () => {
+        const
+            before  = Transaction.items.length,
+            binds   = [],
+            refused = [],
+            writes  = [],
+            // `fire` drops a listener whose scope carries no `id` — the sign of a destroyed instance.
+            scope    = {id: 'transaction-spec-publication-witness'},
+            listener = {admissionRefused: data => refused.push(data), bind: data => binds.push(data), scope};
+
+        let answer;
+
+        const deferredSetter = data => {
+            writes.push(data);
+
+            return new Promise(resolve => {answer = resolve})
+        };
+
+        Transaction.on(listener);
+        Neo.ns('Neo.Main', true).setTopologyIdentity = deferredSetter;
+
+        try {
+            const pending = connect('p1', {});
+
+            expect(writes).toHaveLength(1);
+            expect(Transaction.findByWindow('p1'), 'pending: nothing is bound').toBeNull();
+            expect(Transaction.items, 'pending: no Group exists yet').toHaveLength(before);
+            expect(binds, 'pending: nothing is published').toEqual([]);
+
+            answer(true);
+
+            const root = await pending;
+
+            expect(root).toMatchObject({generation: 1, outcome: 'minted', windowId: 'p1', workspaceKey: 'main'});
+            expect(Transaction.findByWindow('p1').groupId).toBe(root.groupId);
+            expect(binds.map(data => data.windowId), 'published exactly once, after acceptance').toEqual(['p1']);
+
+            // The carrier refuses: a write that returns false, one that rejects, and one that answers
+            // anything but `true` all admit nothing.
+            for (const setter of [() => false, () => Promise.reject(new Error('storage unavailable')), data => writes.push(data)]) {
+                Neo.Main.setTopologyIdentity = setter;
+
+                const outcome = await connect(`refused-${refused.length}`, {});
+
+                expect(outcome).toMatchObject({generation: 0, generationToken: null, groupId: null, outcome: 'refused'});
+                expect(Transaction.findByWindow(outcome.windowId)).toBeNull()
+            }
+
+            expect(refused.map(data => data.reason)).toEqual(['carrier-refused', 'carrier-refused', 'carrier-refused']);
+            expect(Transaction.items, 'a refused admission leaves no Group behind').toHaveLength(before + 1);
+
+            // The window leaves while its write is pending: the late answer binds nothing.
+            Neo.Main.setTopologyIdentity = deferredSetter;
+
+            const gone = connect('p3', {});
+
+            Transaction.release('p3');
+            answer(true);
+
+            expect((await gone).outcome).toBe('refused');
+            expect(refused.at(-1)).toMatchObject({reason: 'window-gone', windowId: 'p3'});
+            expect(Transaction.findByWindow('p3')).toBeNull();
+
+            // A fork waits the same way: the copy is invisible until its carrier accepted it.
+            const copy = connect('p1-copy', {generationToken: root.generationToken, groupId: root.groupId, workspaceKey: 'main'});
+
+            expect(Transaction.findByWindow('p1-copy')).toBeNull();
+            expect(Transaction.getBinding(root.groupId, 'main').windowId, 'the live binder is untouched').toBe('p1');
+
+            answer(true);
+
+            expect((await copy).outcome).toBe('forked');
+            expect(Transaction.findByWindow('p1-copy').groupId).not.toBe(root.groupId);
+
+            // The accepted root reloads: its carrier holds the identity, so the rebind neither writes nor waits.
+            Transaction.release('p1');
+
+            const writesBefore = writes.length,
+                  reloaded     = await connect('p1-reload', {generationToken: root.generationToken, groupId: root.groupId, workspaceKey: 'main'});
+
+            expect(reloaded).toMatchObject({generation: 2, groupId: root.groupId, outcome: 'rebound'});
+            expect(writes, 'a rebind carries nothing new').toHaveLength(writesBefore);
+            expect(binds.at(-1).windowId).toBe('p1-reload')
+        } finally {
+            Transaction.un(listener);
+            delete Neo.Main.setTopologyIdentity
+        }
+    });
+
+    test('a manager loading after apps registered admits every live window with the identity its config carried', async () => {
         // The module loads on demand — with the first multi-window participant — so the windows whose
         // apps registered before that moment must not stay unbound. A second instance of the class
         // stands in for that later load; the singleton the worker uses is untouched.
@@ -218,15 +363,19 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
 
         let late;
 
-        Neo.ns('Neo.Main', true).setTopologyIdentity = data => writes.push(data);
+        Neo.ns('Neo.Main', true).setTopologyIdentity = data => {
+            writes.push(data);
+            return true
+        };
         Neo.apps          = {'late-popup': {}, 'late-root': {}};
         Neo.windowConfigs = {'late-popup': {topologyIdentity: carried}};
 
         try {
             late = Neo.create(Transaction.constructor, {});
 
-            expect(late.findByWindow('late-root')).toEqual({generation: 1, groupId: expect.any(String), workspaceKey: 'main'});
+            // The carried identity binds at once; the minted root binds when its carrier has answered.
             expect(late.findByWindow('late-popup'), 'a carried identity binds cold under its own Group').toEqual({generation: 1, groupId: 'group-carried', workspaceKey: 'popup:notes'});
+            await expect.poll(() => late.findByWindow('late-root')).toEqual({generation: 1, groupId: expect.any(String), workspaceKey: 'main'});
             expect(late.items).toHaveLength(2);
             expect(writes.map(write => write.windowId), 'only the minted root learns something new').toEqual(['late-root'])
         } finally {
@@ -237,13 +386,16 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
         }
     });
 
-    test('the carrier learns what the worker decided: minted and forked identities are written back, a rebind is not', () => {
+    test('the carrier learns what the worker decided: minted and forked identities are written back, a rebind is not', async () => {
         const writes = [];
 
-        Neo.ns('Neo.Main', true).setTopologyIdentity = data => writes.push(data);
+        Neo.ns('Neo.Main', true).setTopologyIdentity = data => {
+            writes.push(data);
+            return true
+        };
 
         try {
-            connect('r1', {});
+            await connect('r1', {});
 
             expect(writes).toHaveLength(1);
 
@@ -253,12 +405,12 @@ test.describe.serial('Neo.manager.Transaction — Groups and token-matched windo
 
             // A warm reload presents the carried identity and rebinds — the carrier already holds it.
             Transaction.onWindowDisconnect({windowId: 'r1'});
-            connect('r2', {generationToken: identity.generationToken, groupId: identity.groupId, workspaceKey: 'main'});
+            await connect('r2', {generationToken: identity.generationToken, groupId: identity.groupId, workspaceKey: 'main'});
 
             expect(writes, 'a rebind carries nothing new').toHaveLength(1);
 
             // A copied identity while r2 is live forks, and the fork's window learns its new Group.
-            connect('r3', {generationToken: identity.generationToken, groupId: identity.groupId, workspaceKey: 'main'});
+            await connect('r3', {generationToken: identity.generationToken, groupId: identity.groupId, workspaceKey: 'main'});
 
             expect(writes).toHaveLength(2);
             expect(writes[1].windowId).toBe('r3');
