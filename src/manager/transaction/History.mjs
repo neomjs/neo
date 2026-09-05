@@ -40,6 +40,15 @@ function isPlainData(value, path=new Set()) {
 }
 
 /**
+ * Whether a value can bound a history: a finite positive integer.
+ * @param {*} value
+ * @returns {Boolean}
+ */
+function isValidDepth(value) {
+    return Number.isInteger(value) && value >= 1
+}
+
+/**
  * Freezes a plain-data graph in place.
  * @param {*} value
  * @returns {*} The same value
@@ -85,11 +94,13 @@ class History extends Base {
          */
         className: 'Neo.manager.transaction.History',
         /**
-         * How many rows are retained; the oldest is evicted past it. At least one — a Group that keeps
-         * no history never loads this module.
-         * @member {Number} depth=50
+         * How many rows are retained; the oldest is evicted past it. A finite positive integer — at least
+         * one, because a Group that keeps no history never loads this module — refused otherwise, so an
+         * unbounded or fractional log cannot exist.
+         * @member {Number} depth_=50
+         * @reactive
          */
-        depth: 50
+        depth_: 50
     }
 
     /**
@@ -150,18 +161,11 @@ class History extends Base {
     }
 
     /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        this.#rows = Neo.create(Collection, {autoSort: false})
-    }
-
-    /**
-     * Admits one transaction after the cursor: the redo tail is dropped, the descriptor is copied, stamped
-     * and frozen, the cursor moves onto it, and rows past {@link #depth} are evicted from the front.
-     * A descriptor {@link #assertRow} refuses changes nothing.
+     * Admits one transaction after the cursor: the descriptor is copied, stamped and frozen, the redo
+     * tail is dropped, the cursor moves onto the row, and rows past {@link #depth} are evicted from the
+     * front. Admission is transactional with respect to the log: every fallible step — the refusals of
+     * {@link #assertRow} and the copy itself — runs before a single retained row, the cursor or the
+     * sequence changes, so a refused descriptor leaves the history exactly as it was, redo tail included.
      * @param {Object} descriptor Plain data; an own `id` is kept, otherwise one is minted
      * @returns {Object} The frozen retained row
      */
@@ -171,19 +175,22 @@ class History extends Base {
 
         me.assertRow(descriptor);
 
+        // The copy is the last refusal: a value that reads as plain data can still not be cloned (a Proxy,
+        // a platform object), and only the clone can tell — so it runs before anything is committed.
+        const row = deepFreeze(me.copy({
+            ...descriptor,
+            id        : descriptor.id ?? crypto.randomUUID(),
+            recordedAt: Date.now(),
+            sequence  : me.sequence + 1
+        }));
+
         if (me.canRedo) {
             rows.splice(me.cursor + 1, rows.count - me.cursor - 1)
         }
 
-        const row = deepFreeze(structuredClone({
-            ...descriptor,
-            id        : descriptor.id ?? crypto.randomUUID(),
-            recordedAt: Date.now(),
-            sequence  : ++me.sequence
-        }));
-
         // The key is present, so the collection writes nothing onto the frozen row.
         rows.add(row);
+        me.sequence++;
         me.cursor = rows.count - 1;
 
         while (rows.count > me.depth) {
@@ -203,8 +210,8 @@ class History extends Base {
     assertRow(descriptor) {
         let me = this;
 
-        if (me.depth < 1) {
-            throw new RangeError(`${me.className}: depth must be at least 1, got ${me.depth}`)
+        if (!isValidDepth(me.depth)) {
+            throw new RangeError(`${me.className}: depth must be a positive integer, got ${me.depth}`)
         }
 
         if (!descriptor || typeof descriptor !== 'object' || Array.isArray(descriptor) || !isPlainData(descriptor)) {
@@ -213,6 +220,54 @@ class History extends Base {
 
         if (descriptor.id != null && me.has(descriptor.id)) {
             throw new Error(`${me.className}: row ${descriptor.id} is already retained`)
+        }
+    }
+
+    /**
+     * Refuses a bound that is not a finite positive integer — `Infinity` would be an unbounded log, `NaN`
+     * or a fraction a bound nothing can be measured against. The refusal is logged and the bound in force
+     * stays; a config setter cannot throw without leaving the refused value staged.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetDepth(value, oldValue) {
+        if (!isValidDepth(value)) {
+            Neo.logError(`${this.className}: depth must be a positive integer, got ${value} — keeping ${oldValue}`);
+
+            return oldValue
+        }
+
+        return value
+    }
+
+    /**
+     * A bound that cannot be enforced is refused before the instance exists: construction is the one place
+     * a refusal can be a throw without leaving a half-set config behind.
+     * @param {Object} config
+     */
+    construct(config) {
+        if (config && 'depth' in config && !isValidDepth(config.depth)) {
+            throw new RangeError(`${this.className}: depth must be a positive integer, got ${config.depth}`)
+        }
+
+        super.construct(config);
+
+        this.#rows = Neo.create(Collection, {autoSort: false})
+    }
+
+    /**
+     * The structured copy of a stamped descriptor — the refusal that only the clone can make.
+     * @param {Object} stamped
+     * @returns {Object}
+     * @protected
+     */
+    copy(stamped) {
+        try {
+            return structuredClone(stamped)
+        } catch (error) {
+            throw new TypeError(`${this.className}: a row must be structured-cloneable plain data (${error.message})`)
         }
     }
 

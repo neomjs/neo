@@ -12,6 +12,7 @@ import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../src/manager/Instance.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
 
 /**
@@ -337,6 +338,88 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         await expect(Transaction.write({groupId: 'nowhere', descriptor: {kind: 'a'}})).rejects.toThrow('unknown Group');
         await expect(Transaction.undo({groupId: 'nowhere', apply: noop})).rejects.toThrow('unknown Group');
         await expect(Transaction.redo({groupId: 'nowhere', apply: noop})).rejects.toThrow('unknown Group')
+    });
+
+    test('the worker-wide default and the Group-local bound refuse anything but a non-negative integer, so no Group is born with an unbounded log', async () => {
+        const logged   = [],
+              logError = Neo.logError;
+
+        Neo.logError = (...args) => logged.push(args.join(' '));
+
+        try {
+            for (const bad of [Infinity, NaN, 1.5, -1, '2', null]) {
+                Transaction.historyDepth = bad;
+                expect(Transaction.historyDepth, `default ${String(bad)} refused, the one in force stays`).toBe(0)
+            }
+        } finally {
+            Neo.logError = logError
+        }
+
+        expect(logged).toHaveLength(6);
+        expect(logged[0]).toMatch(/historyDepth must be a non-negative integer, got Infinity — keeping 0/);
+
+        // A Group born under a refused default carries the bound in force, never the refused one.
+        const born = Transaction.bind({windowId: 'w0', workspaceKey: 'main'});
+
+        expect(Transaction.get(born.groupId).historyDepth).toBe(0);
+        await Transaction.write({groupId: born.groupId, descriptor: {kind: 'a'}});
+        expect(Transaction.get(born.groupId).history, 'depth zero loads nothing').toBeNull();
+
+        Transaction.historyDepth = 2;
+
+        const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'});
+
+        for (const kind of ['a', 'b', 'c']) {
+            await Transaction.write({groupId, descriptor: {kind}})
+        }
+
+        const {history} = Transaction.get(groupId);
+
+        expect(history.depth).toBe(2);
+        expect(history.rows.map(row => row.kind), 'a valid bound evicts exactly').toEqual(['b', 'c'])
+    });
+
+    test('a Group retired while its history module is still loading gets no History: the write rejects, nothing is adopted, and no orphan is registered', async () => {
+        Transaction.historyDepth = 5;
+
+        const {groupId} = Transaction.bind({windowId: 'w1', workspaceKey: 'main'}),
+              record    = Transaction.get(groupId),
+              adopted   = [],
+              instances = () => InstanceManager.find('className', 'Neo.manager.transaction.History').length;
+
+        let resolveImport, started = false;
+
+        Transaction.importHistory = () => {
+            started = true;
+            return new Promise(resolve => { resolveImport = resolve })
+        };
+
+        const write  = Transaction.write({groupId, descriptor: {kind: 'a'}, adopt: descriptor => adopted.push(descriptor)}),
+              before = instances();
+
+        while (!started) {
+            await new Promise(resolve => setTimeout(resolve, 0))
+        }
+
+        expect(Transaction.retireGroup(groupId), 'retired while the import is pending').toBe(true);
+
+        resolveImport(await importHistory.call(Transaction));
+
+        await expect(write).rejects.toThrow('retired while queued');
+        expect(adopted).toHaveLength(0);
+        expect(record.history, 'the retired record never received a History').toBeNull();
+        expect(instances(), 'no History was registered for the dead Group').toBe(before);
+
+        // Control: the same pending import with the Group alive creates exactly one History.
+        Transaction.importHistory = importHistory;
+
+        const live = Transaction.bind({windowId: 'w2', workspaceKey: 'main'});
+
+        await Transaction.write({groupId: live.groupId, descriptor: {kind: 'a'}});
+
+        expect(instances()).toBe(before + 1);
+        expect(Transaction.retireGroup(live.groupId)).toBe(true);
+        expect(instances(), 'ordinary retirement releases it').toBe(before)
     });
 
     test('a write queued behind the barrier when its Group is retired rejects instead of touching what the retirement released', async () => {

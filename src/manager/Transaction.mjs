@@ -57,10 +57,13 @@ class Transaction extends Manager {
          * and never loads `transaction/History.mjs`, so a single-window or history-disabled app pays
          * nothing for it. Depth is a Group's choice: a consumer that wants undo for its own Group calls
          * {@link #setHistoryDepth} before that Group's first write, so two independent roots of one app
-         * in one worker never take each other's policy through this worker-wide default.
-         * @member {Number} historyDepth=0
+         * in one worker never take each other's policy through this worker-wide default. A non-negative
+         * integer; anything else is refused at the setter, so no Group can be born with an unbounded or
+         * fractional log.
+         * @member {Number} historyDepth_=0
+         * @reactive
          */
-        historyDepth: 0,
+        historyDepth_: 0,
         /**
          * How long a released or reserved binding holds its slot for a token-matched successor before the
          * slot is free. The dock tear-out connect window is the precedent for the bound.
@@ -455,17 +458,25 @@ class Transaction extends Manager {
     /**
      * The admission barrier: for a Group that keeps history, loads the module once and creates the Group's
      * History; every write awaits this before touching a participant. A Group at depth zero resolves to
-     * `null` without importing anything.
+     * `null` without importing anything. The load is fenced by the Group's lifetime: a Group retired while
+     * the module was still loading gets no History — one created then would be registered with no owner
+     * to release it — and the write that waited rejects at its own liveness check.
      * @param {Object} group
      * @returns {Promise<Neo.manager.transaction.History|null>}
      * @protected
      */
     loadHistory(group) {
+        let me = this;
+
         if (group.historyDepth < 1) {
             return Promise.resolve(null)
         }
 
-        return group.historyReady ??= this.importHistory().then(({default: History}) => {
+        return group.historyReady ??= me.importHistory().then(({default: History}) => {
+            if (me.get(group.id) !== group) {
+                return null
+            }
+
             group.history = Neo.create(History, {depth: group.historyDepth});
 
             return group.history
@@ -525,6 +536,25 @@ class Transaction extends Manager {
         if (this.get(group.id) !== group) {
             throw new Error(`${this.className}#${method}: Group ${group.id} was retired while queued`)
         }
+    }
+
+    /**
+     * Refuses a default history depth that is not a non-negative integer, so the bound a Group is born
+     * with is always one a History can enforce. The refusal is logged and the default in force stays; a
+     * config setter cannot throw without leaving the refused value staged.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetHistoryDepth(value, oldValue) {
+        if (!Number.isInteger(value) || value < 0) {
+            Neo.logError(`${this.className}: historyDepth must be a non-negative integer, got ${value} — keeping ${oldValue}`);
+
+            return oldValue
+        }
+
+        return value
     }
 
     /**

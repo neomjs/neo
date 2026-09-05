@@ -200,12 +200,69 @@ test.describe('Neo.manager.transaction.History — frozen rows and the cursor', 
         expect(history.current).toBe(e)
     });
 
-    test('a depth below one is refused before any row is admitted', () => {
-        const zero = Neo.create(History, {depth: 0});
+    test('the bound is a finite positive integer: refused with a throw at construction, refused and logged on assignment; a valid bound evicts exactly', () => {
+        for (const depth of [0, -1, 1.5, Infinity, NaN, '3', null]) {
+            expect(() => Neo.create(History, {depth}), `depth ${String(depth)} refused`).toThrow(RangeError)
+        }
 
-        expect(() => zero.append({kind: 'a'})).toThrow(RangeError);
-        expect(zero.count).toBe(0);
-        zero.destroy()
+        const logged   = [],
+              logError = Neo.logError;
+
+        Neo.logError = (...args) => logged.push(args.join(' '));
+
+        try {
+            for (const depth of [Infinity, NaN, 1.5, 0]) {
+                history.depth = depth;
+                expect(history.depth, `assignment of ${String(depth)} keeps the bound in force`).toBe(3)
+            }
+        } finally {
+            Neo.logError = logError
+        }
+
+        expect(logged).toHaveLength(4);
+        expect(logged[0]).toMatch(/depth must be a positive integer, got Infinity — keeping 3/);
+
+        history.depth = 4;
+        expect(history.depth, 'a valid bound is taken').toBe(4);
+
+        const two = Neo.create(History, {depth: 2});
+
+        ['a', 'b', 'c', 'd', 'e'].forEach(kind => two.append({kind}));
+
+        expect(two.count).toBe(2);
+        expect(two.rows.map(row => row.kind)).toEqual(['d', 'e']);
+        two.destroy()
+    });
+
+    test('a descriptor that reads as plain data but cannot be copied is refused with the log untouched — rows, bytes, cursor, sequence and the redo tail', () => {
+        const a = history.append({kind: 'a'}),
+              b = history.append({kind: 'b'});
+
+        history.undo();
+
+        const before = {
+            bytes   : JSON.stringify(history.rows),
+            cursor  : history.cursor,
+            sequence: history.sequence,
+            canRedo : history.canRedo,
+            ids     : history.rows.map(row => row.id)
+        };
+
+        expect(before).toMatchObject({cursor: 0, sequence: 2, canRedo: true, ids: [a.id, b.id]});
+
+        // A Proxy over a plain object passes every structural read and fails only the structured copy.
+        expect(() => history.append({kind: 'bad', nested: new Proxy({value: 1}, {})})).toThrow(TypeError);
+
+        expect({
+            bytes   : JSON.stringify(history.rows),
+            cursor  : history.cursor,
+            sequence: history.sequence,
+            canRedo : history.canRedo,
+            ids     : history.rows.map(row => row.id)
+        }).toEqual(before);
+
+        expect(history.redo(), 'the redo tail survived the refusal').toBe(b);
+        expect(history.append({kind: 'c'}).sequence, 'the next admission continues the sequence unbroken').toBe(3)
     });
 
     test('toJSON carries the frozen rows in order, the count, the cursor, the bound and the sequence', () => {
