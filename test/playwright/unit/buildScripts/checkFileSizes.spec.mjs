@@ -231,9 +231,15 @@ test.describe('check-file-sizes', () => {
             expect(raised.violations[0].reason).toContain('HEAD baseline must equal the measured count');
         });
 
-        test('RA-1: step two of the bypass — growth under an inflated ceiling still needs a declaration', () => {
-            // Proves the first arm closes the bypass rather than merely reporting its first step:
-            // with the ceiling raised, growth to 1500 must not pass as a shrink.
+        test('RA-1: ordinary growth on a touched file still needs a declaration', () => {
+            // The bypass is stopped at step ONE — the arm above prevents an inflated base from being
+            // created — so this is not "step two". Named for what it actually is: the control that
+            // the waiver did not weaken ordinary growth against a normal base.
+            //
+            // Stated because the arm's name previously overclaimed it (@neo-gpt, R2): an ALREADY
+            // inflated base is NOT retroactively rejected. `base 9000 / current 1500 / head 1500`
+            // returns zero violations, because against that base 1500 is a shrink. Nothing here
+            // reaches back to undo a ceiling; the guarantee is that this waiver cannot mint one.
             const grown = evaluate({
                 changed: [theirs],
                 current: {[theirs]: 1_500},
