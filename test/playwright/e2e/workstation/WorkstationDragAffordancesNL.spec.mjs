@@ -418,7 +418,9 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
             const popup = await popupPromise;
 
             await popup.waitForLoadState('domcontentloaded');
-            const firstVesselGeneration = new URL(popup.url()).searchParams.get('vesselGeneration');
+            // The vessel's lineage rides its carrier, not its URL: the opener wrote the reserved slot
+            // into the staged child's sessionStorage before navigating it.
+            const firstVesselGeneration = await popup.evaluate(() => JSON.parse(sessionStorage.getItem('neo-topology-identity') || 'null')?.generationToken ?? null);
 
             await page.mouse.move(outside.x, outside.y + 24, {steps: 3});
             await page.mouse.move(reentry.x, reentry.y, {steps: 40});
@@ -560,7 +562,7 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
             );
 
             const
-                secondVesselGeneration = new URL(reexitPopup.url()).searchParams.get('vesselGeneration'),
+                secondVesselGeneration = await reexitPopup.evaluate(() => JSON.parse(sessionStorage.getItem('neo-topology-identity') || 'null')?.generationToken ?? null),
                 firstWindowPosition    = await reexitPopup.evaluate(() => ({x: screenX, y: screenY})),
                 pointerDelta           = {
                     x: reexitDrive.x - reexitStart.x,

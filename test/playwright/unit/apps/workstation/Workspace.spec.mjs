@@ -121,6 +121,33 @@ const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='s
 };
 
 /**
+ * @summary Binds the fixture's host window into a Group the way the app boot does — once the
+ * workspace has loaded `Neo.manager.Transaction` — and returns the Group id.
+ * @param {Workstation.view.Workspace} workspace
+ * @returns {Promise<String>}
+ */
+const bindHost = async workspace => {
+    const manager = await workspace.transactionManagerReady;
+
+    manager.bind({windowId: workspace.windowId, workspaceKey: 'main'});
+
+    return workspace.topologyGroupId
+};
+
+/**
+ * @summary Releases one vessel's binding the way the manager announces a physical window death.
+ * @param {Workstation.view.Workspace} workspace
+ * @param {String} windowId
+ * @param {String} [itemId='alerts']
+ * @returns {Promise<void>}
+ */
+const releaseVessel = async (workspace, windowId, itemId='alerts') => {
+    const groupId = workspace.topologyGroupId ?? await bindHost(workspace);
+
+    await workspace.onTopologyRelease({generation: 1, groupId, windowId, workspaceKey: `popup:${itemId}`})
+};
+
+/**
  * @summary Pins the composition choices Workstation itself owns: one provider with two stores,
  * an exact 100k Turbo scale set, a growing capped feed, and stable pane/store identities
  * across a reducer-driven coarse projection. Primitive grid/Canvas stress remains in its
@@ -1856,7 +1883,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('unexpected vessel death atomically recovers the whole A+B stack', () => {
+    test('unexpected vessel death atomically recovers the whole A+B stack', async () => {
         const
             workspace              = Neo.create(Workspace, {}),
             {state, workspaceId}   = stageCommittedVessel(workspace),
@@ -1868,10 +1895,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
             workspace.tearOutPanes.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'window-alerts',
-                windowName    : 'tearout-alerts'
+                generationToken: 'lineage-3',
+                windowId       : 'window-alerts',
+                windowName     : 'tearout-alerts'
             };
             workspace.tearOutHandlers = {onVesselRetired() {}};
             workspace.vesselParkHandlers = {onVesselRetired() {}};
@@ -1879,7 +1905,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 projections.push({document, options})
             };
 
-            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+            await releaseVessel(workspace, 'window-alerts');
 
             expect(workspace.dockModel.items.alerts).toEqual(initialDocument.items.alerts);
             expect(workspace.dockModel.items.security).toEqual(initialDocument.items.security);
@@ -1905,7 +1931,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('a refused disconnect recovery retains the only A+B truth as a headless workspace', () => {
+    test('a refused disconnect recovery retains the only A+B truth as a headless workspace', async () => {
         const
             workspace            = Neo.create(Workspace, {}),
             {state, workspaceId} = stageCommittedVessel(workspace),
@@ -1916,16 +1942,15 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
             workspace.tearOutPanes.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'window-alerts',
-                windowName    : 'tearout-alerts'
+                generationToken: 'lineage-3',
+                windowId       : 'window-alerts',
+                windowName     : 'tearout-alerts'
             };
             workspace.tearOutHandlers = {onVesselRetired() {}};
             workspace.vesselParkHandlers = {onVesselRetired() {}};
             workspace.workspaceSet.adoptTransfer = () => false;
 
-            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+            await releaseVessel(workspace, 'window-alerts');
 
             expect(workspace.dockModel.items.alerts).toBeUndefined();
             expect(workspace.dockModel.items.security).toBeUndefined();
@@ -1989,10 +2014,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
             workspace.crossWindowParticipations.set(workspaceId, state.participation);
             workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
             workspace.tearOutPanes.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'window-alerts',
-                windowName    : 'tearout-alerts'
+                generationToken: 'lineage-3',
+                windowId       : 'window-alerts',
+                windowName     : 'tearout-alerts'
             };
             workspace.lastCrossWindowTransfer = {
                 applied          : true,
@@ -2024,7 +2048,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             workspace.tearOutHandlers = {onVesselRetired() {}};
             workspace.vesselParkHandlers = {onVesselRetired() {}};
-            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+            await releaseVessel(workspace, 'window-alerts');
 
             expect(workspace.vesselWorkspaces.has(workspaceId)).toBe(false);
             expect(workspace.workspaceSet.has(workspaceId)).toBe(false);
@@ -2139,7 +2163,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('physical vessel death clears both tear-out and park lifecycle owners', () => {
+    test('physical vessel death clears both tear-out and park lifecycle owners', async () => {
         const
             workspace       = Neo.create(Workspace, {}),
             originalTearOut = workspace.tearOutHandlers,
@@ -2149,9 +2173,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             workspace.tearOutConnects.alerts = {
-                admissionToken: 7,
-                generation    : 3,
-                windowId      : 'tear-child'
+                generationToken: 'lineage-3',
+                windowId       : 'tear-child',
+                windowName     : 'tearout-alerts'
             };
             workspace.tearOutParkGeometries.alerts = {
                 park   : {height: 260, width: 360, x: 800, y: 120},
@@ -2170,17 +2194,17 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 }
             };
 
-            workspace.onWindowDisconnect({windowId: 'tear-child'});
+            await releaseVessel(workspace, 'tear-child');
 
             expect(workspace.tearOutConnects.alerts).toBeUndefined();
             expect(workspace.tearOutParkGeometries.alerts).toBeUndefined();
             expect(calls).toEqual([
                 ['proxy', 'tear-child'],
                 ['tear-out', {
-                    admissionToken: 7,
-                    generation    : 3,
-                    itemId        : 'alerts',
-                    windowName    : 'tearout-alerts'
+                    generationToken: 'lineage-3',
+                    itemId         : 'alerts',
+                    windowId       : 'tear-child',
+                    windowName     : 'tearout-alerts'
                 }],
                 ['park', {itemId: 'alerts', retirement: true}]
             ])
@@ -2224,31 +2248,40 @@ test.describe.serial('Workstation.view.Workspace', () => {
             return true
         };
 
+        // The slot the engine reserved rides `windowOpen` into the vessel's carrier; the URL names the
+        // pane and the theme, never the owner.
+        const identity = itemId => ({generationToken: `lineage-${itemId}`, groupId: 'group-a', workspaceKey: `popup:${itemId}`});
+
         try {
             await workspace.openTearOutVessel({
-                itemId   : 'alerts',
-                proxyRect: {height: 320, width: 480, x: 40, y: 60}
+                itemId          : 'alerts',
+                proxyRect       : {height: 320, width: 480, x: 40, y: 60},
+                topologyIdentity: identity('alerts')
             });
 
             workspace.theme = 'neo-theme-neo-dark';
 
             await workspace.openTearOutVessel({
-                itemId   : 'security',
-                proxyRect: {height: 320, width: 480, x: 80, y: 100}
+                itemId          : 'security',
+                proxyRect       : {height: 320, width: 480, x: 80, y: 100},
+                topologyIdentity: identity('security')
             });
 
             workspace.theme = 'neo-theme-candidate';
 
             await workspace.openTearOutVessel({
-                itemId   : 'memory',
-                proxyRect: {height: 320, width: 480, x: 120, y: 140}
+                itemId          : 'memory',
+                proxyRect       : {height: 320, width: 480, x: 120, y: 140},
+                topologyIdentity: identity('memory')
             });
 
             expect(calls).toHaveLength(3);
             expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('theme')))
                 .toEqual(['neo-theme-neo-light', 'neo-theme-neo-dark', 'neo-theme-neo-dark']);
-            expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('vesselFlow')))
-                .toEqual(['tear-out', 'tear-out', 'tear-out']);
+            expect(calls.map(call => [...new URL(call.url, 'https://example.test').searchParams.keys()]), 'content and theme only — no owner in the URL')
+                .toEqual([['popout', 'theme'], ['popout', 'theme'], ['popout', 'theme']]);
+            expect(calls.map(call => call.topologyIdentity))
+                .toEqual([identity('alerts'), identity('security'), identity('memory')]);
             expect(calls.map(call => call.stagedColorScheme))
                 .toEqual(['light', 'dark', 'dark']);
             expect(bootstrapCalls).toEqual([
@@ -2298,12 +2331,44 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 error : 'WorkstationBootstrap unavailable',
                 itemId: 'alerts',
                 stage : 'threw'
-            });
-            expect(workspace.vesselOwnerGrants.has('tear-out:alerts')).toBe(false)
+            })
         } finally {
             Neo.Main.getByPath    = originalGetByPath;
             Neo.Main.getWindowData = originalWindowData;
             Neo.Main.windowOpen     = originalWindowOpen;
+            workspace.destroy()
+        }
+    });
+
+    test('a retirement presenting a superseded lineage token is refused, and the live vessel survives it', async () => {
+        // The control the ticket's author ran against dev: a stale retirement matching item and window
+        // name but carrying a superseded generation was refused there and must stay refused here — the
+        // reservation's lineage token is the generation now.
+        const
+            workspace     = Neo.create(Workspace, {}),
+            originalClose = Neo.Main.windowClose,
+            closes        = [];
+
+        Neo.Main.windowClose = async data => {
+            closes.push(data);
+            return true
+        };
+
+        try {
+            workspace.tearOutConnects.alerts = {generationToken: 'lineage-2', windowId: 'tear-live', windowName: 'tearout-alerts'};
+
+            await expect(workspace.closeTearOutVessel({generationToken: 'lineage-1', itemId: 'alerts', windowName: 'tearout-alerts'}))
+                .resolves.toBe(false);
+            expect(workspace.lastTearOutClose).toMatchObject({identity: {lineageMatches: false}, stage: 'identity-refused'});
+            expect(workspace.tearOutConnects.alerts, 'the live vessel survives the stale retirement').toMatchObject({windowId: 'tear-live'});
+            expect(closes, 'nothing reached the platform').toEqual([]);
+
+            await expect(workspace.closeTearOutVessel({generationToken: 'lineage-2', itemId: 'alerts', windowName: 'tearout-alerts'}))
+                .resolves.toBe(true);
+            expect(workspace.lastTearOutClose.stage).toBe('acknowledged');
+            expect(closes).toEqual([{names: ['tearout-alerts'], windowId: workspace.windowId}])
+        } finally {
+            Neo.Main.windowClose = originalClose;
             workspace.destroy()
         }
     });
