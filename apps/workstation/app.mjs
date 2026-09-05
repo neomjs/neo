@@ -1,4 +1,5 @@
-import Viewport from './view/Viewport.mjs';
+import Viewport    from './view/Viewport.mjs';
+import Transaction from '../../src/manager/Transaction.mjs';
 
 /**
  * @summary Resolves one Workstation window's carried Neo theme against that window's configured themes.
@@ -25,6 +26,13 @@ export const onStart = () => {
             search: config.url?.search,
             themes: config.themes
         });
+
+    const params  = new URLSearchParams(config.url?.search ?? ''),
+          carried = config.topologyIdentity;
+    // A popup cannot cold-create its absent root before that root selects durable truth.
+    if ((params.has('popout') || params.has('workspace')) && carried?.groupId && !Transaction.get(carried.groupId)) {
+        config.topologyIdentity = {}
+    }
 
     return Neo.app({
         mainView: {module: Viewport, theme},

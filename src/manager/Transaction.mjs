@@ -299,24 +299,25 @@ class Transaction extends Manager {
     }
 
     /**
-     * Registers a new Group. The id is minted here unless a carrier presents one this worker never saw.
+     * @summary Registers a new Group. The id is minted here unless a carrier presents one this worker never saw.
      * The default history bound is sampled now; the Group may choose its own before loading history.
      * @param {String} [groupId]
      * @returns {Object} The Group record: `{id, bindings, createdAt, participants, historyDepth, history,
-     *   historyReady, provider, queue}`
+     *   historyReady, provider, queue, retainedReferences}`
      * @protected
      */
     createGroup(groupId=crypto.randomUUID()) {
         const group = {
-            bindings    : new Map(),
-            createdAt   : Date.now(),
-            history     : null,
-            historyDepth: this.historyDepth,
-            historyReady: null,
-            id          : groupId,
-            participants: new Map(),
-            provider    : null,
-            queue       : Promise.resolve()
+            bindings          : new Map(),
+            createdAt         : Date.now(),
+            history           : null,
+            historyDepth      : this.historyDepth,
+            historyReady      : null,
+            id                : groupId,
+            participants      : new Map(),
+            provider          : null,
+            queue             : Promise.resolve(),
+            retainedReferences: new Set()
         };
 
         this.register(group);
@@ -695,6 +696,16 @@ class Transaction extends Manager {
     }
 
     /**
+     * @summary Releases one exact ownership token without deciding whether the Group may retire.
+     * @param {String} groupId
+     * @param {*} reference The same non-null token supplied to retainGroup().
+     * @returns {Boolean} Whether that token was retained and removed.
+     */
+    releaseGroup(groupId, reference) {
+        return reference != null && (this.get(groupId)?.retainedReferences.delete(reference) ?? false)
+    }
+
+    /**
      * Reserves a slot for a window the caller is about to open. The returned identity is what the opener
      * writes into the child's carrier; the child's `connect` then binds with the reserved token. A slot
      * with a live binder cannot be reserved.
@@ -727,6 +738,21 @@ class Transaction extends Manager {
         me.startLease(group, binding);
 
         return {generationToken: binding.generationToken, groupId, workspaceKey}
+    }
+
+    /**
+     * @summary Retains a Group for an opaque owner independently of windows, participants and history.
+     * @param {String} groupId
+     * @param {*} reference A non-null ownership token, compared by Set identity.
+     * @returns {Boolean} Whether a new token was retained; duplicates and absent Groups return false.
+     */
+    retainGroup(groupId, reference) {
+        const group = this.get(groupId);
+
+        if (!group || reference == null || group.retainedReferences.has(reference)) return false;
+
+        group.retainedReferences.add(reference);
+        return true
     }
 
     /**
@@ -798,7 +824,7 @@ class Transaction extends Manager {
     }
 
     /**
-     * Holds a released or reserved slot for its lineage; on expiry the slot is free.
+     * @summary Holds a released or reserved slot for its lineage; on expiry the slot is free.
      * @param {Object} group
      * @param {Object} binding
      * @protected
@@ -816,13 +842,11 @@ class Transaction extends Manager {
                 group.bindings.delete(binding.workspaceKey);
                 me.fire('leaseExpired', {groupId: group.id, workspaceKey: binding.workspaceKey});
 
-                // A Group with no binding, no participant and no retained history row holds nothing this
-                // manager keeps for it, so letting it go loses nothing. A Group whose participants or rows
-                // outlive its last window is not empty: its documents are still owned, its history is
-                // still the truth of what they did. Conditional, lossless retirement of a Group that DOES
-                // hold state is a later contract; this only stops closed windows from leaving empty Groups
-                // behind in a long-lived worker.
-                if (group.bindings.size === 0 && group.participants.size === 0 && !group.history?.count && me.get(group.id) === group) {
+                // Only empty, unreferenced Groups may expire automatically. Owners decide when a
+                // Group retaining participants, history or external references can be retired.
+                if (group.bindings.size === 0 && group.participants.size === 0 &&
+                    group.retainedReferences.size === 0 && !group.history?.count && me.get(group.id) === group
+                ) {
                     me.retireGroup(group.id);
                     me.fire('groupRetired', {groupId: group.id})
                 }
