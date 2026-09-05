@@ -309,6 +309,63 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(seen.length, 'no pass, no edge').toBe(before)
     });
 
+    test('a menu opening during an active measure parks the pass and closes its pair while the drag-start waiter keeps waiting; the pass that resumes after the drain opens a fresh pair', async () => {
+        let release,
+            callCount = 0,
+            settled   = false;
+
+        const
+            gate   = new Promise(resolve => {release = resolve}),
+            events = [];
+
+        const plugin = createPlugin(async ids => {
+            callCount++;
+            if (callCount === 1) { await gate }
+            return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]
+        }, name => events.push(name));
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(events, 'the construct-time pass armed').toEqual(['overflowProjectionStart']);
+
+        // A rerun requested mid-flight is queued behind the active pass, and a drag-start waiter registers
+        // against the same transaction; both must survive the parking below.
+        plugin.project(true);
+        plugin.whenProjectionIdle().then(() => {settled = true});
+
+        // The menu opens while the measure is awaited: the mutation boundary parks the active pass, and the
+        // drained rerun finds the menu open and returns before arming.
+        const menuList = Neo.create(MountableMenuList, {items: [], mounted: true});
+
+        plugin.control = {alignTo() {}, destroy() {}, iconCls: 'fa fa-ellipsis', menuList, mounted: true};
+
+        release();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(plugin.measuring).toBe(false);
+        expect(plugin.projectQueued).toBe(false);
+        expect(plugin.menuProjectionQueued, 'the projection is parked behind the menu').toBe(true);
+        expect(events, 'parking closes the pair: nothing is moving header nodes').toEqual(['overflowProjectionStart', 'overflowProjectionIdle']);
+        expect(plugin.projectionBusy).toBe(false);
+        expect(settled, 'the drag-start waiter still waits for the menu to drain').toBe(false);
+
+        // The menu closes: the drain resumes the pass as a fresh transaction — a new start, the split runs,
+        // and the waiter resolves with its idle.
+        menuList.mounted = false;
+
+        await plugin.whenProjectionIdle();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(settled).toBe(true);
+        expect(plugin.menuProjectionQueued).toBe(false);
+        expect(events, 'the resumed pass is its own pair').toEqual(['overflowProjectionStart', 'overflowProjectionIdle', 'overflowProjectionStart', 'overflowProjectionIdle']);
+        expect(plugin.projectionBusy).toBe(false);
+
+        menuList.destroy();
+        plugin.destroy()
+    });
+
     test('action mode excludes its own geometry and visibility feedback, but not other actions', () => {
         const plugin = createPlugin(async () => []),
               own    = {hidden: false, id: 'overflow-action'},

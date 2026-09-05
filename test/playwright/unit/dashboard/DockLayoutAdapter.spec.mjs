@@ -20,6 +20,14 @@ import '../../../../src/dashboard/Panel.mjs'; // registers the `dashboard-panel`
 import TabContainer      from '../../../../src/tab/Container.mjs';
 import TabOverflowPlugin from '../../../../src/tab/plugin/Overflow.mjs';
 
+class MountableMenuList extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockLayoutAdapter.MountableMenuList',
+        mounted_ : false
+    }
+}
+MountableMenuList = Neo.setupClass(MountableMenuList);
+
 const createModel = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
@@ -1209,6 +1217,112 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         } finally {
             MotionSignal.FAIL_SAFE_MS = failSafeMs;
             MotionSignal.activeMotions.clear()
+        }
+    });
+
+    test('the composed pointer contract with the real plugin: a menu that parks an active pass releases the header toolbar\'s signal at once, and the pass that resumes after the menu drains runs its split with the signal present — not by way of the fail-safe', async () => {
+        let release,
+            callCount = 0,
+            plugin;
+
+        const
+            MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
+            result       = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            listeners    = result.items[0].headerToolbar.listeners,
+            failSafeMs   = MotionSignal.FAIL_SAFE_MS,
+            gate         = new Promise(resolve => {release = resolve}),
+            splits       = [],
+            // A lean header toolbar: what the plugin measures and mutates, what the signal marks, and the
+            // projected header config's own listeners as the owner's event surface.
+            owner        = {
+                id          : 'header-live',
+                appName     : 'DashboardDockLayoutAdapterTest',
+                dock        : 'top',
+                mounted     : true,
+                isDestroyed : false,
+                isDestroying: false,
+                cls         : [],
+                parent      : {activeIndex: 0, on() {}, un() {}},
+                theme       : 'neo-theme-neo-dark',
+                windowId    : 1,
+                items       : [{id: 'b1'}, {id: 'b2'}],
+                addCls(cls) { this.cls.push(cls) },
+                removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) },
+                getActionItems: () => [],
+                getTabButtons() { return this.items },
+                getTheme() { return this.theme },
+                async getDomRect(ids) {
+                    callCount++;
+                    if (callCount === 1) { await gate }
+                    return ids[0] === 'header-live' ? [{width: 1000}] : [{width: 10}, {width: 10}]
+                },
+                add            : () => ({}),
+                addDomListeners: () => {},
+                fire           : (name, data) => listeners[name]?.(data),
+                on             : () => {},
+                un             : () => {},
+                remove         : () => {},
+                up             : () => ({activeIndex: 0})
+            };
+
+        MotionSignal.activeMotions.clear();
+        MotionSignal.FAIL_SAFE_MS = 30;
+
+        try {
+            plugin         = Neo.create(TabOverflowPlugin, {owner});
+            plugin.control = null;
+
+            const applySplit = plugin.applySplit;
+
+            plugin.applySplit = function (...args) {
+                splits.push(MotionSignal.isAnimating('header-live'));
+                return applySplit.apply(this, args)
+            };
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // An active measure carries the signal on the toolbar itself.
+            expect(plugin.measuring).toBe(true);
+            expect(MotionSignal.isAnimating('header-live'), 'a measuring header carries the signal').toBe(true);
+
+            // The menu opens during the awaited measure: the mutation boundary parks the pass. Parked means
+            // stable, so the signal leaves at once — no fail-safe involved.
+            const menuList = Neo.create(MountableMenuList, {mounted: true});
+
+            plugin.control = {alignTo() {}, destroy() {}, iconCls: 'fa fa-ellipsis', menuList, mounted: true};
+
+            release();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(plugin.menuProjectionQueued, 'the pass is parked behind the menu').toBe(true);
+            expect(splits, 'a parked pass mutates nothing').toEqual([]);
+            expect(MotionSignal.isAnimating('header-live'), 'a parked pass releases the signal at once').toBe(false);
+
+            // The menu is held past the fail-safe window: nothing is left for the fail-safe to clear, and
+            // nothing may be left that the resume below depends on.
+            await new Promise(resolve => setTimeout(resolve, 80));
+
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            // The menu closes and the drain resumes the pass as a fresh transaction: its split executes with
+            // the signal present, and the signal leaves once it settles.
+            menuList.mounted = false;
+
+            await plugin.whenProjectionIdle();
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(splits, 'the resumed split ran with the signal present').toEqual([true]);
+            expect(MotionSignal.isAnimating('header-live'), 'settled: the signal left').toBe(false);
+            expect(MotionSignal.activeMotions.size).toBe(0);
+
+            menuList.destroy()
+        } finally {
+            MotionSignal.FAIL_SAFE_MS = failSafeMs;
+            MotionSignal.activeMotions.clear();
+            plugin?.destroy()
         }
     });
 

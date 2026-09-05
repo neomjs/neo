@@ -32,7 +32,8 @@ import Plugin from '../../plugin/Base.mjs';
  * brackets for {@link #whenProjectionIdle} as two events on its owner toolbar — `overflowProjectionStart`
  * when a measuring pass arms, `overflowProjectionIdle` when the pass and its coalesced rerun have settled —
  * so a host can expose "in flight" where its consumers look (the dock routes it into its motion signal).
- * A projection parked behind an open menu or a drag is not in flight: the header is stable until it drains.
+ * A projection parked behind an open menu or a drag is not in flight: the header is stable until it drains,
+ * so a pass that parks closes its pair and the pass that resumes after the drain opens a new one.
  *
  * @class Neo.tab.plugin.Overflow
  * @extends Neo.plugin.Base
@@ -515,8 +516,11 @@ class Overflow extends Plugin {
     /**
      * Publishes the projection lifecycle on the owner toolbar at its edges only: `overflowProjectionStart`
      * when a measuring pass arms while nothing was in flight, `overflowProjectionIdle` when neither a pass
-     * nor a coalesced rerun remains. Called after every latch transition, so intermediate states publish
-     * nothing and one transaction is exactly one pair. A destroyed owner has no listeners left to reach.
+     * nor a coalesced rerun remains. Called when a pass arms and after every pass releases, so intermediate
+     * states publish nothing and one transaction is exactly one pair. A pass parked behind an open menu
+     * has stopped moving header nodes: it closes its pair here while the drag-start waiters keep waiting,
+     * and the pass that resumes after the drain opens a new one. A destroyed owner has no listeners left
+     * to reach.
      * @protected
      */
     publishProjectionState() {
@@ -534,15 +538,15 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Resolves drag-start callers after the projection and any coalesced rerun are idle, and publishes the
-     * idle edge to the owner.
+     * Resolves drag-start callers after the projection and any coalesced rerun are idle. The published
+     * lifecycle has its own, narrower edge in {@link #publishProjectionState}: an open menu holds these
+     * waiters, not the signal.
      * @protected
      */
     resolveProjectionIdle() {
         let waiters = this.projectionIdleWaiters || [];
 
         this.projectionIdleWaiters = null;
-        this.publishProjectionState();
         waiters.forEach(resolve => resolve())
     }
 
@@ -827,6 +831,12 @@ class Overflow extends Plugin {
         } else if (!me.menuProjectionQueued) {
             me.resolveProjectionIdle()
         }
+
+        // The signal's edge, apart from the waiter's: it closes whenever nothing is measuring or queued —
+        // including a pass parked behind an open menu, which the waiter above keeps waiting on, and a
+        // coalesced rerun that returned early because it found the menu open. A pass that resumes after
+        // the drain therefore opens a fresh pair.
+        me.publishProjectionState()
     }
 
     /**
