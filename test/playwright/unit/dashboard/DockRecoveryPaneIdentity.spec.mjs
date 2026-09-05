@@ -117,20 +117,28 @@ const paneFor = (workspace, nodeId, itemId) => {
 };
 
 /**
- * @summary A projection that fails before its swap keeps the staged shell's panes alive on purpose —
- * and the repair must resolve those same instances, not build replacements.
+ * @summary PARKED PROBES — the record of an investigation that reached NO conclusion about identity.
+ *
+ * Nothing here is regression coverage. Both suites are skipped, and the behaviour they were written
+ * to witness was never observed.
+ *
+ * ## The current, corrected position
  *
  * `Reconciler#settleFailedProjection` removes the retired staged shell with `destroyItem: false`,
  * deliberately: by the time most rejections land, `reconcileTabChrome` has already moved live
- * pane/button pairs into that shell, and destroying it would take the consumer's panes with it. Its
- * JSDoc states the other half of that bargain — *"the repair re-projection re-parents those panes by
- * identity"*.
+ * pane/button pairs into that shell, and destroying it would take the consumer's panes with it.
  *
- * Nothing makes that true. `reconcileTabChrome` seeds `liveItems` only from `currentTabs`, which the
- * caller computes as `collectProjectedTabs(oldShell)` — the SURVIVING shell. A detached shell is not
- * in the host, so its panes never enter the map, resolution falls through to `resolveItem`, and the
- * engine's own default `resolvePane` returns a fresh config literal. The pane the recovery preserved
- * is orphaned and the repair constructs a replacement.
+ * What happens to those panes afterwards is the CONSUMER's answer. `reconcileTabChrome` seeds
+ * `liveItems` only from the surviving shell, so resolution falls through to `resolveItem`: a
+ * cache-backed `resolvePane` returns the same instances and nothing is rebuilt, while the engine's
+ * default returns a fresh config literal and a replacement is built. Both are legal.
+ *
+ * ## The withdrawn hypothesis, kept as history
+ *
+ * These probes were written to show that the preserved panes are ALWAYS orphaned and rebuilt. **That
+ * was never demonstrated, and the claim has been withdrawn.** In both runs that ever reached an
+ * assertion, identity SURVIVED. The paragraphs below record what was tried and why each attempt was
+ * inconclusive; read them as an investigation log, not as findings.
  *
  * **Why the failure is injected positionally rather than by ordinal.** An earlier witness for this
  * rejected the Nth `promiseUpdate` flight of the projection and measured 1/12 red in one sample and
@@ -298,10 +306,15 @@ test.describe.skip('Neo.dashboard.dock.Workspace failed-projection recovery', ()
  * It does not hang — it runs to the assertions. So the OOM belongs to the injected control flow, not
  * to the engine: reading (2).
  *
- * But its control `recoveries === ['retired-staged']` came back EMPTY. Unregistering the staged
- * shell's bar/card ancestor did not make the swap flight reject, so no projection failure occurred and
- * the recovery never ran. The probe never reached the state it exists to reach, and therefore says
- * nothing about identity — the poison target is wrong, not the theory.
+ * But its control `recoveries === ['retired-staged']` came back EMPTY: no projection failure occurred
+ * and the recovery never ran, so the probe said nothing about identity.
+ *
+ * **SUPERSEDED — the conclusion drawn here at the time was "the poison target is wrong".** It was not
+ * the target; it was the REGISTRY, per the correction noted above: the poison unregistered from
+ * `Neo.manager.Instance` while `util.VDom.getVdom` resolves through `Neo.manager.Component`. Against
+ * the right registry a real rejection follows — and then escapes untyped, which is a third and
+ * different obstacle. Left visible rather than deleted, because the wrong conclusion is the reason
+ * the next attempt was aimed where it was.
  *
  * Skipped, and left in place as the record of what was tried.
  *

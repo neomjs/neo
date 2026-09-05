@@ -693,8 +693,8 @@ class Reconciler extends Base {
                 // `reconcileTabChrome` has already moved live pane/button pairs into it, and
                 // destroying it would take them with it — the precise opposite of the
                 // reparent-never-recreate promise this transaction exists to keep. Detached, those
-                // panes stay alive and the repair re-projection re-parents them out by identity,
-                // because `resolveItem` returns the consumer's own instances.
+                // panes stay alive; whether the repair reuses them is the CONSUMER's answer, not
+                // this method's — see the `@summary` above.
                 host.remove(casualty, swapped, true)
             }
 
