@@ -268,10 +268,10 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     });
 
     test('an ASYNC target resolving null does NOT retire — a Promise is truthy, so testing it IS the defect', async () => {
-        // @neo-gpt's RA-1. `onDragEnd` is synchronous; `draggable/dashboard/SortZone.onRemoteDrop` is
-        // async. `if (operation)` on a Promise is `if (true)` — so the outcome-aware gate read EVERY
-        // async target as committed and retired the source anyway. The fix's own shape hid the fix's
-        // own defect, and my sync-only stub could not see it.
+        // `onDragEnd` is synchronous; `draggable/dashboard/SortZone.onRemoteDrop` is async. `if (operation)`
+        // on a Promise is `if (true)` — so an outcome-aware gate that tests the raw return value reads EVERY
+        // async target as committed and retires the source anyway. A sync-only stub cannot see this shape;
+        // only an async target resolving null does.
         const
             source = createSourceZone(),
             target = {
@@ -339,9 +339,9 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     });
 
     test('the NATIVE-titlebar path obeys the same rule — the defect had a twin behind a different door', async () => {
-        // @neo-gpt-emmy's delta: the pointer fix left `commitNativeWindowDrop` discarding
-        // `await onRemoteDrop(...)` and retiring the source anyway. Same defect class, different
-        // entry point — fixing the instance the ticket named is not fixing the class.
+        // The pointer path's outcome gate has a twin: `commitNativeWindowDrop` must not discard
+        // `await onRemoteDrop(...)` and retire the source anyway. Same defect class, different entry
+        // point — fixing one instance is not fixing the class.
         const
             draggedItem  = {id: 'tab-1'},
             movePayloads = [],
@@ -425,10 +425,10 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     });
 
     test('a departing vessel takes its candidate timers with it — on either side of the gesture', () => {
-        // AC-3 names the candidate timer as a cleanup surface, so it is pinned rather than assumed.
-        // Unlike the witnesses above this one PASSES against dev: @neo-gpt-emmy read the loop as already
-        // correct and I agree, so this is a regression guard, not a bite. Naming that is the point —
-        // a test that cannot fail today should say why it exists.
+        // The candidate timer is a cleanup surface, so it is pinned rather than assumed. Unlike the
+        // witnesses above, this one passed before the outcome-aware gate existed: the loop was already
+        // correct, so this is a regression guard, not a bite. Naming that is the point — a test that
+        // cannot fail today should say why it exists.
         const
             source = createSourceZone(),
             target = createTargetZone({type: 'transferItem'});
