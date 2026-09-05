@@ -551,7 +551,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         });
         await new Promise(resolve => setTimeout(resolve, 0)); // auto-project settles (no throw)
 
-        // Pass 1 surfaces the defect via console.error (RA-8) against the live owner — silence it; the point
+        // Pass 1 surfaces the defect via console.error against the live owner — silence it; the point
         // of THIS test is that the failure does not freeze future passes.
         const orig = console.error;
         console.error = () => {};

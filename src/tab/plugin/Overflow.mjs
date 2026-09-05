@@ -1192,7 +1192,7 @@ class Overflow extends Plugin {
 
         me.hiddenSignature = signature;
 
-        // RA-13: re-align against the CURRENT owner rect. A floating component aligns once at mount and does
+        // Re-align against the CURRENT owner rect: a floating component aligns once at mount and does
         // NOT re-align when its target moves. Re-aligning on each sync re-pins it to the current action or
         // owner edge — cheap + idempotent. The e2e owner-exact geometry assertion falsifies its absence.
         if (me.control) {
