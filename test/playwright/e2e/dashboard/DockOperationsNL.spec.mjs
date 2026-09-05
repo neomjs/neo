@@ -211,7 +211,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
 
         expect(mainId, 'the main projected TabContainer must retain its semantic node id').toBeTruthy();
 
-        await expect.poll(async () => (await app.callMethod(mainId, 'getActionItem', ['close']))?.id, {
+        await expect.poll(async () => (await app.callMethod(mainId, 'getAction', ['close']))?.id, {
             message: 'the opt-in projection materialises one persistent close action',
             timeout: 10000
         }).toBeTruthy();
@@ -242,7 +242,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
             timeout: 10000
         }).toBe(0);
 
-        const actionBefore = await app.callMethod(mainId, 'getActionItem', ['close']),
+        const actionBefore = await app.callMethod(mainId, 'getAction', ['close']),
               closeButton  = page.locator(`#${actionBefore.id}`),
               successorId  = moved.document.nodes['main-tabs'].items[1];
 
@@ -255,7 +255,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         }).toBeUndefined();
 
         const after       = await readTopology(app, holderId),
-              actionAfter = await app.callMethod(mainId, 'getActionItem', ['close']),
+              actionAfter = await app.callMethod(mainId, 'getAction', ['close']),
               successor   = await app.findInstances(
                   {className: 'Neo.tab.header.Button', dockItemId: successorId},
                   ['id', 'dockItemId']
@@ -278,7 +278,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         const terminalRecords = await app.queryComponent({dockNodeId: 'terminal-tabs'}, ['id', 'ntype']),
               terminalRecord  = Array.isArray(terminalRecords) ? terminalRecords[0] : terminalRecords,
               terminalId      = terminalRecord?.id ?? terminalRecord?.properties?.id,
-              terminalAction  = await app.callMethod(terminalId, 'getActionItem', ['close']);
+              terminalAction  = await app.callMethod(terminalId, 'getAction', ['close']);
 
         expect(terminalId, 'the single-item terminal stack must remain projected').toBeTruthy();
         await page.locator(`#${terminalAction.id}`).click();

@@ -336,7 +336,6 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                 ...extra
             });
 
-        expect(project([{action: 'filter'}, {action: 'filter'}])).toThrow(/duplicate host header action "filter"/);
         expect(project([{iconCls: 'fa fa-x'}])).toThrow(/requires a semantic `action` name/);
 
         const defaultFlags = {

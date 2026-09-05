@@ -754,7 +754,7 @@ class Maximize extends Plugin {
      * @param {Boolean} maximized
      */
     syncActionPresentation(tabContainer, maximized) {
-        tabContainer?.getActionItem?.('maximize')?.set({pressed: maximized})
+        tabContainer?.getAction?.('maximize')?.set({pressed: maximized})
     }
 
     /**
@@ -963,7 +963,7 @@ class Maximize extends Plugin {
 
             // Header actions ride retained instances, so a refresh would keep projecting a toggle
             // with no owner: hide it on every live node the way the reconciler varies an action.
-            shell && Reconciler.collectProjectedTabs(shell).forEach(tab => tab.getActionItem?.('maximize')?.set({hidden: true}));
+            shell && Reconciler.collectProjectedTabs(shell).forEach(tab => tab.getAction?.('maximize')?.set({hidden: true}));
 
             owner.un({
                 beforeDockZoneDocumentChange: me.onBeforeDockZoneDocumentChange,

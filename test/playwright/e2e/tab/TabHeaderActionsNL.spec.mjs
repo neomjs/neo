@@ -57,7 +57,7 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
         expect(valueOf(nextRecord, 'wrapperCls')).not.toContain('neo-draggable');
         expect(valueOf(previousRecord, 'wrapperCls')).not.toContain('neo-draggable');
 
-        const semanticNext = await app.callMethod(tabId, 'getActionItem', ['next-tab']);
+        const semanticNext = await app.callMethod(tabId, 'getAction', ['next-tab']);
         expect(semanticNext?.id, 'semantic lookup resolves the stable action instance').toBe(nextId);
 
         await expect(page.getByRole('button', {name: 'next tab', exact: true})).toHaveCount(1);
@@ -302,7 +302,7 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
             headerActions: [{action: 'runtime-contextual', iconCls: 'fa fa-bolt'}]
         });
 
-        const runtimeActionRecord = await app.callMethod(tabId, 'getActionItem', ['runtime-contextual']),
+        const runtimeActionRecord = await app.callMethod(tabId, 'getAction', ['runtime-contextual']),
               runtimeActionId     = runtimeActionRecord?.id,
               runtimeAction       = page.locator(`#${runtimeActionId}`);
 

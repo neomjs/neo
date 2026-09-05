@@ -591,7 +591,7 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
 
         action.set = function(values) { Object.assign(this, values) };
 
-        tabContainer.getActionItem  = () => action;
+        tabContainer.getAction  = () => action;
         workspace.getActiveDockItemId = () => 'editor';
 
         // "No fallback" is no longer a state a workspace reaches by writing nothing — the default

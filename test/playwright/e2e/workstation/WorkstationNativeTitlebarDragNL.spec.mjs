@@ -151,7 +151,7 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
 
             await page.locator(`#${chrome.buttons.commits}`).click();
 
-            const action = await app.callMethod(chrome.containerId, 'getActionItem', ['pop-out']);
+            const action = await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
 
             expect(action?.id, 'pop-out resolves on the live tab owner').toBeTruthy();
             await expect(page.locator(`#${action.id}`), 'pop-out is user-reachable').toBeVisible({timeout: 10000});
