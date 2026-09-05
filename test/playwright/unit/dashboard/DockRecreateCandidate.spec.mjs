@@ -40,8 +40,8 @@ import '../../../../src/toolbar/Base.mjs';
  * reading its own cache answers with the currently mounted instance, which *looks* like a
  * successful candidate.
  *
- * @see ADR 0029 §2.6 — ticket-ref-ok: the record is what these arms enforce; naming it is the
- *      difference between a test and a rule with a source.
+ * @see learn/agentos/decisions/0029-docking-design.md §2.6 — the record is what these arms
+ *      enforce; naming it is the difference between a test and a rule with a source.
  */
 const buildWorkspace = (config = {}) => Neo.create(DockWorkspace, {
     appName  : 'DashboardDockRecreateCandidateTest',
@@ -618,7 +618,7 @@ test.describe('dock reload — the fallback the ticket exists to provide', () =>
 /**
  * The reconciler interaction, driven through the **production** entry point.
  *
- * This is the ticket's finding #2 turned into a witness. `core.Base#destroy` unregisters an instance
+ * This is the ticket's second finding turned into a witness. `core.Base#destroy` unregisters an instance
  * without removing it from `parent.items`, and `reconcileTabChrome` fills its live map **positionally**
  * from `body.items` and prefers that entry over the app resolver — verified by the sibling spec's
  * `resolverCalls === 0` arm. A bare destroy would therefore leave the erased object sitting in the
