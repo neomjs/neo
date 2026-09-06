@@ -335,14 +335,6 @@ class Workspace extends DockWorkspace {
     crossWindowPreviewGeometries = new Map()
 
     /**
-     * The main window's inner-rect signature at the last remote frame. A change mid-gesture means
-     * the main window was resized under a hovering popup, so the affordance geometry is re-measured
-     * (see {@link #renderMainCrossWindowPreview}). Reset when the main preview clears.
-     * @member {String|null} mainPreviewWindowSignature=null
-     * @protected
-     */
-    mainPreviewWindowSignature = null
-    /**
      * Most recent cross-window transfer receipt for the film/spec boundary.
      * @member {Object|null} lastCrossWindowTransfer=null
      */
@@ -1575,7 +1567,7 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * The main workspace's remote frame: the SAME once-per-gesture geometry and tier order the
+     * @summary Resolves the main workspace's remote frame through the shared geometry and tier order the
      * in-window gesture uses ({@link Neo.dashboard.dock.interaction.DragAffordances#resolvePreview} —
      * every projected tabs zone, an indicator candidate first, pointer inference second), so a
      * popup or remote pointer reads the full placement grammar wherever it points and the drop
@@ -1595,15 +1587,8 @@ class Workspace extends DockWorkspace {
     renderMainCrossWindowPreview({groupNodeId, itemId, pointer, renderer, sourceNodeId, targetNodeId}) {
         let me          = this,
             affordances = me.dragAffordances,
-            inner       = Neo.manager?.Window?.get(me.windowId)?.innerRect,
-            signature   = inner ? [inner.x ?? 0, inner.y ?? 0, inner.width, inner.height].join(':') : null,
             preview, targetRect;
 
-        if (me.mainPreviewWindowSignature && me.mainPreviewWindowSignature !== signature) {
-            affordances.invalidateGeometry()
-        }
-
-        me.mainPreviewWindowSignature = signature;
         affordances.ensureGeometry();
 
         const {geometry} = affordances;
@@ -1642,7 +1627,7 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Clears one target's transient preview without touching committed workspace state.
+     * @summary Clears one target's transient preview without touching committed workspace state.
      * @param {String} workspaceId
      * @protected
      */
@@ -1650,7 +1635,6 @@ class Workspace extends DockWorkspace {
         this.crossWindowPreviewGeometries.delete(workspaceId);
 
         if (workspaceId === Workspace.MAIN_WORKSPACE_ID) {
-            this.mainPreviewWindowSignature = null;
             this.dragAffordances?.clear()
         } else {
             let state   = this.getPopupState(workspaceId),
