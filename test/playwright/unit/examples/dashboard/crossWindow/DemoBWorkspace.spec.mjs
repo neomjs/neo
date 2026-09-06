@@ -2281,6 +2281,19 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         for (const registry of ['admissions', 'connections', 'owners', 'retirements']) {
             expect(vessel[registry], `${registry} is source-scoped`).not.toBe(stage[registry])
         }
+
+        // Destroying this host WITHDRAWS both sources' effects. The Group outlives the view and may
+        // still own native windows, so withdrawal deactivates the callbacks without clearing that
+        // ownership — the same split `dashboard.dock.Workspace#destroy` makes for its one source.
+        expect([vessel.active, stage.active], 'both are live before teardown').toEqual([true, true]);
+
+        workspace.destroy();
+
+        expect([vessel.active, stage.active], 'a destroyed host leaves no live effects on the Group')
+            .toEqual([false, false]);
+
+        // The registries themselves survive: withdrawal is not repossession.
+        expect(vessel.admissions, 'withdrawing effects never discards what the Group still owns').toBeTruthy()
     });
 
     test('the second popup stages through the same seams with its own continuation and window name', async () => {
