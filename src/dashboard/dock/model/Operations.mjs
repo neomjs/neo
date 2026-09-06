@@ -617,7 +617,7 @@ class Operations extends Base {
      * Fail-closed and atomic: a validation error on EITHER document returns BOTH inputs untouched plus
      * a non-empty `errors` array, so a half-transferred item — removed here but not placed there, the
      * contract's named violation — can never commit. The nested `target` is dispatched through the
-     * landed single-document placement path (`addTab` / `splitNode` via {@link #applyOperation}), so
+     * landed single-document placement path (`addTab` / `restoreTab` / `splitNode` via {@link #applyOperation}), so
      * no second placement grammar is introduced.
      *
      * The executor is document-centric: `sourceWorkspaceId` / `targetWorkspaceId` are the caller's
@@ -640,8 +640,8 @@ class Operations extends Base {
         if (sourceWorkspaceId !== undefined && sourceWorkspaceId === targetWorkspaceId) {
             return fail(['transferItem requires distinct source and target workspaces'])
         }
-        if (!target || (target.operation !== 'addTab' && target.operation !== 'splitNode')) {
-            return fail(['transferItem target must be an addTab or splitNode descriptor'])
+        if (!target || !['addTab', 'restoreTab', 'splitNode'].includes(target.operation)) {
+            return fail(['transferItem target must be an addTab, restoreTab or splitNode descriptor'])
         }
 
         // Source side: drop from the tree (a no-op for an already-detached item) + catalog, then
