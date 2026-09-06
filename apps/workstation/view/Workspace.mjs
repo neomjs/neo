@@ -125,15 +125,6 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary Resolves only this host's reserved semantic popup slots.
-     * @param {String} workspaceKey
-     * @returns {String|null}
-     */
-    tearOutItemIdFor(workspaceKey) {
-        const prefix = Workspace.VESSEL_WORKSPACE_PREFIX;
-        return typeof workspaceKey === 'string' && workspaceKey.startsWith(prefix) ? workspaceKey.slice(prefix.length) : null
-    }
-    /**
      * Returns the stable landing-tabs identity for one lazily seeded vessel document.
      * @param {String} itemId
      * @returns {String|null}

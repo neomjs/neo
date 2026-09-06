@@ -1026,7 +1026,6 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             const key = workspace.tearOutWorkspaceKey('alerts');
             expect(key).toBe(Workspace.vesselWorkspaceId('alerts'));
-            expect(workspace.tearOutItemIdFor(key)).toBe('alerts');
             const state = await workspace.registerVesselWorkspaceTarget({
                 app: {mainView: {}}, itemId: 'alerts', windowId: 'provisional-window'
             });
