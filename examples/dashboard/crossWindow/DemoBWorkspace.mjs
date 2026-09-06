@@ -4621,6 +4621,13 @@ class DemoBWorkspace extends Container {
         me.crossWindowHosts.clear();
         me.crossWindowGeometry.clear();
         me.workspaceProjectionRequests.clear();
+        // Both sources withdraw their effects, or this destroyed host's callbacks stay live on a
+        // Group that outlives it — the Group keeps any native windows it still owns, which is the
+        // point of withdrawing effects rather than clearing ownership.
+        me.nativeWindows?.unregisterSource(me.vesselSourceId);
+        me.nativeWindows?.unregisterSource(me.stageSourceId);
+        me.nativeWindows = null;
+
         TransactionManager.un({
             bind        : me.onTopologyBind,
             leaseExpired: me.onTopologyLeaseExpired,
