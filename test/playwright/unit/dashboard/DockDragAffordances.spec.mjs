@@ -94,7 +94,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         const rig                            = compose(),
               {controller, committed, owner} = rig;
 
-        controller.dragGeometry = Promise.resolve(GEOMETRY());
+        controller.dragGeometry = Promise.resolve(controller.geometry = GEOMETRY());
         rig.indicators.hostRect = GEOMETRY().hostRect;
 
         // hover the LEFT zone center: candidate set + preview build for left-tabs
@@ -108,7 +108,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         const rig2 = compose();
 
-        rig2.controller.dragGeometry = Promise.resolve(GEOMETRY());
+        rig2.controller.dragGeometry = Promise.resolve(rig2.controller.geometry = GEOMETRY());
         rig2.indicators.hostRect = GEOMETRY().hostRect;
 
         // hover LEFT (build the left candidate set), then release over RIGHT for item alpha
@@ -134,7 +134,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         const rig    = compose(),
               before = JSON.stringify(rig.owner.dockModel);
 
-        rig.controller.dragGeometry = Promise.resolve(GEOMETRY());
+        rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
         rig.indicators.hostRect = GEOMETRY().hostRect;
 
         await rig.controller.onDragMove({clientX: 200, clientY: 300, itemId: 'gamma', sourceNodeId: 'right-tabs'});
@@ -301,6 +301,41 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         rig.preview.destroy()
     });
 
+    test('synchronous remote selection and local moves share current-item menu candidates', async () => {
+        const rig                               = compose(),
+              {controller, indicators, preview} = rig;
+
+        controller.dragGeometry = Promise.resolve(controller.geometry = GEOMETRY());
+        indicators.hostRect = controller.geometry.hostRect;
+
+        try {
+            const data   = {itemId: 'gamma', pointer: {x: 200, y: 262}, sourceNodeId: 'right-tabs'},
+                  remote = controller.resolvePreview(data);
+
+            expect(indicators.activeCandidate?.position).toBe('top');
+            expect(remote.placement.kind, 'the central indicator wins over tab inference').toBe('edge-top');
+            expect(preview.dockPreview, 'resolution leaves publication to the caller').toBeNull();
+
+            await controller.onDragMove({clientX: 200, clientY: 262, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+            expect(preview.dockPreview).toEqual(remote);
+
+            const next = controller.resolvePreview({...data, itemId: 'beta', groupNodeId: 'another-stack'});
+            expect(next.itemId).toBe('beta');
+            expect(next.groupNodeId).toBe('another-stack');
+            expect(indicators.candidateSet.itemId).toBe('beta');
+
+            controller.geometry = GEOMETRY();
+            controller.geometry.zones[0].rect.x = 50;
+            controller.resolvePreview({...data, itemId: 'beta', groupNodeId: 'another-stack'});
+            expect(indicators.candidateSet.zone.rect.x, 'a new measurement moves the same zone menu').toBe(50);
+
+            controller.resolvePreview({...data, pointer: {x: 900, y: 900}});
+            expect(indicators.candidateSet).toBeNull()
+        } finally {
+            destroyAll(rig)
+        }
+    });
+
     /**
      * The root-edge border strip, driven through the production gesture rather than the producer.
      *
@@ -331,7 +366,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         test('hover inside the strip previews the ROOT edge, not the zone beneath it', async () => {
             const rig = compose();
 
-            rig.controller.dragGeometry = Promise.resolve(GEOMETRY());
+            rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
             rig.indicators.hostRect     = GEOMETRY().hostRect;
 
             await rig.controller.onDragMove({clientX: 200, clientY: 10, itemId: 'gamma', sourceNodeId: 'right-tabs'});
@@ -353,7 +388,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
             const rig         = compose(),
                   descriptors = withDescriptorCapture(rig);
 
-            rig.controller.dragGeometry = Promise.resolve(GEOMETRY());
+            rig.controller.dragGeometry = Promise.resolve(rig.controller.geometry = GEOMETRY());
             rig.indicators.hostRect     = GEOMETRY().hostRect;
 
             await rig.controller.onDragMove({clientX: 200, clientY: 10, itemId: 'gamma', sourceNodeId: 'right-tabs'});

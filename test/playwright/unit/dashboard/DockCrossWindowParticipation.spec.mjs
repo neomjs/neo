@@ -9,6 +9,7 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
+import Container       from '../../../../src/container/Base.mjs';
 import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
@@ -850,6 +851,85 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             windowId       : 'window-b',
             workspaceId    : 'B',
             ...config
+        });
+
+        test('default remote hover owns, selects and paints reusable overlays without changing the document', async () => {
+            const workspace = Neo.create(Container, {
+                items: [{module: Container, dockNodeId: 'main-tabs'}]
+            });
+            workspace.dockModel = targetDoc();
+            workspace.getDockHost = () => workspace;
+            workspace.getDockProjectionOptions = () => ({});
+            workspace.getDomRect = async () => [
+                {x: 100, y: 80, width: 800, height: 600},
+                {x: 100, y: 80, width: 800, height: 600}
+            ];
+
+            const participation = createParticipation({sortGroup: 'dock-engine', workspace}),
+                  document      = JSON.stringify(workspace.dockModel),
+                  payload       = {
+                      draggedItem: {dockItemId: 'terminal'}, localX: 500, localY: 380,
+                      dwell      : {armedAt: Date.now(), durationMs: 800}
+                  };
+
+            try {
+                expect(participation.defaultPreviewFor(payload)).toBeNull();
+                await participation.ownedAffordances.ensureGeometry();
+
+                const resolved                         = participation.defaultPreviewFor(payload),
+                      {ownedAffordances, ownedPreview} = participation,
+                      indicators                       = ownedAffordances.indicators;
+
+                expect(resolved?.feedback.state).toBe('accepted');
+                expect(ownedPreview.dockPreview, 'accepted preview reaches its renderer').toEqual(resolved);
+                expect(ownedPreview.dwell).toEqual(payload.dwell);
+                expect(ownedPreview.vdom.cn[0].style).toMatchObject({left: '0px', top: '0px', width: '800px', height: '600px'});
+                expect(indicators?.candidateSet?.zone.nodeId, 'default target paints the menu').toBe('main-tabs');
+                expect(indicators.activeCandidate?.position).toBe('center');
+                expect(workspace.items.length, 'one host child and two owned overlays').toBe(3);
+
+                const split = participation.defaultPreviewFor({...payload, localY: 342});
+                expect(indicators.activeCandidate?.position).toBe('top');
+                expect(split.placement.kind).toBe('edge-top');
+                expect(ownedPreview.dockPreview).toEqual(split);
+                expect(participation.resolveAffordances()).toBe(ownedAffordances);
+                expect(JSON.stringify(workspace.dockModel)).toBe(document);
+
+                participation.defaultClearPreview();
+                expect(ownedPreview.dockPreview).toBeNull();
+                expect(ownedPreview.dwell).toBeNull();
+                expect(indicators.candidateSet).toBeNull();
+                expect(ownedAffordances.geometry).toBeNull();
+
+                participation.destroy();
+                expect(ownedPreview.isDestroyed).toBe(true);
+                expect(indicators.isDestroyed).toBe(true);
+                expect(ownedAffordances.isDestroyed).toBe(true)
+            } finally {
+                !participation.isDestroyed && participation.destroy();
+                workspace.destroy()
+            }
+        });
+
+        test('a custom preview seam leaves overlay ownership with its caller', () => {
+            const workspace     = createWorkspaceStub(),
+                  overlay       = Neo.create(Container),
+                  payload       = {draggedItem: {dockItemId: 'terminal'}},
+                  preview       = {custom: true},
+                  participation = createParticipation({
+                      sortGroup : 'dock-engine', workspace,
+                      previewFor: value => value === payload ? preview : null
+                  });
+
+            try {
+                expect(participation.target.previewFor(payload)).toBe(preview);
+                expect(participation.ownedAffordances).toBeNull();
+                participation.destroy();
+                expect(overlay.isDestroyed).toBeFalsy()
+            } finally {
+                !participation.isDestroyed && participation.destroy();
+                overlay.destroy()
+            }
         });
 
         test('a workspace publishing a cross-window sort group registers a target with no sortGroup seam', () => {

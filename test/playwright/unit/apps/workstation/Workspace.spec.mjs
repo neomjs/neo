@@ -1135,8 +1135,13 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 expect(offZone.placement.kind).toBe('tab-into');
                 expect(paintedRects.at(-1)).toEqual(local(farRect));
 
-                // …while a pointed zone still wins over the stored home.
+                // The menu owns its bottom indicator; off-menu inference still selects
+                // the pointed zone rather than the stored home.
                 expect(render({x: 290, y: 300}, Workspace.MAIN_WORKSPACE_ID)).toMatchObject({
+                    placement: {kind: 'edge-bottom'},
+                    target   : {nodeId: 'left-tabs'}
+                });
+                expect(render({x: 290, y: 330}, Workspace.MAIN_WORKSPACE_ID)).toMatchObject({
                     placement: {kind: 'tab-into'},
                     target   : {nodeId: 'left-tabs'}
                 });
