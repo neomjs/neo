@@ -74,7 +74,13 @@ async function bootWorkstation(page) {
     await page.goto('/apps/workstation/index.html');
     await page.waitForSelector('.workstation-workspace',   {timeout: 60000});
     await page.waitForSelector('.neo-grid-cell',           {timeout: 60000});
-    await page.waitForSelector('.neo-tab-header-button',   {timeout: 60000});
+    // Scoped past the dock reveals, because `waitForSelector` waits on the FIRST match in document
+    // order and a collapsed reveal comes first. Its title carries `neo-tab-header-button` while
+    // measuring zero width, so it can never become visible and the six painted headers behind it
+    // are never consulted — three arms here expired at 60s each on exactly that.
+    // `state: 'attached'` would also stop the timeout, but this wait means "a real tab header is
+    // painted", and that is worth keeping rather than weakening.
+    await page.waitForSelector('.neo-tab-header-toolbar:not(.neo-dashboard-dock-reveal-header) .neo-tab-header-button', {timeout: 60000});
     // `attached`, not the default `visible`: the engine set is focus-gated, so `pin` and `maximize`
     // rest at `visibility: hidden` with their geometry preserved. They still consume the bridged
     // tokens, and a colour that resolves to the theme is just as wrong while the action is quiet.
