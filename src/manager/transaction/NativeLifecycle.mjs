@@ -250,7 +250,7 @@ class NativeLifecycle extends Base {
         source.retirements.set(key, retirement);
         let closed;
         try { closed = await retirement.close(vessel) } catch { closed = false }
-        if (closed === false) return false;
+        if (closed === false && !retirement.released) return false;
         source.retirements.get(key) === retirement && source.retirements.delete(key);
         const matches = entry => entry && (vessel.generationToken
             ? entry.generationToken === vessel.generationToken : entry.windowName === vessel.windowName);
@@ -300,13 +300,23 @@ class NativeLifecycle extends Base {
     async onRelease(data) {
         if (data.groupId !== this.groupId) return;
         for (const [sourceId, source] of this.sources) {
-            const owned    = [...source.owners].find(([, entry]) => entry.windowId === data.windowId);
             const retained = source.active && await source.effects.unbind?.(data) === false;
-            const match    = owned || [...source.connections].find(([, entry]) => entry.windowId === data.windowId);
+            if (this.isDestroyed) return;
+            const owned = [...source.owners].find(([, entry]) => entry.windowId === data.windowId);
+            const match = owned || [...source.connections].find(([, entry]) => entry.windowId === data.windowId)
+                || [...source.admissions].find(([, entry]) => entry.connectingWindowId === data.windowId || entry.windowId === data.windowId);
             if (!match) continue;
             const [itemId, entry] = match, admission = source.admissions.get(itemId);
             source.connections.delete(itemId);
             this.clearAdmission(sourceId, itemId, admission);
+            for (const [key, retirement] of source.retirements) {
+                const vessel = retirement.vessel;
+                if (vessel.itemId === itemId && (vessel.generationToken
+                    ? vessel.generationToken === entry.generationToken : vessel.windowName === entry.windowName)) {
+                    retirement.released = true;
+                    source.retirements.delete(key)
+                }
+            }
             if (owned) source.owners.set(itemId, {...entry, windowId: null});
             if (source.active && !retained) await source.effects.released?.({data, itemId, entry, admission, committed: !!owned})
         }
