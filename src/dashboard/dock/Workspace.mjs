@@ -88,20 +88,41 @@ import TopologySeams               from './window/TopologySeams.mjs';
  * becomes a forwarding shell one method at a time: each extraction guesses which callbacks the host
  * still owes, and the guesses do not have to agree.
  *
- * **What the host owes its participant seam.** A workspace joins a topology as a participant by
- * registering four callbacks at bind time — never by being imported, and never by exposing its
- * fields:
+ * **There are TWO contracts here, not one, and naming the adapter does not retire the protocol.**
+ *
+ * *The generic participant protocol* is what `Neo.manager.Transaction` executes, and it is enforced
+ * rather than documented: a registered participant must expose `capture`, `prepare`, `adopt` and
+ * `compensate` as functions or its transaction is refused outright. Its shape carries the
+ * atomicity guarantees:
+ *
+ * - `capture()` is **synchronous** and must return `{value, generation, revision}` — a promise or a
+ *   missing key throws. A capture that could await would let the heap move under the transaction it
+ *   is snapshotting.
+ * - `prepare(input, captured, context)` may be asynchronous. It is the only phase that may be.
+ * - `adopt` and `compensate` are **synchronous by requirement**. Adoption across participants is
+ *   all-or-nothing, and a compensation that could await is a window in which a half-adopted
+ *   topology is observable.
+ * - `project(context)` runs post-commit, outside the atomic section.
+ *
+ * *The dock adapter* is `window/WorkspaceSet`, which composes those four out of callbacks a
+ * workspace registers at bind time — never by being imported, and never by exposing its fields:
  *
  * - `getDocument()` — the participant's current committed document. Registration never READS it;
  *   the first transaction establishes the reference, so binding cannot mint a phantom revision.
- * - `setDocument(document)` — adoption. Called only inside an all-or-nothing transaction; a
- *   participant that refuses adoption refuses the whole transaction, never half of it.
- * - `getRevision()` — optional. Supplied when a host tracks its own revision; omitted, the seam
+ * - `setDocument(value)` — the adapter's adoption write, invoked inside the synchronous adopt phase
+ *   above. A participant that refuses adoption refuses the whole transaction, never half of it.
+ * - `getRevision()` — optional. Supplied when a host tracks its own revision; omitted, the adapter
  *   derives one by identity comparison across observations.
- * - `project(document)` — the post-commit presentation callback. It must return the projection
- *   promise and must NOT admit another document write: projection observes the committed document,
- *   it does not advance it. That is the same invariant as {@link #onDockZoneDocumentChange} being
- *   the sole mutation path, stated at the seam where a participant could otherwise break it.
+ * - `project(context)` — the post-commit presentation callback. It receives the transaction
+ *   **context**, not a document: the committed value is read from `context.snapshot`, and the
+ *   adapter adds `preserveItemIds` naming the panes owned by sibling participants, so a source
+ *   refresh cannot destroy a pane before its destination adopts it. It must return the projection
+ *   promise and must NOT admit another document write — projection observes the committed document,
+ *   it does not advance it. That is {@link #onDockZoneDocumentChange} being the sole mutation path,
+ *   restated at the seam where a participant could otherwise break it.
+ *
+ * The distinction is load-bearing: a host reading the adapter list alone would believe adoption may
+ * await, and the protocol above is precisely what forbids it.
  *
  * **The import direction is two-way, and only one half is intuitive.** The topology manager must not
  * import dock concepts — that keeps it general. The other half has a price tag: this module lands in

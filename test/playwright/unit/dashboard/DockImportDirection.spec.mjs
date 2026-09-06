@@ -30,7 +30,21 @@ const staticFiles = entry => measureClosure([entry], ROOT).files,
       DOCK_ENTRY  = 'src/dashboard/dock/Workspace.mjs',
       TX_ENTRY    = 'src/manager/Transaction.mjs',
       TOPOLOGY_RE = /^src\/manager\/(Transaction\.mjs|transaction\/)/,
-      DOCK_RE     = /^src\/dashboard\/dock\/(Workspace\.mjs|model\/WorkspaceDocument\.mjs)$/;
+
+      /**
+       * The manager may not reach the dock DOMAIN, not merely its two most obvious modules.
+       *
+       * Naming `Workspace` and `WorkspaceDocument` was the wrong shape: it enumerated the modules I
+       * happened to think of, so every other dock module — the tear-out machine, the projection
+       * adapter, the model reducers — was exempt by omission. Transitive walking does not rescue
+       * that, because the module most likely to be imported for its purity, `window/TearOut.mjs`,
+       * imports nothing at all; its entire static closure is itself, so it can only ever be caught
+       * by naming its DOMAIN.
+       *
+       * A rule over the directory survives a module nobody here anticipated. A list does not, and
+       * goes stale silently.
+       */
+      DOCK_RE     = /^src\/dashboard\/dock\//;
 
 test.describe('Neo.dashboard.dock — the façade import-direction rule', () => {
     test('the walk is not vacuous: both closures are real and transitive', () => {
@@ -74,7 +88,12 @@ test.describe('Neo.dashboard.dock — the façade import-direction rule', () => 
         // fail for the wrong reason the moment a real crossing existed — a control coupled to the
         // state it exists to judge independently. An innocent neighbour rides along in each list so
         // "reds on everything" cannot pass as "reds on the crossing".
-        const innocent = ['src/core/Base.mjs', 'src/dashboard/dock/window/TearOut.mjs'];
+        //
+        // The neighbours are deliberately NOT dock modules. An earlier version used
+        // `dock/window/TearOut.mjs` here, which asserted that a dock module was innocent under the
+        // manager rule — encoding the very exemption the rule exists to forbid, inside the control
+        // meant to police it.
+        const innocent = ['src/core/Base.mjs', 'src/util/Array.mjs'];
 
         expect(crossings([...innocent, TX_ENTRY], TOPOLOGY_RE),
             'an upward import must be caught').toEqual([TX_ENTRY]);
@@ -87,6 +106,13 @@ test.describe('Neo.dashboard.dock — the façade import-direction rule', () => 
 
         expect(crossings([...innocent, 'src/dashboard/dock/model/WorkspaceDocument.mjs'], DOCK_RE),
             'the document is a dock concept the manager may not hold').toEqual(['src/dashboard/dock/model/WorkspaceDocument.mjs']);
+
+        // The IMPORT-FREE crossing control, and the reason the rule is a directory and not a list.
+        // `window/TearOut.mjs` imports nothing, so its whole static closure is itself: a transitive
+        // walk can never surface it through some other module, and a rule naming only the obvious
+        // dock modules would let the manager hold the tear-out machine outright.
+        expect(crossings([...innocent, 'src/dashboard/dock/window/TearOut.mjs'], DOCK_RE),
+            'an import-free dock module is still a dock concept').toEqual(['src/dashboard/dock/window/TearOut.mjs']);
 
         // The other half of the discrimination claim: a clean list yields nothing under either rule.
         expect(crossings(innocent, TOPOLOGY_RE), 'a clean list is clean under A').toEqual([]);
