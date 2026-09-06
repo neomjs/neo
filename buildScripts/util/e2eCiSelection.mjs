@@ -57,6 +57,19 @@ export const EXCLUSIONS = [{
 }];
 
 /**
+ * Arms that ARE selected but skip themselves under `NEO_TEST_SKIP_CI`. Declared here as well as at
+ * their call site so the job summary can name them: a quarantine that appears only as an anonymous
+ * skip in a test log is the silent quarantine this file exists to prevent, and an owner is what
+ * separates a debt marker from an abandonment.
+ * @member {Object[]} QUARANTINES
+ */
+export const QUARANTINES = [{
+    path  : 'test/playwright/e2e/dashboard/DockSplitterProxyPaintNL.spec.mjs',
+    reason: 'crossing the drag threshold creates no splitter proxy; reproduced serially at low load and headed on a real GPU, so neither contention nor a compositor gap',
+    owner : '@neo-opus-ada — holds the repair; the guard is a debt marker, and removing it is the fix'
+}];
+
+/**
  * @summary Walks a directory for spec files.
  * @param {String} dir
  * @returns {String[]}
@@ -129,6 +142,9 @@ export function summary(root = process.cwd()) {
         `- **${gpu}** boot the workstation app, which inherits animated OffscreenCanvas work a hosted runner cannot composite.`,
         ...EXCLUSIONS.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ` +
             (entry.kind === 'cause' ? '' : '**cause not established.** ') + `${entry.reason}. Owner: ${entry.owner}.`),
+        '',
+        `Selected but quarantined — these run in the tier and skip themselves, so they appear as skips rather than coverage:`,
+        ...QUARANTINES.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ${entry.reason}. Owner: ${entry.owner}.`),
         '',
         `**Selected is not executed.** This line reports what the job SELECTED; whether those specs ran and passed is the job's own status, because a provisioning failure reaches this summary too. A green check certifies the ${executed} selected files only — quarantined arms inside them appear as skips with a reason, while the ${ignored + gpu} above appear nowhere.`
     ].join('\n')

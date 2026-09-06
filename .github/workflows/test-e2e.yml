@@ -89,16 +89,26 @@ jobs:
         if: ${{ steps.chromium-probe.outcome == 'failure' }}
         run: npx playwright install-deps chromium
 
+      # Its own step, because a command substitution cannot gate the command it feeds.
+      # `npx playwright test … $(node … --paths)` runs the suite with NO paths when the
+      # helper exits non-zero — the runner still starts, selects the whole config, and
+      # the step exits 0. The floor was therefore unable to stop the thing it exists to
+      # stop. Assigning first makes the failure the step's own exit status, and a named
+      # step makes it legible in the job UI rather than buried in a test log.
+      - name: Verify e2e selection floor
+        id: selection
+        run: |
+          paths=$(node buildScripts/util/e2eCiSelection.mjs --paths)
+          echo "paths=$paths" >> "$GITHUB_OUTPUT"
+
       # Serial by measurement, not caution: this tier drives real windows, drag
       # thresholds and geometry, which parallel workers on one runner perturb.
       #
-      # `--paths` also runs the selection floor, so a stale path or an undeclared
-      # exclusion fails the step rather than quietly shrinking coverage behind a green
-      # check. NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the
-      # unit suite already uses; each guard states the condition it is standing in for.
+      # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the unit
+      # suite already uses; each guard states the condition it stands in for.
       - name: Run e2e (engine tier)
         timeout-minutes: 5
-        run: npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 $(node buildScripts/util/e2eCiSelection.mjs --paths)
+        run: npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 ${{ steps.selection.outputs.paths }}
         env:
           NEO_TEST_SKIP_CI: 'true'
 
