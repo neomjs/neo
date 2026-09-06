@@ -2507,14 +2507,15 @@ test.describe('Workstation — dense living-data composition', () => {
 
             await expect.poll(async () => {
                 const state = await app.getComponent(workspaceId, [
-                    'lastVesselOpen', 'tearOutHandlers.placements', 'tearOutPanes', 'tearOutVesselDims'
+                    'lastVesselOpen', 'tearOutHandlers.placements', 'tearOutVesselDims'
                 ]);
+                const owner = await app.callMethod(workspaceId, 'nativeWindows.getOwner', [workspaceId, 'commits']);
 
                 return {
                     dims     : state.tearOutVesselDims,
                     placement: state['tearOutHandlers.placements']?.commits,
                     stage    : state.lastVesselOpen?.stage,
-                    windowId : state.tearOutPanes?.commits?.windowId
+                    windowId : owner?.windowId
                 }
             }, {
                 message  : 'the header action reaches Workstation vessel admission and adoption',
