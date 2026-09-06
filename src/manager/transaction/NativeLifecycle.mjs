@@ -331,7 +331,7 @@ class NativeLifecycle extends Base {
     }
 
     /**
-     * @summary Explicit Group retirement closes its remaining native resources exactly once.
+     * @summary Requests native closure before retiring the records those effects need to read.
      * @param {...*} args
      */
     destroy(...args) {
@@ -350,7 +350,9 @@ class NativeLifecycle extends Base {
             for (const entry of source.retirements.values()) {
                 closes.set(JSON.stringify([entry.vessel.windowName, entry.vessel.generationToken]), entry)
             }
-            for (const entry of closes.values()) Promise.resolve().then(() => entry.close(entry.vessel)).catch(() => {})
+            for (const entry of closes.values()) {
+                try { Promise.resolve(entry.close(entry.vessel)).catch(() => {}) } catch {}
+            }
         }
         this.sources.clear();
         super.destroy(...args)

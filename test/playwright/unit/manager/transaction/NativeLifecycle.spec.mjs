@@ -128,4 +128,16 @@ test.describe.serial('Group native lifecycle (#18314)', () => {
         expect(windows.isDestroyed).toBe(true);
         expect(() => windows.unregisterSource('view'), 'late view cleanup cannot abort component destruction').not.toThrow()
     });
+
+    test('Group retirement starts native close while the source records are still readable', async () => {
+        const windows = owner('root'), observed = [];
+        windows.registerSource('view', effects({close: vessel => {
+            observed.push(windows.getOwner('view', vessel.itemId)?.windowName);
+            return true
+        }}));
+        windows.recordOwner('view', 'one', {windowName: 'owned-window'});
+        manager.retireGroup(windows.groupId);
+        await Promise.resolve();
+        expect(observed).toEqual(['owned-window'])
+    });
 });
