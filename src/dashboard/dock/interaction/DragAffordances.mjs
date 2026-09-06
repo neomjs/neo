@@ -218,8 +218,8 @@ class DragAffordances extends Base {
      * Resolves the preview one pointer selects from the SETTLED geometry, in the §06 tier order — a
      * hovered indicator's candidate first, pointer inference over every zone second — without
      * touching the renderer. {@link #onDragMove} is the async, renderer-writing form of the same
-     * decision; the cross-window participation path calls this synchronously per remote frame
-     * because it owns the renderer write, and supplies its own fallback for a null.
+     * decision; the cross-window participation path resolves synchronously per remote frame
+     * and publishes through {@link #renderPreview}.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} data.pointer {x, y} in the host window's client space
@@ -237,6 +237,25 @@ class DragAffordances extends Base {
         if (candidate?.preview?.itemId === itemId) return candidate.preview;
 
         return me.producer.produce({groupNodeId, itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones})
+    }
+
+    /**
+     * @summary Publishes the semantic preview and native dwell using the same host-local geometry.
+     * @param {Object|null} dockPreview The exact preview the drop path consumes.
+     * @param {Object|null} [dwell=null] The native coordinator's hold clock.
+     * @returns {Object|null} The published preview.
+     */
+    renderPreview(dockPreview, dwell=null) {
+        const me = this, {preview} = me;
+
+        if (preview) {
+            preview.dwell = dwell;
+            preview.dockPreview = dockPreview;
+            const targetRect = me.previewTargetRect(dockPreview);
+            targetRect && preview.applyTargetGeometry(me.localRect(targetRect, me.geometry.hostRect))
+        }
+
+        return dockPreview
     }
 
     /**
@@ -272,9 +291,9 @@ class DragAffordances extends Base {
         // geometry mid-await — a late measurement can never resurrect its overlays.
         if (!geometry || me.dragGeometry !== geometryPromise || me.isDestroyed) return;
 
-        let pointer                         = {x: clientX, y: clientY},
-            {indicators, preview, producer} = me,
-            zone                            = producer.hitTestZone(geometry.zones, pointer);
+        let pointer                = {x: clientX, y: clientY},
+            {indicators, producer} = me,
+            zone                   = producer.hitTestZone(geometry.zones, pointer);
 
         if (indicators) {
             if ((zone?.nodeId ?? null) !== (indicators.candidateSet?.zone?.nodeId ?? null)) {
@@ -288,13 +307,7 @@ class DragAffordances extends Base {
             dockPreview = candidate?.preview
                 ?? producer.produce({pointer, zones: geometry.zones, itemId, groupNodeId, root: geometry.root, sourceNodeId});
 
-        if (preview && writeRenderer) {
-            preview.dockPreview = dockPreview;
-
-            let targetRect = me.previewTargetRect(dockPreview);
-
-            targetRect && preview.applyTargetGeometry(me.localRect(targetRect, geometry.hostRect))
-        }
+        writeRenderer && me.renderPreview(dockPreview)
     }
 
     /**

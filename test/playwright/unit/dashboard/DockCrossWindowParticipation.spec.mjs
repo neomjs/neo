@@ -948,6 +948,53 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             WindowManager.unregister(WindowManager.get('cwd-default-win'))
         });
 
+        test('the engine remote hover publishes its semantic preview, local geometry and native dwell into its owned renderer', async () => {
+            await import('../../../../src/manager/Instance.mjs');
+            const {default: Container} = await import('../../../../src/container/Base.mjs');
+            const workspace            = Neo.create(Container),
+                  hostRect = {x: 40, y: 50, width: 800, height: 600},
+                  zoneRects = {
+                      'main-tabs': {x: 50, y: 70, width: 300, height: 540},
+                      'side-tabs': {x: 400, y: 90, width: 200, height: 400}
+                  },
+                  host = {
+                      id        : 'remote-preview-host',
+                      down      : ({dockNodeId}) => ({id: dockNodeId}),
+                      getDomRect: async ids => ids.map(id => id === 'remote-preview-host' ? hostRect : zoneRects[id])
+                  };
+            workspace.dockModel = sourceDoc();
+            workspace.getDockHost = () => host;
+            const participation = createParticipation({sortGroup: 'dock-engine', workspace, workspaceId: 'B'});
+
+            try {
+                await participation.resolveAffordances().ensureGeometry();
+                const renderer = participation.ownedPreview,
+                      dwell    = {armedAt: Date.now(), durationMs: 1200},
+                      semantic = participation.target.onRemoteDragMove({
+                          draggedItem: {dockItemId: 'incoming', dockSourceNodeId: 'foreign-tabs',
+                              dockSourceWorkspaceId: 'A', dockSourceOwnershipId: 'group-1'},
+                          localX: 500, localY: 290, dwell
+                      });
+
+                expect(semantic).toMatchObject({itemId: 'incoming', target: {nodeId: 'side-tabs'}, placement: {kind: 'tab-into'}});
+                expect(renderer.dockPreview, 'the owned renderer must present the same semantic preview').toEqual(semantic);
+                expect(renderer.dwell).toEqual(dwell);
+                expect(renderer.vdom.cn[0].style).toMatchObject({
+                    left                    : '360px', top: '40px', width: '200px', height: '400px',
+                    '--dock-native-dwell-ms': '1200ms'
+                });
+
+                participation.target.onRemoteDragLeave();
+
+                expect(participation.target.currentPreview).toBeNull();
+                expect(renderer.dockPreview).toBeNull();
+                expect(renderer.vdom.cn).toEqual([])
+            } finally {
+                participation.destroy();
+                workspace.destroy()
+            }
+        });
+
         test('an unset native-window resolver maps a moving popup through its Group-owned registry', () => {
             const
                 pane          = {id: 'pane-terminal', isDestroyed: false},

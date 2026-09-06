@@ -390,7 +390,8 @@ class Participation extends Base {
     }
 
     /**
-     * Engine default for {@link #previewFor}: resolves the remote hover frame against the gesture
+     * @summary Resolves and renders the remote hover frame through the gesture owner.
+     * The engine default for {@link #previewFor} uses the gesture
      * controller's synchronous geometry mirror. The warm-up is deliberately not awaited — the seam
      * must answer on the frame it arrives, and the first frames of a gesture resolving to `null`
      * while geometry settles is the documented behaviour of that mirror.
@@ -408,12 +409,12 @@ class Participation extends Base {
 
         affordances.ensureGeometry();
 
-        return affordances.resolvePreview({
+        return affordances.renderPreview(affordances.resolvePreview({
             groupNodeId : draggedItem.dockGroupNodeId ?? null,
             itemId      : draggedItem.dockItemId,
             pointer     : {x: payload.localX, y: payload.localY},
             sourceNodeId: draggedItem.dockSourceNodeId ?? payload.sourceNodeId ?? null
-        }) ?? null
+        }) ?? null, payload.dwell ?? null)
     }
 
     /**
