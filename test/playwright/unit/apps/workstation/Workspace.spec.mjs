@@ -2473,6 +2473,7 @@ test.describe('cross-zone dwell candidate re-verification (prototype-call)', () 
                 },
                 cancelTearOutGesture   : async () => ({}),
                 retireFilmCursorDot    : async () => {},
+                waitFor                : core.Base.prototype.waitFor,
                 waitForTearOutDragArmed: async () => true
             },
             step = {

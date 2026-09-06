@@ -1165,6 +1165,28 @@ class Base {
     }
 
     /**
+     * @summary Waits for a synchronous predicate using this instance's cancellable timeouts.
+     * Samples immediately and once more after the retry budget is exhausted. Predicate errors
+     * propagate; destruction during a pending timeout rejects with `Neo.isDestroyed`.
+     * @param {Function} predicate Synchronous readiness check
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=120] Maximum number of waits
+     * @param {Number} [options.delay=16] Delay between samples in milliseconds
+     * @returns {Promise<Boolean>}
+     */
+    async waitFor(predicate, {attempts=120, delay=16}={}) {
+        let me = this;
+
+        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+            if (predicate()) return true;
+
+            attempt < attempts && await me.timeout(delay)
+        }
+
+        return Boolean(predicate())
+    }
+
+    /**
      * Wraps a promise to ensure it rejects if the component is destroyed before completion.
      * @param {Promise} promise - The promise to wrap.
      * @returns {Promise}
