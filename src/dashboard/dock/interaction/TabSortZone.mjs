@@ -1,5 +1,5 @@
-import {createVesselConversionSensor} from '../window/VesselConversion.mjs';
-import TabHeaderSortZone              from '../../../draggable/tab/header/toolbar/SortZone.mjs';
+import VesselConversion  from '../window/VesselConversion.mjs';
+import TabHeaderSortZone from '../../../draggable/tab/header/toolbar/SortZone.mjs';
 
 /**
  * @class Neo.dashboard.dock.interaction.TabSortZone
@@ -455,13 +455,13 @@ class TabSortZone extends TabHeaderSortZone {
 
     /**
      * @summary Returns the source-owned conversion sensor, creating it lazily for an active drag.
-     * @returns {Object}
+     * @returns {Neo.dashboard.dock.window.VesselConversion}
      * @protected
      */
     getVesselConversionSensor() {
         let me = this;
 
-        return me.vesselConversionSensor ??= createVesselConversionSensor({
+        return me.vesselConversionSensor ??= Neo.create(VesselConversion, {
             convertThreshold: me.vesselConversionConvertThreshold,
             revertThreshold : me.vesselConversionRevertThreshold,
             onConvertIn(record) {
@@ -1386,10 +1386,12 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
-     * Resets the pure binding before the ordinary SortZone teardown.
+     * @summary Destroys the owned conversion sensor before ordinary SortZone teardown.
      * @param {...*} args
      */
     destroy(...args) {
+        this.vesselConversionSensor?.destroy();
+        this.vesselConversionSensor = null;
         this.resetVesselConversion();
         super.destroy(...args)
     }

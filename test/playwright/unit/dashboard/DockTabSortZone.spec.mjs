@@ -22,6 +22,24 @@ import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/Sort
  * walk); the rendered consequence rides the visual harness.
  */
 test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
+    test('owns the registered sensor across resets and destroys it with the zone', async () => {
+        const zone = Neo.create(DockTabSortZone, {
+            owner: {addDomListeners() {}, cls: [], dragResortable: false,
+                items: [], on() {}, style: {}, up: () => ({fire() {}})}
+        });
+        try {
+            await zone.ready();
+            const sensor = zone.getVesselConversionSensor();
+            expect(sensor.className).toBe('Neo.dashboard.dock.window.VesselConversion');
+            zone.resetVesselConversion();
+            expect(zone.getVesselConversionSensor()).toBe(sensor);
+            zone.destroy();
+            expect(sensor.isDestroyed).toBe(true)
+        } finally {
+            zone.destroy()
+        }
+    });
+
     test('keeps dock headers parent-sized and toolbar-relative during a drag', () => {
         expect(DockTabSortZone.config.adjustItemRectsToParent).toBe(true);
         expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false);
@@ -629,8 +647,11 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
     });
 
     test.describe('vessel conversion binding — source-owned decision and pointer stability', () => {
+        const zones      = [];
         const sourceRect = {x: 20, y: 20, width: 200, height: 120};
         const targetRect = {x: 0, y: 0, width: 800, height: 600};
+
+        test.afterEach(() => zones.splice(0).forEach(zone => zone.vesselConversionSensor?.destroy()));
 
         function createZone(overrides = {}) {
             const calls = [];
@@ -679,6 +700,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 ...overrides
             };
 
+            zones.push(zone);
             return {calls, zone}
         }
 
