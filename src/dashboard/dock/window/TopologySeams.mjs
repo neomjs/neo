@@ -57,9 +57,10 @@ class TopologySeams extends Base {
      * instead of a declared refusal — the same distinction `executeDockOperation` draws for the
      * single-document path.
      * @param {Object<String,Object>} workspaces Documents keyed by registered workspace identity.
+     * @param {Object} [context={}] Restore descriptor and current-writer provenance.
      * @returns {Promise<Object>} `{errors, transactionId}` — projection failures use effect receipts.
      */
-    async commitDockTopologyWorkspaces(workspaces) {
+    async commitDockTopologyWorkspaces(workspaces, context={}) {
         let me  = this,
             set = me.workspaceSet;
 
@@ -81,7 +82,8 @@ class TopologySeams extends Base {
 
         try {
             const result = await set.write(workspaces, {
-                cause: 'restore-topology', provenance: {origin: 'perspective'}, descriptor: {operation: 'restorePerspective'}
+                cause: 'restore-topology', provenance: context.provenance ?? {origin: 'human'},
+                descriptor: {operation: 'restorePerspective', ...(context.name && {name: context.name})}
             });
             return {errors: [], transactionId: result.transactionId}
         } catch (error) {

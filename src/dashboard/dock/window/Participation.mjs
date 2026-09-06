@@ -322,9 +322,8 @@ class Participation extends Base {
             return null
         }
 
-        workspace.onDockZoneDocumentChange(result.document, operation, workspace);
-
-        return result
+        const committed = workspace.onDockZoneDocumentChange(result.document, operation, workspace);
+        return committed?.then ? committed.then(() => result) : result
     }
 
     /**
@@ -336,6 +335,9 @@ class Participation extends Base {
      * @protected
      */
     defaultCommitTransfer(data) {
+        if (this.workspaceSet?.transfer) {
+            return this.workspaceSet.transfer(data.descriptor, {provenance: {origin: 'human'}}).then(() => true)
+        }
         return this.workspaceSet?.adoptTransfer?.(data) === true
     }
 
@@ -558,7 +560,7 @@ class Participation extends Base {
                 targetWorkspaceId: me.workspaceId
             });
 
-            return published ? result : null
+            return published?.then ? published.then(value => value === true ? result : null) : published ? result : null
         }
 
         // LOCAL means the payload NAMES this workspace as its source (two windows may project the
@@ -600,7 +602,7 @@ class Participation extends Base {
             targetWorkspaceId: me.workspaceId
         });
 
-        return published ? result : null
+        return published?.then ? published.then(value => value === true ? result : null) : published ? result : null
     }
 
     /**

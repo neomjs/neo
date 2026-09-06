@@ -6,7 +6,16 @@ import {expect, test}           from '@playwright/test';
 import Neo                      from '../../../../src/Neo.mjs';
 import * as core                from '../../../../src/core/_export.mjs';
 import TransactionManager       from '../../../../src/manager/Transaction.mjs';
+import DockService              from '../../../../src/ai/client/DockService.mjs';
+import InstanceService          from '../../../../src/ai/client/InstanceService.mjs';
+import LegacyTransactionService from '../../../../src/ai/TransactionService.mjs';
+import WriteGuard               from '../../../../src/ai/WriteGuard.mjs';
+import {dispatchServiceMethod}  from '../../../../src/ai/client/resolveServiceMethod.mjs';
+import PopupWorkspace           from '../../../../apps/workstation/view/PopupWorkspace.mjs';
+import WorkstationWorkspace     from '../../../../apps/workstation/view/Workspace.mjs';
 import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
+import PerspectiveLibrary       from '../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 
 /** @summary Creates a valid, item-disjoint dock document. @param {String} key @param {String} title @returns {Object} */
@@ -52,6 +61,199 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
     }
 
     const write = (workspaces, options = {}) => set.write(workspaces, {cause: 'replace-workspaces', provenance: {origin: 'unit'}, ...options});
+
+    test('Neural Link A and human B share one Group cursor and undo newest-first', async () => {
+        const main = holder('main'), context = {agentId: 'dock-writer-a', sessionId: 'dock-session-a'};
+        const legacy = Neo.create(LegacyTransactionService);
+        const client = {transactionService: legacy, writeGuard: Neo.create(WriteGuard)};
+        const dock = Neo.create(DockService, {client}), commands = Neo.create(InstanceService, {client});
+        client.services = {dock, instance: commands};
+        const originalGetComponent = Neo.getComponent;
+        const component = {
+            id: 'group-history-holder', topologyGroupId: groupId, workspaceKey: 'main', workspaceSet: set,
+            getDockZoneDocument: () => main.document,
+            onDockZoneDocumentChange: value => main.document = value
+        };
+        set.register('main', {...main.seams, componentId: component.id});
+        Neo.getComponent = id => id === component.id ? component : originalGetComponent(id);
+
+        try {
+            expect((await dock.executeDockOperation({componentId: component.id,
+                descriptor: {operation: 'setItemLocked', itemId: 'main', locked: true}}, context)).applied).toBe(true);
+            const humanDocument = WorkspaceDocument.clone(main.document);
+            humanDocument.items.main.title = 'human B';
+            await write({main: humanDocument}, {provenance: {origin: 'human'}});
+
+            expect(TransactionManager.get(groupId).history.count).toBe(2);
+            expect(legacy.stackOf({id: context}).committed).toEqual([]);
+            expect((await commands.undo({groupId}, context)).undone).toBe(true);
+            expect(main.document.items.main).toMatchObject({title: 'before', locked: true});
+            expect((await commands.undo({groupId}, context)).undone).toBe(true);
+            expect(main.document).toEqual(document('main'));
+            expect((await commands.redo({groupId}, context)).redone).toBe(true);
+            expect((await commands.redo({groupId}, context)).redone).toBe(true);
+            expect(main.document.items.main).toMatchObject({title: 'human B', locked: true});
+            const listed = await commands.listTransactions({groupId}, context);
+            expect(listed.committed).toHaveLength(2);
+            expect(listed.redo).toEqual([]);
+            const saved = await commands.saveTransaction({groupId, txId: listed.committed[1].txId}, context);
+            expect(saved.saved).toBe(true);
+            expect(saved.transaction.originWriter).toBeNull();
+            expect(saved.transaction.ops[0].provenance).toEqual({origin: 'human'});
+            expect(JSON.stringify(saved.transaction)).not.toContain(component.id);
+            expect((await commands.replayTransaction({groupId, archiveId: 'saved-human', ops: saved.transaction.ops}, context)).replayed).toBe(true);
+            expect(TransactionManager.get(groupId).history.count).toBe(3);
+            const denied = await commands.undo({groupId}, {agentId: 'other-writer', sessionId: 'other-session'});
+            expect(denied.undone).toBe(false);
+            expect(denied.reason).toContain('Write denied');
+            expect(TransactionManager.get(groupId).history.cursor).toBe(2)
+        } finally {
+            Neo.getComponent = originalGetComponent;
+            dock.destroy();
+            commands.destroy();
+            client.writeGuard.destroy();
+            legacy.destroy()
+        }
+    });
+
+    test('window perspective restore uses the Group cursor and refuses before moving the library pointer', async () => {
+        const main = holder('main'), original = WorkspaceDocument.clone(main.document);
+        const store = Neo.create(PerspectiveLibrary), dock = Neo.create(DockService);
+        for (const [layoutId, title] of [['current', 'before'], ['saved', 'restored']]) {
+            const layout = Persistence.capturePerspective(document('main', title), {layoutId, title}).layout;
+            expect(store.savePerspective(layout, {activate: layoutId === 'current'}).saved).toBe(true)
+        }
+        const component = {id: 'restore-holder', topologyGroupId: groupId, workspaceSet: set,
+            perspectiveStore: store, getDockZoneDocument: () => main.document,
+            onDockZoneDocumentChange: value => main.document = value};
+        set.register('main', {...main.seams, componentId: component.id});
+        const lookup = Neo.getComponent, commit = set.commit;
+        Neo.getComponent = id => id === component.id ? component : lookup(id);
+        try {
+            set.commit = async () => { throw new Error('restore refused') };
+            expect(await dock.restorePerspective({componentId: component.id, name: 'saved'}))
+                .toMatchObject({switched: false, errors: ['restore refused']});
+            expect(store.collection.activeLayoutId).toBe('current');
+            expect(main.document).toEqual(original);
+            expect(TransactionManager.get(groupId).history?.count ?? 0).toBe(0);
+
+            set.commit = commit;
+            expect(await dock.restorePerspective({componentId: component.id, name: 'saved'}))
+                .toMatchObject({switched: true, errors: []});
+            expect(store.collection.activeLayoutId).toBe('saved');
+            expect(main.document.items.main.title).toBe('restored');
+            expect(TransactionManager.get(groupId).history.count).toBe(1);
+            await TransactionManager.undo({groupId});
+            expect(main.document).toEqual(original)
+        } finally {
+            set.commit = commit;
+            Neo.getComponent = lookup;
+            dock.destroy();
+            store.destroy()
+        }
+    });
+
+    test('a named dock batch prepares both operations before one Group commit', async () => {
+        const main = holder('main'), context = {agentId: 'batch-writer', sessionId: 'batch-session'};
+        const legacy = Neo.create(LegacyTransactionService), client = {transactionService: legacy, writeGuard: Neo.create(WriteGuard)};
+        const dock = Neo.create(DockService, {client}), commands = Neo.create(InstanceService, {client});
+        client.services = {dock, instance: commands};
+        const originalGetComponent = Neo.getComponent;
+        const component = {id: 'batch-holder', topologyGroupId: groupId, workspaceSet: set,
+            getDockZoneDocument: () => main.document};
+        set.register('main', {...main.seams, componentId: component.id});
+        Neo.getComponent = id => id === component.id ? component : originalGetComponent(id);
+        try {
+            expect((await commands.beginTransaction({groupId, name: 'lock and unpin'}, context)).opened).toBe(true);
+            for (const descriptor of [{operation: 'setItemLocked', itemId: 'main', locked: true},
+                {operation: 'setItemPinned', itemId: 'main', pinned: false}]) {
+                expect((await dock.executeDockOperation({componentId: component.id, descriptor}, context)).staged).toBe(true)
+            }
+            expect(main.document).toEqual(document('main'));
+            const serviceMap = {set_instance_properties: commands};
+            await expect(dispatchServiceMethod(serviceMap, 'set_instance_properties',
+                {id: 'unrelated', properties: {text: 'must not run'}}, context)).rejects.toThrow('mixed-dock-non-dock-batch');
+            expect((await commands.commitTransaction({groupId}, context)).committed).toBe(true);
+            expect(main.document.items.main).toMatchObject({locked: true, pinned: false});
+            expect(TransactionManager.get(groupId).history.count).toBe(1);
+            expect((await commands.undo({groupId}, context)).undone).toBe(true);
+            expect(main.document).toEqual(document('main'))
+        } finally {
+            Neo.getComponent = originalGetComponent;
+            dock.destroy(); commands.destroy(); client.writeGuard.destroy(); legacy.destroy()
+        }
+    });
+
+    test('mixed replay is refused before the first dock or non-dock effect', async () => {
+        holder('main');
+        const calls = [], legacy = Neo.create(LegacyTransactionService);
+        const service = Neo.create(InstanceService, {client: {transactionService: legacy,
+            handleRequest: (...args) => { calls.push(args); return {applied: true} }}});
+        try {
+            const result = await service.replayTransaction({groupId, archiveId: 'mixed', ops: [
+                {forward: {tool: 'execute_dock_operation', args: {workspaceKey: 'main', descriptor: {operation: 'closeItem', itemId: 'main'}}}},
+                {forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {text: 'changed'}}}}
+            ]}, {agentId: 'replay-writer', sessionId: 'replay-session'});
+            expect(result).toMatchObject({replayed: false, reason: 'mixed-dock-non-dock-batch'});
+            expect(calls).toEqual([])
+        } finally {
+            service.destroy(); legacy.destroy()
+        }
+    });
+
+    test('a full popup Workspace commits a human tab activation to its Group document', async () => {
+        const initial = document('popup');
+        initial.items.second = {componentRef: 'second', title: 'Second', kind: 'panel'};
+        initial.nodes.root.items.push('second');
+        const popup = Neo.create(PopupWorkspace, {
+            dockModel: initial, rootWorkspace: {resolvePane: () => ({ntype: 'component'})},
+            topologyGroupId: groupId, workspaceKey: 'popup', workspaceSet: set
+        });
+        set.register('popup', {componentId: popup.id, getDocument: () => popup.dockModel,
+            setDocument: value => popup.dockModel = value});
+        try {
+            const descriptor = {operation: 'setActiveItem', tabsNodeId: 'root', itemId: 'second'};
+            const result = popup.applyDockZoneOperation(descriptor);
+            await popup.onDockZoneDocumentChange(result.document, descriptor);
+            expect(set.getDocument('popup').nodes.root.activeItemId).toBe('second');
+            expect(TransactionManager.get(groupId).history.count).toBe(1);
+            await TransactionManager.undo({groupId});
+            expect(popup.dockModel.nodes.root.activeItemId).toBe('popup')
+        } finally {
+            popup.destroy()
+        }
+    });
+
+    test('ordinary popup birth commits its first document before the pane handoff', async () => {
+        const key = WorkstationWorkspace.MAIN_WORKSPACE_ID, main = holder(key), itemId = key;
+        main.document.nodes.tabs = main.document.nodes.root;
+        main.document.nodes.root = {type: 'edge-zone', zones: {center: {nodeId: 'tabs'}}};
+        const initial = WorkspaceDocument.clone(main.document);
+        const root = {
+            get dockModel() { return main.document },
+            workspaceSet: set, topologyGroupId: groupId, vesselWorkspaces: new Map(), tearOutPanes: {}, tearOutConnects: {},
+            stateProvider: TransactionManager.getProvider(groupId),
+            resolvePane: () => ({ntype: 'component'}),
+            createVesselWorkspaceDocument: WorkstationWorkspace.prototype.createVesselWorkspaceDocument,
+            tearOutHandlers: {capturePane: () => true, adoptPane() {
+                expect(main.document.items[itemId]).toBeUndefined();
+                expect(TransactionManager.get(groupId).history.count).toBe(1)
+            }}
+        };
+        try {
+            expect(await WorkstationWorkspace.prototype.onTearOutDocumentChange.call(root, null,
+                {operation: 'detachItem', itemId}, {})).toBe(true);
+            const popup = root.vesselWorkspaces.get(WorkstationWorkspace.vesselWorkspaceId(itemId)).host;
+            expect(popup).toBeInstanceOf(PopupWorkspace);
+            expect(popup.dockModel.items[itemId]).toEqual(document(key).items[itemId]);
+            expect(TransactionManager.get(groupId).history.count).toBe(1);
+            await TransactionManager.undo({groupId});
+            expect(main.document).toEqual(initial);
+            expect(Object.keys(popup.dockModel.items)).toHaveLength(0)
+        } finally {
+            for (const state of root.vesselWorkspaces.values()) state.host.destroy()
+        }
+    });
 
     test('two valid documents commit once through the Group; projection observes both committed owners', async () => {
         const projected = [];

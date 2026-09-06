@@ -2539,8 +2539,20 @@ class Workspace extends Container {
      * @returns {Promise} The scheduled projection's outcome.
      */
     onDockZoneDocumentChange(document, descriptor=null, source=null) {
-        const projection = this.projectDockZoneDocument(document, descriptor, source);
-        this.dockModel = document;
+        const me = this, set = me.workspaceSet;
+        if (set && me.topologyGroupId && document !== me.dockModel) {
+            const manager = Neo.manager.Transaction;
+            const workspaceKey = me.workspaceKey ?? set.ids()
+                .find(key => manager.getParticipant(me.topologyGroupId, key)?.componentId === me.id);
+            if (!workspaceKey) return Promise.reject(new Error('dock participant not registered'));
+            const pending = descriptor?.operation
+                ? set.commit(workspaceKey, [descriptor], {provenance: {origin: 'human'}})
+                : set.write({[workspaceKey]: document}, {cause: 'dock', provenance: {origin: 'human'}});
+            pending.catch(error => Neo.logError(error));
+            return pending
+        }
+        const projection = me.projectDockZoneDocument(document, descriptor, source);
+        me.dockModel = document;
         return projection
     }
 
@@ -2555,13 +2567,24 @@ class Workspace extends Container {
      */
     projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}) {
         let me = this,
-            tabInsertDescriptor, refreshOptions, tail;
+            commitOptions, preserved, tabInsertDescriptor, refreshOptions, tail;
 
         // Presentation owners release transient state before the outgoing shell is reconciled.
         me.fire('beforeDockZoneDocumentChange', {descriptor, document, source});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
-        refreshOptions      = {...me.getRefreshOptions(descriptor, source), ...projectionOptions};
+        commitOptions       = me.getRefreshOptions(descriptor, source);
+        preserved           = [...new Set([...commitOptions.preserveItemIds ?? [], ...projectionOptions.preserveItemIds ?? []])];
+        refreshOptions      = {...commitOptions, ...projectionOptions};
+
+        // `preserveItemIds` is the one option these two sides ADD to rather than choose between.
+        // The commit's ids are panes it parked; the caller's are panes owned by sibling documents in
+        // the same committed snapshot. Both name panes that must outlive this projection, so a
+        // plain spread — where the caller's list silently replaces the commit's — reads as a policy
+        // choice and behaves as a teardown of whichever panes lost. Absent rather than empty, so the
+        // shape matches what `getRefreshOptions` emits.
+        preserved.length > 0 ? refreshOptions.preserveItemIds = preserved : delete refreshOptions.preserveItemIds;
+
         tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
@@ -2577,7 +2600,6 @@ class Workspace extends Container {
                     return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
                 }
             });
-
         return me.refreshPromise
     }
 

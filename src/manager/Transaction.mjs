@@ -308,6 +308,7 @@ class Transaction extends Manager {
      */
     createGroup(groupId=crypto.randomUUID()) {
         const group = {
+            batch             : null,
             bindings          : new Map(),
             createdAt         : Date.now(),
             history           : null,
@@ -323,6 +324,99 @@ class Transaction extends Manager {
         this.register(group);
 
         return group
+    }
+
+    /**
+     * @summary Finds a caller's pending batch without exposing its mutable request buffer.
+     * @param {String} owner Opaque caller key, separate from the Group history cursor.
+     * @returns {Object|null}
+     */
+    findBatch(owner) {
+        const group = owner && this.items.find(group => group.batch?.owner === owner);
+        return group ? {groupId: group.id, id: group.batch.id, name: group.batch.name,
+            requestCount: group.batch.requests.length} : null
+    }
+
+    /**
+     * @summary Opens a bounded, caller-owned preparation buffer; no participant or history changes.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {String} request.name
+     * @param {Number} request.limit Maximum requests, supplied by the command contract.
+     * @returns {Object} The pending batch identity.
+     */
+    beginBatch({groupId, owner, name, limit}) {
+        const group = this.get(groupId);
+        if (!group) throw new Error('unknown-group');
+        if (!owner || typeof name !== 'string' || !name.trim() || !Number.isInteger(limit) || limit < 1) {
+            throw new TypeError('invalid-batch')
+        }
+        if (group.batch || this.findBatch(owner)) throw new Error('transaction-already-open');
+        group.batch = {id: crypto.randomUUID(), owner, name: name.trim(), limit, requests: [], committing: false};
+        return this.findBatch(owner)
+    }
+
+    /**
+     * @summary Stages finite requests; their reducers run against current values only on commit.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {Object[]} request.changes Participant inputs.
+     * @param {Object} [request.descriptor={}]
+     * @returns {Object} The pending batch identity.
+     */
+    stageBatch({groupId, owner, changes, descriptor = {}}) {
+        const batch = this.get(groupId)?.batch;
+        if (!batch || batch.owner !== owner || batch.committing) throw new Error('no-open-transaction');
+        if (batch.requests.length >= batch.limit) throw new Error('max-ops-per-transaction');
+        batch.requests.push(Commit.copy({changes, descriptor}));
+        return this.findBatch(owner)
+    }
+
+    /**
+     * @summary Commits all staged inputs as one compensatable write and one history row.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {Object} [request.provenance={}]
+     * @returns {Promise<Object>}
+     */
+    async commitBatch({groupId, owner, provenance = {}}) {
+        const group = this.get(groupId), batch = group?.batch;
+        if (!batch || batch.owner !== owner || batch.committing) throw new Error('no-open-transaction');
+        if (!batch.requests.length) throw new Error('empty-transaction');
+        const changes = new Map();
+        for (const request of batch.requests) {
+            for (const {workspaceKey, input} of request.changes) {
+                if (!changes.has(workspaceKey)) changes.set(workspaceKey, []);
+                changes.get(workspaceKey).push(input)
+            }
+        }
+        batch.committing = true;
+        try {
+            const result = await this.write({groupId, cause: 'batch', provenance,
+                descriptor: {name: batch.name, requests: batch.requests.map(request => request.descriptor)},
+                changes: [...changes].map(([workspaceKey, inputs]) => ({workspaceKey, inputs}))});
+            if (group.batch === batch) group.batch = null;
+            return result
+        } finally {
+            batch.committing = false
+        }
+    }
+
+    /**
+     * @summary Discards only the caller's pending preparation; live documents were never changed.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @returns {Boolean}
+     */
+    abortBatch({groupId, owner}) {
+        const group = this.get(groupId);
+        if (!group?.batch || group.batch.owner !== owner || group.batch.committing) return false;
+        group.batch = null;
+        return true
     }
 
     /**

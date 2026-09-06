@@ -1,3 +1,5 @@
+import Operations from '../model/Operations.mjs';
+
 /**
  * @summary The dock adapter over a Group's participant membership — the `{workspaceId → document}`
  * composition of the docking design record (§2.1 workspace topology; §2.8.3 vessel lifecycle;
@@ -262,8 +264,25 @@ export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
                     generation: manager.getBinding(id, bindingKey)?.generation || 0,
                     revision  : getRevision ? getRevision() : revision
                 }),
-                prepare: input => {
-                    const candidate = cloneDocument(input), errors = documentModel.validate(candidate);
+                prepare: (input, captured, context) => {
+                    let candidate = input;
+                    if (input.transfer) {
+                        const descriptor = input.transfer;
+                        const result = Operations[descriptor.operation](context.valuesBefore[descriptor.sourceWorkspaceId],
+                            context.valuesBefore[descriptor.targetWorkspaceId], descriptor);
+                        if (result.errors.length) throw new TypeError(result.errors.join('; '));
+                        candidate = workspaceId === descriptor.sourceWorkspaceId ? result.sourceDocument : result.targetDocument
+                    }
+                    if (Array.isArray(input.operations)) {
+                        candidate = captured.value;
+                        for (const descriptor of input.operations) {
+                            const result = Operations.applyOperation(candidate, descriptor);
+                            if (result.errors.length) throw new TypeError(result.errors.join('; '));
+                            candidate = result.document
+                        }
+                    }
+                    candidate = cloneDocument(candidate);
+                    const errors = documentModel.validate(candidate);
                     if (errors.length) throw new TypeError(`invalid dock document: ${errors.join('; ')}`);
                     return candidate
                 }
@@ -321,6 +340,35 @@ export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
                 cursorAction,
                 changes: Object.entries(workspaces).map(([workspaceKey, input]) => ({workspaceKey, input}))
             })
+        },
+
+        /**
+         * @summary Reduces semantic operations against the document captured at the Group queue head.
+         * @param {String} workspaceKey
+         * @param {Object[]} operations
+         * @param {Object} [options={}] Group cause and provenance.
+         * @returns {Promise<Object>} The committed Group transaction.
+         */
+        commit(workspaceKey, operations, options = {}) {
+            return this.write({[workspaceKey]: {operations}}, {
+                cause: 'dock', descriptor: {operations, workspaceKey}, ...options
+            })
+        },
+
+        /**
+         * @summary Prepares a transfer from both queue-head documents before either owner adopts.
+         * @param {Object} descriptor Source and target workspace keys plus the transfer operation.
+         * @param {Object} [options={}]
+         * @returns {Promise<Object>}
+         */
+        transfer(descriptor, options = {}) {
+            if (!['transferItem', 'transferNode'].includes(descriptor.operation) ||
+                descriptor.sourceWorkspaceId === descriptor.targetWorkspaceId) {
+                return Promise.reject(new TypeError('a transfer needs distinct workspace keys'))
+            }
+            return this.write({[descriptor.sourceWorkspaceId]: {transfer: descriptor},
+                [descriptor.targetWorkspaceId]: {transfer: descriptor}},
+                {cause: 'dock-transfer', descriptor, ...options})
         },
 
         /**

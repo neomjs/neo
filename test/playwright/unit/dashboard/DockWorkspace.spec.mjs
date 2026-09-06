@@ -3980,3 +3980,61 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         })
     })
 });
+
+/**
+ * A host that parks panes per commit, the way a real consumer's `getRefreshOptions` override does —
+ * the shape a sibling projection has to combine with rather than replace.
+ */
+class ParkingWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.ParkingWorkspace'
+    }
+
+    projectionLog = []
+
+    getRefreshOptions(descriptor, source) {
+        const options = super.getRefreshOptions(descriptor, source),
+              parked  = descriptor?.preserveItemIds;
+
+        return Array.isArray(parked) && parked.length > 0 ? {...options, preserveItemIds: parked} : options
+    }
+
+    refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions) {
+        this.projectionLog.push(refreshOptions);
+        return Promise.resolve()
+    }
+}
+
+Neo.setupClass(ParkingWorkspace);
+
+test.describe('projectDockZoneDocument — the commit\'s parked panes and a sibling\'s owned panes both survive', () => {
+    test('preserveItemIds is the union of both sides, while every other option stays the caller\'s to override', async () => {
+        const workspace = Neo.create(ParkingWorkspace, {dockModel: createDocument()});
+
+        await workspace.projectDockZoneDocument(createDocument(), {operation: 'moveItem', preserveItemIds: ['parked']}, workspace, {
+            geometryOnly: true, preserveItemIds: ['sibling']
+        });
+
+        const options = workspace.projectionLog.at(-1);
+
+        // The defect this guards: a plain spread lets the caller's list REPLACE the commit's, so the
+        // parked pane is destroyed rather than preserved. Both ids name panes that must outlive this
+        // projection, and the reconciler downstream already treats the list as additive.
+        expect([...options.preserveItemIds].sort()).toEqual(['parked', 'sibling']);
+
+        // Only the id set is additive; ordinary options remain last-writer-wins.
+        expect(options.geometryOnly).toBe(true);
+
+        workspace.destroy()
+    });
+
+    test('neither side naming an id leaves no preserveItemIds at all, matching what getRefreshOptions emits', async () => {
+        const workspace = Neo.create(ParkingWorkspace, {dockModel: createDocument()});
+
+        await workspace.projectDockZoneDocument(createDocument(), {operation: 'moveItem'}, workspace, {preserveItemIds: []});
+
+        expect(workspace.projectionLog.at(-1)).not.toHaveProperty('preserveItemIds');
+
+        workspace.destroy()
+    })
+});
