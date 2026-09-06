@@ -1,5 +1,8 @@
+import Base from '../../../core/Base.mjs';
+
 /**
- * @module Neo.dashboard.dock.window.VesselPark
+ * @class Neo.dashboard.dock.window.VesselPark
+ * @extends Neo.core.Base
  * @summary The in-gesture vessel lifecycle authority — the pure choreography deciding what happens
  * to a dragged popup's REAL OS window between conversion and the gesture terminal: park it, never
  * close it; re-show the SAME window; dispose exactly once, on commit only.
@@ -34,45 +37,62 @@
  *   terminal with no slot, and terminals for a different `itemId` all return silently — the
  *   exact-once/idempotent cleanup bar every gesture surface owes its terminals.
  */
-
-/**
- * Creates the in-gesture park handlers a dock composition binds to the conversion sensor's
- * actuation seams, closed over one single-gesture park slot. One handler set serves one workspace
- * composition — a pointer drives at most one drag per window (the tear-out choreography's
- * single-slot reasoning), so the slot never needs a map.
- * @param {Object} seams
- * @param {Function} seams.disposeVessel Host retirement seam:
- *     `({itemId, windowName}) => Boolean|Promise<Boolean>` — the ONE close path for a committed
- *     tear-in, routed to the host's reintegration close policy. Only strict `true` clears cleanup
- *     authority; refusal retains the slot for an exact retry.
- * @param {Function} seams.parkVessel Host park seam: `({itemId, windowName}) => Boolean|Promise<Boolean>` —
- *     the platform mechanic (hide, offscreen move, minimize — matrix-selected, the host's
- *     business). Only strict `true` publishes parked ownership; dispatch is never admission.
- * @param {Function} seams.reshowVessel Host re-show seam:
- *     `({itemId, rect, terminal, windowName}) => Boolean|Promise<Boolean>` — re-presents the SAME
- *     parked window at `rect`. `terminal` distinguishes a final restore from live pointer-follow
- *     resumption. A refusal retains the slot for retry; zero re-acquisition by construction.
- * @returns {Object} `{onConversionIn, onConversionOut, onGestureTerminal, onVesselRetired,
- *     parkedVessel, transition}` — sensor handlers, terminal/external-retirement routers,
- *     admitted slot, and in-flight phase
- */
-export function createVesselParkHandlers({disposeVessel, parkVessel, reshowVessel} = {}) {
-    if (typeof disposeVessel !== 'function' || typeof parkVessel !== 'function' || typeof reshowVessel !== 'function') {
-        throw new Error(
-            'createVesselParkHandlers: disposeVessel, parkVessel and reshowVessel are required function seams — ' +
-            'the machine owns ordering, the host owns every platform effect'
-        )
+class VesselPark extends Base {
+    static config = {
+        /** @member {String} className='Neo.dashboard.dock.window.VesselPark' @protected */
+        className: 'Neo.dashboard.dock.window.VesselPark',
+        /**
+         * Receives `{itemId, windowName}`. Only strict success releases committed cleanup authority.
+         * @member {Function|null} disposeVessel=null
+         */
+        disposeVessel: null,
+        /**
+         * Receives `{itemId, windowName}`. Only strict success admits parking the existing window.
+         * @member {Function|null} parkVessel=null
+         */
+        parkVessel: null,
+        /**
+         * Receives `{itemId, rect, terminal, windowName}`. Only strict success releases the park slot.
+         * @member {Function|null} reshowVessel=null
+         */
+        reshowVessel: null
     }
 
-    // Admitted ownership and generation-scoped effects stay separate: a Promise dispatch can
-    // never publish parked/restored truth, and duplicate terminals share one settlement.
-    let generation        = 0,
-        parked            = null,
-        parking           = null,
-        pendingOut        = null,
-        pendingRetirement = null,
-        pendingTerminal   = null,
-        reshowing         = null;
+    /**
+     * @summary Validates required host effects before allocating the registered owner.
+     * @param {Object} [config={}]
+     */
+    construct(config={}) {
+        const effective = {...this.constructor.config, ...config};
+        if (['disposeVessel', 'parkVessel', 'reshowVessel'].some(key => typeof effective[key] !== 'function')) {
+            throw new Error('VesselPark: disposeVessel, parkVessel and reshowVessel are required function seams')
+        }
+        super.construct(config)
+    }
+
+    /**
+     * @summary Invalidates pending gesture work without actuating Group-owned native windows.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.clearState();
+        super.destroy(...args)
+    }
+
+    /** @member {Number} generation=0 @protected */
+    generation = 0
+    /** @member {Object|null} parked=null @protected */
+    parked = null
+    /** @member {Object|null} parking=null @protected */
+    parking = null
+    /** @member {Object|null} pendingOut=null @protected */
+    pendingOut = null
+    /** @member {Object|null} pendingRetirement=null @protected */
+    pendingRetirement = null
+    /** @member {Object|null} pendingTerminal=null @protected */
+    pendingTerminal = null
+    /** @member {Object|null} reshowing=null @protected */
+    reshowing = null
 
     /**
      * @summary Normalizes a synchronous host throw into strict refusal.
@@ -80,22 +100,24 @@ export function createVesselParkHandlers({disposeVessel, parkVessel, reshowVesse
      * @param {Object} data
      * @returns {*}
      */
-    const callEffect = (fn, data) => {
+    callEffect(fn, data) {
         try {
             return fn(data)
         } catch {
             return false
         }
-    };
+    }
 
     /**
      * @summary Converts sync or async host results into strict Boolean admission.
      * @param {*} value
      * @returns {Boolean|Promise<Boolean>}
      */
-    const settleEffect = value => typeof value?.then === 'function'
-        ? Promise.resolve(value).then(result => result === true, () => false)
-        : value === true;
+    settleEffect(value) {
+        return typeof value?.then === 'function'
+            ? Promise.resolve(value).then(result => result === true, () => false)
+            : value === true
+    }
 
     /**
      * @summary Re-shows one admitted vessel without clearing ownership before strict success.
@@ -104,35 +126,37 @@ export function createVesselParkHandlers({disposeVessel, parkVessel, reshowVesse
      * @param {Boolean} [terminal=false]
      * @returns {Boolean|Promise<Boolean>}
      */
-    const restore = (vessel, rect, terminal=false) => {
-        if (reshowing) return reshowing.promise;
+    restore(vessel, rect, terminal=false) {
+        if (this.reshowing) return this.reshowing.promise;
 
-        const result = settleEffect(callEffect(reshowVessel, {
+        const result = this.settleEffect(this.callEffect(this.reshowVessel, {
             itemId    : vessel.itemId,
             rect      : rect ?? vessel.preConversionRect,
             terminal,
             windowName: vessel.windowName
         }));
 
+        if (this.isDestroyed) return false;
+
         if (typeof result?.then !== 'function') {
-            result && parked === vessel && (parked = null);
+            result && this.parked === vessel && (this.parked = null);
             return result
         }
 
         const state = {generation: vessel.generation, phase: 'reshowing', promise: null, vessel};
 
-        reshowing = state;
+        this.reshowing = state;
         state.promise = result.then(admitted => {
-            if (reshowing !== state || state.generation !== vessel.generation) return false;
+            if (this.reshowing !== state || state.generation !== vessel.generation) return false;
 
-            admitted && parked === vessel && (parked = null);
-            reshowing = null;
+            admitted && this.parked === vessel && (this.parked = null);
+            this.reshowing = null;
 
             return admitted
         });
 
         return state.promise
-    };
+    }
 
     /**
      * @summary Applies one admitted vessel's exact-once committed or restorative disposition.
@@ -141,251 +165,266 @@ export function createVesselParkHandlers({disposeVessel, parkVessel, reshowVesse
      * @param {Boolean} [compensate=false] Restore even when async invalidation withheld admission
      * @returns {Boolean|Promise<Boolean>}
      */
-    const finishTerminal = (vessel, data, compensate=false) => {
+    finishTerminal(vessel, data, compensate=false) {
         if (data.outcome === 'committed') {
-            const disposed = settleEffect(callEffect(disposeVessel, {
+            const disposed = this.settleEffect(this.callEffect(this.disposeVessel, {
                 itemId: vessel.itemId, windowName: vessel.windowName
             }));
 
+            if (this.isDestroyed) return false;
+
             if (typeof disposed?.then !== 'function') {
-                disposed && parked === vessel && (parked = null);
+                disposed && this.parked === vessel && (this.parked = null);
                 return disposed
             }
 
             return disposed.then(admitted => {
-                admitted && parked === vessel && (parked = null);
+                admitted && this.parked === vessel && (this.parked = null);
                 return admitted
             })
         }
 
-        return parked === vessel || compensate
-            ? restore(vessel, vessel.preConversionRect, true)
+        return this.parked === vessel || compensate
+            ? this.restore(vessel, vessel.preConversionRect, true)
             : true
-    };
+    }
 
-    return {
-        /**
-         * The sensor converted the dragged vessel into a proxy: PARK the OS window — never close
-         * it (the one-way activation door this module exists to remove). Records the vessel's
-         * pre-conversion rect as the restore anchor. A convert-in while a slot is live is a stale
-         * re-fire: ignored.
-         * @param {Object} data
-         * @param {String} data.itemId
-         * @param {Object} [data.sourceRect] The vessel's live rect at the conversion moment —
-         *     recorded as the restore/origin anchor
-         * @param {String} data.windowName
-         */
-        onConversionIn(data) {
-            if (parked || parking || reshowing || pendingRetirement || pendingTerminal) return false;
+    /**
+     * @summary Parks the existing window when the conversion sensor admits a proxy transition.
+     * The sensor converted the dragged vessel into a proxy: PARK the OS window — never close
+     * it (the one-way activation door this module exists to remove). Records the vessel's
+     * pre-conversion rect as the restore anchor. A convert-in while a slot is live is a stale
+     * re-fire: ignored.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} [data.sourceRect] The vessel's live rect at the conversion moment —
+     *     recorded as the restore/origin anchor
+     * @param {String} data.windowName
+     * @returns {Boolean|Promise<Boolean>}
+     */
+    onConversionIn(data) {
+        if (this.isDestroyed) return false;
+        if (this.parked || this.parking || this.reshowing || this.pendingRetirement || this.pendingTerminal) return false;
 
-            let {itemId, sourceRect, windowName} = data,
-                vessel                           = {itemId, preConversionRect: sourceRect ?? null, windowName},
-                result                           = settleEffect(callEffect(parkVessel, {itemId, windowName}));
+        let {itemId, sourceRect, windowName} = data,
+            vessel                           = {itemId, preConversionRect: sourceRect ?? null, windowName},
+            result                           = this.settleEffect(this.callEffect(this.parkVessel, {itemId, windowName}));
 
-            Object.defineProperty(vessel, 'generation', {value: ++generation});
+        if (this.isDestroyed) return false;
 
-            if (typeof result?.then !== 'function') {
-                result && (parked = vessel);
-                return result
-            }
+        Object.defineProperty(vessel, 'generation', {value: ++this.generation});
 
-            const state = {generation: vessel.generation, phase: 'parking', promise: null, vessel};
+        if (typeof result?.then !== 'function') {
+            result && (this.parked = vessel);
+            return result
+        }
 
-            parking = state;
-            state.promise = result.then(admitted => {
-                if (parking !== state || state.generation !== vessel.generation) return false;
+        const state = {generation: vessel.generation, phase: 'parking', promise: null, vessel};
 
-                parking = null;
-                admitted && (parked = vessel);
+        this.parking = state;
+        state.promise = result.then(admitted => {
+            if (this.parking !== state || state.generation !== vessel.generation) return false;
 
-                return admitted
+            this.parking = null;
+            admitted && (this.parked = vessel);
+
+            return admitted
+        });
+
+        return state.promise
+    }
+
+    /**
+     * @summary Re-shows the same parked window after conversion reverses.
+     * The sensor reverted the conversion: RE-SHOW the same parked window. At the supplied live
+     * rect when the out-event carries one (the popup resumes under the pointer); at the
+     * recorded pre-conversion rect otherwise (origin semantics). No slot = stale event = no-op.
+     * @param {Object} [data]
+     * @param {Object} [data.rect] The live rect to resume at (the sensor's out-record
+     *     `sourceRect` is the natural feed)
+     * @returns {Boolean|Promise<Boolean>}
+     */
+    onConversionOut(data) {
+        if (this.isDestroyed) return false;
+        if (this.pendingRetirement) return this.pendingRetirement.promise;
+        if (this.pendingTerminal) return false;
+        if (this.pendingOut) return this.pendingOut.promise;
+        if (this.reshowing) return this.reshowing.promise;
+
+        if (this.parking) {
+            const state = {generation: this.parking.generation, phase: 'queued-out', promise: null, vessel: this.parking.vessel};
+
+            this.pendingOut = state;
+            state.promise = this.parking.promise.then(admitted => {
+                if (this.isDestroyed) return false;
+                return admitted && !this.pendingRetirement ? this.restore(state.vessel, data?.rect) : !admitted
+            }).then(restored => {
+                this.pendingOut === state && (this.pendingOut = null);
+                return restored
             });
 
             return state.promise
-        },
+        }
 
-        /**
-         * The sensor reverted the conversion: RE-SHOW the same parked window. At the supplied live
-         * rect when the out-event carries one (the popup resumes under the pointer); at the
-         * recorded pre-conversion rect otherwise (origin semantics). No slot = stale event = no-op.
-         * @param {Object} [data]
-         * @param {Object} [data.rect] The live rect to resume at (the sensor's out-record
-         *     `sourceRect` is the natural feed)
-         */
-        onConversionOut(data) {
-            if (pendingRetirement) return pendingRetirement.promise;
-            if (pendingTerminal) return false;
-            if (pendingOut) return pendingOut.promise;
-            if (reshowing) return reshowing.promise;
+        return this.parked ? this.restore(this.parked, data?.rect) : false
+    }
 
-            if (parking) {
-                const state = {generation: parking.generation, phase: 'queued-out', promise: null, vessel: parking.vessel};
+    /**
+     * @summary Disposes on committed transfer and restores on every other terminal outcome.
+     * The gesture resolved while the vessel is parked — the outcome machine's terminal routed
+     * here decides the parked window's fate:
+     * - `committed`: the target owns the item now — the ONE `disposeVessel` call fires (the
+     *   host's close policy takes it from there). Duplicate terminals coalesce while close is
+     *   pending; strict refusal retains the slot, and strict success clears it.
+     * - anything else (cancel, reject, host-routed disconnect): RESTORE — re-show at the
+     *   pre-conversion rect with zero disposition. The machine fails toward never losing the
+     *   user's window.
+     * A terminal for a different `itemId` than the parked one is stale: no-op.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {String} data.outcome `'committed'` disposes; every other value restores
+     * @returns {Boolean|Promise<Boolean>}
+     */
+    onGestureTerminal(data) {
+        if (this.isDestroyed) return false;
+        if (this.pendingRetirement) {
+            return this.pendingRetirement.vessel.itemId === data.itemId
+                ? this.pendingRetirement.promise
+                : false
+        }
+        if (this.pendingTerminal) {
+            return this.pendingTerminal.vessel.itemId === data.itemId
+                ? this.pendingTerminal.promise
+                : false
+        }
 
-                pendingOut = state;
-                state.promise = parking.promise.then(admitted => admitted && !pendingRetirement
-                    ? restore(state.vessel, data?.rect)
-                    : !admitted
-                ).then(restored => {
-                    pendingOut === state && (pendingOut = null);
-                    return restored
-                });
+        let vessel = this.parked ?? this.parking?.vessel ?? this.reshowing?.vessel;
 
-                return state.promise
-            }
+        if (!vessel || vessel.itemId !== data.itemId) return false;
 
-            return parked ? restore(parked, data?.rect) : false
-        },
+        if (this.parking || this.reshowing) {
+            const prerequisite = this.parking?.promise ?? this.reshowing.promise,
+                  state        = {generation: vessel.generation, phase: 'terminal', promise: null, vessel};
 
-        /**
-         * The gesture resolved while the vessel is parked — the outcome machine's terminal routed
-         * here decides the parked window's fate:
-         * - `committed`: the target owns the item now — the ONE `disposeVessel` call fires (the
-         *   host's close policy takes it from there). Duplicate terminals coalesce while close is
-         *   pending; strict refusal retains the slot, and strict success clears it.
-         * - anything else (cancel, reject, host-routed disconnect): RESTORE — re-show at the
-         *   pre-conversion rect with zero disposition. The machine fails toward never losing the
-         *   user's window.
-         * A terminal for a different `itemId` than the parked one is stale: no-op.
-         * @param {Object} data
-         * @param {String} data.itemId
-         * @param {String} data.outcome `'committed'` disposes; every other value restores
-         */
-        onGestureTerminal(data) {
-            if (pendingRetirement) {
-                return pendingRetirement.vessel.itemId === data.itemId
-                    ? pendingRetirement.promise
-                    : false
-            }
-            if (pendingTerminal) {
-                return pendingTerminal.vessel.itemId === data.itemId
-                    ? pendingTerminal.promise
-                    : false
-            }
+            this.pendingTerminal = state;
+            state.promise = prerequisite.then(() => {
+                if (
+                    this.pendingTerminal !== state || this.pendingRetirement ||
+                    state.generation !== vessel.generation
+                ) return false;
 
-            let vessel = parked ?? parking?.vessel ?? reshowing?.vessel;
-
-            if (!vessel || vessel.itemId !== data.itemId) return false;
-
-            if (parking || reshowing) {
-                const prerequisite = parking?.promise ?? reshowing.promise,
-                      state        = {generation: vessel.generation, phase: 'terminal', promise: null, vessel};
-
-                pendingTerminal = state;
-                state.promise = prerequisite.then(() => {
-                    if (
-                        pendingTerminal !== state || pendingRetirement ||
-                        state.generation !== vessel.generation
-                    ) return false;
-
-                    // False-after-reset does not prove the native park move never happened: Main
-                    // can observe the move, then invalidate pointer-follow before the worker sees
-                    // its terminal. Always run the compensating disposition for this generation.
-                    return finishTerminal(vessel, data, true)
-                }).then(result => {
-                    pendingTerminal === state && (pendingTerminal = null);
-                    return result
-                });
-
-                return state.promise
-            }
-
-            const state = {generation: vessel.generation, phase: 'terminal', promise: null, vessel};
-
-            pendingTerminal = state;
-
-            const result = finishTerminal(vessel, data);
-
-            if (typeof result?.then !== 'function') {
-                pendingTerminal = null;
+                // False-after-reset does not prove the native park move never happened: Main
+                // can observe the move, then invalidate pointer-follow before the worker sees
+                // its terminal. Always run the compensating disposition for this generation.
+                return this.finishTerminal(vessel, data, true)
+            }).then(result => {
+                this.pendingTerminal === state && (this.pendingTerminal = null);
                 return result
-            }
+            });
 
-            state.promise = Promise.resolve(result).then(admitted => {
-                if (pendingTerminal !== state || state.generation !== vessel.generation) return false;
+            return state.promise
+        }
 
-                pendingTerminal = null;
-                return admitted
+        const state = {generation: vessel.generation, phase: 'terminal', promise: null, vessel};
+
+        this.pendingTerminal = state;
+
+        const result = this.finishTerminal(vessel, data);
+
+        if (this.isDestroyed) return false;
+
+        if (typeof result?.then !== 'function') {
+            this.pendingTerminal = null;
+            return result
+        }
+
+        state.promise = Promise.resolve(result).then(admitted => {
+            if (this.pendingTerminal !== state || state.generation !== vessel.generation) return false;
+
+            this.pendingTerminal = null;
+            return admitted
+        }, () => {
+            this.pendingTerminal === state && (this.pendingTerminal = null);
+            return false
+        });
+
+        return state.promise
+    }
+
+    /**
+     * @summary Forgets a vessel another owning lifecycle has already retired.
+     *
+     * A detached cancel is owned by the tear-out machine: it consumes and closes the same
+     * empty source vessel. This clear-only seam invalidates every pending effect generation
+     * so no late park/re-show completion can resurrect ownership after that external close.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Boolean|Promise<Boolean>} [data.retirement=true] Strict outer-lifecycle close
+     * @returns {Boolean|Promise<Boolean>}
+     */
+    onVesselRetired({itemId, retirement=true} = {}) {
+        if (this.isDestroyed) return false;
+        if (this.pendingRetirement) {
+            return this.pendingRetirement.vessel.itemId === itemId
+                ? this.pendingRetirement.promise
+                : false
+        }
+
+        const vessel = this.pendingTerminal?.vessel ?? this.pendingOut?.vessel ?? this.reshowing?.vessel
+            ?? this.parking?.vessel ?? this.parked;
+
+        if (!vessel || vessel.itemId !== itemId) return false;
+
+        if (typeof retirement?.then === 'function') {
+            const state = {
+                generation: vessel.generation,
+                phase     : 'retiring',
+                promise   : null,
+                vessel
+            };
+
+            this.pendingRetirement = state;
+            state.promise = Promise.resolve(retirement).then(retired => {
+                if (this.pendingRetirement !== state || state.generation !== vessel.generation) return false;
+
+                this.pendingRetirement = null;
+
+                return retired === true ? this.clearState() : false
             }, () => {
-                pendingTerminal === state && (pendingTerminal = null);
+                this.pendingRetirement === state && (this.pendingRetirement = null);
                 return false
             });
 
             return state.promise
-        },
-
-        /**
-         * @summary Forgets a vessel another owning lifecycle has already retired.
-         *
-         * A detached cancel is owned by the tear-out machine: it consumes and closes the same
-         * empty source vessel. This clear-only seam invalidates every pending effect generation
-         * so no late park/re-show completion can resurrect ownership after that external close.
-         * @param {Object} data
-         * @param {String} data.itemId
-         * @param {Boolean|Promise<Boolean>} [data.retirement=true] Strict outer-lifecycle close
-         * @returns {Boolean|Promise<Boolean>}
-         */
-        onVesselRetired({itemId, retirement=true} = {}) {
-            if (pendingRetirement) {
-                return pendingRetirement.vessel.itemId === itemId
-                    ? pendingRetirement.promise
-                    : false
-            }
-
-            const vessel = pendingTerminal?.vessel ?? pendingOut?.vessel ?? reshowing?.vessel
-                ?? parking?.vessel ?? parked;
-
-            if (!vessel || vessel.itemId !== itemId) return false;
-
-            const clear = () => {
-                generation++;
-                parked          = null;
-                parking         = null;
-                pendingOut      = null;
-                pendingRetirement = null;
-                pendingTerminal = null;
-                reshowing       = null;
-
-                return true
-            };
-
-            if (typeof retirement?.then === 'function') {
-                const state = {
-                    generation: vessel.generation,
-                    phase     : 'retiring',
-                    promise   : null,
-                    vessel
-                };
-
-                pendingRetirement = state;
-                state.promise = Promise.resolve(retirement).then(retired => {
-                    if (pendingRetirement !== state || state.generation !== vessel.generation) return false;
-
-                    pendingRetirement = null;
-
-                    return retired === true ? clear() : false
-                }, () => {
-                    pendingRetirement === state && (pendingRetirement = null);
-                    return false
-                });
-
-                return state.promise
-            }
-
-            return retirement === true ? clear() : false
-        },
-
-        /**
-         * @member {Object|null} parkedVessel
-         */
-        get parkedVessel() {
-            return parked
-        },
-
-        /**
-         * @member {Object|null} transition
-         */
-        get transition() {
-            return pendingRetirement ?? pendingTerminal ?? pendingOut ?? reshowing ?? parking
         }
+
+        return retirement === true ? this.clearState() : false
+    }
+
+    /**
+     * @summary Invalidates all pending gesture generations without calling a platform effect.
+     * @returns {Boolean}
+     * @protected
+     */
+    clearState() {
+        this.generation++;
+        this.parked = this.parking = this.pendingOut = this.pendingRetirement = this.pendingTerminal = this.reshowing = null;
+        return true
+    }
+
+    /**
+     * @member {Object|null} parkedVessel
+     */
+    get parkedVessel() {
+        return this.parked ?? null
+    }
+
+    /**
+     * @member {Object|null} transition
+     */
+    get transition() {
+        return this.pendingRetirement ?? this.pendingTerminal ?? this.pendingOut ?? this.reshowing ?? this.parking ?? null
     }
 }
+
+export default Neo.setupClass(VesselPark);

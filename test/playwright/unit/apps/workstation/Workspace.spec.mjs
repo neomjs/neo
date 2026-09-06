@@ -196,6 +196,22 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('the Workspace owns and destroys distinct pointer and native park owners', () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const pointer   = workspace.vesselParkHandlers, native = workspace.nativeVesselParkHandlers;
+
+        try {
+            expect(pointer.className).toBe('Neo.dashboard.dock.window.VesselPark');
+            expect(native.className).toBe('Neo.dashboard.dock.window.VesselPark');
+            expect(pointer).not.toBe(native)
+        } finally {
+            workspace.destroy()
+        }
+
+        expect(pointer.isDestroyed).toBe(true);
+        expect(native.isDestroyed).toBe(true)
+    });
+
     test('renderer-rich scale columns carry unique pooling keys', () => {
         const
             dataFields     = ScalePane.config.columns.map(column => column.dataField),

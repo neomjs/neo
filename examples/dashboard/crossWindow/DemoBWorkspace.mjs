@@ -21,7 +21,7 @@ import {createDockKeyboardCommands}       from '../../../src/dashboard/dock/inte
 import {createDockTearOutHandlers}        from '../../../src/dashboard/dock/window/TearOut.mjs';
 import {createDockVesselEmbodiment}       from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import {createDockWorkspaceSet}           from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
-import {createVesselParkHandlers}         from '../../../src/dashboard/dock/window/VesselPark.mjs';
+import VesselPark                         from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                 from '../../../src/manager/Transaction.mjs';
 import PreviewContract                    from '../../../src/dashboard/dock/model/PreviewContract.mjs';
@@ -636,7 +636,7 @@ class DemoBWorkspace extends Container {
 
         // Conversion never reacquires a popup. The source-owned admission machines retain the
         // existing tear-out vessel while this host binds their effects to its exact native route.
-        me.vesselParkHandlers = createVesselParkHandlers({
+        me.vesselParkHandlers = Neo.create(VesselPark, {
             disposeVessel: vessel => me.disposeParkedTearOutVessel(vessel),
             parkVessel   : vessel => me.parkTearOutVessel(vessel),
             reshowVessel : vessel => me.reshowTearOutVessel(vessel)
@@ -4560,6 +4560,7 @@ class DemoBWorkspace extends Container {
             scope       : me
         });
         me.vesselReservations.clear();
+        me.vesselParkHandlers?.destroy();
         me.tearOutEmbodiment?.destroy();
         me.tearOutEmbodiment = null;
         me.crossWindowStagePromise   = null;

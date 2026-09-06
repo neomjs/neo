@@ -296,6 +296,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
           seedConnection = (itemId, connection) =>
               workspace.nativeWindows.sources.get(workspace.vesselSourceId).connections.set(itemId, connection);
 
+    test('the DemoB host destroys its composed park owner', () => {
+        const owner = workspace.vesselParkHandlers;
+
+        expect(owner.className).toBe('Neo.dashboard.dock.window.VesselPark');
+        workspace.destroy();
+        expect(owner.isDestroyed).toBe(true)
+    });
+
     test.beforeEach(() => {
         // The host window binds into a Group the way its app registration does — before the workspace
         // constructs, as in production, so its participants register into that Group; every slot the
@@ -1538,67 +1546,72 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         };
 
         seedConnection('timeline', {windowId: 'tear-child'});
-        workspace.vesselParkHandlers = {
-            onConversionIn(data) {
-                calls.push(['in', data]);
-                return true
-            },
-            onConversionOut(data) {
-                calls.push(['out', data]);
-                return true
-            },
-            onGestureTerminal(data) {
-                calls.push(['terminal', data]);
-                return Promise.resolve(true)
-            },
-            onVesselRetired(data) {
-                calls.push(['retired', data]);
-                return true
-            }
-        };
+        const previousPark = workspace.vesselParkHandlers;
+        try {
+            workspace.vesselParkHandlers = {
+                onConversionIn(data) {
+                    calls.push(['in', data]);
+                    return true
+                },
+                onConversionOut(data) {
+                    calls.push(['out', data]);
+                    return true
+                },
+                onGestureTerminal(data) {
+                    calls.push(['terminal', data]);
+                    return Promise.resolve(true)
+                },
+                onVesselRetired(data) {
+                    calls.push(['retired', data]);
+                    return true
+                }
+            };
 
-        const mainTabs  = findTabs(workspace.projectDockModel(), 'side-tabs'),
-              popupTabs = findTabs(workspace.projectDockModel(
-                  null,
-                  DemoBWorkspace.POPUP_WORKSPACE_ID,
-                  DemoBWorkspace.createPopupDocument()
-              ), 'popup-tabs');
+            const mainTabs  = findTabs(workspace.projectDockModel(), 'side-tabs'),
+                  popupTabs = findTabs(workspace.projectDockModel(
+                      null,
+                      DemoBWorkspace.POPUP_WORKSPACE_ID,
+                      DemoBWorkspace.createPopupDocument()
+                  ), 'popup-tabs');
 
-        expect(mainTabs.headerToolbar.sortZoneConfig.enableVesselConversion).toBe(true);
-        expect(popupTabs.headerToolbar.sortZoneConfig.enableVesselConversion).toBe(false);
+            expect(mainTabs.headerToolbar.sortZoneConfig.enableVesselConversion).toBe(true);
+            expect(popupTabs.headerToolbar.sortZoneConfig.enableVesselConversion).toBe(false);
 
-        const converted = {
-                  admission: false,
-                  itemId   : 'timeline',
-                  record   : {sourceRect: {height: 320, width: 480, x: 40, y: 60}}
-              },
-              reverted = {
-                  admission  : false,
-                  itemId     : 'timeline',
-                  logicalRect: {height: 320, width: 480, x: 420, y: 240}
-              },
-              terminal = {itemId: 'timeline', outcome: 'committed', settlement: false},
-              retired  = {itemId: 'timeline', retirement: Promise.resolve(true), settlement: false};
+            const converted = {
+                      admission: false,
+                      itemId   : 'timeline',
+                      record   : {sourceRect: {height: 320, width: 480, x: 40, y: 60}}
+                  },
+                  reverted = {
+                      admission  : false,
+                      itemId     : 'timeline',
+                      logicalRect: {height: 320, width: 480, x: 420, y: 240}
+                  },
+                  terminal = {itemId: 'timeline', outcome: 'committed', settlement: false},
+                  retired  = {itemId: 'timeline', retirement: Promise.resolve(true), settlement: false};
 
-        mainTabs.listeners.dockVesselConversionIn(converted);
-        mainTabs.listeners.dockVesselConversionOut(reverted);
-        mainTabs.listeners.dockVesselConversionTerminal(terminal);
-        mainTabs.listeners.dockVesselConversionRetired(retired);
+            mainTabs.listeners.dockVesselConversionIn(converted);
+            mainTabs.listeners.dockVesselConversionOut(reverted);
+            mainTabs.listeners.dockVesselConversionTerminal(terminal);
+            mainTabs.listeners.dockVesselConversionRetired(retired);
 
-        expect(converted.admission).toBe(true);
-        expect(reverted.admission).toBe(true);
-        expect(terminal.settlement).toBeInstanceOf(Promise);
-        expect(retired.settlement).toBe(true);
-        expect(calls).toEqual([
-            ['in', {
-                itemId    : 'timeline',
-                sourceRect: {height: 320, width: 480, x: 40, y: 60},
-                windowName: 'tearout-timeline'
-            }],
-            ['out', {rect: {height: 320, width: 480, x: 420, y: 240}}],
-            ['terminal', terminal],
-            ['retired', retired]
-        ])
+            expect(converted.admission).toBe(true);
+            expect(reverted.admission).toBe(true);
+            expect(terminal.settlement).toBeInstanceOf(Promise);
+            expect(retired.settlement).toBe(true);
+            expect(calls).toEqual([
+                ['in', {
+                    itemId    : 'timeline',
+                    sourceRect: {height: 320, width: 480, x: 40, y: 60},
+                    windowName: 'tearout-timeline'
+                }],
+                ['out', {rect: {height: 320, width: 480, x: 420, y: 240}}],
+                ['terminal', terminal],
+                ['retired', retired]
+            ])
+        } finally {
+            workspace.vesselParkHandlers = previousPark
+        }
     });
 
     test('popup projection alone owns the stack grip and routes one terminal to the optional park machine', () => {
@@ -1620,28 +1633,33 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         popup.nodes['popup-tabs'].items = ['workbench'];
         popup.nodes['popup-tabs'].activeItemId = 'workbench';
         workspace.popupDocument = popup;
-        workspace.vesselParkHandlers = {onGestureTerminal: data => terminals.push(data)};
+        const previousPark = workspace.vesselParkHandlers;
+        try {
+            workspace.vesselParkHandlers = {onGestureTerminal: data => terminals.push(data)};
 
-        const popupTabs = findTabs(workspace.projectDockModel(
-            null,
-            DemoBWorkspace.POPUP_WORKSPACE_ID,
-            popup
-        ), 'popup-tabs');
+            const popupTabs = findTabs(workspace.projectDockModel(
+                null,
+                DemoBWorkspace.POPUP_WORKSPACE_ID,
+                popup
+            ), 'popup-tabs');
 
-        expect(popupTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBe('popup-tabs');
-        expect(popupTabs.items[0].header.text[1].cls).toEqual(['neo-dock-stack-handle']);
+            expect(popupTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBe('popup-tabs');
+            expect(popupTabs.items[0].header.text[1].cls).toEqual(['neo-dock-stack-handle']);
 
-        // The same live pane then projects home item-only: this second projection must restore
-        // its source header before the popup config can leak an affordance into main.
-        const mainTabs = findTabs(workspace.projectDockModel(), 'workbench-tabs');
+            // The same live pane then projects home item-only: this second projection must restore
+            // its source header before the popup config can leak an affordance into main.
+            const mainTabs = findTabs(workspace.projectDockModel(), 'workbench-tabs');
 
-        expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
-        expect(mainTabs.items[0].header).toBeUndefined();
+            expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
+            expect(mainTabs.items[0].header).toBeUndefined();
 
-        popupTabs.listeners.dockStackDragTerminal({
-            itemId: 'workbench', outcome: 'committed', groupNodeId: 'popup-tabs'
-        });
-        expect(terminals).toEqual([{itemId: 'workbench', outcome: 'committed'}])
+            popupTabs.listeners.dockStackDragTerminal({
+                itemId: 'workbench', outcome: 'committed', groupNodeId: 'popup-tabs'
+            });
+            expect(terminals).toEqual([{itemId: 'workbench', outcome: 'committed'}])
+        } finally {
+            workspace.vesselParkHandlers = previousPark
+        }
     });
 
     test('cross-window execution drains a cue projection before it opens the popup stage', async () => {

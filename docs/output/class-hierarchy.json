@@ -252,6 +252,7 @@
  "Neo.dashboard.dock.window.Placement": "Neo.core.Base",
  "Neo.dashboard.dock.window.TopologySeams": "Neo.core.Base",
  "Neo.dashboard.dock.window.VesselConversion": "Neo.core.Base",
+ "Neo.dashboard.dock.window.VesselPark": "Neo.core.Base",
  "Neo.data.Model": "Neo.core.Base",
  "Neo.data.Pipeline": "Neo.core.Base",
  "Neo.data.RecordFactory": "Neo.core.Base",
