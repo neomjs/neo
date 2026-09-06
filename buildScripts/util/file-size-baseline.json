@@ -1,6 +1,6 @@
 {
     "apps/workstation/view/Workspace.mjs": 2970,
-    "examples/dashboard/crossWindow/DemoBWorkspace.mjs": 2619,
+    "examples/dashboard/crossWindow/DemoBWorkspace.mjs": 2622,
     "src/dashboard/dock/Workspace.mjs": 1017,
     "src/main/addon/DragDrop.mjs": 1267
 }
