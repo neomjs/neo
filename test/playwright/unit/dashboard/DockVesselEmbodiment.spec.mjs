@@ -162,7 +162,8 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
 
     test.beforeEach(() => {
         source = Neo.create(Container, {
-            items: [
+            windowId: 'source-window',
+            items   : [
                 {module: Component, html: 'before'},
                 {module: Component, html: 'live'},
                 {module: Component, html: 'after'}
@@ -337,6 +338,32 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
         expect(proxyEmbodiment.restoreByWindow('source-window')).toBe(false);
         expect(proxyEmbodiment.restoreByWindow('parked-popup-window')).toBe(true);
         expect(source.items[1]).toBe(pane)
+    });
+
+    test('an omitted source window follows the live parked pane and survives later target-local moves', async () => {
+        source.windowId = 'parked-popup-window';
+        const fixture = createFixture();
+
+        expect(pane.windowId).toBe('parked-popup-window');
+        expect(fixture.move()).toBe(true);
+        await expect.poll(() => proxyEmbodiment.snapshot('live')?.settled).toBe(true);
+        expect(proxyEmbodiment.snapshot('live')).toMatchObject({
+            sourceWindowId: 'parked-popup-window', targetWindowId: 'target-window'
+        });
+        expect(pane.windowId, 'the first move reparents the pane into the target renderer').toBe('target-window');
+
+        expect(fixture.move(75)).toBe(true);
+        expect(fixture.proxies, 'another frame keeps the same staged proxy').toHaveLength(1);
+        expect(proxyEmbodiment.snapshot('live').sourceWindowId).toBe('parked-popup-window');
+        await expect(proxyEmbodiment.whenSettled({
+            itemId: 'live', sourceWindowId: 'parked-popup-window', targetWindowId: 'target-window'
+        })).resolves.toBe(true);
+
+        expect(proxyEmbodiment.restoreByWindow('source-window'), 'the originating sort zone owns no parked render target').toBe(false);
+        expect(proxyEmbodiment.restoreByWindow('parked-popup-window')).toBe(true);
+        expect(source.items[1]).toBe(pane);
+        expect(pane.windowId).toBe('parked-popup-window');
+        expect(proxyEmbodiment.snapshot('live')).toBeNull()
     });
 
     test('commit promotion preserves pane identity while retiring the transient proxy exact-once', async () => {

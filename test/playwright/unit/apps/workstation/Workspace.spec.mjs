@@ -557,67 +557,6 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('target-proxy staging uses the physical parked popup instead of the source sort-zone window', async () => {
-        const
-            workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
-            originalProxy   = workspace.vesselProxyEmbodiment,
-            settledPayloads = [],
-            stagedPayloads  = [];
-        let participation;
-
-        try {
-            workspace.nativeWindows.sources.get(workspace.id).connections.set("audit", {windowId: 'parked-audit-popup'});
-            registerPopupState(workspace, 'proxy-target-workspace', {
-                preview: {
-                    dockPreview: {itemId: 'audit'},
-                    promiseUpdate() {
-                        settledPayloads.push('preview-rendered')
-                    }
-                }
-            });
-            workspace.vesselProxyEmbodiment = {
-                move: data => {
-                    stagedPayloads.push(data);
-                    return true
-                },
-                promote: () => true,
-                restore: () => true,
-                whenSettled(data) {
-                    settledPayloads.push(data);
-                    return true
-                }
-            };
-
-            participation = await workspace.createCrossWindowParticipation({
-                windowId   : 'proxy-target-window',
-                workspaceId: 'proxy-target-workspace'
-            });
-
-            const payload = {
-                draggedItem   : {dockItemId: 'audit'},
-                proxyRect     : {height: 80, width: 160, x: 20, y: 30},
-                sourceSortZone: {windowId: workspace.windowId}
-            };
-
-            expect(participation.target.stageDragEmbodiment(payload)).toBe(true);
-            expect(stagedPayloads).toEqual([{
-                ...payload,
-                sourceWindowId: 'parked-audit-popup',
-                targetWindowId: 'proxy-target-window'
-            }]);
-            await expect(participation.target.awaitDragEmbodiment(payload)).resolves.toBe(true);
-            expect(settledPayloads).toEqual([{
-                itemId        : 'audit',
-                sourceWindowId: 'parked-audit-popup',
-                targetWindowId: 'proxy-target-window'
-            }, 'preview-rendered'])
-        } finally {
-            participation?.destroy();
-            workspace.vesselProxyEmbodiment = originalProxy;
-            workspace.destroy()
-        }
-    });
-
     test('large-over-small park uses both live extents and restores the same exact popup', async () => {
         const
             workspace          = Neo.create(Workspace, {windowId: Neo.config.windowId}),

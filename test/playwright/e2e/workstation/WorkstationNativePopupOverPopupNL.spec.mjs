@@ -434,32 +434,31 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
 
             try {
                 await expect.poll(async () => {
-                    const [state, nativeLifecycle] = await Promise.all([
-                        app.getComponent(workspaceId, ['dockModel', 'lastCrossWindowTransfer', 'lastVesselParkReceipt']),
+                    const [state, group, nativeLifecycle] = await Promise.all([
+                        app.getComponent(workspaceId, ['lastVesselParkReceipt']),
+                        app.callMethod(workspaceId, 'controller.getTopologyState'),
                         readNativeLifecycle(app, workspaceId)
                     ]);
 
-                    receipt = {...state, nativeLifecycle};
+                    receipt = {...state, group, nativeLifecycle, dockModel: group.snapshot.participants['workstation-main']};
 
                     return {
-                        applied       : state.lastCrossWindowTransfer?.applied === true,
-                        operation     : state.lastCrossWindowTransfer?.descriptor?.operation ?? null,
                         parked        : state.lastVesselParkReceipt?.parked === true,
                         sourceClosed  : source.popup.isClosed(),
                         sourceWindowId: nativeLifecycle.owners[SOURCE_ITEM].windowId,
-                        target        : state.lastCrossWindowTransfer?.targetWorkspaceId ?? null
+                        sourceItems   : Object.keys(group.snapshot.participants[`workstation-vessel:${SOURCE_ITEM}`].items),
+                        targetItems   : Object.keys(group.snapshot.participants[TARGET_WORKSPACE_ID].items).sort()
                     }
                 }, {
                     message  : 'dwelling over the target vessel commits the transfer and retires the source vessel',
                     timeout  : 15000,
                     intervals: [50, 100, 250]
                 }).toEqual({
-                    applied       : true,
-                    operation     : 'transferItem',
                     parked        : true,
                     sourceClosed  : true,
                     sourceWindowId: null,
-                    target        : TARGET_WORKSPACE_ID
+                    sourceItems   : [],
+                    targetItems   : [SOURCE_ITEM, TARGET_ITEM].sort()
                 })
             } catch (error) {
                 // Bounded triage receipt: which phase the native terminal died in, what the target saw
@@ -474,7 +473,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                     lifecycle     : await readNativeLifecycle(app, workspaceId).catch(e => String(e)),
                     park          : receipt?.lastVesselParkReceipt ?? null,
                     snapshot      : await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{parkedItemId: SOURCE_ITEM, targetWorkspaceId: TARGET_WORKSPACE_ID}]).catch(e => String(e)),
-                    transfer      : receipt?.lastCrossWindowTransfer ?? null,
+                    group         : receipt?.group ?? null,
                     windows       : (await app.callMethod(managerId, 'toJSON')).windows.map(win => ({id: win.id, chrome: win.chrome, innerRect: win.innerRect, outerRect: win.outerRect}))
                 }, null, 1));
                 throw error
