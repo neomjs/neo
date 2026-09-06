@@ -222,13 +222,22 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             const alertsId = await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['alerts']);
             await expect(popup.locator(`[id="${feedId}"]`)).toBeVisible();
 
+            expect(await root.app.callMethod(root.workspaceId, 'dockService.capturePerspective', [{
+                captureScope: 'topology', componentId: root.workspaceId, layoutId: 'sibling-capture', title: 'Sibling capture'
+            }])).toMatchObject({captured: true, stored: true, errors: []});
+            // Capture selects its new record; resume the working layout before its automatic saves.
+            expect(await root.app.callMethod(root.workspaceId, 'saveTopology', ['layout-b']))
+                .toMatchObject({persisted: true, current: true, errors: []});
+
             await popup.locator(TAB, {hasText: 'Priority Alert Observatory'}).click();
             await expect(popup.locator(`[id="${alertsId}"]`)).toBeVisible();
             await expect(popup.locator(`[id="${feedId}"]`)).toBeHidden();
             await expect.poll(async () => (await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces')).details.nodes['details-tabs'].activeItemId).toBe('alerts');
+            expect((await root.app.getComponent(root.workspaceId, ['topologyCollection'])).topologyCollection.topologies['sibling-capture'].workspaces.details)
+                .toEqual(seed.records.b.workspaces.details);
 
             const restored = await root.app.callMethod(root.workspaceId, 'dockService.restorePerspective', [{
-                componentId: root.workspaceId, name: 'layout-b'
+                componentId: root.workspaceId, name: 'sibling-capture'
             }]);
             expect(restored).toMatchObject({switched: true, errors: []});
             expect((await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces')).details).toEqual(seed.records.b.workspaces.details);
