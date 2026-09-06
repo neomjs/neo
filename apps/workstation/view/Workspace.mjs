@@ -1581,7 +1581,7 @@ class Workspace extends DockWorkspace {
             sourceItemId    = sourceWorkspace === Workspace.MAIN_WORKSPACE_ID
                 ? itemId
                 : sourceState?.itemId,
-            storedHome      = sourceItemId && me.tearOutHandlers?.peekPlacement(sourceItemId)?.tabsNodeId,
+            storedHome      = sourceItemId && me.tearOutHandlers?.peekPlacement?.(sourceItemId)?.tabsNodeId,
             targetNodeId    = isMain
                 ? (me.dockModel.nodes?.[storedHome]?.type === 'tabs'
                     ? storedHome
@@ -2060,7 +2060,7 @@ class Workspace extends DockWorkspace {
         if (!state?.committed || !me.workspaceSet.has(workspaceId)) return false;
         if (!itemIds.length) return true;
 
-        let placement  = me.tearOutHandlers?.peekPlacement(itemId),
+        let placement  = me.tearOutHandlers?.peekPlacement?.(itemId),
             storedHome = placement && me.dockModel.nodes?.[placement.tabsNodeId]?.type === 'tabs'
                 ? placement.tabsNodeId
                 : null,
@@ -3540,6 +3540,24 @@ class Workspace extends DockWorkspace {
      * @returns {Boolean}
      * @protected
      */
+    /**
+     * @summary Semantic recovery that never resurrects a node.
+     *
+     * The stored `{tabsNodeId, index}` pair captured at the detach terminal is the placement truth,
+     * and recovery is SEMANTIC, never geometric: a stored home that left the tree falls back to the
+     * first surviving tabs node and appends. The engine's default answers with `restoreTab`, which
+     * re-mints the remembered parent/slot — the exact position back, but a node the user watched
+     * collapse comes back with it. This app's contract is the other one.
+     * @param {Object} document
+     * @param {String} itemId
+     * @param {Object|null} placement
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveDockReturnDescriptor(document, itemId, placement) {
+        return Operations.appendingReturnDescriptor(document, itemId, placement)
+    }
+
     reparentDockPane(pane, target={}, itemId) {
         let me         = this,
             {windowId} = target;
@@ -4666,7 +4684,7 @@ class Workspace extends DockWorkspace {
             // The film gesture aims at the semantic return target itself: the indicator
             // menu's active candidate is selected geometrically, so the synthetic cursor
             // hovers the stored-home tabs node (window center can lie outside it).
-            let storedHome   = me.tearOutHandlers?.peekPlacement(state.itemId)?.tabsNodeId,
+            let storedHome   = me.tearOutHandlers?.peekPlacement?.(state.itemId)?.tabsNodeId,
                 returnNodeId = me.dockModel.nodes?.[storedHome]?.type === 'tabs'
                     ? storedHome
                     : Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],

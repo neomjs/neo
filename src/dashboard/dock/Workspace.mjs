@@ -460,14 +460,15 @@ class Workspace extends Container {
                 onAdoptionFailed    : data => this.reportDockAdoptionFailure(data),
                 onDocumentChange    : (document, operation, vessel) => this.onTearOutDocumentChange(document, operation, vessel),
                 onPaneAdopted       : (itemId, entry, connection, isMerge) => this.recordDockPaneOwner(itemId, entry, connection, isMerge),
-                onPaneReturn        : data => this.fire('dockPaneReturn', {component: this, ...data}),
+                onPaneReturn        : data => this.onDockPaneReturn(data),
                 openVessel          : request => this.acquireTearOutVessel(request),
                 // The three below are GENERIC pane capabilities, not tear-out members: a consumer
                 // that owns its pane lifecycle overrides these three and nothing else, which is the
                 // Ownership test's third question answered in the signature rather than in prose.
-                reparentPane: (pane, target, itemId) => this.reparentDockPane(pane, target, itemId),
-                resolvePane : itemId => this.resolveLivePane(itemId),
-                settlePane  : pane => this.settleDockPane(pane)
+                reparentPane           : (pane, target, itemId) => this.reparentDockPane(pane, target, itemId),
+                resolvePane            : itemId => this.resolveLivePane(itemId),
+                resolveReturnDescriptor: (document, itemId, placement) => this.resolveDockReturnDescriptor(document, itemId, placement),
+                settlePane             : pane => this.settleDockPane(pane)
             });
 
             // One worker lifecycle subscriber exists — `Neo.manager.Transaction`. This workspace only
@@ -753,10 +754,10 @@ class Workspace extends Container {
         !entry && admission.sortZone?.endWindowDrag();
 
         if (entry && !entry.windowId) {
-            const pane = me.tearOutHandlers.releasePane(itemId);
+            const pane = me.tearOutHandlers?.releasePane?.(itemId) || null;
 
             delete me.tearOutPanes[itemId];
-            await me.tearOutHandlers.reintegrateItem(itemId, pane);
+            await me.tearOutHandlers?.reintegrateItem?.(itemId, pane);
             me.afterTearOutWindowDisconnect({committed: true, entry, expired: true, itemId, pane})
         }
     }
@@ -928,11 +929,14 @@ class Workspace extends Container {
             captured = isDetach ? WorkspaceDocument.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
             result;
 
-        captured && me.tearOutHandlers.recordPlacement(descriptor.itemId, captured);
+        // Optional by CONTRACT, not defensively: the choreography exists only under
+        // `enableDockTearOutLifecycle`, so a workspace that declined it records no placement — which
+        // is the declinability itself, not a missing collaborator to guard against.
+        captured && me.tearOutHandlers?.recordPlacement(descriptor.itemId, captured);
 
         result = me.applyDockZoneOperation(descriptor);
 
-        isDetach && result?.errors?.length && me.tearOutHandlers.forgetPlacement(descriptor.itemId);
+        isDetach && result?.errors?.length && me.tearOutHandlers?.forgetPlacement(descriptor.itemId);
 
         return result
     }
@@ -1067,6 +1071,48 @@ class Workspace extends Container {
         );
 
         me.fire('dockTearOutAdoptionFailed', {component: me, ...data})
+    }
+
+    /**
+     * @summary WHERE a returning item lands — the return POLICY, which is the host's, not the
+     * choreography's.
+     *
+     * The engine answers with `restoreTab`, which re-mints the remembered parent/slot when the home
+     * node itself is gone: the exact position back, at the cost of resurrecting a node the user
+     * watched collapse. A consumer whose contract is "never resurrect a node" overrides this one
+     * method and answers with an append instead — which is what both shipped consumers do, and the
+     * reason each carried a whole forked return before this seam existed.
+     * @param {Object} document The committed document the item is returning into.
+     * @param {String} itemId
+     * @param {Object|null} placement The recorded `{tabsNodeId, index, home}`, or null.
+     * @returns {Object|null} A reducer descriptor, or null when no home can be found at all.
+     * @protected
+     */
+    resolveDockReturnDescriptor(document, itemId, placement) {
+        const target = placement || {
+            tabsNodeId: Object.entries(document?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0]
+        };
+
+        return target.tabsNodeId ? {operation: 'restoreTab', itemId, ...target} : null
+    }
+
+    /**
+     * @summary Observes a pane's semantic return, on the lifecycle's own channel.
+     *
+     * One method for both ends of the return: `phase` is `'before'` (the pane is about to travel,
+     * app-owned preparation belongs here) or `'after'` (`returned` carries the disposition). Two
+     * hooks used to exist for this and neither could see the other's half.
+     * @param {Object} data
+     * @param {Error} [data.error] Present when the projection rejected.
+     * @param {String[]} [data.errors] Present when the reducer refused.
+     * @param {String} data.itemId
+     * @param {Neo.component.Base|null} data.pane
+     * @param {String} data.phase `'before'` or `'after'`.
+     * @param {Boolean} [data.returned] Only on `'after'`.
+     * @protected
+     */
+    onDockPaneReturn(data) {
+        this.fire('dockPaneReturn', {component: this, ...data})
     }
 
     /**
@@ -1291,13 +1337,13 @@ class Workspace extends Container {
 
         for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
             if (entry.windowId === data.windowId) {
-                const pane = me.tearOutHandlers.releasePane(itemId);
+                const pane = me.tearOutHandlers?.releasePane?.(itemId) || null;
 
                 delete me.tearOutPanes[itemId];
                 delete me.tearOutConnects[itemId];
                 me.clearTearOutAdmission(itemId);
                 me.tearOutHandlers?.onVesselRetired({...entry, itemId});
-                await me.tearOutHandlers.reintegrateItem(itemId, pane);
+                await me.tearOutHandlers?.reintegrateItem?.(itemId, pane);
                 me.afterTearOutWindowDisconnect({committed: true, data, entry, itemId, pane});
                 return
             }
@@ -1353,7 +1399,7 @@ class Workspace extends Container {
 
         // The choreography returns the panes it held and forgets them in one call; destroying them
         // stays here, because component lifetime is never the decision machine's to own.
-        const panes = new Set(me.tearOutHandlers?.retirePaneState() || []);
+        const panes = new Set(me.tearOutHandlers?.retirePaneState?.() || []);
 
         panes.forEach(pane => me.settleDockPane(pane));
 
@@ -2760,7 +2806,7 @@ class Workspace extends Container {
             placeholders,
             preserveItemIds: [...new Set([
                 ...me.getPreservedItemIds(),
-                ...(me.enableDockTearOutLifecycle ? (me.tearOutHandlers?.heldPaneIds() || []) : []),
+                ...(me.enableDockTearOutLifecycle ? (me.tearOutHandlers?.heldPaneIds?.() || []) : []),
                 ...(refreshOptions.preserveItemIds || [])
             ])],
             resolveItem    : itemId => {
@@ -2923,7 +2969,7 @@ class Workspace extends Container {
      * @protected
      */
     resolveProjectedPane(itemId, item) {
-        const returning = this.tearOutHandlers?.takeReturningPane(itemId);
+        const returning = this.tearOutHandlers?.takeReturningPane?.(itemId);
 
         if (returning) {
             if (!returning.isDestroyed) {

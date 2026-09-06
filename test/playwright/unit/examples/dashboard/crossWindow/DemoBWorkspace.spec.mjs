@@ -662,7 +662,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 .toHaveLength(3);
             expect(sourceParent.items[sourceIndex].cls).toContain('neo-dashboard-dock-vessel-placeholder');
 
-            workspace.adoptTearOutPane('timeline');
+            workspace.tearOutHandlers.adoptPane('timeline', {}, workspace.tearOutConnects.timeline || null);
             expect(harness.addedTo('tear-child'), 'terminal promotion never reparents twice').toEqual([pane]);
             expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child');
             expect(workspace.tearOutConnects.timeline, 'committed ownership has only one lifecycle map').toBeUndefined();
@@ -1781,7 +1781,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(result.errors).toEqual([]);
         // `home` carries the tabs node's OWN position, so the record can rebuild a zone the detach
         // collapsed rather than only find one that survived.
-        expect(workspace.tearOutPlacements.timeline).toEqual({tabsNodeId: 'side-tabs', index: 1, home: {parentId: 'root', slot: 'right'}});
+        expect(workspace.tearOutHandlers.peekPlacement('timeline')).toEqual({tabsNodeId: 'side-tabs', index: 1, home: {parentId: 'root', slot: 'right'}});
 
         workspace.onWorkspaceDocumentChange('demo-b-main', result.document);
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['inspector', 'console']);
@@ -1792,7 +1792,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items, 'identical order, not append order').toEqual(['inspector', 'timeline', 'console']);
         expect(workspace.tearOutPanes.timeline).toBeUndefined();
-        expect(workspace.tearOutPlacements.timeline, 'the placement record is consumed exact-once').toBeUndefined();
+        expect(workspace.tearOutHandlers.peekPlacement('timeline'), 'the placement record is consumed exact-once').toBeNull();
 
         // idempotent: a duplicate disconnect for the same window finds nothing and mutates nothing
         const stable = JSON.stringify(workspace.getDockZoneDocument());
@@ -1833,7 +1833,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'ghost-item'});
 
         expect(result.errors.length).toBeGreaterThan(0);
-        expect(workspace.tearOutPlacements['ghost-item']).toBeUndefined()
+        expect(workspace.tearOutHandlers.peekPlacement('ghost-item')).toBeNull()
     });
 
     test('reintegration is idempotent against an item some other flow already re-treed', () => {
@@ -1855,7 +1855,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         expect(WorkspaceDocument.findContainingTabsId(doc, 'timeline')).toBe('workbench-tabs');
         expect(doc.nodes['workbench-tabs'].items.filter(id => id === 'timeline')).toHaveLength(1);
-        expect(workspace.tearOutPlacements.timeline).toBeUndefined()
+        expect(workspace.tearOutHandlers.peekPlacement('timeline')).toBeNull()
     });
 
     test('resolveDockWorkspaceId answers by host containment, in either window, and fails closed outside', () => {

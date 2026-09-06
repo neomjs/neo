@@ -646,11 +646,12 @@ class DemoBWorkspace extends Container {
             openVessel      : request => me.openTearOutVessel(request),
             reparentPane    : (pane, target, itemId) => me.reparentDockPane(pane, target, itemId),
             resolvePane     : itemId => me.paneCache[itemId] || null,
+            // NEVER a resurrected node: the engine's default re-mints the remembered parent/slot,
+            // and the user watched that node collapse.
+            resolveReturnDescriptor: (document, itemId, placement) =>
+                Operations.appendingReturnDescriptor(document, itemId, placement),
             settlePane      : pane => {
-                if (pane && !pane.isDestroyed) {
-                    pane.parent?.remove(pane, false);
-                    pane.destroy()
-                }
+                pane && !pane.isDestroyed && (pane.parent?.remove(pane, false), pane.destroy())
             }
         });
 

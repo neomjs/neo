@@ -268,7 +268,7 @@ class PopOutFixtureWorkspace extends DockWorkspace {
             return
         }
 
-        this.compensateFailedTearOutAdoption(value, {windowName: `dock-popout-vessel-${value}`})
+        this.tearOutHandlers.compensateFailedAdoption(value, {windowName: `dock-popout-vessel-${value}`})
     }
 
     /**

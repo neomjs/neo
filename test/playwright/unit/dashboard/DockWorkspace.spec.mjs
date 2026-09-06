@@ -366,7 +366,9 @@ class TearOutWorkspace extends DockWorkspace {
         return this.grant ? this.grant(context) : true
     }
 
-    afterTearOutPaneReturn(data) {
+    onDockPaneReturn(data) {
+        if (data.phase !== 'after') return;
+
         const landed = data.returned && this.getReference(`tearout-pane-${data.itemId}`) === data.pane;
 
         this.lifecycleEvents.push(`return:${data.returned}:${Boolean(landed)}`)
@@ -396,8 +398,8 @@ class TearOutWorkspace extends DockWorkspace {
         return {module: Container, reference: `tearout-pane-${itemId}`}
     }
 
-    resolveTearOutPane(itemId) {
-        return this.tearOutPaneHandles[itemId] || this.getReference(`tearout-pane-${itemId}`)
+    resolveLivePane(itemId) {
+        return this.getReference(`tearout-pane-${itemId}`) || null
     }
 }
 
@@ -643,7 +645,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 'applyDockZoneOperation',
                 'openTearOutVessel',   // nor acquire a vessel outside the pair
                 'acquireTearOutVessel',
-                'reintegrateTearOutItem',
+                'reintegrateItem',
                 'retireTearOutVessel',
                 'onVesselRetired'
             ]) {
@@ -931,15 +933,26 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
     });
 
     test('#17681 owns the reusable tear-out lifecycle on DockWorkspace, not on application hosts', () => {
+        // This surface is split in two, so the ownership claim has to be made twice.
+        // The HOST keeps what only a component can do — resolve, reparent, destroy, record, report;
+        // the choreography that sequences them is engine-owned in `window/TearOut.mjs`. An app that
+        // re-implements either half is the defect this test exists to catch.
         for (const method of [
-            'adoptTearOutPane',
             'applyTearOutOperation',
+            'onDockPaneReturn',
             'onTopologyBind',
             'onTopologyRelease',
-            'reintegrateTearOutItem',
-            'reparentTearOutPane'
+            'recordDockPaneOwner',
+            'reparentDockPane',
+            'reportDockAdoptionFailure',
+            'resolveLivePane',
+            'settleDockPane'
         ]) {
-            expect(typeof DockWorkspace.prototype[method], `${method} is engine-owned`).toBe('function')
+            expect(typeof DockWorkspace.prototype[method], `${method} is an engine-owned host seam`).toBe('function')
+        }
+
+        for (const moved of ['adoptTearOutPane', 'reintegrateTearOutItem', 'reparentTearOutPane', 'resolveTearOutPane']) {
+            expect(DockWorkspace.prototype[moved], `${moved} moved to the choreography and left no wrapper`).toBeUndefined()
         }
 
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
@@ -951,22 +964,28 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         /**
          * Drives the real detach through `applyTearOutOperation` — the wrapper that records the
          * placement — and commits it, so reintegration reads exactly the state a closed vessel
-         * leaves behind. Anything less (hand-writing `tearOutPlacements`) would test the record I
+         * leaves behind. Anything less (hand-writing the placement) would test the record I
          * wrote rather than the one the engine keeps.
          * @param {String} itemId
          * @returns {Object} the committed post-detach document
          */
-        const detach = itemId => {
-            const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId});
+        // Placement recording is part of the tear-out lifecycle rather than unconditional state on
+        // every workspace — that IS the declinability contract. These arms exercise the return,
+        // so they opt the lifecycle in explicitly instead of relying on a workspace that declined it.
+        const armed = (document=createDocument()) =>
+                  Neo.create(PlainWorkspace, {dockModel: document, enableDockTearOutLifecycle: true}),
 
-            expect(result.errors).toEqual([]);
-            workspace.onDockZoneDocumentChange(result.document);
+              detach = itemId => {
+                  const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId});
 
-            return result.document
-        };
+                  expect(result.errors).toEqual([]);
+                  workspace.onDockZoneDocumentChange(result.document);
+
+                  return result.document
+              };
 
         test('AC-1/AC-4 a pane ALONE in its split child returns to that side, not to the first tabs node', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             // `editor` is alone in `editor-tabs`, the left child of a two-child split — the exact
             // shape the operator's consumer reported, and the common tear-out rather than the rare one.
@@ -975,7 +994,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(detached.nodes['editor-tabs'], 'the emptied home is gone').toBeUndefined();
             expect(detached.nodes['root-split'],  'and the split collapsed with it').toBeUndefined();
 
-            expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', null)).toBe(true);
 
             const doc     = workspace.dockModel,
                   splitId = Object.keys(doc.nodes).find(id => doc.nodes[id].type === 'split'),
@@ -993,28 +1012,30 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('AC-3 a pane with SIBLINGS returns to its own node at its own index', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             const detached = detach('preview');
 
             expect(detached.nodes['side-tabs'], 'the home survived — terminal held it open').toBeTruthy();
 
-            expect(await workspace.reintegrateTearOutItem('preview', null)).toBe(true);
+            expect(await workspace.tearOutHandlers.reintegrateItem('preview', null)).toBe(true);
             expect(workspace.dockModel.nodes['side-tabs'].items, 'index 0, not appended').toEqual(['preview', 'terminal'])
         });
 
         test('AC-5 the SAME pane instance comes home — asserted on the component id', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             const pane   = Neo.create(Container, {}),
                   paneId = pane.id,
                   seen   = [];
 
-            workspace.afterTearOutPaneReturn = data => seen.push(data);
+            // One hook carries both ends of the return now, so the arm filters to the disposition
+            // half — the 'before' beat has no `returned` to assert and would inflate the count.
+            workspace.onDockPaneReturn = data => data.phase === 'after' && seen.push(data);
 
             detach('editor');
 
-            expect(await workspace.reintegrateTearOutItem('editor', pane)).toBe(true);
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', pane)).toBe(true);
 
             // A node moved between documents is necessarily re-created, so DOM identity cannot carry
             // this. The instance is what survives, and its id is how that is honestly read.
@@ -1027,15 +1048,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('AC-6 an item with NO recorded placement still lands somewhere valid', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             const detached = detach('editor');
 
             // The record is the thing being taken away here: without it there is no home to rebuild,
             // and the first tabs node in document order is a last resort rather than a placement.
-            delete workspace.tearOutPlacements.editor;
+            workspace.tearOutHandlers.forgetPlacement('editor');
 
-            expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', null)).toBe(true);
 
             expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'), 'somewhere beats nowhere').toBeTruthy();
             expect(WorkspaceDocument.validate(workspace.dockModel)).toEqual([]);
@@ -1043,7 +1064,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('a pane docked into the recorded home while the vessel is open is NOT displaced', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
+            workspace = armed(createEdgeDocument());
 
             const placement = WorkspaceDocument.captureItemPlacement(workspace.dockModel, 'inspector'),
                   detached  = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'inspector'});
@@ -1062,7 +1083,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             WorkspaceDocument.setZoneNodeId(occupied.nodes[placement.home.parentId], placement.home.slot, 'late-right');
             workspace.onDockZoneDocumentChange(occupied);
 
-            expect(await workspace.reintegrateTearOutItem('inspector', null)).toBe(true);
+            expect(await workspace.tearOutHandlers.reintegrateItem('inspector', null)).toBe(true);
 
             const doc = workspace.dockModel;
 
@@ -1074,15 +1095,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('a recorded home that resolves to NOTHING falls back rather than dropping the pane', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             detach('editor');
 
             // Both halves of the record point at nodes that no longer exist — the zone AND the
             // sibling its split collapsed into. The restore fails closed; the return path must not.
-            Object.assign(workspace.tearOutPlacements.editor.home, {parentId: 'gone', siblingId: 'gone-too'});
+            Object.assign(workspace.tearOutHandlers.peekPlacement('editor').home, {parentId: 'gone', siblingId: 'gone-too'});
 
-            expect(await workspace.reintegrateTearOutItem('editor', null)).toBe(true);
+            expect(await workspace.tearOutHandlers.reintegrateItem('editor', null)).toBe(true);
             expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor')).toBeTruthy()
         })
     });
@@ -1253,7 +1274,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             // The rollback half of the real wrapper: a refused detach keeps no placement record,
             // which is what lets a later attempt capture a fresh one.
-            expect(workspace.tearOutPlacements.preview, 'a refused detach records no placement').toBeUndefined()
+            expect(workspace.tearOutHandlers.peekPlacement('preview'), 'a refused detach records no placement').toBeNull()
         });
 
         // A click is asynchronous across two awaits while `destroy()` is synchronous, so the window
@@ -1409,7 +1430,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
             expect(workspace.tearOutPanes.preview).toMatchObject({windowId: null});
-            expect(workspace.tearOutPaneHandles.preview).toBe(pane);
+            expect(workspace.tearOutHandlers.heldPane('preview')).toBe(pane);
             await workspace.refreshPromise;
 
             const mainView = addWindow('terminal-first');
@@ -1561,7 +1582,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             expect(workspace.closeRequests).toEqual([]);
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
-            expect(mainView.items).toContain(workspace.tearOutPaneHandles.preview)
+            expect(mainView.items).toContain(workspace.tearOutHandlers.heldPane('preview'))
         });
 
         test('a foreign Group, a stranger token and an unreserved slot never reach product continuation or ownership', async () => {
@@ -1769,8 +1790,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(JSON.stringify(workspace.dockModel)).toBe(before);
             expect(workspace.closeRequests).toHaveLength(1);
             expect(workspace.closeRequests[0]).toMatchObject({itemId: 'preview', workspaceKey: 'popup:preview'});
-            expect(workspace.tearOutPlacements.preview).toBeUndefined();
-            expect(workspace.tearOutPaneHandles.preview).toBeUndefined()
+            expect(workspace.tearOutHandlers.peekPlacement('preview')).toBeNull();
+            expect(workspace.tearOutHandlers.heldPane('preview')).toBeNull()
         });
 
         test('a pre-terminal disconnect retires only provisional ownership with zero document mutation', async () => {
@@ -3417,20 +3438,25 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
     });
 
     test.describe('#18153 the engine resolves its own tear-out pane', () => {
-        test('a workspace that overrides nothing resolves the live projected pane', () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+        // The resolution lives behind the choreography, and the choreography only exists
+        // under `enableDockTearOutLifecycle` — so these arms arm it, rather than asserting against a
+        // workspace that declined the whole concern.
+        const armed = () => Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockTearOutLifecycle: true});
 
-            const pane = workspace.resolveTearOutPane('editor');
+        test('a workspace that overrides nothing resolves the live projected pane', () => {
+            workspace = armed();
+
+            const pane = workspace.tearOutHandlers.peekPane('editor');
 
             // Before this default the hook returned null, and the decline was not survivable:
-            // captureTearOutPane stores nothing, reparentTearOutPane finds no pane and returns false,
-            // and compensateFailedTearOutAdoption CLOSES the vessel the consumer was asked to open.
+            // `capturePane` stores nothing, the reparent finds no pane and returns false, and
+            // `compensateFailedAdoption` CLOSES the vessel the consumer was just asked to open.
             expect(pane, 'the engine finds the projected pane without a consumer hook').toBeTruthy();
             expect(pane.dockItemId, 'and it is the pane for the requested item').toBe('editor')
         });
 
         test('it returns the PANE, never the tab header button that carries the same identity', () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             // LayoutAdapter stamps dockItemId on the header it builds from the pane's own config, so
             // the button carries the identity structurally too. An unqualified down() can return it,
@@ -3442,25 +3468,25 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(matches.length, 'the identity is stamped on more than one component').toBeGreaterThan(1);
             expect(buttons.length, 'and one of them is a tab header button — the arm is not vacuous').toBeGreaterThan(0);
 
-            expect(workspace.resolveTearOutPane('editor').ntype,
+            expect(workspace.tearOutHandlers.peekPane('editor').ntype,
                 'the resolver skips the button').not.toBe('tab-header-button')
         });
 
-        test('captureTearOutPane now retains a handle, which is what makes the vessel survivable', () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+        test('capturePane retains a handle, which is what makes the vessel survivable', () => {
+            workspace = armed();
 
-            workspace.captureTearOutPane('editor');
+            workspace.tearOutHandlers.capturePane('editor');
 
             // The whole failure chain starts here: an empty handle map is what makes the reparent
             // fail and the engine close its own vessel.
-            expect(workspace.tearOutPaneHandles.editor, 'the handle map is populated').toBeTruthy();
-            expect(workspace.releaseTearOutPane('editor'), 'and the pane is releasable for return').toBeTruthy()
+            expect(workspace.tearOutHandlers.heldPane('editor'), 'the handle map is populated').toBeTruthy();
+            expect(workspace.tearOutHandlers.releasePane('editor'), 'and the pane is releasable for return').toBeTruthy()
         });
 
         test('an unknown itemId still resolves to null rather than an arbitrary component', () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
-            expect(workspace.resolveTearOutPane('no-such-item')).toBeNull()
+            expect(workspace.tearOutHandlers.peekPane('no-such-item')).toBeNull()
         });
 
         test('a projection PLACEHOLDER is never torn out, however it carries the identity', () => {
@@ -3473,23 +3499,31 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // blank and loses the pane, silently. The hook is `resolvePane`, not `resolveFreshPane`:
             // the recreate hook now delegates to it, so writing no recreate hook no longer implies
             // an unresolvable pane.
-            expect(workspace.isDockTearOutCandidate({cls: ['neo-dashboard-dock-placeholder'], ntype: 'dashboard-panel'}),
+            // The standalone predicate is folded into `resolveLivePane`, so the exclusion is
+            // exercised where it actually runs: through the engine resolver, over a stubbed dock
+            // host that offers exactly one component carrying the identity. Testing the predicate
+            // alone would have certified a method the tear-out path no longer calls.
+            const admits = component => Boolean(DockWorkspace.prototype.resolveLivePane.call(
+                {getDockHost: () => ({down: () => [component]})}, 'editor'
+            ));
+
+            expect(admits({cls: ['neo-dashboard-dock-placeholder'], ntype: 'dashboard-panel'}),
                 'a placeholder is not a tear-out candidate').toBe(false);
 
-            expect(workspace.isDockTearOutCandidate({data: {missingComponentRef: true}, ntype: 'dashboard-panel'}),
+            expect(admits({data: {missingComponentRef: true}, ntype: 'dashboard-panel'}),
                 'nor is one identified by its unresolved componentRef').toBe(false);
 
-            expect(workspace.isDockTearOutCandidate({ntype: 'tab-header-button'}),
+            expect(admits({ntype: 'tab-header-button'}),
                 'the header button stays excluded').toBe(false);
 
-            expect(workspace.isDockTearOutCandidate({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
+            expect(admits({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
                 'a real pane still qualifies — the guard is not simply refusing everything').toBe(true)
         });
 
         test('the held handle wins, so adoption still finds the pane after the detach re-projection', () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
-            const treePane = workspace.resolveTearOutPane('editor');
+            const treePane = workspace.tearOutHandlers.peekPane('editor');
 
             expect(treePane, 'the pane is in the tree before the detach').toBeTruthy();
 
@@ -3500,16 +3534,24 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // passed. Asserting the handle wins over a live tree answer cannot no-op.
             const held = Neo.create(Container, {items: []});
 
-            workspace.tearOutPaneHandles.editor = held;
+            // Injected through the REAL capture path rather than by writing the handle map: the
+            // host resolver answers with the distinct instance for exactly one capture, then goes
+            // back to the tree. Hand-writing the record would test the one I wrote, not the one the
+            // choreography keeps — and the map is no longer the host's to write anyway.
+            const treeResolver = workspace.resolveLivePane.bind(workspace);
+
+            workspace.resolveLivePane = () => held;
+            workspace.tearOutHandlers.capturePane('editor');
+            workspace.resolveLivePane = treeResolver;
 
             // The sequence is capture -> re-project -> adopt: the capture stores the pane while it
             // is still in the tree, the detach re-projection removes it, adoption runs afterwards.
             // A tree-only resolver therefore succeeds at capture and returns null when it matters —
             // measured on a real consumer as adopted=NULL with the vessel window open.
-            expect(workspace.resolveTearOutPane('editor'), 'the held handle answers first').toBe(held);
-            expect(workspace.resolveTearOutPane('editor')).not.toBe(treePane);
+            expect(workspace.tearOutHandlers.peekPane('editor'), 'the held handle answers first').toBe(held);
+            expect(workspace.tearOutHandlers.peekPane('editor')).not.toBe(treePane);
 
-            expect(workspace.releaseTearOutPane('editor'), 'and it is releasable for return').toBe(held);
+            expect(workspace.tearOutHandlers.releasePane('editor'), 'and it is releasable for return').toBe(held);
 
             held.destroy()
         });
@@ -3538,26 +3580,33 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('a destroyed handle does not shadow the tree', () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             // A stale handle must not win over a live pane, or a re-created pane would be
-            // unreachable behind a corpse.
-            workspace.tearOutPaneHandles.editor = {isDestroyed: true};
+            // unreachable behind a corpse. Captured ALIVE and then destroyed, which is the only way
+            // this state actually arises — a handle that was never live could never have been held.
+            const treeResolver = workspace.resolveLivePane.bind(workspace),
+                  doomed       = Neo.create(Container, {});
 
-            const resolved = workspace.resolveTearOutPane('editor');
+            workspace.resolveLivePane = () => doomed;
+            workspace.tearOutHandlers.capturePane('editor');
+            workspace.resolveLivePane = treeResolver;
+            doomed.destroy();
+
+            const resolved = workspace.tearOutHandlers.peekPane('editor');
 
             expect(resolved, 'the tree answers instead').toBeTruthy();
             expect(resolved.isDestroyed).toBeFalsy()
         });
 
         test('a failed adoption is reported on the lifecycle channel, not thrown into a listener', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             const events = [];
 
             workspace.on('dockTearOutAdoptionFailed', event => events.push(event));
 
-            await workspace.compensateFailedTearOutAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+            await workspace.tearOutHandlers.compensateFailedAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
 
             // Both failing paths throw AFTER compensating, and neither throw reaches anyone:
             // onWindowConnect is registered as a worker event listener, so its async throw becomes
@@ -3569,20 +3618,25 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('`reintegrated` reports the RETURN, not that a pane handle existed', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
             const events = [],
                   pane   = Neo.create(Container, {});
 
-            workspace.tearOutPaneHandles.editor = pane;
+            const treeResolver = workspace.resolveLivePane.bind(workspace);
+
+            workspace.resolveLivePane = () => pane;
+            workspace.tearOutHandlers.capturePane('editor');
+            workspace.resolveLivePane = treeResolver;
+
             workspace.on('dockTearOutAdoptionFailed', event => events.push(event));
 
             // The distinguishing case, and the one a handle check cannot see: a held pane whose
             // return then FAILS. `!!pane` answers true here — and a failed adoption is precisely
             // when a pane was held, so the field would have read `true` on every firing it has.
-            workspace.reintegrateTearOutItem = async () => false;
+            workspace.tearOutHandlers.reintegrateItem = async () => false;
 
-            await workspace.compensateFailedTearOutAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+            await workspace.tearOutHandlers.compensateFailedAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
 
             expect(events.length).toBe(1);
             expect(events[0].pane, 'the pane is still reported — it was held').toBeTruthy();
@@ -3667,13 +3721,13 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         });
 
         test('a failed adoption returns the item to the document, not only the pane handle', async () => {
-            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            workspace = armed();
 
-            const pane = workspace.resolveTearOutPane('editor');
+            const pane = workspace.tearOutHandlers.peekPane('editor');
 
             expect(pane, 'the fixture must project the pane, or this proves nothing').toBeTruthy();
 
-            workspace.captureTearOutPane('editor');
+            workspace.tearOutHandlers.capturePane('editor');
 
             // Commit the detach the tear-out gesture commits, so the item is out of every tabs node
             // exactly as it is when an adoption then fails.
@@ -3685,9 +3739,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(WorkspaceDocument.findContainingTabsId(workspace.dockModel, 'editor'),
                 'the item is genuinely out of the tree at this point').toBeFalsy();
 
-            // The vessel died. compensateFailedTearOutAdoption is what must put it back — the user
+            // The vessel died. `compensateFailedAdoption` is what must put it back — the user
             // is left with a pane that vanished from the shell otherwise.
-            workspace.compensateFailedTearOutAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
+            workspace.tearOutHandlers.compensateFailedAdoption('editor', {windowName: 'neo-dock-tearout-editor'});
 
             await workspace.refreshPromise;
 
@@ -3703,13 +3757,17 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // click resolves the item without id bookkeeping — it cleared an exclusion that named
             // only the header button and the placeholder. Naming stand-ins one at a time lost twice,
             // so the guard refuses the CATEGORY: a dock pane is never a button.
-            expect(workspace.isDockTearOutCandidate({cls: ['neo-dashboard-dock-rail-tab', 'neo-button'], ntype: 'button'}),
+            const admits = component => Boolean(DockWorkspace.prototype.resolveLivePane.call(
+                {getDockHost: () => ({down: () => [component]})}, 'editor'
+            ));
+
+            expect(admits({cls: ['neo-dashboard-dock-rail-tab', 'neo-button'], ntype: 'button'}),
                 'a rail tab is refused').toBe(false);
 
-            expect(workspace.isDockTearOutCandidate({cls: ['neo-button'], ntype: 'button'}),
+            expect(admits({cls: ['neo-button'], ntype: 'button'}),
                 'and so is any other button carrying the identity').toBe(false);
 
-            expect(workspace.isDockTearOutCandidate({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
+            expect(admits({cls: ['neo-panel'], ntype: 'dashboard-panel'}),
                 'while a real pane is untouched by the widening').toBe(true)
         });
 

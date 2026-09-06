@@ -80,6 +80,14 @@
  *     without changing document truth. `false` means the pane did not arrive. `itemId` travels with
  *     the pane because a host that staged the move already (a vessel embodiment) answers by
  *     identity, not by component reference.
+ * @param {Function} seams.resolveReturnDescriptor Host return POLICY:
+ *     `(document, itemId, placement|null) => Object|null` — the reducer descriptor that brings an
+ *     item home, or null when nothing can. The choreography owns WHEN a return happens; WHERE it
+ *     lands when the recorded home is gone is a product decision and stays with the host.
+ *     `Operations.restoreTab` MINTS a node at the remembered parent/slot, which is right for a host
+ *     that wants the exact position back and wrong for one whose contract is "never resurrect a
+ *     node" — both shipped consumers hold the second contract, which is why both carried their own
+ *     return before this seam existed.
  * @param {Function} seams.resolvePane Host pane resolution: `(itemId) => Neo.component.Base|null` —
  *     the live pane a vessel should embody. The stand-in exclusion that used to live here folded
  *     into the host's own resolver, which is the only place that knows what a pane is.
@@ -93,7 +101,7 @@
 export function createDockTearOutHandlers({
     applyOperation, awaitRefresh, closeVessel, commitReturn, findContainingTabsId, getDocument,
     onAdoptionFailed, onDocumentChange, onPaneAdopted, onPaneReturn, openVessel, reparentPane,
-    resolvePane, settlePane
+    resolvePane, resolveReturnDescriptor, settlePane
 }) {
     // The admitted slot is deliberately separate from provisional acquisition and cleanup-only
     // late authority. A terminal can invalidate an in-flight host Promise before it settles; its
@@ -216,17 +224,6 @@ export function createDockTearOutHandlers({
         return resolvePane(itemId) || null
     };
 
-    /**
-     * @summary The first tabs node in document order — a home for an item with no record at all.
-     *
-     * Not a placement: it is wherever enumeration happens to start. It stands in only because a pane
-     * somewhere valid beats a pane dropped out of the tree.
-     * @param {Object} document
-     * @returns {String|undefined}
-     */
-    const lastResortTabsId = document =>
-        Object.entries(document?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0];
-
     // Named, not `this`: two hosts SPREAD this bundle into a projection context
     // (`dock/Workspace#getDockProjectionOptions`, `DemoBWorkspace`), and a spread rebinds `this` to
     // the copy. Every internal call therefore goes through the closure reference, which survives it.
@@ -251,6 +248,30 @@ export function createDockTearOutHandlers({
             paneHandles[itemId] = pane;
 
             return true
+        },
+
+        /**
+         * @summary The pane adoption WOULD use for one item — the held handle, else the host's.
+         *
+         * Reads without consuming, so asking the question cannot change the answer.
+         * @param {String} itemId
+         * @returns {Neo.component.Base|null}
+         */
+        peekPane(itemId) {
+            return livePane(itemId)
+        },
+
+        /**
+         * @summary ONLY the captured handle — never the host's resolver.
+         *
+         * The distinction matters: {@link #peekPane} answers "what would adoption use", which falls
+         * through to the tree. This answers "is a handle actually held", and a caller asking whether
+         * capture happened must not be told yes by a pane that was merely findable.
+         * @param {String} itemId
+         * @returns {Neo.component.Base|null}
+         */
+        heldPane(itemId) {
+            return paneHandles[itemId] || null
         },
 
         /**
@@ -283,6 +304,19 @@ export function createDockTearOutHandlers({
          */
         forgetPlacement(itemId) {
             delete placements[itemId]
+        },
+
+        /**
+         * @summary Every recorded home, as a plain copy.
+         *
+         * A GETTER rather than a method on purpose: the end-to-end witnesses read lifecycle state by
+         * property path (`tearOutHandlers.placements`, exactly as they already read
+         * `tearOutHandlers.activeVessel`), so this keeps the closure observable without the host
+         * carrying an accessor for state it no longer owns.
+         * @member {Object} placements
+         */
+        get placements() {
+            return {...placements}
         },
 
         /**
@@ -362,7 +396,9 @@ export function createDockTearOutHandlers({
                     throw new Error(`Dock tear-out: pane "${itemId}" could not enter its admitted vessel`)
                 }
 
-                onPaneAdopted(itemId, {...entry, ...connection})
+                // MERGE, never replace: a replace re-derives the record from `entry` alone, which
+                // silently drops the `windowId` the connection just supplied.
+                onPaneAdopted(itemId, connection, null, true)
             }
         },
 
@@ -437,15 +473,19 @@ export function createDockTearOutHandlers({
          */
         async reintegrateItem(itemId, pane) {
             const document  = getDocument(),
-                  placement = placements[itemId],
-                  target    = placement || {tabsNodeId: lastResortTabsId(document)},
+                  placement = placements[itemId] || null,
                   live      = Boolean(pane && !pane.isDestroyed);
 
             let result;
 
             delete placements[itemId];
 
-            if (!document?.items?.[itemId] || !target.tabsNodeId) {
+            // WHERE the item lands is the host's policy — see `resolveReturnDescriptor`. Asking
+            // before the guard below means a host that can find no home says so once, here, rather
+            // than by returning a descriptor the reducer then refuses.
+            const descriptor = document ? resolveReturnDescriptor(document, itemId, placement) : null;
+
+            if (!document?.items?.[itemId] || !descriptor) {
                 settlePane(pane);
                 onPaneReturn({itemId, pane, phase: 'after', returned: false});
                 return false
@@ -476,17 +516,28 @@ export function createDockTearOutHandlers({
                 }
             };
 
-            // Already in the tree: the document needs no operation, only a projection pass.
+            // Already in the tree — some other flow re-treed it, typically an atomic recovery that
+            // ran first. The document needs no operation; it needs a projection pass ONLY if a live
+            // pane is coming home to be re-projected. With no pane there is nothing to show, and
+            // committing anyway publishes a second, optionless projection over the recovery's own.
             if (findContainingTabsId(document, itemId)) {
+                if (!live) {
+                    onPaneReturn({itemId, pane, phase: 'after', returned: true});
+                    return true
+                }
+
                 return settle(document)
             }
 
-            result = applyOperation({operation: 'restoreTab', itemId, ...target});
+            result = applyOperation(descriptor);
 
             if (result?.errors?.length > 0 && placement) {
-                // The recorded home resolved to nothing — its zone AND the sibling it collapsed into
-                // are both gone. Losing the position is bad; losing the pane is worse.
-                result = applyOperation({operation: 'restoreTab', itemId, tabsNodeId: lastResortTabsId(document)})
+                // The host's first answer resolved to nothing — its zone AND the sibling it
+                // collapsed into are both gone. Losing the position is bad; losing the pane is
+                // worse, so ask again with no remembered home and take whatever the host offers.
+                const fallback = resolveReturnDescriptor(document, itemId, null);
+
+                fallback && (result = applyOperation(fallback))
             }
 
             if (result?.errors?.length === 0) {
@@ -706,13 +757,41 @@ export function createDockTearOutHandlers({
                 result = {document: null, errors: [`detachItem threw: ${error?.message || error}`]}
             }
 
-            if (result && !result.errors?.length && result.document) {
-                activeVessel = null;
-                onDocumentChange(result.document, operation, vessel);
-                return true
-            } else {
+            if (!result || result.errors?.length || !result.document) {
                 return retireVessel(vessel)
             }
+
+            activeVessel = null;
+
+            /**
+             * @summary Routes a refused publication back onto the existing retirement path.
+             *
+             * The slot is restored FIRST: `retireVessel` clears by identity, so a vessel that was
+             * already nulled would retire without ever releasing the slot.
+             * @returns {Boolean|Promise<Boolean>}
+             */
+            const refuse = () => {
+                activeVessel = vessel;
+                return retireVessel(vessel)
+            };
+
+            let published;
+
+            try {
+                published = onDocumentChange(result.document, operation, vessel)
+            } catch {
+                return refuse()
+            }
+
+            // A host that publishes synchronously returns undefined and is admitted unchanged —
+            // only an explicit `false` or a rejected Promise is a refusal. An asynchronous owner
+            // (the Group's admission barrier) is awaited, so the terminal never reports a commit
+            // that has not actually landed, and never swallows a structured refusal.
+            if (typeof published?.then !== 'function') {
+                return published === false ? refuse() : true
+            }
+
+            return published.then(settled => settled === false ? refuse() : true, refuse)
         }
     };
 

@@ -194,6 +194,34 @@ class Operations extends Base {
      * @returns {{document:Object, errors:String[]}}
      * @static
      */
+    /**
+     * @summary A return descriptor that NEVER resurrects a node — the append policy.
+     *
+     * The counterpart to {@link #restoreTab}, and the difference is the whole choice: `restoreTab`
+     * re-mints the remembered parent/slot when the home node is gone, buying the exact position back
+     * at the price of a node the user watched collapse. This one keeps the exact index only while the
+     * recorded home is still a live tabs node, and otherwise appends to the first surviving one.
+     *
+     * It lives here rather than in either consumer because both shipped hosts hold this contract and
+     * were carrying identical copies of it — and because "where does a returning item belong in this
+     * document" is a document question.
+     * @param {Object} document
+     * @param {String} itemId
+     * @param {Object|null} placement The recorded `{tabsNodeId, index}`, or null.
+     * @returns {Object|null} An `addTab` descriptor, or null when the document has no tabs node.
+     */
+    static appendingReturnDescriptor(document, itemId, placement) {
+        const storedHome = placement && document?.nodes?.[placement.tabsNodeId]?.type === 'tabs'
+                  ? placement.tabsNodeId
+                  : null,
+              tabsNodeId = storedHome
+                  || Object.entries(document?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0];
+
+        return tabsNodeId
+            ? {operation: 'addTab', itemId, tabsNodeId, ...(storedHome ? {index: placement.index} : {})}
+            : null
+    }
+
     static restoreTab(document, {home, index, itemId, tabsNodeId} = {}) {
         if (!document.items?.[itemId]) return {document, errors: [`unknown item "${itemId}"`]};
 

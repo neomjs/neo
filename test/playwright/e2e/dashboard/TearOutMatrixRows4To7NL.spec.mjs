@@ -41,7 +41,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             'dockModel',
             'tearOutConnects',
             'tearOutPanes',
-            'tearOutPlacements'
+            'tearOutHandlers.placements'
         ])
     }
 
@@ -73,7 +73,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             'tearOutConnects',
             'tearOutHandlers.activeVessel',
             'tearOutPanes',
-            'tearOutPlacements',
+            'tearOutHandlers.placements',
             'tearOutRetirements.size',
             'vesselReservations.size'
         ])
@@ -172,7 +172,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             'vesselReservations.size'     : 0,
             tearOutConnects               : {},
             tearOutPanes                  : {},
-            tearOutPlacements             : {}
+            'tearOutHandlers.placements'  : {}
         });
         expect(snapshot.homeCount).toBe(1);
         expect(snapshot.mainRenderCount).toBe(1);
@@ -363,7 +363,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
                 homes   : homes.length,
                 panes   : Object.keys(state.tearOutPanes).length,
                 paneId  : pane?.id,
-                places  : Object.keys(state.tearOutPlacements).length,
+                places  : Object.keys(state['tearOutHandlers.placements']).length,
                 rendered: await page.locator('.agentos-dockdemo-counter-pane').count()
             }
         }, {
@@ -474,7 +474,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             tearOutConnects               : {}
         });
         expect(Object.keys(committed.lifecycle.tearOutPanes)).toEqual(['workbench']);
-        expect(Object.keys(committed.lifecycle.tearOutPlacements)).toEqual(['workbench']);
+        expect(Object.keys(committed.lifecycle['tearOutHandlers.placements'])).toEqual(['workbench']);
         expect(committed.homeCount).toBe(0);
         expect(committed.mainRenderCount).toBe(0);
         expect(committed.pane).toEqual({
@@ -502,7 +502,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
                 connects: Object.keys(snapshot.lifecycle.tearOutConnects).length,
                 homes   : snapshot.homeCount,
                 panes   : Object.keys(snapshot.lifecycle.tearOutPanes).length,
-                places  : Object.keys(snapshot.lifecycle.tearOutPlacements).length,
+                places  : Object.keys(snapshot.lifecycle['tearOutHandlers.placements']).length,
                 popups  : snapshot.popupUrls.length,
                 rendered: snapshot.mainRenderCount
             }
