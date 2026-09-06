@@ -4014,7 +4014,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 Neo.config.useSharedWorkers = useSharedWorkers
             }
         })
-    })
+    });
 });
 
 /**
