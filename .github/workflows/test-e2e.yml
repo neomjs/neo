@@ -101,6 +101,22 @@ jobs:
       # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the same lever the
       # unit suite uses. Every guard it fires carries a reason and a ticket at its
       # call site; a guard without one is a bug in the guard.
+      # Paths rather than directories, because two specs in this tier need build output
+      # this job deliberately does not produce. The job runs `npm ci` and nothing else:
+      # adding `build-all` to reach them would spend the five-minute budget on a build
+      # in order to run two specs.
+      #
+      #   rendering/LivePreviewMultiWindow — parameterised over Dev, Dist Dev and Dist
+      #       Prod; the two Dist environments need built bundles, and without them every
+      #       arm burns its full 30s timeout. This is what made the first CI attempt take
+      #       9m17s against 3.4m locally: my own checkout HAD `dist/`, so the suite passed
+      #       here and could not have passed there. A local green from local build output
+      #       is a false green, and it took a real runner to say so.
+      #   portal/LearnLinkRoutingNL — asserts rendered learn content ("Adopting in Your
+      #       App"), which is generated rather than checked in.
+      #
+      # Both belong in this tier the day the pipeline can afford a build, and neither is
+      # a product failure.
       - name: Run e2e (engine tier)
         run: |
           npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 \
@@ -108,8 +124,8 @@ jobs:
             test/playwright/e2e/core \
             test/playwright/e2e/dashboard \
             test/playwright/e2e/grid \
-            test/playwright/e2e/portal \
-            test/playwright/e2e/rendering
+            test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs \
+            test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs
         env:
           NEO_TEST_SKIP_CI: 'true'
 
@@ -138,7 +154,11 @@ jobs:
                   isIgnored  = file => ignore.some(pattern => pattern.test(file)),
                   brainFree  = total - ignore.length,
                   gpuTier    = walk(join(root, 'workstation')).filter(file => !isIgnored(file)).length,
-                  ran        = brainFree - gpuTier;
+                  // Named rather than derived: 'needs build output' is a property of what a spec
+                  // asserts, not of where it sits, so the filesystem cannot answer it. Keep this
+                  // list and the run step's paths in step — they are the same decision twice.
+                  buildTier  = 2,
+                  ran        = brainFree - gpuTier - buildTier;
 
             console.log([
               '### e2e (engine tier) coverage',
@@ -147,8 +167,9 @@ jobs:
               '',
               \`- **\${ignore.length}** require an external \\\`neo-agent-brain\\\` checkout and are DESELECTED by \\\`testIgnore\\\` — they cannot appear as skips in any report.\`,
               \`- **\${gpuTier}** are workstation specs, excluded here: that app inherits animated OffscreenCanvas work CI has no GPU for.\`,
+              \`- **\${buildTier}** need build output this job does not produce (Dist environments, generated learn content).\`,
               '',
-              'A green check on this job certifies the engine tier only. It does not certify the two groups above.'
+              'A green check on this job certifies the engine tier only. It does not certify the three groups above.'
             ].join('\n'));
           " >> "\$GITHUB_STEP_SUMMARY"
 
