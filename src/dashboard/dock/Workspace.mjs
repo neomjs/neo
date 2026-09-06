@@ -79,6 +79,45 @@ import TopologySeams               from './window/TopologySeams.mjs';
  * as an additional theme dependency; a subclass that declares its own `additionalThemeFiles`
  * replaces the list and must keep that entry.
  *
+ * ## The façade contract
+ *
+ * This class is a FAÇADE: it owns cross-concern ordering and the one mutation boundary, and it owns
+ * no concern outright. Everything it fronts — classification, presentation policy, declinable
+ * stateful affordances, the tear-out gesture machine, multi-window lifecycle — belongs to a named
+ * owner beside it. The contract below is stated rather than inferred, because an inferred façade
+ * becomes a forwarding shell one method at a time: each extraction guesses which callbacks the host
+ * still owes, and the guesses do not have to agree.
+ *
+ * **What the host owes its participant seam.** A workspace joins a topology as a participant by
+ * registering four callbacks at bind time — never by being imported, and never by exposing its
+ * fields:
+ *
+ * - `getDocument()` — the participant's current committed document. Registration never READS it;
+ *   the first transaction establishes the reference, so binding cannot mint a phantom revision.
+ * - `setDocument(document)` — adoption. Called only inside an all-or-nothing transaction; a
+ *   participant that refuses adoption refuses the whole transaction, never half of it.
+ * - `getRevision()` — optional. Supplied when a host tracks its own revision; omitted, the seam
+ *   derives one by identity comparison across observations.
+ * - `project(document)` — the post-commit presentation callback. It must return the projection
+ *   promise and must NOT admit another document write: projection observes the committed document,
+ *   it does not advance it. That is the same invariant as {@link #onDockZoneDocumentChange} being
+ *   the sole mutation path, stated at the seam where a participant could otherwise break it.
+ *
+ * **The import direction is two-way, and only one half is intuitive.** The topology manager must not
+ * import dock concepts — that keeps it general. The other half has a price tag: this module lands in
+ * every single-window application, so one static import of the topology manager would pull the whole
+ * multi-window machinery into a download that never opens a second window. The manager IS reachable
+ * from here, through a DYNAMIC import — that lazy edge is the boundary, not an accident, and the
+ * distinction is measured rather than asserted (see the import-direction arm, which walks the static
+ * closure in both directions and treats the dynamic edge as the feature it protects).
+ *
+ * **What this class still holds and should not.** The vessel-lifecycle members — admissions, the
+ * connect cache, committed vessel ownership and retained retirements — are per-topology state living
+ * in a per-workspace class. They are not the façade's, and they do not move into the gesture machine
+ * either: their owner is the settled topology Group, and relocating them to any intermediate owner
+ * first would move them twice. They are named here so the next reader inherits the obligation rather
+ * than the appearance of a finished façade.
+ *
  * @class Neo.dashboard.dock.Workspace
  * @extends Neo.container.Base
  * @see Neo.dashboard.dock.projection.HeaderActionPolicy
