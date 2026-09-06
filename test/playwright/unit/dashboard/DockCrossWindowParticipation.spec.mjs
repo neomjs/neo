@@ -6,9 +6,10 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
  * @summary Tests for Neo.dashboard.dock.window.Participation — the adapter-tier composition
@@ -97,6 +98,34 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         expect(calls[1]).toEqual(['unregister', zone]);
         // Base.destroy() deletes own members — the owned target reference is gone either way
         expect(participation.target ?? null).toBeNull()
+    });
+
+    test('a registered target resolves the current preview policy at drop time', () => {
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            dragCoordinator: createCoordinatorStub([]),
+            getDocument    : () => targetDoc(),
+            sortGroup      : 'dock-demo',
+            windowId       : 'window-b',
+            workspaceId    : 'B'
+        });
+        const original = PreviewContract.previewToOperation;
+        const preview  = {
+            schema  : 'neo.dock.preview.v1', itemId: 'alpha',
+            target  : {nodeId: 'main-tabs'}, placement: {kind: 'tab-into'},
+            feedback: {state: 'accepted'}
+        };
+
+        try {
+            expect(participation.target.previewToOperation(preview).operation).toBe('addTab');
+            PreviewContract.previewToOperation = function(value) {
+                return this.isValidPreview(value) ? {operation: 'customDrop'} : null
+            };
+            expect(participation.target.previewToOperation(preview)).toEqual({operation: 'customDrop'});
+            expect(participation.target.previewToOperation(null)).toBeNull()
+        } finally {
+            PreviewContract.previewToOperation = original;
+            participation.destroy()
+        }
     });
 
     test('native-titlebar source seams ride the SAME stable participation registration', async () => {

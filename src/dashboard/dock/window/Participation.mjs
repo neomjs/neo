@@ -1,10 +1,10 @@
-import Base                                    from '../../../core/Base.mjs';
-import DragAffordances                         from '../interaction/DragAffordances.mjs';
-import DragTarget                              from './DragTarget.mjs';
-import WorkspaceDocument                       from '../model/WorkspaceDocument.mjs';
-import Operations                              from '../model/Operations.mjs';
-import Preview                                 from '../interaction/Preview.mjs';
-import {previewToOperation as toDockOperation} from '../model/PreviewContract.mjs';
+import Base              from '../../../core/Base.mjs';
+import DragAffordances   from '../interaction/DragAffordances.mjs';
+import DragTarget        from './DragTarget.mjs';
+import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
+import Operations        from '../model/Operations.mjs';
+import Preview           from '../interaction/Preview.mjs';
+import PreviewContract   from '../model/PreviewContract.mjs';
 
 /**
  * @class Neo.dashboard.dock.window.Participation
@@ -249,7 +249,7 @@ class Participation extends Base {
             dragCoordinator        : me.dragCoordinator,
             hitTest                : me.hitTest                 ?? me.defaultHitTest.bind(me),
             previewFor             : me.previewFor              ?? me.defaultPreviewFor.bind(me),
-            previewToOperation     : me.previewToOperation      ?? toDockOperation,
+            previewToOperation     : me.previewToOperation      ?? (preview => PreviewContract.previewToOperation(preview)),
             promoteDragEmbodiment  : me.promoteDragEmbodiment,
             resolveNativeWindowDrag: me.resolveNativeWindowDrag ?? me.defaultResolveNativeWindowDrag.bind(me),
             resolveOwnershipId     : () => me.ownershipId,

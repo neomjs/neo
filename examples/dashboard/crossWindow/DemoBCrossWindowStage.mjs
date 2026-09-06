@@ -1,8 +1,8 @@
-import Container            from '../../../src/container/Base.mjs';
-import DockDropIndicators   from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockPreview          from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import WorkspaceDocument    from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContract.mjs';
+import Container          from '../../../src/container/Base.mjs';
+import DockDropIndicators from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockPreview        from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import WorkspaceDocument  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import PreviewContract    from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
  * @module Neo.examples.dashboard.crossWindow.DemoBCrossWindowStage
@@ -182,7 +182,7 @@ export function createCrossWindowStage(seams) {
             getForeignDocument: sourceWorkspaceId => getWorkspaceDocument(sourceWorkspaceId),
             hitTest           : (localX, localY) => hitTestWorkspace(workspaceId, localX, localY),
             previewFor        : data => renderWorkspacePreview(workspaceId, data),
-            previewToOperation,
+            previewToOperation: preview => PreviewContract.previewToOperation(preview),
             resolveOwnershipId,
             sortGroup,
             windowId,

@@ -10,6 +10,7 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import DockPreview     from '../../../../src/dashboard/dock/interaction/Preview.mjs';
+import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -147,60 +148,6 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
         })
     });
 
-    test.describe('isValidPreview (fail-closed)', () => {
-        test('accepts a well-formed preview', () => {
-            expect(DockPreview.isValidPreview(preview())).toBe(true)
-        });
-
-        test('rejects null, undefined and non-objects', () => {
-            expect(DockPreview.isValidPreview(null)).toBe(false);
-            expect(DockPreview.isValidPreview(undefined)).toBe(false);
-            expect(DockPreview.isValidPreview('preview')).toBe(false)
-        });
-
-        test('rejects a wrong or missing schema', () => {
-            expect(DockPreview.isValidPreview(preview({schema: 'neo.dock.preview.v2'}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({schema: undefined}))).toBe(false)
-        });
-
-        test('rejects a missing itemId', () => {
-            expect(DockPreview.isValidPreview(preview({itemId: ''}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({itemId: undefined}))).toBe(false)
-        });
-
-        test('admits only a non-empty runtime whole-stack identity', () => {
-            expect(DockPreview.isValidPreview(preview({groupNodeId: 'popup-stack'}))).toBe(true);
-            expect(DockPreview.isValidPreview(preview({groupNodeId: ''}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({groupNodeId: 42}))).toBe(false)
-        });
-
-        test('rejects a missing target.nodeId', () => {
-            expect(DockPreview.isValidPreview(preview({target: {containerId: 'workspace'}}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({target: {nodeId: ''}}))).toBe(false)
-        });
-
-        test('rejects an unknown placement.kind', () => {
-            expect(DockPreview.isValidPreview(preview({placement: {kind: 'corner-top-left'}}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({placement: {}}))).toBe(false)
-        });
-
-        test('rejects a split placement without a valid orientation', () => {
-            expect(DockPreview.isValidPreview(preview({placement: {kind: 'split-before'}}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({placement: {kind: 'split-after', orientation: 'diagonal'}}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({placement: {kind: 'split-after', orientation: 'vertical'}}))).toBe(true)
-        });
-
-        test('rejects a missing or invalid feedback.state', () => {
-            expect(DockPreview.isValidPreview(preview({feedback: {}}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({feedback: {state: 'maybe'}}))).toBe(false);
-            expect(DockPreview.isValidPreview(preview({feedback: undefined}))).toBe(false)
-        });
-
-        test('treats a rejected placement as structurally valid', () => {
-            expect(DockPreview.isValidPreview(preview({placement: {kind: 'rejected'}, feedback: {state: 'rejected'}}))).toBe(true)
-        })
-    });
-
     test.describe('mapPreviewToAffordance', () => {
         test('maps every edge kind to an edge affordance', () => {
             for (const edge of ['top', 'right', 'bottom', 'left']) {
@@ -245,98 +192,6 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
         test('returns null for an invalid preview', () => {
             expect(DockPreview.mapPreviewToAffordance(preview({schema: 'nope'}))).toBe(null);
             expect(DockPreview.mapPreviewToAffordance(null)).toBe(null)
-        })
-    });
-
-    test.describe('previewToOperation (semantic drop, never mutates)', () => {
-        test('tab placements route to addTab with the target tabs node and index', () => {
-            const op = DockPreview.previewToOperation(preview({placement: {kind: 'tab-after', index: 1}}));
-            expect(op.operation).toBe('addTab');
-            expect(op.tabsNodeId).toBe('main-tabs');
-            expect(op.itemId).toBe('strategy');
-            expect(op.index).toBe(1)
-        });
-
-        test('split placements route to splitNode with orientation and normalized sizes', () => {
-            const op = DockPreview.previewToOperation(preview({placement: {kind: 'split-before', orientation: 'vertical', ratio: 0.3}}));
-            expect(op.operation).toBe('splitNode');
-            expect(op.orientation).toBe('vertical');
-            expect(op.position).toBe('before');
-            expect(op.sizes).toEqual([0.3, 0.7])
-        });
-
-        test('edge placements route to splitNode with a derived orientation', () => {
-            const left = DockPreview.previewToOperation(preview({placement: {kind: 'edge-left'}}));
-            expect(left.operation).toBe('splitNode');
-            expect(left.edge).toBe('left');
-            expect(left.orientation).toBe('horizontal');
-
-            const bottom = DockPreview.previewToOperation(preview({placement: {kind: 'edge-bottom'}}));
-            expect(bottom.orientation).toBe('vertical')
-        });
-
-        test('whole-stack previews preserve the placement grammar in one transferNode descriptor', () => {
-            const groupNodeId = 'popup-stack';
-
-            expect(DockPreview.previewToOperation(preview({groupNodeId, placement: {kind: 'tab-into'}}))).toEqual({
-                operation: 'transferNode',
-                nodeId   : groupNodeId,
-                target   : {targetNodeId: 'main-tabs', placement: {kind: 'tab-into'}}
-            });
-
-            expect(DockPreview.previewToOperation(preview({
-                groupNodeId,
-                placement: {kind: 'split-before', orientation: 'vertical', ratio: 0.3}
-            }))).toEqual({
-                operation: 'transferNode',
-                nodeId   : groupNodeId,
-                target   : {
-                    targetNodeId: 'main-tabs',
-                    placement   : {orientation: 'vertical', position: 'before', sizes: [0.3, 0.7]}
-                }
-            });
-
-            expect(DockPreview.previewToOperation(preview({groupNodeId, placement: {kind: 'edge-right'}}))).toEqual({
-                operation: 'transferNode',
-                nodeId   : groupNodeId,
-                target   : {
-                    targetNodeId: 'main-tabs',
-                    placement   : {edge: 'right', orientation: 'horizontal', sizes: [0.5, 0.5]}
-                }
-            })
-        });
-
-        test('returns null for rejected feedback', () => {
-            expect(DockPreview.previewToOperation(preview({feedback: {state: 'rejected'}}))).toBe(null)
-        });
-
-        test('returns null for a rejected placement', () => {
-            expect(DockPreview.previewToOperation(preview({placement: {kind: 'rejected'}, feedback: {state: 'rejected'}}))).toBe(null)
-        });
-
-        test('returns null for an invalid preview', () => {
-            expect(DockPreview.previewToOperation(preview({itemId: ''}))).toBe(null)
-        });
-
-        test('never leaks a runtime-only field into the operation descriptor', () => {
-            const op = DockPreview.previewToOperation(preview());
-            expect(op).not.toHaveProperty('previewId');
-            expect(op).not.toHaveProperty('source');
-            expect(op).not.toHaveProperty('feedback');
-            expect(JSON.stringify(op)).not.toContain('dashboard-sort-zone')
-        })
-    });
-
-    test.describe('ratioToSizes', () => {
-        test('defaults to an even split for an absent or invalid ratio', () => {
-            expect(DockPreview.ratioToSizes(undefined, 'before')).toEqual([0.5, 0.5]);
-            expect(DockPreview.ratioToSizes(0, 'before')).toEqual([0.5, 0.5]);
-            expect(DockPreview.ratioToSizes(1.5, 'after')).toEqual([0.5, 0.5])
-        });
-
-        test('honors a valid ratio for before and after positions', () => {
-            expect(DockPreview.ratioToSizes(0.25, 'before')).toEqual([0.25, 0.75]);
-            expect(DockPreview.ratioToSizes(0.25, 'after')).toEqual([0.75, 0.25])
         })
     });
 
@@ -389,7 +244,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             const source     = preview({placement: {kind: 'split-before', orientation: 'horizontal', ratio: 0.3}}),
                   affordance = DockPreview.mapPreviewToAffordance(source),
                   geometry   = DockPreview.affordanceGeometry(affordance, rect),
-                  operation  = DockPreview.previewToOperation(source);
+                  operation  = PreviewContract.previewToOperation(source);
 
             expect(operation.sizes[0]).toBe(0.3);
             expect(geometry.width).toBe(rect.width * operation.sizes[0])
@@ -412,9 +267,9 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
 
             // …and an ASYMMETRIC pair separates them: ratio 0.3 `after` commits [0.7, 0.3], so a mapper
             // reading the first child reports 0.7 and paints the wrong pane.
-            expect(DockPreview.newNodeFraction(0.3, 'after')).toBeCloseTo(0.3);
-            expect(DockPreview.newNodeFraction(0.3, 'before')).toBeCloseTo(0.3);
-            expect(DockPreview.ratioToSizes(0.3, 'after')).toEqual([0.7, 0.3])
+            expect(PreviewContract.newNodeFraction(0.3, 'after')).toBeCloseTo(0.3);
+            expect(PreviewContract.newNodeFraction(0.3, 'before')).toBeCloseTo(0.3);
+            expect(PreviewContract.ratioToSizes(0.3, 'after')).toEqual([0.7, 0.3])
         });
 
         test('MAPPED end-to-end: the painted region matches the descriptor, per direction', () => {
@@ -426,7 +281,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             ]) {
                 const source     = preview({placement: {kind, orientation: 'horizontal', ratio: 0.3}}),
                       affordance = DockPreview.mapPreviewToAffordance(source),
-                      operation  = DockPreview.previewToOperation(source),
+                      operation  = PreviewContract.previewToOperation(source),
                       sizes      = operation.sizes ?? operation.target?.placement?.sizes;
 
                 expect(DockPreview.affordanceGeometry(affordance, rect), kind).toEqual(expected);

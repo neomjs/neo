@@ -6,12 +6,12 @@ setup({
     }
 });
 
-import {test, expect}                                          from '@playwright/test';
-import Neo                                                     from '../../../../src/Neo.mjs';
-import * as core                                               from '../../../../src/core/_export.mjs';
-import DockDropIndicators                                      from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockPreviewProducer                                     from '../../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
-import {CANDIDATES_SCHEMA, PREVIEW_SCHEMA, previewToOperation} from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
+import {test, expect}      from '@playwright/test';
+import Neo                 from '../../../../src/Neo.mjs';
+import * as core           from '../../../../src/core/_export.mjs';
+import DockDropIndicators  from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockPreviewProducer from '../../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import PreviewContract     from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 // Geometry fixture (viewport space): host at (100, 50); hovered zone centered at (400, 300).
 const HOST_RECT = {x: 100, y: 50, width: 800, height: 600};
@@ -19,7 +19,7 @@ const ZONE_RECT = {x: 300, y: 250, width: 200, height: 100};
 const ROOT_RECT = {x: 100, y: 50, width: 800, height: 600};
 
 const mkPreview = (nodeId, kind, itemId='terminal') => ({
-    schema   : PREVIEW_SCHEMA,
+    schema   : PreviewContract.PREVIEW_SCHEMA,
     previewId: `preview:${itemId}:${nodeId}:${kind}`,
     itemId,
     source   : {surface: 'dashboard-sort-zone', sortZoneId: 'src-tabs'},
@@ -29,7 +29,7 @@ const mkPreview = (nodeId, kind, itemId='terminal') => ({
 });
 
 const mkSet = ({root=true, zoneRect=ZONE_RECT, nodeId='main-tabs'}={}) => ({
-    schema: CANDIDATES_SCHEMA,
+    schema: PreviewContract.CANDIDATES_SCHEMA,
     itemId: 'terminal',
     zone  : {nodeId, rect: zoneRect, orientation: null},
     cross : [
@@ -238,7 +238,7 @@ test.describe('Neo.dashboard.dock.interaction.DropIndicators (§06 — the indic
 
         // …and the carried preview converts through the UNCHANGED contract path — the
         // component stayed commit-free; the descriptor is the workspace's business
-        const descriptor = previewToOperation(hit.preview);
+        const descriptor = PreviewContract.previewToOperation(hit.preview);
         expect(descriptor.operation).toBe('splitNode');
         expect(descriptor.targetNodeId).toBe('b-tabs');
         expect(descriptor.orientation).toBe('vertical');

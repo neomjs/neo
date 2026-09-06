@@ -235,6 +235,7 @@
  "Neo.dashboard.dock.interaction.TabSortZone": "Neo.draggable.tab.header.toolbar.SortZone",
  "Neo.dashboard.dock.model.Operations": "Neo.core.Base",
  "Neo.dashboard.dock.model.Persistence": "Neo.core.Base",
+ "Neo.dashboard.dock.model.PreviewContract": "Neo.core.Base",
  "Neo.dashboard.dock.model.TopologyDiff": "Neo.core.Base",
  "Neo.dashboard.dock.model.TopologyReconciler": "Neo.core.Base",
  "Neo.dashboard.dock.model.WorkspaceDocument": "Neo.core.Base",

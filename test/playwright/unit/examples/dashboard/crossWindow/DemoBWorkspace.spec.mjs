@@ -14,6 +14,7 @@ import Component                                           from '../../../../../
 import Container                                           from '../../../../../../src/container/Base.mjs';
 import DemoBWorkspace, {describeCrossWindowChromeMismatch} from '../../../../../../examples/dashboard/crossWindow/DemoBWorkspace.mjs';
 import DockPreview                                         from '../../../../../../src/dashboard/dock/interaction/Preview.mjs';
+import PreviewContract                                     from '../../../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import DockProjectionReconciler                            from '../../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import WorkspaceDocument                                   from '../../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations                                          from '../../../../../../src/dashboard/dock/model/Operations.mjs';
@@ -2194,7 +2195,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             schema   : 'neo.dock.preview.v1',
             target   : {nodeId: 'popup-tabs'}
         });
-        expect(DockPreview.isValidPreview(renderer.dockPreview)).toBe(true);
+        expect(PreviewContract.isValidPreview(renderer.dockPreview)).toBe(true);
 
         // rendered as the whole-zone band, positioned host-locally (viewport → host conversion)
         expect(affordance.cls).toEqual(expect.arrayContaining([

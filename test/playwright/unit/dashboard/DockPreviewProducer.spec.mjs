@@ -6,18 +6,18 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 — the dock preview producer)', () => {
-    let DockPreviewProducer, DockPreview, producer;
+    let DockPreviewProducer, producer;
 
     const RECT = {x: 0, y: 0, width: 100, height: 100}; // default band = 0.24 * 100 = 24
 
     test.beforeAll(async () => {
         DockPreviewProducer = (await import('../../../../src/dashboard/dock/interaction/PreviewProducer.mjs')).default;
-        DockPreview         = (await import('../../../../src/dashboard/dock/interaction/Preview.mjs')).default;
         producer            = Neo.create(DockPreviewProducer)
     });
 
@@ -123,7 +123,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
         expect(preview.placement.kind).toBe('split-after');
         expect(preview.placement.orientation).toBe('vertical');  // contract: split placements MUST carry orientation
         expect(preview.previewId).toBe('preview:terminal:side-split-child:split-after');
-        expect(DockPreview.isValidPreview(preview)).toBe(true)   // THE PIN — incl. the split-orientation requirement
+        expect(PreviewContract.isValidPreview(preview)).toBe(true)   // THE PIN — incl. the split-orientation requirement
     });
 
     test('hitTestZone returns the innermost containing zone, or null', () => {
@@ -144,7 +144,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
         // on strip-scale rects the carve-out owns the top by design (see the STRIP spec).
         const zones = [{nodeId: 'main-tabs', rect: {x: 0, y: 0, width: 400, height: 300}}];
 
-        // one produce per resolvable kind — each MUST satisfy the landed DockPreview.isValidPreview (write === read)
+        // one produce per resolvable kind — each MUST satisfy PreviewContract.isValidPreview (write === read)
         for (const [x, y, kind] of [[200, 150, 'tab-into'], [200, 50, 'edge-top'], [390, 150, 'edge-right'], [10, 150, 'edge-left'], [200, 290, 'edge-bottom']]) {
             const preview = producer.produce({pointer: {x, y}, zones, itemId: 'strategy', containerId: 'workspace'});
 
@@ -152,7 +152,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
             expect(preview.placement.kind).toBe(kind);
             expect(preview.target.nodeId).toBe('main-tabs');
             expect(preview.feedback.state).toBe('accepted');
-            expect(DockPreview.isValidPreview(preview)).toBe(true) // THE PIN
+            expect(PreviewContract.isValidPreview(preview)).toBe(true) // THE PIN
         }
     });
 
@@ -200,9 +200,8 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
     });
 
     test('whole-stack production carries one coherent runtime group through previews and candidates', async () => {
-        const {isValidCandidateSet} = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
-        const zones                 = [{nodeId: 'main-tabs', rect: RECT, orientation: 'vertical'}];
-        const params                = {
+        const zones  = [{nodeId: 'main-tabs', rect: RECT, orientation: 'vertical'}];
+        const params = {
             groupNodeId: 'popup-stack',
             itemId     : 'strategy',
             pointer    : {x: 50, y: 50},
@@ -213,10 +212,10 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
 
         expect(preview.groupNodeId).toBe('popup-stack');
         expect(preview.previewId).toBe('preview:group:popup-stack:main-tabs:tab-into');
-        expect(DockPreview.isValidPreview(preview)).toBe(true);
+        expect(PreviewContract.isValidPreview(preview)).toBe(true);
         expect(set.groupNodeId).toBe('popup-stack');
         expect(set.cross.every(candidate => candidate.preview.groupNodeId === 'popup-stack')).toBe(true);
-        expect(isValidCandidateSet(set)).toBe(true);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(true);
 
         expect(producer.produce({...params, groupNodeId: ''})).toBeNull();
         expect(producer.produceCandidates({...params, groupNodeId: 42})).toBeNull()
@@ -247,7 +246,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
         expect(preview.placement.kind).toBe('edge-left');
 
         // the middle: preview → semantic operation descriptor
-        const descriptor = DockPreview.previewToOperation(preview);
+        const descriptor = PreviewContract.previewToOperation(preview);
         expect(descriptor.operation).toBe('splitNode');
         expect(descriptor.targetNodeId).toBe('b-tabs');
 
@@ -262,8 +261,6 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
     });
 
     test('produceCandidates emits the full §06 menu — schema-pinned, every preview consumer-valid', async () => {
-        const contract = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
-
         const TALL  = {x: 100, y: 100, width: 400, height: 300};
         const ROOT  = {x: 0, y: 0, width: 800, height: 600};
         const zones = [{nodeId: 'main-tabs', rect: TALL, orientation: 'vertical'}];
@@ -273,9 +270,9 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
             root   : {nodeId: 'root', rect: ROOT}
         });
 
-        // the schema config is pinned against the contract module (same mechanism as `schema`)
-        expect(set.schema).toBe(contract.CANDIDATES_SCHEMA);
-        expect(contract.isValidCandidateSet(set)).toBe(true);      // THE candidate-set PIN
+        // the schema config is pinned against the contract owner (same mechanism as `schema`)
+        expect(set.schema).toBe(PreviewContract.CANDIDATES_SCHEMA);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(true);      // THE candidate-set PIN
 
         // the 5-position cross, §06 grammar on a vertical-split child: along-axis directions
         // sibling-insert, perpendicular directions split the node, center tab-merges
@@ -294,9 +291,9 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
         expect(set.root.chips.map(c => c.preview.placement.kind)).toEqual(['edge-top', 'edge-right', 'edge-bottom', 'edge-left']);
         expect(set.root.chips.every(c => c.preview.target.nodeId === 'root')).toBe(true);
 
-        // EVERY candidate preview individually passes the app-layer consumer validator
+        // EVERY candidate preview individually passes the shared contract validator
         for (const candidate of [...set.cross, ...set.root.chips]) {
-            expect(DockPreview.isValidPreview(candidate.preview)).toBe(true)
+            expect(PreviewContract.isValidPreview(candidate.preview)).toBe(true)
         }
     });
 
@@ -333,8 +330,6 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
     });
 
     test('isValidCandidateSet rejects partial, duplicated, mismatched and lying menus', async () => {
-        const {isValidCandidateSet} = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
-
         const TALL  = {x: 0, y: 0, width: 400, height: 300};
         const valid = (orientation='vertical') => producer.produceCandidates({
             pointer: {x: 200, y: 150}, zones: [{nodeId: 'main-tabs', orientation, rect: TALL}], itemId: 'terminal',
@@ -343,49 +338,49 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
 
         // Both producer grammar axes are positive controls: the stricter tuple gate must preserve
         // every real emission while rejecting only contradictory direction/orientation payloads.
-        expect(isValidCandidateSet(valid('vertical'))).toBe(true);
-        expect(isValidCandidateSet(valid('horizontal'))).toBe(true);
+        expect(PreviewContract.isValidCandidateSet(valid('vertical'))).toBe(true);
+        expect(PreviewContract.isValidCandidateSet(valid('horizontal'))).toBe(true);
 
         // a one-entry "menu" is a partial menu — rejected (completeness, not just per-entry validity)
         let set = valid();
         set.cross = [set.cross[0]];
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // duplicated positions are rejected even at the right length
         set = valid();
         set.cross[1] = {...set.cross[0]};
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // a candidate whose position lies about its operation is rejected
         // (the review falsifier: a `center` indicator wired to an `edge-left` split)
         set = valid();
         set.cross.find(c => c.position === 'center').preview.placement = {kind: 'edge-left'};
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // a candidate built for ANOTHER item is rejected
         set = valid();
         set.cross[2].preview.itemId = 'somebody-else';
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // a cross candidate targeting a node other than the hovered zone is rejected
         set = valid();
         set.cross[3].preview.target.nodeId = 'other-node';
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // chips: a missing edge is rejected (4 unique required when root exists)…
         set = valid();
         set.root.chips.pop();
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // …and a chip whose kind does not match its own edge is rejected
         set = valid();
         set.root.chips.find(c => c.edge === 'top').preview.placement = {kind: 'edge-bottom'};
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // a split-kind on a TRAILING direction claiming `split-before` is rejected
         set = valid();
         set.cross.find(c => c.position === 'bottom').preview.placement = {kind: 'split-before', orientation: 'vertical'};
-        expect(isValidCandidateSet(set)).toBe(false);
+        expect(PreviewContract.isValidCandidateSet(set)).toBe(false);
 
         // Split direction + kind + axis form one semantic tuple. Each otherwise-valid split kind
         // is rejected when it advertises the perpendicular axis.
@@ -397,7 +392,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
         ]) {
             set = valid(position === 'left' || position === 'right' ? 'horizontal' : 'vertical');
             set.cross.find(candidate => candidate.position === position).preview.placement = {kind, orientation};
-            expect(isValidCandidateSet(set), `${position} ${kind} must reject ${orientation}`).toBe(false)
+            expect(PreviewContract.isValidCandidateSet(set), `${position} ${kind} must reject ${orientation}`).toBe(false)
         }
     })
 });

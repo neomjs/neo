@@ -12,7 +12,6 @@ import * as core                from '../../../../../src/core/_export.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
-import {previewToOperation}     from '../../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';

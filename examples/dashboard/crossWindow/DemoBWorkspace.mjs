@@ -1,31 +1,31 @@
-import Component                            from '../../../src/component/Base.mjs';
-import Container                            from '../../../src/container/Base.mjs';
-import CounterPane                          from './CounterPane.mjs';
-import {createCrossWindowStage}             from './DemoBCrossWindowStage.mjs';
-import DockDropIndicators                   from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockLayoutAdapter                    from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import DockMotionSignal                     from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
-import PerspectiveLibrary                   from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
-import Placement                            from '../../../src/dashboard/dock/window/Placement.mjs';
-import TopologySeams                        from '../../../src/dashboard/dock/window/TopologySeams.mjs';
-import DockPreview                          from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockPreviewProducer                  from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
-import DockProjectionReconciler             from '../../../src/dashboard/dock/projection/Reconciler.mjs';
-import DockService                          from '../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler               from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
-import WorkspaceDocument                    from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Operations                           from '../../../src/dashboard/dock/model/Operations.mjs';
-import Persistence                          from '../../../src/dashboard/dock/model/Persistence.mjs';
-import InteractionService                   from '../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands}         from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
-import {createDockTearOutHandlers}          from '../../../src/dashboard/dock/window/TearOut.mjs';
-import {createDockVesselEmbodiment}         from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
-import {createDockWorkspaceSet}             from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
-import {createVesselParkHandlers}           from '../../../src/dashboard/dock/window/VesselPark.mjs';
-import TourRunner                           from '../../../src/ai/client/TourRunner.mjs';
-import TransactionManager                   from '../../../src/manager/Transaction.mjs';
-import {PREVIEW_SCHEMA, previewToOperation} from '../../../src/dashboard/dock/model/PreviewContract.mjs';
-import {demoBTourScript, initialDocument}   from './demoBPerspectives.mjs';
+import Component                          from '../../../src/component/Base.mjs';
+import Container                          from '../../../src/container/Base.mjs';
+import CounterPane                        from './CounterPane.mjs';
+import {createCrossWindowStage}           from './DemoBCrossWindowStage.mjs';
+import DockDropIndicators                 from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter                  from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockMotionSignal                   from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import PerspectiveLibrary                 from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import Placement                          from '../../../src/dashboard/dock/window/Placement.mjs';
+import TopologySeams                      from '../../../src/dashboard/dock/window/TopologySeams.mjs';
+import DockPreview                        from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockPreviewProducer                from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import DockProjectionReconciler           from '../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockService                        from '../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler             from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
+import WorkspaceDocument                  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations                         from '../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence                        from '../../../src/dashboard/dock/model/Persistence.mjs';
+import InteractionService                 from '../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}       from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
+import {createDockTearOutHandlers}        from '../../../src/dashboard/dock/window/TearOut.mjs';
+import {createDockVesselEmbodiment}       from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import {createDockWorkspaceSet}           from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import {createVesselParkHandlers}         from '../../../src/dashboard/dock/window/VesselPark.mjs';
+import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
+import TransactionManager                 from '../../../src/manager/Transaction.mjs';
+import PreviewContract                    from '../../../src/dashboard/dock/model/PreviewContract.mjs';
+import {demoBTourScript, initialDocument} from './demoBPerspectives.mjs';
 import '../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the bars use
@@ -1004,7 +1004,7 @@ class DemoBWorkspace extends Container {
             feedback : {state: 'accepted'},
             itemId   : target.itemId,
             placement: {kind: 'tab-into'},
-            schema   : PREVIEW_SCHEMA,
+            schema   : PreviewContract.PREVIEW_SCHEMA,
             target   : {nodeId: target.tabsId}
         };
         renderer.applyTargetGeometry(me.localDockRect(zone.rect, geometry.hostRect))
@@ -3701,7 +3701,7 @@ class DemoBWorkspace extends Container {
     onDockCrossZoneDrop(workspaceId, data) {
         let me         = this,
             preview    = me.renderWorkspacePreview(workspaceId, data),
-            descriptor = previewToOperation(preview),
+            descriptor = PreviewContract.previewToOperation(preview),
             result     = null;
 
         me.crossWindowStats.localDropFires++;
