@@ -1134,9 +1134,11 @@ class Workspace extends DockWorkspace {
         if (me.isDestroyed) return null;
 
         return Neo.create(Participation, {
+            affordances       : isMain ? me.dragAffordances : null,
             clearPreview      : () => me.clearCrossWindowPreview(workspaceId),
             commitLocal       : operation => me.commitLocalWorkspaceOperation(workspaceId, operation),
             commitTransfer    : data => me.commitCrossWindowTransfer(data),
+            dragEmbodiment    : me.vesselProxyEmbodiment,
             getDocument       : () => me.getWorkspaceDocument(workspaceId),
             getForeignDocument: sourceWorkspaceId => me.getWorkspaceDocument(sourceWorkspaceId),
             hitTest           : (localX, localY) => me.hitTestCrossWindowTarget(workspaceId, localX, localY),
@@ -1165,16 +1167,8 @@ class Workspace extends DockWorkspace {
                 return me.renderCrossWindowPreview(workspaceId, data)
             },
             previewToOperation   : preview => PreviewContract.previewToOperation(preview),
-            promoteDragEmbodiment: data => me.vesselProxyEmbodiment.promote({
-                itemId        : data.draggedItem?.dockItemId,
-                targetWindowId: windowId
-            }),
             // Docking design record §2.3: every window of this root declares the root's Group as its commit authority.
             resolveOwnershipId   : () => me.resolveTopologyGroup() ?? null,
-            restoreDragEmbodiment: data => me.vesselProxyEmbodiment.restore({
-                itemId        : data.draggedItem?.dockItemId,
-                targetWindowId: windowId
-            }),
             resumeNativeWindowDrag: isMain ? itemId => me.nativeVesselParkHandlers.onGestureTerminal({
                 itemId,
                 outcome: 'rejected'
@@ -1184,31 +1178,6 @@ class Workspace extends DockWorkspace {
                 outcome: 'committed'
             }) : null,
             sortGroup          : Workspace.CROSS_WINDOW_SORT_GROUP,
-            stageDragEmbodiment: data => me.vesselProxyEmbodiment.move({
-                ...data,
-                sourceWindowId: me.resolveTearOutVessel(data.draggedItem?.dockItemId)?.windowId,
-                targetWindowId: windowId
-            }),
-            awaitDragEmbodiment: async data => {
-                const
-                    itemId   = data.draggedItem?.dockItemId,
-                    renderer = isMain
-                        ? me.dragAffordances?.preview
-                        : me.getPopupState(workspaceId)?.preview;
-
-                if (!renderer?.dockPreview) return false;
-
-                const [embodied] = await Promise.all([
-                    me.vesselProxyEmbodiment.whenSettled({
-                        itemId,
-                        sourceWindowId: me.resolveTearOutVessel(itemId)?.windowId,
-                        targetWindowId: windowId
-                    }),
-                    renderer.promiseUpdate?.()
-                ]);
-
-                return embodied === true && Boolean(renderer.dockPreview)
-            },
             suspendNativeWindowDrag: isMain ? (itemId, data) => {
                 me.vesselConversionTargetWindowId = data?.targetWindowId ?? null;
 

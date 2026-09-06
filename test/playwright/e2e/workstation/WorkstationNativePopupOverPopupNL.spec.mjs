@@ -239,7 +239,12 @@ async function popOut({app, page, workspaceId, itemId}) {
 }
 
 test.describe('Workstation — native titlebar drag popup onto popup (#18047)', () => {
-    test('a popup moved by its OS titlebar onto another popup previews there and transfers its pane', async ({page, neuralLink}) => {
+    /**
+     * @summary Runs the native transfer against either the initial or an enlarged target window.
+     * @param {Object} fixtures
+     * @param {Boolean} [resizeTarget=false]
+     */
+    const journey = async ({page, neuralLink}, resizeTarget=false) => {
         const
             pageErrors = [],
             popups     = [];
@@ -355,6 +360,20 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             expect((await readNativeLifecycle(app, workspaceId)).owners[TARGET_ITEM]?.windowId,
                 'placing the target vessel did not hand it to the main window').toBe(target.windowId);
 
+            if (resizeTarget) {
+                const enlarged = await setBounds(targetHandle, {
+                    width : Math.min(520, stage.availLeft + stage.availWidth - targetScreen.screenX),
+                    height: Math.min(460, stage.availTop + stage.availHeight - targetScreen.screenY)
+                });
+
+                expect(enlarged.innerWidth, 'the target is substantially wider').toBeGreaterThan(targetScreen.innerWidth * 2);
+                expect(enlarged.innerHeight, 'the target is substantially taller').toBeGreaterThan(targetScreen.innerHeight * 1.5);
+                await expect.poll(async () => {
+                    const rect = await readManagerRect(app, managerId, target.windowId, 'innerRect');
+                    return Math.max(Math.abs(rect.width - enlarged.innerWidth), Math.abs(rect.height - enlarged.innerHeight))
+                }, {message: 'manager.Window observes the enlarged viewport', timeout: 5000}).toBeLessThanOrEqual(2)
+            }
+
             const
                 // the drop anchor is the source FRAME's top-left corner plus the inset, and the claim
                 // tests the target's VIEWPORT — so the aim is frame-corner-into-viewport
@@ -381,14 +400,45 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             // bounds move uses — so a frame placed at (left, top) puts the anchor at (left + inset,
             // top + inset), no chrome arithmetic. Aim it 24 px inside the target's viewport.
             const
-                goalLeft = Math.round(targetInner.x + 24 - inset),
-                goalTop  = Math.round(targetInner.y + 24 - inset);
+                goalLeft = Math.round(targetInner.x + (resizeTarget ? targetInner.width * .7 : 24) - inset),
+                goalTop  = Math.round(targetInner.y + (resizeTarget ? targetInner.height * .5 : 24) - inset),
+                targetParticipation = (await participations(app)).find(entry => entry.workspaceId === TARGET_WORKSPACE_ID);
+
+            if (resizeTarget) {
+                expect(goalLeft + inset, 'the drop aims outside the old target width')
+                    .toBeGreaterThan(targetInner.x + targetScreen.innerWidth)
+            }
+
+            let measuredTarget;
 
             for (const [dx, dy] of [[0, 0], [3, 2], [6, 4]]) {
                 const moved = await setBounds(sourceHandle, {left: goalLeft + dx, top: goalTop + dy});
 
                 await awaitOriginParity(app, managerId, source.windowId, moved, 'manager.Window follows the source popup through the poll alone');
-                await source.popup.waitForTimeout(120)
+                await source.popup.waitForTimeout(120);
+
+                if (resizeTarget) {
+                    const observed = await app.getComponent(targetParticipation.id, ['ownedAffordances.geometry', 'ownedIndicators.candidateSet']);
+                    if (observed['ownedIndicators.candidateSet']) measuredTarget = observed
+                }
+            }
+
+            if (resizeTarget) {
+                expect(measuredTarget, 'the real native hover populated the resized target menu').toBeTruthy();
+                const host = await target.popup.locator('.workstation-vessel-dock-host').boundingBox(),
+                      zone = await target.popup.locator('.neo-dashboard-dock-tabs').first().boundingBox(),
+                      geometry = measuredTarget['ownedAffordances.geometry'],
+                      candidates = measuredTarget['ownedIndicators.candidateSet'];
+
+                for (const key of ['x', 'y', 'width', 'height']) {
+                    expect(geometry.hostRect[key], `preview host ${key} matches the resized DOM`).toBeCloseTo(host[key], 0);
+                    expect(candidates.zone.rect[key], `drop zone ${key} matches the resized DOM`).toBeCloseTo(zone[key], 0)
+                }
+                test.info().annotations.push({type: 'resized-target-geometry', description: JSON.stringify({
+                    before: {width: targetScreen.innerWidth, height: targetScreen.innerHeight},
+                    after: host, previewHost: geometry.hostRect, dropZone: candidates.zone.rect,
+                    anchor: {x: goalLeft + inset, y: goalTop + inset}
+                })})
             }
 
             // The coordinator's own arithmetic must place the anchor inside the target — the source's
@@ -434,32 +484,31 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
 
             try {
                 await expect.poll(async () => {
-                    const [state, nativeLifecycle] = await Promise.all([
-                        app.getComponent(workspaceId, ['dockModel', 'lastCrossWindowTransfer', 'lastVesselParkReceipt']),
+                    const [state, group, nativeLifecycle] = await Promise.all([
+                        app.getComponent(workspaceId, ['lastVesselParkReceipt']),
+                        app.callMethod(workspaceId, 'controller.getTopologyState'),
                         readNativeLifecycle(app, workspaceId)
                     ]);
 
-                    receipt = {...state, nativeLifecycle};
+                    receipt = {...state, group, nativeLifecycle, dockModel: group.snapshot.participants['workstation-main']};
 
                     return {
-                        applied       : state.lastCrossWindowTransfer?.applied === true,
-                        operation     : state.lastCrossWindowTransfer?.descriptor?.operation ?? null,
                         parked        : state.lastVesselParkReceipt?.parked === true,
                         sourceClosed  : source.popup.isClosed(),
                         sourceWindowId: nativeLifecycle.owners[SOURCE_ITEM].windowId,
-                        target        : state.lastCrossWindowTransfer?.targetWorkspaceId ?? null
+                        sourceItems   : Object.keys(group.snapshot.participants[`workstation-vessel:${SOURCE_ITEM}`].items),
+                        targetItems   : Object.keys(group.snapshot.participants[TARGET_WORKSPACE_ID].items).sort()
                     }
                 }, {
                     message  : 'dwelling over the target vessel commits the transfer and retires the source vessel',
                     timeout  : 15000,
                     intervals: [50, 100, 250]
                 }).toEqual({
-                    applied       : true,
-                    operation     : 'transferItem',
                     parked        : true,
                     sourceClosed  : true,
                     sourceWindowId: null,
-                    target        : TARGET_WORKSPACE_ID
+                    sourceItems   : [],
+                    targetItems   : [SOURCE_ITEM, TARGET_ITEM].sort()
                 })
             } catch (error) {
                 // Bounded triage receipt: which phase the native terminal died in, what the target saw
@@ -474,7 +523,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                     lifecycle     : await readNativeLifecycle(app, workspaceId).catch(e => String(e)),
                     park          : receipt?.lastVesselParkReceipt ?? null,
                     snapshot      : await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{parkedItemId: SOURCE_ITEM, targetWorkspaceId: TARGET_WORKSPACE_ID}]).catch(e => String(e)),
-                    transfer      : receipt?.lastCrossWindowTransfer ?? null,
+                    group         : receipt?.group ?? null,
                     windows       : (await app.callMethod(managerId, 'toJSON')).windows.map(win => ({id: win.id, chrome: win.chrome, innerRect: win.innerRect, outerRect: win.outerRect}))
                 }, null, 1));
                 throw error
@@ -504,5 +553,11 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                 popup && !popup.isClosed() && await popup.close()
             }
         }
-    })
+    };
+
+    test('a popup moved by its OS titlebar onto another popup previews there and transfers its pane',
+        ({page, neuralLink}) => journey({page, neuralLink}));
+
+    test('an enlarged popup updates its drop zones before another popup transfers into the newly exposed area',
+        ({page, neuralLink}) => journey({page, neuralLink}, true))
 });

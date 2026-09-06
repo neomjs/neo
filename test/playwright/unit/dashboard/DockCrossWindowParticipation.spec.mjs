@@ -913,7 +913,6 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
         test('a custom preview seam leaves overlay ownership with its caller', () => {
             const workspace     = createWorkspaceStub(),
-                  overlay       = Neo.create(Container),
                   payload       = {draggedItem: {dockItemId: 'terminal'}},
                   preview       = {custom: true},
                   participation = createParticipation({
@@ -924,11 +923,9 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             try {
                 expect(participation.target.previewFor(payload)).toBe(preview);
                 expect(participation.ownedAffordances).toBeNull();
-                participation.destroy();
-                expect(overlay.isDestroyed).toBeFalsy()
+                participation.destroy()
             } finally {
-                !participation.isDestroyed && participation.destroy();
-                overlay.destroy()
+                !participation.isDestroyed && participation.destroy()
             }
         });
 
@@ -1055,6 +1052,76 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
 
             participation.destroy();
             WindowManager.unregister(WindowManager.get('cwd-default-win'))
+        });
+
+        test('supplied affordances and embodiment retain ownership while the target joins exact native pane and renderer settlement', async () => {
+            const {default: DragAffordances} = await import('../../../../src/dashboard/dock/interaction/DragAffordances.mjs');
+            const {default: Preview}         = await import('../../../../src/dashboard/dock/interaction/Preview.mjs');
+            const renderer                   = Neo.create(Preview),
+                  affordances = Neo.create(DragAffordances, {preview: renderer}),
+                  calls = [],
+                  draggedItem = {dockItemId: 'alpha', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'B'},
+                  semantic = {schema: 'neo.dock.preview.v1', previewId: 'preview:alpha:main-tabs:tab-into',
+                      itemId: 'alpha', target: {nodeId: 'main-tabs'}, placement: {kind: 'tab-into'}, feedback: {state: 'accepted'}},
+                  payload = {draggedItem, embodyProxy: true, sourceWindowId: 'native-source-popup',
+                      sourceSortZone: {windowId: 'source-root-window'}, localX: 100, localY: 100},
+                  identity = {itemId: 'alpha', sourceWindowId: 'native-source-popup', targetWindowId: 'target-popup'};
+            let settlePane, settleRenderer, settled = false;
+            const paneReady      = new Promise(resolve => settlePane = resolve),
+                  rendererReady  = new Promise(resolve => settleRenderer = resolve),
+                  dragEmbodiment = {
+                      move       : data => { calls.push(['move', data]); return true },
+                      whenSettled: data => { calls.push(['settle', data]); return paneReady },
+                      promote    : data => { calls.push(['promote', data]); return true },
+                      restore    : data => { calls.push(['restore', data]); return true },
+                      destroy    : () => calls.push(['destroy'])
+                  };
+            renderer.promiseUpdate = () => { calls.push(['render']); return rendererReady };
+            const participation = createParticipation({
+                affordances, dragEmbodiment, sortGroup: 'dock-engine', windowId: 'target-popup',
+                workspace: createWorkspaceStub(), workspaceId: 'B', previewFor: () => semantic
+            });
+
+            try {
+                expect(participation.resolveAffordances()).toBe(affordances);
+                expect(participation.ownedAffordances).toBeNull();
+                expect(participation.ownedPreview).toBeNull();
+                renderer.dockPreview = semantic;
+                expect(participation.target.onRemoteDragMove(payload)).toBe(semantic);
+                expect(calls[0]).toEqual(['move', {...payload, targetWindowId: 'target-popup'}]);
+
+                const ready = participation.target.awaitRemoteDragEmbodiment(draggedItem).then(value => {
+                    settled = true;
+                    return value
+                });
+                expect(calls).toContainEqual(['settle', identity]);
+                expect(calls).toContainEqual(['render']);
+                settlePane(true);
+                await new Promise(resolve => setTimeout(resolve, 0));
+                expect(settled, 'the pane alone cannot release the readability hold').toBe(false);
+                settleRenderer();
+                expect(await ready).toBe(true);
+
+                participation.target.onRemoteDragLeave();
+                expect(calls).toContainEqual(['restore', identity]);
+                expect(renderer.dockPreview, 'default clear reaches the externally owned affordances').toBeNull();
+
+                renderer.dockPreview = semantic;
+                participation.target.onRemoteDragMove(payload);
+                expect(await participation.target.onRemoteDrop(draggedItem)).toBeTruthy();
+                expect(calls).toContainEqual(['promote', identity]);
+
+                participation.target.onRemoteDragMove(payload);
+                expect(await participation.target.awaitRemoteDragEmbodiment(draggedItem), 'an absent rendered preview cannot settle').toBe(false);
+                participation.destroy();
+                expect(affordances.isDestroyed).toBeFalsy();
+                expect(renderer.isDestroyed).toBeFalsy();
+                expect(calls.some(([kind]) => kind === 'destroy')).toBe(false)
+            } finally {
+                participation.isDestroyed || participation.destroy();
+                affordances.destroy();
+                renderer.destroy()
+            }
         });
 
         test('an unset native-window resolver maps a moving popup through its Group-owned registry', () => {
