@@ -10,10 +10,11 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the registry the release witness reads
-import Button            from '../../../../src/button/Base.mjs';
-import DockLayoutAdapter from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import DockRail          from '../../../../src/dashboard/dock/interaction/Rail.mjs';
-import Panel             from '../../../../src/dashboard/Panel.mjs';
+import Button             from '../../../../src/button/Base.mjs';
+import DockLayoutAdapter  from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockRail           from '../../../../src/dashboard/dock/interaction/Rail.mjs';
+import RevealStateMachine from '../../../../src/dashboard/dock/interaction/RevealStateMachine.mjs';
+import Panel              from '../../../../src/dashboard/Panel.mjs';
 
 const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
@@ -62,6 +63,79 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
     test.afterEach(() => {
         rail?.destroy();
         rail = null
+    });
+
+    test('a specialized reveal owner uses the existing Rail input and destruction paths', () => {
+        class UnfocusedReveal extends RevealStateMachine {
+            static config = {className: 'Test.Unit.Dashboard.Rail.UnfocusedReveal'}
+
+            /** @summary Specializes click policy while retaining the inherited transition lifecycle. */
+            tabClick(itemId) {
+                this.transition('revealed', itemId)
+            }
+        }
+        Neo.setupClass(UnfocusedReveal);
+
+        rail = Neo.create(DockRail, {
+            edge: 'right', railItems: createRailItems(),
+            createRevealMachine() {
+                return Neo.create(UnfocusedReveal, {onChange: this.onRevealStateChange.bind(this)})
+            }
+        });
+        const machine = rail.revealMachine;
+
+        expect(rail.onTabClick({component: rail.items[0]})).toEqual({revealedItemId: 'terminal', state: 'revealed'});
+        expect(machine).toBeInstanceOf(UnfocusedReveal);
+        rail.destroy();
+        expect(machine.isDestroyed).toBe(true)
+    });
+
+    test('each Rail owns independent reveal state and cancels only its own pending timer', () => {
+        const pending    = new Map();
+        let   nextId     = 0;
+        const createRail = () => Neo.create(DockRail, {
+            edge: 'right', railItems: createRailItems(),
+            createRevealMachine() {
+                return Neo.create(RevealStateMachine, {
+                    onChange     : this.onRevealStateChange.bind(this),
+                    revealOnHover: true,
+                    setTimeoutFn(fn) {
+                        const id = ++nextId;
+                        pending.set(id, fn);
+                        return id
+                    },
+                    clearTimeoutFn: id => pending.delete(id)
+                })
+            }
+        });
+
+        rail = createRail();
+        const other      = createRail();
+        const firstOwner = rail.revealMachine;
+
+        try {
+            expect(firstOwner).not.toBe(other.revealMachine);
+            firstOwner.tabHoverIn('terminal');
+            expect(other.revealMachine.state).toBe('idle');
+            other.revealMachine.tabHoverIn('terminal');
+            expect(pending.size).toBe(2);
+
+            rail.destroy();
+            expect(firstOwner.isDestroyed).toBe(true);
+            expect(other.revealMachine.isDestroyed).not.toBe(true);
+            expect(pending.size).toBe(1);
+            const callback = [...pending.values()][0];
+            pending.clear();
+            callback();
+            expect(other.revealMachine.state).toBe('revealed');
+
+            other.revealMachine.overlayPointerLeave();
+            expect(pending.size).toBe(1);
+            other.destroy();
+            expect(pending.size).toBe(0)
+        } finally {
+            other.destroy()
+        }
     });
 
     test('renders railItems as real button children and reconciles in place (object permanence)', () => {

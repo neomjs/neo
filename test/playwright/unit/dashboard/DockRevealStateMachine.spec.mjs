@@ -1,5 +1,13 @@
+import {setup} from '../../setup.mjs';
+
+setup({appConfig: {name: 'DockRevealStateMachineTest'}});
+
 import {test, expect}         from '@playwright/test';
+import Neo                    from '../../../../src/Neo.mjs';
+import * as core              from '../../../../src/core/_export.mjs';
 import DockRevealStateMachine from '../../../../src/dashboard/dock/interaction/RevealStateMachine.mjs';
+import {execFileSync}         from 'node:child_process';
+import {fileURLToPath}        from 'node:url';
 
 const createFakeTimers = () => {
     let nextId = 1,
@@ -33,20 +41,82 @@ const createFakeTimers = () => {
     }
 };
 
+const machines = new Set();
+
 const createMachine = (config={}) => {
     let changes = [],
         timers  = createFakeTimers(),
-        machine = new DockRevealStateMachine({
+        machine = Neo.create(DockRevealStateMachine, {
             clearTimeoutFn: timers.clearTimeoutFn.bind(timers),
             onChange      : (next, previous) => changes.push({next, previous}),
             setTimeoutFn  : timers.setTimeoutFn.bind(timers),
             ...config
         });
 
+    machines.add(machine);
     return {changes, machine, timers}
 };
 
 test.describe('DockRevealStateMachine', () => {
+    test.afterEach(() => {
+        machines.forEach(machine => machine.destroy());
+        machines.clear()
+    });
+
+    test('a pre-import Neo overwrite reaches a real Rail input and its owned lifecycle', () => {
+        const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `
+            await import('./src/Neo.mjs');
+            await import('./src/core/_export.mjs');
+            const {setup} = await import('./test/playwright/setup.mjs');
+            setup({appConfig: {name: 'DockRevealOverwriteTest'}});
+            Neo.overwrites = {};
+            const policy = Neo.ns('Neo.dashboard.dock.interaction.RevealStateMachine', true, Neo.overwrites);
+            policy.dwellMs = 75;
+            policy.tabClick = function(itemId) {
+                this.transition('revealed', itemId);
+            };
+            const {default: Rail} = await import('./src/dashboard/dock/interaction/Rail.mjs');
+            const {default: Machine} = await import('./src/dashboard/dock/interaction/RevealStateMachine.mjs');
+            const rail = Neo.create(Rail, {edge: 'right', railItems: [{dockItemId: 'terminal', title: 'Terminal', restorable: true}]});
+            const machine = rail.revealMachine;
+            const dwellMs = machine.dwellMs;
+            const snapshot = rail.onTabClick({component: {dockItemId: 'terminal'}});
+            rail.destroy();
+            process.stdout.write(JSON.stringify({
+                registered: Machine === Neo.dashboard.dock.interaction.RevealStateMachine,
+                snapshot, dwellMs, destroyed: machine.isDestroyed === true
+            }));
+        `], {cwd: fileURLToPath(new URL('../../../../', import.meta.url)), encoding: 'utf8'}));
+
+        expect(result.registered).toBe(true);
+        expect(result.snapshot).toEqual({revealedItemId: 'terminal', state: 'revealed'});
+        expect(result.dwellMs).toBe(75);
+        expect(result.destroyed).toBe(true)
+    });
+
+    test('explicit dwell and grace durations govern their respective transitions', () => {
+        const {machine, timers} = createMachine({dwellMs: 12, graceMs: 23, revealOnHover: true});
+
+        machine.tabHoverIn('terminal');
+        timers.advance(11);
+        expect(machine.state).toBe('dwell-pending');
+        timers.advance(1);
+        expect(machine.state).toBe('revealed');
+        machine.overlayPointerLeave();
+        timers.advance(22);
+        expect(machine.state).toBe('dismiss-pending');
+        timers.advance(1);
+        expect(machine.state).toBe('idle')
+    });
+
+    test('invalid optional timings retain defaults and hover requires true', () => {
+        const {machine} = createMachine({dwellMs: NaN, graceMs: Infinity, revealOnHover: 'true'});
+
+        expect(machine.dwellMs).toBe(150);
+        expect(machine.graceMs).toBe(300);
+        expect(machine.revealOnHover).toBe(false)
+    });
+
     test('click-reveal is the default: click focuses, re-click dismisses', () => {
         let {changes, machine} = createMachine();
 

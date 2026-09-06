@@ -1,12 +1,12 @@
+import Base from '../../../core/Base.mjs';
+
 /**
- * @summary Pure reveal/dismiss state machine for auto-hidden dock items — runtime-only by
- * construction, timer-injectable for deterministic specs.
+ * @summary Owns one Rail's transient reveal state, policy and dwell/dismiss timers.
  *
- * This module is deliberately NOT a Neo class: it holds per-window runtime interaction state
- * (which item is transiently revealed, and why) that must never touch the persisted dock-zone
- * document. It has no write path to any document — its only outputs are `onChange`
- * notifications the owning affordance (`Neo.dashboard.dock.interaction.Rail`) maps to overlay updates and,
- * for the pin escape, to an executor-routed operation OUTSIDE this machine.
+ * Methods and policy defaults support Neo.overwrites and subclassing. Each Rail creates and destroys
+ * its own instance; registration does not persist interaction state. The only output is `onChange`,
+ * which the Rail maps to overlay updates. Pinning remains an executor-routed operation outside this
+ * machine. Timer functions remain injectable for deterministic tests.
  *
  * ## States
  *
@@ -46,8 +46,10 @@
  *
  * Dwell + grace are interaction timings owned here; reveal/dismiss slide durations are animation
  * timings and live in CSS, not in this machine.
+ * @class Neo.dashboard.dock.interaction.RevealStateMachine
+ * @extends Neo.core.Base
  */
-class RevealStateMachine {
+class RevealStateMachine extends Base {
     /**
      * Hover intent dwell before a reveal fires (opt-in hover mode only).
      * @member {Number} DWELL_MS=150
@@ -61,7 +63,34 @@ class RevealStateMachine {
      */
     static DISMISS_GRACE_MS = 300
 
+    static config = {
+        /** @member {String} className='Neo.dashboard.dock.interaction.RevealStateMachine' @protected */
+        className: 'Neo.dashboard.dock.interaction.RevealStateMachine',
+        /** @member {Function} clearTimeoutFn Cancels a timer owned by this instance. */
+        clearTimeoutFn: id => globalThis.clearTimeout(id),
+        /** @member {Number} dwellMs=150 Hover dwell before revealing without focus. */
+        dwellMs: RevealStateMachine.DWELL_MS,
+        /** @member {Number} graceMs=300 Pointer-leave grace before dismissal. */
+        graceMs: RevealStateMachine.DISMISS_GRACE_MS,
+        /** @member {Function|null} onChange=null Receives next and previous reveal snapshots. */
+        onChange: null,
+        /** @member {Boolean} revealOnHover=false Hover reveal is explicitly opt-in. */
+        revealOnHover: false,
+        /** @member {Function} setTimeoutFn Schedules this instance's dwell/grace callback. */
+        setTimeoutFn: (fn, ms) => globalThis.setTimeout(fn, ms)
+    }
+
+    /** @member {String|null} pendingItemId=null @protected */
+    pendingItemId = null
+    /** @member {String|null} revealedItemId=null */
+    revealedItemId = null
+    /** @member {String} state='idle' */
+    state = 'idle'
+    /** @member {Number|Object|null} timerId=null @protected */
+    timerId = null
+
     /**
+     * @summary Applies effective policy while retaining the established optional-config defaults.
      * @param {Object} config
      * @param {Function} [config.clearTimeoutFn=globalThis.clearTimeout] Injectable for fake-timer specs.
      * @param {Number} [config.dwellMs=RevealStateMachine.DWELL_MS]
@@ -70,17 +99,19 @@ class RevealStateMachine {
      * @param {Boolean} [config.revealOnHover=false] Workspace-level opt-in; hover inputs are ignored without it.
      * @param {Function} [config.setTimeoutFn=globalThis.setTimeout] Injectable for fake-timer specs.
      */
-    constructor({clearTimeoutFn, dwellMs, graceMs, onChange, revealOnHover, setTimeoutFn} = {}) {
-        this.clearTimeoutFn = clearTimeoutFn || globalThis.clearTimeout.bind(globalThis);
-        this.dwellMs        = Number.isFinite(dwellMs) ? dwellMs : RevealStateMachine.DWELL_MS;
-        this.graceMs        = Number.isFinite(graceMs) ? graceMs : RevealStateMachine.DISMISS_GRACE_MS;
-        this.onChange       = typeof onChange === 'function' ? onChange : null;
-        this.pendingItemId  = null;
-        this.revealOnHover  = revealOnHover === true;
-        this.revealedItemId = null;
-        this.setTimeoutFn   = setTimeoutFn || globalThis.setTimeout.bind(globalThis);
-        this.state          = 'idle';
-        this.timerId        = null
+    construct(config={}) {
+        config = {...config};
+
+        for (const key of ['dwellMs', 'graceMs']) {
+            if (!Number.isFinite(config[key])) delete config[key]
+        }
+
+        if (!config.clearTimeoutFn) delete config.clearTimeoutFn;
+        if (!config.setTimeoutFn) delete config.setTimeoutFn;
+        if (Object.hasOwn(config, 'onChange') && typeof config.onChange !== 'function') config.onChange = null;
+        if (Object.hasOwn(config, 'revealOnHover')) config.revealOnHover = config.revealOnHover === true;
+
+        super.construct(config)
     }
 
     /**
@@ -95,11 +126,13 @@ class RevealStateMachine {
     }
 
     /**
-     * Tears the machine down: clears timers and detaches the change listener.
+     * @summary Clears owned timers and the change listener before Base teardown.
+     * @param {...*} args
      */
-    destroy() {
+    destroy(...args) {
         this.clearTimer();
-        this.onChange = null
+        this.onChange = null;
+        super.destroy(...args)
     }
 
     /**
@@ -261,4 +294,4 @@ class RevealStateMachine {
     }
 }
 
-export default RevealStateMachine;
+export default Neo.setupClass(RevealStateMachine);
