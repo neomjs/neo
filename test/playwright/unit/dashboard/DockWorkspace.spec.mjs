@@ -3998,6 +3998,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
          *
          * The assertion is the round trip rather than a list of known prefixes: a rule survives a
          * host inventing a vocabulary nobody here anticipated, and a list does not.
+         *
+         * **Sunset condition — delete this arm, do not patch it.** The hazard exists only because
+         * ownership is recovered by DECODING a key. The moment the base class stops implementing the
+         * decode half — because ownership is resolved by matching the exact reserved key instead of
+         * parsing a prefix out of it — there is no inverse left to fall out of step, and this whole
+         * describe block is guarding a contract that no longer exists. That successor is strictly
+         * better: a key that is never parsed cannot be parsed inconsistently. Whoever lands it should
+         * remove this block rather than adapt it to the survivor, and should not preserve an unused
+         * inverse on the base class merely to keep these arms green.
          */
         const roundTrips = (workspace, itemId) => workspace.tearOutItemIdFor(workspace.tearOutWorkspaceKey(itemId));
 
