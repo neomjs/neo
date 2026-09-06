@@ -3507,15 +3507,7 @@ class Workspace extends DockWorkspace {
                     screenX: window.innerRect.x + (point?.x ?? startX),
                     screenY: window.innerRect.y + (point?.y ?? startY)
                 }),
-                waitUntil      = async (predicate, attempts=120) => {
-                    for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-                        if (predicate()) return true;
-
-                        attempt < attempts && await me.timeout(16)
-                    }
-
-                    return Boolean(predicate())
-                },
+                waitUntil      = (predicate, attempts=120) => me.waitFor(predicate, {attempts, delay: 16}),
                 moveTo         = (x, y) => {
                     if (cursorDot) {
                         cursorDot.style = {...cursorDot.style, left: `${x - 8}px`, top: `${y - 8}px`}
@@ -4744,13 +4736,7 @@ class Workspace extends DockWorkspace {
         let me    = this,
             armed = () => Boolean(sortZone?.dragProxy && sortZone?.boundaryContainerRect && sortZone?.itemRects);
 
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (armed()) return true;
-
-            attempt < attempts && await me.timeout(delay)
-        }
-
-        return armed()
+        return me.waitFor(armed, {attempts, delay})
     }
 
     /**
@@ -4767,13 +4753,9 @@ class Workspace extends DockWorkspace {
     async waitForTearOutVessel(itemId, {attempts=180, delay=16}={}) {
         let me = this;
 
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (me.nativeWindows?.getConnection(me.id, itemId) || me.nativeWindows?.getOwner(me.id, itemId)) return true;
-
-            attempt < attempts && await me.timeout(delay)
-        }
-
-        return Boolean(me.nativeWindows?.getConnection(me.id, itemId) || me.nativeWindows?.getOwner(me.id, itemId))
+        return me.waitFor(() => Boolean(
+            me.nativeWindows?.getConnection(me.id, itemId) || me.nativeWindows?.getOwner(me.id, itemId)
+        ), {attempts, delay})
     }
 
     /**
@@ -4793,13 +4775,7 @@ class Workspace extends DockWorkspace {
                 !me.tearOutEmbodiment.isStaged(itemId) && !me.tearOutHandlers.activeVessel
             );
 
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (retired()) return true;
-
-            attempt < attempts && await me.timeout(delay)
-        }
-
-        return retired()
+        return me.waitFor(retired, {attempts, delay})
     }
 
     /**
@@ -4821,13 +4797,7 @@ class Workspace extends DockWorkspace {
                     && Boolean(document.items?.[itemId])
             };
 
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (detached()) return true;
-
-            attempt < attempts && await me.timeout(delay)
-        }
-
-        return detached()
+        return me.waitFor(detached, {attempts, delay})
     }
 
     /**

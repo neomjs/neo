@@ -2856,13 +2856,7 @@ class DemoBWorkspace extends Container {
             // container/SortZone.onDragMove needs before it reaches checkWindowBoundary (@582/@588).
             armed = () => Boolean(sortZone?.dragProxy && sortZone?.boundaryContainerRect && sortZone?.itemRects);
 
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (armed()) return true;
-
-            attempt < attempts && await me.timeout(delay)
-        }
-
-        return armed()
+        return me.waitFor(armed, {attempts, delay})
     }
 
     /**
@@ -2925,13 +2919,7 @@ class DemoBWorkspace extends Container {
     async waitForTearOutVessel(itemId, {attempts = 180, delay = 16} = {}) {
         let me = this;
 
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (me.hasTearOutVessel(itemId)) return true;
-
-            attempt < attempts && await me.timeout(delay)
-        }
-
-        return me.hasTearOutVessel(itemId)
+        return me.waitFor(() => me.hasTearOutVessel(itemId), {attempts, delay})
     }
 
     /**
@@ -2954,13 +2942,7 @@ class DemoBWorkspace extends Container {
                     && Boolean(document.items?.[itemId])
             };
 
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (detached()) return true;
-
-            attempt < attempts && await me.timeout(delay)
-        }
-
-        return detached()
+        return me.waitFor(detached, {attempts, delay})
     }
 
     /**
