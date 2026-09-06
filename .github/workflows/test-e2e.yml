@@ -1,0 +1,160 @@
+name: E2E (engine tier)
+
+# Why this is its own workflow rather than a third suite in `test.yml`:
+#
+# The e2e tier cannot run whole in CI, and the reasons are structural rather than
+# provisional. Two of them bound what this job may ever contain:
+#
+#   1. GPU. Specs that boot `/apps/workstation/index.html` inherit five canvas files
+#      and drive animated OffscreenCanvas work. CI runners have no GPU compute for
+#      that, so the workstation tier is out of scope here — not skipped, not flaky,
+#      out of scope. The dashboard app carries zero canvas files, which is why the
+#      dock and cross-window specs are the tier that fits.
+#   2. Time. The operator's ceiling for this pipeline is five minutes. Measured
+#      serially on an idle developer machine, the selection below runs in 3.7m and
+#      the full Brain-free set runs in 7.2m. The set is chosen to fit, and the
+#      timeout below is what stops it from silently growing past the ceiling.
+#
+# A third reason bounds the REPORTING rather than the content, and it is the one a
+# reader is most likely to be misled by. `playwright.config.e2e.mjs` uses
+# `testIgnore` for the specs that need an external `neo-agent-brain` checkout, and
+# `testIgnore` removes files from SELECTION rather than skipping them: no reporter,
+# summary line or `--list` output can mention them, and a run missing four fifths of
+# the tier still prints `Skipped: 0`. A green check here therefore certifies a
+# genuine but PARTIAL tier, and the coverage step below writes that fraction into
+# the job summary so the badge cannot imply the whole.
+#
+# Origin: neomjs/neo#17853.
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+
+concurrency:
+  # Matches `test.yml`: initial attempts share the ref stream so a new head supersedes
+  # old work, while reruns keep their run_id and cannot cancel a newer head (#15593).
+  group: tests-${{ github.workflow }}-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-engine:
+    name: e2e-engine
+    runs-on: ubuntu-latest
+    # The operator's ceiling is 5 minutes of RUN time; this bounds the whole job
+    # including provisioning, and exists to fail loudly if the selection grows rather
+    # than to let a slow run pass unnoticed.
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bundle parse5
+        run: npm run bundle-parse5
+
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright Chromium
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: npx playwright install chromium
+
+      - name: Save Playwright Chromium
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      - name: Verify Chromium launches
+        id: chromium-probe
+        continue-on-error: true
+        run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
+
+      - name: Install Playwright system dependencies
+        if: ${{ steps.chromium-probe.outcome == 'failure' }}
+        run: npx playwright install-deps chromium
+
+      # Serial by measurement, not by caution: the tier drives real windows, drag
+      # thresholds and geometry, and parallel workers on one runner perturb exactly
+      # those arms. The 3.7m figure above is a `--workers=1` number.
+      #
+      # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the same lever the
+      # unit suite uses. Every guard it fires carries a reason and a ticket at its
+      # call site; a guard without one is a bug in the guard.
+      - name: Run e2e (engine tier)
+        run: |
+          npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 \
+            test/playwright/e2e/colors \
+            test/playwright/e2e/core \
+            test/playwright/e2e/dashboard \
+            test/playwright/e2e/grid \
+            test/playwright/e2e/portal \
+            test/playwright/e2e/rendering
+        env:
+          NEO_TEST_SKIP_CI: 'true'
+
+      # The honesty guard. Without it the badge reads as "e2e passed" while the tier
+      # it covers is a fraction, and the deselected remainder is invisible by
+      # construction rather than by omission.
+      # Counts what this JOB runs, not what the config selects — the two differ, and
+      # reporting the larger number would be the exact false green this step exists to
+      # prevent. Derived rather than hardcoded so it stays true as the tree moves.
+      - name: Report tier coverage
+        if: ${{ always() }}
+        run: |
+          node --input-type=module -e "
+            import {selectExternalBrainSpecs} from './test/playwright/externalBrainSelection.mjs';
+            import {readdirSync}              from 'node:fs';
+            import {join}                     from 'node:path';
+
+            const root  = join(process.cwd(), 'test/playwright/e2e'),
+                  {ignore, total} = selectExternalBrainSpecs(root),
+                  walk  = dir => readdirSync(dir, {withFileTypes: true}).flatMap(entry =>
+                      entry.isDirectory()             ? walk(join(dir, entry.name)) :
+                      entry.name.endsWith('.spec.mjs') ? [join(dir, entry.name)]    : []),
+                  // Only the Brain-FREE workstation specs are excluded by THIS job; the rest were
+                  // already deselected above. Counting all of them double-subtracts and reports a
+                  // negative coverage, which is how the first version of this step was wrong.
+                  isIgnored  = file => ignore.some(pattern => pattern.test(file)),
+                  brainFree  = total - ignore.length,
+                  gpuTier    = walk(join(root, 'workstation')).filter(file => !isIgnored(file)).length,
+                  ran        = brainFree - gpuTier;
+
+            console.log([
+              '### e2e (engine tier) coverage',
+              '',
+              \`This job ran **\${ran} of \${total}** e2e spec files.\`,
+              '',
+              \`- **\${ignore.length}** require an external \\\`neo-agent-brain\\\` checkout and are DESELECTED by \\\`testIgnore\\\` — they cannot appear as skips in any report.\`,
+              \`- **\${gpuTier}** are workstation specs, excluded here: that app inherits animated OffscreenCanvas work CI has no GPU for.\`,
+              '',
+              'A green check on this job certifies the engine tier only. It does not certify the two groups above.'
+            ].join('\n'));
+          " >> "\$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test artifacts on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e-engine-${{ github.run_id }}
+          path: test/playwright/test-results/
