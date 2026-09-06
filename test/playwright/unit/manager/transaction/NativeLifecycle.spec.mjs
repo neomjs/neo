@@ -140,4 +140,40 @@ test.describe.serial('Group native lifecycle (#18314)', () => {
         await Promise.resolve();
         expect(observed).toEqual(['owned-window'])
     });
+
+    test('physical release cancels admission while its platform preparation is still pending', async () => {
+        const windows = owner('root'), grant = deferred(), bound = [];
+        windows.registerSource('view', effects({prepare: () => grant.promise, bound: data => bound.push(data)}));
+        const vessel  = await windows.acquire('view', {itemId: 'one'});
+        const binding = windows.onBind({...vessel, windowId: 'gone', generation: 1});
+        await windows.onRelease({groupId: windows.groupId, workspaceKey: vessel.workspaceKey, windowId: 'gone'});
+        grant.resolve(true);
+        await binding;
+        expect(windows.getAdmission('view', 'one')).toBeNull();
+        expect(windows.getConnection('view', 'one')).toBeNull();
+        expect(bound).toEqual([])
+    });
+
+    test('an awaited release cannot overwrite ownership recorded for a successor window', async () => {
+        const windows = owner('root'), unbind = deferred();
+        windows.registerSource('view', effects({unbind: () => unbind.promise}));
+        windows.recordOwner('view', 'one', {windowId: 'old', generationToken: 'old-token'});
+        const release = windows.onRelease({groupId: windows.groupId, windowId: 'old'});
+        windows.recordOwner('view', 'one', {windowId: 'new', generationToken: 'new-token'});
+        unbind.resolve(false);
+        await release;
+        expect(windows.getOwner('view', 'one')).toMatchObject({windowId: 'new', generationToken: 'new-token'})
+    });
+
+    test('physical death clears an outstanding refused-close record for that generation', async () => {
+        const windows = owner('root'), closing = deferred();
+        windows.registerSource('view', effects({close: () => closing.promise}));
+        const vessel = await windows.acquire('view', {itemId: 'one'});
+        await windows.onBind({...vessel, windowId: 'closed', generation: 1});
+        const retirement = windows.retire('view', vessel);
+        await windows.onRelease({groupId: windows.groupId, windowId: 'closed'});
+        closing.resolve(false);
+        expect(await retirement, 'observed physical death is stronger than the late refusal').toBe(true);
+        expect(windows.pendingRetirements('view')).toEqual([])
+    });
 });
