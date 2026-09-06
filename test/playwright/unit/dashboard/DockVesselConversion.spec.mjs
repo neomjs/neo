@@ -4,15 +4,15 @@ setup({
     appConfig: {
         name: 'DashboardDockVesselConversionTest'
     },
-    // The sensor is a zero-import pure module: no Main facade, no LocalStorage addon. Declaring
-    // both mocks off keeps this file runnable SOLO — the mock paths call `Neo.ns`, which only
-    // exists once a sibling spec has loaded the real core into the shared worker.
+    // The decision owner needs no Main facade or LocalStorage addon.
     mockLocalStorage: false,
     mockMain        : false
 });
 
-import {test, expect}                 from '@playwright/test';
-import {createVesselConversionSensor} from '../../../../src/dashboard/dock/window/VesselConversion.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../src/Neo.mjs';
+import * as core        from '../../../../src/core/_export.mjs';
+import VesselConversion from '../../../../src/dashboard/dock/window/VesselConversion.mjs';
 
 /**
  * @summary The dual-window conversion sensor, driven end-to-end through its injected seams.
@@ -25,11 +25,20 @@ import {createVesselConversionSensor} from '../../../../src/dashboard/dock/windo
  * fails CLOSED — a converted sensor fed NaN reverts instead of freezing. The seams are the
  * decision surface; the returned sample record is the geometry surface.
  */
-test.describe('Neo.dashboard.dock.window.VesselConversion — createVesselConversionSensor', () => {
+test.describe('Neo.dashboard.dock.window.VesselConversion', () => {
+    const sensors      = [];
+    const createSensor = (config, cls=VesselConversion) => {
+        const sensor = Neo.create(cls, config);
+        sensors.push(sensor);
+        return sensor
+    };
+
+    test.afterEach(() => sensors.splice(0).forEach(sensor => sensor.destroy()));
+
     const harness = (config = {}) => {
         const calls = {converted: [], reverted: []};
 
-        const sensor = createVesselConversionSensor({
+        const sensor = createSensor({
             onConvertIn: record => {
                 calls.converted.push(record);
                 return true
@@ -52,6 +61,66 @@ test.describe('Neo.dashboard.dock.window.VesselConversion — createVesselConver
         pointerInTarget,
         sourceRect: rect(bx, 0, 100, 100),
         targetRect: rect(0, 0, 100, 100)
+    });
+
+    test('a policy override changes measurement without copying transition ownership', () => {
+        const {sensor} = harness();
+        sensor.axisRatio = () => 1;
+        expect(slideSample(sensor, 99).converted).toBe(true)
+    });
+
+    test('the registered class and a subclass share lifecycle while specializing the decision', () => {
+        expect(Neo.ns('Neo.dashboard.dock.window.VesselConversion')).toBe(VesselConversion);
+        class NeverConvert extends VesselConversion {
+            static config = {className: 'Test.Unit.Dashboard.VesselConversion.NeverConvert'};
+            resolveConversion() { return false }
+        }
+        const sensor = createSensor({onConvertIn: () => true, onConvertOut: () => true}, Neo.setupClass(NeverConvert));
+        expect(sensor instanceof VesselConversion).toBe(true);
+        expect(slideSample(sensor, 0).converted).toBe(false);
+        expect(sensor.transitioning).toBe(false)
+    });
+
+    test('Neo.overwrites changes inherited policy methods and defaults before registration', () => {
+        const previous = Neo.overwrites;
+        class OverwrittenPolicy extends VesselConversion {
+            static config = {className: 'Test.Unit.Dashboard.VesselConversion.OverwrittenPolicy'}
+        }
+        try {
+            Neo.overwrites = {Test: {Unit: {Dashboard: {VesselConversion: {OverwrittenPolicy: {
+                convertThreshold: 0.9,
+                resolveConversion(record) { return record.pointerInTarget }
+            }}}}}};
+            const sensor = createSensor({onConvertIn: () => true, onConvertOut: () => true}, Neo.setupClass(OverwrittenPolicy));
+            expect(sensor.convertThreshold).toBe(0.9);
+            expect(slideSample(sensor, 99).converted).toBe(true)
+        } finally {
+            Neo.overwrites = previous
+        }
+    });
+
+    test('destruction unregisters the sensor and makes late admission inert', async () => {
+        let finish;
+        const admission = new Promise(resolve => finish = resolve),
+              {sensor}  = harness({onConvertIn: () => admission}),
+              id        = sensor.id,
+              lookup    = () => Neo.manager?.Instance?.get(id) ?? Neo.idMap?.[id];
+        expect(lookup()).toBe(sensor);
+        slideSample(sensor, 0);
+        const pending = sensor.transitionPromise;
+        sensor.destroy();
+        finish(true);
+        await expect(pending).resolves.toBe(false);
+        expect(sensor.isDestroyed).toBe(true);
+        expect(sensor.converted).toBe(false);
+        expect(sensor.transitioning).toBe(false);
+        expect(lookup()).toBeFalsy()
+    });
+
+    test('invalid policy is rejected before an instance id is registered', () => {
+        const id = 'invalid-vessel-policy-18388';
+        expect(() => createSensor({id, convertThreshold: 0})).toThrow(/finite number/);
+        expect(Neo.manager?.Instance?.get(id) ?? Neo.idMap?.[id]).toBeFalsy()
     });
 
     test('reachability: composed attains 1.0 and converts for EVERY size-pair direction — small over large, large over small, near-equal, extreme aspect', () => {
@@ -330,17 +399,17 @@ test.describe('Neo.dashboard.dock.window.VesselConversion — createVesselConver
     test('config validation fails LOUD: inverted or degenerate bands, out-of-range thresholds, missing or non-function seams', () => {
         const seams = {onConvertIn: () => {}, onConvertOut: () => {}};
 
-        expect(() => createVesselConversionSensor({...seams, convertThreshold: 0.3, revertThreshold: 0.5}))
+        expect(() => createSensor({...seams, convertThreshold: 0.3, revertThreshold: 0.5}))
             .toThrow(/strictly above/);
-        expect(() => createVesselConversionSensor({...seams, convertThreshold: 0.4, revertThreshold: 0.4}))
+        expect(() => createSensor({...seams, convertThreshold: 0.4, revertThreshold: 0.4}))
             .toThrow(/strictly above/);
-        expect(() => createVesselConversionSensor({...seams, convertThreshold: 1.2}))
+        expect(() => createSensor({...seams, convertThreshold: 1.2}))
             .toThrow(/finite number in \(0, 1\]/);
-        expect(() => createVesselConversionSensor({...seams, revertThreshold: 0}))
+        expect(() => createSensor({...seams, revertThreshold: 0}))
             .toThrow(/finite number in \(0, 1\]/);
-        expect(() => createVesselConversionSensor({onConvertIn: () => {}}))
+        expect(() => createSensor({onConvertIn: () => {}}))
             .toThrow(/required function seams/);
-        expect(() => createVesselConversionSensor({...seams, composeRatios: 'min'}))
+        expect(() => createSensor({...seams, composeRatios: 'min'}))
             .toThrow(/composeRatios must be a function seam/)
     });
 
