@@ -28,9 +28,10 @@ import PreviewContract   from '../model/PreviewContract.mjs';
  * **The consumer duck-type (`owner`):** a workspace container providing `dockModel` (the
  * committed document), `applyDockZoneOperation(descriptor)` (the reducer), and
  * `onDockZoneDocumentChange(document)` (the view-sync) — the normative reducer-container
- * ownership pattern every docking workspace implements. The overlay instances (`preview`,
- * `indicators`) and the dock `host` container are direct instance refs the consumer assigns
- * after composing them — no reference-name coupling, no app imports in this tier.
+ * ownership pattern every docking workspace implements. The composition owner supplies the
+ * `preview`, `indicators` and `host` instances: an app can compose them, while
+ * {@link Neo.dashboard.dock.window.Participation} owns the complete default remote-target tier.
+ * This controller borrows those views; their composer destroys them. No app imports in this tier.
  */
 class DragAffordances extends Base {
     static config = {
@@ -50,9 +51,8 @@ class DragAffordances extends Base {
 
     /**
      * The settled geometry of the live gesture — the synchronous mirror of {@link #dragGeometry},
-     * null until that promise resolves and again after {@link #invalidateGeometry}. A remote frame
-     * (the cross-window participation path) must resolve its preview on the frame it arrives and
-     * writes the renderer itself, so it reads this instead of awaiting.
+     * null until that promise resolves and again after {@link #invalidateGeometry}. Remote frames
+     * use this mirror to select and publish feedback synchronously.
      * @member {Object|null} geometry=null
      */
     geometry = null
@@ -97,7 +97,7 @@ class DragAffordances extends Base {
     }
 
     /**
-     * Ends a drag affordance session: geometry cache dropped (invalidating every in-flight
+     * @summary Ends a drag affordance session: geometry cache dropped (invalidating every in-flight
      * await's generation token), indicator menu and preview cleared. Called on drop, cancel,
      * teardown, and by every consumer re-projection.
      */
@@ -106,7 +106,7 @@ class DragAffordances extends Base {
 
         me.invalidateGeometry();
         me.indicators?.clear();
-        me.preview && (me.preview.dockPreview = null)
+        me.renderPreview(null)
     }
 
     /**
@@ -215,11 +215,9 @@ class DragAffordances extends Base {
     }
 
     /**
-     * Resolves the preview one pointer selects from the SETTLED geometry, in the §06 tier order — a
-     * hovered indicator's candidate first, pointer inference over every zone second — without
-     * touching the renderer. {@link #onDragMove} is the async, renderer-writing form of the same
-     * decision; the cross-window participation path calls this synchronously per remote frame
-     * because it owns the renderer write, and supplies its own fallback for a null.
+     * @summary Updates the candidate menu and resolves its selection from settled geometry.
+     * Indicator selection precedes pointer inference. Both local moves and remote frames use this
+     * decision, then publish through {@link #renderPreview} or a caller-owned renderer.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} data.pointer {x, y} in the host window's client space
@@ -228,15 +226,46 @@ class DragAffordances extends Base {
      * @returns {Object|null} the dockPreview, or null before the geometry settles or when nothing is under the pointer
      */
     resolvePreview({groupNodeId = null, itemId, pointer, sourceNodeId}) {
-        let me         = this,
-            {geometry} = me,
-            candidate  = geometry ? me.indicators?.hitTest(pointer) : null;
+        let me                               = this,
+            {geometry, indicators, producer} = me;
 
         if (!geometry) return null;
 
+        const zone = producer.hitTestZone(geometry.zones, pointer),
+              set  = indicators?.candidateSet;
+
+        if (indicators && ((zone?.nodeId ?? null) !== (set?.zone?.nodeId ?? null) || zone?.rect !== set?.zone?.rect ||
+            set?.itemId !== itemId || (set?.groupNodeId ?? null) !== groupNodeId)) {
+            indicators.candidateSet = zone
+                ? producer.produceCandidates({pointer, zones: geometry.zones, itemId, groupNodeId, sourceNodeId, root: geometry.root})
+                : null
+        }
+
+        const candidate = indicators?.updatePointer(pointer);
+
         if (candidate?.preview?.itemId === itemId) return candidate.preview;
 
-        return me.producer.produce({groupNodeId, itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones})
+        return producer.produce({groupNodeId, itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones})
+    }
+
+    /**
+     * @summary Publishes the semantic preview and native dwell using the same host-local geometry.
+     * @param {Object|null} dockPreview The exact preview the drop path consumes.
+     * @param {Object|null} [dwell=null] The native coordinator's hold clock.
+     * @returns {Object|null} The published preview.
+     */
+    renderPreview(dockPreview, dwell=null) {
+        const me = this, {preview} = me;
+
+        if (preview) {
+            preview.dwell = dwell;
+            preview.dockPreview = dockPreview;
+
+            const targetRect = me.previewTargetRect(dockPreview);
+            targetRect && preview.applyTargetGeometry(me.localRect(targetRect, me.geometry.hostRect))
+        }
+
+        return dockPreview
     }
 
     /**
@@ -249,7 +278,7 @@ class DragAffordances extends Base {
     }
 
     /**
-     * The per-frame drag consumer (§06 primary tier): the indicator menu follows the hovered
+     * @summary The per-frame drag consumer: the indicator menu follows the hovered
      * zone (candidate set swaps on zone change only — object permanence lets the cross
      * GLIDE); the pointer selects an indicator geometrically; the selected candidate's
      * preview — or the pointer-inference FALLBACK tier when no indicator is hovered — feeds
@@ -272,29 +301,11 @@ class DragAffordances extends Base {
         // geometry mid-await — a late measurement can never resurrect its overlays.
         if (!geometry || me.dragGeometry !== geometryPromise || me.isDestroyed) return;
 
-        let pointer                         = {x: clientX, y: clientY},
-            {indicators, preview, producer} = me,
-            zone                            = producer.hitTestZone(geometry.zones, pointer);
+        const dockPreview = me.resolvePreview({
+            groupNodeId, itemId, pointer: {x: clientX, y: clientY}, sourceNodeId
+        });
 
-        if (indicators) {
-            if ((zone?.nodeId ?? null) !== (indicators.candidateSet?.zone?.nodeId ?? null)) {
-                indicators.candidateSet = zone
-                    ? producer.produceCandidates({pointer, zones: geometry.zones, itemId, groupNodeId, sourceNodeId, root: geometry.root})
-                    : null
-            }
-        }
-
-        let candidate   = indicators?.updatePointer(pointer) ?? null,
-            dockPreview = candidate?.preview
-                ?? producer.produce({pointer, zones: geometry.zones, itemId, groupNodeId, root: geometry.root, sourceNodeId});
-
-        if (preview && writeRenderer) {
-            preview.dockPreview = dockPreview;
-
-            let targetRect = me.previewTargetRect(dockPreview);
-
-            targetRect && preview.applyTargetGeometry(me.localRect(targetRect, geometry.hostRect))
-        }
+        writeRenderer && me.renderPreview(dockPreview)
     }
 
     /**

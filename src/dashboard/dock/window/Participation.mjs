@@ -1,6 +1,7 @@
 import Base              from '../../../core/Base.mjs';
 import DragAffordances   from '../interaction/DragAffordances.mjs';
 import DragTarget        from './DragTarget.mjs';
+import DropIndicators    from '../interaction/DropIndicators.mjs';
 import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
 import Operations        from '../model/Operations.mjs';
 import Preview           from '../interaction/Preview.mjs';
@@ -32,8 +33,8 @@ import PreviewContract   from '../model/PreviewContract.mjs';
  *   transaction instead of extending a `dockZone.v1` item record.
  *
  * Layer discipline (the target's established layer note, unchanged): `src/dashboard/` imports no app module —
- * every seam below arrives from the app-side workspace composition, which keeps authoring the
- * preview visuals. The {@link Neo.manager.DragCoordinator} stays dock-blind: all dock semantics
+ * hosts can override the seams below; the default preview tier composes the shared engine visuals.
+ * The {@link Neo.manager.DragCoordinator} stays dock-blind: all dock semantics
  * live here and in the seams, never in the coordinator (§2.3 binding invariant).
  *
  * The cross-window drag payload contract (stamped by {@link Neo.dashboard.dock.interaction.TabSortZone} at
@@ -228,6 +229,13 @@ class Participation extends Base {
     ownedAffordances = null
 
     /**
+     * The default target's indicator menu, created and destroyed with its preview tier.
+     * @member {Neo.dashboard.dock.interaction.DropIndicators|null} ownedIndicators=null
+     * @protected
+     */
+    ownedIndicators = null
+
+    /**
      * The preview overlay composed by {@link #resolveAffordances}. Owned here, destroyed here.
      * @member {Neo.dashboard.dock.interaction.Preview|null} ownedPreview=null
      * @protected
@@ -268,14 +276,8 @@ class Participation extends Base {
     }
 
     /**
-     * @summary Composes the engine's own affordance tier on first use.
-     *
-     * {@link Neo.dashboard.dock.interaction.Preview} and
-     * {@link Neo.dashboard.dock.interaction.DragAffordances} both document themselves as the
-     * app-neutral pieces every docking workspace composes, and no engine workspace composes either —
-     * so a host that supplies no preview seam has nothing to paint into, resolves no preview for a
-     * remote hover, and can never convert a drop into an operation. Composing them here keeps that
-     * assembly out of the workspace class while making the seam answerable.
+     * @summary Composes the shared preview renderer, indicator menu and gesture controller on first use.
+     * Default targets own this complete tier; hosts supplying a preview seam retain their own visuals.
      * @returns {Neo.dashboard.dock.interaction.DragAffordances|null}
      * @protected
      */
@@ -284,16 +286,18 @@ class Participation extends Base {
             workspace = me.workspace,
             host      = workspace?.getDockHost?.();
 
-        if (me.ownedAffordances || !workspace || !host || workspace.isDestroyed) {
+        if (me.isDestroyed || me.ownedAffordances || !workspace || !host || workspace.isDestroyed) {
             return me.ownedAffordances
         }
 
         me.ownedPreview = workspace.add({module: Preview});
+        me.ownedIndicators = workspace.add({module: DropIndicators});
 
         me.ownedAffordances = Neo.create(DragAffordances, {
             host,
-            owner  : workspace,
-            preview: me.ownedPreview
+            indicators: me.ownedIndicators,
+            owner     : workspace,
+            preview   : me.ownedPreview
         });
 
         return me.ownedAffordances
@@ -390,7 +394,8 @@ class Participation extends Base {
     }
 
     /**
-     * Engine default for {@link #previewFor}: resolves the remote hover frame against the gesture
+     * @summary Resolves and renders the remote hover frame through the gesture owner.
+     * The engine default for {@link #previewFor} uses the gesture
      * controller's synchronous geometry mirror. The warm-up is deliberately not awaited — the seam
      * must answer on the frame it arrives, and the first frames of a gesture resolving to `null`
      * while geometry settles is the documented behaviour of that mirror.
@@ -408,12 +413,12 @@ class Participation extends Base {
 
         affordances.ensureGeometry();
 
-        return affordances.resolvePreview({
+        return affordances.renderPreview(affordances.resolvePreview({
             groupNodeId : draggedItem.dockGroupNodeId ?? null,
             itemId      : draggedItem.dockItemId,
             pointer     : {x: payload.localX, y: payload.localY},
             sourceNodeId: draggedItem.dockSourceNodeId ?? payload.sourceNodeId ?? null
-        }) ?? null
+        }) ?? null, payload.dwell ?? null)
     }
 
     /**
@@ -617,7 +622,7 @@ class Participation extends Base {
     }
 
     /**
-     * Unregisters + destroys the owned target before instance teardown — the unmount half of the
+     * @summary Unregisters and destroys the owned target before instance teardown — the unmount half of the
      * registration lifecycle.
      */
     destroy() {
@@ -633,6 +638,9 @@ class Participation extends Base {
 
         me.ownedPreview?.destroy();
         me.ownedPreview = null;
+
+        me.ownedIndicators?.destroy();
+        me.ownedIndicators = null;
 
         super.destroy()
     }

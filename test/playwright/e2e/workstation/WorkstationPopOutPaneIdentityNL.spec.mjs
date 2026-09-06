@@ -63,9 +63,69 @@ const readIdentity = async (app, paneId) => {
     }
 };
 
-test.describe('Workstation pop-out — a nested pane subtree keeps its identities across the hop and back', () => {
+test.describe('Workstation pop-out — default affordances and retained pane identities', () => {
     test.setTimeout(120000);
     test.use({viewport: {height: 900, width: 1600}});
+
+    test('a full popup paints default target affordances through Neural Link hover dispatch', async ({page, context, neuralLink}, testInfo) => {
+        await page.goto('/apps/workstation/index.html');
+        const header = page.locator(HEADER).filter({has: page.locator(TAB, {hasText: 'Metrics'})}).first();
+        await expect(header).toBeVisible({timeout: 60000});
+        await header.locator(TAB, {hasText: 'Metrics'}).click();
+
+        const app          = await neuralLink.connectToApp('Workstation'),
+              popupPromise = context.waitForEvent('page', {timeout: 45000});
+        await header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first().click();
+        const vessel = await popupPromise;
+
+        try {
+            await expect(vessel.locator(TAB, {hasText: 'Metrics'})).toBeVisible({timeout: 45000});
+
+            const popups = await app.findInstances({className: 'Workstation.view.PopupWorkspace'}, ['id', 'windowId', 'dockModel']);
+            expect(popups).toHaveLength(1);
+            const popup        = await app.getComponent(popups[0].id, ['id', 'windowId', 'dockModel']),
+                  participants = await app.findInstances({ntype: 'dock-crosswindow-participation', windowId: popup.windowId}, ['id']);
+            expect(participants).toHaveLength(1);
+
+            const participationId = participants[0].id,
+                  hostRect        = await vessel.locator(`#${popup.id}`).boundingBox(),
+                  payload         = {
+                      draggedItem: {dockItemId: 'audit'},
+                      localX     : hostRect.x + hostRect.width / 2,
+                      localY     : hostRect.y + hostRect.height / 2
+                  };
+
+            await expect.poll(async () => (await app.callMethod(participationId, 'defaultPreviewFor', [payload]))?.feedback?.state,
+                {message: 'the default target accepts a hover after real geometry settles', timeout: 15000}).toBe('accepted');
+
+            const owned  = await app.getComponent(participationId, ['ownedPreview.id', 'ownedIndicators.id']),
+                  menu   = vessel.locator(`#${owned['ownedIndicators.id']}`),
+                  region = vessel.locator(`#${owned['ownedPreview.id']} .neo-dock-preview-affordance`);
+
+            await expect(menu.locator('.neo-dashboard-dock-drop-indicator:not(.neo-dashboard-dock-drop-indicator-off)')).toHaveCount(5);
+            await expect(menu).toBeVisible();
+            await expect(region, 'an accepted preview is painted, not only returned').toBeVisible();
+
+            const top      = await menu.locator('.neo-dashboard-dock-drop-indicator-top').boundingBox(),
+                  selected = await app.callMethod(participationId, 'defaultPreviewFor', [{
+                      ...payload, localX: top.x + top.width / 2, localY: top.y + top.height / 2
+                  }]);
+            expect(selected.placement.kind).toBe('edge-top');
+            await expect(region).toHaveClass(/neo-dock-preview-edge-top/);
+            expect((await app.getComponent(popup.id, ['dockModel'])).dockModel).toEqual(popup.dockModel);
+
+            await testInfo.attach('popup-default-affordances', {body: await vessel.screenshot(), contentType: 'image/png'});
+            await app.callMethod(participationId, 'defaultClearPreview');
+            await expect(region).toHaveCount(0);
+            await expect(menu).toBeHidden();
+            testInfo.annotations.push({
+                type       : 'evidence-boundary',
+                description: 'Real header pop-out and painted popup; default hover dispatched through Neural Link. No full human drag or transfer claim.'
+            })
+        } finally {
+            !vessel.isClosed() && await vessel.close()
+        }
+    });
 
     test('component, provider, store and descendant identities survive pop-out AND return', async ({page, context, neuralLink}, testInfo) => {
         const pageErrors = [];
