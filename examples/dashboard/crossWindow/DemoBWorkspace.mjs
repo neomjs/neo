@@ -7,6 +7,7 @@ import DockLayoutAdapter                    from '../../../src/dashboard/dock/pr
 import DockMotionSignal                     from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
 import PerspectiveLibrary                   from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import Placement                            from '../../../src/dashboard/dock/window/Placement.mjs';
+import TopologySeams                        from '../../../src/dashboard/dock/window/TopologySeams.mjs';
 import DockPreview                          from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockPreviewProducer                  from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
 import DockProjectionReconciler             from '../../../src/dashboard/dock/projection/Reconciler.mjs';
@@ -172,6 +173,8 @@ class DemoBWorkspace extends Container {
          * @protected
          */
         className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace',
+        /** @member {Neo.core.Base[]} mixins=[TopologySeams] */
+        mixins: [TopologySeams],
         /**
          * Theme dependencies: the example-owned palette, the dock motion/token contract file (the
          * projected tree is plain containers; nothing loads it per-class), and Demo A's skin
@@ -1165,14 +1168,14 @@ class DemoBWorkspace extends Container {
             return me.workspaceSet.register(workspaceId, {
                 getDocument: () => me.popup2Document,
                 setDocument: document => me.popup2Document = document,
-                project    : context => me.projectWorkspaceDocument(workspaceId, context.snapshot.participants[workspaceId])
+                project    : context => me.projectWorkspaceDocument(workspaceId, context.snapshot.participants[workspaceId], context)
             })
         }
 
         return me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
             getDocument: () => me.popupDocument,
             setDocument: document => me.popupDocument = document,
-            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID])
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID], context)
         })
     }
 
@@ -3036,19 +3039,19 @@ class DemoBWorkspace extends Container {
             bindingKey : 'main',
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document,
-            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.MAIN_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.MAIN_WORKSPACE_ID])
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.MAIN_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.MAIN_WORKSPACE_ID], context)
         });
 
         me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
             getDocument: () => me.popupDocument,
             setDocument: document => me.popupDocument = document,
-            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID])
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID], context)
         });
 
         me.workspaceSet.register(DemoBWorkspace.POPUP2_WORKSPACE_ID, {
             getDocument: () => me.popup2Document,
             setDocument: document => me.popup2Document = document,
-            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP2_WORKSPACE_ID])
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP2_WORKSPACE_ID], context)
         });
         me.dockPlacement ??= Placement.forGroup({groupId, mainWorkspaceKey: DemoBWorkspace.MAIN_WORKSPACE_ID})
     }

@@ -2687,10 +2687,11 @@ class Workspace extends Container {
      * @param {Object|null} document The committed document to present.
      * @param {Object|null} [descriptor=null] The operation associated with the committed document.
      * @param {Object|null} [source=null] The originating interaction surface.
+     * @param {Object} [projectionOptions={}] Committed topology's pane-preservation policy.
      * @returns {Promise} This projection's outcome; later projections survive its failure.
      * @protected
      */
-    projectDockZoneDocument(document, descriptor=null, source=null) {
+    projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}) {
         let me = this,
             tabInsertDescriptor, refreshOptions, tail;
 
@@ -2698,7 +2699,7 @@ class Workspace extends Container {
         me.fire('beforeDockZoneDocumentChange', {descriptor, document, source});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
-        refreshOptions      = me.getRefreshOptions(descriptor, source);
+        refreshOptions      = {...me.getRefreshOptions(descriptor, source), ...projectionOptions};
         tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings

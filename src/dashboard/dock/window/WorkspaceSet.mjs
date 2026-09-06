@@ -224,7 +224,7 @@ export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
          * @param {Function} [seams.setDocument] `(document)` adopts a committed document; a
          *     participant without one is read-only to `adoptTransfer` (fail closed).
          * @param {Function} [seams.getRevision] Owner-supplied revision stamp; otherwise reference changes are counted.
-         * @param {Function} [seams.project] Post-commit projection receiving the transaction context.
+         * @param {Function} [seams.project] Post-commit context includes `preserveItemIds` owned by sibling documents.
          * @param {String} [seams.bindingKey=workspaceId] Window slot whose generation fences this document.
          * @param {String} [seams.componentId] Opaque live owner lookup; excluded from captured document truth.
          * @returns {Boolean} true when registered
@@ -286,7 +286,11 @@ export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
                 }
             }
 
-            if (typeof project === 'function') entry.project = project;
+            if (typeof project === 'function') entry.project = context => project({
+                ...context,
+                preserveItemIds: keys().filter(key => key !== workspaceId)
+                    .flatMap(key => Object.keys(context.snapshot.participants[key]?.items ?? {}))
+            });
             if (componentId !== undefined) entry.componentId = componentId;
 
             return manager.registerParticipant({
