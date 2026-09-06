@@ -6,7 +6,7 @@ import DockService,        {registerDockServiceMethods}        from './client/Do
 import InstanceService,    {registerInstanceServiceMethods}    from './client/InstanceService.mjs';
 import InteractionService, {registerInteractionServiceMethods} from './client/InteractionService.mjs';
 import RuntimeService,     {registerRuntimeServiceMethods}     from './client/RuntimeService.mjs';
-import {resolveServiceMethod}                                  from './client/resolveServiceMethod.mjs';
+import {dispatchServiceMethod}                                 from './client/resolveServiceMethod.mjs';
 import Socket                                                  from '../data/connection/WebSocket.mjs';
 import WindowManager                                           from '../manager/Window.mjs';
 import WriteGuard                                              from './WriteGuard.mjs';
@@ -184,13 +184,7 @@ class Client extends Base {
      * @returns {Promise<*>} The result of the operation
      */
     async handleRequest(method, params, context) {
-        const target = resolveServiceMethod(this.serviceMap, method);
-
-        if (!target) {
-            throw new Error(`Unknown method: ${method}`)
-        }
-
-        return target.fn.call(target.service, params, context)
+        return dispatchServiceMethod(this.serviceMap, method, params, context)
     }
 
     /**

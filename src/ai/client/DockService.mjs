@@ -2,8 +2,8 @@ import DockTopologyDiff       from '../../dashboard/dock/model/TopologyDiff.mjs'
 import DockTopologyReconciler from '../../dashboard/dock/model/TopologyReconciler.mjs';
 import Operations             from '../../dashboard/dock/model/Operations.mjs';
 import Persistence            from '../../dashboard/dock/model/Persistence.mjs';
+import PerspectiveLibrary     from '../../dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import Service                from './Service.mjs';
-import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
 
 /**
  * @summary Registers the JSON-RPC method prefixes one DockService instance answers.
@@ -404,10 +404,11 @@ class DockService extends Service {
      * @param {Object} params
      * @param {String} params.componentId The dock workspace / holder component id
      * @param {String} params.name        The perspective's product name (or technical layoutId)
+     * @param {Object} [context] Current Neural Link caller, when invoked remotely.
      * @returns {Object} Layout: `{switched, schema, captureScope, errors, document}`. Topology adds
      * `{workspaces, restored, unrestored, displaced}`.
      */
-    async restorePerspective({componentId, name}) {
+    async restorePerspective({componentId, name}, context) {
         const holder            = this.resolveHolder(componentId),
               store             = holder.perspectiveStore,
               collection        = holder.topologyCollection,
@@ -441,7 +442,7 @@ class DockService extends Service {
         }
 
         if (topologyEntry) {
-            return this.restoreTopologyPerspective({collection, holder, name, record: topologyEntry.topology})
+            return this.restoreTopologyPerspective({collection, holder, name, record: topologyEntry.topology}, context)
         }
 
         if (!layoutEntry) {
@@ -464,9 +465,26 @@ class DockService extends Service {
             }
         }
 
+        if (holder.topologyGroupId && holder.workspaceSet) {
+            const restored = Persistence.restoreSavedLayout(layoutEntry.layout);
+            const selected = PerspectiveLibrary.selectSavedLayout(store.collection, layoutEntry.layoutId);
+            const errors = [...restored.errors, ...selected.errors];
+            if (!errors.length && Neo.manager.Transaction.findBatch(this.transactionOwner(context))) {
+                errors.push('perspective restore requires a completed batch')
+            }
+            if (errors.length) return {captureScope: 'window', document: this.readDocument(holder),
+                errors, schema: Persistence.LAYOUT_SCHEMA, switched: false};
+
+            const result = await this.executeDockOperation({componentId,
+                descriptor: {operation: 'applyDocument', document: restored.document}}, context);
+            if (result.applied) store.collection = selected.collection;
+            return {captureScope: 'window', document: this.readDocument(holder),
+                errors: result.errors, schema: Persistence.LAYOUT_SCHEMA, switched: result.applied}
+        }
+
         // window scope: the holder's own switch seam rides its full commit loop
         if (typeof holder.activatePerspective === 'function') {
-            const verdict = holder.activatePerspective(name);
+            const verdict = await holder.activatePerspective(name);
 
             return {
                 captureScope: 'window',
@@ -499,7 +517,7 @@ class DockService extends Service {
         }
 
         if (typeof holder.onDockZoneDocumentChange === 'function') {
-            holder.onDockZoneDocumentChange(document, {name, operation: 'restorePerspective'}, this)
+            await holder.onDockZoneDocumentChange(document, {name, operation: 'restorePerspective'}, this)
         }
 
         return {captureScope: 'window', document, errors: [], schema: Persistence.LAYOUT_SCHEMA, switched: true}
@@ -514,10 +532,11 @@ class DockService extends Service {
      * @param {String} config.name               The perspective name being restored
      * @param {Object} config.record             The stored `neo.dock.topology.v1` record
      * @param {Object} config.collection         The containing topology collection
+     * @param {Object} [context] Current Neural Link caller.
      * @returns {Promise<Object>} `{switched, schema, errors, document, workspaces, restored, unrestored, displaced}`
      * @protected
      */
-    async restoreTopologyPerspective({collection, holder, name, record}) {
+    async restoreTopologyPerspective({collection, holder, name, record}, context) {
         const missing = ['getDockTopologyWorkspaces', 'commitDockTopologyWorkspaces']
             .filter(seam => typeof holder[seam] !== 'function');
 
@@ -557,10 +576,23 @@ class DockService extends Service {
             return refusal(activated.errors, result)
         }
 
-        const commit = await holder.commitDockTopologyWorkspaces(result.workspaces, {
+        const run = () => holder.commitDockTopologyWorkspaces(result.workspaces, {
             name,
-            operation: 'restorePerspective'
+            operation: 'restorePerspective',
+            provenance: context ? {agentId: context.agentId, sessionId: context.sessionId} : {origin: 'human'}
         });
+        let commit;
+        try {
+            if (context && (this.client?.transactionService?.openTxId({id: context}) ||
+                Neo.manager.Transaction.findBatch(this.transactionOwner(context)))) {
+                return refusal(['perspective restore requires a completed batch'], result)
+            }
+            commit = context && holder.topologyGroupId
+                ? await this.client.services.instance.withGroupWrite(holder.topologyGroupId, context, run)
+                : await run()
+        } catch (error) {
+            return refusal([error.message], result)
+        }
 
         if (commit?.errors?.length) {
             return refusal(commit.errors, result)
@@ -578,49 +610,6 @@ class DockService extends Service {
             unmatchedLive: result.unmatchedLive,
             unrestored   : result.unrestored,
             workspaces   : result.workspaces
-        }
-    }
-
-    /**
-     * Builds the reverse-op for an `execute_dock_operation` write — `op⁻¹ = applyDocument(preDoc)`,
-     * capturing the pre-mutation document BEFORE the forward op lands: the document IS the state,
-     * so the honest inverse of any dock mutation is re-committing its prior document through the
-     * shared fail-closed commit path. Returns `null` for a legacy / unattributed write (no writer
-     * identity ⇒ no per-writer undo stack) or an unresolvable target, so {@link #recordUndo} no-ops.
-     * The reverse is a re-dispatchable validated tool descriptor — data-not-code, per the Neural
-     * Link capability boundary.
-     *
-     * Named bound: a whole-document reverse is **per-writer last-writer-wins**. A's undo re-commits
-     * A's pre-mutation document and silently discards any mutation B interleaved between A's capture
-     * and A's undo — `targetSubtreePath` is audit metadata, never an enforcement path, so nothing at
-     * undo time checks that the subtree still matches capture-time. Inherent to document-as-state,
-     * not a defect; single-writer surfaces never reveal it.
-     * @param {Object} params
-     * @param {Object|null} params.context  The Bridge-stamped `{agentId, sessionId}` writer pair.
-     * @param {String} params.componentId The dock workspace / holder component id
-     * @param {Object} params.descriptor  The forward `{operation, ...}` descriptor
-     * @param {Object} params.preDocument Deep clone of the pre-mutation dockZone.v1 document
-     * @returns {Object|null} A reverse-record op, or `null` when the write is not capturable.
-     * @protected
-     */
-    buildDockReverse({context, componentId, descriptor, preDocument}) {
-        if (!context?.agentId || !context?.sessionId) {
-            return null
-        }
-
-        const targetSubtreePath = deriveSubtreePath(componentId, cid => Neo.getComponent(cid)?.parentId);
-
-        if (!targetSubtreePath) {
-            return null
-        }
-
-        return {
-            sequenceId  : `${componentId}:${++this.undoSequence}`,
-            originWriter: {agentId: context.agentId, sessionId: context.sessionId},
-            targetSubtreePath,
-            forward     : {tool: 'execute_dock_operation', args: {componentId, descriptor}},
-            reverse     : {tool: 'execute_dock_operation', args: {componentId, descriptor: {operation: 'applyDocument', document: preDocument}}},
-            label       : `dock ${descriptor.operation} on ${componentId}`
         }
     }
 
@@ -646,18 +635,34 @@ class DockService extends Service {
         const holder = this.resolveHolder(componentId);
         let result;
 
-        // Capture the reverse (a deep clone of the pre-mutation document) BEFORE applying — an undo
-        // replay (`context.undoReplay`, set by the undo/redo dispatch) is NOT captured: re-applying a
-        // captured op must never enqueue a new transaction. A legacy / unattributed write builds no
-        // op at all, so the post-commit recordUndo no-ops.
-        const undoOp = context?.undoReplay
-            ? null
-            : this.buildDockReverse({
-                  componentId,
-                  context,
-                  descriptor,
-                  preDocument: Neo.clone(this.readDocument(holder), true)
-              });
+        if (holder.topologyGroupId && holder.workspaceSet) {
+            const manager = Neo.manager.Transaction, groupId = holder.topologyGroupId;
+            const workspaceKey = manager.participantKeys(groupId)
+                .find(key => manager.getParticipant(groupId, key)?.componentId === componentId);
+            if (!workspaceKey) return {applied: false, errors: ['dock participant not registered']};
+            try {
+                if (context && this.client?.transactionService?.openTxId({id: context})) {
+                    throw new Error('mixed-dock-non-dock-batch')
+                }
+                const owner = this.transactionOwner(context), batch = manager.findBatch(owner);
+                if (batch) {
+                    if (batch.groupId !== groupId) throw new Error('cross-group-batch');
+                    manager.stageBatch({groupId, owner, changes: [{workspaceKey, input: {operations: [descriptor]}}],
+                        descriptor: {workspaceKey, operations: [descriptor]}});
+                    return {applied: false, staged: true, groupId, transactionId: batch.id, errors: []}
+                }
+                const run = () => holder.workspaceSet.commit(workspaceKey, [descriptor], {
+                    provenance: context ? {agentId: context.agentId, sessionId: context.sessionId} : {origin: 'human'}
+                });
+                const transaction = context
+                    ? await this.client.services.instance.withGroupWrite(groupId, context, run)
+                    : await run();
+                return {applied: true, document: this.readDocument(holder), errors: [], groupId,
+                    transactionId: transaction.transactionId}
+            } catch (error) {
+                return {applied: false, document: this.readDocument(holder), errors: [error.message]}
+            }
+        }
 
         try {
             if (typeof holder.applyDockZoneOperation === 'function') {
@@ -695,8 +700,6 @@ class DockService extends Service {
                 holder.onDockZoneDocumentChange(result.document, descriptor, this)
             }
 
-            // After the commit, never before: capturing an undo must never break the forward write.
-            this.recordUndo(context, undoOp)
         }
 
         return {

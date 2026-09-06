@@ -698,7 +698,7 @@ class Provider extends Base {
     }
 
     /**
-     * This is the core method for setting data, providing a single entry point for all data modifications.
+     * @summary Applies local or hierarchical data updates and notifies reactive parent paths.
      * It handles multiple scenarios:
      * 1.  **Object-based updates:** If `key` is an object, it recursively calls itself for each key-value pair.
      * 2.  **Data Records:** If `value` is a `Neo.data.Record`, it is treated as an atomic value and set directly.
@@ -711,7 +711,7 @@ class Provider extends Base {
      *
      * @param {Object|String} key The property to set, or an object of key-value pairs.
      * @param {*} value The new value.
-     * @param {Neo.state.Provider} [originStateProvider] The provider to start the search from for hierarchical updates.
+     * @param {Neo.state.Provider} [originStateProvider] Enables hierarchical owner lookup; absent updates stay local.
      * @protected
      */
     internalSetData(key, value, originStateProvider) {
@@ -736,7 +736,7 @@ class Provider extends Base {
         }
 
         const
-            ownerDetails   = me.getOwnerOfDataProperty(key),
+            ownerDetails   = originStateProvider && me.getOwnerOfDataProperty(key),
             targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
 
         me.#setConfigValue(targetProvider, key, value, null);

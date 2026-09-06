@@ -137,7 +137,7 @@ class HeaderActionPolicy extends Base {
     }
 
     /**
-     * Publishes what a resolved pane can serve — `dock.items.<itemId>.reloadable`, a `dockReload()`
+     * @summary Publishes what a resolved pane can serve — `dock.items.<itemId>.reloadable`, a `dockReload()`
      * contract on the instance or on its config's module prototype (the card container has not
      * instantiated the slot yet when a projection resolves) — so the reload action's binding reads it
      * instead of probing chrome on every activation. A pure `typeof`, never a resolver call.
@@ -146,7 +146,7 @@ class HeaderActionPolicy extends Base {
      * @returns {Object|Neo.component.Base|null} The same pane
      */
     publishPaneContract(itemId, pane) {
-        this.workspace?.stateProvider?.setData(`dock.items.${itemId}.reloadable`, typeof (pane?.dockReload ?? pane?.module?.prototype?.dockReload) === 'function');
+        this.workspace?.stateProvider?.setDataAtSameLevel(`dock.items.${itemId}.reloadable`, typeof (pane?.dockReload ?? pane?.module?.prototype?.dockReload) === 'function');
 
         return pane
     }
@@ -234,12 +234,13 @@ class HeaderActionPolicy extends Base {
     }
 
     /**
-     * Publishes the header truth a committed document carries onto the workspace's provider, under
+     * @summary Publishes the header truth a committed document carries onto the workspace's provider, under
      * `dock`: per item `closable`, `lockable`, `locked`, `pinnable` and the owning `edge`
      * ({@link Neo.dashboard.dock.model.WorkspaceDocument#findOwningEdge}, the derivation the
      * projection rails by); per tabs node the item it presents and its items in tab flow; the
      * workspace's `popOutAvailable` and `recreateFallback`. Leaves self-diff, so an unchanged
-     * document evaluates nothing.
+     * document evaluates nothing. These leaves belong to this workspace's provider, including
+     * when a popup inherits application data from its parent's provider.
      *
      * The workspace publishes at the commit boundary — a retained action whose inputs changed
      * re-evaluates there — and again as it projects, which is a no-op after a commit and the one
@@ -282,7 +283,7 @@ class HeaderActionPolicy extends Base {
             }
         });
 
-        provider.setData({
+        provider.setDataAtSameLevel({
             dock: {
                 ...(Object.keys(flights).length > 0 && {flights}),
                 items,

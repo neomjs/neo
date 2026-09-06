@@ -81,7 +81,7 @@ class Commit extends Base {
         const transactionId = crypto.randomUUID();
         const priorRow      = cursorAction === 'undo' || cursorAction === 'redo' ? group.history?.peek(cursorAction) : null;
         if ((cursorAction === 'undo' || cursorAction === 'redo') && !priorRow) {
-            return {row: null, snapshot: group.snapshot ?? null, transactionId, notificationErrors: [], plans: [], effects: []}
+            return {row: null, snapshot: group.snapshot ?? null, transactionId, participants: [], notificationErrors: [], plans: [], effects: []}
         }
         const changes = priorRow
             ? priorRow.participants.map(entry => ({workspaceKey: entry.workspaceKey, input: entry[cursorAction === 'undo' ? 'before' : 'after']}))
@@ -108,12 +108,18 @@ class Commit extends Base {
             Object.prototype.toString.call(byKey.get(change.workspaceKey)[key]) === '[object AsyncFunction]'
         ))) throw new TypeError('participant adoption and compensation must be synchronous');
         const captures = new Map(members.map(([key, entry]) => [key, this.capture(entry)]));
+        const valuesBefore = Object.freeze(Object.fromEntries([...captures].map(([key, capture]) => [key, capture.value])));
         const metadata = this.copy({cause, provenance, descriptor});
         const plans    = [];
         for (const change of [...changes].sort((a, b) => a.workspaceKey.localeCompare(b.workspaceKey))) {
             const participant = byKey.get(change.workspaceKey), captured = captures.get(change.workspaceKey);
-            const context     = Object.freeze({transactionId, cursorAction, ...metadata, workspaceKey: change.workspaceKey, captured});
-            const after       = this.copy(await participant.prepare(this.copy(change.input), captured, context));
+            const context     = Object.freeze({transactionId, cursorAction, ...metadata, workspaceKey: change.workspaceKey, captured, valuesBefore});
+            const inputs      = change.inputs ?? [change.input];
+            if (!Array.isArray(inputs) || !inputs.length) throw new TypeError('a participant needs at least one input');
+            let after = captured.value;
+            for (const input of inputs) {
+                after = this.copy(await participant.prepare(this.copy(input), {...captured, value: after}, context))
+            }
             plans.push({workspaceKey: change.workspaceKey, participant, captured, after, context})
         }
         const endpoints = this.copy(plans.map(plan => ({workspaceKey: plan.workspaceKey, before: plan.captured.value, after: plan.after})));
@@ -165,7 +171,7 @@ class Commit extends Base {
         try { EffectManager.resume() } catch (error) { notificationErrors.push(error) }
         if (failed) throw failure;
 
-        const result = {row, snapshot, transactionId, notificationErrors, plans, effects};
+        const result = {row, snapshot, transactionId, notificationErrors, participants: endpoints, plans, effects};
         try { manager.fire('commit', {groupId: group.id, row, snapshot, transactionId}) } catch (error) { notificationErrors.push(error) }
         return result
     }

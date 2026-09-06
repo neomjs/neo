@@ -31,3 +31,18 @@ export function resolveServiceMethod(serviceMap, method) {
 
     return null
 }
+
+/**
+ * @summary Dispatches through the transaction-domain gate without importing the socket singleton.
+ * @param {Object} serviceMap
+ * @param {String} method
+ * @param {Object} params
+ * @param {Object|null} context
+ * @returns {Promise<*>}
+ */
+export async function dispatchServiceMethod(serviceMap, method, params, context) {
+    const target = resolveServiceMethod(serviceMap, method);
+    if (!target) throw new Error(`Unknown method: ${method}`);
+    target.service.assertTransactionDomain(method, params, context);
+    return target.fn.call(target.service, params, context)
+}

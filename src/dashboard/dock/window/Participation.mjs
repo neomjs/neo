@@ -322,9 +322,8 @@ class Participation extends Base {
             return null
         }
 
-        workspace.onDockZoneDocumentChange(result.document, operation, workspace);
-
-        return result
+        const committed = workspace.onDockZoneDocumentChange(result.document, operation, workspace);
+        return committed?.then ? committed.then(() => result) : result
     }
 
     /**
@@ -336,6 +335,9 @@ class Participation extends Base {
      * @protected
      */
     defaultCommitTransfer(data) {
+        if (this.workspaceSet?.transfer) {
+            return this.workspaceSet.transfer(data.descriptor, {provenance: {origin: 'human'}}).then(() => true)
+        }
         return this.workspaceSet?.adoptTransfer?.(data) === true
     }
 
@@ -415,9 +417,9 @@ class Participation extends Base {
     }
 
     /**
-     * Engine default for {@link #resolveNativeWindowDrag}: maps a moving popup back to the pane the
-     * workspace admitted into it, through the tear-out registry the engine already maintains and the
-     * `resolvePane` hook every consumer implements.
+     * @summary Resolves a native single-pane drag from its Group-owned document membership.
+     * A registered popup owns its document even when empty; only vessels without a separate
+     * participant use the admitting workspace's catalog. Multi-pane workspaces require a group drag.
      * @param {String|Number} movingWindowId
      * @returns {Object|null}
      * @protected
@@ -425,23 +427,34 @@ class Participation extends Base {
     defaultResolveNativeWindowDrag(movingWindowId) {
         let me        = this,
             workspace = me.workspace,
-            panes     = workspace?.tearOutPanes;
+            panes     = workspace?.nativeWindows?.ownerEntries(workspace.id);
 
         if (!panes || movingWindowId == null) {
             return null
         }
 
-        let itemId = Object.keys(panes).find(id => panes[id]?.windowId === movingWindowId),
-            item   = itemId ? workspace.dockModel?.items?.[itemId] : null,
-            pane   = item ? workspace.resolvePane?.(itemId, item) : null;
+        const match = panes.find(([, entry]) => entry.windowId === movingWindowId);
+        if (!match) return null;
+
+        const [itemId, entry] = match,
+              registered      = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
+              sourceId        = registered ? entry.workspaceKey : me.workspaceId,
+              document        = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel;
+
+        if (registered && Object.keys(document?.items ?? {}).length !== 1) return null;
+
+        let item = document?.items?.[itemId],
+            pane = item ? workspace.resolvePane?.(itemId, item) : null;
 
         if (!pane || pane.isDestroyed) {
             return null
         }
 
+        delete pane.dockGroupNodeId;
+        delete pane.dockSourceNodeId;
         pane.dockItemId            = itemId;
         pane.dockSourceOwnershipId = me.ownershipId;
-        pane.dockSourceWorkspaceId = me.workspaceId;
+        pane.dockSourceWorkspaceId = sourceId;
 
         return {
             draggedItem      : pane,
@@ -558,7 +571,7 @@ class Participation extends Base {
                 targetWorkspaceId: me.workspaceId
             });
 
-            return published ? result : null
+            return published?.then ? published.then(value => value === true ? result : null) : published ? result : null
         }
 
         // LOCAL means the payload NAMES this workspace as its source (two windows may project the
@@ -600,7 +613,7 @@ class Participation extends Base {
             targetWorkspaceId: me.workspaceId
         });
 
-        return published ? result : null
+        return published?.then ? published.then(value => value === true ? result : null) : published ? result : null
     }
 
     /**

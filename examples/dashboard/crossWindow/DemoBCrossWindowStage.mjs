@@ -39,9 +39,9 @@ import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContr
  *     optional — the stage parameterizes over every popup id the host registers).
  * @param {String} seams.sortGroup The shared cross-window coordinator sort group.
  * @param {Function} seams.applyWorkspaceOperation `(workspaceId, descriptor) => {document, errors}|null`
- * @param {Function} seams.adoptCommittedTransferPair `(pair) => Boolean` — the HOST's wrappable
+ * @param {Function} seams.adoptCommittedTransferPair `(pair) => Promise<Boolean>` — the HOST's wrappable
  *     adoption facade; `commitWholeStackReturn` routes through it (never its own internal twin)
- *     so witness wrappers observe the synchronous commit.
+ *     so witness wrappers observe the Group admission.
  * @param {Function} seams.retireReturnedPopupWorkspace `() => Boolean` — the HOST's wrappable
  *     retirement facade, routed through for the same witness contract.
  * @param {Function} seams.attachKeydown `(host)` — attaches the host-owned keyboard routing to a mounted target host.
@@ -81,7 +81,7 @@ import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContr
  * @param {Function} seams.setStageResolve `(workspaceId, fn|null)`
  * @param {Function} seams.setTargetWindowId `(workspaceId, windowId|null)`
  * @returns {Object} `{adoptPair, commitWholeStackReturn, createParticipation, isTargetCurrent,
- *     measureGeometry, mountTarget, openStage, positionStage, reconcilePair,
+ *     measureGeometry, mountTarget, openStage, positionStage,
  *     retireReturnedWorkspace, waitForGeometry}`
  */
 export function createCrossWindowStage(seams) {
@@ -172,7 +172,7 @@ export function createCrossWindowStage(seams) {
                 let result = applyWorkspaceOperation(workspaceId, operation);
 
                 if (result && !result.errors?.length && result.document) {
-                    onWorkspaceDocumentChange(workspaceId, result.document)
+                    return onWorkspaceDocumentChange(workspaceId, result.document, {descriptor: operation}).then(() => result)
                 }
 
                 return result
@@ -381,43 +381,27 @@ export function createCrossWindowStage(seams) {
     }
 
     /**
-     * @summary The SYNCHRONOUS half of the operation-agnostic transfer-commit core: the stats
-     * increment plus the workspace-set's both-or-neither adoption of a committed document PAIR.
-     * A refused adoption is the core's first exit.
+     * @summary Commits the transfer against both queue-head documents through the Group writer.
      * @param {Object} pair
-     * @returns {Boolean} false when the workspace-set refused the pair.
+     * @returns {Promise<Boolean>} False leaves both documents and the cursor untouched.
      */
-    function adoptPair(pair) {
-        incrementTransferCommits();
-
-        return workspaceSet.adoptTransfer(pair)
+    async function adoptPair(pair) {
+        try {
+            const result = await workspaceSet.transfer(pair.descriptor, {provenance: {origin: 'human'}});
+            pair.sourceDocument = result.snapshot.participants[pair.sourceWorkspaceId];
+            pair.targetDocument = result.snapshot.participants[pair.targetWorkspaceId];
+            pair.sourceBefore = result.participants.find(participant => participant.workspaceKey === pair.sourceWorkspaceId).before;
+            incrementTransferCommits();
+            return true
+        } catch (error) {
+            pair.errors = [error.message];
+            return false
+        }
     }
 
     /**
-     * @summary The reconcile half of the transfer-commit core. Target-first is load-bearing: it
-     * adopts the cached pane across the window boundary before the source shell can classify the
-     * now-absent item as a retirement. The `guard` seam is checked before each projection.
-     * @param {Object} pair
-     * @param {Object} [options]
-     * @param {Function} [options.guard] `() => Boolean` — false stops before the next projection.
-     * @returns {Promise<Boolean>} true when both projections ran.
-     */
-    async function reconcilePair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}, {guard = () => true} = {}) {
-        if (!guard()) return false;
-
-        await refreshWorkspace(targetWorkspaceId, targetDocument);
-
-        if (!guard()) return false;
-
-        await refreshWorkspace(sourceWorkspaceId, sourceDocument);
-
-        return true
-    }
-
-    /**
-     * @summary Retires the logically emptied popup workspace after its stack returned. Its
-     * participation, geometry, registry entry and stage identity retire exactly once; a later
-     * open is a new lifetime and re-registers through the host's registration seam.
+     * @summary Retires the returned popup render target while retaining its Group participant.
+     * Interaction and geometry registrations leave; undo still reaches the semantic document.
      * @returns {Boolean} true when the popup registry entry existed and was removed.
      */
     function retireReturnedWorkspace() {
@@ -436,18 +420,17 @@ export function createCrossWindowStage(seams) {
         setStageResolve(workspaceIds.popup, null);
         setStageReject(workspaceIds.popup, null);
 
-        return workspaceSet.unregister(workspaceIds.popup)
+        return workspaceSet.has(workspaceIds.popup)
     }
 
     /**
      * @summary Commits the popup's model-resolved stack back into the main workspace as one
-     * atomic `transferNode`, then reconciles target-first and retires the emptied popup
-     * registry entry. Adoption is SYNCHRONOUS; view reconciliation is deferred, target-first,
-     * and cannot roll model truth back.
+     * atomic `transferNode`, then retires the emptied popup
+     * render target. Group admission is awaited; its participant projections precede native cleanup.
      * @param {Object} data
-     * @returns {Promise<Object>|Boolean} a truthy accepted lifecycle, or false before adoption.
+     * @returns {Promise} The committed receipt, or false before adoption.
      */
-    function commitWholeStackReturn(data) {
+    async function commitWholeStackReturn(data) {
         let {
                 descriptor,
                 sourceDocument,
@@ -469,34 +452,21 @@ export function createCrossWindowStage(seams) {
                 sourceBefore.nodes[nodeId]?.type === 'tabs' ? sourceBefore.nodes[nodeId].items || [] : []
             ))];
 
-        if (!itemIds.length || !seams.adoptCommittedTransferPair({
-            sourceDocument,
-            sourceWorkspaceId,
-            targetDocument,
-            targetWorkspaceId
-        })) {
+        if (!itemIds.length || !await seams.adoptCommittedTransferPair(data)) {
             return false
         }
+        ({sourceDocument, targetDocument, sourceBefore} = data);
+        nodeIds = WorkspaceDocument.reachableNodeIds({nodes: sourceBefore.nodes, root: descriptor.nodeId});
+        itemIds = [...new Set([...nodeIds].flatMap(nodeId => sourceBefore.nodes[nodeId]?.type === 'tabs'
+            ? sourceBefore.nodes[nodeId].items || [] : []))];
 
         // The pair is committed NOW. Clear every click-detach entry synchronously so a physical
         // disconnect racing the deferred projections cannot route any member through transferItem
-        // again. The pane instances themselves move through the target-first reconciler below.
+        // again. The Group's participant callbacks already own the pane projection.
         itemIds.forEach(itemId => delete registries.detachedPanes[itemId]);
 
         return chainProjection(async () => {
             let errors = [];
-
-            try {
-                if (!isHostDestroyed()) {
-                    await refreshWorkspace(targetWorkspaceId, targetDocument)
-                }
-
-                if (!isHostDestroyed()) {
-                    await refreshWorkspace(sourceWorkspaceId, sourceDocument)
-                }
-            } catch (error) {
-                errors.push(`projection after stack return failed: ${error?.message || String(error)}`)
-            }
 
             let retired = isHostDestroyed() ? false : seams.retireReturnedPopupWorkspace();
 
@@ -729,7 +699,6 @@ export function createCrossWindowStage(seams) {
         mountTarget,
         openStage,
         positionStage,
-        reconcilePair,
         retireReturnedWorkspace,
         waitForGeometry
     }

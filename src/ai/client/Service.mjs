@@ -27,6 +27,31 @@ class Service extends Base {
     undoSequence = 0
 
     /**
+     * @summary Encodes the attributed caller for pending batches, never for a history cursor.
+     * @param {Object|null} context
+     * @returns {String|null}
+     */
+    transactionOwner(context) {
+        return typeof context?.agentId === 'string' && context.agentId &&
+            typeof context?.sessionId === 'string' && context.sessionId
+            ? JSON.stringify([context.agentId, context.sessionId]) : null
+    }
+
+    /**
+     * @summary Refuses a mixed batch before dispatch can perform its first foreign-domain effect.
+     * @param {String} method
+     * @param {Object} params
+     * @param {Object|null} context
+     */
+    assertTransactionDomain(method, params, context) {
+        const batch = Neo.manager?.Transaction?.findBatch(this.transactionOwner(context));
+        if (!batch || /^(get|find|inspect|list|query|check|diff)_/.test(method)) return;
+        if (method === 'execute_dock_operation') return;
+        if (['commit_transaction', 'abort_transaction'].includes(method) && params?.groupId === batch.groupId) return;
+        throw new Error('mixed-dock-non-dock-batch')
+    }
+
+    /**
      * Captures a reverse-op onto this heap's undo stack ({@link Neo.ai.Client#transactionService}), keyed on the
      * writer's `(agentId, sessionId)`. Two routes, decided by whether the writer has an **agent-opened named batch**
      * in progress (the `begin_transaction` tool):

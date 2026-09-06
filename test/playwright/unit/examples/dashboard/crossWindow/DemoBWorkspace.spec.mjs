@@ -198,15 +198,37 @@ function installWindowConnectHarness(workspace) {
             // after the carrier answered — awaited, so the handler's promise exists when read.
             await TransactionManager.admit({topologyIdentity, windowId});
 
-            await bindings.get(windowId)
+            await bindings.get(windowId);
+
+            // The Group's native lifecycle subscribes to `bind` independently of this host, and
+            // `fire('bind')` awaits NO subscriber — so the host handler settling does not mean the
+            // vessel source has finished admitting this window. Production polls the published
+            // connection for exactly this reason (`waitForTearOutVessel`); a witness must too, or it
+            // reads the observable one tick before the thing it is meant to observe exists.
+            for (let attempt = 0; attempt < 50; attempt++) {
+                const source   = workspace.nativeWindows?.sources.get(workspace.vesselSourceId),
+                      settling = [...(source?.admissions.values() ?? [])]
+                          .some(entry => entry.connectingWindowId === windowId && !entry.connected);
+
+                if (!settling) break;
+
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
         },
 
         /**
          * The window left the shared heap: the manager releases its binding and announces it.
          * @param {String} windowId
          */
-        disconnect(windowId) {
-            TransactionManager.release(windowId)
+        async disconnect(windowId) {
+            TransactionManager.release(windowId);
+
+            // `fire('release')` awaits no subscriber either, and the Group's native lifecycle runs
+            // its unbind and released effects afterwards — the reintegration a witness reads here is
+            // the tail of that chain, not of the call above.
+            for (let tick = 0; tick < 10; tick++) {
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
         },
 
         register(windowId, {
@@ -255,6 +277,24 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     let hostGroupId,
         workspace;
 
+    // The Group's vessel-source views. These read the state that used to live on this host as
+    // `tearOutConnects` / `tearOutPanes` / `tearOutRetirements`: a provisional connection before the
+    // terminal/connect race resolves, committed ownership after it, and the closes still awaiting
+    // platform acknowledgement. Asserting through them is what proves the state actually moved.
+    const admissionOf  = itemId => workspace.nativeWindows?.getAdmission(workspace.vesselSourceId, itemId),
+          connectionOf = itemId => workspace.nativeWindows?.getConnection(workspace.vesselSourceId, itemId),
+          ownerOf      = itemId => workspace.nativeWindows?.getOwner(workspace.vesselSourceId, itemId),
+          retiringOf   = itemId => (workspace.nativeWindows?.pendingRetirements(workspace.vesselSourceId) ?? [])
+              .some(vessel => vessel.itemId === itemId),
+          // Retirement authority is the Group's: it opens the retirement, invokes the host's close
+          // effect and keeps that authority when the close is refused. Calling the effect directly
+          // exercises the platform call without the authority that makes a retry possible.
+          retireVessel = vessel => workspace.nativeWindows.retire(workspace.vesselSourceId, vessel),
+          // Seeding a provisional connection has no public setter by design — only a real binding
+          // publishes one — so a test that needs one starts from the source's own registry.
+          seedConnection = (itemId, connection) =>
+              workspace.nativeWindows.sources.get(workspace.vesselSourceId).connections.set(itemId, connection);
+
     test.beforeEach(() => {
         // The host window binds into a Group the way its app registration does — before the workspace
         // constructs, as in production, so its participants register into that Group; every slot the
@@ -286,8 +326,45 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
      * @param {String} windowId
      * @param {String} [workspaceKey='main']
      */
-    const releaseWindow = (windowId, workspaceKey='main') => workspace.onTopologyRelease({
-        generation: 1, groupId: workspace.topologyGroupId, windowId, workspaceKey
+    // One `release` reaches every subscriber in production: this host AND the Group's native
+    // lifecycle, which owns the vessel half. A witness driving only the host handler cannot see a
+    // tear-out retire at all, so this drives both and resolves when the native half has settled.
+    const releaseWindow = (windowId, workspaceKey='main') => {
+        const data = {generation: 1, groupId: workspace.topologyGroupId, windowId, workspaceKey};
+
+        return Promise.all([workspace.onTopologyRelease(data), workspace.nativeWindows?.onRelease(data)])
+    };
+
+    test('a human document publication enters the Group cursor and is undoable', async () => {
+        const before = WorkspaceDocument.clone(workspace.dockModel);
+        const itemId = Object.keys(before.items)[0];
+        const descriptor = {operation: 'setItemLocked', itemId, locked: true};
+        const changed = Operations.applyOperation(before, descriptor);
+        expect(changed.errors).toEqual([]);
+        TransactionManager.setHistoryDepth({groupId: hostGroupId, depth: 5});
+        await workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, changed.document, {descriptor});
+        expect(TransactionManager.get(hostGroupId).history?.count ?? 0).toBe(1);
+        await TransactionManager.undo({groupId: hostGroupId});
+        expect(workspace.dockModel).toEqual(before);
+        await TransactionManager.redo({groupId: hostGroupId});
+        expect(workspace.dockModel.items[itemId].locked).toBe(true);
+        await workspace.awaitProjectionIdle()
+    });
+
+    test('history-disabled transfers retain their committed before-document receipt', async () => {
+        TransactionManager.setHistoryDepth({groupId: hostGroupId, depth: 0});
+        const before = WorkspaceDocument.clone(workspace.dockModel);
+        const pair = {sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
+            targetWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
+            descriptor: {operation: 'transferItem', itemId: 'workbench',
+                sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
+                targetWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
+                target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}}};
+        expect(await workspace.adoptCommittedTransferPair(pair)).toBe(true);
+        expect(pair.sourceBefore).toEqual(before);
+        expect(workspace.popupDocument.items.workbench).toEqual(before.items.workbench);
+        expect(TransactionManager.get(hostGroupId).history).toBeNull();
+        await workspace.awaitProjectionIdle()
     });
 
     test('the holder contract: an own cloned stage, readable before any operation', () => {
@@ -313,7 +390,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         }])
     });
 
-    test('capture → load round-trip through the REAL store: one committed swap, honest names', () => {
+    test('capture → load round-trip through the REAL store: one committed swap, honest names', async () => {
         // capture the boot stage under a name
         const captured = workspace.capturePerspective('Focus');
 
@@ -332,16 +409,16 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(workspace.getDockZoneDocument().nodes['split-workbench-tabs-0']).toBeTruthy();
 
         // loading the name restores the captured shape — the split is gone again
-        const loaded = workspace.loadPerspectiveByName('Focus');
+        const loaded = await workspace.loadPerspectiveByName('Focus');
 
         expect(loaded.loaded).toBe(true);
         expect(workspace.getDockZoneDocument().nodes['split-workbench-tabs-0']).toBeUndefined();
         expect(workspace.getDockZoneDocument().nodes.root.zones.center.nodeId).toBe('workbench-tabs')
     });
 
-    test('loading an unknown perspective fails closed and mutates nothing', () => {
+    test('loading an unknown perspective fails closed and mutates nothing', async () => {
         const before = JSON.stringify(workspace.getDockZoneDocument());
-        const loaded = workspace.loadPerspectiveByName('Nope');
+        const loaded = await workspace.loadPerspectiveByName('Nope');
 
         expect(loaded.loaded).toBe(false);
         expect(loaded.errors.join()).toContain('no perspective named');
@@ -382,6 +459,47 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         result = await workspace.popOutPane('workbench');
         expect(result.detached).toBe(false);
         expect(result.errors.join()).toContain('workbench')
+    });
+
+    test('click pop-out and return each record one atomic Group row and can repeat', async () => {
+        const vessel = installWindowVessel();
+        workspace.resolvePane('workbench', initialDocument.items.workbench);
+        try {
+            for (let cycle = 0; cycle < 2; cycle++) {
+                expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
+                expect(TransactionManager.get(hostGroupId).history.count).toBe(cycle * 2 + 1);
+                expect(workspace.dockModel.items.workbench).toBeUndefined();
+                expect(workspace.popupDocument.items.workbench).toEqual(initialDocument.items.workbench);
+                expect(await workspace.reattachPane('workbench')).toEqual({reattached: true, errors: []});
+                expect(TransactionManager.get(hostGroupId).history.count).toBe(cycle * 2 + 2);
+                expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
+                expect(workspace.popupDocument.items.workbench).toBeUndefined();
+                await workspace.awaitProjectionIdle()
+            }
+        } finally {
+            vessel.restore()
+        }
+    });
+
+    test('a refused popup returns its pane without erasing an intervening Group edit', async () => {
+        const vessel = installWindowVessel();
+        workspace.resolvePane('workbench', initialDocument.items.workbench);
+        Neo.Main.windowOpen = async () => {
+            await workspace.workspaceSet.commit(DemoBWorkspace.MAIN_WORKSPACE_ID,
+                [{operation: 'setItemLocked', itemId: 'console', locked: true}], {provenance: {origin: 'agent'}});
+            return false
+        };
+        try {
+            const result = await workspace.popOutPane('workbench');
+            expect(result.detached).toBe(false);
+            expect(workspace.dockModel.items.console.locked).toBe(true);
+            expect(workspace.dockModel.nodes['workbench-tabs'].items).toEqual(['workbench']);
+            expect(workspace.popupDocument.items.workbench).toBeUndefined();
+            expect(TransactionManager.get(hostGroupId).history.count).toBe(3);
+            await workspace.awaitProjectionIdle()
+        } finally {
+            vessel.restore()
+        }
     });
 
     test('a competing G1 child cannot steal a pane already owned by the workspace target', async () => {
@@ -633,9 +751,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         };
 
         try {
-            expect(await workspace.openTearOutVessel({
+            expect(await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             })).toMatchObject({windowName: 'tearout-timeline'});
+
+            // The slot is the GROUP's, not this host's: admission is readable through the source
+            // that reserved it, which is the whole of what moved off `vesselReservations`.
+            expect(workspace.nativeWindows.getAdmission(workspace.vesselSourceId, 'timeline'))
+                .toMatchObject({itemId: 'timeline', windowName: 'tearout-timeline', workspaceKey: 'popup:timeline'});
 
             const params = new URL(tearOutOpen.url, 'https://example.test').searchParams;
 
@@ -648,8 +771,13 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             });
 
             await harness.connect('tear-child', tearOutOpen.topologyIdentity);
-            expect(workspace.tearOutConnects.timeline).toEqual({
+            // The published connection is the GROUP's record, which is strictly richer than the
+            // host map it replaced: it also names the accepted generation and the gesture that
+            // reserved the slot, so a late or replayed binding can be told from the live one.
+            expect(connectionOf('timeline')).toEqual({
+                generation     : expect.any(Number),
                 generationToken: tearOutOpen.topologyIdentity.generationToken,
+                gestureToken   : null,
                 windowId       : 'tear-child',
                 windowName     : 'tearout-timeline',
                 workspaceKey   : 'popup:timeline'
@@ -662,14 +790,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 .toHaveLength(3);
             expect(sourceParent.items[sourceIndex].cls).toContain('neo-dashboard-dock-vessel-placeholder');
 
-            workspace.tearOutHandlers.adoptPane('timeline', {}, workspace.tearOutConnects.timeline || null);
+            workspace.tearOutHandlers.adoptPane('timeline', {}, connectionOf('timeline') || null);
             expect(harness.addedTo('tear-child'), 'terminal promotion never reparents twice').toEqual([pane]);
-            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child');
-            expect(workspace.tearOutConnects.timeline, 'committed ownership has only one lifecycle map').toBeUndefined();
+            expect(ownerOf('timeline').windowId).toBe('tear-child');
+            expect(connectionOf('timeline'), 'committed ownership has only one lifecycle map').toBeNull();
 
             await harness.connect('tear-replay', tearOutOpen.topologyIdentity);
             expect(harness.addedTo('tear-replay')).toEqual([]);
-            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child')
+            expect(ownerOf('timeline').windowId).toBe('tear-child')
         } finally {
             harness.restore()
         }
@@ -705,23 +833,25 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}, sortZone
             });
 
-            const open        = vessel.openCalls.at(-1),
-                  reservation = {
+            const open = vessel.openCalls.at(-1),
+                  // The slot is the Group's admission now. Mid-stage it names the window it is
+                  // binding and stays UNconnected — acceptance is what the stage is still deciding.
+                  admitted   = {
                       ...open.topologyIdentity,
-                      flow      : 'tear-out',
-                      itemId    : 'timeline',
-                      windowId  : 'tear-stage-race',
-                      windowName: 'tearout-timeline'
+                      connected         : false,
+                      connectingWindowId: 'tear-stage-race',
+                      itemId            : 'timeline',
+                      windowName        : 'tearout-timeline'
                   },
-                  connecting  = harness.connect('tear-stage-race', open.topologyIdentity);
+                  connecting = harness.connect('tear-stage-race', open.topologyIdentity);
 
             await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-race'});
-            expect(workspace.vesselReservations.get('popup:timeline'), 'the bound slot remembers its window').toEqual(reservation);
+            expect(admissionOf('timeline'), 'the admitted slot remembers the window it is binding').toMatchObject(admitted);
 
             await expect(workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'timeline', sortZone})).resolves.toBe(false);
 
-            expect(workspace.vesselReservations.get('popup:timeline'), 'a refused close keeps the slot for its retry').toEqual(reservation);
-            expect(workspace.tearOutRetirements.has('timeline')).toBe(true);
+            expect(admissionOf('timeline'), 'a refused close keeps the slot for its retry').toMatchObject(admitted);
+            expect(retiringOf('timeline')).toBe(true);
             expect(workspace.tearOutHandlers.activeVessel, 'the machine holds the vessel under its slot and lineage token').toEqual({
                 generationToken: open.topologyIdentity.generationToken,
                 itemId         : 'timeline',
@@ -733,14 +863,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             await connecting;
 
             expect(restored).toEqual([{itemId: 'timeline', windowId: 'tear-stage-race'}]);
-            expect(workspace.tearOutConnects.timeline, 'the dead generation never becomes route authority').toBeUndefined();
-            expect(workspace.tearOutPanes.timeline).toBeUndefined();
+            expect(connectionOf('timeline'), 'the dead generation never becomes route authority').toBeNull();
+            expect(ownerOf('timeline')).toBeNull();
 
             admitClose = true;
 
             await expect(workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'timeline', sortZone})).resolves.toBe(true);
-            expect(workspace.vesselReservations.has('popup:timeline'), 'the acknowledged close gives the slot record back').toBe(false);
-            expect(workspace.tearOutRetirements.has('timeline')).toBe(false);
+            expect(admissionOf('timeline'), 'the acknowledged close gives the slot record back').toBeNull();
+            expect(retiringOf('timeline')).toBe(false);
             expect(workspace.tearOutHandlers.activeVessel).toBeNull();
             expect(vessel.nativeCloseCalls).toEqual([
                 {nativeHandleKey: 'handle-tear-stage-race', targetWindowId: 'tear-stage-race', windowId: workspace.windowId},
@@ -790,23 +920,23 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             const connecting = harness.connect('tear-stage-committed', vessel.openCalls.at(-1).topologyIdentity);
 
             await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-committed'});
-            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'timeline', sortZone})).toBe(true);
+            await expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'timeline', sortZone})).resolves.toBe(true);
             expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline')).toBeNull();
-            expect(workspace.tearOutPanes.timeline.windowId).toBeNull();
+            expect(ownerOf('timeline').windowId).toBeNull();
 
-            harness.disconnect('tear-stage-committed');
+            await harness.disconnect('tear-stage-committed');
 
             expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline'))
                 .toBe('side-tabs');
-            expect(workspace.tearOutPanes.timeline).toBeUndefined();
+            expect(ownerOf('timeline')).toBeNull();
             expect(workspace.vesselReservations.has('popup:timeline'), 'the dead window\'s slot record is gone').toBe(false);
             expect(restored).toEqual([{itemId: 'timeline', windowId: 'tear-stage-committed'}]);
 
             resolveStage(false);
             await connecting;
 
-            expect(workspace.tearOutConnects.timeline).toBeUndefined();
-            expect(workspace.tearOutPanes.timeline).toBeUndefined()
+            expect(connectionOf('timeline')).toBeNull();
+            expect(ownerOf('timeline')).toBeNull()
         } finally {
             workspace.tearOutEmbodiment.stage     = stage;
             workspace.tearOutEmbodiment.isStaged = isStaged;
@@ -826,7 +956,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
               sourceIndex  = sourceParent.items.indexOf(pane);
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
             await harness.connect('tear-child', vessel.openCalls.at(-1).topologyIdentity);
@@ -880,7 +1010,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             await expect(workspace.parkTearOutVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
-            await expect(workspace.closeTearOutVessel({
+            await expect(retireVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
             expect(vessel.closeCalls, 'a stale exact route must never downgrade to same-name close').toEqual([]);
@@ -893,24 +1023,24 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             })).resolves.toBe(false);
             route.capabilities.position = true;
 
-            await expect(workspace.closeTearOutVessel({
+            await expect(retireVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
-            expect(workspace.tearOutConnects.timeline, 'strict close refusal retains recovery routing')
+            expect(connectionOf('timeline'), 'strict close refusal retains recovery routing')
                 .toMatchObject({windowId: 'tear-child'});
             expect(sourceParent.items[sourceIndex], 'refused close leaves content home, not in a doomed vessel')
                 .toBe(pane);
             expect(workspace.tearOutEmbodiment.isStaged('timeline')).toBe(false);
-            expect(workspace.tearOutRetirements.has('timeline'), 'late connects stay fenced during retry authority')
+            expect(retiringOf('timeline'), 'late connects stay fenced during retry authority')
                 .toBe(true);
 
             admitClose = true;
 
-            await expect(workspace.closeTearOutVessel({
+            await expect(retireVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(true);
-            expect(workspace.tearOutConnects.timeline).toBeUndefined();
-            expect(workspace.tearOutRetirements.has('timeline')).toBe(false);
+            expect(connectionOf('timeline')).toBeNull();
+            expect(retiringOf('timeline')).toBe(false);
             expect(vessel.nativeCloseCalls).toEqual([
                 {nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', windowId: workspace.windowId},
                 {nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', windowId: workspace.windowId}
@@ -921,12 +1051,12 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         }
     });
 
-    test('pre-terminal disconnect clears both retained lifecycle owners for a successor gesture', () => {
+    test('pre-terminal disconnect clears both retained lifecycle owners for a successor gesture', async () => {
         const previousTearOut = workspace.tearOutHandlers,
               previousPark    = workspace.vesselParkHandlers,
               calls           = [];
 
-        workspace.tearOutConnects.timeline = {windowId: 'tear-pending'};
+        seedConnection('timeline', {windowId: 'tear-pending'});
         workspace.tearOutHandlers = {
             onVesselRetired: data => calls.push(['tear-out', data])
         };
@@ -935,9 +1065,9 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         };
 
         try {
-            releaseWindow('tear-pending', 'popup:timeline');
+            await releaseWindow('tear-pending', 'popup:timeline');
 
-            expect(workspace.tearOutConnects.timeline).toBeUndefined();
+            expect(connectionOf('timeline')).toBeNull();
             expect(calls).toEqual([
                 ['tear-out', {itemId: 'timeline', windowId: 'tear-pending', windowName: 'tearout-timeline'}],
                 ['park', {itemId: 'timeline', retirement: true}]
@@ -945,7 +1075,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         } finally {
             workspace.tearOutHandlers       = previousTearOut;
             workspace.vesselParkHandlers    = previousPark;
-            delete workspace.tearOutConnects.timeline
+            workspace.nativeWindows.clearConnection(workspace.vesselSourceId, 'timeline')
         }
     });
 
@@ -995,7 +1125,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
               harness = installWindowConnectHarness(workspace);
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
             await harness.connect('tear-child', vessel.openCalls.at(-1).topologyIdentity);
@@ -1020,7 +1150,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
               harness = installWindowConnectHarness(workspace);
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
             await harness.connect('tear-child', vessel.openCalls.at(-1).topologyIdentity);
@@ -1062,7 +1192,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         };
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
 
@@ -1070,7 +1200,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                   result    = workspace.applyTearOutOperation(operation);
 
             expect(result.errors).toEqual([]);
-            workspace.onTearOutDocumentChange(result.document, operation);
+            await workspace.onTearOutDocumentChange(result.document, operation);
             await workspace.refreshPromise;
 
             expect(pane.isDestroyed, 'terminal-first projection preserves the live pane for its late child')
@@ -1079,7 +1209,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             await harness.connect('tear-after-terminal', tearOutOpen.topologyIdentity);
 
             expect(harness.addedTo('tear-after-terminal')).toEqual([pane]);
-            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-after-terminal')
+            expect(ownerOf('timeline').windowId).toBe('tear-after-terminal')
         } finally {
             harness.restore()
         }
@@ -1147,7 +1277,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         }
     });
 
-    test('a manual cross-window close after transfer returns the live item to main ownership', () => {
+    test('a manual cross-window close after transfer returns the live item to main ownership', async () => {
         const pane     = workspace.resolvePane('workbench', initialDocument.items.workbench),
               detached = Operations.transferItem(
                   workspace.dockModel,
@@ -1167,7 +1297,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             windowName: 'demo-b-cross-window'
         };
 
-        releaseWindow('window-popup', DemoBWorkspace.POPUP_WORKSPACE_ID);
+        await releaseWindow('window-popup', DemoBWorkspace.POPUP_WORKSPACE_ID);
 
         expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
         expect(workspace.popupDocument.items.workbench).toBeUndefined();
@@ -1214,6 +1344,9 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         const commit = workspace.commitCrossWindowTransfer({
             descriptor: {
+                operation: 'transferItem',
+                sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
+                targetWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
                 itemId: 'workbench',
                 target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
             },
@@ -1227,7 +1360,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         expect(workspace.detachedPanes.workbench.windowId).toBe('window-popup');
 
-        releaseWindow('window-popup', DemoBWorkspace.POPUP_WORKSPACE_ID);
+        await releaseWindow('window-popup', DemoBWorkspace.POPUP_WORKSPACE_ID);
 
         expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
         expect(workspace.popupDocument.items.workbench).toBeUndefined();
@@ -1237,12 +1370,15 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         await commit;
         await workspace.awaitProjectionIdle();
 
-        expect(refreshCalls.map(call => call.workspaceId)).toEqual(['demo-b-popup', 'demo-b-main']);
+        const lastProjection = new Map(refreshCalls.map(({workspaceId, document}) => [workspaceId, document]));
+        expect([...lastProjection.keys()].sort()).toEqual(['demo-b-main', 'demo-b-popup']);
+        expect(lastProjection.get('demo-b-main')).toEqual(workspace.dockModel);
+        expect(lastProjection.get('demo-b-popup')).toEqual(workspace.popupDocument);
         expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
         expect(workspace.popupDocument.items.workbench).toBeUndefined()
     });
 
-    test('whole-stack return commits synchronously, reconciles target-first, then unregisters the emptied popup', async () => {
+    test('whole-stack return awaits the Group commit and retains the popup participant for undo', async () => {
         const detached = Operations.transferItem(
             workspace.dockModel,
             DemoBWorkspace.createPopupDocument(),
@@ -1300,6 +1436,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 refreshes.push({document, workspaceId})
             };
 
+            let receipt;
+            workspace.crossWindowGestureResolve = value => receipt = value;
             const commit = workspace.commitCrossWindowTransfer({
                 descriptor,
                 sourceDocument   : returned.sourceDocument,
@@ -1308,14 +1446,11 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 targetWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
             });
 
-            // Synchronous admission is the coordinator gate: model truth + disconnect guard are
-            // committed before the promise-owned projection work starts.
-            expect(commit).toBeTruthy();
+            expect(workspace.dockModel.items.workbench, 'no publication before the queued commit').toBeUndefined();
+            expect(await commit).toBe(true);
             expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
             expect(workspace.popupDocument.items.workbench).toBeUndefined();
             expect(workspace.detachedPanes.workbench).toBeUndefined();
-
-            const receipt = await commit;
 
             expect(refreshes.map(entry => entry.workspaceId)).toEqual([
                 DemoBWorkspace.MAIN_WORKSPACE_ID,
@@ -1332,13 +1467,13 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 names   : ['demo-b-cross-window'],
                 windowId: workspace.windowId
             }]);
-            expect(workspace.workspaceSet.ids()).toEqual([DemoBWorkspace.MAIN_WORKSPACE_ID, DemoBWorkspace.POPUP2_WORKSPACE_ID]);
-            expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBeNull();
-
-            // A later explicit stage is a new lifetime: registration is restored against the current
-            // empty owner field, never kept alive as a ghost entry after the prior vessel retired.
-            expect(workspace.ensurePopupWorkspaceRegistered()).toBe(true);
-            expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBe(workspace.popupDocument)
+            expect(workspace.workspaceSet.has(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBe(true);
+            expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID).items).toEqual({});
+            expect(TransactionManager.get(hostGroupId).history.count).toBe(1);
+            await TransactionManager.undo({groupId: hostGroupId});
+            expect(workspace.popupDocument.items.workbench).toEqual(initialDocument.items.workbench);
+            expect(workspace.dockModel.items.workbench).toBeUndefined();
+            await workspace.awaitProjectionIdle()
         } finally {
             vessel.restore()
         }
@@ -1401,7 +1536,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             return null
         };
 
-        workspace.tearOutConnects.timeline = {windowId: 'tear-child'};
+        seedConnection('timeline', {windowId: 'tear-child'});
         workspace.vesselParkHandlers = {
             onConversionIn(data) {
                 calls.push(['in', data]);
@@ -1574,7 +1709,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
 
             const opensBeforeRestore = vessel.openCount,
-                  loaded             = workspace.loadPerspectiveByName('Detached');
+                  loaded             = await workspace.loadPerspectiveByName('Detached');
 
             expect(loaded.loaded).toBe(true);
             expect(loaded.errors).toEqual([]);
@@ -1601,7 +1736,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(report.html).toContain('no window spawned');
             expect(report.html).toContain('workbench (no-live-workspace)');
 
-            expect(workspace.loadPerspectiveByName('Focus').loaded).toBe(true);
+            expect((await workspace.loadPerspectiveByName('Focus')).loaded).toBe(true);
             await workspace.refreshPromise;
             expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
             expect(pane.frames).toBeGreaterThanOrEqual(41)
@@ -1627,7 +1762,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
             layout.workspaces['demo-b-popup'].root = 'ghost-root';
 
-            const restored = workspace.restoreTopologyPerspective(layout);
+            const restored = await workspace.restoreTopologyPerspective(layout);
 
             expect(restored.loaded).toBe(false);
             expect(restored.errors.length).toBeGreaterThan(0);
@@ -1653,7 +1788,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
             expect(result.detached).toBe(false);
             expect(result.errors.join(' ')).toContain('popup denied');
-            expect(JSON.stringify(workspace.dockModel)).toBe(before);
+            expect(workspace.dockModel).toEqual(JSON.parse(before));
             expect(workspace.popupDocument.items.workbench).toBeUndefined();
             expect(workspace.detachedPanes.workbench).toBeUndefined()
         } finally {
@@ -1708,19 +1843,25 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             calls.push({document, options, workspaceId})
         };
 
-        workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, topologyDocument, {
-            preserveItemIds: ['workbench']
-        });
-        workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, focusDocument);
-
+        await Promise.all([
+            workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, topologyDocument, {preserveItemIds: ['workbench']}),
+            workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, focusDocument)
+        ]);
         await workspace.awaitProjectionIdle();
 
-        expect(calls).toHaveLength(2);
-        calls.forEach(call => {
+        expect(calls.length).toBeGreaterThan(0);
+        for (const call of calls) {
             expect(call.workspaceId).toBe(DemoBWorkspace.MAIN_WORKSPACE_ID);
-            expect(call.document).toBe(focusDocument);
-            expect(call.options.preserveItemIds).toEqual([])
-        })
+            if (call.document.items.workbench) {
+                expect(call.document).toEqual(focusDocument);
+                expect(call.options.preserveItemIds).toEqual([])
+            } else {
+                expect(call.document).toEqual(topologyDocument);
+                expect(call.options.preserveItemIds).toEqual(['workbench'])
+            }
+        }
+        expect(calls.at(-1).document).toEqual(focusDocument);
+        expect(TransactionManager.get(hostGroupId).history.count).toBe(2)
     });
 
     test('a rerun drains the prior projection before resetting and starting replay', async () => {
@@ -1742,7 +1883,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         });
         workspace.refreshWorkspace = async (workspaceId, document) => {
             order.push(`refresh:${workspaceId}`);
-            expect(document).toBe(workspace.dockModel)
+            expect(document).toEqual(workspace.getWorkspaceDocument(workspaceId))
         };
         workspace.tourRunner.start = async () => {
             order.push('runner-started');
@@ -1762,13 +1903,15 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(order).toEqual([
             'prior-settled',
             `refresh:${DemoBWorkspace.MAIN_WORKSPACE_ID}`,
+            `refresh:${DemoBWorkspace.POPUP_WORKSPACE_ID}`,
+            `refresh:${DemoBWorkspace.POPUP2_WORKSPACE_ID}`,
             'runner-started'
         ]);
         expect(workspace.dockModel).not.toBe(initialDocument);
         expect(workspace.dockModel).toEqual(initialDocument)
     });
 
-    test('tear-out vessel death brings the item HOME at its EXACT stored position', () => {
+    test('tear-out vessel death brings the item HOME at its EXACT stored position', async () => {
         // 'timeline' sits at side-tabs index 1 of ['inspector', 'timeline', 'console'] — the
         // middle slot, so an append-shaped return would betray itself immediately.
         const before = workspace.getDockZoneDocument().nodes['side-tabs'].items;
@@ -1783,29 +1926,29 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         // collapsed rather than only find one that survived.
         expect(workspace.tearOutHandlers.peekPlacement('timeline')).toEqual({tabsNodeId: 'side-tabs', index: 1, home: {parentId: 'root', slot: 'right'}});
 
-        workspace.onWorkspaceDocumentChange('demo-b-main', result.document);
+        await workspace.onWorkspaceDocumentChange('demo-b-main', result.document);
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['inspector', 'console']);
 
         // the vessel dies: the disconnect correlates by windowId and the item returns home
-        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-9'};
-        releaseWindow('tear-win-9', 'popup:timeline');
+        workspace.recordDockPaneOwner('timeline', {}, {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-9'});
+        await releaseWindow('tear-win-9', 'popup:timeline');
 
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items, 'identical order, not append order').toEqual(['inspector', 'timeline', 'console']);
-        expect(workspace.tearOutPanes.timeline).toBeUndefined();
+        expect(ownerOf('timeline')).toBeNull();
         expect(workspace.tearOutHandlers.peekPlacement('timeline'), 'the placement record is consumed exact-once').toBeNull();
 
         // idempotent: a duplicate disconnect for the same window finds nothing and mutates nothing
         const stable = JSON.stringify(workspace.getDockZoneDocument());
 
-        releaseWindow('tear-win-9', 'popup:timeline');
+        await releaseWindow('tear-win-9', 'popup:timeline');
         expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(stable)
     });
 
-    test('a stored home that left the tree falls back SEMANTICALLY to a surviving tabs node', () => {
+    test('a stored home that left the tree falls back SEMANTICALLY to a surviving tabs node', async () => {
         const detach = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
 
         expect(detach.errors).toEqual([]);
-        workspace.onWorkspaceDocumentChange('demo-b-main', detach.document);
+        await workspace.onWorkspaceDocumentChange('demo-b-main', detach.document);
 
         // the remembered home leaves the tree: move the two remaining side-tabs items into the
         // workbench node — the emptied side-tabs collapses out on normalize
@@ -1813,13 +1956,13 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             const moved = workspace.applyDockZoneOperation({operation: 'addTab', itemId, tabsNodeId: 'workbench-tabs'});
 
             expect(moved.errors).toEqual([]);
-            workspace.onWorkspaceDocumentChange('demo-b-main', moved.document)
+            await workspace.onWorkspaceDocumentChange('demo-b-main', moved.document)
         }
 
         expect(workspace.getDockZoneDocument().nodes['side-tabs']).toBeUndefined();
 
-        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-10'};
-        releaseWindow('tear-win-10', 'popup:timeline');
+        workspace.recordDockPaneOwner('timeline', {}, {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-10'});
+        await releaseWindow('tear-win-10', 'popup:timeline');
 
         // semantic recovery: the first surviving tabs node, append — never a resurrected node,
         // never geometry
@@ -1836,18 +1979,18 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(workspace.tearOutHandlers.peekPlacement('ghost-item')).toBeNull()
     });
 
-    test('reintegration is idempotent against an item some other flow already re-treed', () => {
+    test('reintegration is idempotent against an item some other flow already re-treed', async () => {
         const detach = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
 
-        workspace.onWorkspaceDocumentChange('demo-b-main', detach.document);
+        await workspace.onWorkspaceDocumentChange('demo-b-main', detach.document);
 
         // another flow re-trees the item mid-vessel (preset restore, NL addTab)
         const readd = workspace.applyDockZoneOperation({operation: 'addTab', itemId: 'timeline', tabsNodeId: 'workbench-tabs'});
 
-        workspace.onWorkspaceDocumentChange('demo-b-main', readd.document);
+        await workspace.onWorkspaceDocumentChange('demo-b-main', readd.document);
 
-        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-11'};
-        releaseWindow('tear-win-11', 'popup:timeline');
+        workspace.recordDockPaneOwner('timeline', {}, {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-11'});
+        await releaseWindow('tear-win-11', 'popup:timeline');
 
         // the reintegration finds the item already placed and leaves it EXACTLY there — one
         // occurrence, in the node the other flow chose, placement record still consumed
@@ -2107,6 +2250,37 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         // fail-closed re-registration mirrors popup-1's discipline
         expect(workspace.ensurePopupWorkspaceRegistered(DemoBWorkspace.POPUP2_WORKSPACE_ID)).toBe(true);
         expect(workspace.workspaceSet.getDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID)).toBe(workspace.popup2Document)
+    });
+
+    test('learning the Group registers TWO native sources, one per workspace-key shape', () => {
+        // This host extends `container.Base` and composes the dock modules itself, so it inherits
+        // none of `dashboard.dock.Workspace`'s source registration and must do its own.
+        expect(workspace.nativeWindows, 'the Group owns one native lifecycle and this host resolved it').toBeTruthy();
+
+        const vessel = workspace.nativeWindows.sources.get(workspace.vesselSourceId),
+              stage  = workspace.nativeWindows.sources.get(workspace.stageSourceId);
+
+        expect(vessel, 'the vessel flows registered a source').toBeTruthy();
+        expect(stage, 'the stage flow registered its own').toBeTruthy();
+        expect(vessel).not.toBe(stage);
+
+        // The reason there are two rather than one: a source maps an item to exactly ONE key, and
+        // this host speaks two shapes. A vessel binds a slot minted for an item inside a workspace;
+        // a stage binds the popup workspace itself, so its item id and its key are the same string.
+        expect(vessel.effects.keyFor('timeline'), 'a vessel key is minted per item').toBe('popup:timeline');
+        expect(stage.effects.keyFor(DemoBWorkspace.POPUP_WORKSPACE_ID), 'a stage key IS the workspace')
+            .toBe(DemoBWorkspace.POPUP_WORKSPACE_ID);
+
+        // Control: the two shapes are genuinely different, so a single source could not have served
+        // both — without this the arm passes on a host whose flows happened to agree.
+        expect(vessel.effects.keyFor(DemoBWorkspace.POPUP_WORKSPACE_ID))
+            .not.toBe(stage.effects.keyFor(DemoBWorkspace.POPUP_WORKSPACE_ID));
+
+        // Every source owns its OWN admissions/connections/owners/retirements — the property that
+        // makes two sources safe rather than a shared registry with two writers.
+        for (const registry of ['admissions', 'connections', 'owners', 'retirements']) {
+            expect(vessel[registry], `${registry} is source-scoped`).not.toBe(stage[registry])
+        }
     });
 
     test('the second popup stages through the same seams with its own continuation and window name', async () => {

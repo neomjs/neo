@@ -1,6 +1,7 @@
-import Manager       from './Base.mjs';
-import StateProvider from '../state/Provider.mjs';
-import Commit        from './transaction/Commit.mjs';
+import Manager         from './Base.mjs';
+import StateProvider   from '../state/Provider.mjs';
+import Commit          from './transaction/Commit.mjs';
+import NativeLifecycle from './transaction/NativeLifecycle.mjs';
 
 /**
  * @summary The worker-side authority for logical topology Groups, their window bindings and their history.
@@ -308,6 +309,7 @@ class Transaction extends Manager {
      */
     createGroup(groupId=crypto.randomUUID()) {
         const group = {
+            batch             : null,
             bindings          : new Map(),
             createdAt         : Date.now(),
             history           : null,
@@ -323,6 +325,110 @@ class Transaction extends Manager {
         this.register(group);
 
         return group
+    }
+
+    /**
+     * @summary Returns the one native lifecycle owner for a Group, instantiated only on demand.
+     * @param {String} groupId
+     * @returns {Neo.manager.transaction.NativeLifecycle}
+     */
+    getNativeLifecycle(groupId) {
+        const group = this.get(groupId);
+        if (!group) throw new Error('unknown-group');
+        return group.nativeLifecycle ??= Neo.create(NativeLifecycle, {groupId, manager: this})
+    }
+
+    /**
+     * @summary Finds a caller's pending batch without exposing its mutable request buffer.
+     * @param {String} owner Opaque caller key, separate from the Group history cursor.
+     * @returns {Object|null}
+     */
+    findBatch(owner) {
+        const group = owner && this.items.find(group => group.batch?.owner === owner);
+        return group ? {groupId: group.id, id: group.batch.id, name: group.batch.name,
+            requestCount: group.batch.requests.length} : null
+    }
+
+    /**
+     * @summary Opens a bounded, caller-owned preparation buffer; no participant or history changes.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {String} request.name
+     * @param {Number} request.limit Maximum requests, supplied by the command contract.
+     * @returns {Object} The pending batch identity.
+     */
+    beginBatch({groupId, owner, name, limit}) {
+        const group = this.get(groupId);
+        if (!group) throw new Error('unknown-group');
+        if (!owner || typeof name !== 'string' || !name.trim() || !Number.isInteger(limit) || limit < 1) {
+            throw new TypeError('invalid-batch')
+        }
+        if (group.batch || this.findBatch(owner)) throw new Error('transaction-already-open');
+        group.batch = {id: crypto.randomUUID(), owner, name: name.trim(), limit, requests: [], committing: false};
+        return this.findBatch(owner)
+    }
+
+    /**
+     * @summary Stages finite requests; their reducers run against current values only on commit.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {Object[]} request.changes Participant inputs.
+     * @param {Object} [request.descriptor={}]
+     * @returns {Object} The pending batch identity.
+     */
+    stageBatch({groupId, owner, changes, descriptor = {}}) {
+        const batch = this.get(groupId)?.batch;
+        if (!batch || batch.owner !== owner || batch.committing) throw new Error('no-open-transaction');
+        if (batch.requests.length >= batch.limit) throw new Error('max-ops-per-transaction');
+        batch.requests.push(Commit.copy({changes, descriptor}));
+        return this.findBatch(owner)
+    }
+
+    /**
+     * @summary Commits all staged inputs as one compensatable write and one history row.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @param {Object} [request.provenance={}]
+     * @returns {Promise<Object>}
+     */
+    async commitBatch({groupId, owner, provenance = {}}) {
+        const group = this.get(groupId), batch = group?.batch;
+        if (!batch || batch.owner !== owner || batch.committing) throw new Error('no-open-transaction');
+        if (!batch.requests.length) throw new Error('empty-transaction');
+        const changes = new Map();
+        for (const request of batch.requests) {
+            for (const {workspaceKey, input} of request.changes) {
+                if (!changes.has(workspaceKey)) changes.set(workspaceKey, []);
+                changes.get(workspaceKey).push(input)
+            }
+        }
+        batch.committing = true;
+        try {
+            const result = await this.write({groupId, cause: 'batch', provenance,
+                descriptor: {name: batch.name, requests: batch.requests.map(request => request.descriptor)},
+                changes: [...changes].map(([workspaceKey, inputs]) => ({workspaceKey, inputs}))});
+            if (group.batch === batch) group.batch = null;
+            return result
+        } finally {
+            batch.committing = false
+        }
+    }
+
+    /**
+     * @summary Discards only the caller's pending preparation; live documents were never changed.
+     * @param {Object} request
+     * @param {String} request.groupId
+     * @param {String} request.owner
+     * @returns {Boolean}
+     */
+    abortBatch({groupId, owner}) {
+        const group = this.get(groupId);
+        if (!group?.batch || group.batch.owner !== owner || group.batch.committing) return false;
+        group.batch = null;
+        return true
     }
 
     /**
@@ -593,7 +699,8 @@ class Transaction extends Manager {
      * @param {Object[]} [request.changes=[]] Unique {workspaceKey, input} entries.
      * @param {String} [request.cursorAction='append'] append, preserve, undo or redo.
      * @param {Object[]} [request.effects=[]] {effectId, run} callbacks, invoked after semantic commit.
-     * @returns {Promise<Object>} {row, snapshot, transactionId, notificationErrors}; row/snapshot may be null.
+     * @returns {Promise<Object>} {row, snapshot, participants, transactionId, notificationErrors};
+     * participants carries the committed before/after endpoints even when history is disabled.
      */
     write(request) {
         let me    = this,
@@ -620,6 +727,7 @@ class Transaction extends Manager {
             return {
                 row               : result.row,
                 snapshot          : result.snapshot,
+                participants      : result.participants,
                 transactionId     : result.transactionId,
                 notificationErrors: result.notificationErrors.map(error => error.message)
             }
@@ -634,6 +742,7 @@ class Transaction extends Manager {
      * @param {String} data.groupId
      * @param {String} data.workspaceKey
      * @param {Object} data.participant
+     * @param {Function} [data.participant.dispose] Synchronous owner cleanup on explicit Group retirement.
      * @returns {Boolean}
      */
     registerParticipant({groupId, workspaceKey, participant}) {
@@ -795,6 +904,8 @@ class Transaction extends Manager {
         if (!group) return false;
 
         group.bindings.forEach(binding => me.clearLease(binding));
+        group.nativeLifecycle?.destroy();
+        [...group.participants.values()].forEach(participant => participant.dispose?.());
         group.participants.clear();
         group.provider?.destroy();
         group.history?.destroy();
@@ -848,7 +959,8 @@ class Transaction extends Manager {
                 // Only empty, unreferenced Groups may expire automatically. Owners decide when a
                 // Group retaining participants, history or external references can be retired.
                 if (group.bindings.size === 0 && group.participants.size === 0 &&
-                    group.retainedReferences.size === 0 && !group.history?.count && me.get(group.id) === group
+                    group.retainedReferences.size === 0 && !group.history?.count &&
+                    !group.nativeLifecycle?.hasResources && me.get(group.id) === group
                 ) {
                     me.retireGroup(group.id);
                 }

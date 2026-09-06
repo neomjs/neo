@@ -683,125 +683,98 @@ class InstanceService extends Service {
     }
 
     /**
-     * Reverts the requester's most-recent committed transaction — the `undo` Neural Link tool.
-     *
-     * Peeks the writer's last committed transaction (non-consuming, via {@link Neo.ai.TransactionService#stackOf}) and
-     * re-dispatches each captured reverse-op through the **enforced** dispatch path
-     * ({@link Neo.ai.Client#handleRequest}), so the revert re-enters {@link Neo.ai.admitWrite} as the **current**
-     * caller with its `subtreePath` re-derived on the live tree (provenance ≠ enforcement identity). The transaction
-     * is consumed ({@link Neo.ai.TransactionService#undo}, `committed → undone`) **only on full success**. Each
-     * re-dispatch carries an `undoReplay` marker so the replayed writes are not themselves captured — undo never
-     * enqueues a new undoable transaction (single-level; {@link #redo} re-applies the forwards symmetrically).
-     *
-     * Recoverable + fail-closed (never throws for an expected outcome): no writer identity, no stack authority,
-     * nothing to undo, or a denied / unresolvable-target re-dispatch → `{undone: false, reason}` with the transaction
-     * **preserved** (no-op). Capture is suppressed during replay and the App Worker is single-threaded, so the peeked
-     * last-committed transaction is stable through the consume.
-     * @param {Object} [params] No parameters — undo targets the requester's own stack.
-     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
-     * @returns {Promise<Object>} `{undone: Boolean, txId?: String, reverted?: Number, reason?: String}`
+     * @summary Undoes the selected dock Group, or the requester's non-dock stack when no Group is supplied.
+     * @param {Object} [params] Optional explicit groupId.
+     * @param {Object|null} context Current caller identity.
+     * @returns {Promise<Object>} Structured undo outcome.
      */
     async undo(params, context) {
-        const transactionService = this.client?.transactionService;
-
-        if (!context?.agentId || !context?.sessionId) {
-            return {undone: false, reason: 'no-writer-identity'}
-        }
-
-        if (!transactionService) {
-            return {undone: false, reason: 'no-transaction-service'}
-        }
-
-        const
-            stackId     = {agentId: context.agentId, sessionId: context.sessionId},
-            {committed} = transactionService.stackOf({id: stackId});
-
-        if (committed.length === 0) {
-            return {undone: false, reason: 'nothing-to-undo'}
-        }
-
-        const
-            tx         = committed[committed.length - 1],
-            reverseOps = tx.ops.slice().reverse(), // last mutation undone first
-            replayCtx  = {...context, undoReplay: true};
-
-        // Re-dispatch each reverse as a validated tool, enforced as the CURRENT caller. Capture is suppressed
-        // (replayCtx.undoReplay), so a successful replay enqueues no new undoable transaction.
-        try {
-            for (const op of reverseOps) {
-                await this.client.handleRequest(op.reverse.tool, op.reverse.args, replayCtx)
-            }
-        } catch (error) {
-            // Preserve-on-fail: a denied / unresolvable re-dispatch leaves the transaction committed (no-op).
-            return {undone: false, reason: `undo-denied: ${error.message}`}
-        }
-
-        // All reverses applied — consume the transaction (committed → undone).
-        const {txId} = transactionService.undo({id: stackId});
-
-        return {undone: true, txId, reverted: reverseOps.length}
+        return params?.groupId !== undefined
+            ? this.moveGroupCursor(params.groupId, 'undo', context)
+            : this.moveLegacyCursor('undo', context)
     }
 
     /**
-     * Re-applies the requester's most-recently undone transaction — the `redo` Neural Link tool. The symmetric
-     * counterpart to {@link #undo}: peeks the writer's redo branch (non-consuming, via
-     * {@link Neo.ai.TransactionService#stackOf}) and re-dispatches each captured **forward**-op through the
-     * **enforced** dispatch path ({@link Neo.ai.Client#handleRequest}) in capture order, so the re-apply re-enters
-     * {@link Neo.ai.admitWrite} as the **current** caller with its `subtreePath` re-derived on the live tree. The
-     * transaction is consumed ({@link Neo.ai.TransactionService#redo}, `undone → committed`) **only on full success**;
-     * each re-dispatch carries the `undoReplay` marker so a replayed write is not itself captured (re-applying must
-     * never enqueue a new transaction). The redo branch is cleared by any intervening committed mutation.
-     *
-     * Recoverable + fail-closed (never throws for an expected outcome): no writer identity, no stack authority,
-     * nothing to redo, or a denied / unresolvable-target re-dispatch → `{redone: false, reason}` with the redo branch
-     * **preserved** (no-op).
-     *
-     * Single-level Slice-2 boundary: a `create_component` re-apply mints a fresh id, so a subsequent undo of a redone
-     * create can fail-closed on the now-stale captured reverse — id-stable cyclic create / remove redo is a later
-     * slice; `set_instance_properties` redo is fully cyclic.
-     * @param {Object} [params] No parameters — redo targets the requester's own stack.
-     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
-     * @returns {Promise<Object>} `{redone: Boolean, txId?: String, reapplied?: Number, reason?: String}`
+     * @summary Redoes the selected dock Group, or the requester's non-dock stack when no Group is supplied.
+     * @param {Object} [params] Optional explicit groupId.
+     * @param {Object|null} context Current caller identity.
+     * @returns {Promise<Object>} Structured redo outcome.
      */
     async redo(params, context) {
-        const transactionService = this.client?.transactionService;
+        return params?.groupId !== undefined
+            ? this.moveGroupCursor(params.groupId, 'redo', context)
+            : this.moveLegacyCursor('redo', context)
+    }
 
-        if (!context?.agentId || !context?.sessionId) {
-            return {redone: false, reason: 'no-writer-identity'}
-        }
-
-        if (!transactionService) {
-            return {redone: false, reason: 'no-transaction-service'}
-        }
-
-        const
-            stackId = {agentId: context.agentId, sessionId: context.sessionId},
-            {redo}  = transactionService.stackOf({id: stackId});
-
-        if (redo.length === 0) {
-            return {redone: false, reason: 'nothing-to-redo'}
-        }
-
-        const
-            tx         = redo[redo.length - 1],
-            forwardOps = tx.ops.slice(), // first mutation re-applied first (capture order)
-            replayCtx  = {...context, undoReplay: true};
-
-        // Re-dispatch each forward as a validated tool, enforced as the CURRENT caller. Capture is suppressed
-        // (replayCtx.undoReplay), so a successful re-apply enqueues no new transaction.
+    /**
+     * @summary Re-dispatches non-dock records under the current caller and consumes only acknowledged results.
+     * @param {String} action undo or redo.
+     * @param {Object|null} context
+     * @returns {Promise<Object>}
+     */
+    async moveLegacyCursor(action, context) {
+        const flag = action === 'undo' ? 'undone' : 'redone', service = this.client?.transactionService;
+        if (!this.transactionOwner(context)) return {[flag]: false, reason: 'no-writer-identity'};
+        if (!service) return {[flag]: false, reason: 'no-transaction-service'};
+        const id = {agentId: context.agentId, sessionId: context.sessionId};
+        const rows = service.stackOf({id})[action === 'undo' ? 'committed' : 'redo'], tx = rows.at(-1);
+        if (!tx) return {[flag]: false, reason: `nothing-to-${action}`};
+        const ops = tx.ops.slice(), direction = action === 'undo' ? 'reverse' : 'forward';
+        if (action === 'undo') ops.reverse();
         try {
-            for (const op of forwardOps) {
-                await this.client.handleRequest(op.forward.tool, op.forward.args, replayCtx)
+            for (const op of ops) {
+                const result = await this.client.handleRequest(op[direction].tool, op[direction].args, {...context, undoReplay: true});
+                if (result && ['applied', 'success', 'switched', 'replayed'].some(key => result[key] === false)) {
+                    throw new Error(result.reason ?? result.errors?.join('; ') ?? 'operation refused')
+                }
             }
         } catch (error) {
-            // Preserve-on-fail: a denied / unresolvable re-dispatch leaves the transaction on the redo branch (no-op).
-            return {redone: false, reason: `redo-denied: ${error.message}`}
+            return {[flag]: false, reason: `${action}-denied: ${error.message}`}
         }
+        const {txId} = service[action]({id});
+        return {[flag]: true, txId, [action === 'undo' ? 'reverted' : 'reapplied']: ops.length}
+    }
 
-        // All forwards applied — consume the redo entry (undone → committed).
-        const {txId} = transactionService.redo({id: stackId});
+    /**
+     * @summary Moves the selected Group cursor through its compensating participant writer.
+     * @param {String} groupId
+     * @param {String} action undo or redo.
+     * @param {Object} context Current caller provenance.
+     * @returns {Promise<Object>} Structured cursor outcome.
+     */
+    async moveGroupCursor(groupId, action, context) {
+        const flag = action === 'undo' ? 'undone' : 'redone', manager = Neo.manager?.Transaction;
+        if (!manager?.get(groupId)) return {[flag]: false, reason: 'unknown-group', groupId};
+        try {
+            const result = await this.withGroupWrite(groupId, context, () => manager[action]({groupId,
+                provenance: {agentId: context.agentId, sessionId: context.sessionId}}));
+            return {[flag]: !!result.row, groupId, transactionId: result.transactionId,
+                cursor: manager.get(groupId).history?.cursor ?? -1}
+        } catch (error) {
+            return {[flag]: false, groupId, reason: error.message}
+        }
+    }
 
-        return {redone: true, txId, reapplied: forwardOps.length}
+    /**
+     * @summary Enforces the current caller against the Group's live document owners before mutation.
+     * @param {String} groupId
+     * @param {Object} context Current caller, never archived provenance.
+     * @param {Function} write Compensatable Group command.
+     * @returns {Promise<Object>}
+     */
+    async withGroupWrite(groupId, context, write) {
+        if (!this.transactionOwner(context)) throw new Error('no-writer-identity');
+        const group = Neo.manager.Transaction.get(groupId), acquired = [];
+        if (!group) throw new Error('unknown-group');
+        const ids = [...new Set([...group.participants.values()].filter(entry => entry.getDocument)
+            .map(entry => entry.componentId))];
+        if (!ids.length || ids.some(id => typeof id !== 'string' || !id)) throw new Error('dock-owner-unresolvable');
+        try {
+            for (const id of ids) acquired.push(this.assertWritable(context, id));
+            return await write()
+        } finally {
+            acquired.forEach(acquisition => this.finishWritable(acquisition))
+        }
     }
 
     /**
@@ -817,6 +790,15 @@ class InstanceService extends Service {
      * @returns {Promise<Object>} `{committed: Object[], redo: Object[]}` — each entry `{txId, status, opCount, labels}`.
      */
     async listTransactions(params, context) {
+        if (params?.groupId !== undefined) {
+            const group = Neo.manager?.Transaction?.get(params.groupId);
+            if (!group) return {groupId: params.groupId, committed: [], redo: [], reason: 'unknown-group'};
+            const cursor = group.history?.cursor ?? -1;
+            const rows = (group.history?.rows ?? []).map((row, index) => ({txId: row.id,
+                status: index <= cursor ? 'committed' : 'undone', opCount: row.participants.length,
+                labels: [row.name ?? row.cause]}));
+            return {groupId: group.id, cursor, committed: rows.slice(0, cursor + 1), redo: rows.slice(cursor + 1)}
+        }
         const transactionService = this.client?.transactionService;
 
         if (!context?.agentId || !context?.sessionId || !transactionService) {
@@ -839,7 +821,21 @@ class InstanceService extends Service {
      * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair.
      * @returns {Promise<Object>} `{saved:Boolean, transaction?:Object, reason?:String}`
      */
-    async saveTransaction({txId}={}, context) {
+    async saveTransaction({groupId, txId}={}, context) {
+        if (groupId !== undefined) {
+            const group = Neo.manager?.Transaction?.get(groupId);
+            const row = group?.history?.rows.slice(0, group.history.cursor + 1)
+                .find(row => row.id === txId || row.transactionId === txId);
+            if (!row) return {saved: false, groupId, reason: group ? 'transaction-not-found' : 'unknown-group'};
+            const ops = row.participants.map(({workspaceKey, before, after}) => ({
+                workspaceKey, before, after,
+                provenance: row.provenance
+            }));
+            return {saved: true, groupId, cursor: group.history.cursor, transaction: {
+                domain: 'dock', txId: row.id, status: 'committed', committedAt: row.recordedAt,
+                originWriter: row.provenance.agentId ? row.provenance : null, ops
+            }}
+        }
         const transactionService = this.client?.transactionService;
 
         if (!context?.agentId || !context?.sessionId) {
@@ -879,7 +875,7 @@ class InstanceService extends Service {
      * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair.
      * @returns {Promise<Object>} `{replayed:Boolean, txId?:String, ops?:Number, sourceArchiveId?:String, reason?:String}`
      */
-    async replayTransaction({archiveId, sourceTxId, sourceCommittedAt, sourceOriginWriter, ops}={}, context) {
+    async replayTransaction({groupId, archiveId, sourceTxId, sourceCommittedAt, sourceOriginWriter, ops}={}, context) {
         const transactionService = this.client?.transactionService;
 
         if (!context?.agentId || !context?.sessionId) {
@@ -898,6 +894,30 @@ class InstanceService extends Service {
             return {replayed: false, reason: 'invalid-archive-ops'}
         }
 
+        if (ops.some(op => op?.workspaceKey !== undefined)) {
+            if (ops.some(op => typeof op?.workspaceKey !== 'string' || !op.workspaceKey ||
+                !Object.hasOwn(op, 'before') || !Object.hasOwn(op, 'after') || op.forward !== undefined)) {
+                return {replayed: false, reason: 'mixed-dock-non-dock-batch'}
+            }
+            try {
+                this.rejectNonDataReplayValue(ops);
+                const result = await this.withGroupWrite(groupId, context, () => Neo.manager.Transaction.write({
+                    groupId, cause: 'replay', provenance: {agentId: context.agentId, sessionId: context.sessionId},
+                    descriptor: {archiveId, sourceTxId: sourceTxId ?? null},
+                    changes: ops.map(({workspaceKey, after}) => ({workspaceKey, input: after}))
+                }));
+                return {replayed: true, groupId, txId: result.row?.id ?? result.transactionId,
+                    ops: ops.length, sourceArchiveId: archiveId}
+            } catch (error) {
+                return {replayed: false, groupId, reason: error.message}
+            }
+        }
+
+        const dockOps = ops.filter(op => op?.forward?.tool === 'execute_dock_operation');
+        if (dockOps.length && dockOps.length !== ops.length) {
+            return {replayed: false, reason: 'mixed-dock-non-dock-batch'}
+        }
+
         for (const op of ops) {
             if (!op?.forward || typeof op.forward.tool !== 'string' || !op.forward.args || typeof op.forward.args !== 'object') {
                 return {replayed: false, reason: 'invalid-archive-ops'}
@@ -907,6 +927,32 @@ class InstanceService extends Service {
                 this.rejectNonDataReplayValue(op.forward.args)
             } catch (error) {
                 return {replayed: false, reason: error.message}
+            }
+        }
+
+        if (groupId !== undefined || dockOps.length) {
+            const manager = Neo.manager?.Transaction, group = manager?.get(groupId);
+            if (!group) return {replayed: false, reason: 'unknown-group'};
+            if (dockOps.length !== ops.length) return {replayed: false, reason: 'mixed-dock-non-dock-batch'};
+            const changes = new Map();
+            for (const {forward: {args}} of ops) {
+                const key = args.workspaceKey ?? [...group.participants]
+                    .find(([, participant]) => participant.componentId === args.componentId)?.[0];
+                if (!key || group.participants.get(key)?.domain !== 'dock') {
+                    return {replayed: false, reason: 'dock-participant-not-found'}
+                }
+                if (!changes.has(key)) changes.set(key, []);
+                changes.get(key).push(args.descriptor)
+            }
+            try {
+                const result = await this.withGroupWrite(groupId, context, () => manager.write({groupId, cause: 'replay',
+                    provenance: {agentId: context.agentId, sessionId: context.sessionId},
+                    descriptor: {archiveId, sourceTxId: sourceTxId ?? null},
+                    changes: [...changes].map(([workspaceKey, operations]) => ({workspaceKey, input: {operations}}))}));
+                return {replayed: true, groupId, txId: result.row?.id ?? result.transactionId,
+                    ops: ops.length, sourceArchiveId: archiveId}
+            } catch (error) {
+                return {replayed: false, groupId, reason: error.message}
             }
         }
 
@@ -962,7 +1008,8 @@ class InstanceService extends Service {
      * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair (2nd dispatch arg).
      * @returns {Promise<Object>} `{opened: Boolean, txId?: String, reason?: String}`
      */
-    async beginTransaction({name}={}, context) {
+    async beginTransaction({groupId, name}={}, context) {
+        if (groupId !== undefined) return this.groupBatchCommand('begin', {groupId, name}, context);
         const transactionService = this.client?.transactionService;
 
         if (!context?.agentId || !context?.sessionId) {
@@ -1008,6 +1055,7 @@ class InstanceService extends Service {
      * @returns {Promise<Object>} `{committed: Boolean, txId?: String, ops?: Number, reason?: String}`
      */
     async commitTransaction(params, context) {
+        if (params?.groupId !== undefined) return this.groupBatchCommand('commit', params, context);
         const transactionService = this.client?.transactionService;
 
         if (!context?.agentId || !context?.sessionId) {
@@ -1049,6 +1097,7 @@ class InstanceService extends Service {
      * @returns {Promise<Object>} `{aborted: Boolean, txId?: String, reason?: String}`
      */
     async abortTransaction(params, context) {
+        if (params?.groupId !== undefined) return this.groupBatchCommand('abort', params, context);
         const transactionService = this.client?.transactionService;
 
         if (!context?.agentId || !context?.sessionId) {
@@ -1070,6 +1119,33 @@ class InstanceService extends Service {
         transactionService.abort({id: stackId, txId: openTxId});
 
         return {aborted: true, txId: openTxId}
+    }
+
+    /**
+     * @summary Routes named dock preparation to the Group, leaving non-dock sessions separate.
+     * @param {String} action begin, commit or abort.
+     * @param {Object} params Group and optional name.
+     * @param {Object|null} context Current attributed caller.
+     * @returns {Promise<Object>} Structured command outcome.
+     */
+    async groupBatchCommand(action, {groupId, name}, context) {
+        const flag = {begin: 'opened', commit: 'committed', abort: 'aborted'}[action];
+        const manager = Neo.manager?.Transaction, owner = this.transactionOwner(context);
+        if (!owner) return {[flag]: false, reason: 'no-writer-identity'};
+        if (!manager?.get(groupId)) return {[flag]: false, reason: 'unknown-group', groupId};
+        if (this.client?.transactionService?.openTxId({id: context})) {
+            return {[flag]: false, reason: 'mixed-dock-non-dock-batch'}
+        }
+        try {
+            const run = () => manager[`${action}Batch`]({groupId, owner, name,
+                limit: this.client?.transactionService?.maxOpsPerTransaction,
+                provenance: {agentId: context.agentId, sessionId: context.sessionId}});
+            const result = await (action === 'commit' ? this.withGroupWrite(groupId, context, run) : run());
+            return {[flag]: action !== 'abort' || result, groupId,
+                txId: result?.transactionId ?? result?.id ?? null}
+        } catch (error) {
+            return {[flag]: false, groupId, reason: error.message}
+        }
     }
 
     /**

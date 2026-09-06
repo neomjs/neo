@@ -1,5 +1,6 @@
-import {test, expect}    from '../../fixtures.mjs';
-import {demoBTourScript} from '../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
+import {test, expect}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
+import {demoBTourScript}     from '../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
 /**
  * Success sentinel for the popup-hosting poll below. The poll returns either this string or the
@@ -184,15 +185,12 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
                 expect(inPopup.properties.windowId).not.toBe(runBaseline.properties.windowId);
 
                 await expect.poll(async () => {
-                    const state = await app.getComponent(wsId, [
-                              'crossWindowTargetWindowId',
-                              'tearOutConnects',
-                              'tearOutPanes'
-                          ]),
-                          counter        = await readCounter(),
-                          targetWindowId = state.crossWindowTargetWindowId,
-                          tearOutWindowId = state.tearOutConnects?.workbench?.windowId
-                              ?? state.tearOutPanes?.workbench?.windowId;
+                    const state           = await app.getComponent(wsId, ['crossWindowTargetWindowId']),
+                          native          = await readNativeLifecycle(app, wsId),
+                          counter         = await readCounter(),
+                          targetWindowId  = state.crossWindowTargetWindowId,
+                          tearOutWindowId = native.connections.workbench?.windowId
+                              ?? native.owners.workbench?.windowId;
 
                     return Boolean(targetWindowId
                         && tearOutWindowId

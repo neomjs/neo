@@ -52,13 +52,20 @@ class Viewport extends BaseViewport {
 
         if (params.get('popout')) {
             me.addCls('workstation-popout-host');
+            const binding = Transaction.findByWindow(me.windowId);
+            const participant = binding && Transaction.getParticipant(binding.groupId, binding.workspaceKey);
+            const workspace = participant?.componentId && Neo.getComponent(participant.componentId);
+            if (workspace?.rootWorkspace) {
+                await workspace.rootWorkspace.getController().mountTopologyWorkspace(binding.workspaceKey, me)
+            }
             return
         }
 
         if (params.has('workspace')) {
             const binding = Transaction.findByWindow(me.windowId),
                   owner   = binding && Transaction.getParticipant(binding.groupId, binding.workspaceKey),
-                  root    = owner?.componentId && Neo.getComponent(owner.componentId);
+                  workspace = owner?.componentId && Neo.getComponent(owner.componentId),
+                  root = workspace?.rootWorkspace ?? workspace;
             if (root && binding.workspaceKey === params.get('workspace')) {
                 await root.getController().mountTopologyWorkspace(binding.workspaceKey, me)
             } else {

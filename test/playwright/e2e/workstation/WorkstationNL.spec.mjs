@@ -2,6 +2,7 @@ import {test, expect}                                from '../../fixtures.mjs';
 import {workstationTourScript}                       from '../../../../apps/workstation/tour/denseWorkstation.mjs';
 import {placeNativeWindow, resolveFilmDisplayBounds} from '../utils/filmStage.mjs';
 import {isEngineProfile, isFilmTake}                 from '../utils/gpuIntent.mjs';
+import {readNativeLifecycle}                         from '../utils/dockNativeLifecycle.mjs';
 
 /**
  * @summary Mounted L3 proof for Workstation's dense, living-data workstation.
@@ -2474,7 +2475,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('pop-out uses the Workstation vessel lifecycle and reintegrates the same live pane', async ({page, neuralLink}) => {
+    test('pop-out uses the Group cursor to return and replay the same live pane', async ({page, neuralLink}) => {
         const pageErrors = [];
         let popup;
 
@@ -2483,6 +2484,7 @@ test.describe('Workstation — dense living-data composition', () => {
         const
             {app, workspaceId} = await bootActionAcceptance({page, neuralLink}),
             beforeModel        = (await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+            groupId            = (await app.getComponent(workspaceId, ['topologyGroupId'])).topologyGroupId,
             paneId             = await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
             {chrome, locator}  = await focusDockAction({
                 actionName: 'pop-out',
@@ -2495,6 +2497,7 @@ test.describe('Workstation — dense living-data composition', () => {
             beforeRect         = await page.locator(`#${chrome.containerId}`).boundingBox(),
             popupPromise       = page.waitForEvent('popup', {timeout: 30000});
 
+        const beforeGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
         expect(paneId, 'Commit Stream owns a live pane before pop-out').toBeTruthy();
         expect(beforeRect, 'the pop-out source pane is measurable').toBeTruthy();
 
@@ -2505,14 +2508,15 @@ test.describe('Workstation — dense living-data composition', () => {
 
             await expect.poll(async () => {
                 const state = await app.getComponent(workspaceId, [
-                    'lastVesselOpen', 'tearOutHandlers.placements', 'tearOutPanes', 'tearOutVesselDims'
+                    'lastVesselOpen', 'tearOutHandlers.placements', 'tearOutVesselDims'
                 ]);
+                const owner = (await readNativeLifecycle(app, workspaceId)).owners.commits;
 
                 return {
                     dims     : state.tearOutVesselDims,
                     placement: state['tearOutHandlers.placements']?.commits,
                     stage    : state.lastVesselOpen?.stage,
-                    windowId : state.tearOutPanes?.commits?.windowId
+                    windowId : owner?.windowId
                 }
             }, {
                 message  : 'the header action reaches Workstation vessel admission and adoption',
@@ -2542,6 +2546,19 @@ test.describe('Workstation — dense living-data composition', () => {
             expect(Object.values(detached.nodes).some(node => node.type === 'tabs' && node.items?.includes('commits')),
                 'the committed detach removes Commit Stream from every tab flow').toBe(false);
 
+            const detachedGroup = await app.callMethod(workspaceId, 'controller.getTopologyState');
+            expect(detachedGroup.historyCount, 'ordinary pop-out records exactly one Group transaction')
+                .toBe(beforeGroup.historyCount + 1);
+            await app.callMethod(workspaceId, 'transactionManager.undo', [{groupId}]);
+            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel).toEqual(beforeModel);
+            await expect(page.locator(`#${paneId}`), 'Group undo returns the same live pane').toBeVisible();
+            await expect(popup.locator(`#${paneId}`), 'the sibling projection releases the returned pane').toHaveCount(0);
+
+            await app.callMethod(workspaceId, 'transactionManager.redo', [{groupId}]);
+            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel).toEqual(detached);
+            await expect(popup.locator(`#${paneId}`), 'Group redo reuses the same popup and pane').toBeVisible();
+            await expect(page.locator(`#${paneId}`)).toHaveCount(0);
+
             expect(await app.callMethod(workspaceId, 'closeTearOutVessel', [{
                 itemId   : 'commits',
                 windowName: 'tearout-commits'
@@ -2551,22 +2568,13 @@ test.describe('Workstation — dense living-data composition', () => {
                 timeout: 10000
             }).toBe(true);
 
-            await expect.poll(async () => {
-                const state = await app.getComponent(workspaceId, [
-                    'dockModel', 'tearOutHandlers.placements', 'tearOutPanes'
-                ]);
-
-                return {
-                    inTree   : Object.values(state.dockModel.nodes)
-                        .some(node => node.type === 'tabs' && node.items?.includes('commits')),
-                    pane     : state.tearOutPanes?.commits ?? null,
-                    placement: state['tearOutHandlers.placements']?.commits ?? null
-                }
-            }, {
-                message  : 'physical vessel death clears lifecycle owners and reintegrates Commit Stream',
-                timeout  : 30000,
-                intervals: [50, 100, 250]
-            }).toEqual({inTree: true, pane: null, placement: null});
+            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+                'native close unbinds the window without rewriting Group documents').toEqual(detached);
+            expect((await app.callMethod(workspaceId, 'controller.getTopologyState')).historyCount)
+                .toBe(detachedGroup.historyCount);
+            await app.callMethod(workspaceId, 'transactionManager.undo', [{groupId}]);
+            expect((await app.getComponent(workspaceId, ['dockModel'])).dockModel,
+                'Group undo also returns a headless popup document').toEqual(beforeModel);
 
             expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
                 'reintegration retains the same pane identity').toBe(paneId);
