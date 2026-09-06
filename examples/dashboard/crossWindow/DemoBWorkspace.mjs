@@ -1164,13 +1164,15 @@ class DemoBWorkspace extends Container {
         if (workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID) {
             return me.workspaceSet.register(workspaceId, {
                 getDocument: () => me.popup2Document,
-                setDocument: document => me.popup2Document = document
+                setDocument: document => me.popup2Document = document,
+                project    : context => me.projectWorkspaceDocument(workspaceId, context.snapshot.participants[workspaceId])
             })
         }
 
         return me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
             getDocument: () => me.popupDocument,
-            setDocument: document => me.popupDocument = document
+            setDocument: document => me.popupDocument = document,
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID])
         })
     }
 
@@ -1478,8 +1480,7 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     onWorkspaceDocumentChange(workspaceId, document, {preserveItemIds = []} = {}) {
-        let me      = this,
-            request = {document, preserveItemIds: [...preserveItemIds]};
+        let me = this;
 
         if (workspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID) {
             me.dockModel = document
@@ -1491,8 +1492,22 @@ class DemoBWorkspace extends Container {
             return Promise.reject(new Error(`unknown Demo-B workspace "${workspaceId}"`))
         }
 
-        me.workspaceProjectionRequests.set(workspaceId, request);
-        me.refreshPromise = me.refreshPromise
+        return me.projectWorkspaceDocument(workspaceId, document, {preserveItemIds})
+    }
+
+    /**
+     * @summary Serializes one workspace's presentation without changing its committed document.
+     * @param {String} workspaceId
+     * @param {Object} document
+     * @param {Object} [options={}]
+     * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes to retain.
+     * @returns {Promise} The projection outcome, independent of later queued refreshes.
+     * @protected
+     */
+    projectWorkspaceDocument(workspaceId, document, {preserveItemIds = []} = {}) {
+        const me = this;
+        me.workspaceProjectionRequests.set(workspaceId, {document, preserveItemIds: [...preserveItemIds]});
+        me.refreshPromise = me.refreshPromise.catch(() => {})
             .then(() => me.timeout(0))
             .then(() => {
                 if (!me.isDestroyed) {
@@ -3020,17 +3035,20 @@ class DemoBWorkspace extends Container {
         me.workspaceSet.register(DemoBWorkspace.MAIN_WORKSPACE_ID, {
             bindingKey : 'main',
             getDocument: () => me.dockModel,
-            setDocument: document => me.dockModel = document
+            setDocument: document => me.dockModel = document,
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.MAIN_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.MAIN_WORKSPACE_ID])
         });
 
         me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
             getDocument: () => me.popupDocument,
-            setDocument: document => me.popupDocument = document
+            setDocument: document => me.popupDocument = document,
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID])
         });
 
         me.workspaceSet.register(DemoBWorkspace.POPUP2_WORKSPACE_ID, {
             getDocument: () => me.popup2Document,
-            setDocument: document => me.popup2Document = document
+            setDocument: document => me.popup2Document = document,
+            project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP2_WORKSPACE_ID])
         });
         me.dockPlacement ??= Placement.forGroup({groupId, mainWorkspaceKey: DemoBWorkspace.MAIN_WORKSPACE_ID})
     }

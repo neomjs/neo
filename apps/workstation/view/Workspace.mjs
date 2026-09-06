@@ -951,7 +951,8 @@ class Workspace extends DockWorkspace {
             bindingKey : 'main',
             componentId: me.id,
             getDocument: () => me.dockModel,
-            setDocument: document => me.dockModel = document
+            setDocument: document => me.dockModel = document,
+            project    : context => me.projectDockZoneDocument(context.snapshot.participants[Workspace.MAIN_WORKSPACE_ID], context.descriptor)
         });
         if (registered) me.dockPlacement ??= Placement.forGroup({
             groupId: me.topologyGroupId, initialHints: me.initialTopology?.placementHints, mainWorkspaceKey: Workspace.MAIN_WORKSPACE_ID

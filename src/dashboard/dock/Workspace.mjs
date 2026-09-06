@@ -2656,7 +2656,7 @@ class Workspace extends Container {
     }
 
     /**
-     * The view-sync half of the holder contract, called by every committing surface on success
+     * @summary The view-sync half of the holder contract, called by committing surfaces on success
      * (a splitter, a rail, the cross-zone drop, the Neural Link dock service): stores the committed
      * document and schedules the re-projection.
      *
@@ -2674,24 +2674,32 @@ class Workspace extends Container {
      *     toward the empty projection.
      * @param {Object|null} [descriptor=null] The semantic operation that produced `document`.
      * @param {Object|null} [source=null] The committing surface, when it identifies itself.
+     * @returns {Promise} The scheduled projection's outcome.
      */
     onDockZoneDocumentChange(document, descriptor=null, source=null) {
+        const projection = this.projectDockZoneDocument(document, descriptor, source);
+        this.dockModel = document;
+        return projection
+    }
+
+    /**
+     * @summary Projects an adopted document without admitting another semantic write.
+     * @param {Object|null} document The committed document to present.
+     * @param {Object|null} [descriptor=null] The operation associated with the committed document.
+     * @param {Object|null} [source=null] The originating interaction surface.
+     * @returns {Promise} This projection's outcome; later projections survive its failure.
+     * @protected
+     */
+    projectDockZoneDocument(document, descriptor=null, source=null) {
         let me = this,
             tabInsertDescriptor, refreshOptions, tail;
 
-        // A committed operation is announced BEFORE it applies, so a collaborator holding runtime
-        // presentation over the outgoing projection (the maximize plugin) can clear it terminally;
-        // the re-projection continuity in refreshDockWorkspace() re-applies only what survived.
-        // Synchronous, listeners in subscription order, the outgoing document still committed; a
-        // listener writes its own state and never throws — a throw here aborts the commit, as it
-        // would on any listener.
+        // Presentation owners release transient state before the outgoing shell is reconciled.
         me.fire('beforeDockZoneDocumentChange', {descriptor, document, source});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
         refreshOptions      = me.getRefreshOptions(descriptor, source);
         tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
-
-        me.dockModel = document;
 
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
         // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
@@ -2705,7 +2713,9 @@ class Workspace extends Container {
                 if (!me.isDestroyed) {
                     return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
                 }
-            })
+            });
+
+        return me.refreshPromise
     }
 
     /**

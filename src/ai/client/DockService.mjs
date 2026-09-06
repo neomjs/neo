@@ -506,7 +506,7 @@ class DockService extends Service {
     }
 
     /**
-     * Reconciles one keyed topology against the holder's registered workspaces and commits the
+     * @summary Reconciles one keyed topology against registered workspaces and commits the
      * complete result once. The activated topology-collection candidate validates before commit;
      * its active pointer is assigned only after the workspace write succeeds.
      * @param {Object} config
@@ -514,10 +514,10 @@ class DockService extends Service {
      * @param {String} config.name               The perspective name being restored
      * @param {Object} config.record             The stored `neo.dock.topology.v1` record
      * @param {Object} config.collection         The containing topology collection
-     * @returns {Object} `{switched, schema, errors, document, workspaces, restored, unrestored, displaced}`
+     * @returns {Promise<Object>} `{switched, schema, errors, document, workspaces, restored, unrestored, displaced}`
      * @protected
      */
-    restoreTopologyPerspective({collection, holder, name, record}) {
+    async restoreTopologyPerspective({collection, holder, name, record}) {
         const missing = ['getDockTopologyWorkspaces', 'commitDockTopologyWorkspaces']
             .filter(seam => typeof holder[seam] !== 'function');
 
@@ -557,7 +557,7 @@ class DockService extends Service {
             return refusal(activated.errors, result)
         }
 
-        const commit = holder.commitDockTopologyWorkspaces(result.workspaces, {
+        const commit = await holder.commitDockTopologyWorkspaces(result.workspaces, {
             name,
             operation: 'restorePerspective'
         });

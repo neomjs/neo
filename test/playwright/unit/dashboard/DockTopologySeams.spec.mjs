@@ -16,6 +16,7 @@ import Persistence              from '../../../../src/dashboard/dock/model/Persi
 import TopologyReconciler       from '../../../../src/dashboard/dock/model/TopologyReconciler.mjs';
 import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import TransactionManager       from '../../../../src/manager/Transaction.mjs';
+import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
 /**
  * @summary The holder seam pair a multi-window perspective restore reaches an app through.
@@ -107,13 +108,14 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         const
             groupId = TransactionManager.bind({windowId: `seams-host-${groups.length + 1}`, workspaceKey: 'main'}).groupId,
             vessel  = {document: vesselDoc()},
-            set     = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId});
+            set     = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
 
         groups.push(groupId);
 
         set.register('main', {
             getDocument: () => host.dockModel,
-            setDocument: document => host.dockModel = document
+            setDocument: document => host.dockModel = document,
+            project    : context => host.projectDockZoneDocument(context.snapshot.participants.main, context.descriptor)
         });
 
         set.register('vessel', {
@@ -184,7 +186,7 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         // one — this arm is what fails if that stops being true.
         expect(result.workspaces.main.nodes['main-tabs'].activeItemId, 'captured active tab wins over live').toBe('strategy');
 
-        const commit = workspace.commitDockTopologyWorkspaces(result.workspaces, {operation: 'restorePerspective'});
+        const commit = await workspace.commitDockTopologyWorkspaces(result.workspaces, {operation: 'restorePerspective'});
 
         expect(commit.errors).toEqual([]);
 
@@ -195,17 +197,42 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         await workspace.refreshPromise
     });
 
-    test('a commit refuses rather than dropping slots it cannot hold', () => {
+    test('a commit refuses rather than dropping slots it cannot hold', async () => {
         workspace = Neo.create(TopologyWorkspace, {dockModel: primaryDoc()});
 
         // no set: a single-document workspace must never silently swallow a two-window record
-        const refused = workspace.commitDockTopologyWorkspaces({main: primaryDoc(), vessel: vesselDoc()});
+        const refused = await workspace.commitDockTopologyWorkspaces({main: primaryDoc(), vessel: vesselDoc()});
 
         expect(refused.errors).toHaveLength(1);
         expect(refused.errors[0]).toContain('registered workspace key');
 
-        expect(workspace.commitDockTopologyWorkspaces({}).errors).toHaveLength(1);
-        expect(workspace.commitDockTopologyWorkspaces({main: null}).errors).toHaveLength(1);
-        expect(workspace.commitDockTopologyWorkspaces(null).errors).toHaveLength(1)
+        expect((await workspace.commitDockTopologyWorkspaces({})).errors).toHaveLength(1);
+        expect((await workspace.commitDockTopologyWorkspaces({main: null})).errors).toHaveLength(1);
+        expect((await workspace.commitDockTopologyWorkspaces(null)).errors).toHaveLength(1)
+    });
+
+    test('a failed sibling projection reports an effect failure without rolling back adopted documents', async () => {
+        workspace = Neo.create(TopologyWorkspace, {dockModel: primaryDoc()});
+        const {set, vessel} = createSet(workspace), receipts = [], groupId = groups.at(-1);
+        workspace.workspaceSet = set;
+        set.register('vessel', {
+            getDocument: () => vessel.document,
+            setDocument: document => vessel.document = document,
+            project    : () => { throw new Error('sibling render failed') }
+        });
+        const listener = event => { if (event.groupId === groupId) receipts.push(event.receipt) };
+        TransactionManager.on('effectReceipt', listener);
+        try {
+            const next      = {main: primaryRearranged(), vessel: vesselDoc()};
+            const committed = await workspace.commitDockTopologyWorkspaces(next);
+            expect(committed.errors).toEqual([]);
+            await expect.poll(() => receipts.find(receipt => receipt.kind === 'projection' && receipt.id === 'vessel'))
+                .toMatchObject({transactionId: committed.transactionId, error: 'sibling render failed'});
+            expect(workspace.getDockTopologyWorkspaces()).toEqual(next);
+            expect(TransactionManager.get(groupId).snapshot.participants).toEqual(next);
+            await workspace.refreshPromise
+        } finally {
+            TransactionManager.un('effectReceipt', listener)
+        }
     })
 });
