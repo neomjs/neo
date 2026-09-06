@@ -431,16 +431,6 @@ class DemoBWorkspace extends Container {
      */
     tearOutAcquisitionAttempts = 0
     /**
-     * Exact-position return truth: `tearOutPlacements[itemId] = {tabsNodeId, index}`, captured
-     * at the detach terminal BEFORE the commit removes the item from the tree (`addTab` appends
-     * by default, so this pair is the only way home). Consumed exact-once by
-     * {@link #reintegrateTearOutItem} on vessel death; a refused detach commit deletes its own
-     * capture, so no stale placement outlives a gesture that never committed.
-     * @member {Object} tearOutPlacements={}
-     * @protected
-     */
-    tearOutPlacements = {}
-    /**
      * Supersession token for the async keyboard-cycle highlight: every highlight call bumps it,
      * and a paint whose measured geometry resolves after a newer call (or a clear) loses — a
      * fast candidate cycle must never leave a stale zone lit.
@@ -639,10 +629,29 @@ class DemoBWorkspace extends Container {
         // cancelled tear-out is zero-mutation by GUARD. Post-commit adoption uses its own
         // bookkeeping (`tearOutPanes` / `tearOutConnects`).
         me.tearOutHandlers = createDockTearOutHandlers({
-            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
-            closeVessel     : vessel => me.closeTearOutVessel(vessel),
+            applyOperation: descriptor => me.applyTearOutOperation(descriptor),
+            awaitRefresh  : () => me.refreshPromise,
+            closeVessel   : vessel => me.closeTearOutVessel(vessel),
+            // This host is MULTI-workspace: every document seam names MAIN explicitly, which is the
+            // current product reason its return path stays its own rather than the engine's.
+            commitReturn        : document => me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document),
+            findContainingTabsId: (document, itemId) => WorkspaceDocument.findContainingTabsId(document, itemId),
+            getDocument         : () => me.dockModel,
+            onAdoptionFailed    : ({itemId, reintegrated}) => console.warn(
+                `Dock tear-out: "${itemId}" could not enter its admitted vessel; the pane ${reintegrated ? 'returned' : 'was NOT returned'}`, me.id
+            ),
             onDocumentChange: (document, operation, vessel) => me.onTearOutDocumentChange(document, operation, vessel),
-            openVessel      : request => me.openTearOutVessel(request)
+            onPaneAdopted   : (itemId, entry, connection, isMerge) => me.recordDockPaneOwner(itemId, entry, connection, isMerge),
+            onPaneReturn    : () => {},
+            openVessel      : request => me.openTearOutVessel(request),
+            reparentPane    : (pane, target, itemId) => me.reparentDockPane(pane, target, itemId),
+            resolvePane     : itemId => me.paneCache[itemId] || null,
+            settlePane      : pane => {
+                if (pane && !pane.isDestroyed) {
+                    pane.parent?.remove(pane, false);
+                    pane.destroy()
+                }
+            }
         });
 
         // Conversion never reacquires a popup. The source-owned admission machines retain the
@@ -2687,7 +2696,7 @@ class DemoBWorkspace extends Container {
      * a `?popout=` vessel, then — gated on that vessel's ACTUAL birth
      * ({@link #onWindowConnect} → {@link #tearOutConnects}) — survives deliberate post-birth moves
      * (the reap-regression survival probe) and either releases while detached (`dockTearOutTerminal`
-     * → the host's `detachItem` commit + {@link #adoptTearOutPane}) or cancels via Escape
+     * → the host's `detachItem` commit + the choreography's `adoptPane`) or cancels via Escape
      * (`dockTearOutCancel` → zero-mutation vessel close).
      *
      * The proof is OBSERVABLE-ONLY — committed document truth + vessel bookkeeping. It never reads
@@ -2867,7 +2876,7 @@ class DemoBWorkspace extends Container {
             }
 
             // Terminal: release while detached → dockTearOutTerminal → the host's detachItem commit
-            // + adoptTearOutPane (the vessel owns the pane now).
+            // + the choreography's adoptPane (the vessel owns the pane now).
             await me.interactionService.simulateEvent({events: [{
                 targetId: button.id, type: 'mouseup', windowId: button.windowId,
                 options : opt(outX, outY, outSX, outSY, 0)
@@ -3205,7 +3214,7 @@ class DemoBWorkspace extends Container {
             if (staged) {
                 me.tearOutEmbodiment.promote({itemId, windowId})
             } else {
-                me.reparentTearOutPane(itemId, connection)
+                me.tearOutHandlers.reparentAdopted(itemId, connection)
             }
         } else {
             me.tearOutConnects[itemId] = connection
@@ -3259,7 +3268,7 @@ class DemoBWorkspace extends Container {
                     me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
                     me.tearOutRetirements.delete(itemId);
                     delete me.tearOutPanes[itemId];
-                    committed && me.reintegrateTearOutItem(itemId);
+                    committed && me.tearOutHandlers.reintegrateItem(itemId, null);
                     return
                 }
             }
@@ -3371,7 +3380,7 @@ class DemoBWorkspace extends Container {
                 me.tearOutRetirements.delete(itemId);
                 me.tearOutHandlers.onVesselRetired({...entry, itemId, windowName: entry.windowName ?? `tearout-${itemId}`});
                 me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
-                me.reintegrateTearOutItem(itemId);
+                me.tearOutHandlers.reintegrateItem(itemId, null);
                 break
             }
         }
@@ -3401,7 +3410,7 @@ class DemoBWorkspace extends Container {
         me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document, {
             preserveItemIds: me.tearOutEmbodiment.isStaged(itemId) ? [] : [itemId]
         });
-        me.adoptTearOutPane(itemId, vessel)
+        me.tearOutHandlers.adoptPane(itemId, vessel, me.tearOutConnects[itemId] || null)
     }
 
     /**
@@ -3419,54 +3428,15 @@ class DemoBWorkspace extends Container {
             captured = isDetach ? WorkspaceDocument.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
             result;
 
-        captured && (me.tearOutPlacements[descriptor.itemId] = captured);
+        captured && me.tearOutHandlers.recordPlacement(descriptor.itemId, captured);
 
         result = me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor);
 
-        isDetach && result?.errors?.length && delete me.tearOutPlacements[descriptor.itemId];
+        isDetach && result?.errors?.length && me.tearOutHandlers.forgetPlacement(descriptor.itemId);
 
         return result
     }
 
-    /**
-     * @summary Brings a torn-out item HOME on vessel death — the exact-position return of the
-     * vessel close policy (docking design record §2.8; the disposition this host's
-     * pre-vessel-lifecycle comment deferred).
-     *
-     * The stored `{tabsNodeId, index}` pair (captured at the detach terminal) is the placement
-     * truth; recovery is SEMANTIC, never geometric: a stored home node that left the tree falls
-     * back to the first surviving tabs node (append), mirroring the click path's
-     * `reattachPane` fallback. Exact-once and idempotent: an item some other flow already
-     * re-treed is left where it is, and the placement record is consumed regardless — a second
-     * vessel death for the same item finds nothing to do. An item whose document no longer
-     * catalogs it, or a document with no surviving tabs node, stays catalog-only/absent — the
-     * honest terminal, with zero mutation.
-     * @param {String} itemId
-     * @protected
-     */
-    reintegrateTearOutItem(itemId) {
-        let me         = this,
-            placement  = me.tearOutPlacements[itemId],
-            doc        = me.dockModel,
-            storedHome = placement && doc.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
-            fallback   = storedHome || Object.entries(doc.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
-            result;
-
-        delete me.tearOutPlacements[itemId];
-
-        if (!doc.items?.[itemId] || !fallback || WorkspaceDocument.findContainingTabsId(doc, itemId)) {
-            return
-        }
-
-        result = me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, {
-            operation : 'addTab',
-            itemId,
-            tabsNodeId: fallback,
-            ...(storedHome ? {index: placement.index} : {})
-        });
-
-        result?.errors?.length === 0 && me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, result.document)
-    }
 
     /**
      * The pop-out moment: atomically transfers the item record + placement from the primary
@@ -4199,59 +4169,66 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * The post-commit adoption: the detached terminal committed `detachItem` (the item left the
-     * tree, catalog preserved), so the vessel now OWNS the pane. Writes the {@link #tearOutPanes}
-     * entry and — if the vessel already bound ({@link #tearOutConnects}, the long-drag order) —
-     * reparents the live pane into it immediately; otherwise {@link #onTopologyBind} adopts on
-     * arrival (the fast-terminal order). Close-after-adoption reintegration is the vessel-lifecycle
-     * leaf's scope, deliberately not handled here.
+     * The post-commit ownership write: the detached terminal committed `detachItem` (the item left
+     * the tree, catalog preserved), so the vessel now OWNS the pane. The REPARENT that used to
+     * follow this write now belongs to the choreography, which calls `reparentPane` right after —
+     * so the long-drag and fast-terminal orders converge on one sequence instead of two.
      * @param {String} itemId
-     * @param {Object} [vessel={}] The admitted identity for terminal-first adoption: its lineage token and slot.
+     * @param {Object|null} entry The admitted identity for terminal-first adoption, or null to withdraw.
+     * @param {Object|null} [connection=null] The bound vessel connection, when one arrived first.
+     * @param {Boolean} [isMerge=false] Fold into the existing record instead of replacing it.
      * @protected
      */
-    adoptTearOutPane(itemId, vessel={}) {
-        let me        = this,
-            connected = me.tearOutConnects[itemId];
+    recordDockPaneOwner(itemId, entry, connection=null, isMerge=false) {
+        let me = this;
 
-        me.tearOutPanes[itemId] = connected
-            ? {...connected}
+        if (isMerge) {
+            me.tearOutPanes[itemId] && Object.assign(me.tearOutPanes[itemId], entry);
+            return
+        }
+
+        if (entry === null) {
+            delete me.tearOutPanes[itemId];
+            delete me.tearOutConnects[itemId];
+            return
+        }
+
+        me.tearOutPanes[itemId] = connection
+            ? {...connection}
             : {
-                generationToken: vessel.generationToken ?? null,
+                generationToken: entry.generationToken ?? null,
                 windowId       : null,
                 windowName     : `tearout-${itemId}`,
-                workspaceKey   : vessel.workspaceKey ?? `popup:${itemId}`
+                workspaceKey   : entry.workspaceKey ?? `popup:${itemId}`
             };
 
-        if (connected) {
-            // Promotion is synchronous and single-owner: committed disconnects may only match
-            // tearOutPanes from this point onward, never the pre-terminal connect branch first.
-            delete me.tearOutConnects[itemId];
-
-            if (me.tearOutEmbodiment.isStaged(itemId)) {
-                me.tearOutEmbodiment.promote({itemId, windowId: connected.windowId})
-            } else {
-                me.reparentTearOutPane(itemId, connected)
-            }
-        }
+        // Promotion is synchronous and single-owner: committed disconnects may only match
+        // tearOutPanes from this point onward, never the pre-terminal connect branch first.
+        connection && delete me.tearOutConnects[itemId]
     }
 
     /**
      * Moves the LIVE cached pane into a connected tear-out vessel — the same instance-moving
      * reparent the click-pop-out uses, minus every document write (the model already committed
      * at the terminal; this is pure render-target work).
-     * @param {String} itemId
+     * @param {Neo.component.Base} pane
      * @param {Object} target `{windowId}`
+     * @param {String} itemId
+     * @returns {Boolean}
      * @protected
      */
-    reparentTearOutPane(itemId, target) {
+    reparentDockPane(pane, target={}, itemId) {
         let me         = this,
             {windowId} = target,
-            app        = Neo.apps[windowId],
-            pane       = me.paneCache[itemId];
+            app        = Neo.apps[windowId];
+
+        if (me.tearOutEmbodiment.isStaged(itemId)) {
+            return me.tearOutEmbodiment.promote({itemId, windowId}) !== false
+        }
+
+        pane = me.paneCache[itemId] || pane;
 
         if (!app || !pane || pane.isDestroyed) return false;
-
-        me.tearOutPanes[itemId] && Object.assign(me.tearOutPanes[itemId], target);
 
         if (pane.parent !== app.mainView) {
             pane.parent?.remove(pane, false);
