@@ -173,6 +173,11 @@ class DemoBWorkspace extends Container {
          * @protected
          */
         className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace',
+        /**
+         * Bounded interactive history, matching the Workstation demo's default; zero disables it.
+         * @member {Number} dockHistoryDepth=50
+         */
+        dockHistoryDepth: 50,
         /** @member {Neo.core.Base[]} mixins=[TopologySeams] */
         mixins: [TopologySeams],
         /**
@@ -1032,15 +1037,8 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary The keyboard transfer commit — `Operations.transferItem` produces the
-     * commit-or-neither document pair, then the shared two-phase core lands it:
-     * {@link #adoptCommittedTransferPair} (both-or-neither adoption, first exit on refusal) and
-     * {@link #reconcileTransferPair} (target-first, unguarded — a discrete command has no
-     * mid-flight supersession to fence). The pointer path's `commitCrossWindowTransfer` wrapper
-     * is deliberately NOT reused: its context/generation predicates and continuity-proof
-     * machinery belong to the continuous gesture. Deliberately NO `detachedPanes` bookkeeping
-     * here — that classification belongs to the pointer pop-out flow, and close-race policy for
-     * transferred items is the whole-stack return leaf's contract, which binds to the same core.
+     * @summary Commits a keyboard transfer through the Group and awaits the resulting projection.
+     * The Group re-reads both documents at its queue head, preserving intervening accepted edits.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} data.target `{workspaceId, tabsId}` — the committed cycle candidate.
@@ -1057,28 +1055,15 @@ class DemoBWorkspace extends Container {
             return {errors: [`unknown item "${itemId}"`]}
         }
 
-        let {sourceDocument, targetDocument, errors} = Operations.transferItem(
-            me.workspaceSet.getDocument(sourceWorkspaceId),
-            me.workspaceSet.getDocument(target.workspaceId),
-            {
-                itemId,
-                sourceWorkspaceId,
-                targetWorkspaceId: target.workspaceId,
-                target           : {operation: 'addTab', tabsNodeId: target.tabsId}
-            }
-        );
+        let pair = {sourceWorkspaceId, targetWorkspaceId: target.workspaceId,
+            descriptor: {operation: 'transferItem', itemId, sourceWorkspaceId, targetWorkspaceId: target.workspaceId,
+                target: {operation: 'addTab', tabsNodeId: target.tabsId}}};
 
-        if (errors.length) {
-            return {errors}
+        if (!await me.adoptCommittedTransferPair(pair)) {
+            return {errors: pair.errors ?? ['workspace-set adoption refused the pair']}
         }
 
-        let pair = {sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId: target.workspaceId};
-
-        if (!me.adoptCommittedTransferPair(pair)) {
-            return {errors: ['workspace-set adoption refused the pair']}
-        }
-
-        await me.reconcileTransferPair(pair);
+        await me.awaitProjectionIdle();
 
         return {errors: []}
     }
@@ -1176,6 +1161,7 @@ class DemoBWorkspace extends Container {
 
         if (workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID) {
             return me.workspaceSet.register(workspaceId, {
+                componentId: me.id,
                 getDocument: () => me.popup2Document,
                 setDocument: document => me.popup2Document = document,
                 project    : context => me.projectWorkspaceDocument(workspaceId, context.snapshot.participants[workspaceId], context)
@@ -1183,6 +1169,7 @@ class DemoBWorkspace extends Container {
         }
 
         return me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
+            componentId: me.id,
             getDocument: () => me.popupDocument,
             setDocument: document => me.popupDocument = document,
             project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID], context)
@@ -1334,21 +1321,18 @@ class DemoBWorkspace extends Container {
      * Loads a stored perspective. Window-scope records commit the restored primary document;
      * topology-scope records go through the changed-topology reconciler and expose its remainder.
      * @param {String} name
-     * @returns {{loaded: Boolean, errors: String[], report: (Object|undefined)}}
+     * @returns {Promise<Object>} The committed result, including any topology remainder.
      */
-    loadPerspectiveByName(name) {
+    async loadPerspectiveByName(name) {
         let me       = this,
             topology = Object.values(me.topologyCollection?.topologies || {})
-                .find(record => record.perspectiveName === name || record.layoutId === name),
-            summary    = me.perspectiveStore.list().find(entry => entry.perspectiveName === name || entry.layoutId === name),
-            collection = me.perspectiveStore.collection,
-            layout     = summary ? collection.layouts[summary.layoutId] : null;
+                .find(record => record.perspectiveName === name || record.layoutId === name);
 
         // Reconcile BEFORE `loadPerspective` advances the store's active id. A malformed
         // topology record or live document must leave both layout truth and selection truth
         // untouched — fail-closed means more than avoiding a document assignment.
         if (topology) {
-            let preview = me.restoreTopologyPerspective(topology, {commit: false});
+            let preview = await me.restoreTopologyPerspective(topology, {commit: false});
 
             if (!preview.loaded) return preview;
 
@@ -1364,21 +1348,18 @@ class DemoBWorkspace extends Container {
                 return {errors: activated.errors, loaded: false, report: preview.report}
             }
 
+            try { await me.commitTopologyRestore(preview) } catch (error) {
+                return {errors: [error.message], loaded: false, report: preview.report}
+            }
             me.topologyCollection = activated.collection;
-            me.commitTopologyRestore(preview);
+            me.restoreReport = preview.report;
+            me.renderRestoreReport();
 
             return {errors: [], loaded: true, report: preview.report}
         }
 
-        let result = me.perspectiveStore.loadPerspective(name);
-
-        if (result.errors.length || !result.document) {
-            return {errors: result.errors, loaded: false}
-        }
-
-        me.onDockZoneDocumentChange(result.document);
-
-        return {errors: [], loaded: true}
+        const result = await me.dockService.restorePerspective({componentId: me.id, name});
+        return {errors: result.errors, loaded: result.switched}
     }
 
     /**
@@ -1399,10 +1380,8 @@ class DemoBWorkspace extends Container {
                 .map(entry => entry.itemId)
                 .filter(itemId => !liveItemIds.has(itemId));
 
-        hasLivePopup && (me.popupDocument = workspaces[DemoBWorkspace.POPUP_WORKSPACE_ID]);
-
-        return me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, workspaces[DemoBWorkspace.MAIN_WORKSPACE_ID], {
-            preserveItemIds
+        return me.workspaceSet.write(workspaces, {
+            cause: 'restore-topology', provenance: {origin: 'human'}, descriptor: {preserveItemIds}
         })
     }
 
@@ -1413,9 +1392,9 @@ class DemoBWorkspace extends Container {
      * @param {Object} topology A keyed topology record.
      * @param {Object} [options={}]
      * @param {Boolean} [options.commit=true] Commit reconciled documents; false is a preflight.
-     * @returns {{loaded: Boolean, errors: String[], report: Object, workspaces: Object, hasLivePopup: Boolean}}
+     * @returns {Promise<Object>} The committed result, or a read-only preflight when commit is false.
      */
-    restoreTopologyPerspective(topology, {commit = true} = {}) {
+    async restoreTopologyPerspective(topology, {commit = true} = {}) {
         let me             = this,
             hasLivePopup   = Object.keys(me.detachedPanes).length > 0,
             liveWorkspaces = {
@@ -1432,14 +1411,19 @@ class DemoBWorkspace extends Container {
                 unrestored     : result.unrestored
             });
 
-        me.restoreReport = report;
-        me.renderRestoreReport();
-
         if (result.errors.length) {
+            me.restoreReport = report;
+            me.renderRestoreReport();
             return {workspaces: result.workspaces, errors: result.errors, hasLivePopup, loaded: false, report}
         }
 
-        commit && me.commitTopologyRestore({workspaces: result.workspaces, hasLivePopup, report});
+        if (commit) {
+            try { await me.commitTopologyRestore({workspaces: result.workspaces, hasLivePopup, report}) } catch (error) {
+                return {workspaces: result.workspaces, errors: [error.message], hasLivePopup, loaded: false, report}
+            }
+            me.restoreReport = report;
+            me.renderRestoreReport()
+        }
 
         return {workspaces: result.workspaces, errors: [], hasLivePopup, loaded: true, report}
     }
@@ -1473,39 +1457,36 @@ class DemoBWorkspace extends Container {
      * The view-sync half: stores the committed document and re-projects, deferred one tick
      * (the normative guard — a committing interaction surface is never destroyed mid-handler).
      * @param {Object} document
+     * @param {Object|null} [descriptor=null] The semantic operation admitted by the Group.
      * @returns {Promise}
      */
-    onDockZoneDocumentChange(document) {
-        return this.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document)
+    onDockZoneDocumentChange(document, descriptor=null) {
+        return this.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document, {descriptor})
     }
 
     /**
      * @summary Publishes one named workspace document, then serializes a deferred projection refresh.
      *
-     * Ordinary queued refreshes coalesce onto the latest worker-owned document for that
-     * workspace; the atomic cross-window commit owns its explicit target-first pair separately.
+     * Group participant callbacks publish presentation after each accepted document transaction.
      * @param {String} workspaceId
      * @param {Object} document
      * @param {Object} [options={}] Projection-lifecycle options
      * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes absent from this
      * document which the shared reconciler must park instead of destroy.
+     * @param {Object|null} [options.descriptor=null] Semantic operation prepared at the queue head.
      * @returns {Promise}
      * @protected
      */
-    onWorkspaceDocumentChange(workspaceId, document, {preserveItemIds = []} = {}) {
-        let me = this;
-
-        if (workspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID) {
-            me.dockModel = document
-        } else if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
-            me.popupDocument = document
-        } else if (workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID) {
-            me.popup2Document = document
-        } else {
-            return Promise.reject(new Error(`unknown Demo-B workspace "${workspaceId}"`))
+    onWorkspaceDocumentChange(workspaceId, document, {preserveItemIds = [], descriptor=null} = {}) {
+        const me = this;
+        if (!me.workspaceSet.has(workspaceId)) return Promise.reject(new Error(`unknown Demo-B workspace "${workspaceId}"`));
+        if (document === me.workspaceSet.getDocument(workspaceId)) {
+            return me.projectWorkspaceDocument(workspaceId, document, {preserveItemIds})
         }
-
-        return me.projectWorkspaceDocument(workspaceId, document, {preserveItemIds})
+        const options = {cause: 'dock', provenance: {origin: 'human'}, descriptor: {...descriptor, preserveItemIds: [...preserveItemIds]}};
+        return descriptor?.operation
+            ? me.workspaceSet.commit(workspaceId, [descriptor], options)
+            : me.workspaceSet.write({[workspaceId]: document}, options)
     }
 
     /**
@@ -1514,11 +1495,13 @@ class DemoBWorkspace extends Container {
      * @param {Object} document
      * @param {Object} [options={}]
      * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes to retain.
+     * @param {Object|null} [options.descriptor=null] Commit-scoped preservation policy.
      * @returns {Promise} The projection outcome, independent of later queued refreshes.
      * @protected
      */
-    projectWorkspaceDocument(workspaceId, document, {preserveItemIds = []} = {}) {
+    projectWorkspaceDocument(workspaceId, document, {preserveItemIds = [], descriptor=null} = {}) {
         const me = this;
+        preserveItemIds = [...new Set([...preserveItemIds, ...descriptor?.preserveItemIds ?? []])];
         me.workspaceProjectionRequests.set(workspaceId, {document, preserveItemIds: [...preserveItemIds]});
         me.refreshPromise = me.refreshPromise.catch(() => {})
             .then(() => me.timeout(0))
@@ -1550,10 +1533,10 @@ class DemoBWorkspace extends Container {
 
         if (!cue) return;
 
-        cue.type === 'perspective-save' && me.capturePerspective(cue.name, {scope: cue.scope});
-        cue.type === 'perspective-load' && me.loadPerspectiveByName(cue.name);
-        cue.type === 'popout'           && me.popOutPane(cue.itemId);
-        cue.type === 'reattach'         && me.reattachPane(cue.itemId)
+        if (cue.type === 'perspective-save') return me.capturePerspective(cue.name, {scope: cue.scope});
+        if (cue.type === 'perspective-load') return me.loadPerspectiveByName(cue.name);
+        if (cue.type === 'popout') return me.popOutPane(cue.itemId);
+        if (cue.type === 'reattach') return me.reattachPane(cue.itemId)
     }
 
     /**
@@ -1603,11 +1586,9 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Facade over the extracted cross-window stage module: the SYNCHRONOUS
-     * adoption half of the transfer-commit core. Kept as a workspace method because the unit
-     * spec wraps it directly.
+     * @summary Admits a semantic transfer through the Group's asynchronous commit boundary.
      * @param {Object} pair
-     * @returns {Boolean} false when the workspace-set refused the pair.
+     * @returns {Promise<Boolean>} False when the Group refused the transfer.
      * @protected
      */
     adoptCommittedTransferPair(pair) {
@@ -1615,23 +1596,8 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Facade over the extracted cross-window stage module: the reconcile half
-     * of the transfer-commit core (target-first, guard-checked).
-     * @param {Object} pair
-     * @param {Object} [options]
-     * @param {Function} [options.guard] `() => Boolean` — false stops before the next projection.
-     * @returns {Promise<Boolean>} true when both projections ran.
-     * @protected
-     */
-    async reconcileTransferPair(pair, options) {
-        return this.crossWindowStage.reconcilePair(pair, options)
-    }
-
-    /**
-     * Facade over the extracted cross-window stage module: retires the
-     * logically emptied popup workspace after its stack returned. Kept as a workspace method
-     * because the unit spec wraps it directly.
-     * @returns {Boolean} true when the popup registry entry existed and was removed.
+     * @summary Retires the returned popup's render target while retaining its Group document.
+     * @returns {Boolean} Whether the semantic participant remains available for undo.
      * @protected
      */
     retireReturnedPopupWorkspace() {
@@ -1639,11 +1605,9 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Facade over the extracted cross-window stage module: commits the popup's
-     * model-resolved stack back into the main workspace as one atomic `transferNode`, then
-     * reconciles target-first and retires the emptied popup registry entry.
+     * @summary Commits a whole-stack return through the Group before retiring its native target.
      * @param {Object} data
-     * @returns {Promise<Object>|Boolean} a truthy accepted lifecycle, or false before adoption.
+     * @returns {Promise} The committed receipt, or false before adoption.
      * @protected
      */
     commitWholeStackReturn(data) {
@@ -1651,14 +1615,12 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Publishes the atomic transfer pair, then reconciles target before source. Target-first is
-     * load-bearing: it adopts the cached pane across the window boundary before the source shell
-     * can classify the now-absent item as a retirement.
+     * @summary Awaits Group transfer admission and its projections before reporting the native gesture.
      * @param {Object} data
      * @returns {Promise}
      * @protected
      */
-    commitCrossWindowTransfer(data) {
+    async commitCrossWindowTransfer(data) {
         let me = this,
             {
                 descriptor,
@@ -1669,7 +1631,8 @@ class DemoBWorkspace extends Container {
             } = data;
 
         if (descriptor?.operation === 'transferNode') {
-            return me.commitWholeStackReturn(data)
+            const result = await me.commitWholeStackReturn(data);
+            return result?.applied === true
         }
 
         const
@@ -1686,9 +1649,10 @@ class DemoBWorkspace extends Container {
 
         // Both-or-neither adoption through the shared core — a refused pair ends the commit here,
         // so the gesture bookkeeping below never diverges from document truth.
-        if (!me.adoptCommittedTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})) {
-            return
+        if (!await me.adoptCommittedTransferPair(data)) {
+            return false
         }
+        ({sourceDocument, targetDocument} = data);
 
         // The document pair and vessel ownership are one worker-side commit. A physical close can
         // arrive before either projection settles; publishing this entry synchronously lets the
@@ -1717,18 +1681,6 @@ class DemoBWorkspace extends Container {
                     localDropFires    : me.crossWindowStats.localDropFires,
                     remoteDropOutFires: me.crossWindowStats.remoteDropOutFires
                 };
-
-                try {
-                    if (!await me.reconcileTransferPair(
-                        {sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId},
-                        {guard: ownsTransfer}
-                    )) {
-                        return
-                    }
-                } catch (error) {
-                    if (!ownsTransfer()) return;
-                    throw error
-                }
 
                 if (!ownsTransfer()) return;
 
@@ -1791,7 +1743,7 @@ class DemoBWorkspace extends Container {
                 me.crossWindowGestureResolve = null
             });
 
-        return me.refreshPromise
+        return me.refreshPromise.then(() => true)
     }
 
     /**
@@ -3044,21 +2996,25 @@ class DemoBWorkspace extends Container {
         if (!groupId || me.topologyGroupId) return;
 
         me.topologyGroupId = groupId;
+        TransactionManager.setHistoryDepth({groupId, depth: me.dockHistoryDepth});
 
         me.workspaceSet.register(DemoBWorkspace.MAIN_WORKSPACE_ID, {
             bindingKey : 'main',
+            componentId: me.id,
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document,
             project    : context => me.projectWorkspaceDocument(DemoBWorkspace.MAIN_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.MAIN_WORKSPACE_ID], context)
         });
 
         me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
+            componentId: me.id,
             getDocument: () => me.popupDocument,
             setDocument: document => me.popupDocument = document,
             project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP_WORKSPACE_ID], context)
         });
 
         me.workspaceSet.register(DemoBWorkspace.POPUP2_WORKSPACE_ID, {
+            componentId: me.id,
             getDocument: () => me.popup2Document,
             setDocument: document => me.popup2Document = document,
             project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP2_WORKSPACE_ID], context)
@@ -3744,7 +3700,7 @@ class DemoBWorkspace extends Container {
             }),
             onDockVesselConversionTerminal: data => me.vesselParkHandlers.onGestureTerminal(data),
             onDockVesselConversionRetired : data => me.vesselParkHandlers.onVesselRetired(data),
-            onDockZoneDocumentChange      : nextDocument => me.onWorkspaceDocumentChange(workspaceId, nextDocument),
+            onDockZoneDocumentChange      : (nextDocument, descriptor) => me.onWorkspaceDocumentChange(workspaceId, nextDocument, {descriptor}),
             resolveComponentRef           : resolveComponentRef
                 || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
             resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data),

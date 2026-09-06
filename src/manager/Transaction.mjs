@@ -699,7 +699,8 @@ class Transaction extends Manager {
      * @param {Object[]} [request.changes=[]] Unique {workspaceKey, input} entries.
      * @param {String} [request.cursorAction='append'] append, preserve, undo or redo.
      * @param {Object[]} [request.effects=[]] {effectId, run} callbacks, invoked after semantic commit.
-     * @returns {Promise<Object>} {row, snapshot, transactionId, notificationErrors}; row/snapshot may be null.
+     * @returns {Promise<Object>} {row, snapshot, participants, transactionId, notificationErrors};
+     * participants carries the committed before/after endpoints even when history is disabled.
      */
     write(request) {
         let me    = this,
@@ -726,6 +727,7 @@ class Transaction extends Manager {
             return {
                 row               : result.row,
                 snapshot          : result.snapshot,
+                participants      : result.participants,
                 transactionId     : result.transactionId,
                 notificationErrors: result.notificationErrors.map(error => error.message)
             }
