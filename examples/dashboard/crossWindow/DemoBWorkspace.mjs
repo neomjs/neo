@@ -6,6 +6,7 @@ import DockDropIndicators                   from '../../../src/dashboard/dock/in
 import DockLayoutAdapter                    from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockMotionSignal                     from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
 import PerspectiveLibrary                   from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import Placement                            from '../../../src/dashboard/dock/window/Placement.mjs';
 import DockPreview                          from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockPreviewProducer                  from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
 import DockProjectionReconciler             from '../../../src/dashboard/dock/projection/Reconciler.mjs';
@@ -220,6 +221,8 @@ class DemoBWorkspace extends Container {
      * @member {Object|null} workspaceSet=null
      */
     workspaceSet = null
+    /** @member {Neo.dashboard.dock.window.Placement|null} dockPlacement=null Group-owned relative hints. */
+    dockPlacement = null
     /**
      * The app-side Neural Link dock seam (tour + agent drivability).
      * @member {Neo.ai.client.DockService|null} dockService=null
@@ -1209,10 +1212,10 @@ class DemoBWorkspace extends Container {
         }
 
         created = scope === 'topology'
-            ? Persistence.captureTopologyPerspective({
-                [DemoBWorkspace.MAIN_WORKSPACE_ID] : me.dockModel,
-                [DemoBWorkspace.POPUP_WORKSPACE_ID]: me.popupDocument
-            }, metadata)
+            ? Persistence.captureTopologyPerspective(
+                Object.fromEntries(me.workspaceSet.ids().map(key => [key, me.workspaceSet.getDocument(key)])),
+                {...metadata, placementHints: me.getPlacementHints()}
+            )
             : Persistence.createSavedLayout(me.dockModel, metadata);
 
         if (created.errors.length) {
@@ -3028,7 +3031,13 @@ class DemoBWorkspace extends Container {
         me.workspaceSet.register(DemoBWorkspace.POPUP2_WORKSPACE_ID, {
             getDocument: () => me.popup2Document,
             setDocument: document => me.popup2Document = document
-        })
+        });
+        me.dockPlacement ??= Placement.forGroup({groupId, mainWorkspaceKey: DemoBWorkspace.MAIN_WORKSPACE_ID})
+    }
+
+    /** @summary Returns the Group's current relative hints for topology persistence. @returns {Object} */
+    getPlacementHints() {
+        return this.dockPlacement?.hints ?? {}
     }
 
     /**

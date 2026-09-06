@@ -54,38 +54,44 @@ const moveTerminalAcross = document => {
 };
 
 /**
- * A workspace whose FIRST projection fails inside the staging try block, through the public
- * `onProjectionStaged` seam — no static override, and the throw is synchronous, so the update
- * lifecycle is never left mid-flight.
- * @param {*} thrown The value to throw: an Error, or the destroy sentinel.
- * @returns {Neo.dashboard.dock.Workspace}
+ * @summary Registers one fixture class whose first staged projection throws its instance's failure.
  */
-const createFailingFirstProjection = thrown => {
-    class FailingFirstProjectionWorkspace extends DockWorkspace {
-        static config = {
-            className: 'Neo.dashboard.dock.SentinelSpec.FailingFirstProjectionWorkspace'
-        }
+class FailingFirstProjectionWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Neo.dashboard.dock.SentinelSpec.FailingFirstProjectionWorkspace'
+    }
 
-        firstProjectionFailed = false
+    firstProjectionFailed = false
+    /** @member {*} projectionFailure=null The error or sentinel injected before mounting. */
+    projectionFailure = null
 
-        getReconcileOptions(document, refreshOptions) {
-            const me = this;
+    /** @summary Fails once through the real synchronous staging seam. @param {Object} document @param {Object} refreshOptions @returns {Object} */
+    getReconcileOptions(document, refreshOptions) {
+        const me = this;
 
-            return {
-                ...super.getReconcileOptions(document, refreshOptions),
-                onProjectionStaged() {
-                    if (!me.firstProjectionFailed) {
-                        me.firstProjectionFailed = true;
-                        throw thrown
-                    }
+        return {
+            ...super.getReconcileOptions(document, refreshOptions),
+            onProjectionStaged() {
+                if (!me.firstProjectionFailed) {
+                    me.firstProjectionFailed = true;
+                    throw me.projectionFailure
                 }
             }
         }
     }
+}
 
-    FailingFirstProjectionWorkspace = Neo.setupClass(FailingFirstProjectionWorkspace);
+FailingFirstProjectionWorkspace = Neo.setupClass(FailingFirstProjectionWorkspace);
 
-    return Neo.create(FailingFirstProjectionWorkspace, {dockModel: createDocument()})
+/**
+ * @summary Gives each headless fixture its own injected value before the first projection starts.
+ * @param {*} thrown The value to throw: an Error, or the destroy sentinel.
+ * @returns {Neo.dashboard.dock.Workspace}
+ */
+const createFailingFirstProjection = thrown => {
+    const workspace = Neo.create(FailingFirstProjectionWorkspace, {dockModel: createDocument()});
+    workspace.projectionFailure = thrown;
+    return workspace
 };
 
 /**

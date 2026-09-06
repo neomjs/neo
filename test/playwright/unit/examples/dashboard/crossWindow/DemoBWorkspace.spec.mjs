@@ -1562,7 +1562,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             const detachedLayout = workspace.topologyCollection.topologies['demo-b-detached'];
 
             expect(detachedLayout.schema).toBe(Persistence.TOPOLOGY_SCHEMA);
-            expect(Object.keys(detachedLayout.workspaces)).toEqual(['demo-b-main', 'demo-b-popup']);
+            expect(Object.keys(detachedLayout.workspaces)).toEqual(['demo-b-main', 'demo-b-popup', 'demo-b-popup-2']);
 
             const reattached = await workspace.reattachPane('workbench', {windowAlreadyClosed: true});
 

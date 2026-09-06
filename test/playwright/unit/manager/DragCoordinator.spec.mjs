@@ -268,10 +268,7 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     });
 
     test('an ASYNC target resolving null does NOT retire — a Promise is truthy, so testing it IS the defect', async () => {
-        // `onDragEnd` is synchronous; `draggable/dashboard/SortZone.onRemoteDrop` is async. `if (operation)`
-        // on a Promise is `if (true)` — so an outcome-aware gate that tests the raw return value reads EVERY
-        // async target as committed and retires the source anyway. A sync-only stub cannot see this shape;
-        // only an async target resolving null does.
+        // Await the async target's outcome: a Promise itself cannot certify a committed operation.
         const
             source = createSourceZone(),
             target = {
@@ -470,6 +467,18 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         // Idempotent: a repeated departure finds nothing left and does not throw.
         DragCoordinator.unregister(source);
         expect(DragCoordinator.nativeWindowDropCandidates.has(13)).toBe(true)
+    });
+
+    test('geometry from an admitted placement effect never starts a native user gesture', () => {
+        const resolve = DragCoordinator.getNativeWindowDragSource;
+        let   calls   = 0;
+        DragCoordinator.getNativeWindowDragSource = () => { calls++; return null };
+        try {
+            DragCoordinator.onWindowPositionChange({
+                windowId: 'effect-window', nativeEffect: {transactionId: 'transaction-1', effectId: 'effect-1'}
+            });
+            expect(calls).toBe(0)
+        } finally { DragCoordinator.getNativeWindowDragSource = resolve }
     });
 
     test('a mid-gesture vessel departure resolves to a clean terminal, not a commit into a dead window', () => {

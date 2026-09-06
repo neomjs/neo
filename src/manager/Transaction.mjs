@@ -583,6 +583,8 @@ class Transaction extends Manager {
      * @summary Captures and prepares at the queue head, then commits participants, history and snapshot
      * in one compensating critical section. Request data is copied at admission; participants remain
      * live owners until capture. Presentation runs after queue release and cannot reject the commit.
+     * Preserve writes publish current state without changing history, including an existing redo tail;
+     * cold hydration and observed reference-frame rebasing use this mode.
      * @param {Object} request
      * @param {String} request.groupId
      * @param {String} request.cause Explicit reason for this write, separate from cursorAction.
@@ -798,6 +800,7 @@ class Transaction extends Manager {
         group.history?.destroy();
         group.provider = group.history = null;
         me.unregister(group);
+        me.fire('groupRetired', {groupId});
 
         return true
     }
@@ -848,7 +851,6 @@ class Transaction extends Manager {
                     group.retainedReferences.size === 0 && !group.history?.count && me.get(group.id) === group
                 ) {
                     me.retireGroup(group.id);
-                    me.fire('groupRetired', {groupId: group.id})
                 }
             }
         }, me.reconnectLeaseMs))

@@ -175,6 +175,12 @@ class WindowPosition extends Base {
         let {Manager} = Neo.worker,
             winData   = Neo.Main.getWindowData();
 
+        // A native operation explicitly publishes before its effect marker is released. Advancing
+        // this baseline prevents the poll from echoing that same position as an untagged user move.
+        if (winData.nativeEffect) {
+            this.set({screenLeft: winData.screenLeft, screenTop: winData.screenTop})
+        }
+
         Manager.sendMessage('app', {
             action: 'windowPositionChange',
             data  : {

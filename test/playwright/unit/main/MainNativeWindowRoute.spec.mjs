@@ -409,6 +409,7 @@ async function runNativeWindowRouteProbe(scenario) {
                 state    = {
                     closed   : false,
                     height   : 600,
+                    effects  : [],
                     published: 0,
                     token    : null,
                     width    : 900,
@@ -445,7 +446,8 @@ async function runNativeWindowRouteProbe(scenario) {
                             WindowPosition: {
                                 publishGeometry() {
                                     events.push('publish');
-                                    state.published++
+                                    state.published++;
+                                    state.effects.push(popup.neoNativeGeometryEffects?.at(-1) ?? null)
                                 }
                             }
                         }
@@ -527,7 +529,14 @@ async function runNativeWindowRouteProbe(scenario) {
                 geometry = null,
                 resize   = null;
 
-            if (scenario === 'native-focus-stale') {
+            if (scenario === 'native-move-effect') {
+                popup.moveTo = (x, y) => { state.x = x; state.y = y };
+                exactCompletion = await Main.windowNativeMoveTo({
+                    ...route, x: 420, y: 320,
+                    nativeEffect: {transactionId: 'transaction-1', effectId: 'effect-1'}
+                });
+                geometry = {markerRetired: !Object.hasOwn(popup, 'neoNativeGeometryEffects')}
+            } else if (scenario === 'native-focus-stale') {
                 popup.document = {hasFocus: () => true};
                 popup.focus    = () => Main.releaseNativeWindowRoute({
                     nativeHandleKey: route.nativeHandleKey,
@@ -603,6 +612,7 @@ async function runNativeWindowRouteProbe(scenario) {
             console.log(JSON.stringify({
                 closed   : state.closed,
                 events,
+                effects: state.effects,
                 exactCompletion,
                 geometry,
                 hasEntry : Object.hasOwn(Main.openWindows, 'tear-out'),
@@ -751,6 +761,13 @@ test.describe('Neo.Main native window routes (#15396)', () => {
             ownerWindowId : expect.any(String),
             targetWindowId: 'child-window'
         })
+    });
+
+    test('an admitted placement publishes its effect identity and removes it before a later free move', async () => {
+        const result = await runNativeWindowRouteProbe('native-move-effect');
+        expect(result.exactCompletion).toBe(true);
+        expect(result.effects).toEqual([{transactionId: 'transaction-1', effectId: 'effect-1'}]);
+        expect(result.geometry.markerRetired).toBe(true)
     });
 
     test('resize authority verifies exact outer dimensions and publishes the observed target geometry', async () => {

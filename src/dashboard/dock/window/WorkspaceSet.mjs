@@ -54,12 +54,13 @@ export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
         participant = workspaceId => {
             const id = groupId();
 
-            return id ? manager.getParticipant(id, workspaceId) : null
+            const entry = id ? manager.getParticipant(id, workspaceId) : null;
+            return typeof entry?.getDocument === 'function' ? entry : null
         },
         keys        = () => {
             const id = groupId();
 
-            return id ? manager.participantKeys(id) : []
+            return id ? manager.participantKeys(id).filter(key => participant(key)) : []
         };
 
     return {

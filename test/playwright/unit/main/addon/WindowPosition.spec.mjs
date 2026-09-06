@@ -86,6 +86,26 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
         }]])
     });
 
+    test('a tagged native publication advances the poll baseline without losing the next independent move', () => {
+        let nativeEffect = {transactionId: 'transaction-1', effectId: 'effect-1'};
+        Neo.Main.getWindowData = () => ({screenLeft: window.screenLeft, screenTop: window.screenTop, nativeEffect});
+        const addon = {
+            adjustWindowPositions: false,
+            publishGeometry      : WindowPosition.prototype.publishGeometry,
+            screenLeft           : window.screenLeft - 20,
+            screenTop            : window.screenTop,
+            set(config) { Object.assign(this, config) }
+        };
+        addon.publishGeometry();
+        nativeEffect = null;
+        WindowPosition.prototype.checkMovement.call(addon);
+        expect(sent).toHaveLength(1);
+        window.screenLeft++;
+        WindowPosition.prototype.checkMovement.call(addon);
+        expect(sent).toHaveLength(2);
+        expect(sent[1][1].data.nativeEffect).toBeNull()
+    });
+
     test('movement remains change-driven and shares the same publication authority', () => {
         const addon = {
             adjustWindowPositions: false,

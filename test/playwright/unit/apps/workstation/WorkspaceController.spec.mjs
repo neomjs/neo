@@ -20,6 +20,29 @@ const deferred = () => {
 };
 
 test.describe('Workstation topology save and close coordination', () => {
+    test('topology capture uses live placement instead of the previously stored offsets', () => {
+        const document = {
+            schema: 'neo.dock.zone.v1', root: 'tabs',
+            items : {a: {componentRef: 'a'}},
+            nodes : {tabs: {type: 'tabs', items: ['a'], activeItemId: 'a'}}
+        },
+              fallbackTarget = {workspaceKey: 'main', nodeId: 'tabs'},
+              stored = {details: {dx: 10, dy: 20, fallbackTarget}},
+              live = {details: {dx: 450, dy: 80, fallbackTarget}},
+              component = {
+                  getDockTopologyWorkspaces: () => ({main: document, details: {
+                      ...document, items: {b: {componentRef: 'b'}}, nodes: {tabs: {type: 'tabs', items: ['b'], activeItemId: 'b'}}
+                  }}),
+                  getPlacementHints : () => live,
+                  topologyCollection: {activeLayoutId: 'saved', topologies: {saved: {title: 'Saved', placementHints: stored}}}
+              },
+              result = WorkspaceController.prototype.captureTopology.call({component});
+
+        expect(result.errors).toEqual([]);
+        expect(result.topology.placementHints).toEqual(live);
+        expect(component.topologyCollection.topologies.saved.placementHints).toEqual(stored)
+    });
+
     test('a partial carrier refusal compensates cleared windows and closes none', async () => {
         const root      = Transaction.bind({windowId: 'controller-close-root'}),
               popup     = Transaction.bind({...Transaction.reserve({groupId: root.groupId, workspaceKey: 'details'}), windowId: 'controller-close-popup'}),
@@ -73,6 +96,7 @@ test.describe('Workstation topology save and close coordination', () => {
               context = {
                   component: {
                       getDockTopologyWorkspaces: () => ({main: document}),
+                      getPlacementHints        : () => ({}),
                       topologyGroupId          : root.groupId,
                       topologyLibrary          : library,
                       get topologyCollection() {return library.collection}

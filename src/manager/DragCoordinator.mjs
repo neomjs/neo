@@ -2,6 +2,7 @@ import {createGestureClaimArbiter} from './GestureClaimArbiter.mjs';
 import Manager                     from './Base.mjs';
 import Rectangle                   from '../util/Rectangle.mjs';
 import Window                      from './Window.mjs';
+import {buffer}                    from '../util/Function.mjs';
 
 /**
  * @class Neo.manager.DragCoordinator
@@ -203,6 +204,7 @@ class DragCoordinator extends Manager {
             candidate.registrationRefreshes?.clear();
             candidate.registrationRefreshes = null;
             clearTimeout(candidate.timeoutId);
+            candidate.settle?.cancel();
             candidate.resolveHandoff?.();
 
             if (candidate.embodied) {
@@ -1252,6 +1254,15 @@ class DragCoordinator extends Manager {
             current    = me.nativeWindowDropCandidates.get(windowId),
             sourceDrag, candidate, dwellRemaining, firstSeenAt, delay, now, preview, previewId;
 
+        if (data.nativeEffect) {
+            if (!current?.phase) {
+                me.updateNativeHover(windowId, null);
+                me.clearNativeWindowDropCandidate(windowId);
+                me.endNativeGesture(windowId)
+            }
+            return
+        }
+
         // Parking, embodiment, target settlement, and strict source retry can all publish geometry
         // of their own. Their retained generation owns the terminal; never reinterpret those
         // effects as a fresh titlebar gesture.
@@ -1322,11 +1333,12 @@ class DragCoordinator extends Manager {
         dwellRemaining = Math.max(0, me.nativeWindowDropDwellMs - (now - firstSeenAt));
         delay          = Math.max(me.nativeWindowDropSettleMs, dwellRemaining);
 
-        candidate.timeoutId = setTimeout(() => {
+        candidate.settle = buffer(() => {
             me.commitNativeWindowDrop(windowId, candidate).catch(error => {
                 (Neo.logError || console.error)('Native window drop failed', error)
             })
-        }, delay);
+        }, me, delay);
+        candidate.settle();
 
         me.nativeWindowDropCandidates.set(windowId, candidate)
     }

@@ -10,6 +10,7 @@ import DockDropIndicators       from '../../../src/dashboard/dock/interaction/Dr
 import DockLayoutAdapter        from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import PerspectiveLibrary       from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import TopologyLibrary          from '../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
+import Placement                from '../../../src/dashboard/dock/window/Placement.mjs';
 import DockPreview              from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockProjectionReconciler from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../src/ai/client/DockService.mjs';
@@ -285,6 +286,8 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     workspaceSet = null
+    /** @member {Neo.dashboard.dock.window.Placement|null} dockPlacement=null Group-owned relative hints. */
+    dockPlacement = null
     /**
      * Target-side adapters keyed by stable workspace identity. The main workspace registers during
      * construction; vessel targets register only after their exact child window joins.
@@ -426,7 +429,6 @@ class Workspace extends DockWorkspace {
             collection: Persistence.createTopologyCollection([], {activeLayoutId: null}).collection
         });
         me.workspaceSet = createDockWorkspaceSet({documentModel: WorkspaceDocument, manager: TransactionManager, getGroupId: () => me.topologyGroupId});
-        me.registerMainWorkspace();
 
         for (const [workspaceId, document] of Object.entries(me.initialTopology?.workspaces ?? {})) {
             if (workspaceId === Workspace.MAIN_WORKSPACE_ID) continue;
@@ -444,6 +446,8 @@ class Workspace extends DockWorkspace {
                 setDocument: value => state.document = value
             })
         }
+
+        me.registerMainWorkspace();
 
         me.tourRunner  = Neo.create(TourRunner, {
             componentId   : me.id,
@@ -943,12 +947,21 @@ class Workspace extends DockWorkspace {
     registerMainWorkspace() {
         let me = this;
 
-        return me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
+        const registered = me.workspaceSet.register(Workspace.MAIN_WORKSPACE_ID, {
             bindingKey : 'main',
             componentId: me.id,
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document
-        })
+        });
+        if (registered) me.dockPlacement ??= Placement.forGroup({
+            groupId: me.topologyGroupId, initialHints: me.initialTopology?.placementHints, mainWorkspaceKey: Workspace.MAIN_WORKSPACE_ID
+        });
+        return registered
+    }
+
+    /** @summary Returns the Group's current relative hints for topology persistence. @returns {Object} */
+    getPlacementHints() {
+        return this.dockPlacement?.hints ?? {}
     }
 
     /**

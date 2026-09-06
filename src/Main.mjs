@@ -323,6 +323,7 @@ class Main extends core.Base {
             mozInnerScreenX: win.mozInnerScreenX, // Firefox specific
             mozInnerScreenY: win.mozInnerScreenY, // Firefox specific
             nativeRoute    : resolveNativeWindowRoute(win),
+            nativeEffect   : win.neoNativeGeometryEffects?.at(-1) ?? null,
             outerHeight    : win.outerHeight,
             outerWidth     : win.outerWidth,
             screen         : {
@@ -1113,16 +1114,30 @@ class Main extends core.Base {
      * @param {String} data.targetWindowId
      * @param {Number|String} data.x
      * @param {Number|String} data.y
+     * @param {Object} [data.nativeEffect] Transaction/effect identity carried by resulting geometry reports.
      * @returns {Promise<Boolean>}
      */
     async windowNativeMoveTo(data) {
         const route = this.#getNativeWindowRoute(data, 'position');
-
-        if (!route || !await this.#moveWindow(route.entry.win, data.x, data.y)) {
-            return false
+        if (!route) return false;
+        if (data.nativeEffect && !['transactionId', 'effectId'].every(key =>
+            typeof data.nativeEffect[key] === 'string' && data.nativeEffect[key].length
+        )) return false;
+        const win    = route.entry.win;
+        const effect = data.nativeEffect && {
+            transactionId: data.nativeEffect.transactionId,
+            effectId     : data.nativeEffect.effectId
+        };
+        if (effect) (win.neoNativeGeometryEffects ??= []).push(effect);
+        try {
+            return await this.#moveWindow(win, data.x, data.y) && this.#getNativeWindowRoute(data, 'position') === route
+        } finally {
+            if (effect) {
+                const effects = win.neoNativeGeometryEffects;
+                effects.splice(effects.indexOf(effect), 1);
+                if (!effects.length) delete win.neoNativeGeometryEffects
+            }
         }
-
-        return this.#getNativeWindowRoute(data, 'position') === route
     }
 
     /**
