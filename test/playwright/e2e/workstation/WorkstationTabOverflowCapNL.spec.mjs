@@ -51,6 +51,12 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
                       Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)),
                   control = document.querySelector('.neo-tab-overflow-control'),
                   capped  = document.querySelector('.neo-tab-overflow-capped'),
+                  // Resolved once and reported through sentinels below. A capped button that lost
+                  // its text or indicator node is a DIFFERENT failure from one whose style is
+                  // wrong, and reading them inline threw `getComputedStyle(null)` — a TypeError
+                  // that aborts the evaluate and names neither condition.
+                  cappedText      = capped?.querySelector('.neo-button-text'),
+                  cappedIndicator = capped?.querySelector('.neo-tab-button-indicator'),
                   toolbar = capped?.closest('.neo-tab-header-toolbar'),
                   pressed = [...document.querySelectorAll('.neo-tab-header-button.pressed')];
 
@@ -71,8 +77,8 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
                 capped      : capped && {
                     rect         : rect(capped),
                     maxWidth     : parseFloat(capped.style.maxWidth),
-                    textOverflow : getComputedStyle(capped.querySelector('.neo-button-text')).textOverflow,
-                    indicatorRect: rect(capped.querySelector('.neo-tab-button-indicator')),
+                    textOverflow : cappedText ? getComputedStyle(cappedText).textOverflow : 'no-text-node',
+                    indicatorRect: cappedIndicator ? rect(cappedIndicator) : null,
                     controlIx    : control ? overlap(rect(capped), rect(control)) : -1
                 },
                 toolbarRect: toolbar && rect(toolbar),
@@ -108,6 +114,10 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
         // where the control begins. Zero painted intersection.
         expect(facts.capped.controlIx, 'capped active button must not intersect the overflow control').toBe(0);
         expect(facts.capped.rect.right, 'capped box ends at or before the control edge').toBeLessThanOrEqual(facts.control.left + 0.5);
+        // Presence before geometry: without this, a capped button that lost its indicator fails on
+        // `Cannot read properties of null` one line down — an abort that names no condition, which
+        // is the same crash this spec used to take inside the evaluate.
+        expect(facts.capped.indicatorRect, 'the capped button carries a per-button indicator').not.toBeNull();
         expect(
             Math.abs(facts.capped.indicatorRect.width - facts.capped.rect.width),
             'the per-button indicator spans exactly the capped box'

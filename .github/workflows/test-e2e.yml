@@ -1,0 +1,128 @@
+name: E2E (engine tier)
+
+# Its own workflow rather than a suite in `test.yml`, because the e2e tier cannot run
+# whole in CI and the reasons are structural:
+#
+#   GPU  — specs booting the workstation app inherit animated OffscreenCanvas work no
+#          hosted runner can composite. The dashboard app carries none, which is why
+#          the dock and cross-window specs are the tier that fits.
+#   Time — the ceiling is five minutes of test time, enforced on the step below rather
+#          than on the job, so a slow suite is distinguishable from a slow `npm ci`.
+#
+# A third constraint bounds the REPORTING, and is the one a reader is most likely to be
+# misled by: `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent
+# specs, and `testIgnore` removes files from SELECTION rather than skipping them. No
+# reporter can name them, and a run missing four fifths of the tier still prints
+# `Skipped: 0`. A green check here certifies a genuine but PARTIAL tier.
+#
+# Which specs run, why the rest do not, and the coverage this job reports all live in
+# `buildScripts/util/e2eCiSelection.mjs` — one source for the invocation and the
+# summary, so the two cannot drift into describing different populations.
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+
+concurrency:
+  # Matches `test.yml`: initial attempts share the ref stream so a new head supersedes
+  # old work, while reruns keep their run_id and cannot cancel a newer head (#15593).
+  group: tests-${{ github.workflow }}-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-engine:
+    name: e2e-engine
+    runs-on: ubuntu-latest
+    # Bounds provisioning plus tests. The test-time ceiling is the step below; this
+    # exists so a hung install cannot occupy a runner indefinitely.
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bundle parse5
+        run: npm run bundle-parse5
+
+      # Browser provisioning is cached on the installed Playwright version, and the
+      # system libraries are installed only when a launch probe says they are missing —
+      # the same shape `test.yml` uses for its components suite, and for its reasons.
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright Chromium
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: npx playwright install chromium
+
+      - name: Save Playwright Chromium
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      - name: Verify Chromium launches
+        id: chromium-probe
+        continue-on-error: true
+        run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
+
+      - name: Install Playwright system dependencies
+        if: ${{ steps.chromium-probe.outcome == 'failure' }}
+        run: npx playwright install-deps chromium
+
+      # Its own step, because a command substitution cannot gate the command it feeds.
+      # `npx playwright test … $(node … --paths)` runs the suite with NO paths when the
+      # helper exits non-zero — the runner still starts, selects the whole config, and
+      # the step exits 0. The floor was therefore unable to stop the thing it exists to
+      # stop. Assigning first makes the failure the step's own exit status, and a named
+      # step makes it legible in the job UI rather than buried in a test log.
+      - name: Verify e2e selection floor
+        id: selection
+        run: |
+          paths=$(node buildScripts/util/e2eCiSelection.mjs --paths)
+          echo "paths=$paths" >> "$GITHUB_OUTPUT"
+
+      # Serial by measurement, not caution: this tier drives real windows, drag
+      # thresholds and geometry, which parallel workers on one runner perturb.
+      #
+      # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the unit
+      # suite already uses; each guard states the condition it stands in for.
+      - name: Run e2e (engine tier)
+        timeout-minutes: 5
+        run: npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 ${{ steps.selection.outputs.paths }}
+        env:
+          NEO_TEST_SKIP_CI: 'true'
+
+      # `always()`, because a failed run needs its coverage stated more than a green one
+      # does — and the destination is unescaped on purpose: an earlier inline form wrote
+      # to a file literally named `$GITHUB_STEP_SUMMARY`, so the honesty guard never
+      # reached GitHub at all.
+      - name: Report tier coverage
+        if: ${{ always() }}
+        run: node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test artifacts on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e-engine-${{ github.run_id }}
+          path: test/playwright/test-results/

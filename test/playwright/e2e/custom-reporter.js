@@ -473,7 +473,14 @@ export default class BenchmarkSystemReporter {
   }
 
   /**
-   * @summary Flushes the final receipt and prints the existing terminal benchmark summary.
+   * @summary Flushes the final receipt and prints the run duration.
+   * @description Deliberately prints no tallies. It used to print three, read off `result.stats`,
+   * which Playwright's `FullResult` does not carry — so every run, red or green, ended on
+   * `❌ Failed: 0`. A controlled `src/` mutation surfaced it: the log read `1 failed` from
+   * Playwright's own reporter and `❌ Failed: 0` from this one, four lines apart.
+   *
+   * Counting here rather than deleting would have rebuilt a tally Playwright already prints
+   * correctly and immediately above — so the fix is the removal.
    * @param {Object} result
    * @returns {void}
    */
@@ -483,8 +490,5 @@ export default class BenchmarkSystemReporter {
     this.flushReceipt();
 
     console.log(`\n Benchmark completed in ${Math.round(duration / 1000)}s`);
-    console.log(`✅ Passed: ${result.stats?.passed || 0}`);
-    console.log(`❌ Failed: ${result.stats?.failed || 0}`);
-    console.log(`⏭️  Skipped: ${result.stats?.skipped || 0}`);
   }
 }
