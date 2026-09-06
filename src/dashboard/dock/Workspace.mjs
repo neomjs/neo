@@ -413,22 +413,6 @@ class Workspace extends Container {
     nativeWindows = null
 
     /**
-     * The Group provider this workspace installed as its own provider's parent — remembered so a
-     * retirement clears exactly that link, and a parent a consumer configured for itself is never
-     * mistaken for ours.
-     * @member {Neo.state.Provider|null} groupHistoryProvider=null
-     * @protected
-     */
-    groupHistoryProvider = null
-    /**
-     * The manager instance the {@link #groupHistoryProvider} link was created from, so its
-     * retirement listener is registered on — and removed from — that exact instance.
-     * @member {Neo.manager.Transaction|null} groupHistoryManager=null
-     * @protected
-     */
-    groupHistoryManager = null
-
-    /**
      * `Neo.manager.Transaction`, once the tear-out lifecycle loaded it — `null` until then, and for a
      * workspace that never opted in. The module is not part of a single-window app's closure: the
      * opt-in is the load, so a host with the lifecycle off pays no Group machinery.
@@ -649,116 +633,7 @@ class Workspace extends Container {
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetTopologyGroupId(value, oldValue) {
-        this.bindGroupHistoryState(value)
-    }
-
-    /**
-     * @summary Points this workspace's own provider at its Group's as the explicit parent, so the
-     * Group's published history state reaches bound components through the ordinary provider chain.
-     * @description One Group owns one `state.Provider` whatever window asks for it
-     * ({@link Neo.manager.Transaction#getProvider}), publishing `canUndo`, `canRedo`,
-     * `historyCursor`, `historyDepth` and `historyLength`. Parenting this workspace's provider to it
-     * makes those five leaves readable from any bound component beneath the workspace, in whichever
-     * window that component currently renders — a window is a render target, not a state owner, so
-     * the opener and a popped-out vessel resolve the same answer from the same instance.
-     *
-     * The consequence is what the seam exists for: a consumer that wants undo/redo affordances binds
-     * `disabled` to `canUndo` / `canRedo` and dispatches manager commands. It owns no history logic
-     * of its own — no local stack, no cursor mirror, no per-commit sweep — the same discipline
-     * {@link Neo.dashboard.dock.projection.HeaderActionPolicy} applies to header truth.
-     *
-     * **The workspace's provider ancestry is never touched.** Re-parenting it at the Group would
-     * make the Group's leaves readable and sever whatever the consumer inherits — its stores, its
-     * application data — for the whole running lifetime, which is too high a price for an
-     * affordance, and restoring that chain at retirement returns it only once it no longer matters.
-     * A provider has one parent and the Group's is shared by every workspace in that Group, so the
-     * Group's own ancestry cannot absorb one consumer's chain either.
-     *
-     * So the five leaves are **published onto this workspace's own provider** under `dockHistory`,
-     * the way {@link Neo.dashboard.dock.projection.HeaderActionPolicy#publishDocument} publishes
-     * header truth: one source (the Group's provider), a projection at the commit boundary, and
-     * bindings that re-evaluate only when a leaf they read actually changed. The consumer still owns
-     * no history logic — nothing here keeps a stack, mirrors a cursor, or scans a log; it copies
-     * published values on the manager's own `commit` signal.
-     * @param {String|null} groupId
-     * @protected
-     */
-    bindGroupHistoryState(groupId) {
-        let me       = this,
-            manager  = me.transactionManager ?? Neo.manager?.Transaction,
-            provider = groupId && me.stateProvider && manager?.getProvider(groupId);
-
-        if (!provider) return;
-
-        me.groupHistoryProvider = provider;
-        me.publishGroupHistory();
-
-        // Install and teardown have to come from the SAME manager. This projection is created off
-        // whichever instance answered — including the global one a host reaches without ever
-        // triggering the tear-out opt-in's dynamic load — so the listeners cannot live on that load
-        // path alone, or a host that never opted in would publish once and then go stale.
-        if (me.groupHistoryManager !== manager) {
-            me.groupHistoryManager?.un({commit: me.onGroupHistoryCommit, groupRetired: me.onTopologyGroupRetired, scope: me});
-            me.groupHistoryManager = manager;
-            manager.on({commit: me.onGroupHistoryCommit, groupRetired: me.onTopologyGroupRetired, scope: me})
-        }
-    }
-
-    /**
-     * @summary Copies the Group's five published history leaves onto this workspace's own provider.
-     * @description Every leaf is a `core.Config` that self-diffs, so republishing an unchanged value
-     * moves nothing and re-evaluates no binding. A retired or absent Group publishes the empty
-     * shape rather than deleting the namespace, so a bound `disabled` formatter keeps reading a
-     * boolean instead of `undefined` at exactly the moment its Group went away.
-     * @protected
-     */
-    publishGroupHistory() {
-        let me       = this,
-            provider = me.groupHistoryProvider,
-            live     = provider && !provider.isDestroyed;
-
-        // Optional the same way the header publish is: a spec may drive this with a hand-built
-        // `this` whose provider is still the config object rather than an instance.
-        me.stateProvider?.setData?.({
-            dockHistory: {
-                canRedo      : live ? provider.getData('canRedo')       === true : false,
-                canUndo      : live ? provider.getData('canUndo')       === true : false,
-                historyCursor: live ? provider.getData('historyCursor') ?? -1     : -1,
-                historyDepth : live ? provider.getData('historyDepth')  ?? 0      : 0,
-                historyLength: live ? provider.getData('historyLength') ?? 0      : 0
-            }
-        })
-    }
-
-    /**
-     * @summary Republishes when this workspace's own Group commits.
-     * @param {Object} data
-     * @param {String} data.groupId
-     * @protected
-     */
-    onGroupHistoryCommit({groupId}) {
-        groupId === this.topologyGroupId && this.publishGroupHistory()
-    }
-
-    /**
-     * @summary Publishes the empty history shape when this workspace's Group retires.
-     * @description {@link Neo.manager.Transaction#retireGroup} destroys the Group's provider before it
-     * announces the retirement, so the source this projection reads is already gone by the time we
-     * hear. Dropping the reference and republishing leaves a bound Undo disabled against a real
-     * `false` rather than reading through a destroyed provider or a deleted namespace.
-     * @param {Object} data
-     * @param {String} data.groupId
-     * @protected
-     */
-    onTopologyGroupRetired({groupId}) {
-        let me = this;
-
-        if (groupId !== me.topologyGroupId || !me.groupHistoryProvider) return;
-
-        me.groupHistoryProvider = null;
-        me.publishGroupHistory()
-    }
+    afterSetTopologyGroupId(value, oldValue) {}
 
     /**
      * Learns this workspace's Group from an accepted binding of its window, if there is one: at
@@ -1241,7 +1116,6 @@ class Workspace extends Container {
      */
     destroy(...args) {
         const me = this;
-        me.groupHistoryManager?.un({commit: me.onGroupHistoryCommit, groupRetired: me.onTopologyGroupRetired, scope: me});
         me.transactionManager?.un({bind: me.onTopologyGroupBinding, scope: me});
         me.nativeWindows?.unregisterSource(me.id);
         me.tearOutHandlers?.retirePaneState?.();

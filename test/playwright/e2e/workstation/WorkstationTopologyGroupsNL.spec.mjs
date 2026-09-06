@@ -450,23 +450,19 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             await expectColdTopology(second, {...seed.records.b, workspaces: changed, placementHints: observedHints});
             expect(secondContext.pages()).toHaveLength(1);
 
-            // `expectColdTopology` already asserts the empty log from the manager's projected state.
-            // This reads the same fact from the other end of the chain — `stateProvider.getData`,
-            // which is what the topology bar's Undo binds to — so the two together say the affordance
-            // a user actually meets is disabled, not merely that the manager knows it should be.
-            // The depth assertion is the one that makes any of it mean something: this app declares
-            // a real depth, so an empty log is a Group that COULD hold history and does not, rather
-            // than one that never had the capacity to.
+            // A cold boot restores composition, NOT history: the hydrate writes with a preserving
+            // cursor and appends nothing. A boot that replayed its saved transactions would let undo
+            // walk backwards out of the restored layout into states this session never showed.
+            // Read twice from independent ends — the controller's projected state and the Group
+            // itself — so neither reading alone carries the claim.
             const secondManagerId = (await second.app.getComponent(second.workspaceId, ['transactionManager.id']))['transactionManager.id'],
-                  secondGroupId   = (await second.app.getComponent(second.workspaceId, ['topologyGroupId'])).topologyGroupId;
+                  secondGroupId   = (await second.app.getComponent(second.workspaceId, ['topologyGroupId'])).topologyGroupId,
+                  coldState       = await second.app.callMethod(second.workspaceId, 'controller.getTopologyState');
 
-            expect(await second.app.callMethod(second.workspaceId, 'stateProvider.getData', ['historyDepth']),
-                'the restored root keeps history, so an empty log is a fact about the boot').toBeGreaterThan(0);
-            expect(await second.app.callMethod(second.workspaceId, 'stateProvider.getData', ['canUndo']),
-                'nothing to undo: the restore is the first thing this Group ever saw').toBe(false);
-            expect(await second.app.callMethod(second.workspaceId, 'stateProvider.getData', ['canRedo'])).toBe(false);
+            expect(coldState.historyCount, 'the cold hydrate preserved the cursor instead of appending').toBe(0);
+            expect(coldState.historyCursor).toBe(-1);
             expect((await second.app.callMethod(secondManagerId, 'get', [secondGroupId]))?.history?.count ?? 0,
-                'the cold hydrate preserved the cursor instead of appending a transaction').toBe(0)
+                'and the Group itself agrees, read straight off the manager').toBe(0)
         } finally {
             await Promise.allSettled(contexts.map(current => current.close()))
         }
@@ -620,20 +616,12 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         await vessel.waitForLoadState('domcontentloaded');
         await vessel.waitForFunction(() => Boolean(window.Neo?.worker?.Manager?.windowId), null, {timeout: 45000});
 
-        // The pop-out ITSELF appends — birth and placement baseline are transactions too. Measured:
-        // with the move below suppressed, the count still climbs. So the baseline is taken AFTER the
-        // vessel settles, and the move is asserted as the increment ON it. Counting from before the
-        // pop-out would let this arm pass while witnessing no move at all.
-        const settled = await new Promise(resolve => {
-            let   last = -1;
-            const tick = async () => {
-                const {historyCount} = await state();
-                if (historyCount === last) return resolve(historyCount);
-                last = historyCount;
-                setTimeout(tick, 400)
-            };
-            tick()
-        });
+        // The pop-out ITSELF appends — birth and placement baseline are transactions too, so a
+        // count-based assertion passes without the move ever happening (measured: an earlier version
+        // of this arm did exactly that). Name the row instead of counting to it: the move is the only
+        // producer of `native-popup-move`, so its presence is the witness and a settle race cannot
+        // manufacture it.
+        const rows = async () => (await app.callMethod(wsId, 'transactionManager.get', [(await state()).groupId]))?.history?.rows ?? [];
 
         const cdp    = await context.newCDPSession(vessel),
               handle = await cdp.send('Browser.getWindowForTarget'),
@@ -643,11 +631,14 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             windowId: handle.windowId, bounds: {left: origin.left + 120, top: origin.top + 90, windowState: 'normal'}
         });
 
-        // The move lands as its OWN row behind the dock action, so the two are ordered rather than
-        // merely both present — which is the whole of this criterion.
-        await expect.poll(async () => (await state()).historyCount, {
-            message: 'the popup MOVE appended a row of its own, beyond the pop-out\'s', timeout: 30000
-        }).toBe(settled + 1);
+        await expect.poll(async () => (await rows()).some(row => row.cause === 'native-popup-move'), {
+            message: 'the popup MOVE appended a row of its own', timeout: 30000
+        }).toBe(true);
+
+        // Ordered: the dock action is older than the move, so it sits earlier in the same history.
+        const causes = (await rows()).map(row => row.cause);
+        expect(causes.indexOf('dock'), 'the human dock action is recorded').toBeGreaterThanOrEqual(0);
+        expect(causes.indexOf('dock')).toBeLessThan(causes.lastIndexOf('native-popup-move'));
 
         const ordered = await state();
         expect(ordered.historyCursor, 'the cursor sits on the newest row').toBe(ordered.historyCount - 1);

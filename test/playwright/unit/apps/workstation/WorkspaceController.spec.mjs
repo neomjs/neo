@@ -136,14 +136,27 @@ test.describe('Workstation topology save and close coordination', () => {
         expect(actions.undo.showOnFocus).toBe(false);
         expect(actions.redo.showOnFocus).toBe(false);
 
-        // Enablement is a binding onto the Group provider's own leaves. Nothing local is scanned, so
-        // an absent Group reads disabled rather than inventing an answer.
-        expect(actions.undo.bind.disabled({dockHistory: {canUndo: true}})).toBe(false);
-        expect(actions.undo.bind.disabled({dockHistory: {canUndo: false}})).toBe(true);
-        expect(actions.undo.bind.disabled({})).toBe(true);
-        expect(actions.redo.bind.disabled({dockHistory: {canRedo: true}})).toBe(false);
-        expect(actions.redo.bind.disabled({dockHistory: {canRedo: false}})).toBe(true);
-        expect(actions.redo.bind.disabled({})).toBe(true);
+        // Enablement reads the Group's own leaf where it lives. `getData` resolves to that leaf's
+        // `core.Config`, so a binding effect running this formatter registers it and re-runs when it
+        // changes — no copy is held here, so there is no second publication path that could go stale
+        // when `setHistoryDepth` publishes without a commit.
+        const group = Transaction.bind({windowId: 'topology-bar-window', workspaceKey: 'main'});
+
+        component.topologyGroupId = group.groupId;
+
+        expect(actions.undo.bind.disabled(), 'an empty history disables Undo').toBe(true);
+        expect(actions.redo.bind.disabled()).toBe(true);
+
+        Transaction.getProvider(group.groupId).setData({canRedo: true, canUndo: true});
+
+        expect(actions.undo.bind.disabled(), 'the Group\'s own leaf enables it').toBe(false);
+        expect(actions.redo.bind.disabled()).toBe(false);
+
+        // Fails closed on the SAME expression rather than through a separate teardown path.
+        Transaction.retireGroup(group.groupId);
+        expect(actions.undo.bind.disabled(), 'a retired Group reads disabled').toBe(true);
+
+        component.topologyGroupId = 'topology-bar-group';
 
         const originals = {redo: Transaction.redo, undo: Transaction.undo};
 
