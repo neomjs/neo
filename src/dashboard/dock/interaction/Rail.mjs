@@ -35,7 +35,7 @@ import NeoArray           from '../../../util/Array.mjs';
  * reachable through reveal — anything else is item loss. The policy projection (`restorable`)
  * therefore gates the overlay's pin control, never the tab.
  *
- * The reveal/dismiss timing brain lives in {@link RevealStateMachine} (documented state table);
+ * The reveal/dismiss policy lives in {@link Neo.dashboard.dock.interaction.RevealStateMachine};
  * this component owns composition, overlay binding and the executor commit path.
  *
  * @class Neo.dashboard.dock.interaction.Rail
@@ -181,8 +181,8 @@ class Rail extends Container {
      */
     revealPaneReleases = {}
     /**
-     * The reveal/dismiss timing brain. Runtime-only; created per instance, torn down in `destroy()`.
-     * @member {RevealStateMachine|null} revealMachine=null
+     * The owned reveal policy. Runtime-only; created per Rail, torn down in `destroy()`.
+     * @member {Neo.dashboard.dock.interaction.RevealStateMachine|null} revealMachine=null
      * @protected
      */
     revealMachine = null
@@ -231,7 +231,19 @@ class Rail extends Container {
 
         let me = this;
 
-        me.revealMachine = new RevealStateMachine({
+        me.revealMachine = me.createRevealMachine()
+    }
+
+    /**
+     * @summary Creates the Rail-owned reveal policy with its current timing and hover preferences.
+     * Override this factory to supply a specialized owner; Rail retains destruction responsibility.
+     * @returns {Neo.dashboard.dock.interaction.RevealStateMachine}
+     * @protected
+     */
+    createRevealMachine() {
+        const me = this;
+
+        return Neo.create(RevealStateMachine, {
             dwellMs      : Number.isFinite(me.revealDwellMs)        ? me.revealDwellMs        : undefined,
             graceMs      : Number.isFinite(me.revealDismissGraceMs) ? me.revealDismissGraceMs : undefined,
             onChange     : me.onRevealStateChange.bind(me),
