@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 /**
  * @summary The G1 dock tear-out e2e witness leg. Neural Link invokes the app's semantic
@@ -179,9 +180,9 @@ test.describe('Dashboard Demo B — real dock tear-out gesture', () => {
         let vesselWindowId;
 
         await expect.poll(async () => {
-            const state = await ctx.app.getComponent(ctx.wsId, ['tearOutConnects']);
+            const native = await readNativeLifecycle(ctx.app, ctx.wsId);
 
-            vesselWindowId = state.tearOutConnects.workbench?.windowId || null;
+            vesselWindowId = native.connections.workbench?.windowId || null;
             return vesselWindowId
         }, {
             message: 'the admitted vessel must connect before the cancel terminal',
@@ -206,14 +207,15 @@ test.describe('Dashboard Demo B — real dock tear-out gesture', () => {
 
         await expect.poll(async () => {
             const state = await ctx.app.getComponent(ctx.wsId, [
-                      'tearOutConnects', 'tearOutHandlers.placements', 'tearOutPanes'
+                      'tearOutHandlers.placements'
                   ]),
+                  native = await readNativeLifecycle(ctx.app, ctx.wsId),
                   pane  = await getCounter(ctx.app);
 
             return {
-                connects: Object.keys(state.tearOutConnects).length,
+                connects: Object.keys(native.connections).length,
                 paneId  : pane.id,
-                panes   : Object.keys(state.tearOutPanes).length,
+                panes   : Object.keys(native.owners).length,
                 places  : Object.keys(state['tearOutHandlers.placements']).length
             }
         }, {
@@ -221,12 +223,15 @@ test.describe('Dashboard Demo B — real dock tear-out gesture', () => {
             timeout: 5000
         }).toEqual({connects: 0, paneId: paneBefore.id, panes: 0, places: 0});
 
-        const lifecycleState = () => ctx.app.getComponent(ctx.wsId, [
-                  'dockModel', 'tearOutConnects', 'tearOutHandlers.placements', 'tearOutPanes'
-              ]),
+        const lifecycleState = async () => ({
+                  ...await ctx.app.getComponent(ctx.wsId, ['dockModel', 'tearOutHandlers.placements']),
+                  native: await readNativeLifecycle(ctx.app, ctx.wsId)
+              }),
               settled        = await lifecycleState();
 
-        await ctx.app.callMethod(ctx.wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+        await ctx.app.callMethod(ctx.wsId, 'nativeWindows.onRelease', [{
+            groupId: settled.native.groupId, windowId: vesselWindowId, workspaceKey: 'popup:workbench'
+        }]);
 
         expect(await lifecycleState(), 'repeating the closed vessel terminal is a no-op').toEqual(settled);
         expect((await getCounter(ctx.app)).id).toBe(paneBefore.id);

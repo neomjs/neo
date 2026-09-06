@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 const pickRect = rect => rect && ({
     height: rect.height,
@@ -189,10 +190,11 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
         let ids;
 
         await expect.poll(async () => {
-            const state = await app.getComponent(wsId, ['crossWindowTargetWindowId', 'tearOutConnects']);
+            const state  = await app.getComponent(wsId, ['crossWindowTargetWindowId']),
+                  native = await readNativeLifecycle(app, wsId);
 
             ids = {
-                source: state.tearOutConnects?.workbench?.windowId || null,
+                source: native.connections.workbench?.windowId || null,
                 target: state.crossWindowTargetWindowId
             };
 

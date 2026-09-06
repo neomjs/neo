@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 /**
  * @summary The native-titlebar drag of one torn-out popup ONTO ANOTHER torn-out popup.
@@ -212,9 +213,9 @@ async function popOut({app, page, workspaceId, itemId}) {
     let windowId;
 
     await expect.poll(async () => {
-        const state = await app.getComponent(workspaceId, ['tearOutPanes']);
+        const lifecycle = await readNativeLifecycle(app, workspaceId);
 
-        windowId = state.tearOutPanes?.[itemId]?.windowId ?? null;
+        windowId = lifecycle.owners[itemId]?.windowId ?? null;
 
         return windowId
     }, {
@@ -348,7 +349,7 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             // is what the native path listens to. Main must not have claimed the target's own anchor.
             await target.popup.waitForTimeout(800);
 
-            expect((await app.getComponent(workspaceId, ['tearOutPanes'])).tearOutPanes?.[TARGET_ITEM]?.windowId,
+            expect((await readNativeLifecycle(app, workspaceId)).owners[TARGET_ITEM]?.windowId,
                 'placing the target vessel did not hand it to the main window').toBe(target.windowId);
 
             const
@@ -430,16 +431,19 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
 
             try {
                 await expect.poll(async () => {
-                    const state = await app.getComponent(workspaceId, ['dockModel', 'lastCrossWindowTransfer', 'lastVesselParkReceipt', 'tearOutPanes']);
+                    const [state, nativeLifecycle] = await Promise.all([
+                        app.getComponent(workspaceId, ['dockModel', 'lastCrossWindowTransfer', 'lastVesselParkReceipt']),
+                        readNativeLifecycle(app, workspaceId)
+                    ]);
 
-                    receipt = state;
+                    receipt = {...state, nativeLifecycle};
 
                     return {
                         applied     : state.lastCrossWindowTransfer?.applied === true,
                         operation   : state.lastCrossWindowTransfer?.descriptor?.operation ?? null,
                         parked      : state.lastVesselParkReceipt?.parked === true,
                         sourceClosed: source.popup.isClosed(),
-                        sourcePane  : state.tearOutPanes?.[SOURCE_ITEM] ?? null,
+                        sourcePane  : nativeLifecycle.owners[SOURCE_ITEM] ?? null,
                         target      : state.lastCrossWindowTransfer?.targetWorkspaceId ?? null
                     }
                 }, {
@@ -463,7 +467,8 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                     candidates    : await app.getComponent(coordId, ['nativeWindowDropCandidates']).catch(e => String(e)),
                     participations: await participations(app).catch(e => String(e)),
                     popups        : {sourceClosed: source.popup.isClosed(), targetClosed: target.popup.isClosed()},
-                    vessels       : await app.getComponent(workspaceId, ['tearOutPanes', 'lastTearOutClose', 'lastVesselRestoreReceipt', 'vesselConversionTargetWindowId']).catch(e => String(e)),
+                    vessels       : await app.getComponent(workspaceId, ['lastTearOutClose', 'lastVesselRestoreReceipt', 'vesselConversionTargetWindowId']).catch(e => String(e)),
+                    lifecycle     : await readNativeLifecycle(app, workspaceId).catch(e => String(e)),
                     park          : receipt?.lastVesselParkReceipt ?? null,
                     snapshot      : await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{parkedItemId: SOURCE_ITEM, targetWorkspaceId: TARGET_WORKSPACE_ID}]).catch(e => String(e)),
                     transfer      : receipt?.lastCrossWindowTransfer ?? null,

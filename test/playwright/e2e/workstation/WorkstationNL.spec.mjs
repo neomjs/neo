@@ -2,6 +2,7 @@ import {test, expect}                                from '../../fixtures.mjs';
 import {workstationTourScript}                       from '../../../../apps/workstation/tour/denseWorkstation.mjs';
 import {placeNativeWindow, resolveFilmDisplayBounds} from '../utils/filmStage.mjs';
 import {isEngineProfile, isFilmTake}                 from '../utils/gpuIntent.mjs';
+import {readNativeLifecycle}                         from '../utils/dockNativeLifecycle.mjs';
 
 /**
  * @summary Mounted L3 proof for Workstation's dense, living-data workstation.
@@ -2509,7 +2510,7 @@ test.describe('Workstation — dense living-data composition', () => {
                 const state = await app.getComponent(workspaceId, [
                     'lastVesselOpen', 'tearOutHandlers.placements', 'tearOutVesselDims'
                 ]);
-                const owner = await app.callMethod(workspaceId, 'nativeWindows.getOwner', [workspaceId, 'commits']);
+                const owner = (await readNativeLifecycle(app, workspaceId)).owners.commits;
 
                 return {
                     dims     : state.tearOutVesselDims,

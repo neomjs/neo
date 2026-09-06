@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 /**
  * @summary Waits for one admitted child realm's ordinary geometry publisher, then publishes its
@@ -668,8 +669,9 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   }
               })[0],
               after = await app.getComponent(wsId, [
-                  'crossWindowStats', 'dockModel', 'popupDocument', 'tearOutAcquisitionAttempts', 'tearOutPanes'
+                  'crossWindowStats', 'dockModel', 'popupDocument', 'tearOutAcquisitionAttempts'
               ]),
+              native = await readNativeLifecycle(app, wsId),
               finalCounters = await app.findInstances(
                   {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                   ['id', 'mountCount', 'windowId']
@@ -690,7 +692,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.dockModel.items.workbench).toEqual(before.dockModel.items.workbench);
         expect(Object.values(after.dockModel.nodes).some(node => node.items?.includes('workbench'))).toBe(false);
-        expect(after.tearOutPanes.workbench.windowId).toBe(result.proof.firstIdentity.windowId);
+        expect(native.owners.workbench.windowId).toBe(result.proof.firstIdentity.windowId);
         expect(after.crossWindowStats).toEqual(result.proof.stats);
         expect(finalCounter.id).toBe(baseline.id);
         expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 1);

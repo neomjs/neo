@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 const MATRIX_CELLS = [
         {
@@ -504,9 +505,9 @@ async function awaitVesselWindowId(app, wsId, itemId, committed) {
     let windowId;
 
     await expect.poll(async () => {
-        const state = await app.getComponent(wsId, ['tearOutConnects', 'tearOutPanes']);
+        const lifecycle = await readNativeLifecycle(app, wsId);
 
-        windowId = (committed ? state.tearOutPanes : state.tearOutConnects)?.[itemId]?.windowId ?? null;
+        windowId = (committed ? lifecycle.owners : lifecycle.connections)[itemId]?.windowId ?? null;
 
         return windowId
     }, {
@@ -532,12 +533,12 @@ async function awaitVesselRetirement(app, managerId, wsId, itemId, windowId) {
 
     await expect.poll(async () => {
         const
-            state   = await app.getComponent(wsId, ['tearOutConnects', 'tearOutPanes']),
-            manager = await app.callMethod(managerId, 'toJSON');
+            lifecycle = await readNativeLifecycle(app, wsId),
+            manager   = await app.callMethod(managerId, 'toJSON');
 
         return receipt = {
-            connected : Boolean(state.tearOutConnects?.[itemId]),
-            committed : Boolean(state.tearOutPanes?.[itemId]),
+            connected : Boolean(lifecycle.connections[itemId]),
+            committed : Boolean(lifecycle.owners[itemId]),
             registered: manager.windows.some(win => win.id === windowId)
         }
     }, {

@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 /**
  * @summary The native-titlebar popup drag: previews and reintegration with no pointer event at all.
@@ -172,9 +173,12 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
             let popupWindowId;
 
             await expect.poll(async () => {
-                const state = await app.getComponent(workspaceId, ['lastVesselOpen', 'tearOutPanes']);
+                const [state, lifecycle] = await Promise.all([
+                    app.getComponent(workspaceId, ['lastVesselOpen']),
+                    readNativeLifecycle(app, workspaceId)
+                ]);
 
-                popupWindowId = state.tearOutPanes?.commits?.windowId ?? null;
+                popupWindowId = lifecycle.owners.commits?.windowId ?? null;
 
                 return {stage: state.lastVesselOpen?.stage, windowId: popupWindowId}
             }, {
@@ -310,12 +314,15 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
             // The spec never closes the popup; the coordinator's commit retires the vessel.
             try {
                 await expect.poll(async () => {
-                    const state = await app.getComponent(workspaceId, ['dockModel', 'tearOutPanes']);
+                    const [state, lifecycle] = await Promise.all([
+                        app.getComponent(workspaceId, ['dockModel']),
+                        readNativeLifecycle(app, workspaceId)
+                    ]);
 
                     return {
                         inTree: Object.values(state.dockModel.nodes)
                             .some(node => node.type === 'tabs' && node.items?.includes('commits')),
-                        pane  : state.tearOutPanes?.commits ?? null
+                        pane  : lifecycle.owners.commits ?? null
                     }
                 }, {
                     message  : 'dwelling over the main window reintegrates Commit Stream without a close',
@@ -331,9 +338,10 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                     popupClosed      : popup.isClosed(),
                     popupScreen      : popup.isClosed() ? null : await readScreen(popup).catch(e => String(e)),
                     previews         : await page.locator('.neo-dock-preview-affordance').count(),
+                    nativeLifecycle  : await readNativeLifecycle(app, workspaceId).catch(e => String(e)),
                     workspace        : await app.getComponent(workspaceId, [
                         'lastTearOutClose', 'lastVesselParkReceipt', 'lastVesselRestoreReceipt',
-                        'tearOutPanes', 'tearOutParkGeometries', 'tearOutRetirements'
+                        'tearOutParkGeometries'
                     ]).catch(e => String(e))
                 };
 

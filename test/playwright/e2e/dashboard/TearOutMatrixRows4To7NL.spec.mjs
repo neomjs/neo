@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}        from '../../fixtures.mjs';
+import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 /**
  * @summary Headed macOS receipts for the dock-tier half of the tear-out portability matrix.
@@ -32,17 +33,16 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
     }
 
     /**
+     * @summary Observes document truth and the Group's provisional and committed native records.
      * @param {Object} app Neural Link app wrapper.
      * @param {String} wsId Demo B workspace component id.
      * @returns {Promise<Object>}
      */
-    function getLifecycleState(app, wsId) {
-        return app.getComponent(wsId, [
-            'dockModel',
-            'tearOutConnects',
-            'tearOutPanes',
-            'tearOutHandlers.placements'
-        ])
+    async function getLifecycleState(app, wsId) {
+        return {
+            ...await app.getComponent(wsId, ['dockModel', 'tearOutHandlers.placements']),
+            native: await readNativeLifecycle(app, wsId)
+        }
     }
 
     /**
@@ -57,26 +57,28 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
     async function releaseVesselWindow(app, wsId, windowId, itemId='workbench') {
         const {topologyGroupId} = await app.getComponent(wsId, ['topologyGroupId']);
 
-        await app.callMethod(wsId, 'onTopologyRelease', [{generation: 1, groupId: topologyGroupId, windowId, workspaceKey: `popup:${itemId}`}])
+        await app.callMethod(wsId, 'nativeWindows.onRelease', [{generation: 1, groupId: topologyGroupId, windowId, workspaceKey: `popup:${itemId}`}])
     }
 
     /**
+     * @summary Separates a live Group binding from pending admission and retained native cleanup.
      * @param {Object} app Neural Link app wrapper.
      * @param {String} wsId Demo B workspace component id.
      * @returns {Promise<Object>}
      */
-    function getTerminalLifecycleState(app, wsId) {
-        return app.getComponent(wsId, [
+    async function getTerminalLifecycleState(app, wsId) {
+        const state = await app.getComponent(wsId, [
             'dockModel',
             'perspectiveStore.collection',
             'tearOutAcquisitionAttempts',
-            'tearOutConnects',
             'tearOutHandlers.activeVessel',
-            'tearOutPanes',
-            'tearOutHandlers.placements',
-            'tearOutRetirements.size',
-            'vesselReservations.size'
-        ])
+            'tearOutHandlers.placements'
+        ]),
+              native = await readNativeLifecycle(app, wsId),
+              binding = await app.callMethod(wsId, 'nativeWindows.manager.getBinding', [native.groupId, 'popup:workbench']),
+              admission = await app.callMethod(wsId, 'nativeWindows.getAdmission', [native.sourceId, 'workbench']);
+
+        return {...state, native, admission, boundWindowId: binding?.windowId ?? null}
     }
 
     /**
@@ -168,10 +170,9 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
     function expectNoTearOutResidue(snapshot) {
         expect(snapshot.lifecycle).toMatchObject({
             'tearOutHandlers.activeVessel': null,
-            'tearOutRetirements.size'     : 0,
-            'vesselReservations.size'     : 0,
-            tearOutConnects               : {},
-            tearOutPanes                  : {},
+            admission                     : null,
+            boundWindowId                 : null,
+            native                        : {connections: {}, owners: {}, retirements: []},
             'tearOutHandlers.placements'  : {}
         });
         expect(snapshot.homeCount).toBe(1);
@@ -313,7 +314,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         await expect.poll(async () => {
             const state = await getLifecycleState(app, wsId),
                   pane  = await getCounter(app),
-                  entry = state.tearOutPanes.workbench;
+                  entry = state.native.owners.workbench;
 
             return {
                 paneId        : pane?.id,
@@ -335,7 +336,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         const
             detached       = await getLifecycleState(app, wsId),
             paneDetached   = await getCounter(app),
-            vesselWindowId = detached.tearOutPanes.workbench.windowId;
+            vesselWindowId = detached.native.owners.workbench.windowId;
 
         expect(result.proof.documentBefore).toEqual(before.dockModel);
         expect(result.proof.documentAfter).toEqual(detached.dockModel);
@@ -359,9 +360,9 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
                   homes = Object.values(state.dockModel.nodes).filter(node => node.items?.includes('workbench'));
 
             return {
-                connects: Object.keys(state.tearOutConnects).length,
+                connects: Object.keys(state.native.connections).length,
                 homes   : homes.length,
-                panes   : Object.keys(state.tearOutPanes).length,
+                panes   : Object.keys(state.native.owners).length,
                 paneId  : pane?.id,
                 places  : Object.keys(state['tearOutHandlers.placements']).length,
                 rendered: await page.locator('.agentos-dockdemo-counter-pane').count()
@@ -460,20 +461,20 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
 
         const
             committed      = await getTerminalSnapshot(page, app, wsId),
-            detachedEntry  = committed.lifecycle.tearOutPanes.workbench,
+            detachedEntry  = committed.lifecycle.native.owners.workbench,
             vesselWindowId = detachedEntry.windowId;
 
         expect(result.proof.documentBefore).toEqual(before.lifecycle.dockModel);
         expect(committed.lifecycle.dockModel).toEqual(result.proof.documentAfter);
         expect(committed.lifecycle).toMatchObject({
-            // the bound vessel's slot lives as long as the vessel: one reservation, no other residue
+            // The Group retains the committed vessel's binding after its provisional admission ends.
             'tearOutHandlers.activeVessel': null,
-            'tearOutRetirements.size'     : 0,
-            'vesselReservations.size'     : 1,
+            admission                     : null,
+            boundWindowId                 : vesselWindowId,
             tearOutAcquisitionAttempts    : 1,
-            tearOutConnects               : {}
+            native                        : {connections: {}, retirements: []}
         });
-        expect(Object.keys(committed.lifecycle.tearOutPanes)).toEqual(['workbench']);
+        expect(Object.keys(committed.lifecycle.native.owners)).toEqual(['workbench']);
         expect(Object.keys(committed.lifecycle['tearOutHandlers.placements'])).toEqual(['workbench']);
         expect(committed.homeCount).toBe(0);
         expect(committed.mainRenderCount).toBe(0);
@@ -499,9 +500,9 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             const snapshot = await getTerminalSnapshot(page, app, wsId);
 
             return {
-                connects: Object.keys(snapshot.lifecycle.tearOutConnects).length,
+                connects: Object.keys(snapshot.lifecycle.native.connections).length,
                 homes   : snapshot.homeCount,
-                panes   : Object.keys(snapshot.lifecycle.tearOutPanes).length,
+                panes   : Object.keys(snapshot.lifecycle.native.owners).length,
                 places  : Object.keys(snapshot.lifecycle['tearOutHandlers.placements']).length,
                 popups  : snapshot.popupUrls.length,
                 rendered: snapshot.mainRenderCount
@@ -567,7 +568,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
 
             return {
                 active : snapshot.lifecycle['tearOutHandlers.activeVessel'],
-                panes  : Object.keys(snapshot.lifecycle.tearOutPanes).length,
+                panes  : Object.keys(snapshot.lifecycle.native.owners).length,
                 popups : snapshot.popupUrls.length,
                 windows: snapshot.homeCount
             }
