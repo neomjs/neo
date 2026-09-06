@@ -1,6 +1,7 @@
-import Manager       from './Base.mjs';
-import StateProvider from '../state/Provider.mjs';
-import Commit        from './transaction/Commit.mjs';
+import Manager         from './Base.mjs';
+import StateProvider   from '../state/Provider.mjs';
+import Commit          from './transaction/Commit.mjs';
+import NativeLifecycle from './transaction/NativeLifecycle.mjs';
 
 /**
  * @summary The worker-side authority for logical topology Groups, their window bindings and their history.
@@ -324,6 +325,17 @@ class Transaction extends Manager {
         this.register(group);
 
         return group
+    }
+
+    /**
+     * @summary Returns the one native lifecycle owner for a Group, instantiated only on demand.
+     * @param {String} groupId
+     * @returns {Neo.manager.transaction.NativeLifecycle}
+     */
+    getNativeLifecycle(groupId) {
+        const group = this.get(groupId);
+        if (!group) throw new Error('unknown-group');
+        return group.nativeLifecycle ??= Neo.create(NativeLifecycle, {groupId, manager: this})
     }
 
     /**
@@ -889,6 +901,7 @@ class Transaction extends Manager {
         if (!group) return false;
 
         group.bindings.forEach(binding => me.clearLease(binding));
+        group.nativeLifecycle?.destroy();
         group.participants.clear();
         group.provider?.destroy();
         group.history?.destroy();
@@ -942,7 +955,8 @@ class Transaction extends Manager {
                 // Only empty, unreferenced Groups may expire automatically. Owners decide when a
                 // Group retaining participants, history or external references can be retired.
                 if (group.bindings.size === 0 && group.participants.size === 0 &&
-                    group.retainedReferences.size === 0 && !group.history?.count && me.get(group.id) === group
+                    group.retainedReferences.size === 0 && !group.history?.count &&
+                    !group.nativeLifecycle?.hasResources && me.get(group.id) === group
                 ) {
                     me.retireGroup(group.id);
                 }

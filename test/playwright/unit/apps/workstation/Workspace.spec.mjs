@@ -152,7 +152,7 @@ const bindHost = async workspace => {
 const releaseVessel = async (workspace, windowId, itemId='alerts') => {
     const groupId = workspace.topologyGroupId ?? await bindHost(workspace);
 
-    await workspace.onTopologyRelease({generation: 1, groupId, windowId, workspaceKey: workspace.tearOutWorkspaceKey(itemId)})
+    await workspace.nativeWindows.onRelease({generation: 1, groupId, windowId, workspaceKey: workspace.tearOutWorkspaceKey(itemId)})
 };
 
 /**
@@ -542,7 +542,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         let participation;
 
         try {
-            workspace.tearOutConnects.audit = {windowId: 'parked-audit-popup'};
+            workspace.nativeWindows.sources.get(workspace.id).connections.set("audit", {windowId: 'parked-audit-popup'});
             workspace.vesselWorkspaces.set('proxy-target-workspace', {
                 preview: {
                     dockPreview: {itemId: 'audit'},
@@ -635,11 +635,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 }]
             ]);
 
-        workspace.tearOutConnects.audit = {
+        workspace.nativeWindows.sources.get(workspace.id).connections.set("audit", {
             nativeRoute: sourceRoute,
             windowId   : 'source-window',
             windowName : 'tearout-audit'
-        };
+        });
         workspace.vesselConversionTargetWindowId = 'target-window';
         Neo.manager.Window.get = id => records.get(id) ?? null;
         Neo.Main.windowNativeFocus = async data => {
@@ -754,11 +754,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 restore: {height: 546, width: 640, x: 40, y: 60}
             };
 
-        workspace.tearOutConnects.audit = {
+        workspace.nativeWindows.sources.get(workspace.id).connections.set("audit", {
             nativeRoute: sourceRoute,
             windowId   : 'source-window',
             windowName : 'tearout-audit'
-        };
+        });
         workspace.tearOutParkGeometries.audit = geometry;
         Neo.main.addon.DragDrop = {
             acknowledgeWindowDragOrphanRecovery: async () => true,
@@ -894,11 +894,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
             focusOutcomes = [],
             resumeCalls   = [];
 
-        workspace.tearOutConnects.audit = {
+        workspace.nativeWindows.sources.get(workspace.id).connections.set("audit", {
             nativeRoute: sourceRoute,
             windowId   : 'source-window',
             windowName : 'tearout-audit'
-        };
+        });
         workspace.vesselConversionTargetWindowId = 'target-window';
         Neo.manager.Window.get = id => records.get(id) ?? null;
         Neo.Main.windowNativeFocus = async () => focusOutcomes.shift();
@@ -1266,10 +1266,10 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             expect(detached.errors).toEqual([]);
             workspace.dockModel = detached.document;
-            workspace.tearOutPanes[itemId] = {
+            workspace.nativeWindows.recordOwner(workspace.id, itemId, {
                 windowId  : 'window-alerts',
                 windowName: 'tearout-alerts'
-            };
+            });
             workspace.vesselWorkspaces.set(workspaceId, state);
 
             // the root's Group is the commit authority the payload departs from (docking design record §2.3)
@@ -1324,7 +1324,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             targetRect          = {height: 700, width: 1000, x: 30, y: 50};
 
         try {
-            workspace.tearOutPanes.alerts = {windowId: sourceWindowId, windowName: 'tearout-alerts'};
+            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
             workspace.vesselConversionTargetWindowId = ownerWindowId;
 
             Neo.manager.Window.get = windowId => ({
@@ -1385,10 +1385,10 @@ test.describe.serial('Workstation.view.Workspace', () => {
             });
 
         try {
-            workspace.tearOutPanes.alerts = {
+            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {
                 windowId  : sourceWindowId,
                 windowName: 'tearout-alerts'
-            };
+            });
             workspace.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
@@ -1501,7 +1501,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             });
 
         try {
-            workspace.tearOutPanes.alerts = {windowId: sourceWindowId, windowName: 'tearout-alerts'};
+            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
             workspace.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
@@ -1579,7 +1579,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             });
 
         try {
-            workspace.tearOutPanes.alerts = {windowId: sourceWindowId, windowName: 'tearout-alerts'};
+            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
             workspace.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
@@ -1686,7 +1686,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             await workspace.workspaceSet.commit(workspaceId, [{operation: 'setItemLocked', itemId: 'alerts', locked: true}]);
             const history = TransactionManager.get(groupId).history, row = history.current, owner = state.host;
             await releaseVessel(workspace, 'window-alerts');
-            workspace.onTopologyLeaseExpired({groupId, workspaceKey: workspaceId});
+            await workspace.nativeWindows.onLeaseExpired({groupId, workspaceKey: workspaceId});
             expect(workspace.workspaceSet.has(workspaceId)).toBe(true);
             expect(state.host).toBe(owner);
             expect(Neo.getComponent(owner.id)).toBe(owner);
@@ -1736,11 +1736,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
             state.participation = {destroy: () => participantRetirements.push('destroy')};
             workspace.crossWindowParticipations.set(workspaceId, state.participation);
             workspace.tearOutHandlers.recordPlacement('alerts', {index: 0, tabsNodeId: 'heavy-tabs'});
-            workspace.tearOutPanes.alerts = {
+            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {
                 generationToken: 'lineage-3',
                 windowId       : 'window-alerts',
                 windowName     : 'tearout-alerts'
-            };
+            });
             workspace.lastCrossWindowTransfer = {
                 applied          : true,
                 closeRequested   : false,
@@ -1748,7 +1748,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                 topologyExited   : false
             };
-            workspace.closeTearOutVessel = async vessel => {
+            workspace.nativeWindows.sources.get(workspace.id).effects.close = async vessel => {
                 closedVessel = vessel;
                 return true
             };
@@ -1789,7 +1789,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true);
             expect(participantRetirements).toEqual(['destroy'])
         } finally {
-            workspace.closeTearOutVessel = originalClose;
+            workspace.nativeWindows.sources.get(workspace.id).effects.close = originalClose.bind(workspace);
             workspace.tearOutHandlers    = originalTearOut;
             workspace.vesselParkHandlers = originalPark;
             state.host.destroy();
@@ -1863,7 +1863,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             await workspace.crossWindowParticipationPromise;
-            workspace.tearOutPanes.alerts = {windowId: 'window-alerts'};
+            workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: 'window-alerts'});
             workspace.vesselWorkspaces.set(workspaceId, {
                 itemId  : 'alerts',
                 windowId: 'window-alerts'
@@ -1902,23 +1902,22 @@ test.describe.serial('Workstation.view.Workspace', () => {
         const
             workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             originalTearOut = workspace.tearOutHandlers,
+            originalRetired = workspace.tearOutHandlers.onVesselRetired,
             originalPark    = workspace.vesselParkHandlers,
             originalProxy   = workspace.vesselProxyEmbodiment,
             calls           = [];
 
         try {
-            workspace.tearOutConnects.alerts = {
+            workspace.nativeWindows.sources.get(workspace.id).connections.set("alerts", {
                 generationToken: 'lineage-3',
                 windowId       : 'tear-child',
                 windowName     : 'tearout-alerts'
-            };
+            });
             workspace.tearOutParkGeometries.alerts = {
                 park   : {height: 260, width: 360, x: 800, y: 120},
                 restore: {height: 546, width: 640, x: 40, y: 60}
             };
-            workspace.tearOutHandlers = {
-                onVesselRetired: data => calls.push(['tear-out', data])
-            };
+            originalTearOut.onVesselRetired = data => calls.push(['tear-out', data]);
             workspace.vesselParkHandlers = {
                 onVesselRetired: data => calls.push(['park', data])
             };
@@ -1931,7 +1930,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             await releaseVessel(workspace, 'tear-child');
 
-            expect(workspace.tearOutConnects.alerts).toBeUndefined();
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'alerts')).toBeNull();
             expect(workspace.tearOutParkGeometries.alerts).toBeUndefined();
             expect(calls).toEqual([
                 ['proxy', 'tear-child'],
@@ -1944,6 +1943,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 ['park', {itemId: 'alerts', retirement: true}]
             ])
         } finally {
+            originalTearOut.onVesselRetired = originalRetired;
             workspace.tearOutHandlers         = originalTearOut;
             workspace.vesselParkHandlers      = originalPark;
             workspace.vesselProxyEmbodiment = originalProxy;
@@ -2090,12 +2090,12 @@ test.describe.serial('Workstation.view.Workspace', () => {
         };
 
         try {
-            workspace.tearOutConnects.alerts = {generationToken: 'lineage-2', windowId: 'tear-live', windowName: 'tearout-alerts'};
+            workspace.nativeWindows.sources.get(workspace.id).connections.set("alerts", {generationToken: 'lineage-2', windowId: 'tear-live', windowName: 'tearout-alerts'});
 
             await expect(workspace.closeTearOutVessel({generationToken: 'lineage-1', itemId: 'alerts', windowName: 'tearout-alerts'}))
                 .resolves.toBe(false);
             expect(workspace.lastTearOutClose).toMatchObject({identity: {lineageMatches: false}, stage: 'identity-refused'});
-            expect(workspace.tearOutConnects.alerts, 'the live vessel survives the stale retirement').toMatchObject({windowId: 'tear-live'});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'alerts'), 'the live vessel survives the stale retirement').toMatchObject({windowId: 'tear-live'});
             expect(closes, 'nothing reached the platform').toEqual([]);
 
             await expect(workspace.closeTearOutVessel({generationToken: 'lineage-2', itemId: 'alerts', windowName: 'tearout-alerts'}))

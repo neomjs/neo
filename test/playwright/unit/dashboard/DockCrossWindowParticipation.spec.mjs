@@ -789,11 +789,11 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
      * capability REMOVAL wearing the shape of an addition.
      */
     test.describe('seams the engine answers from workspace state', () => {
-        const createWorkspaceStub = ({dockModel, projectionOptions, resolvePane, tearOutPanes, topologyGroupId='group-1'} = {}) => ({
-            applied     : [],
-            changes     : [],
-            dockModel   : dockModel ?? targetDoc(),
-            tearOutPanes: tearOutPanes ?? {},
+        const createWorkspaceStub = ({dockModel, projectionOptions, resolvePane, nativeWindows, topologyGroupId='group-1'} = {}) => ({
+            applied      : [],
+            changes      : [],
+            dockModel    : dockModel ?? targetDoc(),
+            nativeWindows: nativeWindows ?? null,
             // the workspace's bound Group: the default commit authority its participation declares
             topologyGroupId,
 
@@ -948,15 +948,15 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             WindowManager.unregister(WindowManager.get('cwd-default-win'))
         });
 
-        test('an unset native-window resolver maps a moving popup back through the tear-out registry', () => {
+        test('an unset native-window resolver maps a moving popup through its Group-owned registry', () => {
             const
                 pane          = {id: 'pane-terminal', isDestroyed: false},
                 participation = createParticipation({
                     sortGroup: 'dock-engine',
                     workspace: createWorkspaceStub({
-                        dockModel   : sourceDoc(),
-                        resolvePane : itemId => (itemId === 'terminal' ? pane : null),
-                        tearOutPanes: {terminal: {windowId: 'popup-1'}}
+                        dockModel    : sourceDoc(),
+                        resolvePane  : itemId => (itemId === 'terminal' ? pane : null),
+                        nativeWindows: {ownerEntries: () => [['terminal', {windowId: 'popup-1'}]]}
                     }),
                     workspaceId: 'A'
                 });

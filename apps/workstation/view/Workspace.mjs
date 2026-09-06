@@ -1261,7 +1261,7 @@ class Workspace extends DockWorkspace {
     resolveNativeTearOutDrag(windowId) {
         let me = this;
 
-        for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
+        for (const [itemId, entry] of (me.nativeWindows?.ownerEntries(me.id) || [])) {
             const
                 workspaceId = Workspace.vesselWorkspaceId(itemId),
                 state       = me.vesselWorkspaces.get(workspaceId),
@@ -1450,7 +1450,7 @@ class Workspace extends DockWorkspace {
             localX >= 0 && localY >= 0 && localX <= inner.width && localY <= inner.height &&
             (isMain || (
                 state && !state.committed && !state.closeRequested &&
-                me.tearOutPanes[state.itemId]
+                me.nativeWindows?.getOwner(me.id, state.itemId)
             ))
         )
     }
@@ -1888,7 +1888,7 @@ class Workspace extends DockWorkspace {
 
         // Through the engine's retirement, not the platform seam directly: the fence it holds keeps a
         // late bind for the same item cleanup-only while the close is in flight.
-        const closed = await me.retireTearOutVessel(vessel);
+        const closed = await me.nativeWindows.retire(me.id, vessel);
 
         if (closed) {
             state.closeRequested = true;
@@ -2691,7 +2691,7 @@ class Workspace extends DockWorkspace {
      * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
      * or a refused model commit). Identity is the slot's lineage token — a successor admission for
      * the same item shares the window name, never the token — so a retirement presenting a superseded
-     * token is refused and the live vessel survives it. The engine's `retireTearOutVessel` holds the
+     * token is refused and the live vessel survives it. The Group's native retirement holds the
      * retirement fence and clears the ownership records around this call; the platform close and its
      * receipt are this host's, and an explicit refusal retains exact retry authority.
      * @param {Object} vessel
@@ -2705,7 +2705,7 @@ class Workspace extends DockWorkspace {
     async closeTearOutVessel({generationToken, itemId, nativeRoute, windowName}) {
         let me               = this,
             entry            = me.resolveTearOutVessel(itemId),
-            admission        = me.tearOutAdmissions.get(itemId),
+            admission        = me.nativeWindows?.getAdmission(me.id, itemId),
             expected         = `tearout-${itemId}`,
             exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
             embodiedWindowId = entry?.windowId ?? admission?.windowId ?? me.tearOutEmbodiment.getWindowId(itemId),
@@ -2816,7 +2816,7 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     resolveTearOutVessel(itemId) {
-        let entry = this.tearOutConnects[itemId] ?? this.tearOutPanes[itemId];
+        let entry = this.nativeWindows?.getConnection(this.id, itemId) ?? this.nativeWindows?.getOwner(this.id, itemId);
 
         if (!entry?.windowId) return null;
 
@@ -3277,8 +3277,8 @@ class Workspace extends DockWorkspace {
                 target: {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(itemId)}
             }, {provenance: {origin: 'human'}});
             state.committed = true;
-            me.tearOutHandlers.adoptPane(itemId, vessel, me.tearOutConnects[itemId] || null);
-            const connection = me.tearOutPanes[itemId];
+            me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.id, itemId) || null);
+            const connection = me.nativeWindows?.getOwner(me.id, itemId);
             if (connection?.windowId) await me.registerVesselWorkspaceTarget({
                 app: Neo.apps[connection.windowId], itemId, windowId: connection.windowId
             });
@@ -3318,10 +3318,9 @@ class Workspace extends DockWorkspace {
      * @param {Boolean} [isMerge=false]
      * @protected
      */
-    recordDockPaneOwner(itemId, entry, connection=null, isMerge=false) {
+    afterNativeOwnerChange(itemId, entry, connection=null, isMerge=false) {
         let me = this;
 
-        super.recordDockPaneOwner(itemId, entry, connection, isMerge);
 
         connection && me.registerVesselWorkspaceTarget({
             app     : Neo.apps[connection.windowId],
@@ -3376,14 +3375,14 @@ class Workspace extends DockWorkspace {
     /**
      * Retirement authority is established before any awaited close: a vessel that binds while its
      * retirement is in flight is cleanup-only, and no content is ever staged into a closing realm.
-     * The engine's `retireTearOutVessel` holds the fence; this host only reads it.
+     * The Group's native retirement holds the fence; this host only reads it.
      * @param {Object} context
      * @param {String} context.itemId
      * @returns {Boolean}
      * @protected
      */
     admitTearOutConnection({itemId}) {
-        for (const vessel of this.tearOutRetirements.values()) {
+        for (const vessel of (this.nativeWindows?.pendingRetirements(this.id) || [])) {
             if (vessel.itemId === itemId) return false
         }
 
@@ -3406,7 +3405,7 @@ class Workspace extends DockWorkspace {
     async afterTearOutWindowConnect({app, connection, itemId, windowId}) {
         let me = this;
 
-        if (me.tearOutPanes[itemId]?.windowId === windowId) {
+        if (me.nativeWindows?.getOwner(me.id, itemId)?.windowId === windowId) {
             await me.registerVesselWorkspaceTarget({app, itemId, windowId});
             return
         }
@@ -3418,7 +3417,7 @@ class Workspace extends DockWorkspace {
         // generation must never publish itself. A terminal landing meanwhile promoted the stage.
         if (
             staged && (me.isDestroyed || (
-                me.tearOutConnects[itemId] !== connection && me.tearOutPanes[itemId]?.windowId !== windowId
+                me.nativeWindows?.getConnection(me.id, itemId) !== connection && me.nativeWindows?.getOwner(me.id, itemId)?.windowId !== windowId
             ))
         ) {
             me.tearOutEmbodiment.restore({itemId, windowId})
@@ -3430,7 +3429,7 @@ class Workspace extends DockWorkspace {
      * @param {Object} data Group and retiring window generation.
      * @returns {Promise<void>}
      */
-    async onTopologyRelease(data) {
+    async onNativeWindowRelease(data) {
         const me = this, {windowId} = data;
         if (me.isDestroyed || data.groupId !== me.topologyGroupId) return;
         Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(windowId, {restoreSource: false});
@@ -3445,19 +3444,11 @@ class Workspace extends DockWorkspace {
             if (me.lastCrossWindowTransfer?.sourceWorkspaceId === data.workspaceKey) {
                 me.lastCrossWindowTransfer.topologyExited = true
             }
-            return
+            return false
         }
-        await super.onTopologyRelease(data)
+        await super.onNativeWindowRelease(data)
     }
 
-    /**
-     * @summary A retained full Workspace outlives the reconnect lease of its render target.
-     * @param {Object} data
-     */
-    onTopologyLeaseExpired(data) {
-        if (this.vesselWorkspaces.has(data.workspaceKey)) return;
-        super.onTopologyLeaseExpired(data)
-    }
 
     /**
      * The engine cleared a vessel's ownership records — on its release, its lease running out, or a
@@ -4094,7 +4085,7 @@ class Workspace extends DockWorkspace {
         }
         if (
             !targetState || targetState.committed || targetState.closeRequested ||
-            !me.tearOutPanes[targetItemId]
+            !me.nativeWindows?.getOwner(me.id, targetItemId)
         ) {
             return {applied: false, errors: ['target vessel is not an available first-dock workspace']}
         }
@@ -4146,7 +4137,7 @@ class Workspace extends DockWorkspace {
                     }
                 };
 
-            delete me.tearOutConnects[itemId];
+            me.nativeWindows.clearConnection(me.id, itemId);
             showCursor && (cursorDot = me.createFilmCursorDot(startX, startY, button.windowId));
 
             await me.interactionService.simulateEvent({events: [{
@@ -4569,7 +4560,7 @@ class Workspace extends DockWorkspace {
      * Arms a tab drag, flings the proxy past the window boundary so
      * {@link Neo.dashboard.dock.interaction.TabSortZone} fires `dockTearOutExit`, the host opens a `?popout=`
      * vessel, then — gated on that vessel's ACTUAL birth (its slot binding through
-     * {@link Neo.dashboard.dock.Workspace#onTopologyBind}) — survives
+     * {@link Neo.manager.transaction.NativeLifecycle#onBind}) — survives
      * deliberate post-birth moves and settles one of three terminals: release while detached
      * (`dockTearOutTerminal` → the `detachItem` commit + adoption), Escape-cancel (zero-mutation
      * vessel close), or RE-ENTRY (`reenter` — the drag walks back inside past the reattach
@@ -4661,7 +4652,7 @@ class Workspace extends DockWorkspace {
                 };
 
             // A stale record from a prior gesture would false-open the birth gate.
-            delete me.tearOutConnects[itemId];
+            me.nativeWindows.clearConnection(me.id, itemId);
 
             // Phase 1: own the native sensor + cross the LOCAL drag arming threshold (delay+distance).
             await me.interactionService.simulateEvent({events: [{
@@ -4756,7 +4747,7 @@ class Workspace extends DockWorkspace {
                 await moveTo(outX, outY + i * 12)
             }
 
-            let survivedProbe = Boolean(me.tearOutConnects[itemId]);
+            let survivedProbe = Boolean(me.nativeWindows?.getConnection(me.id, itemId));
 
             if (reenter) {
                 // The morph beat: walk back INSIDE until the PROXY re-enters past the reattach
@@ -4768,7 +4759,7 @@ class Workspace extends DockWorkspace {
                 // button: the tear-out proxy is pane-sized and the grab corner is unknown, so a
                 // button near a window edge can never recover 60% overlap — the interior point
                 // guarantees the ratio for any grab corner.
-                let vesselWindowId    = me.tearOutConnects[itemId]?.windowId ?? null,
+                let vesselWindowId    = me.nativeWindows?.getConnection(me.id, itemId)?.windowId ?? null,
                     inX               = Math.round(b.x + (b.width  ?? 0) * 0.35),
                     inY               = Math.round(b.y + (b.height ?? 0) * 0.35),
                     boundaryEntrySeen = false,
@@ -4789,7 +4780,7 @@ class Workspace extends DockWorkspace {
                 }
 
                 let retired     = await me.waitForTearOutVesselRetired(itemId),
-                    reentryDiag = `boundaryEntrySeen=${boundaryEntrySeen} entrySeen=${entrySeen} isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} placeholder=${Boolean(sortZone.dragPlaceholder)} indexMap=${JSON.stringify(sortZone.indexMap)} ownerItems=${sortZone.owner?.items?.length} itemRectsLen=${sortZone.itemRects?.length} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} connects=${Boolean(me.tearOutConnects[itemId])} staged=${me.tearOutEmbodiment.isStaged(itemId)} boundary=${JSON.stringify(b)} in=(${inX},${inY}) vesselDims=${JSON.stringify(me.tearOutVesselDims)}`;
+                    reentryDiag = `boundaryEntrySeen=${boundaryEntrySeen} entrySeen=${entrySeen} isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} placeholder=${Boolean(sortZone.dragPlaceholder)} indexMap=${JSON.stringify(sortZone.indexMap)} ownerItems=${sortZone.owner?.items?.length} itemRectsLen=${sortZone.itemRects?.length} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} boundary=${JSON.stringify(b)} in=(${inX},${inY}) vesselDims=${JSON.stringify(me.tearOutVesselDims)}`;
 
                 sortZone.un('dragBoundaryEntry', boundaryProbe);
                 tabs.un('dockTearOutEntry', entryProbe);
@@ -4908,7 +4899,7 @@ class Workspace extends DockWorkspace {
 
     /**
      * Gates on the tear-out vessel's ACTUAL birth: the `?popout=<itemId>` window binding its
-     * reserved slot ({@link Neo.dashboard.dock.Workspace#onTopologyBind}). Polls that observable
+     * reserved slot ({@link Neo.manager.transaction.NativeLifecycle#onBind}). Polls that observable
      * rather than any internal drag flag.
      * @param {String} itemId
      * @param {Object} [options={}]
@@ -4921,12 +4912,12 @@ class Workspace extends DockWorkspace {
         let me = this;
 
         for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            if (me.tearOutConnects[itemId] || me.tearOutPanes[itemId]) return true;
+            if (me.nativeWindows?.getConnection(me.id, itemId) || me.nativeWindows?.getOwner(me.id, itemId)) return true;
 
             attempt < attempts && await me.timeout(delay)
         }
 
-        return Boolean(me.tearOutConnects[itemId] || me.tearOutPanes[itemId])
+        return Boolean(me.nativeWindows?.getConnection(me.id, itemId) || me.nativeWindows?.getOwner(me.id, itemId))
     }
 
     /**
@@ -4942,7 +4933,7 @@ class Workspace extends DockWorkspace {
     async waitForTearOutVesselRetired(itemId, {attempts=180, delay=16}={}) {
         let me      = this,
             retired = () => Boolean(
-                !me.tearOutConnects[itemId] && !me.tearOutAdmissions.has(itemId) &&
+                !me.nativeWindows?.getConnection(me.id, itemId) && !Boolean(me.nativeWindows?.getAdmission(me.id, itemId)) &&
                 !me.tearOutEmbodiment.isStaged(itemId) && !me.tearOutHandlers.activeVessel
             );
 
@@ -5043,11 +5034,6 @@ class Workspace extends DockWorkspace {
             clearInterval(me.#feedIntervalId);
             me.#feedIntervalId = null
         }
-
-        // Vessels close through this host's seam, which settles a staged pane through the embodiment
-        // first — so the sweep runs while the embodiments are alive, and the engine's own sweep in
-        // `super.destroy` finds nothing left.
-        me.retireTearOutState();
 
         me.crossWindowParticipations.forEach(participation => participation?.destroy());
         me.crossWindowParticipations.clear();

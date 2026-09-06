@@ -75,6 +75,21 @@ const createEdgeDocument = () => ({
  */
 const hostResolverCalls = [];
 
+/** @summary Explicit native admission is a Group operation, even for a view without gesture handlers. */
+const acquireNative = async (workspace, request) => {
+    await workspace.loadTransactionManager();
+    if (!workspace.nativeWindows) {
+        workspace.nativeWindows = TransactionManager.getNativeLifecycle(workspace.topologyGroupId);
+        workspace.nativeWindows.registerSource(workspace.id, {
+            keyFor: workspace.tearOutWorkspaceKey.bind(workspace),
+            open  : workspace.openTearOutVessel.bind(workspace),
+            close : workspace.closeTearOutVessel.bind(workspace)
+        })
+    }
+    return workspace.nativeWindows.acquire(workspace.id, request)
+};
+
+
 class HostActionWorkspace extends DockWorkspace {
     static config = {
         className            : 'Test.Unit.Dashboard.DockWorkspace.HostActionWorkspace',
@@ -347,16 +362,32 @@ class TearOutWorkspace extends DockWorkspace {
 
     static hostSeq = 0
 
-    // The manager fires and forgets; the arms need the handler's promise to await or to see reject.
+
+    // Instrument the actual Group observer; the fixture owns no admission state.
+    bindNativeWindowSource() {
+        const previous = this.nativeWindows;
+        super.bindNativeWindowSource();
+        if (!previous && this.nativeWindows) {
+            const native = this.nativeWindows;
+            this.transactionManager.un({bind: native.onBind, release: native.onRelease, scope: native});
+            this.transactionManager.on({bind: this.onTopologyBind, release: this.onTopologyRelease, scope: this})
+        }
+    }
+
+    destroy(...args) {
+        this.transactionManager?.un({bind: this.onTopologyBind, release: this.onTopologyRelease, scope: this});
+        super.destroy(...args)
+    }
+
     onTopologyBind(data) {
-        const pending = super.onTopologyBind(data);
+        const pending = this.nativeWindows.onBind(data);
 
         this.binds.push(pending);
         return pending
     }
 
     onTopologyRelease(data) {
-        const pending = super.onTopologyRelease(data);
+        const pending = this.nativeWindows.onRelease(data);
 
         this.releases.push(pending);
         return pending
@@ -940,9 +971,6 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         for (const method of [
             'applyTearOutOperation',
             'onDockPaneReturn',
-            'onTopologyBind',
-            'onTopologyRelease',
-            'recordDockPaneOwner',
             'reparentDockPane',
             'reportDockAdoptionFailure',
             'resolveLivePane',
@@ -951,12 +979,17 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(typeof DockWorkspace.prototype[method], `${method} is an engine-owned host seam`).toBe('function')
         }
 
-        for (const moved of ['adoptTearOutPane', 'reintegrateTearOutItem', 'reparentTearOutPane', 'resolveTearOutPane']) {
+        for (const moved of ['adoptTearOutPane', 'reintegrateTearOutItem', 'reparentTearOutPane', 'resolveTearOutPane',
+            'onTopologyBind', 'onTopologyRelease', 'recordDockPaneOwner', 'acquireTearOutVessel',
+            'clearTearOutAdmission', 'retireTearOutVessel', 'retireTearOutState']) {
             expect(DockWorkspace.prototype[moved], `${moved} moved to the choreography and left no wrapper`).toBeUndefined()
         }
 
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
         expect(workspace.tearOutHandlers).toBeNull();
+        for (const field of ['tearOutAdmissions', 'tearOutConnects', 'tearOutPanes', 'tearOutRetirements']) {
+            expect(field in workspace, field + ' is no longer allocated on any Workspace').toBe(false)
+        }
         expect(workspace.getDockProjectionOptions()).toEqual({})
     });
 
@@ -1198,7 +1231,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             const committed = workspace.getDockZoneDocument();
 
             expect(WorkspaceDocument.findOwningEdge(committed, 'preview'), 'a detached item owns no edge').toBeFalsy();
-            expect(workspace.tearOutPanes.preview, 'the vessel holds the pane').toBeTruthy()
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview'), 'the vessel holds the pane').toBeTruthy()
         });
 
         test('#17947 a REDUCER refusal reaches the caller as a refusal, though the terminal resolved TRUE', async () => {
@@ -1429,7 +1462,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 {request, zone} = await beginExit('preview');
 
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
-            expect(workspace.tearOutPanes.preview).toMatchObject({windowId: null});
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview')).toMatchObject({windowId: null});
             expect(workspace.tearOutHandlers.heldPane('preview')).toBe(pane);
             await workspace.refreshPromise;
 
@@ -1438,8 +1471,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             await connectVessel('terminal-first', request.topologyIdentity);
 
             expect(mainView.items).toContain(pane);
-            expect(workspace.tearOutPanes.preview.windowId).toBe('terminal-first');
-            expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview').windowId).toBe('terminal-first');
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
 
             await disconnectVessel('terminal-first');
 
@@ -1541,15 +1574,15 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             await connectVessel('connect-first', request.topologyIdentity);
 
-            expect(workspace.tearOutConnects.preview).toMatchObject({windowId: 'connect-first', workspaceKey: 'popup:preview'});
-            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, workspaceKey: 'popup:preview'});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toMatchObject({windowId: 'connect-first', workspaceKey: 'popup:preview'});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, workspaceKey: 'popup:preview'});
             expect(mainView.items).not.toContain(pane);
 
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
 
             expect(mainView.items).toContain(pane);
-            expect(workspace.tearOutPanes.preview.windowId).toBe('connect-first');
-            expect(workspace.tearOutAdmissions.has('preview')).toBe(false)
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview').windowId).toBe('connect-first');
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false)
         });
 
         test('a worker may connect before platform-open settlement without being misclosed as stale', async () => {
@@ -1571,7 +1604,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 mainView = addWindow('early-connect');
 
             await connectVessel('early-connect', request.topologyIdentity);
-            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true});
 
             resolveOpen({
                 popupHeight: 360,
@@ -1605,8 +1638,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 await connectVessel(windowId, topologyIdentity)
             }
 
-            expect(workspace.tearOutConnects.preview).toBeUndefined();
-            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: false, windowId: null});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: false, windowId: null});
             expect(TransactionManager.getBinding(identity.groupId, 'popup:preview').windowId,
                 'the reservation still waits for its own vessel').toBeNull();
             expect(TransactionManager.getBinding(identity.groupId, 'popup:terminal'), 'the unreserved slot stays absent').toBeNull();
@@ -1626,11 +1659,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // The acquisition method itself, twice for one item while the first platform open is still
             // pending: the second reservation supersedes the first in the manager and in the host. (The
             // gesture handler serializes exits; this is the seam an asynchronous host reaches directly.)
-            const first = workspace.acquireTearOutVessel({itemId: 'preview', sortZone: zone});
+            const first = acquireNative(workspace, {itemId: 'preview', sortZone: zone});
 
             await expect.poll(() => opens.length).toBe(1);
 
-            const second = workspace.acquireTearOutVessel({itemId: 'preview', sortZone: zone});
+            const second = acquireNative(workspace, {itemId: 'preview', sortZone: zone});
 
             await expect.poll(() => opens.length).toBe(2);
 
@@ -1638,7 +1671,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             expect(s2.groupId).toBe(s1.groupId);
             expect(s2.generationToken, 'the slot was reserved again under a fresh lineage').not.toBe(s1.generationToken);
-            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({generationToken: s2.generationToken});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({generationToken: s2.generationToken});
 
             // The older platform open fails late and cleans up after itself.
             opens[0].resolve(null);
@@ -1646,7 +1679,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(await first, 'the older acquisition reports its failure').toBeNull();
             expect(TransactionManager.getBinding(s2.groupId, 'popup:preview'), 'the replacement reservation survives the older failure')
                 .toEqual({generation: 0, windowId: null, workspaceKey: 'popup:preview'});
-            expect(workspace.tearOutAdmissions.get('preview'), 'the replacement admission survives it too').toMatchObject({generationToken: s2.generationToken});
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview'), 'the replacement admission survives it too').toMatchObject({generationToken: s2.generationToken});
 
             // The replacement's open succeeds and its child binds the reserved slot.
             opens[1].resolve({popupHeight: 360, popupWidth: 480, windowName: 'tearout-preview-second'});
@@ -1656,8 +1689,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             addWindow('second-child');
             await connectVessel('second-child', s2);
 
-            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, generationToken: s2.generationToken, windowId: 'second-child'});
-            expect(workspace.tearOutConnects.preview).toMatchObject({windowId: 'second-child'})
+            expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, generationToken: s2.generationToken, windowId: 'second-child'});
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toMatchObject({windowId: 'second-child'})
         });
 
         test('a late child presenting an expired reservation forks and never connects; a fresh reservation still admits its child', async () => {
@@ -1672,7 +1705,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 // The reservation runs out its lease with no window binding: the manager frees the slot,
                 // and the host retires the vessel it had opened for it.
                 await expect.poll(() => TransactionManager.getBinding(identity.groupId, 'popup:preview')).toBeNull();
-                await expect.poll(() => workspace.tearOutAdmissions.has('preview')).toBe(false);
+                await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
                 expect(workspace.closeRequests.map(vessel => vessel.itemId)).toEqual(['preview']);
 
                 const lateView = addWindow('late-child');
@@ -1681,8 +1714,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
                 expect(TransactionManager.findByWindow('late-child').groupId, 'the dead lineage forked away').not.toBe(identity.groupId);
                 expect(TransactionManager.getBinding(identity.groupId, 'popup:preview'), 'nothing entered the Group').toBeNull();
-                expect(workspace.tearOutConnects.preview).toBeUndefined();
-                expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
+                expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+                expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
                 expect(lateView.items).toEqual([]);
 
                 // Positive control: a fresh exit reserves again, and its own child is admitted.
@@ -1693,7 +1726,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 addWindow('fresh-child');
                 await connectVessel('fresh-child', fresh.topologyIdentity);
 
-                expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, windowId: 'fresh-child'});
+                expect(workspace.nativeWindows.getAdmission(workspace.id, 'preview')).toMatchObject({connected: true, windowId: 'fresh-child'});
 
                 await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
             } finally {
@@ -1766,11 +1799,11 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             await expect.poll(() => typeof releaseGrant).toBe('function');
 
-            workspace.clearTearOutAdmission('preview', workspace.tearOutAdmissions.get('preview'));
+            workspace.nativeWindows.clearAdmission(workspace.id, 'preview', workspace.nativeWindows.getAdmission(workspace.id, 'preview'));
             releaseGrant(true);
             await connect;
 
-            expect(workspace.tearOutConnects.preview).toBeUndefined();
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
             expect(mainView.items).toEqual([]);
 
             await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
@@ -1806,8 +1839,8 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             await disconnectVessel('preterminal-disconnect');
 
             expect(JSON.stringify(workspace.dockModel)).toBe(before);
-            expect(workspace.tearOutConnects.preview).toBeUndefined();
-            expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
+            expect(workspace.nativeWindows.getConnection(workspace.id, 'preview')).toBeNull();
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
             expect(workspace.tearOutHandlers.activeVessel).toBeNull();
             expect(zone.calls.ended).toBe(1);
             expect(workspace.lifecycleEvents).toEqual(['disconnect'])
@@ -1827,7 +1860,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             const {zone} = await beginExit('preview');
 
             await closed;
-            await expect.poll(() => workspace.tearOutAdmissions.has('preview')).toBe(false);
+            await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
 
             expect(zone.calls.ended).toBe(1);
             expect(workspace.tearOutHandlers.activeVessel).toBeNull();
@@ -1841,7 +1874,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
             await refused;
 
-            expect(workspace.tearOutAdmissions.has('preview')).toBe(true);
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(true);
             expect(workspace.tearOutHandlers.activeVessel).toBeTruthy();
             expect(second.zone.calls.ended).toBe(0);
 
@@ -1856,28 +1889,28 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // Stale: the admission was replaced while the host was still opening, so the record the
             // open returns into is no longer the one the acquisition made.
             workspace.openTearOutVessel = request => {
-                const admission = workspace.tearOutAdmissions.get(request.itemId);
+                const admission = workspace.nativeWindows.getAdmission(workspace.id, request.itemId);
 
-                workspace.tearOutAdmissions.set(request.itemId, {...admission});
+                workspace.nativeWindows.sources.get(workspace.id).admissions.set(request.itemId, {...admission});
 
                 return {popupHeight: 360, popupWidth: 480, windowName: `stale-preview-${workspace.id}`}
             };
 
-            const vessel = await workspace.acquireTearOutVessel({itemId: 'preview'});
+            const vessel = await acquireNative(workspace, {itemId: 'preview'});
 
             expect(vessel).toBeNull();
-            expect(workspace.tearOutRetirements.size).toBe(1);
-            expect(workspace.tearOutAdmissions.has('preview')).toBe(true);
+            expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(1);
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(true);
 
             const closeCount = workspace.closeRequests.length;
 
-            expect(await workspace.acquireTearOutVessel({itemId: 'preview'})).toBeNull();
+            expect(await acquireNative(workspace, {itemId: 'preview'})).toBeNull();
             expect(workspace.closeRequests.length).toBe(closeCount + 1);
 
             workspace.closeResult = true;
-            expect(await workspace.retryTearOutRetirements('preview')).toBe(true);
-            expect(workspace.tearOutRetirements.size).toBe(0);
-            expect(workspace.tearOutAdmissions.has('preview')).toBe(false)
+            expect(await workspace.nativeWindows.retryRetirements(workspace.id, 'preview')).toBe(true);
+            expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(0);
+            expect(Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false)
         });
 
         test('failed reparent rejects loudly, retracts vessel ownership and returns the live pane', async () => {
@@ -1899,16 +1932,16 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             await expect(workspace.binds.at(-1)).rejects.toThrow(/could not enter/);
             await expect.poll(() => workspace.dockModel.nodes['side-tabs'].items.includes('preview')).toBe(true);
             await workspace.refreshPromise;
-            await expect.poll(() => workspace.tearOutRetirements.size).toBe(1);
+            await expect.poll(() => workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(1);
 
-            expect(workspace.tearOutPanes.preview).toBeUndefined();
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview')).toBeNull();
             expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
             expect(pane.isDestroyed).toBeFalsy();
             expect(workspace.closeRequests).toHaveLength(1);
 
             workspace.closeResult = true;
-            expect(await workspace.retryTearOutRetirements('preview')).toBe(true);
-            expect(workspace.tearOutRetirements.size).toBe(0);
+            expect(await workspace.nativeWindows.retryRetirements(workspace.id, 'preview')).toBe(true);
+            expect(workspace.nativeWindows.pendingRetirements(workspace.id).length).toBe(0);
             expect(workspace.closeRequests).toHaveLength(2)
         })
     });
@@ -3601,6 +3634,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         test('a failed adoption is reported on the lifecycle channel, not thrown into a listener', async () => {
             workspace = armed();
+            await workspace.transactionManagerReady;
 
             const events = [];
 
@@ -3619,6 +3653,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         test('`reintegrated` reports the RETURN, not that a pane handle existed', async () => {
             workspace = armed();
+            await workspace.transactionManagerReady;
 
             const events = [],
                   pane   = Neo.create(Container, {});
@@ -3722,6 +3757,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         test('a failed adoption returns the item to the document, not only the pane handle', async () => {
             workspace = armed();
+            await workspace.transactionManagerReady;
 
             const pane = workspace.tearOutHandlers.peekPane('editor');
 
@@ -3879,7 +3915,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             Neo.config.useSharedWorkers = true;
 
             try {
-                const vessel = await workspace.acquireTearOutVessel({itemId: 'editor'});
+                const vessel = await acquireNative(workspace, {itemId: 'editor'});
 
                 expect(workspace.hostOpens, 'the host opener ran exactly once').toHaveLength(1);
                 expect(vessel).toMatchObject({windowName: 'host-editor'});
@@ -3932,9 +3968,9 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             try {
                 expect(workspace.enableDockTearOutLifecycle, 'the lifecycle opt-in is off').toBe(false);
 
-                await workspace.acquireTearOutVessel({itemId: 'editor'});
+                await acquireNative(workspace, {itemId: 'editor'});
 
-                const admission = workspace.tearOutAdmissions.get('editor');
+                const admission = workspace.nativeWindows.getAdmission(workspace.id, 'editor');
 
                 expect(TransactionManager.getBinding(workspace.topologyGroupId, 'popup:editor'),
                     'the slot is reserved in the manager, its lease running').toMatchObject({windowId: null});

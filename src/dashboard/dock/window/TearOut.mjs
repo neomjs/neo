@@ -596,6 +596,23 @@ export function createDockTearOutHandlers({
         },
 
         /**
+         * @summary Resolves pane choreography after the Group releases its native binding.
+         * @param {Object} context The Group's source-scoped ownership observation.
+         * @returns {Promise<Neo.component.Base|null>} The pane handed back to projection.
+         */
+        async onBindingReleased({itemId, entry, admission, committed}) {
+            const pane = committed ? api.releasePane(itemId) : null;
+            api.onVesselRetired({...entry, ...admission, itemId});
+            if (committed) {
+                onPaneAdopted(itemId, null);
+                await api.reintegrateItem(itemId, pane)
+            } else {
+                admission?.context?.sortZone?.endWindowDrag()
+            }
+            return pane
+        },
+
+        /**
          * @summary Retires the exact active vessel without discarding retry authority first.
          *
          * A committed remote target consumes the source vessel without traversing the detached

@@ -427,13 +427,13 @@ class Participation extends Base {
     defaultResolveNativeWindowDrag(movingWindowId) {
         let me        = this,
             workspace = me.workspace,
-            panes     = workspace?.tearOutPanes;
+            panes     = workspace?.nativeWindows?.ownerEntries(workspace.id);
 
         if (!panes || movingWindowId == null) {
             return null
         }
 
-        let itemId = Object.keys(panes).find(id => panes[id]?.windowId === movingWindowId),
+        let itemId = panes.find(([, entry]) => entry.windowId === movingWindowId)?.[0],
             item   = itemId ? workspace.dockModel?.items?.[itemId] : null,
             pane   = item ? workspace.resolvePane?.(itemId, item) : null;
 
