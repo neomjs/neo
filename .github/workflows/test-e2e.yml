@@ -1,30 +1,23 @@
 name: E2E (engine tier)
 
-# Why this is its own workflow rather than a third suite in `test.yml`:
+# Its own workflow rather than a suite in `test.yml`, because the e2e tier cannot run
+# whole in CI and the reasons are structural:
 #
-# The e2e tier cannot run whole in CI, and the reasons are structural rather than
-# provisional. Two of them bound what this job may ever contain:
+#   GPU  — specs booting the workstation app inherit animated OffscreenCanvas work no
+#          hosted runner can composite. The dashboard app carries none, which is why
+#          the dock and cross-window specs are the tier that fits.
+#   Time — the ceiling is five minutes of test time, enforced on the step below rather
+#          than on the job, so a slow suite is distinguishable from a slow `npm ci`.
 #
-#   1. GPU. Specs that boot `/apps/workstation/index.html` inherit five canvas files
-#      and drive animated OffscreenCanvas work. CI runners have no GPU compute for
-#      that, so the workstation tier is out of scope here — not skipped, not flaky,
-#      out of scope. The dashboard app carries zero canvas files, which is why the
-#      dock and cross-window specs are the tier that fits.
-#   2. Time. The operator's ceiling for this pipeline is five minutes. Measured
-#      serially on an idle developer machine, the selection below runs in 3.7m and
-#      the full Brain-free set runs in 7.2m. The set is chosen to fit, and the
-#      timeout below is what stops it from silently growing past the ceiling.
+# A third constraint bounds the REPORTING, and is the one a reader is most likely to be
+# misled by: `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent
+# specs, and `testIgnore` removes files from SELECTION rather than skipping them. No
+# reporter can name them, and a run missing four fifths of the tier still prints
+# `Skipped: 0`. A green check here certifies a genuine but PARTIAL tier.
 #
-# A third reason bounds the REPORTING rather than the content, and it is the one a
-# reader is most likely to be misled by. `playwright.config.e2e.mjs` uses
-# `testIgnore` for the specs that need an external `neo-agent-brain` checkout, and
-# `testIgnore` removes files from SELECTION rather than skipping them: no reporter,
-# summary line or `--list` output can mention them, and a run missing four fifths of
-# the tier still prints `Skipped: 0`. A green check here therefore certifies a
-# genuine but PARTIAL tier, and the coverage step below writes that fraction into
-# the job summary so the badge cannot imply the whole.
-#
-# Origin: neomjs/neo#17853.
+# Which specs run, why the rest do not, and the coverage this job reports all live in
+# `buildScripts/util/e2eCiSelection.mjs` — one source for the invocation and the
+# summary, so the two cannot drift into describing different populations.
 
 on:
   pull_request:
@@ -42,9 +35,8 @@ jobs:
   e2e-engine:
     name: e2e-engine
     runs-on: ubuntu-latest
-    # The operator's ceiling is 5 minutes of RUN time; this bounds the whole job
-    # including provisioning, and exists to fail loudly if the selection grows rather
-    # than to let a slow run pass unnoticed.
+    # Bounds provisioning plus tests. The test-time ceiling is the step below; this
+    # exists so a hung install cannot occupy a runner indefinitely.
     timeout-minutes: 12
 
     steps:
@@ -63,6 +55,9 @@ jobs:
       - name: Bundle parse5
         run: npm run bundle-parse5
 
+      # Browser provisioning is cached on the installed Playwright version, and the
+      # system libraries are installed only when a launch probe says they are missing —
+      # the same shape `test.yml` uses for its components suite, and for its reasons.
       - name: Resolve Playwright version
         id: playwright
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
@@ -94,84 +89,26 @@ jobs:
         if: ${{ steps.chromium-probe.outcome == 'failure' }}
         run: npx playwright install-deps chromium
 
-      # Serial by measurement, not by caution: the tier drives real windows, drag
-      # thresholds and geometry, and parallel workers on one runner perturb exactly
-      # those arms. The 3.7m figure above is a `--workers=1` number.
+      # Serial by measurement, not caution: this tier drives real windows, drag
+      # thresholds and geometry, which parallel workers on one runner perturb.
       #
-      # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the same lever the
-      # unit suite uses. Every guard it fires carries a reason and a ticket at its
-      # call site; a guard without one is a bug in the guard.
-      # Paths rather than directories, because two specs in this tier need build output
-      # this job deliberately does not produce. The job runs `npm ci` and nothing else:
-      # adding `build-all` to reach them would spend the five-minute budget on a build
-      # in order to run two specs.
-      #
-      #   rendering/LivePreviewMultiWindow — parameterised over Dev, Dist Dev and Dist
-      #       Prod; the two Dist environments need built bundles, and without them every
-      #       arm burns its full 30s timeout. This is what made the first CI attempt take
-      #       9m17s against 3.4m locally: my own checkout HAD `dist/`, so the suite passed
-      #       here and could not have passed there. A local green from local build output
-      #       is a false green, and it took a real runner to say so.
-      #   portal/LearnLinkRoutingNL — asserts rendered learn content ("Adopting in Your
-      #       App"), which is generated rather than checked in.
-      #
-      # Both belong in this tier the day the pipeline can afford a build, and neither is
-      # a product failure.
+      # `--paths` also runs the selection floor, so a stale path or an undeclared
+      # exclusion fails the step rather than quietly shrinking coverage behind a green
+      # check. NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the
+      # unit suite already uses; each guard states the condition it is standing in for.
       - name: Run e2e (engine tier)
-        run: |
-          npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 \
-            test/playwright/e2e/colors \
-            test/playwright/e2e/core \
-            test/playwright/e2e/dashboard \
-            test/playwright/e2e/grid \
-            test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs \
-            test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs
+        timeout-minutes: 5
+        run: npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 $(node buildScripts/util/e2eCiSelection.mjs --paths)
         env:
           NEO_TEST_SKIP_CI: 'true'
 
-      # The honesty guard. Without it the badge reads as "e2e passed" while the tier
-      # it covers is a fraction, and the deselected remainder is invisible by
-      # construction rather than by omission.
-      # Counts what this JOB runs, not what the config selects — the two differ, and
-      # reporting the larger number would be the exact false green this step exists to
-      # prevent. Derived rather than hardcoded so it stays true as the tree moves.
+      # `always()`, because a failed run needs its coverage stated more than a green one
+      # does — and the destination is unescaped on purpose: an earlier inline form wrote
+      # to a file literally named `$GITHUB_STEP_SUMMARY`, so the honesty guard never
+      # reached GitHub at all.
       - name: Report tier coverage
         if: ${{ always() }}
-        run: |
-          node --input-type=module -e "
-            import {selectExternalBrainSpecs} from './test/playwright/externalBrainSelection.mjs';
-            import {readdirSync}              from 'node:fs';
-            import {join}                     from 'node:path';
-
-            const root  = join(process.cwd(), 'test/playwright/e2e'),
-                  {ignore, total} = selectExternalBrainSpecs(root),
-                  walk  = dir => readdirSync(dir, {withFileTypes: true}).flatMap(entry =>
-                      entry.isDirectory()             ? walk(join(dir, entry.name)) :
-                      entry.name.endsWith('.spec.mjs') ? [join(dir, entry.name)]    : []),
-                  // Only the Brain-FREE workstation specs are excluded by THIS job; the rest were
-                  // already deselected above. Counting all of them double-subtracts and reports a
-                  // negative coverage, which is how the first version of this step was wrong.
-                  isIgnored  = file => ignore.some(pattern => pattern.test(file)),
-                  brainFree  = total - ignore.length,
-                  gpuTier    = walk(join(root, 'workstation')).filter(file => !isIgnored(file)).length,
-                  // Named rather than derived: 'needs build output' is a property of what a spec
-                  // asserts, not of where it sits, so the filesystem cannot answer it. Keep this
-                  // list and the run step's paths in step — they are the same decision twice.
-                  buildTier  = 2,
-                  ran        = brainFree - gpuTier - buildTier;
-
-            console.log([
-              '### e2e (engine tier) coverage',
-              '',
-              \`This job ran **\${ran} of \${total}** e2e spec files.\`,
-              '',
-              \`- **\${ignore.length}** require an external \\\`neo-agent-brain\\\` checkout and are DESELECTED by \\\`testIgnore\\\` — they cannot appear as skips in any report.\`,
-              \`- **\${gpuTier}** are workstation specs, excluded here: that app inherits animated OffscreenCanvas work CI has no GPU for.\`,
-              \`- **\${buildTier}** need build output this job does not produce (Dist environments, generated learn content).\`,
-              '',
-              'A green check on this job certifies the engine tier only. It does not certify the three groups above.'
-            ].join('\n'));
-          " >> "\$GITHUB_STEP_SUMMARY"
+        run: node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
         if: ${{ failure() }}
