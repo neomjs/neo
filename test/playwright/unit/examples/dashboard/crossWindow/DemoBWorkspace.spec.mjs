@@ -198,15 +198,37 @@ function installWindowConnectHarness(workspace) {
             // after the carrier answered — awaited, so the handler's promise exists when read.
             await TransactionManager.admit({topologyIdentity, windowId});
 
-            await bindings.get(windowId)
+            await bindings.get(windowId);
+
+            // The Group's native lifecycle subscribes to `bind` independently of this host, and
+            // `fire('bind')` awaits NO subscriber — so the host handler settling does not mean the
+            // vessel source has finished admitting this window. Production polls the published
+            // connection for exactly this reason (`waitForTearOutVessel`); a witness must too, or it
+            // reads the observable one tick before the thing it is meant to observe exists.
+            for (let attempt = 0; attempt < 50; attempt++) {
+                const source   = workspace.nativeWindows?.sources.get(workspace.vesselSourceId),
+                      settling = [...(source?.admissions.values() ?? [])]
+                          .some(entry => entry.connectingWindowId === windowId && !entry.connected);
+
+                if (!settling) break;
+
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
         },
 
         /**
          * The window left the shared heap: the manager releases its binding and announces it.
          * @param {String} windowId
          */
-        disconnect(windowId) {
-            TransactionManager.release(windowId)
+        async disconnect(windowId) {
+            TransactionManager.release(windowId);
+
+            // `fire('release')` awaits no subscriber either, and the Group's native lifecycle runs
+            // its unbind and released effects afterwards — the reintegration a witness reads here is
+            // the tail of that chain, not of the call above.
+            for (let tick = 0; tick < 10; tick++) {
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
         },
 
         register(windowId, {
@@ -255,6 +277,24 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     let hostGroupId,
         workspace;
 
+    // The Group's vessel-source views. These read the state that used to live on this host as
+    // `tearOutConnects` / `tearOutPanes` / `tearOutRetirements`: a provisional connection before the
+    // terminal/connect race resolves, committed ownership after it, and the closes still awaiting
+    // platform acknowledgement. Asserting through them is what proves the state actually moved.
+    const admissionOf  = itemId => workspace.nativeWindows?.getAdmission(workspace.vesselSourceId, itemId),
+          connectionOf = itemId => workspace.nativeWindows?.getConnection(workspace.vesselSourceId, itemId),
+          ownerOf      = itemId => workspace.nativeWindows?.getOwner(workspace.vesselSourceId, itemId),
+          retiringOf   = itemId => (workspace.nativeWindows?.pendingRetirements(workspace.vesselSourceId) ?? [])
+              .some(vessel => vessel.itemId === itemId),
+          // Retirement authority is the Group's: it opens the retirement, invokes the host's close
+          // effect and keeps that authority when the close is refused. Calling the effect directly
+          // exercises the platform call without the authority that makes a retry possible.
+          retireVessel = vessel => workspace.nativeWindows.retire(workspace.vesselSourceId, vessel),
+          // Seeding a provisional connection has no public setter by design — only a real binding
+          // publishes one — so a test that needs one starts from the source's own registry.
+          seedConnection = (itemId, connection) =>
+              workspace.nativeWindows.sources.get(workspace.vesselSourceId).connections.set(itemId, connection);
+
     test.beforeEach(() => {
         // The host window binds into a Group the way its app registration does — before the workspace
         // constructs, as in production, so its participants register into that Group; every slot the
@@ -286,9 +326,16 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
      * @param {String} windowId
      * @param {String} [workspaceKey='main']
      */
-    const releaseWindow = (windowId, workspaceKey='main') => workspace.onTopologyRelease({
-        generation: 1, groupId: workspace.topologyGroupId, windowId, workspaceKey
-    });
+    // One `release` reaches every subscriber in production: this host AND the Group's native
+    // lifecycle, which owns the vessel half. A witness driving only the host handler cannot see a
+    // tear-out retire at all, so this drives both and resolves when the native half has settled.
+    const releaseWindow = (windowId, workspaceKey='main') => {
+        const data = {generation: 1, groupId: workspace.topologyGroupId, windowId, workspaceKey};
+
+        workspace.onTopologyRelease(data);
+
+        return workspace.nativeWindows?.onRelease(data)
+    };
 
     test('the holder contract: an own cloned stage, readable before any operation', () => {
         const doc = workspace.getDockZoneDocument();
@@ -633,9 +680,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         };
 
         try {
-            expect(await workspace.openTearOutVessel({
+            expect(await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             })).toMatchObject({windowName: 'tearout-timeline'});
+
+            // The slot is the GROUP's, not this host's: admission is readable through the source
+            // that reserved it, which is the whole of what moved off `vesselReservations`.
+            expect(workspace.nativeWindows.getAdmission(workspace.vesselSourceId, 'timeline'))
+                .toMatchObject({itemId: 'timeline', windowName: 'tearout-timeline', workspaceKey: 'popup:timeline'});
 
             const params = new URL(tearOutOpen.url, 'https://example.test').searchParams;
 
@@ -648,8 +700,13 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             });
 
             await harness.connect('tear-child', tearOutOpen.topologyIdentity);
-            expect(workspace.tearOutConnects.timeline).toEqual({
+            // The published connection is the GROUP's record, which is strictly richer than the
+            // host map it replaced: it also names the accepted generation and the gesture that
+            // reserved the slot, so a late or replayed binding can be told from the live one.
+            expect(connectionOf('timeline')).toEqual({
+                generation     : expect.any(Number),
                 generationToken: tearOutOpen.topologyIdentity.generationToken,
+                gestureToken   : null,
                 windowId       : 'tear-child',
                 windowName     : 'tearout-timeline',
                 workspaceKey   : 'popup:timeline'
@@ -662,14 +719,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 .toHaveLength(3);
             expect(sourceParent.items[sourceIndex].cls).toContain('neo-dashboard-dock-vessel-placeholder');
 
-            workspace.tearOutHandlers.adoptPane('timeline', {}, workspace.tearOutConnects.timeline || null);
+            workspace.tearOutHandlers.adoptPane('timeline', {}, connectionOf('timeline') || null);
             expect(harness.addedTo('tear-child'), 'terminal promotion never reparents twice').toEqual([pane]);
-            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child');
-            expect(workspace.tearOutConnects.timeline, 'committed ownership has only one lifecycle map').toBeUndefined();
+            expect(ownerOf('timeline').windowId).toBe('tear-child');
+            expect(connectionOf('timeline'), 'committed ownership has only one lifecycle map').toBeNull();
 
             await harness.connect('tear-replay', tearOutOpen.topologyIdentity);
             expect(harness.addedTo('tear-replay')).toEqual([]);
-            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child')
+            expect(ownerOf('timeline').windowId).toBe('tear-child')
         } finally {
             harness.restore()
         }
@@ -705,23 +762,25 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}, sortZone
             });
 
-            const open        = vessel.openCalls.at(-1),
-                  reservation = {
+            const open = vessel.openCalls.at(-1),
+                  // The slot is the Group's admission now. Mid-stage it names the window it is
+                  // binding and stays UNconnected — acceptance is what the stage is still deciding.
+                  admitted   = {
                       ...open.topologyIdentity,
-                      flow      : 'tear-out',
-                      itemId    : 'timeline',
-                      windowId  : 'tear-stage-race',
-                      windowName: 'tearout-timeline'
+                      connected         : false,
+                      connectingWindowId: 'tear-stage-race',
+                      itemId            : 'timeline',
+                      windowName        : 'tearout-timeline'
                   },
-                  connecting  = harness.connect('tear-stage-race', open.topologyIdentity);
+                  connecting = harness.connect('tear-stage-race', open.topologyIdentity);
 
             await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-race'});
-            expect(workspace.vesselReservations.get('popup:timeline'), 'the bound slot remembers its window').toEqual(reservation);
+            expect(admissionOf('timeline'), 'the admitted slot remembers the window it is binding').toMatchObject(admitted);
 
             await expect(workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'timeline', sortZone})).resolves.toBe(false);
 
-            expect(workspace.vesselReservations.get('popup:timeline'), 'a refused close keeps the slot for its retry').toEqual(reservation);
-            expect(workspace.tearOutRetirements.has('timeline')).toBe(true);
+            expect(admissionOf('timeline'), 'a refused close keeps the slot for its retry').toMatchObject(admitted);
+            expect(retiringOf('timeline')).toBe(true);
             expect(workspace.tearOutHandlers.activeVessel, 'the machine holds the vessel under its slot and lineage token').toEqual({
                 generationToken: open.topologyIdentity.generationToken,
                 itemId         : 'timeline',
@@ -733,14 +792,14 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             await connecting;
 
             expect(restored).toEqual([{itemId: 'timeline', windowId: 'tear-stage-race'}]);
-            expect(workspace.tearOutConnects.timeline, 'the dead generation never becomes route authority').toBeUndefined();
-            expect(workspace.tearOutPanes.timeline).toBeUndefined();
+            expect(connectionOf('timeline'), 'the dead generation never becomes route authority').toBeNull();
+            expect(ownerOf('timeline')).toBeNull();
 
             admitClose = true;
 
             await expect(workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'timeline', sortZone})).resolves.toBe(true);
-            expect(workspace.vesselReservations.has('popup:timeline'), 'the acknowledged close gives the slot record back').toBe(false);
-            expect(workspace.tearOutRetirements.has('timeline')).toBe(false);
+            expect(admissionOf('timeline'), 'the acknowledged close gives the slot record back').toBeNull();
+            expect(retiringOf('timeline')).toBe(false);
             expect(workspace.tearOutHandlers.activeVessel).toBeNull();
             expect(vessel.nativeCloseCalls).toEqual([
                 {nativeHandleKey: 'handle-tear-stage-race', targetWindowId: 'tear-stage-race', windowId: workspace.windowId},
@@ -792,21 +851,21 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-committed'});
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'timeline', sortZone})).toBe(true);
             expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline')).toBeNull();
-            expect(workspace.tearOutPanes.timeline.windowId).toBeNull();
+            expect(ownerOf('timeline').windowId).toBeNull();
 
-            harness.disconnect('tear-stage-committed');
+            await harness.disconnect('tear-stage-committed');
 
             expect(WorkspaceDocument.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline'))
                 .toBe('side-tabs');
-            expect(workspace.tearOutPanes.timeline).toBeUndefined();
+            expect(ownerOf('timeline')).toBeNull();
             expect(workspace.vesselReservations.has('popup:timeline'), 'the dead window\'s slot record is gone').toBe(false);
             expect(restored).toEqual([{itemId: 'timeline', windowId: 'tear-stage-committed'}]);
 
             resolveStage(false);
             await connecting;
 
-            expect(workspace.tearOutConnects.timeline).toBeUndefined();
-            expect(workspace.tearOutPanes.timeline).toBeUndefined()
+            expect(connectionOf('timeline')).toBeNull();
+            expect(ownerOf('timeline')).toBeNull()
         } finally {
             workspace.tearOutEmbodiment.stage     = stage;
             workspace.tearOutEmbodiment.isStaged = isStaged;
@@ -826,7 +885,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
               sourceIndex  = sourceParent.items.indexOf(pane);
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
             await harness.connect('tear-child', vessel.openCalls.at(-1).topologyIdentity);
@@ -880,7 +939,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             await expect(workspace.parkTearOutVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
-            await expect(workspace.closeTearOutVessel({
+            await expect(retireVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
             expect(vessel.closeCalls, 'a stale exact route must never downgrade to same-name close').toEqual([]);
@@ -893,24 +952,24 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             })).resolves.toBe(false);
             route.capabilities.position = true;
 
-            await expect(workspace.closeTearOutVessel({
+            await expect(retireVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(false);
-            expect(workspace.tearOutConnects.timeline, 'strict close refusal retains recovery routing')
+            expect(connectionOf('timeline'), 'strict close refusal retains recovery routing')
                 .toMatchObject({windowId: 'tear-child'});
             expect(sourceParent.items[sourceIndex], 'refused close leaves content home, not in a doomed vessel')
                 .toBe(pane);
             expect(workspace.tearOutEmbodiment.isStaged('timeline')).toBe(false);
-            expect(workspace.tearOutRetirements.has('timeline'), 'late connects stay fenced during retry authority')
+            expect(retiringOf('timeline'), 'late connects stay fenced during retry authority')
                 .toBe(true);
 
             admitClose = true;
 
-            await expect(workspace.closeTearOutVessel({
+            await expect(retireVessel({
                 itemId: 'timeline', windowName: 'tearout-timeline'
             })).resolves.toBe(true);
-            expect(workspace.tearOutConnects.timeline).toBeUndefined();
-            expect(workspace.tearOutRetirements.has('timeline')).toBe(false);
+            expect(connectionOf('timeline')).toBeNull();
+            expect(retiringOf('timeline')).toBe(false);
             expect(vessel.nativeCloseCalls).toEqual([
                 {nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', windowId: workspace.windowId},
                 {nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', windowId: workspace.windowId}
@@ -921,12 +980,12 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         }
     });
 
-    test('pre-terminal disconnect clears both retained lifecycle owners for a successor gesture', () => {
+    test('pre-terminal disconnect clears both retained lifecycle owners for a successor gesture', async () => {
         const previousTearOut = workspace.tearOutHandlers,
               previousPark    = workspace.vesselParkHandlers,
               calls           = [];
 
-        workspace.tearOutConnects.timeline = {windowId: 'tear-pending'};
+        seedConnection('timeline', {windowId: 'tear-pending'});
         workspace.tearOutHandlers = {
             onVesselRetired: data => calls.push(['tear-out', data])
         };
@@ -935,9 +994,9 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         };
 
         try {
-            releaseWindow('tear-pending', 'popup:timeline');
+            await releaseWindow('tear-pending', 'popup:timeline');
 
-            expect(workspace.tearOutConnects.timeline).toBeUndefined();
+            expect(connectionOf('timeline')).toBeNull();
             expect(calls).toEqual([
                 ['tear-out', {itemId: 'timeline', windowId: 'tear-pending', windowName: 'tearout-timeline'}],
                 ['park', {itemId: 'timeline', retirement: true}]
@@ -945,7 +1004,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         } finally {
             workspace.tearOutHandlers       = previousTearOut;
             workspace.vesselParkHandlers    = previousPark;
-            delete workspace.tearOutConnects.timeline
+            workspace.nativeWindows.clearConnection(workspace.vesselSourceId, 'timeline')
         }
     });
 
@@ -995,7 +1054,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
               harness = installWindowConnectHarness(workspace);
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
             await harness.connect('tear-child', vessel.openCalls.at(-1).topologyIdentity);
@@ -1020,7 +1079,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
               harness = installWindowConnectHarness(workspace);
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
             await harness.connect('tear-child', vessel.openCalls.at(-1).topologyIdentity);
@@ -1062,7 +1121,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         };
 
         try {
-            await workspace.openTearOutVessel({
+            await workspace.nativeWindows.acquire(workspace.vesselSourceId, {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
 
@@ -1079,7 +1138,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             await harness.connect('tear-after-terminal', tearOutOpen.topologyIdentity);
 
             expect(harness.addedTo('tear-after-terminal')).toEqual([pane]);
-            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-after-terminal')
+            expect(ownerOf('timeline').windowId).toBe('tear-after-terminal')
         } finally {
             harness.restore()
         }
@@ -1401,7 +1460,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             return null
         };
 
-        workspace.tearOutConnects.timeline = {windowId: 'tear-child'};
+        seedConnection('timeline', {windowId: 'tear-child'});
         workspace.vesselParkHandlers = {
             onConversionIn(data) {
                 calls.push(['in', data]);
@@ -1768,7 +1827,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(workspace.dockModel).toEqual(initialDocument)
     });
 
-    test('tear-out vessel death brings the item HOME at its EXACT stored position', () => {
+    test('tear-out vessel death brings the item HOME at its EXACT stored position', async () => {
         // 'timeline' sits at side-tabs index 1 of ['inspector', 'timeline', 'console'] — the
         // middle slot, so an append-shaped return would betray itself immediately.
         const before = workspace.getDockZoneDocument().nodes['side-tabs'].items;
@@ -1787,21 +1846,21 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['inspector', 'console']);
 
         // the vessel dies: the disconnect correlates by windowId and the item returns home
-        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-9'};
-        releaseWindow('tear-win-9', 'popup:timeline');
+        workspace.recordDockPaneOwner('timeline', {}, {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-9'});
+        await releaseWindow('tear-win-9', 'popup:timeline');
 
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items, 'identical order, not append order').toEqual(['inspector', 'timeline', 'console']);
-        expect(workspace.tearOutPanes.timeline).toBeUndefined();
+        expect(ownerOf('timeline')).toBeNull();
         expect(workspace.tearOutHandlers.peekPlacement('timeline'), 'the placement record is consumed exact-once').toBeNull();
 
         // idempotent: a duplicate disconnect for the same window finds nothing and mutates nothing
         const stable = JSON.stringify(workspace.getDockZoneDocument());
 
-        releaseWindow('tear-win-9', 'popup:timeline');
+        await releaseWindow('tear-win-9', 'popup:timeline');
         expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(stable)
     });
 
-    test('a stored home that left the tree falls back SEMANTICALLY to a surviving tabs node', () => {
+    test('a stored home that left the tree falls back SEMANTICALLY to a surviving tabs node', async () => {
         const detach = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
 
         expect(detach.errors).toEqual([]);
@@ -1818,8 +1877,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         expect(workspace.getDockZoneDocument().nodes['side-tabs']).toBeUndefined();
 
-        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-10'};
-        releaseWindow('tear-win-10', 'popup:timeline');
+        workspace.recordDockPaneOwner('timeline', {}, {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-10'});
+        await releaseWindow('tear-win-10', 'popup:timeline');
 
         // semantic recovery: the first surviving tabs node, append — never a resurrected node,
         // never geometry
@@ -1836,7 +1895,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(workspace.tearOutHandlers.peekPlacement('ghost-item')).toBeNull()
     });
 
-    test('reintegration is idempotent against an item some other flow already re-treed', () => {
+    test('reintegration is idempotent against an item some other flow already re-treed', async () => {
         const detach = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
 
         workspace.onWorkspaceDocumentChange('demo-b-main', detach.document);
@@ -1846,8 +1905,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         workspace.onWorkspaceDocumentChange('demo-b-main', readd.document);
 
-        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-11'};
-        releaseWindow('tear-win-11', 'popup:timeline');
+        workspace.recordDockPaneOwner('timeline', {}, {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-11'});
+        await releaseWindow('tear-win-11', 'popup:timeline');
 
         // the reintegration finds the item already placed and leaves it EXACTLY there — one
         // occurrence, in the node the other flow chose, placement record still consumed
