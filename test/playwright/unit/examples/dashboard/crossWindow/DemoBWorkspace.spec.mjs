@@ -2287,13 +2287,27 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         // ownership — the same split `dashboard.dock.Workspace#destroy` makes for its one source.
         expect([vessel.active, stage.active], 'both are live before teardown').toEqual([true, true]);
 
+        // Read back through the OWNER after teardown, never through references captured before it.
+        // A captured registry stays truthy once emptied, so an implementation that DELETED both
+        // source records would satisfy every assertion made against those captures — the lookup is
+        // the only thing that can tell "withdrawn" from "discarded".
+        const owner    = workspace.nativeWindows,
+              vesselId = workspace.vesselSourceId,
+              stageId  = workspace.stageSourceId;
+
         workspace.destroy();
 
-        expect([vessel.active, stage.active], 'a destroyed host leaves no live effects on the Group')
+        const vesselAfter = owner.sources.get(vesselId),
+              stageAfter  = owner.sources.get(stageId);
+
+        expect([vesselAfter?.active, stageAfter?.active], 'a destroyed host leaves no live effects on the Group')
             .toEqual([false, false]);
 
-        // The registries themselves survive: withdrawal is not repossession.
-        expect(vessel.admissions, 'withdrawing effects never discards what the Group still owns').toBeTruthy()
+        // Withdrawal is not repossession: the Group KEEPS both records, because it may still own
+        // native windows this host no longer projects. Identity, not truthiness — a discarded record
+        // resolves to `undefined` here and fails, which is the control the truthiness check lost.
+        expect(vesselAfter, 'the vessel record survives its host').toBe(vessel);
+        expect(stageAfter, 'the stage record survives its host').toBe(stage)
     });
 
     test('the second popup stages through the same seams with its own continuation and window name', async () => {
