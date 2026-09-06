@@ -3577,8 +3577,6 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-
-    /**
      * Retirement authority is established before any awaited close: a vessel that binds while its
      * retirement is in flight is cleanup-only, and no content is ever staged into a closing realm.
      * The engine's `retireTearOutVessel` holds the fence; this host only reads it.
