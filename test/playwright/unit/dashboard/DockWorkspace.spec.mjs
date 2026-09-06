@@ -3978,5 +3978,61 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 Neo.config.useSharedWorkers = useSharedWorkers
             }
         })
+    });
+
+    test.describe('the vessel workspace key is a PAIR — encode and decode are overridden together or not at all', () => {
+        /**
+         * The defect shape: a host ends up speaking two coordinate systems for one slot — the engine
+         * reserving vessels under one vocabulary while the host's document membership uses another.
+         *
+         * `tearOutWorkspaceKey` mints the key a vessel reserves under; `tearOutItemIdFor` reads an
+         * item back out of one. They are inverses, and a host that replaces the vocabulary must
+         * replace both. Overriding one half fails ASYMMETRICALLY, which is why this needs an arm
+         * rather than a docblock:
+         *
+         * - `onTopologyBind` decodes to `null` and takes its legitimate "not one of my vessels"
+         *   branch — the host looks correct;
+         * - `onTopologyLeaseExpired` decodes to `null` and returns early, so **the lease never
+         *   expires**. Nothing throws, nothing logs, and an admission that should have been reaped
+         *   simply is not.
+         *
+         * The assertion is the round trip rather than a list of known prefixes: a rule survives a
+         * host inventing a vocabulary nobody here anticipated, and a list does not.
+         */
+        const roundTrips = (workspace, itemId) => workspace.tearOutItemIdFor(workspace.tearOutWorkspaceKey(itemId));
+
+        test('the engine default is its own inverse, for ordinary and awkward item ids', () => {
+            const proto = DockWorkspace.prototype;
+
+            for (const itemId of ['editor', 'a-b', 'popup:nested', 'x'.repeat(64), '1']) {
+                expect(roundTrips(proto, itemId), `"${itemId}" survives the round trip`).toBe(itemId)
+            }
+        });
+
+        test('a host that replaces BOTH halves round-trips; replacing ONE is caught', () => {
+            const paired = {
+                tearOutItemIdFor   : key => key.startsWith('vessel:') ? key.slice(7) : null,
+                tearOutWorkspaceKey: itemId => `vessel:${itemId}`
+            };
+
+            expect(roundTrips(paired, 'editor'), 'a fully replaced vocabulary is still an inverse').toBe('editor');
+
+            // The two half-overrides, which are the real-world shapes: a host mints its own key and
+            // inherits the reader, or replaces the reader and inherits the minter.
+            const encodeOnly = {
+                tearOutItemIdFor   : DockWorkspace.prototype.tearOutItemIdFor,
+                tearOutWorkspaceKey: itemId => `vessel:${itemId}`
+            };
+
+            const decodeOnly = {
+                tearOutItemIdFor   : key => key.startsWith('vessel:') ? key.slice(7) : null,
+                tearOutWorkspaceKey: DockWorkspace.prototype.tearOutWorkspaceKey
+            };
+
+            expect(roundTrips(encodeOnly, 'editor'),
+                'minting a new key while inheriting the reader loses the item').toBeNull();
+            expect(roundTrips(decodeOnly, 'editor'),
+                'replacing the reader while inheriting the minter loses it too').toBeNull()
+        })
     })
 });
