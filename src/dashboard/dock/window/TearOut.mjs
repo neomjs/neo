@@ -53,10 +53,15 @@
  * @param {Function} seams.awaitRefresh Host settle seam: `() => Promise<void>` — resolves when the
  *     host's projection has applied the document this machine just committed. Rejection means the
  *     return did not render, which is a failed reintegration, not a thrown gesture.
- * @param {Function} seams.commitReturn Host return commit: `(document) => void` — publishes a
- *     RETURNED document. Deliberately NOT `onDocumentChange`: that seam carries the detach
- *     operation and the vessel generation, and a return has neither. Routing a return through it
- *     would hand the host's zone-change path an operation and a source the return never had.
+ * @param {Function} seams.commitReturn Host return commit:
+ *     `(document) => void|Boolean|Promise<void|Boolean>` — publishes a RETURNED document. **Awaited,
+ *     and an explicit `false`, a throw or a rejection fails the return**; every other resolution
+ *     admits it, so a host that publishes without opinion is unaffected. An asynchronous host must
+ *     not resolve before its publication has actually landed — that promise is the only thing
+ *     standing between an unlanded return and a `returned: true` report.
+ *     Deliberately NOT `onDocumentChange`: that seam carries the detach operation and the vessel
+ *     generation, and a return has neither. Routing a return through it would hand the host's
+ *     zone-change path an operation and a source the return never had.
  * @param {Function} seams.findContainingTabsId Host document query:
  *     `(document, itemId) => String|null` — the tabs node currently holding an item, or null when
  *     the tree does not hold it. Supplied rather than imported: `model/WorkspaceDocument` is the
@@ -504,9 +509,26 @@ export function createDockTearOutHandlers({
              * @returns {Promise<Boolean>}
              */
             const settle = async nextDocument => {
-                commitReturn(nextDocument);
-
                 try {
+                    // A return has TWO barriers, and awaiting only the second is what made this
+                    // report success early. `commitReturn` is the publication barrier — a host whose
+                    // publish is asynchronous (the Group) resolves it only once its own projection is
+                    // installed, so a return that skipped it reported `returned: true` against a
+                    // publication that had not landed and could still refuse. The refresh below is
+                    // the projection barrier, and it cannot stand in for the first: with an
+                    // already-settled previous refresh it resolves immediately and witnesses nothing.
+                    //
+                    // Inside the `try` deliberately: a synchronous throw from `commitReturn` used to
+                    // escape this function entirely, past the failure report the caller relies on.
+                    const published = await commitReturn(nextDocument);
+
+                    // Only an explicit `false` refuses. Every host today returns undefined, and a
+                    // host that publishes without opinion must not be read as refusing.
+                    if (published === false) {
+                        onPaneReturn({itemId, pane, phase: 'after', returned: false});
+                        return false
+                    }
+
                     await awaitRefresh();
                     onPaneReturn({itemId, pane, phase: 'after', returned: true});
                     return true
