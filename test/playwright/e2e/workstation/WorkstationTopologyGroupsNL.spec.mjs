@@ -325,7 +325,9 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             expect(root.app.sessionId, 'cold restore has a new App Worker').not.toBe(seed.sessionId);
             const hydrated = await expectColdTopology(root, seed.records.b);
             expect(coldContext.pages(), 'semantic hydrate opens no popup').toHaveLength(1);
-            expect(hydrated.workspaceHosts.details.hostId).toBeNull();
+            expect(hydrated.workspaceHosts.details.hostId).toEqual(expect.any(String));
+            expect(hydrated.workspaceHosts.details.windowId).toBeNull();
+            expect(hydrated.workspaceHosts.details.disconnected).toBe(true);
 
             await root.page.setViewportSize({width: 800, height: 900});
             const recoveryButtons = ['Save workspace', 'Close workspace', 'Open details as window', 'Show details here']
@@ -356,9 +358,11 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             expect(await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces'), 'native refusal keeps both keyed documents').toEqual(seed.records.b.workspaces);
 
             await root.page.getByRole('button', {name: 'Show details here', exact: true}).click();
-            await expect.poll(async () => (await topologyState(root.app, root.workspaceId)).workspaceHosts.details.hostId).toBeTruthy();
+            await expect.poll(async () => (await topologyState(root.app, root.workspaceId)).workspaceHosts.details.disconnected).toBe(false);
             const inline = await topologyState(root.app, root.workspaceId),
                   paneId = await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['feed']);
+            expect(inline.workspaceHosts.details.hostId, 'inline recovery reuses the hydrated owner')
+                .toBe(hydrated.workspaceHosts.details.hostId);
             await expect(root.page.locator(`[id="${paneId}"]`), 'refusal has an inline recovery path').toBeVisible();
             await root.page.evaluate(() => { window.open = window.__topologyPopupControl.open });
 

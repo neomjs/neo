@@ -231,7 +231,9 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
         const initial = WorkspaceDocument.clone(main.document);
         const root = {
             get dockModel() { return main.document },
-            workspaceSet: set, topologyGroupId: groupId, vesselWorkspaces: new Map(), tearOutPanes: {}, tearOutConnects: {},
+            workspaceSet: set, topologyGroupId: groupId,
+            getPopupState: WorkstationWorkspace.prototype.getPopupState,
+            getPopupStates: WorkstationWorkspace.prototype.getPopupStates,
             stateProvider: TransactionManager.getProvider(groupId),
             resolvePane: () => ({ntype: 'component'}),
             createVesselWorkspaceDocument: WorkstationWorkspace.prototype.createVesselWorkspaceDocument,
@@ -243,7 +245,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
         try {
             expect(await WorkstationWorkspace.prototype.onTearOutDocumentChange.call(root, null,
                 {operation: 'detachItem', itemId}, {})).toBe(true);
-            const popup = root.vesselWorkspaces.get(WorkstationWorkspace.vesselWorkspaceId(itemId)).host;
+            const popup = root.getPopupState(WorkstationWorkspace.vesselWorkspaceId(itemId)).host;
             expect(popup).toBeInstanceOf(PopupWorkspace);
             expect(popup.dockModel.items[itemId]).toEqual(document(key).items[itemId]);
             expect(TransactionManager.get(groupId).history.count).toBe(1);
@@ -251,7 +253,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
             expect(main.document).toEqual(initial);
             expect(Object.keys(popup.dockModel.items)).toHaveLength(0)
         } finally {
-            for (const state of root.vesselWorkspaces.values()) state.host.destroy()
+            for (const state of root.getPopupStates()) state.host.destroy()
         }
     });
 

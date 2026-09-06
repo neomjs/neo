@@ -740,6 +740,7 @@ class Transaction extends Manager {
      * @param {String} data.groupId
      * @param {String} data.workspaceKey
      * @param {Object} data.participant
+     * @param {Function} [data.participant.dispose] Synchronous owner cleanup on explicit Group retirement.
      * @returns {Boolean}
      */
     registerParticipant({groupId, workspaceKey, participant}) {
@@ -902,6 +903,7 @@ class Transaction extends Manager {
 
         group.bindings.forEach(binding => me.clearLease(binding));
         group.nativeLifecycle?.destroy();
+        [...group.participants.values()].forEach(participant => participant.dispose?.());
         group.participants.clear();
         group.provider?.destroy();
         group.history?.destroy();

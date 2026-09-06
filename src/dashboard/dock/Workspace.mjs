@@ -1059,7 +1059,7 @@ class Workspace extends Container {
     destroy(...args) {
         const me = this;
         me.transactionManager?.un({bind: me.onTopologyGroupBinding, scope: me});
-        me.nativeWindows?.unregisterSource(me.id);
+        if (me.nativeWindows && !me.nativeWindows.isDestroyed) me.nativeWindows.unregisterSource(me.id);
         me.tearOutHandlers?.retirePaneState?.();
         me.tearOutHandlers = null;
         me.nativeWindows = null;

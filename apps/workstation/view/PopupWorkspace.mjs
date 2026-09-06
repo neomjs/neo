@@ -41,6 +41,12 @@ class PopupWorkspace extends DockWorkspace {
     participation = null
 
     /**
+     * Presentation and connection references owned by this popup; membership lives in its Group.
+     * @member {Object|null} runtimeState=null
+     */
+    runtimeState = null
+
+    /**
      * @summary Registers the document owner before any render target is required.
      * @param {Object} config
      */
@@ -49,6 +55,7 @@ class PopupWorkspace extends DockWorkspace {
         const me = this;
         me.workspaceSet.register(me.workspaceKey, {
             componentId: me.id,
+            dispose: () => { if (!me.isDestroyed) me.destroy() },
             getDocument: () => me.dockModel,
             setDocument: value => me.dockModel = value,
             project: context => me.projectDockZoneDocument(context.snapshot.participants[me.workspaceKey], context.descriptor, me, {
@@ -110,10 +117,14 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Retires this owner's interaction registration with the owner itself.
+     * @summary Retires this popup's Group membership and interaction registration.
      */
     destroy() {
         this.participation?.destroy();
+        if (Neo.manager.Transaction.getParticipant(this.topologyGroupId, this.workspaceKey)?.componentId === this.id) {
+            this.workspaceSet.unregister(this.workspaceKey)
+        }
+        this.runtimeState = null;
         super.destroy()
     }
 }

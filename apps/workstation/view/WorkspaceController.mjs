@@ -78,7 +78,7 @@ class WorkspaceController extends Controller {
               items = [{ntype: 'button', text: 'Save workspace', handler: () => me.saveTopology()},
                   {ntype: 'button', text: 'Close workspace', handler: () => me.closeTopology()}];
 
-        for (const workspaceKey of me.component.vesselWorkspaces.keys()) {
+        for (const workspaceKey of me.component.getPopupStates().map(state => state.workspaceId)) {
             items.push(
                 {ntype: 'button', text: `Open ${workspaceKey} as window`, handler: () => me.openTopologyWorkspace(workspaceKey)},
                 {ntype: 'button', text: `Show ${workspaceKey} here`, handler: () => me.mountTopologyWorkspace(workspaceKey, me.component)}
@@ -102,7 +102,7 @@ class WorkspaceController extends Controller {
      * @returns {Promise<Boolean>}
      */
     async mountTopologyWorkspace(workspaceKey, target) {
-        const state = this.component.vesselWorkspaces.get(workspaceKey);
+        const state = this.component.getPopupState(workspaceKey);
         if (!state || !target || target.isDestroyed) return false;
 
         state.renderTarget = target;
@@ -129,7 +129,7 @@ class WorkspaceController extends Controller {
      * @returns {Promise<Object>} A separate native-effect receipt, never semantic restore success.
      */
     async openTopologyWorkspace(workspaceKey) {
-        const state = this.component.vesselWorkspaces.get(workspaceKey);
+        const state = this.component.getPopupState(workspaceKey);
         if (!state) return {opened: false, errors: ['unknown workspace']};
         const reservation = TransactionManager.reserve({groupId: this.component.topologyGroupId, workspaceKey});
         if (!reservation) return {opened: false, errors: ['workspace already has a window']};
@@ -193,7 +193,7 @@ class WorkspaceController extends Controller {
             historyCursor : group.history?.cursor ?? -1,
             libraryVersion: this.component.topologyLibrary.version,
             snapshot      : group.snapshot ?? null,
-            workspaceHosts: Object.fromEntries([...this.component.vesselWorkspaces].map(([key, state]) => [key, {
+            workspaceHosts: Object.fromEntries(this.component.getPopupStates().map(state => [state.workspaceId, {
                 disconnected: state.disconnected,
                 hostId      : state.host?.id ?? null,
                 windowId    : state.windowId

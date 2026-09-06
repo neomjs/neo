@@ -352,13 +352,6 @@ class Workspace extends DockWorkspace {
      */
     mainPreviewWindowSignature = null
     /**
-     * Worker-owned vessel workspace records keyed by stable workspace identity. Entries carry
-     * document ownership and render-target refs, never cached geometry.
-     * @member {Map<String,Object>} vesselWorkspaces
-     * @protected
-     */
-    vesselWorkspaces = new Map()
-    /**
      * Most recent cross-window transfer receipt for the film/spec boundary.
      * @member {Object|null} lastCrossWindowTransfer=null
      */
@@ -478,15 +471,7 @@ class Workspace extends DockWorkspace {
                 windowId    : null,
                 workspaceId
             };
-            me.vesselWorkspaces.set(workspaceId, state);
-            me.workspaceSet.register(workspaceId, {
-                componentId: host.id,
-                getDocument: () => state.document,
-                setDocument: value => state.document = value,
-                project: context => host.projectDockZoneDocument(context.snapshot.participants[workspaceId], context.descriptor, host, {
-                    preserveItemIds: context.preserveItemIds
-                })
-            })
+            host.runtimeState = state
         }
 
         me.registerMainWorkspace();
@@ -775,7 +760,7 @@ class Workspace extends DockWorkspace {
         if (pane && !pane.isDestroyed) return pane.id;
 
         if (!item) {
-            for (const state of me.vesselWorkspaces.values()) {
+            for (const state of me.getPopupStates()) {
                 item = state.document?.items?.[itemId];
 
                 if (item) break
@@ -1103,7 +1088,7 @@ class Workspace extends DockWorkspace {
             onDockTearOutExit        : data => me.onDockTearOutExit(data),
             onDockVesselConversionIn : data => {
                 let targetWorkspaceId = data.targetId,
-                    targetState       = me.vesselWorkspaces.get(targetWorkspaceId);
+                    targetState       = me.getPopupState(targetWorkspaceId);
 
                 // The coordinator speaks stable claim identity. Platform effects speak runtime
                 // window identity. Resolve the former through the app-owned workspace registry;
@@ -1219,7 +1204,7 @@ class Workspace extends DockWorkspace {
                     itemId   = data.draggedItem?.dockItemId,
                     renderer = isMain
                         ? me.dragAffordances?.preview
-                        : me.vesselWorkspaces.get(workspaceId)?.preview;
+                        : me.getPopupState(workspaceId)?.preview;
 
                 if (!renderer?.dockPreview) return false;
 
@@ -1251,7 +1236,7 @@ class Workspace extends DockWorkspace {
     /**
      * @summary Resolves one dropped bare Workstation popup into its exact live native drag record.
      *
-     * The root workspace owns both registries, so native source discovery remains independent of
+     * Group native ownership and the registered popup owner identify the source independently of
      * whichever dock tab zone last occupied a window's coordinator slot. Whole-stack vessels,
      * disconnected topology, and panes no longer catalogued as detached all fail closed.
      * @param {String|Number} windowId The physical moving popup window.
@@ -1264,7 +1249,7 @@ class Workspace extends DockWorkspace {
         for (const [itemId, entry] of (me.nativeWindows?.ownerEntries(me.id) || [])) {
             const
                 workspaceId = Workspace.vesselWorkspaceId(itemId),
-                state       = me.vesselWorkspaces.get(workspaceId),
+                state       = me.getPopupState(workspaceId),
                 pane        = me.paneCache[itemId],
                 vesselItems = Object.keys(state?.document?.items || {});
 
@@ -1311,7 +1296,7 @@ class Workspace extends DockWorkspace {
     async refreshCrossWindowParticipation(workspaceId) {
         let me       = this,
             isMain   = workspaceId === Workspace.MAIN_WORKSPACE_ID,
-            state    = isMain ? null : me.vesselWorkspaces.get(workspaceId),
+            state    = isMain ? null : me.getPopupState(workspaceId),
             windowId = isMain ? me.windowId : state?.windowId;
 
         if (windowId == null || (!isMain && !state)) return null;
@@ -1327,7 +1312,7 @@ class Workspace extends DockWorkspace {
             !participation ||
             me.isDestroyed ||
             (!isMain && (
-                me.vesselWorkspaces.get(workspaceId) !== state ||
+                me.getPopupState(workspaceId) !== state ||
                 state.app?.mainView?.isDestroyed
             ))
         ) {
@@ -1347,7 +1332,7 @@ class Workspace extends DockWorkspace {
      * @returns {Promise<Object|null>}
      */
     async registerVesselWorkspaceTarget({app, itemId, windowId}) {
-        const state = this.vesselWorkspaces.get(Workspace.vesselWorkspaceId(itemId));
+        const state = this.getPopupState(Workspace.vesselWorkspaceId(itemId));
         if (!state?.host || !app?.mainView) return null;
         if (state.windowId === windowId && state.host.parent === app.mainView) {
             await state.mountPromise;
@@ -1372,7 +1357,7 @@ class Workspace extends DockWorkspace {
     retireVesselWorkspaceTarget(itemId) {
         let me          = this,
             workspaceId = Workspace.vesselWorkspaceId(itemId),
-            state       = workspaceId && me.vesselWorkspaces.get(workspaceId);
+            state       = workspaceId && me.getPopupState(workspaceId);
 
         if (!state) return false;
 
@@ -1389,24 +1374,36 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Resolves a workspace's current document. A vessel creates an unregistered provisional
-     * landing document only when a transfer first asks for it; registration and hover remain
-     * mutation-free.
+     * @summary Resolves committed document truth through the Group's participant membership.
      * @param {String} workspaceId
      * @returns {Object|null}
      * @protected
      */
     getWorkspaceDocument(workspaceId) {
-        if (workspaceId === Workspace.MAIN_WORKSPACE_ID) return this.dockModel;
-
-        let state = this.vesselWorkspaces.get(workspaceId);
-
-        return state?.document ?? null
+        return workspaceId === Workspace.MAIN_WORKSPACE_ID ? this.dockModel : this.workspaceSet.getDocument(workspaceId)
     }
 
     /**
-     * Seeds a valid empty landing document. The popup remains a bare pane until the first accepted
-     * transfer moves both the detached owner and the dragged pane into this document atomically.
+     * @summary Resolves popup presentation state through its registered Group participant.
+     * @param {String} workspaceId
+     * @returns {Object|null}
+     */
+    getPopupState(workspaceId) {
+        const id = TransactionManager.getParticipant(this.topologyGroupId, workspaceId)?.componentId;
+        const owner = id && Neo.getComponent(id);
+        return owner?.rootWorkspace === this ? owner.runtimeState ?? null : null
+    }
+
+    /**
+     * @summary Lists the Group's popup owners without retaining another membership registry.
+     * @returns {Object[]}
+     */
+    getPopupStates() {
+        return this.workspaceSet?.ids().map(key => this.getPopupState(key)).filter(Boolean) ?? []
+    }
+
+    /**
+     * Seeds the empty document of a full popup Workspace before its first atomic pane transfer.
      * @param {String} itemId
      * @returns {Object|null}
      * @protected
@@ -1441,7 +1438,7 @@ class Workspace extends DockWorkspace {
     hitTestCrossWindowTarget(workspaceId, localX, localY) {
         let me       = this,
             isMain   = workspaceId === Workspace.MAIN_WORKSPACE_ID,
-            state    = isMain ? null : me.vesselWorkspaces.get(workspaceId),
+            state    = isMain ? null : me.getPopupState(workspaceId),
             windowId = isMain ? me.windowId : state?.windowId,
             inner    = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null;
 
@@ -1470,7 +1467,7 @@ class Workspace extends DockWorkspace {
      */
     resolveCrossWindowPreviewSurface(workspaceId, targetNodeId) {
         let me       = this,
-            state    = me.vesselWorkspaces.get(workspaceId),
+            state    = me.getPopupState(workspaceId),
             windowId = state?.windowId,
             host     = state?.host ?? state?.app?.mainView,
             target   = state && !state.host ? host : host?.down({dockNodeId: targetNodeId}),
@@ -1578,12 +1575,12 @@ class Workspace extends DockWorkspace {
     renderCrossWindowPreview(workspaceId, data) {
         let me              = this,
             isMain          = workspaceId === Workspace.MAIN_WORKSPACE_ID,
-            state           = isMain ? null : me.vesselWorkspaces.get(workspaceId),
+            state           = isMain ? null : me.getPopupState(workspaceId),
             draggedItem     = data?.draggedItem,
             itemId          = draggedItem?.dockItemId,
             groupNodeId     = draggedItem?.dockGroupNodeId ?? null,
             sourceWorkspace = draggedItem?.dockSourceWorkspaceId,
-            sourceState     = me.vesselWorkspaces.get(sourceWorkspace),
+            sourceState     = me.getPopupState(sourceWorkspace),
             sourceItemId    = sourceWorkspace === Workspace.MAIN_WORKSPACE_ID
                 ? itemId
                 : sourceState?.itemId,
@@ -1747,7 +1744,7 @@ class Workspace extends DockWorkspace {
             this.mainPreviewWindowSignature = null;
             this.dragAffordances?.clear()
         } else {
-            let state   = this.vesselWorkspaces.get(workspaceId),
+            let state   = this.getPopupState(workspaceId),
                 preview = state?.preview;
 
             preview && (preview.dockPreview = null);
@@ -1786,7 +1783,7 @@ class Workspace extends DockWorkspace {
                 transactionId: committed.transactionId, phases: ['documents-adopted'],
                 reconciled: false, closeRequested: false, topologyExited: false
             };
-            const source = me.vesselWorkspaces.get(sourceWorkspaceId), target = me.vesselWorkspaces.get(targetWorkspaceId);
+            const source = me.getPopupState(sourceWorkspaceId), target = me.getPopupState(targetWorkspaceId);
             await Promise.all([me.refreshPromise, source?.host?.refreshPromise, target?.host?.refreshPromise]);
             receipt.reconciled = true;
             receipt.phases.push('projections-settled');
@@ -1799,67 +1796,18 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Replaces a bare vessel pane with its first real dock projection while reusing every cached
-     * pane instance. The existing preview overlay moves into the host; no pane is recreated.
+     * @summary Mounts the Group's existing popup owner into its current render target.
      * @param {String} workspaceId
      * @returns {Promise<Boolean>}
      * @protected
      */
     async mountVesselWorkspace(workspaceId) {
-        let me       = this,
-            state    = me.vesselWorkspaces.get(workspaceId),
-            document = state?.document,
-            mainView = state?.renderTarget ?? state?.app?.mainView;
-
-        if (!state || !document || !mainView || mainView.isDestroyed) return false;
-        if (state.host && !state.host.isDestroyed) {
-            state.host.parent?.remove(state.host, false, true);
-            mainView.add(state.host);
-            await state.host.promiseUpdate();
-            return true
-        }
-
-        Object.keys(document.items || {}).forEach(itemId => {
-            let pane = me.paneCache[itemId];
-
-            pane?.parent?.remove(pane, false)
-        });
-        state.preview?.parent?.remove(state.preview, false);
-        state.indicators?.parent?.remove(state.indicators, false);
-
-        state.host = mainView.add({
-            module: PopupWorkspace,
-            cls   : ['workstation-vessel-dock-host', 'neo-dashboard'],
-            flex  : 1,
-            dockModel: document,
-            rootWorkspace: me,
-            topologyGroupId: me.topologyGroupId,
-            workspaceKey: workspaceId,
-            workspaceSet: me.workspaceSet,
-            stateProvider: {module: StateProvider, parent: me.stateProvider},
-            layout: {ntype: 'fit'}
-        });
-        Object.defineProperty(state, 'document', {
-            configurable: true,
-            get: () => state.host.dockModel,
-            set: value => state.host.dockModel = value
-        });
-        me.workspaceSet.register(workspaceId, {
-            componentId: state.host.id,
-            getDocument: () => state.host.dockModel,
-            setDocument: value => state.host.dockModel = value,
-            project: context => state.host.projectDockZoneDocument(context.snapshot.participants[workspaceId], context.descriptor, state.host, {
-                preserveItemIds: context.preserveItemIds
-            })
-        });
-        state.preview    ??= state.host.down({ntype: 'dock-preview'});
-        state.indicators ??= state.host.down({ntype: 'dashboard-dock-drop-indicators'});
-
-        await state.host.promiseUpdate();
-        state.participation?.destroy();
-        state.participation = null;
-        me.crossWindowParticipations.delete(workspaceId);
-
+        const state = this.getPopupState(workspaceId), host = state?.host;
+        const target = state?.renderTarget ?? state?.app?.mainView;
+        if (!host || host.isDestroyed || !target || target.isDestroyed) return false;
+        host.parent?.remove(host, false, true);
+        target.add(host);
+        await host.promiseUpdate();
         return true
     }
 
@@ -1872,7 +1820,7 @@ class Workspace extends DockWorkspace {
      */
     async retireReturnedVessel(workspaceId) {
         let me      = this,
-            state   = me.vesselWorkspaces.get(workspaceId),
+            state   = me.getPopupState(workspaceId),
             vessel  = state && me.resolveTearOutVessel(state.itemId),
             receipt = me.lastCrossWindowTransfer;
 
@@ -3255,7 +3203,7 @@ class Workspace extends DockWorkspace {
             return true
         }
         const workspaceId = vessel.workspaceKey ?? Workspace.vesselWorkspaceId(itemId);
-        const existing = me.vesselWorkspaces.get(workspaceId);
+        const existing = me.getPopupState(workspaceId);
         let state = existing;
         try {
             if (!me.tearOutHandlers.capturePane(itemId)) throw new Error(`No live pane for ${itemId}`);
@@ -3269,7 +3217,7 @@ class Workspace extends DockWorkspace {
                 state = {host, itemId, workspaceId, committed: false, disconnected: true,
                     get document() { return host.dockModel },
                     set document(value) { host.dockModel = value }};
-                me.vesselWorkspaces.set(workspaceId, state)
+                host.runtimeState = state
             }
             await me.workspaceSet.transfer({
                 operation: 'transferItem', itemId, sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
@@ -3289,7 +3237,6 @@ class Workspace extends DockWorkspace {
             if (!existing && !committed) {
                 try {
                     me.workspaceSet.unregister(workspaceId);
-                    me.vesselWorkspaces.delete(workspaceId);
                     state?.host?.destroy()
                 } catch (cleanupError) {
                     me.lastCrossWindowTransfer.errors.push(`cleanup: ${cleanupError?.message ?? String(cleanupError)}`)
@@ -3368,7 +3315,7 @@ class Workspace extends DockWorkspace {
             return me.tearOutEmbodiment.promote({itemId, windowId}) !== false
         }
 
-        if (me.vesselWorkspaces.get(Workspace.vesselWorkspaceId(itemId))?.host) return true;
+        if (me.getPopupState(Workspace.vesselWorkspaceId(itemId))?.host) return true;
         return super.reparentDockPane(me.paneCache[itemId] || pane, target, itemId)
     }
 
@@ -3435,7 +3382,7 @@ class Workspace extends DockWorkspace {
         Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(windowId, {restoreSource: false});
         Neo.manager.DragCoordinator?.endNativeGesture(windowId);
         me.vesselProxyEmbodiment.restoreByWindow(windowId);
-        const state = me.vesselWorkspaces.get(data.workspaceKey);
+        const state = me.getPopupState(data.workspaceKey);
         if (state?.host) {
             state.disconnected = true;
             state.host.parent?.remove(state.host, false, true);
@@ -3941,7 +3888,7 @@ class Workspace extends DockWorkspace {
 
         let me            = this,
             isMain        = targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID,
-            state         = isMain ? null : me.vesselWorkspaces.get(targetWorkspaceId),
+            state         = isMain ? null : me.getPopupState(targetWorkspaceId),
             participation = me.crossWindowParticipations.get(targetWorkspaceId),
             target        = participation?.target,
             coordinator   = sourceZone?.dragCoordinator,
@@ -4069,7 +4016,7 @@ class Workspace extends DockWorkspace {
         let me                                   = this,
             {itemId, sourceNodeId, targetItemId} = step || {},
             targetWorkspaceId                    = Workspace.vesselWorkspaceId(targetItemId),
-            targetState                          = targetWorkspaceId && me.vesselWorkspaces.get(targetWorkspaceId),
+            targetState                          = targetWorkspaceId && me.getPopupState(targetWorkspaceId),
             sourceDocument                       = me.dockModel,
             sourceNode                           = sourceDocument?.nodes?.[sourceNodeId],
             button                               = null,
@@ -4269,7 +4216,7 @@ class Workspace extends DockWorkspace {
                     targetWorkspaceId
                 }, {attempts}),
                 sourceAfter = WorkspaceDocument.clone(me.dockModel),
-                targetAfter = WorkspaceDocument.clone(me.vesselWorkspaces.get(targetWorkspaceId)?.document),
+                targetAfter = WorkspaceDocument.clone(me.getPopupState(targetWorkspaceId)?.document),
                 retired     = await me.waitForTearOutVesselRetired(itemId, {attempts}),
                 targetItems = targetAfter?.nodes?.[Workspace.vesselTabsNodeId(targetItemId)]?.items || [],
                 sourceOwns  = WorkspaceDocument.findContainingTabsId(sourceAfter, itemId) != null
@@ -4321,7 +4268,7 @@ class Workspace extends DockWorkspace {
         let me            = this,
             {ownerItemId} = step || {},
             workspaceId   = Workspace.vesselWorkspaceId(ownerItemId),
-            state         = workspaceId && me.vesselWorkspaces.get(workspaceId),
+            state         = workspaceId && me.getPopupState(workspaceId),
             button        = null,
             cursorDot     = null,
             handleId      = null,
@@ -5038,7 +4985,7 @@ class Workspace extends DockWorkspace {
         me.crossWindowParticipations.forEach(participation => participation?.destroy());
         me.crossWindowParticipations.clear();
         me.crossWindowPreviewGeometries.clear();
-        me.vesselWorkspaces.clear();
+        me.getPopupStates().forEach(state => state.host?.destroy());
         me.tourRunner?.destroy();
         me.dockService?.destroy();
         me.perspectiveStore?.destroy();
