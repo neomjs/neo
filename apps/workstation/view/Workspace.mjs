@@ -1581,7 +1581,7 @@ class Workspace extends DockWorkspace {
             sourceItemId    = sourceWorkspace === Workspace.MAIN_WORKSPACE_ID
                 ? itemId
                 : sourceState?.itemId,
-            storedHome      = sourceItemId && me.tearOutPlacements[sourceItemId]?.tabsNodeId,
+            storedHome      = sourceItemId && me.tearOutHandlers?.peekPlacement?.(sourceItemId)?.tabsNodeId,
             targetNodeId    = isMain
                 ? (me.dockModel.nodes?.[storedHome]?.type === 'tabs'
                     ? storedHome
@@ -2060,7 +2060,7 @@ class Workspace extends DockWorkspace {
         if (!state?.committed || !me.workspaceSet.has(workspaceId)) return false;
         if (!itemIds.length) return true;
 
-        let placement  = me.tearOutPlacements[itemId],
+        let placement  = me.tearOutHandlers?.peekPlacement?.(itemId),
             storedHome = placement && me.dockModel.nodes?.[placement.tabsNodeId]?.type === 'tabs'
                 ? placement.tabsNodeId
                 : null,
@@ -3474,29 +3474,6 @@ class Workspace extends DockWorkspace {
         return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
     }
 
-    /**
-     * @summary The tear-out commit seam with exact-position capture riding it: the
-     * `{tabsNodeId, index}` pair is readable only BEFORE a detach commit removes the item from
-     * the tree, and a refused commit deletes its own capture — no stale placement outlives a
-     * gesture that never committed. Every non-detach descriptor passes through untouched.
-     * @param {Object} descriptor
-     * @returns {{document: Object, errors: String[]}|null}
-     * @protected
-     */
-    applyTearOutOperation(descriptor) {
-        let me       = this,
-            isDetach = descriptor?.operation === 'detachItem',
-            captured = isDetach ? WorkspaceDocument.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
-            result;
-
-        captured && (me.tearOutPlacements[descriptor.itemId] = captured);
-
-        result = me.applyDockZoneOperation(descriptor);
-
-        isDetach && result?.errors?.length && delete me.tearOutPlacements[descriptor.itemId];
-
-        return result
-    }
 
     /**
      * @summary Commits a detached terminal without sacrificing the live pane to projection order.
@@ -3522,20 +3499,27 @@ class Workspace extends DockWorkspace {
             operation      : operation.operation,
             preserveItemIds: me.tearOutEmbodiment.isStaged(itemId) ? [] : [itemId]
         });
-        me.adoptTearOutPane(itemId, vessel)
+        me.tearOutHandlers.adoptPane(itemId, vessel, me.tearOutConnects[itemId] || null)
     }
 
     /**
      * The vessel owns the pane now. If it had already bound (the long-drag order) it also becomes a
      * dock target — a vessel workspace registers lazily on its first dock-INTO, this only opens the
      * door. A vessel that binds later registers from {@link #afterTearOutWindowConnect}.
-     * @param {Object} data
-     * @param {Object|null} data.connection The connection the engine adopted, when the vessel had already bound.
-     * @param {String} data.itemId
+     *
+     * Overriding the ownership WRITE rather than a dedicated adoption hook is the whole point of the
+     * seam: one override, at the one moment ownership actually changes, instead of a hook that
+     * existed only so this app could learn about it.
+     * @param {String} itemId
+     * @param {Object|null} entry
+     * @param {Object|null} [connection=null] The connection the engine adopted, when the vessel had already bound.
+     * @param {Boolean} [isMerge=false]
      * @protected
      */
-    afterTearOutPaneAdopt({connection, itemId}) {
+    recordDockPaneOwner(itemId, entry, connection=null, isMerge=false) {
         let me = this;
+
+        super.recordDockPaneOwner(itemId, entry, connection, isMerge);
 
         connection && me.registerVesselWorkspaceTarget({
             app     : Neo.apps[connection.windowId],
@@ -3547,71 +3531,49 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Moves the LIVE cached pane into a bound tear-out vessel — pure render-target work; the model
-     * already committed at the terminal. A pane the connect-first order already staged into the
-     * vessel stays where it is: the exact-slot placeholder retires with the promotion instead of the
-     * pane moving twice.
+     * @summary Semantic recovery that never resurrects a node.
+     *
+     * The stored `{tabsNodeId, index}` pair captured at the detach terminal is the placement truth,
+     * and recovery is SEMANTIC, never geometric: a stored home that left the tree falls back to the
+     * first surviving tabs node and appends. The engine's default answers with `restoreTab`, which
+     * re-mints the remembered parent/slot — the exact position back, but a node the user watched
+     * collapse comes back with it. This app's contract is the other one.
+     * @param {Object} document
      * @param {String} itemId
+     * @param {Object|null} placement
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveDockReturnDescriptor(document, itemId, placement) {
+        return Operations.appendingReturnDescriptor(document, itemId, placement)
+    }
+
+    /**
+     * @summary Moves the LIVE cached pane into a bound tear-out vessel — pure render-target work;
+     * the model already committed at the terminal.
+     *
+     * Answered by IDENTITY, not by the component the choreography resolved: a pane the connect-first
+     * order already staged into the vessel stays where it is, so the exact-slot placeholder retires
+     * with the promotion instead of the pane moving twice. That is also why the offered `pane` may be
+     * null here and the answer still be yes — this app knows about panes the projected tree does not.
+     * @param {Neo.component.Base|null} pane The pane the choreography resolved, which may be null.
      * @param {Object} target `{windowId}`
+     * @param {String} itemId
      * @returns {Boolean}
      * @protected
      */
-    reparentTearOutPane(itemId, target) {
+    reparentDockPane(pane, target={}, itemId) {
         let me         = this,
-            {windowId} = target,
-            app        = Neo.apps[windowId],
-            pane       = me.paneCache[itemId];
+            {windowId} = target;
 
-        me.tearOutPanes[itemId] && Object.assign(me.tearOutPanes[itemId], target);
-
+        // Answered by IDENTITY, not by the component the engine resolved: a pane the connect-first
+        // order already staged into the vessel stays where it is, and the exact-slot placeholder
+        // retires with the promotion instead of the pane moving twice.
         if (me.tearOutEmbodiment.isStaged(itemId)) {
             return me.tearOutEmbodiment.promote({itemId, windowId}) !== false
         }
 
-        if (!app || !pane || pane.isDestroyed) return false;
-
-        if (pane.parent !== app.mainView) {
-            pane.parent?.remove(pane, false);
-            app.mainView.add(pane)
-        }
-
-        return true
-    }
-
-    /**
-     * @summary Brings a torn-out item HOME on vessel death — the exact-position return.
-     *
-     * The stored `{tabsNodeId, index}` pair (captured at the detach terminal) is the placement
-     * truth; recovery is SEMANTIC, never geometric: a stored home node that left the tree falls
-     * back to the first surviving tabs node (append). Exact-once and idempotent: an item some
-     * other flow already re-treed is left where it is, and the placement record is consumed
-     * regardless. An item whose document no longer catalogs it, or a document with no surviving
-     * tabs node, stays catalog-only — the honest terminal, with zero mutation.
-     * @param {String} itemId
-     * @protected
-     */
-    reintegrateTearOutItem(itemId) {
-        let me         = this,
-            placement  = me.tearOutPlacements[itemId],
-            doc        = me.dockModel,
-            storedHome = placement && doc.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
-            fallback   = storedHome || Object.entries(doc.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
-            result;
-
-        delete me.tearOutPlacements[itemId];
-
-        if (!doc.items?.[itemId] || !fallback || WorkspaceDocument.findContainingTabsId(doc, itemId)) {
-            return
-        }
-
-        result = me.applyDockZoneOperation({
-            operation : 'addTab',
-            itemId,
-            tabsNodeId: fallback,
-            ...(storedHome ? {index: placement.index} : {})
-        });
-
-        result?.errors?.length === 0 && me.onDockZoneDocumentChange(result.document)
+        return super.reparentDockPane(me.paneCache[itemId] || pane, target, itemId)
     }
 
     /**
@@ -4724,7 +4686,7 @@ class Workspace extends DockWorkspace {
             // The film gesture aims at the semantic return target itself: the indicator
             // menu's active candidate is selected geometrically, so the synthetic cursor
             // hovers the stored-home tabs node (window center can lie outside it).
-            let storedHome   = me.tearOutPlacements[state.itemId]?.tabsNodeId,
+            let storedHome   = me.tearOutHandlers?.peekPlacement?.(state.itemId)?.tabsNodeId,
                 returnNodeId = me.dockModel.nodes?.[storedHome]?.type === 'tabs'
                     ? storedHome
                     : Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],

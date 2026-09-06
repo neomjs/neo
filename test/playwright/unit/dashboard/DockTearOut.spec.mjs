@@ -24,8 +24,11 @@ import {createDockTearOutHandlers} from '../../../../src/dashboard/dock/window/T
  * assertion surface — the machine exposes nothing else.
  */
 test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers', () => {
-    const harness = ({admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null} = {}) => {
-        const calls = {applied: [], closed: [], ended: 0, opened: [], started: [], synced: []};
+    const harness = ({
+        admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null,
+        commitReturn = null, refresh = null
+    } = {}) => {
+        const calls = {applied: [], closed: [], ended: 0, opened: [], published: [], returns: [], started: [], synced: []};
 
         const sortZone = {
             endWindowDrag  : () => calls.ended++,
@@ -49,7 +52,25 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
                 calls.opened.push(request);
                 if (openResult) return openResult(request);
                 return admit ? {popupHeight: 480, popupWidth: 640, windowName: `vessel-${request.itemId}`} : null
-            }
+            },
+
+            // The return path's seams. `awaitRefresh` defaults to an ALREADY-SETTLED promise on
+            // purpose: that is the production shape when no projection is pending, and it is the
+            // condition under which awaiting only the refresh witnesses nothing at all.
+            awaitRefresh: () => refresh ? refresh() : Promise.resolve(),
+            commitReturn: document => {
+                calls.published.push(document);
+                return commitReturn ? commitReturn(document) : undefined
+            },
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {graph: {}}, nodes: {'tabs-1': {type: 'tabs', items: []}}}),
+            onAdoptionFailed       : () => {},
+            onPaneAdopted          : () => {},
+            onPaneReturn           : data => calls.returns.push(data),
+            reparentPane           : () => true,
+            resolvePane            : () => null,
+            resolveReturnDescriptor: (document, itemId) => ({operation: 'restoreTab', itemId, tabsNodeId: 'tabs-1'}),
+            settlePane             : () => {}
         });
 
         return {calls, handlers, sortZone}
@@ -315,6 +336,134 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
         expect(calls.closed).toHaveLength(1);
         expect(calls.applied).toEqual([{operation: 'detachItem', itemId: 'graph'}]);
         expect(calls.synced).toHaveLength(1)
+    });
+
+    test('a host that answers by IDENTITY adopts even when this machine can see no pane', () => {
+        // The regression this pins was caught by a real pop-out e2e, not here, and e2e does not run
+        // in the PR matrix — so the guard belongs at this tier or it does not exist.
+        //
+        // Adoption used to resolve the pane itself and refuse when it found none. `apps/workstation`
+        // answers by identity: it promotes an already-staged vessel embodiment, and otherwise reads
+        // its own `paneCache` — neither reachable from the projected tree this machine searches. The
+        // refusal therefore compensated, closed the just-opened vessel, and the user saw a pop-out
+        // that opened a window and killed it. The pane is OFFERED; only the host's `false` refuses.
+        const adopted = [];
+
+        const handlers = createDockTearOutHandlers({
+            applyOperation         : () => ({document: {}, errors: []}),
+            awaitRefresh           : () => Promise.resolve(),
+            closeVessel            : () => true,
+            commitReturn           : () => {},
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {}, nodes: {}}),
+            onAdoptionFailed       : () => {},
+            onDocumentChange       : () => {},
+            onPaneAdopted          : (itemId, entry) => adopted.push({itemId, entry}),
+            onPaneReturn           : () => {},
+            openVessel             : async () => null,
+            resolvePane            : () => null,          // this machine can see nothing
+            reparentPane           : () => true,          // the host answers by identity anyway
+            resolveReturnDescriptor: () => null,
+            settlePane             : () => {}
+        });
+
+        expect(() => handlers.adoptPane('commits', {}, {windowId: 'vessel-win'}),
+            'a host that says yes must not be overruled by a null lookup').not.toThrow();
+
+        expect(adopted.at(-1), 'and the window binding still merges into the ownership record')
+            .toMatchObject({itemId: 'commits', entry: {windowId: 'vessel-win'}});
+
+        expect(handlers.reparentAdopted('commits', {windowId: 'vessel-win'}),
+            'the connect-race partner offers the pane the same way').toBe(true);
+    });
+
+    test('control: a host that REFUSES still compensates, so the offer is not a blanket admission', () => {
+        const closed = [];
+
+        const handlers = createDockTearOutHandlers({
+            applyOperation         : () => ({document: {}, errors: []}),
+            awaitRefresh           : () => Promise.resolve(),
+            closeVessel            : vessel => {closed.push(vessel); return true},
+            commitReturn           : () => {},
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {}, nodes: {}}),
+            onAdoptionFailed       : () => {},
+            onDocumentChange       : () => {},
+            onPaneAdopted          : () => {},
+            onPaneReturn           : () => {},
+            openVessel             : async () => null,
+            resolvePane            : () => null,
+            reparentPane           : () => false,         // the host itself declines
+            resolveReturnDescriptor: () => null,
+            settlePane             : () => {}
+        });
+
+        expect(() => handlers.adoptPane('commits', {}, {windowId: 'vessel-win'})).toThrow(/could not enter its admitted vessel/);
+        expect(closed, 'the vessel the host refused is retired').toHaveLength(1);
+        expect(handlers.reparentAdopted('commits', {windowId: 'vessel-win'})).toBe(false)
+    });
+
+    test.describe('the return waits for its PUBLICATION, not only for the refresh', () => {
+        // The defect these pin: `settle()` published without awaiting, then awaited a refresh that
+        // — already settled — resolved immediately, so the return reported `returned: true` against
+        // a publication that had not landed and could still refuse. The
+        // already-settled refresh is the default here for exactly that reason: it is the condition
+        // under which the second barrier witnesses nothing, so these arms fail if the first is dropped.
+
+        test('a DELAYED publication holds the return pending — the settled refresh cannot stand in for it', async () => {
+            let release;
+
+            const {calls, handlers} = harness({commitReturn: () => new Promise(resolve => {release = resolve})});
+
+            let settled = false;
+
+            const pending = handlers.reintegrateItem('graph', null).then(result => {
+                settled = true;
+                return result
+            });
+
+            // Two microtask turns: enough for the already-settled `awaitRefresh` to have resolved
+            // several times over, which is precisely what the defect rode on.
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(calls.published, 'the host WAS asked to publish').toHaveLength(1);
+            expect(settled, 'the return must NOT have reported while publication is in flight').toBe(false);
+            expect(calls.returns.some(entry => entry.phase === 'after'),
+                'and no after-report may exist yet').toBe(false);
+
+            release();
+
+            expect(await pending, 'once publication lands, the return succeeds').toBe(true);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: true})
+        });
+
+        test('a REFUSED publication fails the return rather than reporting success', async () => {
+            const {calls, handlers} = harness({commitReturn: () => Promise.resolve(false)});
+
+            expect(await handlers.reintegrateItem('graph', null)).toBe(false);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: false})
+        });
+
+        test('a publication that THROWS synchronously is a failed return, not an escaped throw', async () => {
+            const {calls, handlers} = harness({
+                commitReturn: () => { throw new Error('host publication exploded') }
+            });
+
+            // Before the repair this throw left `settle()` entirely, past the failure report the
+            // caller depends on — a rejected promise where a `false` was owed.
+            expect(await handlers.reintegrateItem('graph', null)).toBe(false);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: false});
+            expect(calls.returns.at(-1).error, 'the cause travels with the failure').toBeTruthy()
+        });
+
+        test('control: a synchronous publication still succeeds, so the barrier is not simply refusing', async () => {
+            const {calls, handlers} = harness();
+
+            expect(await handlers.reintegrateItem('graph', null)).toBe(true);
+            expect(calls.published).toHaveLength(1);
+            expect(calls.returns.at(-1)).toMatchObject({phase: 'after', returned: true})
+        });
     });
 
     test('a terminal for a DIFFERENT item than the admitted vessel commits nothing (stale-identity guard)', async () => {

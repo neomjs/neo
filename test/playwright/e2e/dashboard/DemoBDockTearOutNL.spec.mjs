@@ -206,7 +206,7 @@ test.describe('Dashboard Demo B — real dock tear-out gesture', () => {
 
         await expect.poll(async () => {
             const state = await ctx.app.getComponent(ctx.wsId, [
-                      'tearOutConnects', 'tearOutPanes', 'tearOutPlacements'
+                      'tearOutConnects', 'tearOutHandlers.placements', 'tearOutPanes'
                   ]),
                   pane  = await getCounter(ctx.app);
 
@@ -214,22 +214,21 @@ test.describe('Dashboard Demo B — real dock tear-out gesture', () => {
                 connects: Object.keys(state.tearOutConnects).length,
                 paneId  : pane.id,
                 panes   : Object.keys(state.tearOutPanes).length,
-                places  : Object.keys(state.tearOutPlacements).length
+                places  : Object.keys(state['tearOutHandlers.placements']).length
             }
         }, {
             message: 'cancel must retire every vessel record while preserving the live pane',
             timeout: 5000
         }).toEqual({connects: 0, paneId: paneBefore.id, panes: 0, places: 0});
 
-        const settled = await ctx.app.getComponent(ctx.wsId, [
-            'dockModel', 'tearOutConnects', 'tearOutPanes', 'tearOutPlacements'
-        ]);
+        const lifecycleState = () => ctx.app.getComponent(ctx.wsId, [
+                  'dockModel', 'tearOutConnects', 'tearOutHandlers.placements', 'tearOutPanes'
+              ]),
+              settled        = await lifecycleState();
 
         await ctx.app.callMethod(ctx.wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
 
-        expect(await ctx.app.getComponent(ctx.wsId, [
-            'dockModel', 'tearOutConnects', 'tearOutPanes', 'tearOutPlacements'
-        ]), 'repeating the closed vessel terminal is a no-op').toEqual(settled);
+        expect(await lifecycleState(), 'repeating the closed vessel terminal is a no-op').toEqual(settled);
         expect((await getCounter(ctx.app)).id).toBe(paneBefore.id);
         expect(ctx.runtimeErrors).toEqual([]);
         expect(ctx.pageErrors).toEqual([]);

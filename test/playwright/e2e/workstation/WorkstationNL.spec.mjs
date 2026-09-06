@@ -2505,12 +2505,12 @@ test.describe('Workstation — dense living-data composition', () => {
 
             await expect.poll(async () => {
                 const state = await app.getComponent(workspaceId, [
-                    'lastVesselOpen', 'tearOutPanes', 'tearOutPlacements', 'tearOutVesselDims'
+                    'lastVesselOpen', 'tearOutHandlers.placements', 'tearOutPanes', 'tearOutVesselDims'
                 ]);
 
                 return {
                     dims     : state.tearOutVesselDims,
-                    placement: state.tearOutPlacements?.commits,
+                    placement: state['tearOutHandlers.placements']?.commits,
                     stage    : state.lastVesselOpen?.stage,
                     windowId : state.tearOutPanes?.commits?.windowId
                 }
@@ -2552,13 +2552,15 @@ test.describe('Workstation — dense living-data composition', () => {
             }).toBe(true);
 
             await expect.poll(async () => {
-                const state = await app.getComponent(workspaceId, ['dockModel', 'tearOutPanes', 'tearOutPlacements']);
+                const state = await app.getComponent(workspaceId, [
+                    'dockModel', 'tearOutHandlers.placements', 'tearOutPanes'
+                ]);
 
                 return {
                     inTree   : Object.values(state.dockModel.nodes)
                         .some(node => node.type === 'tabs' && node.items?.includes('commits')),
                     pane     : state.tearOutPanes?.commits ?? null,
-                    placement: state.tearOutPlacements?.commits ?? null
+                    placement: state['tearOutHandlers.placements']?.commits ?? null
                 }
             }, {
                 message  : 'physical vessel death clears lifecycle owners and reintegrates Commit Stream',

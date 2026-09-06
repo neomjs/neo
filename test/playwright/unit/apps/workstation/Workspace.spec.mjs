@@ -1168,7 +1168,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             workspace.windowId = 'window-main';
             workspace.vesselWorkspaces.set(sourceWorkspaceId, {itemId: 'queues'});
-            workspace.tearOutPlacements.queues = {index: 0, tabsNodeId: 'left-tabs'};
+            workspace.tearOutHandlers.recordPlacement('queues', {index: 0, tabsNodeId: 'left-tabs'});
 
             try {
                 WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1280, height: 720}});
@@ -1217,7 +1217,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
                 // Off every zone but inside the window: the stored home acquires the drop as a
                 // tab-into, painted on the home's exact rect — never on the pointer's empty position.
-                workspace.tearOutPlacements.queues = {index: 1, tabsNodeId: 'right-top-tabs'};
+                workspace.tearOutHandlers.recordPlacement('queues', {index: 1, tabsNodeId: 'right-top-tabs'});
 
                 const offZone = render({x: 450, y: 500}, Workspace.MAIN_WORKSPACE_ID);
 
@@ -1257,7 +1257,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 renderer.applyTargetGeometry = originalApplyTargetRect;
                 workspace.windowId           = originalWindowId;
                 workspace.vesselWorkspaces.delete(sourceWorkspaceId);
-                delete workspace.tearOutPlacements.queues
+                workspace.tearOutHandlers.forgetPlacement('queues')
             }
         } finally {
             workspace.destroy()
@@ -1276,7 +1276,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             workspace.windowId = 'window-main';
             workspace.vesselWorkspaces.set(sourceWorkspaceId, {itemId: 'queues'});
-            workspace.tearOutPlacements.queues = {index: 0, tabsNodeId: 'left-tabs'};
+            workspace.tearOutHandlers.recordPlacement('queues', {index: 0, tabsNodeId: 'left-tabs'});
 
             // The construct-time participation resolves before windowId exists in this
             // harness — refresh it now that the window identity is set.
@@ -1329,7 +1329,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 host.getDomRect    = originalGetDomRect;
                 workspace.windowId = originalWindowId;
                 workspace.vesselWorkspaces.delete(sourceWorkspaceId);
-                delete workspace.tearOutPlacements.queues
+                workspace.tearOutHandlers.forgetPlacement('queues')
             }
         } finally {
             workspace.destroy()
@@ -1919,13 +1919,23 @@ test.describe.serial('Workstation.view.Workspace', () => {
             projections            = [];
 
         try {
-            workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
+            workspace.tearOutHandlers.recordPlacement('alerts', {index: 0, tabsNodeId: 'heavy-tabs'});
             workspace.tearOutPanes.alerts = {
                 generationToken: 'lineage-3',
                 windowId       : 'window-alerts',
                 windowName     : 'tearout-alerts'
             };
-            workspace.tearOutHandlers = {onVesselRetired() {}};
+            // Only the RETIREMENT is stubbed out — the arm is about recovery, not about the vessel
+            // machinery. The pane-handoff half delegates to the real bundle, which is where
+            // placement consumption happens: a bare stub would leave the record uneaten and the
+            // assertions below would be reading a return that never ran.
+            workspace.tearOutHandlers = {
+                forgetPlacement: itemId => originalTearOut.forgetPlacement(itemId),
+                onVesselRetired() {},
+                peekPlacement  : itemId => originalTearOut.peekPlacement(itemId),
+                reintegrateItem: (itemId, pane) => originalTearOut.reintegrateItem(itemId, pane),
+                releasePane    : itemId => originalTearOut.releasePane(itemId)
+            };
             workspace.vesselParkHandlers = {onVesselRetired() {}};
             workspace.onDockZoneDocumentChange = (document, options) => {
                 projections.push({document, options})
@@ -1939,7 +1949,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(workspace.vesselWorkspaces.has(workspaceId)).toBe(false);
             expect(workspace.workspaceSet.has(workspaceId)).toBe(false);
             expect(workspace.tearOutPanes.alerts).toBeUndefined();
-            expect(workspace.tearOutPlacements.alerts).toBeUndefined();
+            expect(workspace.tearOutHandlers.peekPlacement('alerts')).toBeNull();
             expect(workspace.lastCrossWindowTransfer).toMatchObject({
                 applied              : true,
                 recoveredOnDisconnect: true,
@@ -1966,13 +1976,23 @@ test.describe.serial('Workstation.view.Workspace', () => {
             originalPark         = workspace.vesselParkHandlers;
 
         try {
-            workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
+            workspace.tearOutHandlers.recordPlacement('alerts', {index: 0, tabsNodeId: 'heavy-tabs'});
             workspace.tearOutPanes.alerts = {
                 generationToken: 'lineage-3',
                 windowId       : 'window-alerts',
                 windowName     : 'tearout-alerts'
             };
-            workspace.tearOutHandlers = {onVesselRetired() {}};
+            // Only the RETIREMENT is stubbed out — the arm is about recovery, not about the vessel
+            // machinery. The pane-handoff half delegates to the real bundle, which is where
+            // placement consumption happens: a bare stub would leave the record uneaten and the
+            // assertions below would be reading a return that never ran.
+            workspace.tearOutHandlers = {
+                forgetPlacement: itemId => originalTearOut.forgetPlacement(itemId),
+                onVesselRetired() {},
+                peekPlacement  : itemId => originalTearOut.peekPlacement(itemId),
+                reintegrateItem: (itemId, pane) => originalTearOut.reintegrateItem(itemId, pane),
+                releasePane    : itemId => originalTearOut.releasePane(itemId)
+            };
             workspace.vesselParkHandlers = {onVesselRetired() {}};
             workspace.workspaceSet.adoptTransfer = () => false;
 
@@ -1991,7 +2011,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 preview     : null,
                 windowId    : null
             });
-            expect(workspace.tearOutPlacements.alerts).toEqual({index: 0, tabsNodeId: 'heavy-tabs'});
+            expect(workspace.tearOutHandlers.peekPlacement('alerts')).toEqual({index: 0, tabsNodeId: 'heavy-tabs'});
             expect(workspace.lastCrossWindowTransfer).toMatchObject({
                 applied: false,
                 errors : ['workspace-set refused disconnected-vessel recovery']
@@ -2038,7 +2058,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             state.participation = {destroy: () => participantRetirements.push('destroy')};
             workspace.crossWindowParticipations.set(workspaceId, state.participation);
-            workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
+            workspace.tearOutHandlers.recordPlacement('alerts', {index: 0, tabsNodeId: 'heavy-tabs'});
             workspace.tearOutPanes.alerts = {
                 generationToken: 'lineage-3',
                 windowId       : 'window-alerts',
@@ -2072,7 +2092,17 @@ test.describe.serial('Workstation.view.Workspace', () => {
             });
             expect(participantRetirements).toEqual(['destroy']);
 
-            workspace.tearOutHandlers = {onVesselRetired() {}};
+            // Only the RETIREMENT is stubbed out — the arm is about recovery, not about the vessel
+            // machinery. The pane-handoff half delegates to the real bundle, which is where
+            // placement consumption happens: a bare stub would leave the record uneaten and the
+            // assertions below would be reading a return that never ran.
+            workspace.tearOutHandlers = {
+                forgetPlacement: itemId => originalTearOut.forgetPlacement(itemId),
+                onVesselRetired() {},
+                peekPlacement  : itemId => originalTearOut.peekPlacement(itemId),
+                reintegrateItem: (itemId, pane) => originalTearOut.reintegrateItem(itemId, pane),
+                releasePane    : itemId => originalTearOut.releasePane(itemId)
+            };
             workspace.vesselParkHandlers = {onVesselRetired() {}};
             await releaseVessel(workspace, 'window-alerts');
 

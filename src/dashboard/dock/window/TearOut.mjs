@@ -46,10 +46,68 @@
  *     the host performs the platform work (URL, geometry, `windowOpen`) and resolves FALSY on any
  *     failed admission (`windowOpen` returns a Boolean — a blocked popup never throws, so the host
  *     must check the Boolean, not catch).
- * @returns {Object} `{activeVessel, onDockTearOutCancel, onDockTearOutEntry,
- *     onDockTearOutExit, onDockTearOutTerminal, onVesselRetired, retireActiveVessel}`
+ *
+ * The pane-handoff seams below carry the live-component half. Every one of them is host-supplied
+ * for the same reason the four above are: this module resolves, reparents and destroys nothing
+ * itself, so it keeps zero imports and every witness drives it without a browser.
+ * @param {Function} seams.awaitRefresh Host settle seam: `() => Promise<void>` — resolves when the
+ *     host's projection has applied the document this machine just committed. Rejection means the
+ *     return did not render, which is a failed reintegration, not a thrown gesture.
+ * @param {Function} seams.commitReturn Host return commit:
+ *     `(document) => void|Boolean|Promise<void|Boolean>` — publishes a RETURNED document. **Awaited,
+ *     and an explicit `false`, a throw or a rejection fails the return**; every other resolution
+ *     admits it, so a host that publishes without opinion is unaffected. An asynchronous host must
+ *     not resolve before its publication has actually landed — that promise is the only thing
+ *     standing between an unlanded return and a `returned: true` report.
+ *     Deliberately NOT `onDocumentChange`: that seam carries the detach operation and the vessel
+ *     generation, and a return has neither. Routing a return through it would hand the host's
+ *     zone-change path an operation and a source the return never had.
+ * @param {Function} seams.findContainingTabsId Host document query:
+ *     `(document, itemId) => String|null` — the tabs node currently holding an item, or null when
+ *     the tree does not hold it. Supplied rather than imported: `model/WorkspaceDocument` is the
+ *     only thing this choreography would otherwise need, and one import would cost the property
+ *     that lets every witness drive it without a browser.
+ * @param {Function} seams.getDocument Host document read: `() => Object|null` — the committed dock
+ *     document a return resolves its semantic home against.
+ * @param {Function} seams.onAdoptionFailed Host report seam:
+ *     `({entry, itemId, pane, reintegrated}) => void` — an admitted connection that could not embody
+ *     its live pane, after the compensating return resolved. `reintegrated` separates the
+ *     recoverable case from the one worth alarming on.
+ * @param {Function} seams.onPaneAdopted Host vessel-ownership write:
+ *     `(itemId, entry|null) => void` — `entry` records post-terminal vessel ownership, `null`
+ *     withdraws it. Vessel bookkeeping stays with the host deliberately: `window/Participation` and
+ *     the admission/retirement paths read it, and that lifecycle is a different owner's leaf.
+ * @param {Function} seams.onPaneReturn Host return observation:
+ *     `({error, errors, itemId, pane, phase, returned}) => void` — `phase` is `'before'` or
+ *     `'after'`. The one channel a consumer listens on to observe a pane coming home.
+ * @param {Function} seams.reparentPane Host render-topology move:
+ *     `(pane, target, itemId) => Boolean` — moves one live pane into the target window's view
+ *     without changing document truth. `false` means the pane did not arrive. `itemId` travels with
+ *     the pane because a host that staged the move already (a vessel embodiment) answers by
+ *     identity, not by component reference.
+ * @param {Function} seams.resolveReturnDescriptor Host return POLICY:
+ *     `(document, itemId, placement|null) => Object|null` — the reducer descriptor that brings an
+ *     item home, or null when nothing can. The choreography owns WHEN a return happens; WHERE it
+ *     lands when the recorded home is gone is a product decision and stays with the host.
+ *     `Operations.restoreTab` MINTS a node at the remembered parent/slot, which is right for a host
+ *     that wants the exact position back and wrong for one whose contract is "never resurrect a
+ *     node" — both shipped consumers hold the second contract, which is why both carried their own
+ *     return before this seam existed.
+ * @param {Function} seams.resolvePane Host pane resolution: `(itemId) => Neo.component.Base|null` —
+ *     the live pane a vessel should embody. The stand-in exclusion that used to live here folded
+ *     into the host's own resolver, which is the only place that knows what a pane is.
+ * @param {Function} seams.settlePane Host pane teardown: `(pane) => void` — destroys a live pane
+ *     only when no semantic home can own it.
+ * @returns {Object} `{activeVessel, adoptPane, capturePane, forgetPlacement, onDockTearOutCancel,
+ *     onDockTearOutEntry, onDockTearOutExit, onDockTearOutTerminal, onVesselRetired, recordPlacement,
+ *     reintegrateItem, releasePane, retireActiveVessel, retirePaneState, takeReturningPane,
+ *     updateAdoptedPane}`
  */
-export function createDockTearOutHandlers({applyOperation, closeVessel, onDocumentChange, openVessel}) {
+export function createDockTearOutHandlers({
+    applyOperation, awaitRefresh, closeVessel, commitReturn, findContainingTabsId, getDocument,
+    onAdoptionFailed, onDocumentChange, onPaneAdopted, onPaneReturn, openVessel, reparentPane,
+    resolvePane, resolveReturnDescriptor, settlePane
+}) {
     // The admitted slot is deliberately separate from provisional acquisition and cleanup-only
     // late authority. A terminal can invalidate an in-flight host Promise before it settles; its
     // result may then be retired, but can never become active/committable for a dead gesture.
@@ -58,6 +116,15 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
         lateVessel          = null,
         pendingAdmission    = null,
         retirement          = null;
+
+    // The pane-handoff state. It lives in this closure for the same reason the vessel slot does:
+    // it is gesture bookkeeping, and a host that holds it has to be told when to clear it.
+    //   paneHandles — the live pane captured BEFORE detach re-projection can retire it;
+    //   placements  — the exact semantic home a return restores into;
+    //   returning   — a pane in flight home, which the host's resolver must prefer over a fresh build.
+    let paneHandles = {},
+        placements  = {},
+        returning   = {};
 
     /**
      * @summary Creates the exact vessel identity without widening its enumerable public payload.
@@ -144,12 +211,388 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
         return state.promise
     };
 
-    return {
+    /**
+     * @summary The live pane for one item: the captured handle first, the host's resolver second.
+     *
+     * Handle-first is what makes adoption work at all. The sequence is capture → re-project → adopt:
+     * the capture stores the pane while it is still in the tree, the detach re-projection then
+     * removes it, and adoption runs afterwards. A resolver-only lookup therefore succeeds at capture
+     * and returns null at the exact moment it matters.
+     * @param {String} itemId
+     * @returns {Neo.component.Base|null}
+     */
+    const livePane = itemId => {
+        const held = paneHandles[itemId];
+
+        if (held && !held.isDestroyed) return held;
+
+        return resolvePane(itemId) || null
+    };
+
+    // Named, not `this`: two hosts SPREAD this bundle into a projection context
+    // (`dock/Workspace#getDockProjectionOptions`, `DemoBWorkspace`), and a spread rebinds `this` to
+    // the copy. Every internal call therefore goes through the closure reference, which survives it.
+    const api = {
         /**
          * @member {Object|null} activeVessel
          */
         get activeVessel() {
             return activeVessel
+        },
+
+        /**
+         * @summary Captures the host-resolved live pane before detach re-projection can retire it.
+         * @param {String} itemId
+         * @returns {Boolean} Whether a live pane was held.
+         */
+        capturePane(itemId) {
+            const pane = livePane(itemId);
+
+            if (!pane || pane.isDestroyed) return false;
+
+            paneHandles[itemId] = pane;
+
+            return true
+        },
+
+        /**
+         * @summary The pane adoption WOULD use for one item — the held handle, else the host's.
+         *
+         * Reads without consuming, so asking the question cannot change the answer.
+         * @param {String} itemId
+         * @returns {Neo.component.Base|null}
+         */
+        peekPane(itemId) {
+            return livePane(itemId)
+        },
+
+        /**
+         * @summary ONLY the captured handle — never the host's resolver.
+         *
+         * The distinction matters: {@link #peekPane} answers "what would adoption use", which falls
+         * through to the tree. This answers "is a handle actually held", and a caller asking whether
+         * capture happened must not be told yes by a pane that was merely findable.
+         * @param {String} itemId
+         * @returns {Neo.component.Base|null}
+         */
+        heldPane(itemId) {
+            return paneHandles[itemId] || null
+        },
+
+        /**
+         * @summary Releases one held pane handle for return, without retaining a second owner.
+         * @param {String} itemId
+         * @returns {Neo.component.Base|null}
+         */
+        releasePane(itemId) {
+            const pane = paneHandles[itemId] || null;
+
+            delete paneHandles[itemId];
+
+            return pane
+        },
+
+        /**
+         * @summary Records the exact semantic home a return restores into.
+         * @param {String} itemId
+         * @param {Object} placement `{tabsNodeId, index}` captured before the detach applies.
+         * @returns {void}
+         */
+        recordPlacement(itemId, placement) {
+            placement && (placements[itemId] = placement)
+        },
+
+        /**
+         * @summary Drops a recorded home — a refused detach never earned one.
+         * @param {String} itemId
+         * @returns {void}
+         */
+        forgetPlacement(itemId) {
+            delete placements[itemId]
+        },
+
+        /**
+         * @summary Every recorded home, as a plain copy.
+         *
+         * A GETTER rather than a method on purpose: the end-to-end witnesses read lifecycle state by
+         * property path (`tearOutHandlers.placements`, exactly as they already read
+         * `tearOutHandlers.activeVessel`), so this keeps the closure observable without the host
+         * carrying an accessor for state it no longer owns.
+         * @member {Object} placements
+         */
+        get placements() {
+            return {...placements}
+        },
+
+        /**
+         * @summary Reads a recorded home WITHOUT consuming it.
+         *
+         * Hosts render the stored home in their own affordances — a return-here hint, a preview
+         * target — and reading must not disturb the record the actual return depends on.
+         * @param {String} itemId
+         * @returns {Object|null}
+         */
+        peekPlacement(itemId) {
+            return placements[itemId] || null
+        },
+
+        /**
+         * @summary Hands one in-flight returning pane to the host's resolver, exactly once.
+         *
+         * The host's projection asks for this while rebuilding: a pane coming home must be reused,
+         * never rebuilt, or the return silently swaps the user's live component for a fresh one.
+         * @param {String} itemId
+         * @returns {Neo.component.Base|null}
+         */
+        takeReturningPane(itemId) {
+            const pane = returning[itemId] || null;
+
+            pane && delete returning[itemId];
+
+            return pane
+        },
+
+        /**
+         * @summary Every live pane this machine still holds — the host's teardown sweep reads it.
+         * @returns {Neo.component.Base[]}
+         */
+        heldPanes() {
+            return [...Object.values(returning), ...Object.values(paneHandles)]
+        },
+
+        /**
+         * @summary Item ids with a captured handle, for the host's own projection bookkeeping.
+         * @returns {String[]}
+         */
+        heldPaneIds() {
+            return Object.keys(paneHandles)
+        },
+
+        /**
+         * @summary Promotes one committed item into post-terminal vessel ownership.
+         *
+         * The host writes the ownership record through {@link seams.onPaneAdopted} and clears its own
+         * admission bookkeeping in the same call — the connection is consumed here, so nothing may
+         * observe it afterwards. A connection that cannot embody its pane compensates and throws:
+         * the caller is an event listener, and a silent failure here is a window that opened, took
+         * the pane and died with the pane still inside it.
+         * @param {String} itemId
+         * @param {Object} [vessel={}]
+         * @param {Object|null} [connection=null] The admitted window connection, when one bound.
+         * @returns {void}
+         */
+        adoptPane(itemId, vessel={}, connection=null) {
+            const entry = {
+                generation     : vessel.generation      ?? connection?.generation      ?? null,
+                generationToken: vessel.generationToken ?? connection?.generationToken ?? null,
+                gestureToken   : vessel.gestureToken    ?? connection?.gestureToken    ?? null,
+                windowId       : connection?.windowId ?? null,
+                windowName     : vessel.windowName || connection?.windowName || `tearout-${itemId}`,
+                workspaceKey   : vessel.workspaceKey ?? connection?.workspaceKey ?? null
+            };
+
+            onPaneAdopted(itemId, entry, connection);
+
+            if (connection) {
+                // The pane is OFFERED, never required. A host may answer by identity rather than by
+                // the component this machine can see — `apps/workstation` promotes an already-staged
+                // vessel embodiment and otherwise reads its own `paneCache`, neither of which is
+                // reachable from the projected tree. Refusing here when `livePane` finds nothing
+                // reinstates the failure the resolver default was written to remove: the vessel
+                // opens, adoption declines, compensation closes it, and the user sees a pop-out that
+                // does nothing. Only the host's own `false` is a refusal.
+                if (!reparentPane(livePane(itemId), connection, itemId)) {
+                    api.compensateFailedAdoption(itemId, entry);
+                    throw new Error(`Dock tear-out: pane "${itemId}" could not enter its admitted vessel`)
+                }
+
+                // MERGE, never replace: a replace re-derives the record from `entry` alone, which
+                // silently drops the `windowId` the connection just supplied.
+                onPaneAdopted(itemId, connection, null, true)
+            }
+        },
+
+        /**
+         * @summary Folds a later-arriving window binding into an existing ownership record.
+         * @param {String} itemId
+         * @param {Object} target
+         * @returns {void}
+         */
+        updateAdoptedPane(itemId, target) {
+            target && onPaneAdopted(itemId, target, null, true)
+        },
+
+        /**
+         * @summary Moves an ALREADY-adopted item's live pane into a window that bound afterwards.
+         *
+         * The connect-race partner of {@link #adoptPane}: the terminal adopted with no connection,
+         * and the window bound later. Same decision, different arrival order — so it lives here
+         * rather than being re-derived by every host that can hit the race.
+         * @param {String} itemId
+         * @param {Object} connection
+         * @returns {Boolean} Whether the pane arrived.
+         */
+        reparentAdopted(itemId, connection) {
+            // Offered, not required — same reason as {@link #adoptPane}: the host may resolve by
+            // identity where this machine sees no component.
+            if (!reparentPane(livePane(itemId), connection, itemId)) return false;
+
+            onPaneAdopted(itemId, connection, null, true);
+
+            return true
+        },
+
+        /**
+         * @summary Compensates an admitted connection that cannot embody its live pane.
+         *
+         * Returns the reporting promise. Both callers throw immediately after and ignore it, but the
+         * compensation's own completion is otherwise unobservable — and an outcome nothing can await
+         * is an outcome nothing can assert.
+         *
+         * The vessel retires through this machine's OWN retirement rather than back out through the
+         * host: the slot being cleared is the one held here, so the round-trip the extraction removed
+         * was never carrying information.
+         * @param {String} itemId
+         * @param {Object} [entry={}]
+         * @returns {Promise<void>}
+         */
+        compensateFailedAdoption(itemId, entry={}) {
+            const pane   = api.releasePane(itemId),
+                  vessel = {...entry, itemId};
+
+            onPaneAdopted(itemId, null);
+
+            Promise.resolve(retireVessel(vessel)).then(closed => {
+                closed && api.onVesselRetired(vessel)
+            });
+
+            // The report waits for the return to actually resolve. Reading a pane HANDLE instead
+            // would answer a different question — one that is true in exactly the case worth
+            // alarming on, since a failed adoption is precisely when a pane was held and could
+            // still fail to come home.
+            return Promise.resolve(api.reintegrateItem(itemId, pane)).then(reintegrated => {
+                onAdoptionFailed({entry, itemId, pane, reintegrated})
+            })
+        },
+
+        /**
+         * @summary Returns a dead vessel's item to its exact semantic position and same live pane.
+         * @param {String} itemId
+         * @param {Neo.component.Base|null} pane
+         * @returns {Promise<Boolean>}
+         */
+        async reintegrateItem(itemId, pane) {
+            const document  = getDocument(),
+                  placement = placements[itemId] || null,
+                  live      = Boolean(pane && !pane.isDestroyed);
+
+            let result;
+
+            delete placements[itemId];
+
+            // WHERE the item lands is the host's policy — see `resolveReturnDescriptor`. Asking
+            // before the guard below means a host that can find no home says so once, here, rather
+            // than by returning a descriptor the reducer then refuses.
+            const descriptor = document ? resolveReturnDescriptor(document, itemId, placement) : null;
+
+            if (!document?.items?.[itemId] || !descriptor) {
+                settlePane(pane);
+                onPaneReturn({itemId, pane, phase: 'after', returned: false});
+                return false
+            }
+
+            if (live) {
+                pane.parent?.remove(pane, false);
+                returning[itemId] = pane
+            }
+
+            onPaneReturn({itemId, pane, phase: 'before'});
+
+            /**
+             * @summary Awaits the host projection, reporting the settle as the return's outcome.
+             * @param {Object} nextDocument
+             * @returns {Promise<Boolean>}
+             */
+            const settle = async nextDocument => {
+                try {
+                    // A return has TWO barriers, and awaiting only the second is what made this
+                    // report success early. `commitReturn` is the publication barrier — a host whose
+                    // publish is asynchronous (the Group) resolves it only once its own projection is
+                    // installed, so a return that skipped it reported `returned: true` against a
+                    // publication that had not landed and could still refuse. The refresh below is
+                    // the projection barrier, and it cannot stand in for the first: with an
+                    // already-settled previous refresh it resolves immediately and witnesses nothing.
+                    //
+                    // Inside the `try` deliberately: a synchronous throw from `commitReturn` used to
+                    // escape this function entirely, past the failure report the caller relies on.
+                    const published = await commitReturn(nextDocument);
+
+                    // Only an explicit `false` refuses. Every host today returns undefined, and a
+                    // host that publishes without opinion must not be read as refusing.
+                    if (published === false) {
+                        onPaneReturn({itemId, pane, phase: 'after', returned: false});
+                        return false
+                    }
+
+                    await awaitRefresh();
+                    onPaneReturn({itemId, pane, phase: 'after', returned: true});
+                    return true
+                } catch (error) {
+                    onPaneReturn({error, itemId, pane, phase: 'after', returned: false});
+                    return false
+                }
+            };
+
+            // Already in the tree — some other flow re-treed it, typically an atomic recovery that
+            // ran first. The document needs no operation; it needs a projection pass ONLY if a live
+            // pane is coming home to be re-projected. With no pane there is nothing to show, and
+            // committing anyway publishes a second, optionless projection over the recovery's own.
+            if (findContainingTabsId(document, itemId)) {
+                if (!live) {
+                    onPaneReturn({itemId, pane, phase: 'after', returned: true});
+                    return true
+                }
+
+                return settle(document)
+            }
+
+            result = applyOperation(descriptor);
+
+            if (result?.errors?.length > 0 && placement) {
+                // The host's first answer resolved to nothing — its zone AND the sibling it
+                // collapsed into are both gone. Losing the position is bad; losing the pane is
+                // worse, so ask again with no remembered home and take whatever the host offers.
+                const fallback = resolveReturnDescriptor(document, itemId, null);
+
+                fallback && (result = applyOperation(fallback))
+            }
+
+            if (result?.errors?.length === 0) {
+                return settle(result.document)
+            }
+
+            delete returning[itemId];
+            settlePane(pane);
+            onPaneReturn({errors: result?.errors || [], itemId, pane, phase: 'after', returned: false});
+
+            return false
+        },
+
+        /**
+         * @summary Drops every pane-handoff record this machine holds, returning the live panes.
+         *
+         * The host destroys them: this machine resolves and reparents nothing itself, and teardown
+         * is the one moment where that boundary would otherwise be tempting to cross.
+         * @returns {Neo.component.Base[]} The panes that were still held.
+         */
+        retirePaneState() {
+            const held = [...Object.values(returning), ...Object.values(paneHandles)];
+
+            paneHandles = {};
+            placements  = {};
+            returning   = {};
+
+            return held
         },
 
         /**
@@ -341,13 +784,43 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
                 result = {document: null, errors: [`detachItem threw: ${error?.message || error}`]}
             }
 
-            if (result && !result.errors?.length && result.document) {
-                activeVessel = null;
-                onDocumentChange(result.document, operation, vessel);
-                return true
-            } else {
+            if (!result || result.errors?.length || !result.document) {
                 return retireVessel(vessel)
             }
+
+            activeVessel = null;
+
+            /**
+             * @summary Routes a refused publication back onto the existing retirement path.
+             *
+             * The slot is restored FIRST: `retireVessel` clears by identity, so a vessel that was
+             * already nulled would retire without ever releasing the slot.
+             * @returns {Boolean|Promise<Boolean>}
+             */
+            const refuse = () => {
+                activeVessel = vessel;
+                return retireVessel(vessel)
+            };
+
+            let published;
+
+            try {
+                published = onDocumentChange(result.document, operation, vessel)
+            } catch {
+                return refuse()
+            }
+
+            // A host that publishes synchronously returns undefined and is admitted unchanged —
+            // only an explicit `false` or a rejected Promise is a refusal. An asynchronous owner
+            // (the Group's admission barrier) is awaited, so the terminal never reports a commit
+            // that has not actually landed, and never swallows a structured refusal.
+            if (typeof published?.then !== 'function') {
+                return published === false ? refuse() : true
+            }
+
+            return published.then(settled => settled === false ? refuse() : true, refuse)
         }
-    }
+    };
+
+    return api
 }
