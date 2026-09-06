@@ -13,7 +13,7 @@ import StateProvider               from '../../state/Provider.mjs';
 import {createDockTearOutHandlers} from './window/TearOut.mjs';
 import WorkspaceDocument           from './model/WorkspaceDocument.mjs';
 import Operations                  from './model/Operations.mjs';
-import {previewToOperation}        from './model/PreviewContract.mjs';
+import PreviewContract             from './model/PreviewContract.mjs';
 import TopologySeams               from './window/TopologySeams.mjs';
 
 /**
@@ -2119,7 +2119,7 @@ class Workspace extends Container {
                 }))
                 .filter(zone => zone.rect),
             preview    = me.dockPreviewProducer?.produce({pointer: {x: clientX, y: clientY}, zones: producerZones, itemId, sourceNodeId}),
-            descriptor = preview && previewToOperation(preview);
+            descriptor = preview && PreviewContract.previewToOperation(preview);
 
         if (descriptor) {
             let result = me.applyDockZoneOperation(descriptor);

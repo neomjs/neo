@@ -1,5 +1,5 @@
-import Component                from '../../../component/Base.mjs';
-import * as dockPreviewContract from '../model/PreviewContract.mjs';
+import Component       from '../../../component/Base.mjs';
+import PreviewContract from '../model/PreviewContract.mjs';
 
 /**
  * @class Neo.dashboard.dock.interaction.Preview
@@ -22,42 +22,15 @@ import * as dockPreviewContract from '../model/PreviewContract.mjs';
  *   never written into the persisted dock-zone model. This component has no write path to a
  *   persisted model — it reads a preview and emits transient VDOM plus operation descriptors.
  * - **Fail closed.** A missing, malformed, stale or `rejected`-placement preview clears the
- *   affordance and performs no model mutation ({@link Neo.dashboard.dock.interaction.Preview.isValidPreview}).
+ *   affordance and performs no model mutation ({@link Neo.dashboard.dock.model.PreviewContract#isValidPreview}).
  * - **Semantic drop.** On an accepted drop the owning adapter converts the preview into a semantic
- *   operation (`moveItem` / `splitNode` / `addTab`); {@link Neo.dashboard.dock.interaction.Preview.previewToOperation}
+ *   operation (`moveItem` / `splitNode` / `addTab`); {@link Neo.dashboard.dock.model.PreviewContract#previewToOperation}
  *   yields that operation DESCRIPTOR — this overlay never mutates the dock tree itself.
  *
  * The producer (raw drag geometry -> `dockPreview`) and the operation executor (descriptor ->
  * persisted-tree mutation) are deliberately out of scope: they are separate docking leaves.
  */
 class Preview extends Component {
-    /**
-     * The dockPreview contract schema this renderer accepts.
-     * @member {String} PREVIEW_SCHEMA='neo.dock.preview.v1'
-     * @static
-     */
-    static PREVIEW_SCHEMA = dockPreviewContract.PREVIEW_SCHEMA
-    /**
-     * Every candidate `placement.kind` the contract defines.
-     * @member {Set<String>} VALID_PLACEMENT_KINDS
-     * @static
-     */
-    static VALID_PLACEMENT_KINDS = dockPreviewContract.VALID_PLACEMENT_KINDS
-    /**
-     * @member {Set<String>} EDGE_KINDS
-     * @static
-     */
-    static EDGE_KINDS = dockPreviewContract.EDGE_KINDS
-    /**
-     * @member {Set<String>} SPLIT_KINDS
-     * @static
-     */
-    static SPLIT_KINDS = dockPreviewContract.SPLIT_KINDS
-    /**
-     * @member {Set<String>} TAB_KINDS
-     * @static
-     */
-    static TAB_KINDS = dockPreviewContract.TAB_KINDS
 
     static config = {
         /**
@@ -128,21 +101,6 @@ class Preview extends Component {
     dragSource = null
 
     /**
-     * @summary Structural validity gate for a dockPreview object (fail-closed).
-     *
-     * Returns true only for a well-formed `neo.dock.preview.v1` payload that carries a
-     * stable `itemId`, a `target.nodeId`, a known `placement.kind`, an accept/reject
-     * `feedback.state`, and (for split placements) a valid `placement.orientation`. Anything
-     * malformed, partial or unknown returns false so the renderer clears rather than guesses.
-     * @param {Object|null} preview
-     * @returns {Boolean}
-     * @static
-     */
-    static isValidPreview(preview) {
-        return dockPreviewContract.isValidPreview(preview)
-    }
-
-    /**
      * @summary Maps a dockPreview into a renderable affordance descriptor, or null.
      *
      * Returns null for an invalid preview or a `rejected` placement (no candidate to draw).
@@ -154,7 +112,7 @@ class Preview extends Component {
      * @static
      */
     static mapPreviewToAffordance(preview) {
-        if (!this.isValidPreview(preview)) return null;
+        if (!PreviewContract.isValidPreview(preview)) return null;
 
         let {feedback, itemId, placement, target} = preview,
             {kind}                                = placement;
@@ -169,16 +127,16 @@ class Preview extends Component {
             targetNodeId: target.nodeId
         };
 
-        if (this.EDGE_KINDS.has(kind)) {
+        if (PreviewContract.EDGE_KINDS.has(kind)) {
             let edge     = kind.slice('edge-'.length),
-                position = dockPreviewContract.edgeSplitPosition(edge);
+                position = PreviewContract.edgeSplitPosition(edge);
 
             // The fraction the NEW pane commits to, resolved through the same authority
             // `previewToOperation` uses, so the region cannot paint a size the drop will not produce.
-            return {...base, group: 'edge', edge, ratio: this.newNodeFraction(placement.ratio, position)}
+            return {...base, group: 'edge', edge, ratio: PreviewContract.newNodeFraction(placement.ratio, position)}
         }
 
-        if (this.SPLIT_KINDS.has(kind)) {
+        if (PreviewContract.SPLIT_KINDS.has(kind)) {
             let position = kind.slice('split-'.length);
 
             return {
@@ -186,52 +144,13 @@ class Preview extends Component {
                 group      : 'split',
                 orientation: placement.orientation,
                 position,
-                ratio      : this.newNodeFraction(placement.ratio, position)
+                ratio      : PreviewContract.newNodeFraction(placement.ratio, position)
             }
         }
 
         return {...base, group: 'tab', index: Number.isInteger(placement.index) ? placement.index : null, position: kind.slice('tab-'.length)}
     }
 
-    /**
-     * @summary Converts an ACCEPTED drop into a semantic dock-zone operation descriptor, or null.
-     *
-     * The renderer never mutates the dock tree; it routes an accepted preview into one of the
-     * contract's semantic operations (`addTab` / `splitNode`) so the owning adapter can commit it.
-     * Invalid previews, `rejected` placements, and non-accepted feedback all yield null (no commit).
-     * Tab placements emit `addTab`; the adapter downgrades to `moveItem` when the item already
-     * lives in the tree. Edge placements route to `splitNode` (the adapter may instead realise an
-     * edge-zone insertion, then `normalizeTree`).
-     * @param {Object|null} preview
-     * @returns {Object|null}
-     * @static
-     */
-    static previewToOperation(preview) {
-        return dockPreviewContract.previewToOperation(preview)
-    }
-
-    /**
-     * @summary Normalizes an optional split ratio into a two-child, sum-to-one size pair.
-     * @param {Number} [ratio] the new node's fraction; defaults to an even split when absent/invalid
-     * @param {String} position 'before' | 'after' — which child the new node becomes
-     * @returns {Number[]} normalized [first, second] sizes summing to 1
-     * @static
-     */
-    static ratioToSizes(ratio, position) {
-        return dockPreviewContract.ratioToSizes(ratio, position)
-    }
-
-    /**
-     * @summary The fraction of the target axis the NEW pane will occupy.
-     *
-     * Reads the committed size pair rather than the raw ratio, so an absent or out-of-domain ratio
-     * lands on whatever `ratioToSizes` normalizes it to. `before` places the new node first, `after`
-     * second — the pair is indexed accordingly rather than re-deriving the ratio.
-     * @param {Number} [ratio] the new node's fraction; normalized by `ratioToSizes`
-     * @param {String} position `'before'` or `'after'`
-     * @returns {Number}
-     * @static
-     */
     /**
      * @summary The already-resolved region fraction on an affordance, or the even split.
      *
@@ -245,23 +164,6 @@ class Preview extends Component {
         let ratio = affordance?.ratio;
 
         return (typeof ratio === 'number' && ratio > 0 && ratio < 1) ? ratio : 0.5
-    }
-
-    /**
-     * @summary The fraction of the target axis the NEW pane will occupy.
-     *
-     * Reads the committed size pair rather than the raw ratio, so an absent or out-of-domain ratio
-     * lands on whatever `ratioToSizes` normalizes it to. `before` places the new node first, `after`
-     * second — the pair is indexed accordingly rather than re-deriving the ratio.
-     * @param {Number} [ratio] the new node's fraction; normalized by `ratioToSizes`
-     * @param {String} position `'before'` or `'after'`
-     * @returns {Number}
-     * @static
-     */
-    static newNodeFraction(ratio, position) {
-        let sizes = this.ratioToSizes(ratio, position);
-
-        return position === 'after' ? sizes[1] : sizes[0]
     }
 
     /**

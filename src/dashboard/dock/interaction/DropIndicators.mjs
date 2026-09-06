@@ -1,7 +1,7 @@
-import Component             from '../../../component/Base.mjs';
-import Container             from '../../../container/Base.mjs';
-import NeoArray              from '../../../util/Array.mjs';
-import {isValidCandidateSet} from '../model/PreviewContract.mjs';
+import Component       from '../../../component/Base.mjs';
+import Container       from '../../../container/Base.mjs';
+import NeoArray        from '../../../util/Array.mjs';
+import PreviewContract from '../model/PreviewContract.mjs';
 
 /**
  * @summary The drag-time drop-indicator menu: renders every valid drop option simultaneously —
@@ -30,7 +30,7 @@ import {isValidCandidateSet} from '../model/PreviewContract.mjs';
  *   under the `--dock-transition-*` motion contract instead of popping. Visibility is cls-based
  *   (warm DOM), mirroring the reveal overlay.
  * - **Fail closed.** A malformed candidate set or a missing host rect hides the layer
- *   ({@link module:dockPreviewContract.isValidCandidateSet}) rather than guessing coordinates.
+ *   ({@link Neo.dashboard.dock.model.PreviewContract#isValidCandidateSet}) rather than guessing coordinates.
  *
  * @class Neo.dashboard.dock.interaction.DropIndicators
  * @extends Neo.container.Base
@@ -330,7 +330,7 @@ class DropIndicators extends Container {
             set                                                          = me.candidateSet,
             cls                                                          = me.cls || [],
             validHost                                                    = !!hostRect && [hostRect.x, hostRect.y].every(v => typeof v === 'number' && !Number.isNaN(v)),
-            visible                                                      = validHost && isValidCandidateSet(set),
+            visible                                                      = validHost && PreviewContract.isValidCandidateSet(set),
             placements                                                   = new Map();
 
         me.#indicatorRects.clear();

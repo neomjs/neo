@@ -313,7 +313,7 @@ class Operations extends Base {
      *
      * The leading/trailing side comes from an explicit `position` (`before` / `after`) when given;
      * otherwise it is derived from the descriptor's `edge` — `top` / `left` lead (before), `bottom` /
-     * `right` trail (after) — so a `Preview.previewToOperation()` edge descriptor places correctly.
+     * `right` trail (after) — so a `PreviewContract.previewToOperation()` edge descriptor places correctly.
      * @param {Object} document
      * @param {Object} args {itemId, targetNodeId, orientation, position, sizes, edge}
      * @returns {{document:Object, errors:String[]}}
@@ -347,7 +347,7 @@ class Operations extends Base {
             orientation,
             children: atPosition === 'before' ? [newTabsId, targetNodeId] : [targetNodeId, newTabsId],
             // `sizes` maps positionally to `children` in their final order; the caller
-            // (Preview.previewToOperation) supplies them already in that order.
+            // (PreviewContract.previewToOperation) supplies them already in that order.
             sizes   : ratio
         };
 
@@ -584,7 +584,7 @@ class Operations extends Base {
     }
 
     /**
-     * @summary Applies an operation descriptor (the shape `Preview.previewToOperation()` emits)
+     * @summary Applies an operation descriptor (the shape `PreviewContract.previewToOperation()` emits)
      * to the document, dispatching through {@link #operationHandlers} — the table whose keys ARE
      * the exported vocabulary, so dispatch and `operations` cannot diverge.
      *

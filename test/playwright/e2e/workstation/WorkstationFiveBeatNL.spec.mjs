@@ -3,7 +3,9 @@ import {createHash}                                                 from 'node:c
 import path                                                         from 'node:path';
 import {promisify}                                                  from 'node:util';
 import fs                                                           from 'fs-extra';
-import {previewToOperation}                                         from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
+import Neo                                                          from '../../../../src/Neo.mjs';
+import * as core                                                    from '../../../../src/core/_export.mjs';
+import PreviewContract                                              from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {test, expect}                                               from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects}             from '../utils/dockGeometry.mjs';
 import {pinToCaptureDisplay, placeNativeWindow, readBrowserSurface} from '../utils/filmStage.mjs';
@@ -2258,7 +2260,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             'the target renderer must display the exact semantic preview').toBe(committedPreview.previewId);
 
         const
-            expectedOperation = previewToOperation(committedPreview),
+            expectedOperation = PreviewContract.previewToOperation(committedPreview),
             expectedReturn    = Operations.applyOperation(documentBeforeReturn, expectedOperation);
 
         expect(expectedOperation, 'the retained accepted preview must convert through the production contract')

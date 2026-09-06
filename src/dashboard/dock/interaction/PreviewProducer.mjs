@@ -27,7 +27,7 @@ import Base from '../../../core/Base.mjs';
  * - **Layer-blind.** This producer must not import the renderer (`Neo.dashboard.dock.interaction.Preview`)
  *   renderer/validator. So this producer re-derives the schema's placement vocabulary locally; the
  *   producer → consumer contract is PINNED in the unit test (which may import both layers) by
- *   asserting every produced payload satisfies `Preview.isValidPreview`.
+ *   asserting every produced payload satisfies `PreviewContract.isValidPreview`.
  * - **Fail closed.** A malformed rect, a pointer outside every zone, or a missing item id yields
  *   `null` (no affordance) rather than a guess — mirroring the renderer's fail-closed clear.
  *

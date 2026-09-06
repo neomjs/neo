@@ -1,7 +1,7 @@
-import Base                 from '../../../core/Base.mjs';
-import WorkspaceDocument    from '../model/WorkspaceDocument.mjs';
-import PreviewProducer      from './PreviewProducer.mjs';
-import {previewToOperation} from '../model/PreviewContract.mjs';
+import Base              from '../../../core/Base.mjs';
+import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
+import PreviewProducer   from './PreviewProducer.mjs';
+import PreviewContract   from '../model/PreviewContract.mjs';
 
 /**
  * @class Neo.dashboard.dock.interaction.DragAffordances
@@ -335,7 +335,7 @@ class DragAffordances extends Base {
 
         me.clear();
 
-        let descriptor = previewToOperation(preview);
+        let descriptor = PreviewContract.previewToOperation(preview);
 
         if (descriptor) {
             let result = me.owner.applyDockZoneOperation(descriptor);

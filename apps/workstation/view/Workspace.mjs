@@ -29,7 +29,7 @@ import {
 }                                                from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import {createDockWorkspaceSet}                 from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import {createVesselParkHandlers}               from '../../../src/dashboard/dock/window/VesselPark.mjs';
-import {previewToOperation}                     from '../../../src/dashboard/dock/model/PreviewContract.mjs';
+import PreviewContract                          from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
 import '../../../src/button/Base.mjs';
 import '../../../src/tab/Container.mjs';
@@ -1164,7 +1164,7 @@ class Workspace extends DockWorkspace {
 
                 return me.renderCrossWindowPreview(workspaceId, data)
             },
-            previewToOperation,
+            previewToOperation   : preview => PreviewContract.previewToOperation(preview),
             promoteDragEmbodiment: data => me.vesselProxyEmbodiment.promote({
                 itemId        : data.draggedItem?.dockItemId,
                 targetWindowId: windowId
@@ -3740,7 +3740,7 @@ class Workspace extends DockWorkspace {
                 }
             }
 
-            let descriptor     = previewToOperation(finalPreview),
+            let descriptor     = PreviewContract.previewToOperation(finalPreview),
                 expectedResult = descriptor && Operations.applyOperation(
                     WorkspaceDocument.clone(documentBefore),
                     descriptor
