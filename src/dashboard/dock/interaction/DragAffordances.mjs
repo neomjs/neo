@@ -58,6 +58,13 @@ class DragAffordances extends Base {
     geometry = null
 
     /**
+     * Window generation and viewport size associated with the current measurement.
+     * @member {String|null} geometrySignature=null
+     * @protected
+     */
+    geometrySignature = null
+
+    /**
      * The dock host container (the overlays' coordinate origin and the zone-measure root).
      * Assigned by the consumer after composition.
      * @member {Neo.container.Base|null} host=null
@@ -110,7 +117,7 @@ class DragAffordances extends Base {
     }
 
     /**
-     * Measures the drag-session geometry once per gesture (memoized as a promise so the
+     * @summary Measures once per gesture and window size (memoized as a promise so the
      * ~60hz move stream never stacks measurements): the host rect (the overlays' coordinate
      * origin), every projected tabs-zone rect with its parent-split orientation, and the
      * chips' root target — the edge-zone's CENTER node when the document root is an
@@ -119,7 +126,13 @@ class DragAffordances extends Base {
      * @protected
      */
     ensureGeometry() {
-        let me = this;
+        let me = this,
+            signature = me.getGeometrySignature();
+
+        if (signature !== me.geometrySignature) {
+            me.clear();
+            me.geometrySignature = signature
+        }
 
         if (me.dragGeometry) return me.dragGeometry;
 
@@ -140,6 +153,11 @@ class DragAffordances extends Base {
                 : me.owner.dockModel.root;
 
         const promise = host.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
+            if (me.dragGeometry === promise && me.geometrySignature !== me.getGeometrySignature()) {
+                me.clear();
+                return null
+            }
+
             let geometry = hostRect?.width > 0 && hostRect?.height > 0 && {
                 hostRect,
                 root : {nodeId: rootId, rect: hostRect},
@@ -176,10 +194,22 @@ class DragAffordances extends Base {
     }
 
     /**
+     * @summary Keys client-space measurements by their window generation and observed viewport size.
+     * Moving a native window changes screen coordinates, not the client-space rectangles cached here.
+     * @returns {String|null} Null for a host without a registered native window.
+     * @protected
+     */
+    getGeometrySignature() {
+        const windowId = this.host?.windowId,
+              rect = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null;
+
+        return rect ? JSON.stringify([windowId, rect.width, rect.height]) : null
+    }
+
+    /**
      * Drops the memoized geometry without ending the session: the next frame re-measures while the
-     * indicator menu and the renderer keep their current paint until it lands. A pointer drag cannot
-     * outlive a resize of its own window, but a remote (cross-window) gesture can — its consumer
-     * calls this when the host window's rect changes mid-gesture.
+     * indicator menu and renderer keep their current paint until it lands. Window-size changes are
+     * detected by {@link #ensureGeometry} and clear obsolete feedback before re-measurement.
      */
     invalidateGeometry() {
         this.dragGeometry = this.geometry = null
@@ -279,8 +309,8 @@ class DragAffordances extends Base {
 
     /**
      * @summary The per-frame drag consumer: the indicator menu follows the hovered
-     * zone (candidate set swaps on zone change only — object permanence lets the cross
-     * GLIDE); the pointer selects an indicator geometrically; the selected candidate's
+     * zone. {@link #resolvePreview} refreshes candidates when the zone, geometry or dragged subject
+     * changes, preserving the menu's child instances. The selected candidate's
      * preview — or the pointer-inference FALLBACK tier when no indicator is hovered — feeds
      * the renderer with its exact target region.
      * @param {Object} data {clientX, clientY, itemId, groupNodeId, sourceNodeId, writeRenderer} —
@@ -309,16 +339,15 @@ class DragAffordances extends Base {
     }
 
     /**
-     * The drop half: the indicator is re-hit-tested at the RELEASE coordinates — release
-     * truth, never cached hover truth — and a candidate only counts when it was built for
-     * the item THIS gesture drags. A release-point indicator wins over pointer inference
+     * @summary Selects the release-point preview only while its measured window geometry is current.
+     * A candidate must belong to this gesture's item. An indicator hit wins over pointer inference
      * (the §06 tier order); both commit through `previewToOperation` unchanged. Same-zone
      * pointer drops stay excluded from the fallback (the within-toolbar reorder already
      * handled them); indicator drops keep self-targets (splitting your own zone is real).
      *
      * Generation guard (the supersede review's falsified defect, closed): the geometry
      * await is re-checked against the live session — a gesture cancelled or re-projected
-     * mid-await commits NOTHING.
+     * mid-await commits nothing, as does a release whose window changed without another hover.
      * @param {Object} data {clientX, clientY, itemId, sourceNodeId}
      */
     async onDrop({clientX, clientY, itemId, sourceNodeId}) {
@@ -327,6 +356,11 @@ class DragAffordances extends Base {
             geometry        = geometryPromise ? await geometryPromise : null;
 
         if (me.isDestroyed || (geometryPromise && me.dragGeometry !== geometryPromise)) return;
+
+        if (geometryPromise && me.geometrySignature !== me.getGeometrySignature()) {
+            me.clear();
+            return
+        }
 
         let pointer   = {x: clientX, y: clientY},
             preview   = null,

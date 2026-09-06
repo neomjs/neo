@@ -242,9 +242,11 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
     /**
      * @summary Runs the native transfer against either the initial or an enlarged target window.
      * @param {Object} fixtures
-     * @param {Boolean} [resizeTarget=false]
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.resizeTarget=false]
+     * @param {Boolean} [options.activeHover=false]
      */
-    const journey = async ({page, neuralLink}, resizeTarget=false) => {
+    const journey = async ({page, neuralLink}, {resizeTarget=false, activeHover=false}={}) => {
         const
             pageErrors = [],
             popups     = [];
@@ -360,6 +362,22 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             expect((await readNativeLifecycle(app, workspaceId)).owners[TARGET_ITEM]?.windowId,
                 'placing the target vessel did not hand it to the main window').toBe(target.windowId);
 
+            if (activeHover) {
+                const oldRect = await readManagerRect(app, managerId, target.windowId, 'innerRect'),
+                      {nativeWindowDropAnchorInset: inset} = await app.getComponent(coordId, ['nativeWindowDropAnchorInset']);
+
+                for (const delta of [0, 3]) {
+                    await setBounds(sourceHandle, {left: oldRect.x + 24 + delta - inset, top: oldRect.y + 24 - inset});
+                    await source.popup.waitForTimeout(120)
+                }
+
+                const participant = (await participations(app)).find(entry => entry.workspaceId === TARGET_WORKSPACE_ID),
+                      cached = await app.getComponent(participant.id, ['ownedAffordances.geometry']);
+
+                expect(cached['ownedAffordances.geometry']?.hostRect.width, 'native hover warms the old size before resizing')
+                    .toBe(targetScreen.innerWidth)
+            }
+
             if (resizeTarget) {
                 const enlarged = await setBounds(targetHandle, {
                     width : Math.min(520, stage.availLeft + stage.availWidth - targetScreen.screenX),
@@ -400,11 +418,11 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             // bounds move uses — so a frame placed at (left, top) puts the anchor at (left + inset,
             // top + inset), no chrome arithmetic. Aim it 24 px inside the target's viewport.
             const
-                goalLeft = Math.round(targetInner.x + (resizeTarget ? targetInner.width * .7 : 24) - inset),
-                goalTop  = Math.round(targetInner.y + (resizeTarget ? targetInner.height * .5 : 24) - inset),
+                goalLeft = Math.round(targetInner.x + (resizeTarget && !activeHover ? targetInner.width * .7 : 24) - inset),
+                goalTop  = Math.round(targetInner.y + (resizeTarget && !activeHover ? targetInner.height * .5 : 24) - inset),
                 targetParticipation = (await participations(app)).find(entry => entry.workspaceId === TARGET_WORKSPACE_ID);
 
-            if (resizeTarget) {
+            if (resizeTarget && !activeHover) {
                 expect(goalLeft + inset, 'the drop aims outside the old target width')
                     .toBeGreaterThan(targetInner.x + targetScreen.innerWidth)
             }
@@ -559,5 +577,8 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
         ({page, neuralLink}) => journey({page, neuralLink}));
 
     test('an enlarged popup updates its drop zones before another popup transfers into the newly exposed area',
-        ({page, neuralLink}) => journey({page, neuralLink}, true))
+        ({page, neuralLink}) => journey({page, neuralLink}, {resizeTarget: true}));
+
+    test('resizing an already-hovered popup refreshes its drop zones without leaving the target',
+        ({page, neuralLink}) => journey({page, neuralLink}, {resizeTarget: true, activeHover: true}))
 });

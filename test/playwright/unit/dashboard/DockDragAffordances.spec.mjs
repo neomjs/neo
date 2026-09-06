@@ -14,6 +14,7 @@ import DockDragAffordances from '../../../../src/dashboard/dock/interaction/Drag
 import DockDropIndicators  from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockPreview         from '../../../../src/dashboard/dock/interaction/Preview.mjs';
 import Operations          from '../../../../src/dashboard/dock/model/Operations.mjs';
+import WindowManager       from '../../../../src/manager/Window.mjs';
 
 /**
  * @summary The shared gesture controller's discrimination and generation witnesses.
@@ -281,6 +282,82 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         expect(await rig.controller.ensureGeometry(), 'zero-area zones = degenerate').toBe(null);
         expect(rig.controller.dragGeometry, 'zero-area frame uncaches — the session self-heals once layout lands').toBe(null);
         destroyAll(rig)
+    });
+
+    test('a resize replaces the measurement once and a late old frame cannot overwrite it', async () => {
+        const rig = compose(), originalGet = WindowManager.get, requests = [];
+        let width = 800, height = 600;
+        WindowManager.get = () => ({innerRect: {width, height}});
+        rig.controller.host = {
+            id: 'resizing-host', windowId: 'resizing-window',
+            down: ({dockNodeId}) => ({id: dockNodeId}),
+            getDomRect: () => new Promise(resolve => requests.push({resolve, width, height}))
+        };
+        const resolve = request => request.resolve([
+            {x: 0, y: 0, width: request.width, height: request.height},
+            {x: 0, y: 0, width: request.width / 2, height: request.height},
+            {x: request.width / 2, y: 0, width: request.width / 2, height: request.height}
+        ]);
+
+        try {
+            const old = rig.controller.ensureGeometry();
+            expect(rig.controller.ensureGeometry()).toBe(old);
+            expect(requests).toHaveLength(1);
+
+            width = 1200;
+            const current = rig.controller.ensureGeometry();
+            expect(current, 'a resized window needs a new generation').not.toBe(old);
+            expect(rig.controller.ensureGeometry()).toBe(current);
+            expect(requests).toHaveLength(2);
+
+            resolve(requests[1]);
+            await current;
+            resolve(requests[0]);
+            await old;
+            expect(rig.controller.geometry.hostRect.width).toBe(1200);
+            expect(rig.indicators.hostRect.width).toBe(1200);
+
+            rig.controller.clear();
+            const pending = rig.controller.ensureGeometry();
+            height = 800;
+            resolve(requests[2]);
+            expect(await pending, 'a resize during measurement cannot publish the old frame').toBeNull();
+            expect(rig.controller.geometry).toBeNull()
+        } finally {
+            WindowManager.get = originalGet;
+            destroyAll(rig)
+        }
+    });
+
+    test('release refuses a cached pre-resize frame and a fresh gesture still commits', async () => {
+        const rig = compose(), originalGet = WindowManager.get;
+        let width = 800;
+        WindowManager.get = () => ({innerRect: {width, height: 600}});
+        rig.controller.host = {
+            id: 'release-resize-host', windowId: 'release-resize-window',
+            down: ({dockNodeId}) => ({id: dockNodeId}),
+            getDomRect: async () => [
+                {x: 0, y: 0, width, height: 600},
+                {x: 0, y: 0, width: width / 2, height: 600},
+                {x: width / 2, y: 0, width: width / 2, height: 600}
+            ]
+        };
+
+        try {
+            await rig.controller.onDragMove({clientX: 600, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+            width = 1200;
+            await rig.controller.onDrop({clientX: 600, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+            expect(rig.committed, 'release must not consume old indicator bounds').toHaveLength(0);
+            expect(rig.preview.dockPreview).toBeNull();
+
+            await rig.controller.onDragMove({clientX: 900, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+            await rig.controller.onDrop({clientX: 900, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+            expect(rig.committed).toHaveLength(1);
+            expect(rig.owner.dockModel.nodes['right-tabs'].items).toContain('alpha')
+        } finally {
+            WindowManager.get = originalGet;
+            destroyAll(rig)
+        }
     });
 
     test('ownership: the producer lives and dies with the controller', () => {
