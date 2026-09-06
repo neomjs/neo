@@ -57,7 +57,10 @@ test.describe('Workstation rendering starvation: grid geometry still converges (
             gridWidth     : rect ? rect.width : -1,
             mountedColumns: new Set(cells.map(cell => cell.getAttribute('aria-colindex')).filter(Boolean)).size,
             renderedCells : cells.filter(cell => cell.textContent.trim().length > 0).length,
-            rows          : grid ? grid.querySelectorAll('[role="row"]').length : -1
+            // Measured, never assumed: the pool claim below divides freed height by this, and a
+            // literal row height is the same rot the trigger premise already warns about.
+            rowHeight: cells[0] ? cells[0].getBoundingClientRect().height : -1,
+            rows     : grid ? grid.querySelectorAll('[role="row"]').length : -1
         }
     }, gridId);
 
@@ -161,10 +164,31 @@ test.describe('Workstation rendering starvation: grid geometry still converges (
         expect(domHeightAfterFlex - bootState.gridHeight, 'the zone mutation grew the grid layout box (trigger premise)')
             .toBeGreaterThan(freedBandHeight * 0.6);
 
+        // The pool claim is proportional for the same reason the trigger premise above it is, and
+        // for a reason the absolute form hid: the freed band is not a whole number of rows.
+        // Measured under this rig — 80px of new box at a 50px row is 1.60 rows, and the pool grew
+        // by ONE. The engine floors. `bootRows + 1` demanded a ceiling, so the arm convicted the
+        // carrier of starvation whenever the freed height landed between one and two rows, which
+        // is a rounding boundary rather than a regression.
+        const grownBox  = domHeightAfterFlex - bootState.gridHeight,
+              justified = Math.floor(grownBox / bootState.rowHeight);
+
+        expect(bootState.rowHeight, 'a row must have a measurable height, or the pool arithmetic below is meaningless')
+            .toBeGreaterThan(0);
+
+        // Without this the claim below degenerates into "the pool did not shrink", which a dead
+        // carrier satisfies just as well as a live one.
+        expect(justified,
+            `the rig must free at least one row of height — ${Math.round(grownBox)}px at a ${bootState.rowHeight}px row justifies none`
+        ).toBeGreaterThanOrEqual(1);
+
         await expect.poll(
             async () => (await readMatrixState(page, GRID_ID)).rows,
-            { message: 'the taller box grows the row pool without frames', timeout: 15000 }
-        ).toBeGreaterThan(bootRows + 1);
+            {
+                message: `the taller box grows the row pool without frames — ${Math.round(grownBox)}px of new box justifies ${justified} more row(s) at ${bootState.rowHeight}px`,
+                timeout: 15000
+            }
+        ).toBeGreaterThanOrEqual(bootRows + justified);
 
         // FEED CONTROL: ingestion kept painting fresh rows while the geometry carrier worked.
         await expect.poll(
