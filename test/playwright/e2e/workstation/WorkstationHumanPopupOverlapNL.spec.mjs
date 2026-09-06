@@ -610,6 +610,73 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
     test.setTimeout(240000);
     test.use({colorScheme: 'dark', viewport: null});
 
+    test('pointer tear-out commits the same pane into its full PopupWorkspace (#18409)',
+    async ({page, neuralLink}) => {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
+
+        const
+            app       = await neuralLink.connectToApp('Workstation'),
+            workspace = await findOne(app, {className: 'Workstation.view.Workspace'}, ['id']),
+            paneId    = await app.callMethod(workspace.id, 'getPaneIdentity', [TARGET_ITEM_ID]);
+
+        await expect(page.locator(`#${paneId}`)).toBeVisible();
+
+        let popup;
+        try {
+            ({popup} = await beginActualTearOut({label: 'Metrics', page}));
+            const windowId = await awaitVesselWindowId(app, workspace.id, TARGET_ITEM_ID, false);
+
+            const liveElement = await popup.locator(`[id="${paneId}"]`).elementHandle();
+            expect(liveElement).toBeTruthy();
+            await page.mouse.up();
+            expect(await awaitVesselWindowId(app, workspace.id, TARGET_ITEM_ID, true)).toBe(windowId);
+            await awaitPointerSessionIdle(page);
+
+            const
+                target = await findOne(app, {
+                    className   : 'Workstation.view.PopupWorkspace',
+                    workspaceKey: TARGET_WORKSPACE_ID
+                }, ['id', 'windowId']),
+                tabs = await findOne(app, {
+                    className      : 'Neo.dashboard.dock.interaction.TabContainer',
+                    dockWorkspaceId: target.id
+                }, ['id']),
+                body = await app.callMethod(tabs.id, 'getCardContainer');
+
+            expect(body.id, 'the committed popup owns a live card body').toBeTruthy();
+            expect(target.properties.windowId).toBe(windowId);
+            expect(await app.callMethod(workspace.id, 'getPaneIdentity', [TARGET_ITEM_ID])).toBe(paneId);
+
+            await expect.poll(async () => {
+                const state = await app.getComponent(paneId, ['parent.id', 'windowId']),
+                      dom   = await popup.evaluate(({paneId, bodyId}) => {
+                          const pane = document.getElementById(paneId),
+                                body = document.getElementById(bodyId),
+                                rect = pane?.getBoundingClientRect(),
+                                area = body?.getBoundingClientRect();
+
+                          return {
+                              domParents: [...document.querySelectorAll(`[id="${paneId}"]`)]
+                                  .map(element => element.parentElement?.id),
+                              fillsBody: Boolean(rect && area && rect.width > 20 && rect.height > 20 &&
+                                  Math.abs(rect.x - area.x) <= 1 && Math.abs(rect.y - area.y) <= 1 &&
+                                  Math.abs(rect.width - area.width) <= 1 && Math.abs(rect.height - area.height) <= 1)
+                          }
+                      }, {paneId, bodyId: body.id});
+
+                return {...dom, windowId: state.windowId, workerParent: state['parent.id']}
+            }, {message: 'the committed pane belongs to its full popup card body', timeout: 10000}).toEqual({
+                domParents: [body.id], fillsBody: true, windowId, workerParent: body.id
+            });
+            expect(await liveElement.evaluate(element => element.isConnected &&
+                element === document.getElementById(element.id)), 'the same DOM node moves with its pane').toBe(true);
+        } finally {
+            await page.mouse.up().catch(() => {});
+            await popup?.close().catch(() => {});
+        }
+    });
+
     test(`${MATRIX_CELL.name}: one local proxy plus readable target choices`,
     async ({page, neuralLink}, testInfo) => {
         await test.step(MATRIX_CELL.name, async () => {

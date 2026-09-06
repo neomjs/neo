@@ -261,7 +261,8 @@ class Reconciler extends Base {
             }
         });
 
-        const commitBars = new Set();
+        const commitAncestors = new Set(),
+              commitBars      = new Set();
 
         if (reconcileItems) {
             this.reconcileTabChrome(
@@ -271,7 +272,8 @@ class Reconciler extends Base {
                 oldShell,
                 resolveItem,
                 preserveItemIds,
-                commitBars
+                commitBars,
+                commitAncestors
             )
         }
 
@@ -280,7 +282,7 @@ class Reconciler extends Base {
         });
         placeholders.clear();
 
-        return {currentTabs, commitBars, nextShell: oldShell, plans, reconciledItems: reconcileItems}
+        return {currentTabs, commitAncestors, commitBars, nextShell: oldShell, plans, reconciledItems: reconcileItems}
     }
 
     /**
@@ -348,6 +350,8 @@ class Reconciler extends Base {
      * inventing an outgoing shell. Each phase receives its own host update so renderer cleanup
      * cannot overtake a native reparent. Floating Overflow controls are reprojected only after final
      * ownership settles.
+     * Live panes imported from elsewhere in the same window commit through their common ancestor
+     * before inner rendering flights, preserving the existing DOM node across projection boundaries.
      *
      * Workspace-specific FLIP capture/play, animation timing, pane creation, and menu readiness stay
      * outside this method. `onProjectionStaged` can decorate retained chrome before the first commit.
@@ -401,6 +405,10 @@ class Reconciler extends Base {
                     oldShell,
                     plans      : stableProjection.plans
                 });
+            for (const ancestor of stableProjection.commitAncestors) {
+                ancestor.updateDepth = -1;
+                await ancestor.promiseUpdate()
+            }
             await Promise.all([...stableProjection.commitBars].map(bar => {
                 bar.sortZone?.adjustItemCls(true);
                 bar.updateDepth = -1;
@@ -479,7 +487,8 @@ class Reconciler extends Base {
             throw error
         }
 
-        const commitBars = new Set();
+        const commitAncestors = new Set(),
+              commitBars      = new Set();
 
         // With an outgoing shell, phases 2-4 are the window in which the host holds TWO shells. A
         // first projection holds one hidden shell instead, but the same awaited flights can reject
@@ -504,8 +513,14 @@ class Reconciler extends Base {
                 nextShell,
                 resolveItem,
                 preserveItemIds,
-                commitBars
+                commitBars,
+                commitAncestors
             );
+
+            for (const ancestor of commitAncestors) {
+                ancestor.updateDepth = -1;
+                await ancestor.promiseUpdate()
+            }
 
         // Existing pane/button pairs move through the host's common-ancestor transaction below.
         // A parked pane has no surviving button DOM to move, so its newly materialized pair needs
@@ -786,6 +801,9 @@ class Reconciler extends Base {
      * membership changed SILENTLY and therefore require one awaited direct-owner commit. Two kinds
      * qualify: a bar that materialized a fresh pane/button pair, and both bars of a cross-bar move —
      * the source's removal and the target's insertion are each silent, so neither publishes on its own.
+     * @param {Set<Neo.container.Base>} [commitAncestors=new Set()] Common ancestors of live panes
+     * imported from outside the projected tabs. Commit these before descendant flights so the
+     * renderer observes one move instead of inserting a duplicate beside the external DOM copy.
      * @returns {Map<String,Object>}
      * @static
      */
@@ -796,7 +814,8 @@ class Reconciler extends Base {
         nextShell,
         resolveItem,
         preserveItemIds=[],
-        commitBars=new Set()
+        commitBars=new Set(),
+        commitAncestors=new Set()
     ) {
         const
             nextTabs       = this.collectProjectedTabs(nextShell),
@@ -895,6 +914,14 @@ class Reconciler extends Base {
                 const state = findItemState(pane);
 
                 if (!state) {
+                    if (pane.parent && pane.parent.windowId === targetBody.windowId) {
+                        const sourceParents = [pane.parent, ...pane.parent.getParents()],
+                              ancestor = [targetBody, ...targetBody.getParents()]
+                                  .find(parent => sourceParents.includes(parent));
+
+                        ancestor && commitAncestors.add(ancestor)
+                    }
+
                     const
                         inserted     = targetBody.insert(targetIndex, pane, true),
                         buttonConfig = targetTab.getTabButtonConfig(inserted.header, targetIndex);

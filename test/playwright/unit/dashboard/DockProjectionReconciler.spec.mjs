@@ -127,6 +127,66 @@ const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemId
 };
 
 test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
+    for (const retainTopology of [false, true]) {
+        test(`external pane move settles its ancestor before descendant commits (retain=${retainTopology})`, async () => {
+            const model = createRootTabsModel(),
+                  empty = structuredClone(model),
+                  pane = Neo.create(Component, {header: {text: 'Alpha'}});
+
+            empty.items = {};
+            empty.nodes['root-tabs'].items = [];
+            empty.nodes['root-tabs'].activeItemId = null;
+
+            const host = Neo.create(Container, {items: retainTopology ? [DockLayoutAdapter.project(empty)] : []}),
+                  viewport = Neo.create(Container, {items: [pane, host]}),
+                  placeholders = new Map(),
+                  nextConfig = DockLayoutAdapter.project(model, {
+                      resolveComponentRef() {
+                          const placeholder = Neo.create(Component, {header: {text: 'Alpha'}, hidden: true});
+                          placeholders.set('alpha', placeholder);
+                          return placeholder
+                      }
+                  }),
+                  originalUpdate = viewport.promiseUpdate.bind(viewport),
+                  events = [];
+
+            let release, projection;
+            const gate = new Promise(resolve => release = resolve);
+            viewport.promiseUpdate = async () => {
+                if (pane.parent === viewport) return originalUpdate();
+                events.push('ancestor started');
+                await gate;
+                await originalUpdate();
+                events.push('ancestor settled')
+            };
+
+            try {
+                projection = DockProjectionReconciler.reconcileProjection({
+                    host, nextConfig, placeholders, retainTopology, resolveItem: () => pane,
+                    onProjectionStaged({nextShell}) {
+                        const bar = nextShell.getTabBar(), update = bar.promiseUpdate.bind(bar);
+                        bar.promiseUpdate = () => {
+                            events.push('descendant');
+                            return update()
+                        }
+                    }
+                });
+                await expect.poll(() => events[0], {timeout: 1000}).toBe('ancestor started');
+                await new Promise(resolve => setTimeout(resolve, 0));
+                expect(events).toEqual(['ancestor started']);
+                release();
+                await projection;
+                expect(events.indexOf('descendant')).toBeGreaterThan(events.indexOf('ancestor settled'));
+                expect(host.items[0].getCardContainer().items).toEqual([pane]);
+                expect(viewport.items).toEqual([host])
+            } finally {
+                release();
+                await projection?.catch(() => {});
+                viewport.destroy()
+            }
+        })
+    }
+
     test('keys retained tab chrome and reserves only its projected destination', () => {
         const
             retainedTab = {dockNodeId: 'primary-tabs', dockNodeType: 'tabs'},
