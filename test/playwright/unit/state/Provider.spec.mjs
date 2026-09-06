@@ -113,6 +113,45 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         childComponent.destroy();
     });
 
+    test('setDataAtSameLevel shadows ancestor scalar and nested keys while setData updates the nearest owner', () => {
+        const parent      = Neo.create(StateProvider, {data: {title: 'Parent', user: {name: 'Parent', shared: 1}}}),
+              child       = Neo.create(StateProvider, {parent}),
+              grandchild  = Neo.create(StateProvider, {parent: child}),
+              parentTitle = parent.getDataConfig('title'),
+              parentName  = parent.getDataConfig('user.name');
+
+        try {
+            child.setDataAtSameLevel('title', 'Child');
+            child.setDataAtSameLevel({user: {name: 'Child'}});
+
+            expect(parent.getData('title')).toBe('Parent');
+            expect(parent.getData('user.name')).toBe('Parent');
+            expect(parent.getDataConfig('title')).toBe(parentTitle);
+            expect(parent.getDataConfig('user.name')).toBe(parentName);
+            expect(parent.getOwnerOfDataProperty('title').owner).toBe(parent);
+            expect(parent.getOwnerOfDataProperty('user.name').owner).toBe(parent);
+            expect(child.getData('title')).toBe('Child');
+            expect(child.getData('user.name')).toBe('Child');
+            expect(child.getOwnerOfDataProperty('title').owner).toBe(child);
+            expect(child.getOwnerOfDataProperty('user.name').owner).toBe(child);
+            expect(child.getData('user.shared'), 'other leaves still inherit').toBe(1);
+
+            grandchild.setData({title: 'Nearest', user: {name: 'Nearest', shared: 2}});
+
+            expect(child.getData('title')).toBe('Nearest');
+            expect(child.getData('user.name')).toBe('Nearest');
+            expect(parent.getData('title')).toBe('Parent');
+            expect(parent.getData('user.name')).toBe('Parent');
+            expect(parent.getData('user.shared')).toBe(2);
+            expect(grandchild.getOwnerOfDataProperty('user.name').owner).toBe(child);
+            expect(grandchild.getOwnerOfDataProperty('user.shared').owner).toBe(parent)
+        } finally {
+            grandchild.destroy();
+            child.destroy();
+            parent.destroy()
+        }
+    });
+
     test('Provider should remove bindings on component destroy', () => {
         const component = Neo.create(MockComponent, {stateProvider: {data: {test: 1}}});
         const provider  = component.getStateProvider();

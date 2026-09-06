@@ -11,6 +11,7 @@ import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Component          from '../../../../src/component/Base.mjs';
 import Container          from '../../../../src/container/Base.mjs';
+import Provider           from '../../../../src/state/Provider.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import HeaderActionPolicy from '../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
 import Reconciler         from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
@@ -253,6 +254,58 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         expect(evaluationsOf(other).length, 'the other workspace evaluated its own headers').toBeGreaterThan(0);
         expect(evaluationsOf(workspace), 'this workspace evaluated nothing').toEqual([]);
         expect(Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs').getAction('lock').pressed).toBe(false)
+    });
+
+    test('a child header publication keeps overlapping dock state local to its own provider', () => {
+        const parent       = Neo.create(Provider, {data: {appTheme: 'dark'}}),
+              child        = Neo.create(Provider, {parent}),
+              parentPolicy = Neo.create(HeaderActionPolicy, {workspace: {
+                  stateProvider: parent, dockPopOutActionActive: true, hasDockRecreateFallback: () => true
+              }}),
+              childPolicy = Neo.create(HeaderActionPolicy, {workspace: {
+                  stateProvider: child, dockPopOutActionActive: false, hasDockRecreateFallback: () => false
+              }});
+
+        try {
+            parentPolicy.publishDocument(createDocument());
+            const parentDock    = structuredClone(parent.getData('dock')),
+                  childDocument = createDocument();
+            childDocument.items.alpha.locked = true;
+            childDocument.items.alpha.closable = false;
+            childDocument.nodes['center-tabs'].activeItemId = 'beta';
+
+            childPolicy.publishDocument(childDocument);
+
+            expect(parent.getData('dock'), 'the child cannot change parent availability, overlapping nodes or items').toEqual(parentDock);
+            expect(child.getData('dock.popOutAvailable')).toBe(false);
+            expect(child.getData('dock.recreateFallback')).toBe(false);
+            expect(child.getData('dock.nodes.center-tabs.activeItemId')).toBe('beta');
+            expect(child.getData('dock.items.alpha.locked')).toBe(true);
+            expect(child.getData('dock.items.alpha.closable')).toBe(false);
+            expect(child.getData('appTheme'), 'unrelated app data still inherits').toBe('dark')
+        } finally {
+            childPolicy.destroy();
+            parentPolicy.destroy();
+            child.destroy();
+            parent.destroy()
+        }
+    });
+
+    test('a child pane contract stays local before its first header document publication', () => {
+        const parent = Neo.create(Provider, {data: {dock: {items: {alpha: {reloadable: true}}}}}),
+              child  = Neo.create(Provider, {parent}),
+              policy = Neo.create(HeaderActionPolicy, {workspace: {stateProvider: child}});
+
+        try {
+            policy.publishPaneContract('alpha', {});
+
+            expect(parent.getData('dock.items.alpha.reloadable'), 'the parent pane still has its reload contract').toBe(true);
+            expect(child.getData('dock.items.alpha.reloadable'), 'the child pane has no reload contract').toBe(false)
+        } finally {
+            policy.destroy();
+            child.destroy();
+            parent.destroy()
+        }
     });
 
     test('reload follows the published pane contract, the recreate fallback and the flight', async () => {
