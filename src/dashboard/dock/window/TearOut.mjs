@@ -394,9 +394,14 @@ export function createDockTearOutHandlers({
             onPaneAdopted(itemId, entry, connection);
 
             if (connection) {
-                const pane = livePane(itemId);
-
-                if (!pane || pane.isDestroyed || !reparentPane(pane, connection, itemId)) {
+                // The pane is OFFERED, never required. A host may answer by identity rather than by
+                // the component this machine can see — `apps/workstation` promotes an already-staged
+                // vessel embodiment and otherwise reads its own `paneCache`, neither of which is
+                // reachable from the projected tree. Refusing here when `livePane` finds nothing
+                // reinstates the failure the resolver default was written to remove: the vessel
+                // opens, adoption declines, compensation closes it, and the user sees a pop-out that
+                // does nothing. Only the host's own `false` is a refusal.
+                if (!reparentPane(livePane(itemId), connection, itemId)) {
                     api.compensateFailedAdoption(itemId, entry);
                     throw new Error(`Dock tear-out: pane "${itemId}" could not enter its admitted vessel`)
                 }
@@ -428,9 +433,9 @@ export function createDockTearOutHandlers({
          * @returns {Boolean} Whether the pane arrived.
          */
         reparentAdopted(itemId, connection) {
-            const pane = livePane(itemId);
-
-            if (!pane || pane.isDestroyed || !reparentPane(pane, connection, itemId)) return false;
+            // Offered, not required — same reason as {@link #adoptPane}: the host may resolve by
+            // identity where this machine sees no component.
+            if (!reparentPane(livePane(itemId), connection, itemId)) return false;
 
             onPaneAdopted(itemId, connection, null, true);
 

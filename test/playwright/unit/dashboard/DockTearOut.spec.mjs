@@ -338,6 +338,71 @@ test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers',
         expect(calls.synced).toHaveLength(1)
     });
 
+    test('a host that answers by IDENTITY adopts even when this machine can see no pane', () => {
+        // The regression this pins was caught by a real pop-out e2e, not here, and e2e does not run
+        // in the PR matrix — so the guard belongs at this tier or it does not exist.
+        //
+        // Adoption used to resolve the pane itself and refuse when it found none. `apps/workstation`
+        // answers by identity: it promotes an already-staged vessel embodiment, and otherwise reads
+        // its own `paneCache` — neither reachable from the projected tree this machine searches. The
+        // refusal therefore compensated, closed the just-opened vessel, and the user saw a pop-out
+        // that opened a window and killed it. The pane is OFFERED; only the host's `false` refuses.
+        const adopted = [];
+
+        const handlers = createDockTearOutHandlers({
+            applyOperation         : () => ({document: {}, errors: []}),
+            awaitRefresh           : () => Promise.resolve(),
+            closeVessel            : () => true,
+            commitReturn           : () => {},
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {}, nodes: {}}),
+            onAdoptionFailed       : () => {},
+            onDocumentChange       : () => {},
+            onPaneAdopted          : (itemId, entry) => adopted.push({itemId, entry}),
+            onPaneReturn           : () => {},
+            openVessel             : async () => null,
+            resolvePane            : () => null,          // this machine can see nothing
+            reparentPane           : () => true,          // the host answers by identity anyway
+            resolveReturnDescriptor: () => null,
+            settlePane             : () => {}
+        });
+
+        expect(() => handlers.adoptPane('commits', {}, {windowId: 'vessel-win'}),
+            'a host that says yes must not be overruled by a null lookup').not.toThrow();
+
+        expect(adopted.at(-1), 'and the window binding still merges into the ownership record')
+            .toMatchObject({itemId: 'commits', entry: {windowId: 'vessel-win'}});
+
+        expect(handlers.reparentAdopted('commits', {windowId: 'vessel-win'}),
+            'the connect-race partner offers the pane the same way').toBe(true);
+    });
+
+    test('control: a host that REFUSES still compensates, so the offer is not a blanket admission', () => {
+        const closed = [];
+
+        const handlers = createDockTearOutHandlers({
+            applyOperation         : () => ({document: {}, errors: []}),
+            awaitRefresh           : () => Promise.resolve(),
+            closeVessel            : vessel => {closed.push(vessel); return true},
+            commitReturn           : () => {},
+            findContainingTabsId   : () => null,
+            getDocument            : () => ({items: {}, nodes: {}}),
+            onAdoptionFailed       : () => {},
+            onDocumentChange       : () => {},
+            onPaneAdopted          : () => {},
+            onPaneReturn           : () => {},
+            openVessel             : async () => null,
+            resolvePane            : () => null,
+            reparentPane           : () => false,         // the host itself declines
+            resolveReturnDescriptor: () => null,
+            settlePane             : () => {}
+        });
+
+        expect(() => handlers.adoptPane('commits', {}, {windowId: 'vessel-win'})).toThrow(/could not enter its admitted vessel/);
+        expect(closed, 'the vessel the host refused is retired').toHaveLength(1);
+        expect(handlers.reparentAdopted('commits', {windowId: 'vessel-win'})).toBe(false)
+    });
+
     test.describe('the return waits for its PUBLICATION, not only for the refresh', () => {
         // The defect these pin: `settle()` published without awaiting, then awaited a refresh that
         // — already settled — resolved immediately, so the return reported `returned: true` against
