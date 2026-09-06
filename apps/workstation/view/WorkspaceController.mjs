@@ -86,7 +86,31 @@ class WorkspaceController extends Controller {
         }
 
         return {
-            ntype    : 'toolbar',
+            ntype: 'toolbar',
+            // Undo and redo are the Group's, not this bar's — and they read it WHERE IT LIVES.
+            // `state.Provider#getData` resolves to the leaf's own `core.Config`, so a formatter that
+            // reads the Group's provider inside a binding effect registers that exact leaf and
+            // re-runs when it changes. No copy is kept here, which means there is no second
+            // publication path to keep in step: `setHistoryDepth` publishes without a commit, and a
+            // mirror fed by commits alone would have gone stale exactly there.
+            //
+            // A retired or unknown Group resolves to nothing and reads disabled, so the control fails
+            // closed on the same expression rather than through a separate teardown.
+            actions: [{
+                action     : 'undo',
+                bind       : {disabled: () => TransactionManager.getProvider(me.component.topologyGroupId)?.getData('canUndo') !== true},
+                handler    : () => TransactionManager.undo({groupId: me.component.topologyGroupId}),
+                iconCls    : 'fa fa-rotate-left',
+                showOnFocus: false,
+                text       : 'Undo'
+            }, {
+                action     : 'redo',
+                bind       : {disabled: () => TransactionManager.getProvider(me.component.topologyGroupId)?.getData('canRedo') !== true},
+                handler    : () => TransactionManager.redo({groupId: me.component.topologyGroupId}),
+                iconCls    : 'fa fa-rotate-right',
+                showOnFocus: false,
+                text       : 'Redo'
+            }],
             cls      : ['workstation-topologybar'],
             flex     : 'none',
             items,
