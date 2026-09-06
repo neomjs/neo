@@ -3033,6 +3033,34 @@ class DemoBWorkspace extends Container {
     topologyGroupId = null
 
     /**
+     * The Group's single native lifecycle owner, resolved once this host learns its Group. Null
+     * until then, and never replaced: unbinding a view withdraws its effects, it does not hand the
+     * Group a second owner.
+     * @member {Neo.manager.transaction.NativeLifecycle|null} nativeWindows=null
+     * @protected
+     */
+    nativeWindows = null
+
+    /**
+     * The source identity for the two vessel flows — `click-popout` and `tear-out` — which share
+     * the `popup:<itemId>` key shape.
+     * @member {String} vesselSourceId
+     * @protected
+     */
+    get vesselSourceId() {
+        return `${this.id}:vessel`
+    }
+
+    /**
+     * The source identity for the stage-target flow, whose key IS the popup workspace id.
+     * @member {String} stageSourceId
+     * @protected
+     */
+    get stageSourceId() {
+        return `${this.id}:stage`
+    }
+
+    /**
      * @summary Learns the Group and registers the three workspace participants into it — at
      * construction when the window bound before this instance existed, else when its binding arrives.
      * @param {String|null} groupId
@@ -3063,7 +3091,52 @@ class DemoBWorkspace extends Container {
             setDocument: document => me.popup2Document = document,
             project    : context => me.projectWorkspaceDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID, context.snapshot.participants[DemoBWorkspace.POPUP2_WORKSPACE_ID], context)
         });
-        me.dockPlacement ??= Placement.forGroup({groupId, mainWorkspaceKey: DemoBWorkspace.MAIN_WORKSPACE_ID})
+        me.dockPlacement ??= Placement.forGroup({groupId, mainWorkspaceKey: DemoBWorkspace.MAIN_WORKSPACE_ID});
+        me.bindNativeWindowSources()
+    }
+
+    /**
+     * @summary Hands this host's native effects to the Group's single lifecycle owner — as TWO
+     * sources, because this host speaks two workspace-key shapes.
+     *
+     * `Neo.dashboard.dock.Workspace` registers its source for its subclasses; this host extends
+     * `container.Base` and composes the dock modules itself, so it inherits none of that and
+     * registers its own.
+     *
+     * **Why two sources rather than one.** A source's `keyFor` maps an item to exactly one
+     * workspace key, and this host has two shapes: a vessel binds under `popup:<itemId>` while a
+     * stage target binds under the popup workspace id itself. A single source cannot express both
+     * without teaching the generic owner about this host's flows. Two sources can, because a source
+     * identity is opaque within the Group and every lookup is source-scoped — the vessel flows
+     * (`click-popout`, `tear-out`) share one, the stage flow takes the other. The Group learns
+     * nothing about which flow it is serving; it only ever matches a reserved key.
+     * @param {Neo.manager.Transaction} [manager=TransactionManager]
+     * @returns {void}
+     * @protected
+     */
+    bindNativeWindowSources(manager=TransactionManager) {
+        const me = this;
+
+        if (!manager || !me.topologyGroupId || me.nativeWindows) return;
+
+        me.nativeWindows = manager.getNativeLifecycle(me.topologyGroupId);
+
+        me.nativeWindows.registerSource(me.vesselSourceId, {
+            close  : vessel => me.closeTearOutVessel(vessel),
+            keyFor : itemId => `popup:${itemId}`,
+            open   : request => me.openTearOutVessel(request),
+            context: data => ({activeVessel: me.tearOutHandlers?.activeVessel, app: Neo.apps[data.windowId]})
+        });
+
+        me.nativeWindows.registerSource(me.stageSourceId, {
+            close  : vessel => me.closeTearOutVessel(vessel),
+            // A stage target IS a workspace, so its item id and its key are the same string. The
+            // identity is deliberate rather than incidental: a stage binds the popup workspace
+            // itself, where a vessel binds a slot minted for one item inside one.
+            keyFor : workspaceId => workspaceId,
+            open   : request => me.openTearOutVessel(request),
+            context: data => ({app: Neo.apps[data.windowId]})
+        })
     }
 
     /** @summary Returns the Group's current relative hints for topology persistence. @returns {Object} */

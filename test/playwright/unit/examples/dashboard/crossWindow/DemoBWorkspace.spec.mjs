@@ -2109,6 +2109,37 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(workspace.workspaceSet.getDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID)).toBe(workspace.popup2Document)
     });
 
+    test('learning the Group registers TWO native sources, one per workspace-key shape', () => {
+        // This host extends `container.Base` and composes the dock modules itself, so it inherits
+        // none of `dashboard.dock.Workspace`'s source registration and must do its own.
+        expect(workspace.nativeWindows, 'the Group owns one native lifecycle and this host resolved it').toBeTruthy();
+
+        const vessel = workspace.nativeWindows.sources.get(workspace.vesselSourceId),
+              stage  = workspace.nativeWindows.sources.get(workspace.stageSourceId);
+
+        expect(vessel, 'the vessel flows registered a source').toBeTruthy();
+        expect(stage, 'the stage flow registered its own').toBeTruthy();
+        expect(vessel).not.toBe(stage);
+
+        // The reason there are two rather than one: a source maps an item to exactly ONE key, and
+        // this host speaks two shapes. A vessel binds a slot minted for an item inside a workspace;
+        // a stage binds the popup workspace itself, so its item id and its key are the same string.
+        expect(vessel.effects.keyFor('timeline'), 'a vessel key is minted per item').toBe('popup:timeline');
+        expect(stage.effects.keyFor(DemoBWorkspace.POPUP_WORKSPACE_ID), 'a stage key IS the workspace')
+            .toBe(DemoBWorkspace.POPUP_WORKSPACE_ID);
+
+        // Control: the two shapes are genuinely different, so a single source could not have served
+        // both — without this the arm passes on a host whose flows happened to agree.
+        expect(vessel.effects.keyFor(DemoBWorkspace.POPUP_WORKSPACE_ID))
+            .not.toBe(stage.effects.keyFor(DemoBWorkspace.POPUP_WORKSPACE_ID));
+
+        // Every source owns its OWN admissions/connections/owners/retirements — the property that
+        // makes two sources safe rather than a shared registry with two writers.
+        for (const registry of ['admissions', 'connections', 'owners', 'retirements']) {
+            expect(vessel[registry], `${registry} is source-scoped`).not.toBe(stage[registry])
+        }
+    });
+
     test('the second popup stages through the same seams with its own continuation and window name', async () => {
         const harness = installWindowConnectHarness(workspace);
         let stageOpen, stageWindowName;
