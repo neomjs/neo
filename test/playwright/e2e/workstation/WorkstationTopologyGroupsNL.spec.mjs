@@ -124,10 +124,10 @@ const carriedPage = async (context, carrier) => {
 
 /**
  * @summary Saves two finite topologies through the live library's real IndexedDB adapter.
- * @description A retains the original composition; B moves the real Feed record to keyed details.
+ * @description A retains the original composition; B moves the selected real pane records to keyed details.
  * B is explicitly active although A was inserted first. No live document is hand-constructed.
  */
-const savedColdFixture = async (page, context, neuralLink) => {
+const savedColdFixture = async (page, context, neuralLink, itemIds = ['feed']) => {
     await bootRoot(page);
     const app         = await neuralLink.connectToApp('Workstation'),
           workspaceId = await workspaceFor(app, await readWindowId(page)),
@@ -140,10 +140,18 @@ const savedColdFixture = async (page, context, neuralLink) => {
                   'details-tabs': {type: 'tabs', items: [], activeItemId: null}
               }
           },
-          moved = Operations.transferItem(document, empty, {
-              itemId: 'feed', sourceWorkspaceId: 'workstation-main', targetWorkspaceId: 'details',
-              target: {operation: 'addTab', tabsNodeId: 'details-tabs'}
-          });
+          moved = itemIds.reduce((previous, itemId) => {
+              const next = Operations.transferItem(previous.sourceDocument, previous.targetDocument, {
+                  itemId, sourceWorkspaceId: 'workstation-main', targetWorkspaceId: 'details',
+                  target: {operation: 'addTab', tabsNodeId: 'details-tabs'}
+              });
+              expect(next.errors).toEqual([]);
+              return next
+          }, {sourceDocument: document, targetDocument: empty});
+
+    moved.targetDocument = Operations.setActiveItem(moved.targetDocument, {
+        tabsNodeId: 'details-tabs', itemId: itemIds[0]
+    }).document;
 
     expect(moved.errors).toEqual([]);
     const a = Persistence.captureTopologyPerspective({'workstation-main': document}, {layoutId: 'layout-a'}),
@@ -198,6 +206,48 @@ const expectColdTopology = async (root, record) => {
 test.describe('Workstation topology Groups — two roots under one SharedWorker (Neural Link)', () => {
     test.setTimeout(180000);
     test.use({viewport: {width: 1600, height: 900}});
+
+    test('topology restore presents the captured active pane in the real sibling window', async ({page, context, browser, baseURL, neuralLink}) => {
+        const seed = await savedColdFixture(page, context, neuralLink, ['feed', 'alerts']);
+        await context.close();
+        const coldContext = await browser.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
+
+        try {
+            const root         = await coldRoot(coldContext, neuralLink, seed.carrier);
+            const popupPromise = coldContext.waitForEvent('page', {timeout: 45000});
+            await root.page.getByRole('button', {name: 'Open details as window', exact: true}).click();
+            const popup = await popupPromise;
+            await expect(popup.locator(TAB, {hasText: FEED_TITLE})).toBeVisible({timeout: 60000});
+            const feedId   = await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['feed']);
+            const alertsId = await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['alerts']);
+            await expect(popup.locator(`[id="${feedId}"]`)).toBeVisible();
+
+            expect(await root.app.callMethod(root.workspaceId, 'dockService.capturePerspective', [{
+                captureScope: 'topology', componentId: root.workspaceId, layoutId: 'sibling-capture', title: 'Sibling capture'
+            }])).toMatchObject({captured: true, stored: true, errors: []});
+            // Capture selects its new record; resume the working layout before its automatic saves.
+            expect(await root.app.callMethod(root.workspaceId, 'saveTopology', ['layout-b']))
+                .toMatchObject({persisted: true, current: true, errors: []});
+
+            await popup.locator(TAB, {hasText: 'Priority Alert Observatory'}).click();
+            await expect(popup.locator(`[id="${alertsId}"]`)).toBeVisible();
+            await expect(popup.locator(`[id="${feedId}"]`)).toBeHidden();
+            await expect.poll(async () => (await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces')).details.nodes['details-tabs'].activeItemId).toBe('alerts');
+            expect((await root.app.getComponent(root.workspaceId, ['topologyCollection'])).topologyCollection.topologies['sibling-capture'].workspaces.details)
+                .toEqual(seed.records.b.workspaces.details);
+
+            const restored = await root.app.callMethod(root.workspaceId, 'dockService.restorePerspective', [{
+                componentId: root.workspaceId, name: 'sibling-capture'
+            }]);
+            expect(restored).toMatchObject({switched: true, errors: []});
+            expect((await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces')).details).toEqual(seed.records.b.workspaces.details);
+            await expect(popup.locator(`[id="${feedId}"]`), 'the saved pane must be visible in the sibling, not only restored in its document').toBeVisible({timeout: 10000});
+            await expect(popup.locator(`[id="${alertsId}"]`)).toBeHidden();
+            expect(await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['feed'])).toBe(feedId)
+        } finally {
+            await coldContext.close()
+        }
+    });
 
     test('warm F5 preserves the Workspace and its live panes while the Group rebinds', async ({page, context, neuralLink}) => {
         const keeper = await context.newPage();

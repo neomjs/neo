@@ -1,30 +1,71 @@
 import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+import Operations                            from '../../../../src/dashboard/dock/model/Operations.mjs';
+import WorkspaceDocument                     from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
 const {NeuralLink_DockService} = await loadNeuralLinkModules();
 
 /**
- * @summary Whitebox E2E witness for the agent-driven Neural Link perspective path on Demo B.
- *
- * The sibling `DemoBPerspectivesNL.spec.mjs` proves the app's OWN tour/store path
- * (capture + topology reconcile). This spec is the first witness driving the NL tools
- * themselves — the seam agent-driven screenplay automation rides:
- *
- *   capture_perspective → list_perspectives → execute_dock_operation (mutation)
- *   → restore_perspective (exact baseline document equality, activeItemIds included)
- *   → restore_perspective on an unknown name (the perspectives contract's
- *     fail-closed path: switched:false, structured error, live document untouched)
- *
- * All assertions read worker truth (dockZone.v1 documents), never the DOM.
- * The baseline is read live, so the spec does not pin the demo's initial layout —
- * it pins the restore-fidelity contract.
- *
- * Run: NEO_E2E_PORT=8117 npx playwright test dashboard/DemoBPerspectiveToolsNL -c test/playwright/playwright.config.e2e.mjs --workers=1
+ * @summary Neural Link perspective round-trips preserve document truth and real-window projections.
+ * The single-window arm verifies exact document restoration and unknown-name refusal. The topology
+ * arm moves an existing CounterPane into a real sibling, then requires the same instance to return
+ * visibly after restore. Empty staging tabs obey the document model's canonical normalization.
+ * `NEO_TEST_DROP_SIBLING_PROJECTION=1` removes only that test worker's sibling projection; the same
+ * visibility assertion must fail. The ordinary run changes no runtime method.
  */
 test.describe('Dashboard Demo B — NL perspective tools: capture → list → restore + fail-closed', () => {
     test.setTimeout(60000);
     test.use({
         contextOptions: {screen: {height: 1080, width: 1920}},
         viewport      : {height: 720, width: 760}
+    });
+
+    test('a topology restore moves the same live pane out of the sibling and presents both captured documents', async ({page, neuralLink}) => {
+        await page.goto('/examples/dashboard/crossWindow/index.html');
+        await expect(page.locator('.agentos-dockdemo-counter-pane')).toBeVisible({timeout: 30000});
+        const app     = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow');
+        const records = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']);
+        const wsId    = (Array.isArray(records) ? records[0] : records).id;
+        const panes   = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.CounterPane'}, ['id']);
+        const paneId  = (Array.isArray(panes) ? panes[0] : panes).id;
+        const opened  = await app.callMethod(wsId, 'openCrossWindowStage');
+        expect(opened).toMatchObject({workspaceId: 'demo-b-popup'});
+        const popup = page.context().pages().find(candidate => candidate !== page);
+        expect(popup).toBeTruthy();
+        await expect(popup.locator('.neo-tab-container')).toBeVisible({timeout: 30000});
+        const baseline = await app.callMethod(wsId, 'getDockTopologyWorkspaces');
+        const expected = Object.fromEntries(Object.entries(baseline).map(([key, document]) => [key, WorkspaceDocument.normalizeTree(document)]));
+        expect(await NeuralLink_DockService.capturePerspective({
+            captureScope: 'topology', componentId: wsId, layoutId: 'sibling-restore',
+            sessionId   : app.sessionId, title: 'Sibling restore'
+        })).toMatchObject({captured: true, stored: true, errors: []});
+        const moved = Operations.transferItem(baseline['demo-b-main'], baseline['demo-b-popup'], {
+            itemId: 'workbench', sourceWorkspaceId: 'demo-b-main', targetWorkspaceId: 'demo-b-popup',
+            target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+        });
+        expect(moved.errors).toEqual([]);
+        expect(await app.callMethod(wsId, 'commitDockTopologyWorkspaces', [{
+            ...baseline, 'demo-b-main': moved.sourceDocument, 'demo-b-popup': moved.targetDocument
+        }])).toMatchObject({errors: []});
+        await expect(popup.locator(`[id="${paneId}"]`), 'the existing pane is presented in the changed sibling').toBeVisible({timeout: 10000});
+        await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
+
+        if (process.env.NEO_TEST_DROP_SIBLING_PROJECTION === '1') {
+            const className = 'Neo.examples.dashboard.crossWindow.DemoBWorkspace';
+            const {source}  = await app.getMethodSource(className, 'projectWorkspaceDocument');
+            expect(source).toContain('const me = this;');
+            await app.manageNeoConfig('set', {enableHotPatching: true});
+            expect(await app.patchCode(className, 'projectWorkspaceDocument', 'function ' + source.replace(
+                'const me = this;',
+                "if (workspaceId === 'demo-b-popup') return Promise.resolve(); const me = this;"
+            ))).toMatchObject({success: true})
+        }
+        expect(await NeuralLink_DockService.restorePerspective({componentId: wsId, name: 'sibling-restore', sessionId: app.sessionId}))
+            .toMatchObject({switched: true, errors: []});
+        expect(await app.callMethod(wsId, 'getDockTopologyWorkspaces')).toEqual(expected);
+        await expect(page.locator(`[id="${paneId}"]`), 'the original pane returns through the captured primary projection').toBeVisible({timeout: 10000});
+        await expect(popup.locator(`[id="${paneId}"]`), 'the sibling no longer presents the moved-away pane').toHaveCount(0);
+        await expect(popup.locator('.neo-tab-header-button'), 'the restored empty sibling has no stale Workbench tab').toHaveCount(0);
+        await expect(popup.locator('.neo-tab-container'), 'the normalized empty sibling has no retired tabs projection').toHaveCount(0)
     });
 
     test('NL capture/list/restore round-trip returns the exact baseline; unknown names fail closed', async ({page, neuralLink}) => {

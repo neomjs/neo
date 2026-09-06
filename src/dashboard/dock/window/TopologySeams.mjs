@@ -57,9 +57,9 @@ class TopologySeams extends Base {
      * instead of a declared refusal — the same distinction `executeDockOperation` draws for the
      * single-document path.
      * @param {Object<String,Object>} workspaces Documents keyed by registered workspace identity.
-     * @returns {Object} `{errors}` — empty when every workspace committed.
+     * @returns {Promise<Object>} `{errors, transactionId}` — projection failures use effect receipts.
      */
-    commitDockTopologyWorkspaces(workspaces) {
+    async commitDockTopologyWorkspaces(workspaces) {
         let me  = this,
             set = me.workspaceSet;
 
@@ -70,36 +70,23 @@ class TopologySeams extends Base {
             return {errors: ['a topology commit needs one committed document per registered workspace key']}
         }
 
-        if (typeof set?.adoptAll !== 'function') {
+        if (typeof set?.write !== 'function') {
             return {errors: ['this workspace exposes no registered workspace key for topology adoption']}
         }
 
+        const keys = set.ids();
+        if (Object.keys(workspaces).length !== keys.length || keys.some(key => !Object.hasOwn(workspaces, key))) {
+            return {errors: ['the topology must name exactly the registered workspace keys']}
+        }
+
         try {
-            if (!set.adoptAll(workspaces)) {
-                return {errors: [
-                    'the workspace set refused the topology: its workspace keys do not exactly match the ' +
-                    'registered workspace keys, a document is missing, or a workspace is read-only'
-                ]}
-            }
+            const result = await set.write(workspaces, {
+                cause: 'restore-topology', provenance: {origin: 'perspective'}, descriptor: {operation: 'restorePerspective'}
+            });
+            return {errors: [], transactionId: result.transactionId}
         } catch (error) {
             return {errors: [`topology commit rolled back: ${error.message}`]}
         }
-
-        // The set writes each workspace through its registered `setDocument`, and every such writer in
-        // the codebase is a plain assignment — `me.dockModel = document`, `me.popupDocument =
-        // document`, `targetState.document = document`. `dockModel` is not a reactive config, so
-        // nothing projects off the write; the document advances only inside
-        // `onDockZoneDocumentChange`, which is why the primary needs this call.
-        //
-        // ONLY the primary converges here. A sibling workspace document is written and never
-        // projected: the `register` contract carries no projection seam, and no consumer has a
-        // vessel-side projection to hand it — `targetState.document` is written in five places and
-        // read only by its own `getDocument`. So this restores N documents and one view. Making the
-        // second window visibly converge is a missing layer, not a missing call, and it is owed
-        // beyond this seam.
-        me.onDockZoneDocumentChange(me.dockModel, null, me);
-
-        return {errors: []}
     }
 }
 

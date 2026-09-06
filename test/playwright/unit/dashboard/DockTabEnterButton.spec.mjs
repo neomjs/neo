@@ -185,6 +185,7 @@ test.describe('Neo.dashboard.dock.interaction.TabEnterButton', () => {
                 onDockHeaderAction() {},
                 onDockCrossZoneDrop() {},
                 onDockZoneDocumentChange: DockWorkspace.prototype.onDockZoneDocumentChange,
+                projectDockZoneDocument : DockWorkspace.prototype.projectDockZoneDocument,
                 refreshDockWorkspace    : transient => refreshes.push(transient),
                 publishPaneContract     : DockWorkspace.prototype.publishPaneContract,
                 resolvePane             : DockWorkspace.prototype.resolvePane,

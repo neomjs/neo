@@ -25,7 +25,8 @@
  *   named by the reintegration tier (§2.8.3), through {@link #unregister}.
  * - **Projection choreography stays with the owner.** The adapter answers "whose document, and what
  *   is it now" — reconcile ordering, generation guards, and render-target sync remain the workspace
- *   container's own contract.
+ *   container's own contract. `register({project})` supplies that owner's post-commit callback;
+ *   it must return the projection promise and must not admit another document write.
  *
  * The manager, Group resolver and document model are injected. Synchronous adoption remains available;
  * write() enters the Group's complete transaction protocol without importing its machinery here.
@@ -43,7 +44,7 @@
  * @returns {Function} workspaceSet.getDocument    `(workspaceId)` → the participant's current document, or `null` (fail closed).
  * @returns {Function} workspaceSet.has            `(workspaceId)` → Boolean.
  * @returns {Function} workspaceSet.ids            `()` → registered workspace ids.
- * @returns {Function} workspaceSet.register       `(workspaceId, {getDocument, setDocument})` registers-or-replaces a participant; Boolean.
+ * @returns {Function} workspaceSet.register       `(workspaceId, {getDocument, setDocument, project})` registers-or-replaces a participant; Boolean.
  * @returns {Number}   workspaceSet.size           Registered participant count.
  * @returns {Function} workspaceSet.unregister     `(workspaceId)` explicit retirement; Boolean.
  * @returns {Function} workspaceSet.write          `(workspaces, options)` queued atomic adoption of keyed documents; Promise.
@@ -223,7 +224,7 @@ export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
          * @param {Function} [seams.setDocument] `(document)` adopts a committed document; a
          *     participant without one is read-only to `adoptTransfer` (fail closed).
          * @param {Function} [seams.getRevision] Owner-supplied revision stamp; otherwise reference changes are counted.
-         * @param {Function} [seams.project] Post-commit projection receiving the transaction context.
+         * @param {Function} [seams.project] Post-commit context includes `preserveItemIds` owned by sibling documents.
          * @param {String} [seams.bindingKey=workspaceId] Window slot whose generation fences this document.
          * @param {String} [seams.componentId] Opaque live owner lookup; excluded from captured document truth.
          * @returns {Boolean} true when registered
@@ -285,7 +286,11 @@ export function createDockWorkspaceSet({manager, getGroupId, documentModel}) {
                 }
             }
 
-            if (typeof project === 'function') entry.project = project;
+            if (typeof project === 'function') entry.project = context => project({
+                ...context,
+                preserveItemIds: keys().filter(key => key !== workspaceId)
+                    .flatMap(key => Object.keys(context.snapshot.participants[key]?.items ?? {}))
+            });
             if (componentId !== undefined) entry.componentId = componentId;
 
             return manager.registerParticipant({
