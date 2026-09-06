@@ -86,7 +86,28 @@ class WorkspaceController extends Controller {
         }
 
         return {
-            ntype    : 'toolbar',
+            ntype: 'toolbar',
+            // Undo and redo are the Group's, not this bar's. Their enabled state is a binding onto
+            // the Group provider's `canUndo` / `canRedo` — reachable because the workspace parents
+            // its own provider to the Group's ({@link Neo.dashboard.dock.Workspace#bindGroupHistoryState})
+            // — and their handlers are a bare manager dispatch. No cursor is mirrored here, no
+            // history is scanned, and nothing re-derives enablement per commit: a consumer that
+            // owned any of that would drift from the Group the moment a second window wrote to it.
+            actions: [{
+                action     : 'undo',
+                bind       : {disabled: data => data.dockHistory?.canUndo !== true},
+                handler    : () => TransactionManager.undo({groupId: me.component.topologyGroupId}),
+                iconCls    : 'fa fa-rotate-left',
+                showOnFocus: false,
+                text       : 'Undo'
+            }, {
+                action     : 'redo',
+                bind       : {disabled: data => data.dockHistory?.canRedo !== true},
+                handler    : () => TransactionManager.redo({groupId: me.component.topologyGroupId}),
+                iconCls    : 'fa fa-rotate-right',
+                showOnFocus: false,
+                text       : 'Redo'
+            }],
             cls      : ['workstation-topologybar'],
             flex     : 'none',
             items,

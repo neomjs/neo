@@ -119,5 +119,48 @@ test.describe('Workstation topology save and close coordination', () => {
             library.destroy();
             Transaction.retireGroup(root.groupId)
         }
+    });
+
+    test('the topology bar carries undo and redo as bound actions that dispatch to the Group and own no history logic', () => {
+        // Popup rows come from Group participant identity; supplying none keeps the arm on the two
+        // Group actions rather than on the bar's row building.
+        const component  = {getPopupStates: () => [], topologyGroupId: 'topology-bar-group'},
+              bar        = WorkspaceController.prototype.createTopologyBar.call({component}),
+              actions    = Object.fromEntries((bar.actions || []).map(action => [action.action, action])),
+              dispatched = [];
+
+        expect(Object.keys(actions).sort()).toEqual(['redo', 'undo']);
+
+        // Persistent, not focus-gated: an undo control that appears only once the bar holds focus is
+        // undiscoverable exactly when a user reaches for it.
+        expect(actions.undo.showOnFocus).toBe(false);
+        expect(actions.redo.showOnFocus).toBe(false);
+
+        // Enablement is a binding onto the Group provider's own leaves. Nothing local is scanned, so
+        // an absent Group reads disabled rather than inventing an answer.
+        expect(actions.undo.bind.disabled({dockHistory: {canUndo: true}})).toBe(false);
+        expect(actions.undo.bind.disabled({dockHistory: {canUndo: false}})).toBe(true);
+        expect(actions.undo.bind.disabled({})).toBe(true);
+        expect(actions.redo.bind.disabled({dockHistory: {canRedo: true}})).toBe(false);
+        expect(actions.redo.bind.disabled({dockHistory: {canRedo: false}})).toBe(true);
+        expect(actions.redo.bind.disabled({})).toBe(true);
+
+        const originals = {redo: Transaction.redo, undo: Transaction.undo};
+
+        Transaction.redo = data => {dispatched.push(['redo', data]); return Promise.resolve()};
+        Transaction.undo = data => {dispatched.push(['undo', data]); return Promise.resolve()};
+
+        try {
+            actions.undo.handler();
+            actions.redo.handler()
+        } finally {
+            Object.assign(Transaction, originals)
+        }
+
+        // The whole of the consumer's contribution: the Group id and the command name.
+        expect(dispatched).toEqual([
+            ['undo', {groupId: 'topology-bar-group'}],
+            ['redo', {groupId: 'topology-bar-group'}]
+        ])
     })
 });

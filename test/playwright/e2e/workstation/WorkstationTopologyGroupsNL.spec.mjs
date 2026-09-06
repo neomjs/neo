@@ -448,7 +448,25 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             const second = await coldRoot(secondContext, neuralLink, carrierAgain);
             expect(second.app.sessionId).not.toBe(root.app.sessionId);
             await expectColdTopology(second, {...seed.records.b, workspaces: changed, placementHints: observedHints});
-            expect(secondContext.pages()).toHaveLength(1)
+            expect(secondContext.pages()).toHaveLength(1);
+
+            // `expectColdTopology` already asserts the empty log from the manager's projected state.
+            // This reads the same fact from the other end of the chain — `stateProvider.getData`,
+            // which is what the topology bar's Undo binds to — so the two together say the affordance
+            // a user actually meets is disabled, not merely that the manager knows it should be.
+            // The depth assertion is the one that makes any of it mean something: this app declares
+            // a real depth, so an empty log is a Group that COULD hold history and does not, rather
+            // than one that never had the capacity to.
+            const secondManagerId = (await second.app.getComponent(second.workspaceId, ['transactionManager.id']))['transactionManager.id'],
+                  secondGroupId   = (await second.app.getComponent(second.workspaceId, ['topologyGroupId'])).topologyGroupId;
+
+            expect(await second.app.callMethod(second.workspaceId, 'stateProvider.getData', ['historyDepth']),
+                'the restored root keeps history, so an empty log is a fact about the boot').toBeGreaterThan(0);
+            expect(await second.app.callMethod(second.workspaceId, 'stateProvider.getData', ['canUndo']),
+                'nothing to undo: the restore is the first thing this Group ever saw').toBe(false);
+            expect(await second.app.callMethod(second.workspaceId, 'stateProvider.getData', ['canRedo'])).toBe(false);
+            expect((await second.app.callMethod(secondManagerId, 'get', [secondGroupId]))?.history?.count ?? 0,
+                'the cold hydrate preserved the cursor instead of appending a transaction').toBe(0)
         } finally {
             await Promise.allSettled(contexts.map(current => current.close()))
         }
@@ -570,5 +588,130 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
 
         await vessel.close({runBeforeUnload: true});
         await pageB.close()
+    });
+
+    test('a human dock action then a popup move append ordered rows, and undo reverses them newest-first', async ({page, context, neuralLink}) => {
+        await bootRoot(page);
+
+        const app   = await neuralLink.connectToApp('Workstation'),
+              wsId  = await workspaceFor(app, await readWindowId(page)),
+              state = () => app.callMethod(wsId, 'controller.getTopologyState'),
+              items = async () => (await state()).snapshot.participants['workstation-main'].items;
+
+        // 1 — a human dock action. Recorded because every dock origin now writes through the Group;
+        //     before that, an ordinary gesture mutated the document and appended nothing at all.
+        expect(await app.callMethod(wsId, 'dockService.executeDockOperation',
+            [{componentId: wsId, descriptor: {itemId: 'alerts', locked: true, operation: 'setItemLocked'}}]
+        ), 'the human dock action committed').toMatchObject({applied: true});
+
+        await expect.poll(async () => (await state()).historyCount, {message: 'the dock action appended one row'}).toBe(1);
+
+        // 2 — a real popup, then a real native move of it. The move is observed geometry, so it is
+        //     the placement participant that appends, not this arm.
+        const header = await focusPane(page, FEED_TITLE),
+              popOut = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first();
+
+        await expect(popOut).toBeVisible({timeout: 10000});
+
+        const vesselPromise = context.waitForEvent('page', {timeout: 45000});
+        await popOut.click();
+        const vessel = await vesselPromise;
+
+        await vessel.waitForLoadState('domcontentloaded');
+        await vessel.waitForFunction(() => Boolean(window.Neo?.worker?.Manager?.windowId), null, {timeout: 45000});
+
+        // The pop-out ITSELF appends — birth and placement baseline are transactions too. Measured:
+        // with the move below suppressed, the count still climbs. So the baseline is taken AFTER the
+        // vessel settles, and the move is asserted as the increment ON it. Counting from before the
+        // pop-out would let this arm pass while witnessing no move at all.
+        const settled = await new Promise(resolve => {
+            let   last = -1;
+            const tick = async () => {
+                const {historyCount} = await state();
+                if (historyCount === last) return resolve(historyCount);
+                last = historyCount;
+                setTimeout(tick, 400)
+            };
+            tick()
+        });
+
+        const cdp    = await context.newCDPSession(vessel),
+              handle = await cdp.send('Browser.getWindowForTarget'),
+              origin = (await cdp.send('Browser.getWindowBounds', {windowId: handle.windowId})).bounds;
+
+        await cdp.send('Browser.setWindowBounds', {
+            windowId: handle.windowId, bounds: {left: origin.left + 120, top: origin.top + 90, windowState: 'normal'}
+        });
+
+        // The move lands as its OWN row behind the dock action, so the two are ordered rather than
+        // merely both present — which is the whole of this criterion.
+        await expect.poll(async () => (await state()).historyCount, {
+            message: 'the popup MOVE appended a row of its own, beyond the pop-out\'s', timeout: 30000
+        }).toBe(settled + 1);
+
+        const ordered = await state();
+        expect(ordered.historyCursor, 'the cursor sits on the newest row').toBe(ordered.historyCount - 1);
+
+        const undo = () => app.callMethod(wsId, 'transactionManager.undo', [{groupId: ordered.groupId}]),
+              redo = () => app.callMethod(wsId, 'transactionManager.redo', [{groupId: ordered.groupId}]);
+
+        // 3 — ONE undo reverses the newest row, which is the popup move. The dock action is older,
+        //     so it must still stand: newest-first, not "whatever the caller wrote last".
+        await undo();
+        expect((await state()).historyCursor, 'the cursor stepped back exactly one').toBe(ordered.historyCursor - 1);
+        expect((await items()).alerts.locked, 'the older dock action survives the first undo').toBe(true);
+
+        // 4 — walk the cursor to the start. The dock action is row 0, so it reverses last.
+        while ((await state()).historyCursor > -1) await undo();
+        expect((await items()).alerts.locked, 'emptying the cursor reverses the dock action too').not.toBe(true);
+
+        // 5 — redo walks forward again: the tail survived every undo rather than being dropped.
+        while ((await state()).historyCursor < ordered.historyCount - 1) await redo();
+
+        const restored = await state();
+        expect(restored.historyCount, 'redo reapplied rather than appended').toBe(ordered.historyCount);
+        expect((await items()).alerts.locked, 'the dock action is reapplied on the way forward').toBe(true);
+
+        await vessel.close({runBeforeUnload: true})
+    });
+
+    test('an agent dock command and a human dock action share ONE cursor, and undo reverses the human one first', async ({page, neuralLink}) => {
+        await bootRoot(page);
+
+        const app  = await neuralLink.connectToApp('Workstation'),
+              wsId = await workspaceFor(app, await readWindowId(page)),
+              // The agent path is the Neural Link tool the fixture exposes — it carries a sessionId,
+              // so the commit records `{agentId, sessionId}`. The human path is the same command
+              // reached without an agent context, which records `{origin: 'human'}`. One command
+              // surface, one Group, two origins.
+              agentLock = itemId => app.executeDockOperation(wsId, {itemId, locked: true, operation: 'setItemLocked'}),
+              humanLock = itemId => app.callMethod(wsId, 'dockService.executeDockOperation',
+                  [{componentId: wsId, descriptor: {itemId, locked: true, operation: 'setItemLocked'}}]),
+              items = async () => (await app.callMethod(wsId, 'controller.getTopologyState'))
+                  .snapshot.participants['workstation-main'].items;
+
+        // The agent writes FIRST and the human SECOND. That order is the whole point: a
+        // writer-private cursor reverses the agent's row on the undo below, because it is that
+        // writer's latest. One shared cursor reverses the human's, because it is the newest.
+        expect(await agentLock('feed'), 'the agent command committed').toMatchObject({applied: true, errors: []});
+        expect(await humanLock('alerts'), 'the human action committed').toMatchObject({applied: true});
+
+        const both = await app.callMethod(wsId, 'controller.getTopologyState');
+
+        // One history, not one per writer.
+        expect(both.historyCount, 'both origins land in ONE history').toBe(2);
+        expect(both.historyCursor).toBe(1);
+
+        await app.callMethod(wsId, 'transactionManager.undo', [{groupId: both.groupId}]);
+
+        const after = await app.callMethod(wsId, 'controller.getTopologyState'),
+              locks = await items();
+
+        expect(after.historyCursor).toBe(0);
+
+        // Asserted on the DOCUMENTS, not the cursor number. A cursor of 0 is equally true of two
+        // separate histories; only the documents distinguish which row was actually reversed.
+        expect(locks.alerts.locked, 'the newest row — the human one — is reversed').not.toBe(true);
+        expect(locks.feed.locked, "the agent's earlier row survives its own writer not being newest").toBe(true)
     })
 });
