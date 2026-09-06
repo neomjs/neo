@@ -2698,9 +2698,32 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             expect(errors.join(' ')).toContain('distinct source and target')
         });
 
-        test('rejects a nested target that is not a placement descriptor (addTab / splitNode)', () => {
+        test('restoreTab transfer rebuilds an emptied landing slot without replacing the target document', () => {
+            const source = doc(), empty = {schema: 'neo.dock.zone.v1', root: 'root', items: {},
+                nodes: {root: {type: 'edge-zone', zones: {}}}};
+            const result = Operations.transferItem(source, empty, {itemId: 'terminal',
+                target: {operation: 'restoreTab', tabsNodeId: 'main-tabs', home: {parentId: 'root', slot: 'center'}}});
+            expect(result.errors).toEqual([]);
+            expect(result.sourceDocument.items.terminal).toBeUndefined();
+            expect(result.targetDocument.nodes.root.zones.center).toEqual({nodeId: 'main-tabs'});
+            expect(result.targetDocument.nodes['main-tabs'].items).toEqual(['terminal']);
+            expect(WorkspaceDocument.validate(result.targetDocument)).toEqual([]);
+            expect(empty.nodes.root.zones).toEqual({});
+            expect(source.items.terminal).toBeDefined()
+        });
+
+        test('restoreTab transfer refuses an occupied landing slot and preserves both inputs', () => {
+            const source = doc(), occupied = target();
+            const result = Operations.transferItem(source, occupied, {itemId: 'terminal',
+                target: {operation: 'restoreTab', tabsNodeId: 'new-tabs', home: {parentId: 'root', slot: 'center'}}});
+            expect(result.errors.length).toBeGreaterThan(0);
+            expect(result.sourceDocument).toBe(source);
+            expect(result.targetDocument).toBe(occupied)
+        });
+
+        test('rejects a nested target that is not a placement descriptor', () => {
             const {errors} = Operations.transferItem(doc(), target(), {itemId: 'terminal', target: {operation: 'closeItem'}});
-            expect(errors.join(' ')).toContain('addTab or splitNode')
+            expect(errors.join(' ')).toContain('addTab, restoreTab or splitNode')
         });
 
         test('reuses the landed placement validation — a malformed nested target fails closed, source untouched', () => {
