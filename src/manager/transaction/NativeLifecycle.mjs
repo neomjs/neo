@@ -84,6 +84,7 @@ class NativeLifecycle extends Base {
      * @returns {void}
      */
     unregisterSource(sourceId) {
+        if (this.isDestroyed) return;
         const source = this.sources.get(sourceId);
         if (source) source.active = false
     }

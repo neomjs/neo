@@ -120,4 +120,12 @@ test.describe.serial('Group native lifecycle (#18314)', () => {
         expect(bound).toEqual([]);
         expect(windows.getConnection('view', 'one')).toBeNull()
     });
+
+    test('view teardown may withdraw its source after the Group owner was destroyed', () => {
+        const windows = owner('root');
+        windows.registerSource('view', effects());
+        manager.retireGroup(windows.groupId);
+        expect(windows.isDestroyed).toBe(true);
+        expect(() => windows.unregisterSource('view'), 'late view cleanup cannot abort component destruction').not.toThrow()
+    });
 });
