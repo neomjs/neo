@@ -3531,16 +3531,6 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Moves the LIVE cached pane into a bound tear-out vessel — pure render-target work; the model
-     * already committed at the terminal. A pane the connect-first order already staged into the
-     * vessel stays where it is: the exact-slot placeholder retires with the promotion instead of the
-     * pane moving twice.
-     * @param {String} itemId
-     * @param {Object} target `{windowId}`
-     * @returns {Boolean}
-     * @protected
-     */
-    /**
      * @summary Semantic recovery that never resurrects a node.
      *
      * The stored `{tabsNodeId, index}` pair captured at the detach terminal is the placement truth,
@@ -3558,6 +3548,20 @@ class Workspace extends DockWorkspace {
         return Operations.appendingReturnDescriptor(document, itemId, placement)
     }
 
+    /**
+     * @summary Moves the LIVE cached pane into a bound tear-out vessel — pure render-target work;
+     * the model already committed at the terminal.
+     *
+     * Answered by IDENTITY, not by the component the choreography resolved: a pane the connect-first
+     * order already staged into the vessel stays where it is, so the exact-slot placeholder retires
+     * with the promotion instead of the pane moving twice. That is also why the offered `pane` may be
+     * null here and the answer still be yes — this app knows about panes the projected tree does not.
+     * @param {Neo.component.Base|null} pane The pane the choreography resolved, which may be null.
+     * @param {Object} target `{windowId}`
+     * @param {String} itemId
+     * @returns {Boolean}
+     * @protected
+     */
     reparentDockPane(pane, target={}, itemId) {
         let me         = this,
             {windowId} = target;

@@ -194,6 +194,30 @@ class Operations extends Base {
      * @returns {{document:Object, errors:String[]}}
      * @static
      */
+    static restoreTab(document, {home, index, itemId, tabsNodeId} = {}) {
+        if (!document.items?.[itemId]) return {document, errors: [`unknown item "${itemId}"`]};
+
+        if (document.nodes?.[tabsNodeId]?.type === 'tabs') {
+            return Operations.addTab(document, {itemId, index, tabsNodeId})
+        }
+
+        if (!tabsNodeId) return {document, errors: ['restoreTab requires a tabsNodeId']};
+
+        let doc = WorkspaceDocument.clone(document),
+            // Reuse the recorded id when nothing has claimed it, so a round trip leaves the document
+            // it started from rather than one that merely looks like it.
+            nodeId = doc.nodes[tabsNodeId] ? WorkspaceDocument.genId(doc, tabsNodeId) : tabsNodeId,
+            errors;
+
+        WorkspaceDocument.detachFromTabs(doc, itemId);
+
+        doc.nodes[nodeId] = {activeItemId: itemId, items: [itemId], type: 'tabs'};
+
+        errors = WorkspaceDocument.restoreNodeHome(doc, nodeId, home);
+
+        return errors.length > 0 ? {document, errors} : WorkspaceDocument.commit(document, doc)
+    }
+
     /**
      * @summary A return descriptor that NEVER resurrects a node — the append policy.
      *
@@ -220,30 +244,6 @@ class Operations extends Base {
         return tabsNodeId
             ? {operation: 'addTab', itemId, tabsNodeId, ...(storedHome ? {index: placement.index} : {})}
             : null
-    }
-
-    static restoreTab(document, {home, index, itemId, tabsNodeId} = {}) {
-        if (!document.items?.[itemId]) return {document, errors: [`unknown item "${itemId}"`]};
-
-        if (document.nodes?.[tabsNodeId]?.type === 'tabs') {
-            return Operations.addTab(document, {itemId, index, tabsNodeId})
-        }
-
-        if (!tabsNodeId) return {document, errors: ['restoreTab requires a tabsNodeId']};
-
-        let doc = WorkspaceDocument.clone(document),
-            // Reuse the recorded id when nothing has claimed it, so a round trip leaves the document
-            // it started from rather than one that merely looks like it.
-            nodeId = doc.nodes[tabsNodeId] ? WorkspaceDocument.genId(doc, tabsNodeId) : tabsNodeId,
-            errors;
-
-        WorkspaceDocument.detachFromTabs(doc, itemId);
-
-        doc.nodes[nodeId] = {activeItemId: itemId, items: [itemId], type: 'tabs'};
-
-        errors = WorkspaceDocument.restoreNodeHome(doc, nodeId, home);
-
-        return errors.length > 0 ? {document, errors} : WorkspaceDocument.commit(document, doc)
     }
 
     /**
