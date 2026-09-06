@@ -82,8 +82,9 @@ class PopupWorkspace extends DockWorkspace {
         const me = this;
         me.participation?.destroy();
         me.participation = me.windowId && me.workspaceSet ? Neo.create(Participation, {
-            sortGroup: me.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP,
-            windowId: me.windowId, workspace: me, workspaceId: me.workspaceKey, workspaceSet: me.workspaceSet
+            dragEmbodiment: me.rootWorkspace.vesselProxyEmbodiment,
+            sortGroup     : me.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP,
+            windowId      : me.windowId, workspace: me, workspaceId: me.workspaceKey, workspaceSet: me.workspaceSet
         }) : null
     }
 

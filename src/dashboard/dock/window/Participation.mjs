@@ -63,6 +63,17 @@ class Participation extends Base {
          */
         ntype: 'dock-crosswindow-participation',
         /**
+         * An externally owned affordance controller; omitted, this participation composes its own.
+         * @member {Neo.dashboard.dock.interaction.DragAffordances|null} affordances=null
+         */
+        affordances: null,
+        /**
+         * Existing target-proxy owner exposing move, restore, promote and whenSettled.
+         * Its creator retains teardown ownership; explicit handler configs override these defaults.
+         * @member {Object|null} dragEmbodiment=null
+         */
+        dragEmbodiment: null,
+        /**
          * Owner seam, forwarded to the target: clears the workspace's preview overlay when a
          * remote drag leaves. Optional.
          * @member {Function|null} clearPreview=null
@@ -243,7 +254,7 @@ class Participation extends Base {
     ownedPreview = null
 
     /**
-     * Creates + registers the workspace's cross-window target with the five owner seams bound.
+     * @summary Creates and registers the workspace's cross-window target with its owner seams bound.
      * @param {Object} config
      */
     construct(config) {
@@ -258,15 +269,15 @@ class Participation extends Base {
             hitTest                : me.hitTest                 ?? me.defaultHitTest.bind(me),
             previewFor             : me.previewFor              ?? me.defaultPreviewFor.bind(me),
             previewToOperation     : me.previewToOperation      ?? (preview => PreviewContract.previewToOperation(preview)),
-            promoteDragEmbodiment  : me.promoteDragEmbodiment,
+            promoteDragEmbodiment  : me.promoteDragEmbodiment ?? me.defaultPromoteDragEmbodiment.bind(me),
             resolveNativeWindowDrag: me.resolveNativeWindowDrag ?? me.defaultResolveNativeWindowDrag.bind(me),
             resolveOwnershipId     : () => me.ownershipId,
-            restoreDragEmbodiment  : me.restoreDragEmbodiment,
+            restoreDragEmbodiment  : me.restoreDragEmbodiment ?? me.defaultRestoreDragEmbodiment.bind(me),
             resumeNativeWindowDrag : me.resumeNativeWindowDrag,
             retireNativeWindowDrag : me.retireNativeWindowDrag,
             sortGroup              : me.sortGroup ?? me.defaultSortGroup(),
-            stageDragEmbodiment    : me.stageDragEmbodiment,
-            awaitDragEmbodiment    : me.awaitDragEmbodiment,
+            stageDragEmbodiment    : me.stageDragEmbodiment ?? me.defaultStageDragEmbodiment.bind(me),
+            awaitDragEmbodiment    : me.awaitDragEmbodiment ?? me.defaultAwaitDragEmbodiment.bind(me),
             suspendNativeWindowDrag: me.suspendNativeWindowDrag,
             // the workspace id IS the §2.8.1 stable claim identity: it survives re-registration
             // and never encodes windowId or registration order
@@ -282,6 +293,8 @@ class Participation extends Base {
      * @protected
      */
     resolveAffordances() {
+        if (this.affordances) return this.affordances;
+
         let me        = this,
             workspace = me.workspace,
             host      = workspace?.getDockHost?.();
@@ -304,11 +317,67 @@ class Participation extends Base {
     }
 
     /**
-     * Engine default for {@link #clearPreview}: drops the overlay this participation owns.
+     * @summary Clears feedback through the supplied or default-owned affordance controller.
      * @protected
      */
     defaultClearPreview() {
-        this.ownedAffordances?.clear()
+        (this.affordances ?? this.ownedAffordances)?.clear()
+    }
+
+    /**
+     * @summary Identifies the exact target-local embodiment without re-deriving the native source.
+     * @param {Object} payload The licensed drag payload.
+     * @returns {Object}
+     */
+    getDragEmbodimentIdentity(payload) {
+        return {itemId: payload?.draggedItem?.dockItemId,
+            sourceWindowId: payload?.sourceWindowId, targetWindowId: this.windowId}
+    }
+
+    /**
+     * @summary Stages through the supplied embodiment owner.
+     * @param {Object} payload
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultStageDragEmbodiment(payload) {
+        return this.dragEmbodiment?.move({...payload, targetWindowId: this.windowId}) === true
+    }
+
+    /**
+     * @summary Restores only the licensed target embodiment.
+     * @param {Object} payload
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultRestoreDragEmbodiment(payload) {
+        return this.dragEmbodiment?.restore(this.getDragEmbodimentIdentity(payload)) === true
+    }
+
+    /**
+     * @summary Promotes the target embodiment after semantic commit.
+     * @param {Object} payload
+     * @returns {Boolean}
+     * @protected
+     */
+    defaultPromoteDragEmbodiment(payload) {
+        return this.dragEmbodiment?.promote(this.getDragEmbodimentIdentity(payload)) === true
+    }
+
+    /**
+     * @summary Waits for both the live pane and its preview before the retained native handoff.
+     * @param {Object} payload The exact payload fenced by DragTarget across this await.
+     * @returns {Promise<Boolean>}
+     */
+    async defaultAwaitDragEmbodiment(payload) {
+        const preview = this.resolveAffordances()?.preview;
+        if (!this.dragEmbodiment || !preview?.dockPreview) return false;
+
+        const [settled] = await Promise.all([
+            this.dragEmbodiment.whenSettled(this.getDragEmbodimentIdentity(payload)),
+            preview.promiseUpdate?.()
+        ]);
+        return settled === true && Boolean(preview.dockPreview)
     }
 
     /**

@@ -325,17 +325,22 @@ export function createDockVesselProxyEmbodiment({
          * @param {Object} data.proxyRect Target-window-local `{x,y,width,height}`
          * @param {Neo.draggable.container.SortZone} data.sourceSortZone
          * @param {String|Number} [data.sourceWindowId] Exact physical source vessel identity.
-         *     Falls back to the source sort zone's window for ordinary cross-window drags.
+         *     Otherwise retains an active origin or reads the live pane's rendering window before
+         *     using the source sort zone. A parked popup can differ from its originating sort zone.
          * @param {String|Number} data.targetWindowId
          * @returns {Boolean}
          */
         move({draggedItem, proxyRect, sourceSortZone, sourceWindowId, targetWindowId} = {}) {
             const itemId = draggedItem?.dockItemId;
 
-            sourceWindowId ??= sourceSortZone?.windowId;
+            if (!itemId) return false;
+
+            sourceWindowId ??= active?.itemId === itemId
+                ? active.sourceWindowId
+                : resolvePane(itemId)?.windowId ?? sourceSortZone?.windowId;
 
             if (
-                !itemId || sourceWindowId == null || targetWindowId == null ||
+                sourceWindowId == null || targetWindowId == null ||
                 !isMeasurableProxyRect(proxyRect)
             ) {
                 return false
