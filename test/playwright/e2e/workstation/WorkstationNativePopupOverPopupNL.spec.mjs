@@ -197,10 +197,13 @@ async function popOut({app, page, workspaceId, itemId}) {
 
     await page.locator(`#${chrome.buttons[itemId]}`).click();
 
-    const action = await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
+    let action;
 
-    expect(action?.id, `pop-out resolves on ${itemId}'s tab owner`).toBeTruthy();
-    await expect(page.locator(`#${action.id}`), `pop-out is user-reachable for ${itemId}`).toBeVisible({timeout: 10000});
+    await expect.poll(async () => {
+        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
+        action = chrome?.containerId && await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
+        return Boolean(action?.id && await page.locator(`#${action.id}`).isVisible())
+    }, {message: `pop-out is user-reachable for ${itemId}`, timeout: 10000}).toBe(true);
 
     const popupPromise = page.waitForEvent('popup', {timeout: 30000});
 
@@ -439,24 +442,24 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
                     receipt = {...state, nativeLifecycle};
 
                     return {
-                        applied     : state.lastCrossWindowTransfer?.applied === true,
-                        operation   : state.lastCrossWindowTransfer?.descriptor?.operation ?? null,
-                        parked      : state.lastVesselParkReceipt?.parked === true,
-                        sourceClosed: source.popup.isClosed(),
-                        sourcePane  : nativeLifecycle.owners[SOURCE_ITEM] ?? null,
-                        target      : state.lastCrossWindowTransfer?.targetWorkspaceId ?? null
+                        applied       : state.lastCrossWindowTransfer?.applied === true,
+                        operation     : state.lastCrossWindowTransfer?.descriptor?.operation ?? null,
+                        parked        : state.lastVesselParkReceipt?.parked === true,
+                        sourceClosed  : source.popup.isClosed(),
+                        sourceWindowId: nativeLifecycle.owners[SOURCE_ITEM].windowId,
+                        target        : state.lastCrossWindowTransfer?.targetWorkspaceId ?? null
                     }
                 }, {
                     message  : 'dwelling over the target vessel commits the transfer and retires the source vessel',
                     timeout  : 15000,
                     intervals: [50, 100, 250]
                 }).toEqual({
-                    applied     : true,
-                    operation   : 'transferItem',
-                    parked      : true,
-                    sourceClosed: true,
-                    sourcePane  : null,
-                    target      : TARGET_WORKSPACE_ID
+                    applied       : true,
+                    operation     : 'transferItem',
+                    parked        : true,
+                    sourceClosed  : true,
+                    sourceWindowId: null,
+                    target        : TARGET_WORKSPACE_ID
                 })
             } catch (error) {
                 // Bounded triage receipt: which phase the native terminal died in, what the target saw

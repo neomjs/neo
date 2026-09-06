@@ -1169,7 +1169,6 @@ class Workspace extends DockWorkspace {
                 itemId        : data.draggedItem?.dockItemId,
                 targetWindowId: windowId
             }),
-            resolveNativeWindowDrag: isMain ? movingWindowId => me.resolveNativeTearOutDrag(movingWindowId) : null,
             // Docking design record §2.3: every window of this root declares the root's Group as its commit authority.
             resolveOwnershipId   : () => me.resolveTopologyGroup() ?? null,
             restoreDragEmbodiment: data => me.vesselProxyEmbodiment.restore({
@@ -1220,60 +1219,10 @@ class Workspace extends DockWorkspace {
                 })
             } : null,
             windowId,
-            workspaceId
+            workspace   : isMain ? me : null,
+            workspaceId,
+            workspaceSet: me.workspaceSet
         })
-    }
-
-    /**
-     * @summary Resolves one dropped bare Workstation popup into its exact live native drag record.
-     *
-     * Group native ownership and the registered popup owner identify the source independently of
-     * whichever dock tab zone last occupied a window's coordinator slot. Whole-stack vessels,
-     * disconnected topology, and panes no longer catalogued as detached all fail closed.
-     * @param {String|Number} windowId The physical moving popup window.
-     * @returns {Object|null}
-     * @protected
-     */
-    resolveNativeTearOutDrag(windowId) {
-        let me = this;
-
-        for (const [itemId, entry] of (me.nativeWindows?.ownerEntries(me.id) || [])) {
-            const
-                workspaceId = Workspace.vesselWorkspaceId(itemId),
-                state       = me.getPopupState(workspaceId),
-                pane        = me.paneCache[itemId],
-                vesselItems = Object.keys(state?.document?.items || {});
-
-            if (
-                entry?.windowId !== windowId ||
-                state?.windowId !== windowId ||
-                state.committed ||
-                state.closeRequested ||
-                state.disconnected ||
-                state.app?.mainView?.isDestroyed ||
-                vesselItems.length > 0 ||
-                !pane ||
-                pane.isDestroyed ||
-                !me.dockModel?.items?.[itemId] ||
-                WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)
-            ) {
-                continue
-            }
-
-            delete pane.dockGroupNodeId;
-            pane.dockItemId            = itemId;
-            pane.dockSourceOwnershipId = me.resolveTopologyGroup() ?? null;
-            pane.dockSourceWorkspaceId = Workspace.MAIN_WORKSPACE_ID;
-
-            return {
-                draggedItem      : pane,
-                embodyNativeHover: true,
-                sourceWindowId   : windowId,
-                widgetName       : itemId
-            }
-        }
-
-        return null
     }
 
     /**

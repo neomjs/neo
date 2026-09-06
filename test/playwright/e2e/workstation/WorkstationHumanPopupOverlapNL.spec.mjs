@@ -520,7 +520,7 @@ async function awaitVesselWindowId(app, wsId, itemId, committed) {
 }
 
 /**
- * @summary Waits for a retired popup generation to leave every App-Worker topology owner.
+ * @summary Waits for a retired popup generation to leave live native connections and window topology.
  * @param {Object} app
  * @param {String} managerId
  * @param {String} wsId
@@ -538,14 +538,14 @@ async function awaitVesselRetirement(app, managerId, wsId, itemId, windowId) {
 
         return receipt = {
             connected : Boolean(lifecycle.connections[itemId]),
-            committed : Boolean(lifecycle.owners[itemId]),
+            boundOwner: Boolean(lifecycle.owners[itemId]?.windowId),
             registered: manager.windows.some(win => win.id === windowId)
         }
     }, {
-        message  : `retired vessel '${itemId}' leaves connection, commit, and window topology`,
+        message  : `retired vessel '${itemId}' leaves live ownership, connection, and window topology`,
         timeout  : 10000,
         intervals: [25, 50, 100]
-    }).toEqual({connected: false, committed: false, registered: false});
+    }).toEqual({connected: false, boundOwner: false, registered: false});
 
     return receipt
 }

@@ -973,6 +973,56 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             participation.destroy()
         });
 
+        test('a registered native popup supplies its own document and refuses empty or multi-item single-pane drags', async () => {
+            const {default: manager}       = await import('../../../../src/manager/Transaction.mjs');
+            const {createDockWorkspaceSet} = await import('../../../../src/dashboard/dock/window/WorkspaceSet.mjs');
+            const groupId                  = manager.bind({windowId: 'native-popup-owner-root', workspaceKey: 'main'}).groupId;
+            const pane                     = {id: 'pane-terminal', isDestroyed: false,
+                dockGroupNodeId: 'stale-stack', dockSourceNodeId: 'stale-tabs'};
+            const workspace = createWorkspaceStub({
+                dockModel    : targetDoc(), topologyGroupId: groupId,
+                nativeWindows: manager.getNativeLifecycle(groupId),
+                resolvePane  : itemId => itemId === 'terminal' ? pane : null
+            });
+            workspace.id = 'native-popup-source';
+            let popup = sourceDoc(), participation;
+            delete popup.items.strategy;
+            delete popup.nodes['main-tabs'];
+            delete popup.nodes.root.zones.center;
+
+            const workspaceSet = createDockWorkspaceSet({manager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
+            workspaceSet.register('A', {getDocument: () => workspace.dockModel, setDocument: value => workspace.dockModel = value});
+            workspaceSet.register('popup-document', {getDocument: () => popup, setDocument: value => popup = value});
+            workspace.nativeWindows.registerSource(workspace.id, {
+                keyFor: () => 'popup-document', open: async () => null, close: async () => true
+            });
+            workspace.nativeWindows.recordOwner(workspace.id, 'terminal', {
+                windowId: 'native-popup-live', workspaceKey: 'popup-document'
+            });
+
+            try {
+                participation = createParticipation({sortGroup: 'dock-engine', workspace, workspaceId: 'A', workspaceSet});
+                const source = participation.target.getNativeWindowDrag('native-popup-live');
+
+                expect(source).toMatchObject({draggedItem: pane, sourceWindowId: 'native-popup-live', widgetName: 'terminal'});
+                expect(pane.dockSourceWorkspaceId).toBe('popup-document');
+                expect(pane.dockSourceOwnershipId).toBe(groupId);
+                expect(pane.dockGroupNodeId).toBeUndefined();
+                expect(pane.dockSourceNodeId).toBeUndefined();
+                expect(participation.target.getNativeWindowDrag('native-popup-unknown')).toBeNull();
+
+                popup = sourceDoc();
+                expect(participation.target.getNativeWindowDrag('native-popup-live'), 'a whole popup cannot lose its other pane').toBeNull();
+
+                workspace.dockModel = sourceDoc();
+                popup = {schema: 'neo.dock.zone.v1', root: null, nodes: {}, items: {}};
+                expect(participation.target.getNativeWindowDrag('native-popup-live'), 'an empty registered owner cannot borrow the main document').toBeNull()
+            } finally {
+                participation?.destroy();
+                manager.retireGroup(groupId)
+            }
+        });
+
         test('the refinement seams stay null and a participation built without them degrades', () => {
             const participation = createParticipation({
                 sortGroup: 'dock-engine',

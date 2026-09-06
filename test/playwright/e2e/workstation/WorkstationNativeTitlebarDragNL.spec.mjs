@@ -322,13 +322,15 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
                     return {
                         inTree: Object.values(state.dockModel.nodes)
                             .some(node => node.type === 'tabs' && node.items?.includes('commits')),
-                        pane  : lifecycle.owners.commits ?? null
+                        ownerWindowId: lifecycle.owners.commits.windowId,
+                        connected    : Boolean(lifecycle.connections.commits),
+                        retirements  : lifecycle.retirements.length
                     }
                 }, {
                     message  : 'dwelling over the main window reintegrates Commit Stream without a close',
                     timeout  : 15000,
                     intervals: [50, 100, 250]
-                }).toEqual({inTree: true, pane: null})
+                }).toEqual({inTree: true, ownerWindowId: null, connected: false, retirements: 0})
             } catch (error) {
                 // Bounded triage receipt: which phase the native terminal died in, and whether the
                 // target registration survived the hover.

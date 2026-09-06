@@ -1265,40 +1265,39 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
-    test('native-titlebar source discovery resolves the exact live bare-vessel pane and rejects stale topology', () => {
+    test('native-titlebar source discovery uses the full popup document and stops after Group undo', async () => {
         const
             workspace   = Neo.create(Workspace, {windowId: Neo.config.windowId}),
             itemId      = 'alerts',
             pane        = workspace.paneCache[itemId],
             workspaceId = Workspace.vesselWorkspaceId(itemId),
-            detached    = Operations.applyOperation(workspace.dockModel, {
-                operation: 'detachItem',
-                itemId
+            groupId     = workspace.topologyGroupId,
+            popup       = Neo.create(PopupWorkspace, {
+                rootWorkspace: workspace, workspaceSet: workspace.workspaceSet,
+                workspaceKey : workspaceId, topologyGroupId: groupId, windowId: null,
+                dockModel    : workspace.createVesselWorkspaceDocument(itemId)
             }),
-            state       = {
-                app           : {mainView: {isDestroyed: false}},
-                closeRequested: false,
-                committed     : false,
-                disconnected  : false,
-                document      : null,
-                itemId,
-                windowId      : 'window-alerts',
-                workspaceId
-            };
+            reservation = TransactionManager.reserve({groupId, workspaceKey: workspaceId});
+        let participation;
 
         try {
-            expect(detached.errors).toEqual([]);
-            workspace.dockModel = detached.document;
+            // This arm observes semantic ownership; the headed witness owns pane projection.
+            workspace.projectDockZoneDocument = popup.projectDockZoneDocument = async () => {};
+            await workspace.workspaceSet.transfer({
+                operation        : 'transferItem', itemId, sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                targetWorkspaceId: workspaceId,
+                target           : {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(itemId)}
+            }, {provenance: {origin: 'human'}});
             workspace.nativeWindows.recordOwner(workspace.id, itemId, {
-                windowId  : 'window-alerts',
-                windowName: 'tearout-alerts'
+                ...reservation, windowId: 'window-alerts', windowName: 'tearout-alerts'
             });
-            registerPopupState(workspace, workspaceId, state);
+            participation = await workspace.createCrossWindowParticipation({
+                windowId: workspace.windowId, workspaceId: Workspace.MAIN_WORKSPACE_ID
+            });
 
-            // the root's Group is the commit authority the payload departs from (docking design record §2.3)
-            const groupId = workspace.topologyGroupId;
-
-            const source = workspace.resolveNativeTearOutDrag('window-alerts');
+            expect(workspace.dockModel.items[itemId]).toBeUndefined();
+            expect(workspace.workspaceSet.getDocument(workspaceId).items[itemId]).toEqual(initialDocument.items[itemId]);
+            const source = participation.target.getNativeWindowDrag('window-alerts');
 
             expect(source).toMatchObject({
                 draggedItem      : pane,
@@ -1308,22 +1307,18 @@ test.describe.serial('Workstation.view.Workspace', () => {
             });
             expect(source.draggedItem).toBe(pane);
             expect(pane.dockItemId).toBe(itemId);
-            expect(pane.dockSourceWorkspaceId).toBe(Workspace.MAIN_WORKSPACE_ID);
+            expect(pane.dockSourceWorkspaceId).toBe(workspaceId);
             expect(pane.dockSourceOwnershipId, 'the payload carries the root\'s Group as its commit authority').toBe(groupId);
             expect(pane.dockGroupNodeId).toBeUndefined();
-            expect(workspace.resolveNativeTearOutDrag('window-other')).toBeNull();
+            expect(participation.target.getNativeWindowDrag('window-other')).toBeNull();
 
-            state.disconnected = true;
-            expect(workspace.resolveNativeTearOutDrag('window-alerts')).toBeNull();
-
-            state.disconnected = false;
-            state.committed    = true;
-            expect(workspace.resolveNativeTearOutDrag('window-alerts')).toBeNull();
-
-            state.committed = false;
-            state.windowId  = 'window-mismatch';
-            expect(workspace.resolveNativeTearOutDrag('window-alerts')).toBeNull()
+            await TransactionManager.undo({groupId});
+            expect(workspace.dockModel.items[itemId]).toEqual(initialDocument.items[itemId]);
+            expect(workspace.workspaceSet.getDocument(workspaceId).items[itemId]).toBeUndefined();
+            expect(participation.target.getNativeWindowDrag('window-alerts')).toBeNull()
         } finally {
+            participation?.destroy();
+            popup.destroy();
             workspace.destroy()
         }
     });
