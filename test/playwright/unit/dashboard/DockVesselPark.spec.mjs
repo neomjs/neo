@@ -4,15 +4,28 @@ setup({
     appConfig: {
         name: 'DashboardDockVesselParkTest'
     },
-    // The machine is a zero-import pure module: no Main facade, no LocalStorage addon. Declaring
-    // both mocks off keeps this file runnable SOLO (the mock paths call `Neo.ns`, which only
-    // exists once a sibling spec loads the real core into the shared worker).
     mockLocalStorage: false,
     mockMain        : false
 });
 
-import {test, expect}             from '@playwright/test';
-import {createVesselParkHandlers} from '../../../../src/dashboard/dock/window/VesselPark.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from "../../../../src/Neo.mjs";
+import * as core       from "../../../../src/core/_export.mjs";
+import VesselPark      from '../../../../src/dashboard/dock/window/VesselPark.mjs';
+import {execFileSync}  from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+
+const owners      = new Set();
+const createOwner = (config={}) => {
+    const owner = Neo.create(VesselPark, {...config});
+    owners.add(owner);
+    return owner
+};
+
+test.afterEach(() => {
+    owners.forEach(owner => owner.destroy());
+    owners.clear()
+});
 
 /**
  * @summary The in-gesture vessel park machine, driven end-to-end through its injected seams.
@@ -24,11 +37,133 @@ import {createVesselParkHandlers} from '../../../../src/dashboard/dock/window/Ve
  * every other outcome failing toward restore, and stale events (duplicate convert-in, slotless
  * out/terminal, mismatched itemId) are silent no-ops. The seams are the assertion surface.
  */
-test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers', () => {
+test.describe('Neo.dashboard.dock.window.VesselPark — createOwner', () => {
+    test('a pre-import Neo overwrite controls the internal restore path', () => {
+        const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `
+            await import('./src/Neo.mjs');
+            await import('./src/core/_export.mjs');
+            const {setup} = await import('./test/playwright/setup.mjs');
+            setup({appConfig: {name: 'VesselParkOverwriteTest'}});
+            Neo.overwrites = {};
+            Neo.ns('Neo.dashboard.dock.window.VesselPark', true, Neo.overwrites).restore = () => false;
+            const {default: VesselPark} = await import('./src/dashboard/dock/window/VesselPark.mjs');
+            let calls = 0;
+            const owner = Neo.create(VesselPark, {
+                parkVessel: () => true, disposeVessel: () => true,
+                reshowVessel: () => { calls++; return true; }
+            });
+            owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const restored = owner.onConversionOut();
+            const retained = owner.parkedVessel?.windowName;
+            owner.destroy();
+            process.stdout.write(JSON.stringify({
+                registered: VesselPark === Neo.dashboard.dock.window.VesselPark,
+                restored, retained, calls
+            }));
+        `], {cwd: fileURLToPath(new URL('../../../../', import.meta.url)), encoding: 'utf8'}));
+
+        expect(result).toEqual({registered: true, restored: false, retained: 'window', calls: 0})
+    });
+
+    test('a subclass can specialize live restore while retaining cancel recovery', () => {
+        class CancelOnlyPark extends VesselPark {
+            static config = {className: 'Test.Unit.Dashboard.VesselPark.CancelOnlyPark'}
+
+            /** @summary Refuses live re-show while keeping inherited terminal recovery. */
+            restore(vessel, rect, terminal=false) {
+                return terminal ? super.restore(vessel, rect, terminal) : false
+            }
+        }
+        Neo.setupClass(CancelOnlyPark);
+        const reshown = [];
+        const owner   = Neo.create(CancelOnlyPark, {
+            parkVessel  : () => true, disposeVessel: () => true,
+            reshowVessel: data => { reshown.push(data); return true }
+        });
+        owners.add(owner);
+
+        owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+        expect(owner.onConversionOut()).toBe(false);
+        expect(owner.parkedVessel.windowName).toBe('window');
+        expect(owner.onGestureTerminal({itemId: 'pane', outcome: 'cancel'})).toBe(true);
+        expect(reshown).toEqual([{itemId: 'pane', windowName: 'window', rect: null, terminal: true}]);
+        expect(owner.parkedVessel).toBeNull()
+    });
+
+    test('owners keep independent gesture state and destruction actuates no window', () => {
+        let   effects = 0;
+        const config  = {parkVessel: () => true, reshowVessel: () => { effects++; return true }, disposeVessel: () => { effects++; return true }};
+        const a       = createOwner(config), b = createOwner(config);
+
+        a.onConversionIn({itemId: 'a', windowName: 'a-window'});
+        expect(b.parkedVessel).toBeNull();
+        b.onConversionIn({itemId: 'b', windowName: 'b-window'});
+        a.destroy();
+        expect(a.parkedVessel).toBeNull();
+        expect(b.parkedVessel.windowName).toBe('b-window');
+        expect(effects).toBe(0)
+    });
+
+    for (const terminal of ['out', 'cancel', 'committed']) {
+        test(`destroy during park fences a queued ${terminal} and late admission`, async () => {
+            let resolvePark, effects = 0;
+            const owner = createOwner({
+                parkVessel   : () => new Promise(resolve => resolvePark = resolve),
+                reshowVessel : () => { effects++; return true },
+                disposeVessel: () => { effects++; return true }
+            });
+            const admission = owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const queued    = terminal === 'out' ? owner.onConversionOut() : owner.onGestureTerminal({itemId: 'pane', outcome: terminal});
+
+            owner.destroy();
+            resolvePark(true);
+            expect(await admission).toBe(false);
+            expect(await queued).toBe(false);
+            expect(owner.parkedVessel).toBeNull();
+            expect(owner.transition).toBeNull();
+            expect(effects).toBe(0)
+        })
+    }
+
+    for (const phase of ['park', 'restore', 'dispose']) {
+        test(`a synchronous ${phase} effect cannot resurrect the owner it destroys`, () => {
+            let owner;
+            const effect = current => {
+                if (phase === current) owner.destroy();
+                return true
+            };
+            owner = createOwner({parkVessel: () => effect('park'), reshowVessel: () => effect('restore'), disposeVessel: () => effect('dispose')});
+            const admitted = owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const result   = phase === 'park' ? admitted : phase === 'restore'
+                ? owner.onConversionOut() : owner.onGestureTerminal({itemId: 'pane', outcome: 'committed'});
+
+            expect(result).toBe(false);
+            expect(owner.isDestroyed).toBe(true);
+            expect(owner.parkedVessel).toBeNull();
+            expect(owner.transition).toBeNull()
+        })
+    }
+
+    for (const phase of ['restore', 'dispose']) {
+        test(`destroy fences an in-flight ${phase} completion`, async () => {
+            let resolveEffect;
+            const pending = () => new Promise(resolve => resolveEffect = resolve);
+            const owner   = createOwner({parkVessel: () => true, reshowVessel: phase === 'restore' ? pending : () => true, disposeVessel: phase === 'dispose' ? pending : () => true});
+            owner.onConversionIn({itemId: 'pane', windowName: 'window'});
+            const result = phase === 'restore' ? owner.onConversionOut() : owner.onGestureTerminal({itemId: 'pane', outcome: 'committed'});
+
+            owner.destroy();
+            resolveEffect(true);
+            expect(await result).toBe(false);
+            expect(owner.parkedVessel).toBeNull();
+            expect(owner.transition).toBeNull()
+        })
+    }
+
     const harness = () => {
         const calls = {disposed: [], parked: [], reshown: []};
 
-        const handlers = createVesselParkHandlers({
+        const handlers = createOwner({
             disposeVessel: vessel => {
                 calls.disposed.push(vessel);
                 return true
@@ -135,7 +270,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
 
         const pending  = new Promise(resolve => resolveClose = resolve),
               calls    = [],
-              handlers = createVesselParkHandlers({
+              handlers = createOwner({
                   disposeVessel: vessel => {
                       calls.push(vessel);
                       return ++attempt === 1 ? pending : true
@@ -216,7 +351,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
 
         const pending  = new Promise(resolve => resolvePark = resolve),
               calls    = [],
-              handlers = createVesselParkHandlers({
+              handlers = createOwner({
                   disposeVessel: () => true,
                   parkVessel   : vessel => {
                       calls.push(vessel);
@@ -241,7 +376,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
         let allowRestore = false;
 
         const calls    = [],
-              handlers = createVesselParkHandlers({
+              handlers = createOwner({
                   disposeVessel: () => true,
                   parkVessel   : () => true,
                   reshowVessel : async vessel => {
@@ -264,7 +399,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
     });
 
     test('synchronous platform throws normalize to refusal and preserve recoverable ownership', () => {
-        const parkThrows = createVesselParkHandlers({
+        const parkThrows = createOwner({
             disposeVessel: () => true,
             parkVessel   : () => { throw new Error('park failed') },
             reshowVessel : () => true
@@ -273,7 +408,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
         expect(() => parkThrows.onConversionIn(inData())).not.toThrow();
         expect(parkThrows.parkedVessel).toBeNull();
 
-        const restoreThrows = createVesselParkHandlers({
+        const restoreThrows = createOwner({
             disposeVessel: () => true,
             parkVessel   : () => true,
             reshowVessel : () => { throw new Error('move failed') }
@@ -289,7 +424,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
 
         const pending  = new Promise(resolve => resolvePark = resolve),
               disposed = [],
-              handlers = createVesselParkHandlers({
+              handlers = createOwner({
                   disposeVessel: vessel => {
                       disposed.push(vessel);
                       return true
@@ -319,7 +454,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
 
             const pending  = new Promise(resolve => resolvePark = resolve),
                   calls    = {disposed: [], reshown: []},
-                  handlers = createVesselParkHandlers({
+                  handlers = createOwner({
                       disposeVessel: vessel => {
                           calls.disposed.push(vessel);
                           return true
@@ -359,7 +494,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
         let resolvePark;
 
         const pending  = new Promise(resolve => resolvePark = resolve),
-              handlers = createVesselParkHandlers({
+              handlers = createOwner({
                   disposeVessel: () => true,
                   parkVessel   : () => pending,
                   reshowVessel : () => true
@@ -382,7 +517,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
 
         const pending  = new Promise(resolve => resolvePark = resolve),
               disposed = [],
-              handlers = createVesselParkHandlers({
+              handlers = createOwner({
                   disposeVessel: vessel => {
                       disposed.push(vessel);
                       return true
@@ -406,7 +541,7 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
         let resolveRetirement;
 
         const retirement = new Promise(resolve => resolveRetirement = resolve),
-              handlers   = createVesselParkHandlers({
+              handlers   = createOwner({
                   disposeVessel: () => true,
                   parkVessel   : () => true,
                   reshowVessel : () => true
@@ -436,9 +571,9 @@ test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers
             reshowVessel : () => {}
         };
 
-        expect(() => createVesselParkHandlers()).toThrow(/required function seams/);
-        expect(() => createVesselParkHandlers({...seams, parkVessel: undefined})).toThrow(/required function seams/);
-        expect(() => createVesselParkHandlers({...seams, reshowVessel: 'hide'})).toThrow(/required function seams/);
-        expect(() => createVesselParkHandlers({...seams, disposeVessel: null})).toThrow(/required function seams/)
+        expect(() => createOwner()).toThrow(/required function seams/);
+        expect(() => createOwner({...seams, parkVessel: undefined})).toThrow(/required function seams/);
+        expect(() => createOwner({...seams, reshowVessel: 'hide'})).toThrow(/required function seams/);
+        expect(() => createOwner({...seams, disposeVessel: null})).toThrow(/required function seams/)
     })
 });

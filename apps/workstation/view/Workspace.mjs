@@ -28,7 +28,7 @@ import {
     createDockVesselProxyEmbodiment
 }                                                from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import {createDockWorkspaceSet}                 from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
-import {createVesselParkHandlers}               from '../../../src/dashboard/dock/window/VesselPark.mjs';
+import VesselPark                               from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import PreviewContract                          from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
 import '../../../src/button/Base.mjs';
@@ -292,14 +292,14 @@ class Workspace extends DockWorkspace {
     vesselConversionTargetWindowId = null
     /**
      * The in-gesture vessel lifecycle authority (park / re-show / dispose-on-commit).
-     * @member {Object|null} vesselParkHandlers=null
+     * @member {Neo.dashboard.dock.window.VesselPark|null} vesselParkHandlers=null
      * @protected
      */
     vesselParkHandlers = null
     /**
      * Post-terminal native-titlebar park/restore authority. Separate from pointer conversion:
      * the generic DragDrop addon has no active pointer-follow session after a dropped popup.
-     * @member {Object|null} nativeVesselParkHandlers=null
+     * @member {Neo.dashboard.dock.window.VesselPark|null} nativeVesselParkHandlers=null
      * @protected
      */
     nativeVesselParkHandlers = null
@@ -554,12 +554,12 @@ class Workspace extends DockWorkspace {
         // acquisition consumes transient activation and reads as unsolicited), so conversion
         // PARKS the real vessel behind its target, out-conversion re-shows the SAME generation,
         // and only a commit disposes — every other outcome restores.
-        me.vesselParkHandlers = createVesselParkHandlers({
+        me.vesselParkHandlers = Neo.create(VesselPark, {
             disposeVessel: vessel => me.disposeParkedTearOutVessel(vessel),
             parkVessel   : vessel => me.parkTearOutVessel(vessel),
             reshowVessel : vessel => me.reshowTearOutVessel(vessel)
         });
-        me.nativeVesselParkHandlers = createVesselParkHandlers({
+        me.nativeVesselParkHandlers = Neo.create(VesselPark, {
             disposeVessel: ({itemId}) => me.retireReturnedVessel(Workspace.vesselWorkspaceId(itemId)),
             parkVessel   : vessel => me.parkTearOutVessel({...vessel, nativeTitlebar: true}),
             reshowVessel : vessel => me.reshowTearOutVessel(vessel)
@@ -4855,6 +4855,8 @@ class Workspace extends DockWorkspace {
         me.topologyLibrary?.destroy();
         me.dragAffordances?.destroy();
         me.interactionService?.destroy();
+        me.vesselParkHandlers?.destroy();
+        me.nativeVesselParkHandlers?.destroy();
         me.vesselProxyEmbodiment?.destroy();
         me.tearOutEmbodiment?.destroy();
         me.cueSettlements.clear();
