@@ -1,5 +1,5 @@
-import Component          from '../../../component/Base.mjs';
 import DragProxyContainer from '../../../draggable/DragProxyContainer.mjs';
+import VesselPlaceholder  from './VesselPlaceholder.mjs';
 
 /**
  * @module Neo.dashboard.dock.window.VesselEmbodiment
@@ -51,12 +51,7 @@ export function createDockVesselEmbodiment({resolvePane, resolveTarget} = {}) {
             return false
         }
 
-        const placeholder = Neo.create({
-            module   : Component,
-            cls      : ['neo-dashboard-dock-vessel-placeholder'],
-            isLoading: 'Moving pane to another window…',
-            role     : 'status'
-        });
+        const placeholder = Neo.create(VesselPlaceholder);
 
         let record = {pane, placeholder, settlement: null, sourceParent, windowId};
 

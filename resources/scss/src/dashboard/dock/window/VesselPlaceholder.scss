@@ -1,0 +1,23 @@
+// The cross-window pane placeholder — structure only; `theme-*/dashboard/dock/window/VesselPlaceholder.scss`
+// owns the values, the two-layer split every themed sibling package honours.
+//
+// Exactly two properties, and both are load-bearing rather than decorative. The visible surface is
+// the framework load mask (`src/component/Base.scss`), which paints
+//
+//     .neo-load-mask       { background-color: inherit }
+//     .neo-loading-message { color: inherit }
+//
+// by design: the mask takes its ground and ink from whatever hosts it, so one host declaration
+// themes the panel, the message and the spinner together. Before this sheet existed the host was an
+// inline component with no stylesheet at all, so both inherit chains fell through to the user-agent
+// default and the slot rendered black-on-white under every theme while the surrounding dock was
+// dark-green. Setting these two here is the whole fix; the mask needs no change and must not get
+// one, since it is shared by every masked component in the framework.
+//
+// The fallbacks are last-resort literals for a host that loads the structure layer with no values
+// sheet — deliberately neutral rather than a copy of any one theme, so an unthemed host reads as
+// plainly unstyled instead of impersonating a skin it is not running.
+.neo-dashboard-dock-vessel-placeholder {
+    background-color: var(--dock-vessel-placeholder-ground, #1a212c);
+    color           : var(--dock-vessel-placeholder-ink,    #d6dce6);
+}
