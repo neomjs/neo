@@ -84,6 +84,47 @@ const expectMaximizedCount = async (page, count) => {
 };
 
 /**
+ * The fail-safe clear of an unresolvable id is eventual by contract: the transition waits for the
+ * owner's live refresh before it applies and fails. When that wait outlives the poll, the bare
+ * `expected null, received "ghost-tabs"` cannot say which side is pending, and the two are different
+ * defects: a refresh that has not settled (the settle probe, which awaits the live `refreshPromise`,
+ * does not answer) or a transition still parked behind a refresh that has. The assertion is
+ * unchanged; the failure carries the discriminator and the plugin's observer state.
+ * @param {Object} page
+ * @returns {Promise<void>}
+ */
+const expectIdCleared = async page => {
+    try {
+        await expect.poll(async () => (await readPlugin(page, ['maximizedNodeId']))[0]).toBe(null)
+    } catch (error) {
+        let diagnosis;
+
+        try {
+            const [settleBefore] = await readWorkspace(page, ['settleJson']);
+
+            await setWorkspace(page, {settleProbeCount: Date.now()});
+
+            let refreshSettled = true;
+
+            try {
+                await expect.poll(async () => (await readWorkspace(page, ['settleJson']))[0], {timeout: 2000}).not.toBe(settleBefore)
+            } catch (settleError) {
+                refreshSettled = false
+            }
+
+            const [nodeId, resizeObserved] = await readPlugin(page, ['maximizedNodeId', 'resizeObserved']);
+
+            diagnosis = `maximizedNodeId=${JSON.stringify(nodeId)} resizeObserved=${resizeObserved} refreshSettledWithin2s=${refreshSettled}`
+        } catch (readError) {
+            diagnosis = `<unreadable: ${readError.message}>`
+        }
+
+        error.message += `\n\nat failure: ${diagnosis}`;
+        throw error
+    }
+};
+
+/**
  * The maximized node fills the DOCK AREA inset by the gap token on every side — not the workspace
  * root, not the viewport. The fixture workspace is its own host and frames the projected shell
  * with a 42px chrome bar at index 0 (`dockShellIndex: 1`), so the root and the shell have different
@@ -330,7 +371,7 @@ test.describe('dock maximize — presentation, never topology', () => {
         // contract: the clear is deterministic, not synchronous with the config write.
         await setPlugin(page, {maximizedNodeId: 'ghost-tabs'});
         await page.waitForFunction(() => document.querySelectorAll('.neo-dock-maximized').length === 0);
-        await expect.poll(async () => (await readPlugin(page, ['maximizedNodeId']))[0]).toBe(null)
+        await expectIdCleared(page)
     });
 
     test('a superseding maximize waits for the prior clear and its refresh', async ({page}) => {
