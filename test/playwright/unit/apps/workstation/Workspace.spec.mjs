@@ -21,6 +21,46 @@ import PopupWorkspace     from '../../../../../apps/workstation/view/PopupWorksp
 
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
+test('pointer readiness reads current popup and supplied main visual owners', () => {
+    for (const isMain of [false, true]) {
+        const workspaceId = isMain ? Workspace.MAIN_WORKSPACE_ID : 'workstation-vessel:metrics',
+              preview = {previewId: 'current-preview'},
+              target = {currentPreview: preview},
+              visuals = {
+                  preview: {dockPreview: preview},
+                  indicators: {
+                      activeCandidate: {preview}, candidateSet: {itemId: 'audit', cross: [], root: {chips: []}}, cls: []
+                  }
+              },
+              participation = {
+                  target,
+                  ...(isMain ? {affordances: visuals} : {ownedAffordances: visuals}),
+                  resolveAffordances() { throw new Error('a readiness read must not construct visuals') }
+              },
+              workspace = {
+                  crossWindowParticipations: new Map(isMain ? [[workspaceId, participation]] : []),
+                  dragAffordances: visuals,
+                  getPopupState: () => ({host: {participation}})
+              },
+              sourceZone = {dragCoordinator: {
+                  activeTargetZone: target,
+                  pointerClaimArbiter: {claimCount: 1, resolve: () => ({stableId: workspaceId})}
+              }},
+              read = () => Workspace.prototype.readCrossWindowGestureSnapshot.call(workspace, {
+                  sourceZone, targetWorkspaceId: workspaceId
+              });
+
+        expect(read()).toMatchObject({
+            engaged: true, ready: true, preview, rendered: preview,
+            indicators: {activePreviewId: preview.previewId, itemId: 'audit', visible: true}
+        });
+        visuals.preview.dockPreview = {previewId: 'stale-preview'};
+        expect(read().ready).toBe(false);
+        visuals.preview = null;
+        expect(read().ready).toBe(false)
+    }
+});
+
 /**
  * @summary Captures object identities for every live logical tab surface in one Workstation shell.
  * @param {Workstation.view.Workspace} workspace
