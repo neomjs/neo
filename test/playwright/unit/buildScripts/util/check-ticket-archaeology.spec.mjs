@@ -94,6 +94,27 @@ test.describe('check-ticket-archaeology guard', () => {
             'an unrecognised kind is NOT a bypass — accepting it here would pass the hook and fail CI, the same divergence reversed').toHaveLength(1)
     });
 
+    /**
+     * The typed escape excuses ONE annotated colour, not the line it sits on. A whole-line bypass
+     * would have recreated the divergence this repair exists to close, pointed the other way: the
+     * hook would fall silent where CI still flags. Both arms below were @neo-gpt's falsifiers against
+     * exactly that, and both were red before the escape was scoped to its own token.
+     */
+    test('the typed escape excuses its own colour, not the whole line it sits on', () => {
+        expect(findTicketRefs("const tag = '[not-ticket-ref: css-color]'; // #12345"),
+            'a marker inside a STRING literal never reaches comment scope, so it cannot excuse a ref in the comment'
+        ).toHaveLength(1);
+
+        expect(findTicketRefs("// backgroundColor_='#000000' [not-ticket-ref: css-color]; see #12345"),
+            'an unrelated ref sharing the line with an annotated colour stays visible'
+        ).toHaveLength(1);
+
+        // The other side of the same boundary: scoping must not stop the escape working at all.
+        expect(findTicketRefs("// backgroundColor_='#000000' [not-ticket-ref: css-color]"),
+            'an annotated colour alone is still excused'
+        ).toEqual([])
+    });
+
     test('flags the named Epic / Discussion / ADR prose forms in comments', () => {
         const hits = findTicketRefs([
             '// part of Epic #11624',

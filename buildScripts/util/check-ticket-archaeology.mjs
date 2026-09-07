@@ -26,12 +26,34 @@ export const ESCAPE_MARKER = 'ticket-ref-ok';
 // Nothing is removed. Rejecting the bare form here would block at pre-commit every deliberate ref
 // that has no typed equivalent upstream, which is a policy question rather than a lint repair.
 //
-// The KINDS are enumerated rather than left open, and the direction of the coupling is the reason.
-// Accepting an unrecognised kind here would pass the hook and fail CI — the same divergence this
-// change exists to close, pointed the other way. Lagging behind an upstream addition instead blocks
-// at pre-commit, which is loud and local. Keep in step with the published guard's accepted kinds.
-export const TYPED_ESCAPE_KINDS   = ['css-color'];
-export const TYPED_ESCAPE_PATTERN = new RegExp(`\\[not-ticket-ref:\\s*(?:${TYPED_ESCAPE_KINDS.join('|')})\\]`, 'i');
+// Both patterns mirror the published guard rather than paraphrasing it, because the ONLY thing this
+// change buys is the two agreeing. The escape is scoped to the annotated colour token and requires a
+// colour context before it, so it cannot become a whole-line bypass: an unrelated ref sharing the
+// line stays visible, and a marker sitting in a string literal never reaches comment scope at all.
+export const CSS_COLOR_ESCAPE_PATTERN  = /#(?:\d{3}|\d{4}|\d{6}|\d{8})['"`]?\s*\[not-ticket-ref:\s*css-color\]/gi;
+export const CSS_COLOR_CONTEXT_PATTERN = /(?:\bCSS\s+color\b|\b(?:background(?:-?color)?|border(?:-?color)?|color|fill(?:style)?|stroke(?:style)?)_?\s*(?::|=)\s*['"`]?)\s*$/i;
+
+/**
+ * @summary Blanks the colour literals a typed escape annotates, leaving everything else scannable.
+ * @description Blanking rather than skipping the line is the whole correctness point: a line may
+ * carry an annotated colour AND a genuine ref, and only the first is excused.
+ * @param {String} comment
+ * @returns {String}
+ */
+export function withEscapedColorsRemoved(comment) {
+    let out = comment;
+
+    CSS_COLOR_ESCAPE_PATTERN.lastIndex = 0;
+
+    // Reversed, so an earlier replacement cannot shift a later match's index.
+    for (const match of [...comment.matchAll(CSS_COLOR_ESCAPE_PATTERN)].reverse()) {
+        if (CSS_COLOR_CONTEXT_PATTERN.test(comment.slice(Math.max(0, match.index - 48), match.index))) {
+            out = out.slice(0, match.index) + ' '.repeat(match[0].length) + out.slice(match.index + match[0].length)
+        }
+    }
+
+    return out
+}
 
 // Decay-prone tracking anchors that must not live in durable source comments. The named forms catch
 // the prose variants.
@@ -142,11 +164,11 @@ export function findTicketRefs(content) {
     lines.forEach((line, index) => {
         const comment = extractComment(line, state);
 
-        if (!comment || line.includes(ESCAPE_MARKER) || TYPED_ESCAPE_PATTERN.test(line)) {
+        if (!comment || line.includes(ESCAPE_MARKER)) {
             return
         }
 
-        if (TICKET_PATTERNS.some(re => re.test(comment))) {
+        if (TICKET_PATTERNS.some(re => re.test(withEscapedColorsRemoved(comment)))) {
             hits.push({line: index + 1, text: line.trim()})
         }
     });
