@@ -104,6 +104,19 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the drag affordan
             const proxy = page.locator('body > .neo-dragproxy.neo-dashboard-dock-splitter').first();
 
             try {
+                // Positive drag entry, read BEFORE any paint. @neo-gpt's catch, and it is the
+                // difference between a witness and a formality: on the live-resize arm every
+                // assertion below also holds AT REST — no proxy exists when nothing is dragging
+                // either, and an untouched source is trivially still painted. A gesture that never
+                // entered would have passed silently.
+                //
+                // `DragZone#dragStart` stamps `neo-is-dragging` on its owner, so this is the
+                // production seam that says the drag actually began rather than a marker the spec
+                // invented for itself.
+                await expect(splitter,
+                    `${presentation.name}: the gesture must enter production drag — without it every assertion below also holds at rest`
+                ).toHaveClass(/neo-is-dragging/, {timeout: 10000});
+
                 // The presentation itself is asserted before its paint. Without this the proxy arm
                 // could pass by measuring the source, and the live arm could pass while a proxy it
                 // never inspected carried the regression.
