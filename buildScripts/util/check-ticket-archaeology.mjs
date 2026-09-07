@@ -19,9 +19,30 @@ export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 // Inline relief valve for a genuinely load-bearing comment ref (judgment-call escape, not a blanket bypass).
 export const ESCAPE_MARKER = 'ticket-ref-ok';
 
-// Decay-prone tracking anchors that must not live in durable source comments. `#\d{4,}\b` targets
-// issue/PR numbers (Neo tickets are 5 digits) while a trailing word boundary avoids matching hex colors
-// like `#1234ff`; the named forms catch the prose variants.
+// The typed escape the published `neo-agent-skills` guard requires, accepted here IN ADDITION to
+// ESCAPE_MARKER so the two stop disagreeing on the same line. They say different things and both are
+// needed: `ticket-ref-ok` asserts "this ref is deliberate", while `[not-ticket-ref: <kind>]` asserts
+// "this is not a ref at all" — and a hex colour can only be described truthfully by the second.
+// Nothing is removed. Rejecting the bare form here would block at pre-commit every deliberate ref
+// that has no typed equivalent upstream, which is a policy question rather than a lint repair.
+//
+// The KINDS are enumerated rather than left open, and the direction of the coupling is the reason.
+// Accepting an unrecognised kind here would pass the hook and fail CI — the same divergence this
+// change exists to close, pointed the other way. Lagging behind an upstream addition instead blocks
+// at pre-commit, which is loud and local. Keep in step with the published guard's accepted kinds.
+export const TYPED_ESCAPE_KINDS   = ['css-color'];
+export const TYPED_ESCAPE_PATTERN = new RegExp(`\\[not-ticket-ref:\\s*(?:${TYPED_ESCAPE_KINDS.join('|')})\\]`, 'i');
+
+// Decay-prone tracking anchors that must not live in durable source comments. The named forms catch
+// the prose variants.
+//
+// `#\d{4,}\b` is a LENGTH heuristic standing in for a POSITION one, and it is wrong in both
+// directions. It cannot see a ref shorter than four digits — every `neo-agent-brain` /
+// `neo-agent-skills` ticket, post-split. And its trailing `\b` excludes only hex colours that
+// contain letters: `#1234ff` cannot reach a boundary, while an all-numeric six-digit colour
+// consumes every digit and matches — so a colour in a durable comment fires and needs an escape to
+// say so. Discriminating by position instead would free the bound, which is the parent ticket's
+// open question and is deliberately not attempted here.
 export const TICKET_PATTERNS = [
     /#\d{4,}\b/,
     /\bEpic\s+#?\d+\b/i,
@@ -121,7 +142,7 @@ export function findTicketRefs(content) {
     lines.forEach((line, index) => {
         const comment = extractComment(line, state);
 
-        if (!comment || line.includes(ESCAPE_MARKER)) {
+        if (!comment || line.includes(ESCAPE_MARKER) || TYPED_ESCAPE_PATTERN.test(line)) {
             return
         }
 
@@ -294,6 +315,9 @@ function main() {
             console.error('\nDurable comments/JSDoc must describe behavior, not cite tracking refs — tickets, Epics, Discussions, or ADRs (they rot when the');
             console.error('referenced item closes/renames). Move the ref to the PR body / commit subject, or — only if genuinely');
             console.error(`load-bearing — add a "${ESCAPE_MARKER}: <reason>" marker on the line.`);
+            console.error('If the match is not a tracking ref at all — an all-numeric hex colour is the common case —');
+            console.error('use the typed form instead: "[not-ticket-ref: css-color]". It says what is true, and the');
+            console.error('published neo-agent-skills guard that runs in CI accepts it while rejecting the bare marker.');
         }
         process.exit(1);
     }
