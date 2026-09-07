@@ -4,6 +4,10 @@
 :root .neo-theme-neo-dark {
     --neo-background-color: var(--sem-color-bg-neutral-default);
     --neo-color           : var(--sem-color-text-neutral-default);
+    // The platform-level light/dark hint for THIS theme, declared rather than derived from the
+    // theme's name: `theme-cyberpunk` is dark and named neither. Read by `Main.windowOpen` to
+    // stage a popup's blank document in the right scheme instead of flashing the UA default.
+    --neo-color-scheme    : dark;
     --neo-disabled-opacity: 0.5;
     --neo-font-family     : 'Source Sans 3', sans-serif;
     --neo-font-smoothing  : antialiased;
