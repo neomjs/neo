@@ -59,7 +59,7 @@ if (programOpts.info) {
     if (!programOpts.noquestions) {
         if (!programOpts.threads) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'threads',
                 message: 'Please choose the threads to build:',
                 choices: ['all', 'app', 'canvas', 'data', 'main', 'service', 'task', 'vdom'],
@@ -69,7 +69,7 @@ if (programOpts.info) {
 
         if (!programOpts.env) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'env',
                 message: 'Please choose the environment:',
                 choices: ['all', 'dev', 'prod'],

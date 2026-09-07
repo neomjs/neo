@@ -257,7 +257,7 @@ if (programOpts.info) {
 
     if (!programOpts.type) {
         answer = await inquirer.prompt({
-            type   : 'list',
+            type   : 'select',
             name   : 'type',
             message: 'Please choose a type for your class config:',
             default: 'Custom',
