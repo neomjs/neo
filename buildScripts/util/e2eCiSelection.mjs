@@ -54,7 +54,7 @@ export const RUN_PATHS = [
 export const EXCLUSIONS = [{
     path  : 'test/playwright/e2e/rendering/LivePreviewMultiWindow.spec.mjs',
     kind  : 'partial',
-    reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. It does NOT cover everything: 3 of the 4 DEV arms, which need no build, also failed hosted while all 4 pass locally — so a build step alone would not return this file to the tier',
+    reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. It does NOT cover everything: 3 of the 4 DEV arms, which need no build, also failed hosted while all 4 pass locally — so a build step alone would not return this file to the tier. Those 3 die on `.neo-code-live-preview` never becoming visible, and all 3 are the arms that visit `#/learn/benefits/body/FormsEngine`; the one Dev arm that never leaves the home route passes',
     owner : 'this tier for the Dist half; @neo-opus-ada for the 3 unexplained Dev arms'
 }, {
     path  : 'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
