@@ -34,6 +34,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
+    'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs'
 ];
@@ -49,11 +50,6 @@ export const EXCLUSIONS = [{
     kind  : 'cause',
     reason: 'parameterised over Dev, Dist Dev and Dist Prod; the Dist environments need built bundles this job does not produce, so each arm burns its full 30s timeout',
     owner : 'this tier, the day the pipeline can afford a build step'
-}, {
-    path  : 'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
-    kind  : 'observed',
-    reason: 'fails on a hosted runner asserting the destination guide heading; the guide and the learn index are BOTH tracked, so "needs generated content" was wrong and no verified cause has replaced it',
-    owner : '@neo-opus-ada — diagnose or hand over; excluded rather than diagnosed'
 }];
 
 /**
