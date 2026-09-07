@@ -496,12 +496,12 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
     });
 
     test('a resize replaces the measurement once and a late old frame cannot overwrite it', async () => {
-        const rig = compose(), originalGet = WindowManager.get, requests = [];
-        let width = 800, height = 600;
+        const rig   = compose(), originalGet = WindowManager.get, requests = [];
+        let   width = 800, height = 600;
         WindowManager.get = () => ({innerRect: {width, height}});
         rig.controller.host = {
-            id: 'resizing-host', windowId: 'resizing-window',
-            down: ({dockNodeId}) => ({id: dockNodeId}),
+            id        : 'resizing-host', windowId: 'resizing-window',
+            down      : ({dockNodeId}) => ({id: dockNodeId}),
             getDomRect: () => new Promise(resolve => requests.push({resolve, width, height}))
         };
         const resolve = request => request.resolve([
@@ -541,12 +541,12 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
     });
 
     test('release refuses a cached pre-resize frame and a fresh gesture still commits', async () => {
-        const rig = compose(), originalGet = WindowManager.get;
-        let width = 800;
+        const rig   = compose(), originalGet = WindowManager.get;
+        let   width = 800;
         WindowManager.get = () => ({innerRect: {width, height: 600}});
         rig.controller.host = {
-            id: 'release-resize-host', windowId: 'release-resize-window',
-            down: ({dockNodeId}) => ({id: dockNodeId}),
+            id        : 'release-resize-host', windowId: 'release-resize-window',
+            down      : ({dockNodeId}) => ({id: dockNodeId}),
             getDomRect: async () => [
                 {x: 0, y: 0, width, height: 600},
                 {x: 0, y: 0, width: width / 2, height: 600},
