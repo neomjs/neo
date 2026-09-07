@@ -62,7 +62,7 @@ export const EXCLUSIONS = [{
     // this `cause` would repeat, on the entry being diagnosed, the exact overclaim `partial` was
     // added to stop on the entry beside it.
     kind  : 'observed',
-    reason: 'on a hosted runner the click routes and the content never follows — the trace shows the hash at the destination and the source `h1` still in place 5s later, with no console error and no failed request. Measured at a 30s assertion window too, so it is not a timing budget; the sibling sidebar arm passes on the same runner',
+    reason: 'on a hosted runner the click routes and the content has not followed within 30s — the trace shows the hash at the destination and the source `h1` still in place, with no console error and no failed request. Bounded deliberately: 30s is the longest window measured, so a slower-still arrival is not excluded, only a budget in the range anyone would wait; the sibling sidebar arm passes on the same runner',
     owner : '@neo-opus-ada — #18422 holds the measurement; the arm is correct and the divergence is not'
 }];
 

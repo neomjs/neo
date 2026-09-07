@@ -86,15 +86,17 @@ test.describe('learn link routing', () => {
         // subtitle is the discriminator — 'Dock Layouts:' alone would pass without navigating.
         //
         // This arm passes locally in ~800ms and fails on a hosted Ubuntu runner, and the difference
-        // is NOT a timing budget — that was tested rather than assumed. The hosted trace shows the
-        // click resolving its anchor, `navigations have finished`, the hash arriving at the
-        // destination, and the source `h1` still in place afterwards, with no console error and no
-        // failed request. Widening this assertion to 30s and running it hosted changed nothing: the
-        // arm still failed, at 32.4s.
+        // is not a timing budget in any range worth waiting — that was tested rather than assumed.
+        // The hosted trace shows the click resolving its anchor, `navigations have finished`, the
+        // hash arriving at the destination, and the source `h1` still in place afterwards, with no
+        // console error and no failed request. Widening this assertion to 30s and running it hosted
+        // changed nothing: the arm still failed, at 32.4s.
         //
-        // So the route changes and the content never follows, while the sibling sidebar arm passes
-        // on the same runner. The default window stays, because a longer one buys a slower failure
-        // and nothing else.
+        // So the route changes and the content has not followed within 30s, while the sibling sidebar
+        // arm passes on the same runner. Bounded on purpose: 30s is the longest window measured, so
+        // this does not exclude a slower-still arrival — only one inside any window a person would
+        // wait through. The default stays, because a longer one buys a slower failure and no more
+        // information.
         await expect(content.locator('h1')).toContainText('Adopting in Your App')
     });
 
