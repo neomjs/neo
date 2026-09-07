@@ -113,11 +113,16 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
         // Read back BY ID. The defect this spec now guards against was a document-order query
         // resolving to a different header's button, so waiting on the class alone would reinstate
         // exactly the substitution the stage exists to prevent.
-        await page.waitForFunction(
-            id => document.getElementById(id)?.classList.contains('neo-tab-overflow-capped'),
-            stage.activeId,
-            {timeout: 30000}
-        );
+        // `expect.poll` rather than `waitForFunction`, purely for what the timeout SAYS. A bare
+        // `waitForFunction` expiry reads "Timeout 30000ms exceeded" and names neither the header
+        // nor the stage, which is the failure this spec was rewritten to stop producing.
+        await expect.poll(
+            () => page.evaluate(id => document.getElementById(id)?.classList.contains('neo-tab-overflow-capped') ?? false, stage.activeId),
+            {
+                message: `${stage.activeId} in ${stage.toolbarId} must be capped after the stage — its label was widened and the toolbar narrowed. No cap means the projection never ran on the surface this spec staged.`,
+                timeout: 30000
+            }
+        ).toBe(true);
 
         const facts = await page.evaluate(({activeId, toolbarId}) => {
             const rect = el => {
@@ -171,7 +176,19 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
                 toolbarRect: rect(toolbar),
                 // Ordinary case: every pressed button OUTSIDE the staged header is uncapped and its
                 // absolute indicator spans its full box.
-                ordinary: pressed.filter(button => button.closest('.neo-tab-header-toolbar') !== toolbar)
+                ordinary: pressed.filter(button => {
+                    const owner = button.closest('.neo-tab-header-toolbar');
+
+                    // Excluding the reveals is not tidying: a collapsed reveal's title is `pressed`
+                    // and carries a STATIC cap class while measuring zero width, so it entered this
+                    // control as an empty-text, zero-box row that no assertion below can fail. A
+                    // control padded with unpaintable entries reports coverage it does not have —
+                    // the same substitution this spec exists to remove, one level along, inside my
+                    // own control.
+                    return owner && owner !== toolbar &&
+                        !owner.classList.contains('neo-dashboard-dock-reveal-header') &&
+                        rect(button).width > 0
+                })
                     .map(button => {
                         const indicator = button.querySelector('.neo-tab-button-indicator');
                         return {
