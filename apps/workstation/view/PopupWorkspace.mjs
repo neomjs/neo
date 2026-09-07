@@ -118,7 +118,7 @@ class PopupWorkspace extends DockWorkspace {
 
         if (!nodeId) return super.resolveDockableRoot();
 
-        let host = me.getDockHost?.() ?? null;
+        let host = me.getDockHost();
 
         // The chip must measure the CONTENT, not the shell: the projected container for the stack
         // root is the region a drop actually lands in, and the shell's rect would over-report it.

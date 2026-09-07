@@ -819,7 +819,7 @@ class Workspace extends Container {
      */
     resolveDockableRoot() {
         let me        = this,
-            component = me.getDockHost?.() ?? null,
+            component = me.getDockHost(),
             nodeId    = me.dockModel?.root ?? null;
 
         return component && nodeId ? {component, nodeId} : null
