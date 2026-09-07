@@ -797,6 +797,35 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Names the node a ROOT-EDGE drop wraps, and the component whose rect measures it.
+     *
+     * The two travel together on purpose: a root chip is PAINTED from the component's rect and
+     * COMMITTED against the nodeId, so a boundary naming one region while measuring another
+     * previews a drop it cannot perform.
+     *
+     * Resolved live on every call, never captured. A root-edge drop replaces `dockModel.root` with
+     * the wrapping split, so a node id read once names the PREVIOUS root from the second gesture
+     * onward — the same mismatch, one drop later.
+     *
+     * The default boundary is the whole arrangement: the document root, measured by the dock host.
+     * A workspace presenting a vessel SHELL — window chrome around transferable content — overrides
+     * this to name the content boundary inside that shell, so the shell is never wrapped and
+     * {@link Neo.dashboard.dock.model.WorkspaceDocument#resolveStackRoot} keeps resolving.
+     *
+     * The node TYPE cannot make that distinction, which is why this is a declaration rather than an
+     * inference: an arrangement root and a vessel shell are both `edge-zone`, and occupied side
+     * slots are a layout state rather than an identity.
+     * @returns {Object|null} `{component, nodeId}`, or null when nothing dockable resolves
+     */
+    resolveDockableRoot() {
+        let me        = this,
+            component = me.getDockHost?.() ?? null,
+            nodeId    = me.dockModel?.root ?? null;
+
+        return component && nodeId ? {component, nodeId} : null
+    }
+
+    /**
      * @summary The live component currently rendering one dock item, or null.
      *
      * The two resolver-shaped members this folds together — the tree lookup and the stand-in

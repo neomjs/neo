@@ -13,6 +13,7 @@ import '../../../../src/manager/Instance.mjs';
 import DockDragAffordances from '../../../../src/dashboard/dock/interaction/DragAffordances.mjs';
 import DockDropIndicators  from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockPreview         from '../../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockWorkspace       from '../../../../src/dashboard/dock/Workspace.mjs';
 import Operations          from '../../../../src/dashboard/dock/model/Operations.mjs';
 import WindowManager       from '../../../../src/manager/Window.mjs';
 
@@ -72,6 +73,13 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
             preview    = Neo.create(DockPreview),
             owner      = {
                 dockModel: makeDocument(),
+                getDockHost() {
+                    return controller.host
+                },
+                // BORROWED, never reimplemented: the rig stands in for a dock owner, so the root
+                // chip's boundary has to be resolved by the production seam. A stub that computed
+                // its own answer could agree with the assertion while the shipped one disagrees.
+                resolveDockableRoot: DockWorkspace.prototype.resolveDockableRoot,
                 applyDockZoneOperation(descriptor) {
                     return Operations.applyOperation(this.dockModel, descriptor)
                 },
@@ -187,11 +195,12 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         destroyAll(rig)
     });
 
-    test('an edge-zone root with a descriptor-shaped center still offers the root edge chips', async () => {
-        // The regression fingerprint: `zones.center` is a DESCRIPTOR ({nodeId}) in the current
-        // schema, and passing it raw where the producer requires a node-id string trips the
-        // fail-closed guard — the candidate set arrives with root: null and every container
-        // edge chip stays off, silently, for every edge-zone-rooted workspace.
+    test('an edge-zone root offers the root edge chips against the boundary its owner declares', async () => {
+        // Two regressions share this fixture. The older one: `zones.center` is a DESCRIPTOR
+        // ({nodeId}), and passing it raw where the producer requires an id string tripped the
+        // fail-closed guard — root: null, every container edge chip silently off. The newer one is
+        // why the id is no longer read from zone shape at all: retargeting to the CENTER while the
+        // chip is still drawn from the HOST rect promises the full width and delivers a corner.
         const rig   = compose(),
               rects = {
                   host : {x: 0, y: 0, width: 800, height: 600},
@@ -221,15 +230,191 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         const geometry = await rig.controller.ensureGeometry();
 
-        // the unwrapped STRING is what the producer's id guard accepts
-        expect(geometry.root.nodeId).toBe('split-main');
+        // The pairing invariant: the chip's nodeId names the node its rect covers. The rect is the
+        // whole host, so the id must be the whole arrangement — not the center inside it.
+        expect(geometry.root).toEqual({nodeId: 'root', rect: rects.host});
 
         await rig.controller.onDragMove({clientX: 200, clientY: 300, itemId: 'gamma', sourceNodeId: 'right-tabs'});
 
         expect(rig.indicators.candidateSet?.zone?.nodeId).toBe('left-tabs');
         expect(rig.indicators.candidateSet?.root, 'the root chip family must be offered').toBeTruthy();
-        expect(rig.indicators.candidateSet.root.nodeId).toBe('split-main');
+        expect(rig.indicators.candidateSet.root.nodeId).toBe('root');
         expect(rig.indicators.candidateSet.root.chips.map(chip => chip.edge)).toEqual(['top', 'right', 'bottom', 'left']);
+
+        destroyAll(rig)
+    });
+
+    test('a bottom root-edge drop on an edge-zone root spans the whole arrangement', async () => {
+        // The operator-reported defect, at the seam that produced it: the bottom chip previewed the
+        // full window width and the drop landed a pane the width of the CENTER, because the side
+        // bands were never inside the node being wrapped. Asserted on the committed TREE — a
+        // rendered width could be reached by another route, a direct root child could not.
+        const rig   = compose(),
+              rects = {
+                  host : {x: 0, y: 0, width: 800, height: 600},
+                  left : {x: 0, y: 0, width: 400, height: 600},
+                  right: {x: 400, y: 0, width: 400, height: 600}
+              };
+
+        rig.owner.dockModel = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : rig.owner.dockModel.items,
+            nodes : {
+                root        : {type: 'edge-zone', zones: {center: {nodeId: 'split-main'}, bottom: {nodeId: 'left-tabs', extent: 0.25, resizable: true}}},
+                'split-main': {type: 'split', orientation: 'horizontal', children: ['left-tabs', 'right-tabs'], sizes: [0.5, 0.5]},
+                'left-tabs' : {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'},
+                'right-tabs': {type: 'tabs', items: ['gamma'], activeItemId: 'gamma'}
+            }
+        };
+
+        rig.controller.host = {
+            id: 'host-1',
+            down(selector) {
+                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}[selector.dockNodeId] ?? null
+            },
+            getDomRect: async () => [rects.host, rects.left, rects.right]
+        };
+
+        // 592 sits in the 24px root strip above the host's bottom edge; the whole gesture runs the
+        // production hover and release paths, so nothing here can inject the target by hand.
+        await rig.controller.onDragMove({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+
+        expect(rig.preview.dockPreview?.placement?.kind).toBe('edge-bottom');
+        expect(rig.preview.dockPreview?.target?.nodeId, 'the preview must aim at the whole arrangement').toBe('root');
+
+        await rig.controller.onDrop({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+
+        expect(rig.committed).toHaveLength(1);
+
+        const doc      = rig.committed[0],
+              children = doc.nodes[doc.root]?.children ?? [],
+              dropped  = children.find(childId => doc.nodes[childId]?.items?.includes('gamma'));
+
+        expect(doc.root, 'the drop wraps the arrangement in a NEW root').not.toBe('root');
+        expect(doc.nodes[doc.root].orientation).toBe('vertical');
+        // Both halves of the corner question in one line: the edge-zone (with its side bands) and
+        // the dropped pane are SIBLINGS, so the pane runs the full width beneath everything.
+        expect(children).toEqual(['root', dropped]);
+        expect(doc.nodes.root.type, 'the bands travel inside the wrapped node').toBe('edge-zone');
+
+        destroyAll(rig)
+    });
+
+    test('two sequential root-edge drops: the last one takes the corner', async () => {
+        // The operator's stated semantics, and the reason the boundary must be resolved LIVE:
+        // the bottom drop rewrites `document.root`, so the following right drop has to wrap what
+        // that produced. A captured root id would re-wrap the inner node and leave the bottom pane
+        // OUTSIDE the new right column — the corner rule silently inverted one gesture later.
+        const rig   = compose(),
+              rects = {
+                  host : {x: 0, y: 0, width: 800, height: 600},
+                  left : {x: 0,   y: 0,   width: 400, height: 450},
+                  right: {x: 400, y: 0,   width: 400, height: 450},
+                  band : {x: 0,   y: 450, width: 800, height: 150}
+              };
+
+        // An EDGE-ZONE root with an occupied band — the flagship's shape, and the only one where
+        // this test can fail: with a plain split root both the old and new resolution agree. The
+        // third left pane keeps either drag from emptying its source, since a node the drag empties
+        // collapses away and would move the tree for a reason unrelated to corners.
+        rig.owner.dockModel = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : {
+                ...rig.owner.dockModel.items,
+                delta  : {componentRef: 'ref-delta',   title: 'Delta',   kind: 'pane'},
+                epsilon: {componentRef: 'ref-epsilon', title: 'Epsilon', kind: 'pane'}
+            },
+            nodes: {
+                root        : {type: 'edge-zone', zones: {center: {nodeId: 'split-main'}, bottom: {nodeId: 'band-tabs', extent: 0.25, resizable: true}}},
+                'split-main': {type: 'split', orientation: 'horizontal', children: ['left-tabs', 'right-tabs'], sizes: [0.5, 0.5]},
+                'left-tabs' : {type: 'tabs', items: ['alpha', 'beta', 'delta'], activeItemId: 'alpha'},
+                'right-tabs': {type: 'tabs', items: ['gamma'], activeItemId: 'gamma'},
+                'band-tabs' : {type: 'tabs', items: ['epsilon'], activeItemId: 'epsilon'}
+            }
+        };
+
+        rig.controller.host = {
+            id: 'host-1',
+            down(selector) {
+                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}, 'band-tabs': {id: 'zone-band'}}[selector.dockNodeId] ?? null
+            },
+            getDomRect: async () => [rects.host, rects.left, rects.right, rects.band]
+        };
+
+        const originalRoot = rig.owner.dockModel.root;
+
+        // 1. bottom: 592 is inside the 24px strip above the host's bottom edge
+        await rig.controller.onDragMove({clientX: 400, clientY: 592, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+        await rig.controller.onDrop    ({clientX: 400, clientY: 592, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+
+        const afterBottom = rig.owner.dockModel,
+              bottomPane  = afterBottom.nodes[afterBottom.root].children
+                  .find(childId => afterBottom.nodes[childId]?.items?.includes('alpha'));
+
+        expect(afterBottom.nodes[afterBottom.root]).toMatchObject({type: 'split', orientation: 'vertical'});
+        expect(afterBottom.nodes[afterBottom.root].children).toEqual([originalRoot, bottomPane]);
+
+        // 2. right: 792 is inside the strip left of the host's right edge
+        await rig.controller.onDragMove({clientX: 792, clientY: 300, itemId: 'beta', sourceNodeId: 'left-tabs'});
+        await rig.controller.onDrop    ({clientX: 792, clientY: 300, itemId: 'beta', sourceNodeId: 'left-tabs'});
+
+        const afterRight = rig.owner.dockModel,
+              rightPane  = afterRight.nodes[afterRight.root].children
+                  .find(childId => afterRight.nodes[childId]?.items?.includes('beta'));
+
+        expect(afterRight.nodes[afterRight.root]).toMatchObject({type: 'split', orientation: 'horizontal'});
+        // The right pane's sibling is the WHOLE bottom arrangement, so the right column runs the
+        // full height and the bottom pane — now one level deeper — gives up the corner.
+        expect(afterRight.nodes[afterRight.root].children).toEqual([afterBottom.root, rightPane]);
+        expect(afterRight.nodes[afterBottom.root].children).toContain(bottomPane);
+
+        destroyAll(rig)
+    });
+
+    test('a sole-pane root-edge drop is refused before it can strand an empty half', async () => {
+        // `normalizeTree` deletes emptied tabs and splits but RETAINS an emptied edge-zone on
+        // purpose — it stays a re-attachment anchor. So wrapping an edge-zone root whose only
+        // content is the item being dragged would leave an empty sibling in the committed tree
+        // forever. The refusal lands at preview time, so the affordance never promises it either.
+        const rig   = compose(),
+              rects = {
+                  host  : {x: 0, y: 0, width: 800, height: 600},
+                  center: {x: 0, y: 0, width: 800, height: 600}
+              };
+
+        rig.owner.dockModel = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'shell',
+            items : {alpha: rig.owner.dockModel.items.alpha},
+            nodes : {
+                shell        : {type: 'edge-zone', zones: {center: {nodeId: 'center-tabs'}}},
+                'center-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
+            }
+        };
+
+        rig.controller.host = {
+            id: 'host-1',
+            down(selector) {
+                return selector.dockNodeId === 'center-tabs' ? {id: 'zone-center'} : null
+            },
+            getDomRect: async () => [rects.host, rects.center]
+        };
+
+        await rig.controller.onDragMove({clientX: 400, clientY: 592, itemId: 'alpha', sourceNodeId: 'center-tabs'});
+        await rig.controller.onDrop    ({clientX: 400, clientY: 592, itemId: 'alpha', sourceNodeId: 'center-tabs'});
+
+        const doc = rig.owner.dockModel,
+              // every node that can hold content, and whether it actually holds any
+              stranded = Object.entries(doc.nodes).filter(([, node]) =>
+                  (node.type === 'tabs' && !node.items?.length) ||
+                  (node.type === 'edge-zone' && !Object.values(node.zones || {}).length));
+
+        expect(rig.preview.dockPreview, 'the affordance never promised the drop').toBe(null);
+        expect(rig.committed, 'and nothing committed').toHaveLength(0);
+        expect(stranded, `no node may be left empty — ${JSON.stringify(doc.nodes)}`).toEqual([]);
+        expect(doc.nodes.shell.zones.center.nodeId, 'the shell keeps its content').toBe('center-tabs');
 
         destroyAll(rig)
     });

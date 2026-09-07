@@ -1668,6 +1668,38 @@ test.describe.serial('Workstation.view.Workspace', () => {
         expect(workspace.isDestroyed).toBe(true)
     });
 
+    test('a vessel popup docks at its transferable stack root, never at the window shell', () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state}   = stageCommittedVessel(workspace), popup = state.host;
+
+        try {
+            const stackRoot = WorkspaceDocument.resolveStackRoot(state.document),
+                  dockable  = popup.resolveDockableRoot();
+
+            // A full popup presents a vessel SHELL, so its dockable boundary is the content inside.
+            // Wrapping the shell would keep docking and silently stop the stack being transferable:
+            // `resolveStackRoot` requires the root to BE an edge-zone, and `window.Participation`
+            // admits a whole stack only when that resolution matches the transferred `groupNodeId`.
+            expect(stackRoot).toBeTruthy();
+            expect(state.document.nodes[state.document.root].type).toBe('edge-zone');
+            expect(dockable.nodeId, 'the boundary is the stack root').toBe(stackRoot);
+            expect(dockable.nodeId, 'never the shell').not.toBe(state.document.root);
+
+            // A popup whose document is NOT shell-shaped still docks — at its own root, through the
+            // inherited arrangement boundary — instead of refusing every root chip.
+            popup.dockModel = {
+                schema: 'neo.dock.zone.v1', root: 'plain-tabs',
+                items : {solo: {componentRef: 'solo', title: 'Solo', kind: 'pane'}},
+                nodes : {'plain-tabs': {type: 'tabs', items: ['solo'], activeItemId: 'solo'}}
+            };
+
+            expect(WorkspaceDocument.resolveStackRoot(popup.dockModel), 'no shell to resolve').toBe(null);
+            expect(popup.resolveDockableRoot()).toEqual({component: popup, nodeId: 'plain-tabs'})
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('window release retains the full Workspace document for warm rebind', async () => {
         const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace), owner = state.host;

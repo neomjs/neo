@@ -1,5 +1,6 @@
-import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
-import Participation from '../../../src/dashboard/dock/window/Participation.mjs';
+import DockWorkspace     from '../../../src/dashboard/dock/Workspace.mjs';
+import Participation     from '../../../src/dashboard/dock/window/Participation.mjs';
+import WorkspaceDocument from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
 /**
  * @summary Owns one popup document while resolving the root's existing live pane instances.
@@ -95,6 +96,33 @@ class PopupWorkspace extends DockWorkspace {
     getDockProjectionOptions() {
         return {...super.getDockProjectionOptions(), workspaceId: this.workspaceKey,
             crossWindowSortGroup: this.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP, enableStackDrag: true}
+    }
+
+    /**
+     * @summary A full popup presents a vessel SHELL, so its dockable boundary is the content inside
+     * that shell rather than the shell itself.
+     *
+     * Wrapping the shell would leave {@link Neo.dashboard.dock.model.WorkspaceDocument#resolveStackRoot}
+     * unable to resolve — it reads the root's `center` and requires the root to BE an `edge-zone` —
+     * and `window.Participation` refuses whole-stack admission unless that resolution matches the
+     * transferred `groupNodeId`. So a wrapped shell would keep docking and silently stop being
+     * transferable.
+     *
+     * Falls back to the inherited arrangement boundary when no stack root resolves, so a popup whose
+     * document is not shell-shaped still docks at its own root instead of refusing every root chip.
+     * @returns {Object|null}
+     */
+    resolveDockableRoot() {
+        let me     = this,
+            nodeId = WorkspaceDocument.resolveStackRoot(me.dockModel);
+
+        if (!nodeId) return super.resolveDockableRoot();
+
+        let host = me.getDockHost?.() ?? null;
+
+        // The chip must measure the CONTENT, not the shell: the projected container for the stack
+        // root is the region a drop actually lands in, and the shell's rect would over-report it.
+        return host ? {component: host.down({dockNodeId: nodeId}) ?? host, nodeId} : null
     }
 
     /**
