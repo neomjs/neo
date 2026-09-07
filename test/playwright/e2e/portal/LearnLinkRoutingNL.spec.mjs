@@ -85,16 +85,17 @@ test.describe('learn link routing', () => {
         // The source page is 'Dock Layouts: One Application, Many Windows', so the destination's own
         // subtitle is the discriminator — 'Dock Layouts:' alone would pass without navigating.
         //
-        // The explicit timeout is a measurement, not padding. On a hosted runner this arm failed at
-        // the default 5s with the URL ALREADY at the destination: the trace's frame snapshots show
-        // the hash change at t+0 and the source `h1` still in place 5s later, with no console error
-        // and no failed request. Locally the same click lands in ~800ms, so the hosted path needs
-        // more than six times the local budget — a margin no local run can discover.
+        // This arm passes locally in ~800ms and fails on a hosted Ubuntu runner, and the difference
+        // is NOT a timing budget — that was tested rather than assumed. The hosted trace shows the
+        // click resolving its anchor, `navigations have finished`, the hash arriving at the
+        // destination, and the source `h1` still in place afterwards, with no console error and no
+        // failed request. Widening this assertion to 30s and running it hosted changed nothing: the
+        // arm still failed, at 32.4s.
         //
-        // 30s is chosen to distinguish "slower than the default window" from "never arrives". If
-        // this arm ever fails at 30s, the content genuinely does not follow the route and the
-        // timeout is no longer the story.
-        await expect(content.locator('h1')).toContainText('Adopting in Your App', {timeout: 30000})
+        // So the route changes and the content never follows, while the sibling sidebar arm passes
+        // on the same runner. The default window stays, because a longer one buys a slower failure
+        // and nothing else.
+        await expect(content.locator('h1')).toContainText('Adopting in Your App')
     });
 
 });

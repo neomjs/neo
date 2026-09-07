@@ -34,7 +34,6 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
-    'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs'
 ];
@@ -50,6 +49,11 @@ export const EXCLUSIONS = [{
     kind  : 'cause',
     reason: 'parameterised over Dev, Dist Dev and Dist Prod; the Dist environments need built bundles this job does not produce, so each arm burns its full 30s timeout',
     owner : 'this tier, the day the pipeline can afford a build step'
+}, {
+    path  : 'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
+    kind  : 'cause',
+    reason: 'on a hosted runner the click routes and the content never follows — the trace shows the hash at the destination and the source `h1` still in place 5s later, with no console error and no failed request. Measured at a 30s assertion window too, so it is not a timing budget; the sibling sidebar arm passes on the same runner',
+    owner : '@neo-opus-ada — #18422 holds the measurement; the arm is correct and the divergence is not'
 }];
 
 /**
