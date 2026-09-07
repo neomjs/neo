@@ -58,7 +58,10 @@ export const EXCLUSIONS = [{
     owner : 'this tier for the Dist half; @neo-opus-ada for the 3 unexplained Dev arms'
 }, {
     path  : 'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
-    kind  : 'cause',
+    // `observed`, not `cause`: what is established is the BEHAVIOUR, not why it happens. Marking
+    // this `cause` would repeat, on the entry being diagnosed, the exact overclaim `partial` was
+    // added to stop on the entry beside it.
+    kind  : 'observed',
     reason: 'on a hosted runner the click routes and the content never follows — the trace shows the hash at the destination and the source `h1` still in place 5s later, with no console error and no failed request. Measured at a 30s assertion window too, so it is not a timing budget; the sibling sidebar arm passes on the same runner',
     owner : '@neo-opus-ada — #18422 holds the measurement; the arm is correct and the divergence is not'
 }];
