@@ -45,39 +45,58 @@ test.describe('TreeGrid Big Data E2E', () => {
         await expect(firstFolderRow.locator('+ .neo-grid-row')).toHaveText(siblingText);
     });
 
+    /**
+     * Every row this arm asserts on is bound by `data-record-id`, never by position — the idiom the
+     * collapse arm below already uses, applied here because this arm did not have it.
+     *
+     * `neo-selected` is applied to the row rendering the selected RECORD, while `+ .neo-grid-row`
+     * names a POSITION. `grid.Body` pools rows and recycles them in place, so an expand re-projects
+     * which record each element renders. A positional locator therefore identifies one row at click
+     * time and possibly a different one at assertion time, and the class it waits for will never
+     * appear on the second — no timeout can help, because nothing is late.
+     *
+     * That is not hypothetical. A hosted failure's call log caught it mid-assertion, one element
+     * resolving to two records:
+     *
+     *      2 x  id="neo-grid-body-1__row-1"  data-record-id="neo-record-2"   level=1
+     *     12 x  id="neo-grid-body-1__row-1"  data-record-id="neo-record-79"  level=2
+     */
     test('Selection happy path: initial render and after single expand', async ({ page }) => {
         // 1. Initial State Selection
-        // Wait for initial render
         await expect(page.locator('.neo-grid-row:visible')).not.toHaveCount(0);
 
-        // Click the first row to select it
-        const firstRow = page.locator('.neo-grid-row:visible').first();
+        const firstRowId = await page.locator('.neo-grid-row:visible').first().getAttribute('data-record-id');
+        const firstRow   = page.locator(`.neo-grid-row[data-record-id="${firstRowId}"]`);
 
         await firstRow.locator('.neo-grid-cell').nth(2).click({ force: true });
-
-        // Verify it gets the selection class
         await expect(firstRow).toHaveClass(/neo-selected/);
 
         // 2. Selection after single expand
-        const firstFolderRow = page.locator('.neo-grid-row:has(.neo-tree-toggle)').first();
-        const toggleIcon     = firstFolderRow.locator('.neo-tree-toggle');
+        const folderId   = await page.locator('.neo-grid-row:has(.neo-tree-toggle)').first().getAttribute('data-record-id');
+        const folderRow  = page.locator(`.neo-grid-row[data-record-id="${folderId}"]`);
+        const toggleIcon = folderRow.locator('.neo-tree-toggle');
         await expect(toggleIcon).toBeVisible();
 
-        // Click to expand
         await toggleIcon.click();
         await expect(toggleIcon).toHaveClass(/is-expanded/);
 
-        // Find the newly revealed child row (it will be immediately after the expanded folder)
-        const childRow = firstFolderRow.locator('+ .neo-grid-row');
-        await expect(childRow).toBeVisible();
+        // The child is FOUND by position — that is what "newly revealed below the folder" means — and
+        // then pinned to its record before anything else happens. Position is how you locate it once;
+        // identity is what every later step must use.
+        const revealed = folderRow.locator('+ .neo-grid-row');
+        await expect(revealed).toBeVisible();
 
-        // Click the child row to select it
+        const childId  = await revealed.getAttribute('data-record-id');
+        const childRow = page.locator(`.neo-grid-row[data-record-id="${childId}"]`);
+
+        expect(childId, 'the revealed child must carry a record id, or every assertion below is positional again').toBeTruthy();
+        expect(childId, 'expanding must reveal a DIFFERENT record below the folder').not.toBe(folderId);
+
         await childRow.locator('.neo-grid-cell').nth(2).click();
 
-        // Verify the child row gets the selection class
         await expect(childRow).toHaveClass(/neo-selected/);
 
-        // In single-select mode, the first row should no longer be selected
+        // In single-select mode, the first row should no longer be selected.
         await expect(firstRow).not.toHaveClass(/neo-selected/);
     });
 
