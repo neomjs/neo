@@ -121,6 +121,71 @@ test.describe.serial('Group native lifecycle (#18314)', () => {
         expect(windows.getConnection('view', 'one')).toBeNull()
     });
 
+    for (const duringPrepare of [false, true]) {
+        test(`pending retirement fences binding ${duringPrepare ? 'during preparation' : 'before preparation'}`, async () => {
+            const windows = owner('root'), closing = deferred(), grant = deferred(), bound = [];
+            let acknowledged = false, prepared = 0;
+
+            windows.registerSource('view', effects({
+                close: () => acknowledged ? true : closing.promise,
+                prepare: () => {
+                    prepared++;
+                    return duringPrepare ? grant.promise : true
+                },
+                bound: data => bound.push(data)
+            }));
+            const vessel = await windows.acquire('view', {itemId: 'one'}),
+                  data   = {...vessel, windowId: 'closing-popup', generation: 1};
+            let binding, retirement;
+
+            if (duringPrepare) {
+                binding = windows.onBind(data);
+                retirement = windows.retire('view', vessel);
+                grant.resolve(true)
+            } else {
+                retirement = windows.retire('view', vessel);
+                binding = windows.onBind(data)
+            }
+
+            await binding;
+            expect(bound, 'a closing generation must never reach the publication callback').toEqual([]);
+            expect(windows.getConnection('view', 'one')).toBeNull();
+            expect(prepared).toBe(duringPrepare ? 1 : 0);
+            expect(windows.pendingRetirements('view')).toEqual([vessel]);
+
+            closing.resolve(false);
+            expect(await retirement, 'refusal retains exact cleanup authority').toBe(false);
+            expect(windows.pendingRetirements('view')).toEqual([vessel]);
+            acknowledged = true;
+            expect(await windows.retryRetirements('view', 'one')).toBe(true);
+            expect(windows.pendingRetirements('view')).toEqual([]);
+            expect(windows.getAdmission('view', 'one')).toBeNull()
+        })
+    }
+
+    test('pending retirement does not block another resource or source', async () => {
+        const windows = owner('root'), closing = deferred(), bound = [];
+
+        for (const sourceId of ['first', 'second']) {
+            windows.registerSource(sourceId, effects({
+                keyFor: itemId => `${sourceId}:${itemId}`,
+                close : () => closing.promise,
+                bound : ({itemId}) => bound.push(`${sourceId}:${itemId}`)
+            }))
+        }
+        const vessel = await windows.acquire('first', {itemId: 'one'}),
+              retirement = windows.retire('first', vessel);
+
+        for (const [sourceId, itemId] of [['first', 'two'], ['second', 'one']]) {
+            const next = await windows.acquire(sourceId, {itemId});
+            await windows.onBind({...next, windowId: `${sourceId}-${itemId}`, generation: 1});
+            expect(windows.getConnection(sourceId, itemId)?.windowId).toBe(`${sourceId}-${itemId}`)
+        }
+        expect(bound).toEqual(['first:two', 'second:one']);
+        closing.resolve(true);
+        expect(await retirement).toBe(true)
+    });
+
     test('view teardown may withdraw its source after the Group owner was destroyed', () => {
         const windows = owner('root');
         windows.registerSource('view', effects());

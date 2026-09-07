@@ -3213,23 +3213,6 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Retirement authority is established before any awaited close: a vessel that binds while its
-     * retirement is in flight is cleanup-only, and no content is ever staged into a closing realm.
-     * The Group's native retirement holds the fence; this host only reads it.
-     * @param {Object} context
-     * @param {String} context.itemId
-     * @returns {Boolean}
-     * @protected
-     */
-    admitTearOutConnection({itemId}) {
-        for (const vessel of (this.nativeWindows?.pendingRetirements(this.id) || [])) {
-            if (vessel.itemId === itemId) return false
-        }
-
-        return true
-    }
-
-    /**
      * A vessel bound its reserved slot: the engine recorded the connection (pre-terminal) or moved the
      * committed pane into it (terminal-first). Pre-terminal, the SAME live pane embodies into the
      * vessel right away while a hidden exact-slot placeholder keeps the source tab/card indices

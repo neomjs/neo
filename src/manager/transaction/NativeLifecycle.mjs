@@ -262,6 +262,7 @@ class NativeLifecycle extends Base {
 
     /**
      * @summary Admits only a source's reserved slot after its asynchronous platform preparation.
+     * Pending retirement rejects admission on both sides of preparation while retaining close authority.
      * @param {Object} data The Group manager's accepted generation binding.
      * @returns {Promise<void>}
      */
@@ -270,8 +271,9 @@ class NativeLifecycle extends Base {
         for (const [sourceId, source] of this.sources) {
             const match = [...source.admissions].find(([, entry]) => entry.workspaceKey === data.workspaceKey);
             if (!source.active || !match) continue;
-            const [itemId, admission] = match, effects = source.effects;
-            if (admission.connected || admission.connectingWindowId && admission.connectingWindowId !== data.windowId) continue;
+            const [itemId, admission] = match, effects = source.effects,
+                  retiring = () => this.pendingRetirements(sourceId).some(vessel => vessel.itemId === itemId);
+            if (admission.connected || admission.connectingWindowId && admission.connectingWindowId !== data.windowId || retiring()) continue;
             admission.connectingWindowId = data.windowId;
             const context = {...effects.context?.(data), admission, data, itemId, ...data};
             let accepted;
@@ -280,7 +282,7 @@ class NativeLifecycle extends Base {
                 throw error
             }
             if (!source.active || source.admissions.get(itemId) !== admission || admission.connectingWindowId !== data.windowId) continue;
-            if (accepted === false) { admission.connectingWindowId = null; continue }
+            if (accepted === false || retiring()) { admission.connectingWindowId = null; continue }
             const connection = {generation: data.generation, generationToken: admission.generationToken,
                 gestureToken: admission.gestureToken, windowId: data.windowId, workspaceKey: data.workspaceKey,
                 windowName  : context.activeVessel?.windowName || source.owners.get(itemId)?.windowName || admission.windowName};
