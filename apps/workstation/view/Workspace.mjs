@@ -3760,6 +3760,8 @@ class Workspace extends DockWorkspace {
      * coordinator has exactly one stable claim, its winning target is engaged, and the target's
      * semantic preview equals the preview rendered in that window. A converting tear-out can add
      * `parkedItemId`, which additionally requires the exact source vessel to be strictly parked.
+     * Visuals are read from the current participant's supplied or already-created controller;
+     * observing readiness never creates the popup's lazy preview tier.
      * @param {Object} context
      * @param {String|null} [context.parkedItemId=null]
      * @param {Neo.dashboard.dock.interaction.TabSortZone|null} [context.sourceZone=null]
@@ -3774,15 +3776,15 @@ class Workspace extends DockWorkspace {
         let me            = this,
             isMain        = targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID,
             state         = isMain ? null : me.getPopupState(targetWorkspaceId),
-            participation = me.crossWindowParticipations.get(targetWorkspaceId),
+            participation = isMain ? me.crossWindowParticipations.get(targetWorkspaceId) : state?.host?.participation,
+            affordances   = participation?.affordances ?? participation?.ownedAffordances,
             target        = participation?.target,
             coordinator   = sourceZone?.dragCoordinator,
             arbiter       = coordinator?.pointerClaimArbiter,
             winner        = arbiter?.resolve?.() ?? null,
             semantic      = target?.currentPreview ?? null,
-            renderer      = isMain ? me.dragAffordances?.preview : state?.preview,
-            rendered      = renderer?.dockPreview ?? null,
-            indicatorMenu = isMain ? me.dragAffordances?.indicators : state?.indicators,
+            rendered      = affordances?.preview?.dockPreview ?? null,
+            indicatorMenu = affordances?.indicators,
             indicatorSet  = indicatorMenu?.candidateSet ?? null,
             sensor        = sourceZone?.vesselConversionSensor,
             parkedVessel  = me.vesselParkHandlers?.parkedVessel ?? null,
