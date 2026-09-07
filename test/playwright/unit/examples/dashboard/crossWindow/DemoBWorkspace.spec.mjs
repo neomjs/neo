@@ -22,6 +22,7 @@ import Persistence                                         from '../../../../../
 import TransactionManager                                  from '../../../../../../src/manager/Transaction.mjs';
 
 import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
+import {createCrossWindowStage}           from '../../../../../../examples/dashboard/crossWindow/DemoBCrossWindowStage.mjs';
 
 /**
  * @summary Installs deterministic popup-vessel seams for the worker-side workspace specs.
@@ -2533,5 +2534,52 @@ test.describe('describeCrossWindowChromeMismatch', () => {
         // same assertion against the un-normalized shape finds `actual` missing on all four rows.
         expect(roundTripped.dockNodeId.actual).toBeNull();
         expect(roundTripped.barItemCount.actual).toBeNull()
+    })
+});
+
+test.describe('DemoB cross-window stage — root edge geometry', () => {
+    /**
+     * @summary Builds the stage with only the seams `measureGeometry` reaches, plus a host double
+     * whose `getDomRect` returns measurable rects.
+     * @param {Object} document
+     * @returns {Object}
+     */
+    function stageForDocument(document) {
+        const
+            host = {
+                id         : 'demo-b-host',
+                isDestroyed: false,
+                windowId   : 'demo-b-window',
+                down       : ({dockNodeId}) => ({id: `container-${dockNodeId}`}),
+                getDomRect : ids => Promise.resolve(ids.map(() => ({height: 600, width: 800, x: 0, y: 0})))
+            },
+            registries = {geometry: new Map(), hosts: new Map([['demo-b', host]]), participations: new Map()};
+
+        return createCrossWindowStage({
+            registries,
+            getWorkspaceDocument: () => document
+        })
+    }
+
+    // The v13.2 contract makes a zone entry an OBJECT DESCRIPTOR, so reading `zones.center`
+    // directly hands `PreviewProducer.resolveRootEdge` an object where its `typeof nodeId ===
+    // 'string'` guard expects an id. The producer then returns null and every root edge chip is
+    // dropped with no error, which is why this asserts the TYPE rather than only the value.
+    test('the root nodeId published for an edge-zone root is an id, not the zone descriptor', async () => {
+        const geometry = await stageForDocument(initialDocument).measureGeometry('demo-b');
+
+        expect(geometry, 'the doubles are sufficient for a measurable geometry').toBeTruthy();
+
+        expect(typeof geometry.root.nodeId, 'the producer id guard only accepts a string').toBe('string');
+        expect(geometry.root.nodeId).toBe('workbench-tabs')
+    });
+
+    // Non-vacuity: the arm above is only evidence if the fixture actually carries the descriptor
+    // shape. A perspective that shipped a bare string would satisfy it without exercising anything.
+    test('the fixture this is measured against really does ship the descriptor shape', () => {
+        const {nodes} = initialDocument;
+
+        expect(nodes.root.type).toBe('edge-zone');
+        expect(nodes.root.zones.center).toEqual({nodeId: 'workbench-tabs'})
     })
 });
