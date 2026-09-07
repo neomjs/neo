@@ -163,6 +163,12 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
         // A config object describing the same pane IS a valid candidate; only the mounted instance
         // itself is refused. An equality-based check would reject this and make recreate impossible
         // for every config-returning consumer.
+        //
+        // This arm asserted `toBe(candidate)` until #18446. Phase 1 now decorates the hook's return
+        // with the FLIP marker, so a PLAIN CONFIG comes back as a decorated copy — the same shape
+        // `resolveProjectedPane` has always returned. The reference identity was incidental to what
+        // this arm is about; the refusal semantics below are the contract, and an instance candidate
+        // still passes through by identity (see the FLIP describe block).
         const candidate = {ntype: 'component', text: 'fresh'};
 
         workspace.resolveFreshPane = () => candidate;
@@ -170,7 +176,10 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
         const result = workspace.prepareRecreateCandidate('editor', livePane);
 
         expect(result.ok).toBe(true);
-        expect(result.candidate).toBe(candidate);
+        expect(result.candidate, 'a config is accepted, never refused as the live instance')
+            .not.toBe(livePane);
+        expect(result.candidate, 'and it carries through what the resolver described')
+            .toMatchObject({ntype: 'component', text: 'fresh'});
         expect(result.reason).toBeNull()
     });
 
@@ -778,5 +787,113 @@ test.describe('Workstation cache adoption', () => {
         } finally {
             container.destroy()
         }
+    })
+});
+
+/**
+ * The FLIP marker is what lets the `DockFlip` addon recognise a pane as the SAME pane across a
+ * re-projection, so a pane without it is silently and permanently excluded from dock motion.
+ *
+ * Three paths produce a pane candidate and the rule between them is one line, which is exactly the
+ * shape that must not be re-derived per consumer: projection and rail-reveal decorate, recreate did
+ * not. Nothing threw and nothing logged — the pane rendered and worked, it just stopped animating
+ * while its siblings moved, and a marker-keyed locator reported it as destroyed.
+ *
+ * `flipMarkerPrefix`'s own docblock already promised this: it says the marker lands on "every plain
+ * pane config, so consumers never carry the marker by hand". These arms are that sentence made
+ * enforceable on the path where it was not true.
+ */
+test.describe('dock recreate — a rebuilt pane keeps its FLIP identity', () => {
+    const MARKER = 'dock-flip-item-editor';
+
+    let workspace, livePane;
+
+    test.beforeEach(() => {
+        workspace = buildWorkspace();
+        livePane  = Neo.create(Component, {appName: 'DashboardDockRecreateCandidateTest'})
+    });
+
+    test.afterEach(() => {
+        workspace?.destroy?.();
+        livePane?.destroy?.();
+        workspace = livePane = null
+    });
+
+    test('a recreate candidate carries the marker, like the two paths that already decorate', () => {
+        // RED-FIRST: this is the defect. `prepareRecreateCandidate` called `resolveFreshPane` raw,
+        // so the candidate reached `container.insert` undecorated and that instance never animated
+        // again. Asserting on phase 1 rather than through a mounted container keeps the witness on
+        // the exact seam that was wrong.
+        workspace.resolvePane = () => ({ntype: 'component', cls: ['app-pane']});
+
+        const result = workspace.prepareRecreateCandidate('editor', livePane);
+
+        expect(result.ok, 'phase 1 admits the candidate').toBe(true);
+        expect(result.candidate.cls, 'and the candidate carries the FLIP marker').toContain(MARKER);
+        expect(result.candidate.cls, 'without discarding what the consumer asked for')
+            .toContain('app-pane');
+
+        // Non-vacuity: the marker is not simply always present on anything this spec builds.
+        const undecorated = workspace.resolvePane('editor', null);
+
+        expect(undecorated.cls, 'the raw resolver output is genuinely unmarked').not.toContain(MARKER)
+    });
+
+    test('a consumer that OVERRIDES resolveFreshPane is decorated too', () => {
+        // This is why the fix belongs at the call site rather than inside the base
+        // `resolveFreshPane`. A cache-backed factory is the documented extension point, and fixing
+        // the base hook would have decorated only the consumers who never override it — leaving the
+        // gap open for precisely the hosts most likely to hit it.
+        workspace.resolveFreshPane = () => ({ntype: 'component', cls: ['from-consumer-factory']});
+
+        const result = workspace.prepareRecreateCandidate('editor', livePane);
+
+        expect(result.ok).toBe(true);
+        expect(result.candidate.cls, 'an overriding host still gets the engine rule').toContain(MARKER);
+        expect(result.candidate.cls).toContain('from-consumer-factory')
+    });
+
+    test('a live-component candidate is returned untouched, so the identity guard still fires', () => {
+        // `decorateFlipMarker` returns a non-plain-object candidate unchanged, and that tolerance is
+        // load-bearing HERE rather than merely defensive: phase 1's `live-instance` refusal compares
+        // `candidate === livePane`. If decoration cloned or wrapped an instance, that identity would
+        // break and the refusal that prevents silent pane loss would stop firing.
+        const decorated = workspace.decorateFlipMarker(livePane, 'editor');
+
+        expect(decorated, 'an instance survives decoration by identity').toBe(livePane);
+        expect(livePane.cls ?? [], 'and is not stamped').not.toContain(MARKER);
+
+        workspace.resolveFreshPane = () => livePane;
+
+        const result = workspace.prepareRecreateCandidate('editor', livePane);
+
+        expect(result.ok, 'so the cache-returns-the-live-instance refusal is intact').toBe(false);
+        expect(result.reason).toBe('live-instance')
+    });
+
+    test('a candidate that already carries the marker is not stamped twice', () => {
+        // The projection path may hand back a config that already went through decoration. `cls` is
+        // built through a Set, so this holds today; the arm makes it a contract rather than an
+        // implementation detail a future refactor could drop.
+        workspace.resolveFreshPane = () => ({ntype: 'component', cls: [MARKER, 'app-pane']});
+
+        const result = workspace.prepareRecreateCandidate('editor', livePane);
+
+        const occurrences = result.candidate.cls.filter(entry => entry === MARKER).length;
+
+        expect(occurrences, 'the marker appears exactly once').toBe(1)
+    });
+
+    test('the two paths that already decorated are unchanged', () => {
+        // A control on the blast radius: the fix touches one call site, so the other two producers
+        // must be observably identical. Without this, a regression that moved decoration UP into a
+        // shared helper could pass every arm above while changing what projection emits.
+        workspace.resolvePane = () => ({ntype: 'component', cls: ['app-pane']});
+
+        const projected = workspace.resolveProjectedPane('editor', null);
+
+        expect(projected.cls, 'projection still decorates').toContain(MARKER);
+        expect(workspace.resolveRevealPane('editor', null).cls, 'and reveal still delegates undecorated')
+            .not.toContain(MARKER)
     })
 });
