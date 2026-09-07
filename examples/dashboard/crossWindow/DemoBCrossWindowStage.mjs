@@ -622,8 +622,13 @@ export function createCrossWindowStage(seams) {
                 .filter(nodeId => nodes[nodeId].type === 'tabs')
                 .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
                 .filter(zone => zone.container),
+            // A zone entry is an OBJECT DESCRIPTOR ({nodeId, …}; the v13.2 contract retired the
+            // string shorthand), so reading `zones.center` directly yields an object where an id
+            // belongs. `PreviewProducer.resolveRootEdge` then fails its `typeof nodeId === 'string'`
+            // guard and returns null, dropping every root edge chip with no error. The canonical
+            // unwrap is the one the module already imports.
             rootId      = nodes[document.root]?.type === 'edge-zone'
-                ? (nodes[document.root].zones?.center ?? document.root)
+                ? (WorkspaceDocument.getZoneNodeId(nodes[document.root].zones?.center) ?? document.root)
                 : document.root,
             [hostRect, ...zoneRects] = await host.getDomRect(
                 [host.id, ...zoneEntries.map(zone => zone.container.id)],
