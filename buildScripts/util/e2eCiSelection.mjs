@@ -22,6 +22,13 @@ import {selectExternalBrainSpecs} from '../../test/playwright/externalBrainSelec
  * - **Observed failures** — arms that fail for reasons NOT established here. They carry an owner
  *   rather than a diagnosis, because naming an unverified cause is worse than admitting one is
  *   missing.
+ *
+ * An exclusion's `kind` is about the CAUSE, and it has three values because two were not enough.
+ * `cause` and `observed` split "we know why" from "we do not", and both were honest — but an entry
+ * marked `cause` was quietly claiming its reason covered EVERY failing arm in that file, and one of
+ * them did not: it explained 8 of 11, while 3 arms needing nothing it mentioned failed anyway.
+ * `partial` exists so a real-but-incomplete diagnosis cannot present itself as a complete one,
+ * which is the same false reassurance as an undeclared exclusion wearing better clothes.
  */
 
 /**
@@ -46,14 +53,17 @@ export const RUN_PATHS = [
  */
 export const EXCLUSIONS = [{
     path  : 'test/playwright/e2e/rendering/LivePreviewMultiWindow.spec.mjs',
-    kind  : 'cause',
-    reason: 'parameterised over Dev, Dist Dev and Dist Prod; the Dist environments need built bundles this job does not produce, so each arm burns its full 30s timeout',
-    owner : 'this tier, the day the pipeline can afford a build step'
+    kind  : 'partial',
+    reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. It does NOT cover everything: 3 of the 4 DEV arms, which need no build, also failed hosted while all 4 pass locally — so a build step alone would not return this file to the tier. Those 3 die on `.neo-code-live-preview` never becoming visible, and all 3 are the arms that visit `#/learn/benefits/body/FormsEngine`; the one Dev arm that never leaves the home route passes',
+    owner : 'this tier for the Dist half; @neo-opus-ada for the 3 unexplained Dev arms'
 }, {
     path  : 'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
+    // `observed`, not `cause`: what is established is the BEHAVIOUR, not why it happens. Marking
+    // this `cause` would repeat, on the entry being diagnosed, the exact overclaim `partial` was
+    // added to stop on the entry beside it.
     kind  : 'observed',
-    reason: 'fails on a hosted runner asserting the destination guide heading; the guide and the learn index are BOTH tracked, so "needs generated content" was wrong and no verified cause has replaced it',
-    owner : '@neo-opus-ada — diagnose or hand over; excluded rather than diagnosed'
+    reason: 'on a hosted runner the click routes and the content has not followed within 30s — the trace shows the hash at the destination and the source `h1` still in place, with no console error and no failed request. Bounded deliberately: 30s is the longest window measured, so a slower-still arrival is not excluded, only a budget in the range anyone would wait; the sibling sidebar arm passes on the same runner',
+    owner : '@neo-opus-ada — #18422 holds the measurement; the arm is correct and the divergence is not'
 }];
 
 /**
@@ -141,7 +151,8 @@ export function summary(root = process.cwd()) {
         `- **${ignored}** need an external \`neo-agent-brain\` checkout. \`testIgnore\` DESELECTS them, so they cannot appear as skips in any report — a run missing them still prints \`Skipped: 0\`.`,
         `- **${gpu}** boot the workstation app, which inherits animated OffscreenCanvas work a hosted runner cannot composite.`,
         ...EXCLUSIONS.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ` +
-            (entry.kind === 'cause' ? '' : '**cause not established.** ') + `${entry.reason}. Owner: ${entry.owner}.`),
+            ({cause: '', observed: '**cause not established.** ', partial: '**cause covers only part of the failures.** '}[entry.kind]) +
+            `${entry.reason}. Owner: ${entry.owner}.`),
         '',
         `Selected but quarantined — these run in the tier and skip themselves, so they appear as skips rather than coverage:`,
         ...QUARANTINES.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ${entry.reason}. Owner: ${entry.owner}.`),
