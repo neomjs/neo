@@ -166,10 +166,17 @@ test.describe('Workstation rendering starvation: grid geometry still converges (
 
         // The pool claim is proportional for the same reason the trigger premise above it is, and
         // for a reason the absolute form hid: the freed band is not a whole number of rows.
-        // Measured under this rig — 80px of new box at a 50px row is 1.60 rows, and the pool grew
-        // by ONE. The engine floors. `bootRows + 1` demanded a ceiling, so the arm convicted the
-        // carrier of starvation whenever the freed height landed between one and two rows, which
-        // is a rounding boundary rather than a regression.
+        // Measured under this rig — 80px of new box at a 50px row is 1.60 rows, the pool grew by
+        // ONE, and `bootRows + 1` demanded two. So the arm convicted the carrier of starvation on
+        // a rounding boundary rather than on a regression.
+        //
+        // The division below is a conservative LOWER BOUND on that growth, and deliberately not a
+        // model of the engine's rounding: `grid.Body` derives `availableRows` as
+        // `ceil(availableHeight / rowHeight) - 1` and pools that plus a fixed buffer, against an
+        // `availableHeight` the worker was handed rather than the container box measured here.
+        // A bound is the right instrument — this arm must convict a carrier that delivered
+        // NOTHING, and re-deriving a count the engine already owns would only couple the witness
+        // to the implementation it is meant to observe from outside.
         const grownBox  = domHeightAfterFlex - bootState.gridHeight,
               justified = Math.floor(grownBox / bootState.rowHeight);
 
