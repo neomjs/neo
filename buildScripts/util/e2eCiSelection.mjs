@@ -73,11 +73,7 @@ export const EXCLUSIONS = [{
  * separates a debt marker from an abandonment.
  * @member {Object[]} QUARANTINES
  */
-export const QUARANTINES = [{
-    path  : 'test/playwright/e2e/dashboard/DockSplitterProxyPaintNL.spec.mjs',
-    reason: 'crossing the drag threshold creates no splitter proxy; reproduced serially at low load and headed on a real GPU, so neither contention nor a compositor gap',
-    owner : '@neo-opus-ada — holds the repair; the guard is a debt marker, and removing it is the fix'
-}];
+export const QUARANTINES = [];
 
 /**
  * @summary Walks a directory for spec files.
@@ -154,10 +150,14 @@ export function summary(root = process.cwd()) {
             ({cause: '', observed: '**cause not established.** ', partial: '**cause covers only part of the failures.** '}[entry.kind]) +
             `${entry.reason}. Owner: ${entry.owner}.`),
         '',
-        `Selected but quarantined — these run in the tier and skip themselves, so they appear as skips rather than coverage:`,
-        ...QUARANTINES.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ${entry.reason}. Owner: ${entry.owner}.`),
-        '',
-        `**Selected is not executed.** This line reports what the job SELECTED; whether those specs ran and passed is the job's own status, because a provisioning failure reaches this summary too. A green check certifies the ${executed} selected files only — quarantined arms inside them appear as skips with a reason, while the ${ignored + gpu} above appear nowhere.`
+        // Rendered only when the list has entries. An empty heading reads as "nothing to declare
+        // here", which is the same reassurance an undeclared quarantine would give.
+        ...(QUARANTINES.length ? [
+            'Selected but quarantined — these run in the tier and skip themselves, so they appear as skips rather than coverage:',
+            ...QUARANTINES.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ${entry.reason}. Owner: ${entry.owner}.`),
+            ''
+        ] : ['No arm in this tier is quarantined. Skips still in the log come from `test.fixme` contracts — rows declared but not yet written — which are a spec\'s own debt rather than a failure this job suppressed.', '']),
+        `**Selected is not executed.** This line reports what the job SELECTED; whether those specs ran and passed is the job's own status, because a provisioning failure reaches this summary too. A green check certifies the ${executed} selected files only — any skip inside them is accounted for above, while the ${ignored + gpu} excluded files appear nowhere in the run at all.`
     ].join('\n')
 }
 
