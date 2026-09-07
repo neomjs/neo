@@ -19,11 +19,13 @@ import {readComponentRects} from '../utils/dockGeometry.mjs';
  *
  * Scope note — why the release is a CANCEL. Committing the drop is covered at the unit level
  * (`test/playwright/unit/dashboard/DockDragAffordances.spec.mjs`, asserted on the document tree
- * with a pre-fix control). It is not asserted here because the flagship's tear-out layer claims a
- * release near the surface boundary before the dock's drop seam sees it: at a 1280x720 viewport
- * the bottom chip's centre sits ~23px above the host edge, the drag proxy overdrags the tear-out
- * boundary, and the pane leaves the document entirely (`items` loses it). That interference is a
- * separate subsystem from the resolution under test and is reported on its own.
+ * with a pre-fix control). It is not asserted here because a release near the surface boundary
+ * does not reach the dock's drop seam at all: measured at a 1280x720 viewport, releasing in the
+ * bottom root strip — or on the bottom chip's own centre, y=697 against a host bottom of 720 —
+ * removes the pane from the document entirely (`items` drops from 20 to 19) while the mid-gesture
+ * preview at that same pointer reads `edge-bottom` on the root. The mechanism is NOT established
+ * here; only that outcome and that disagreement were measured. Reported for the actual-pointer
+ * lane rather than diagnosed in this spec.
  *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> NEO_E2E_PORT=8162 \
  *      npx playwright test WorkstationRootEdgeCornerNL -c test/playwright/playwright.config.e2e.mjs --workers=1
