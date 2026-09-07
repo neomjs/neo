@@ -164,11 +164,11 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
         // itself is refused. An equality-based check would reject this and make recreate impossible
         // for every config-returning consumer.
         //
-        // This arm asserted `toBe(candidate)` until #18446. Phase 1 now decorates the hook's return
-        // with the FLIP marker, so a PLAIN CONFIG comes back as a decorated copy — the same shape
-        // `resolveProjectedPane` has always returned. The reference identity was incidental to what
-        // this arm is about; the refusal semantics below are the contract, and an instance candidate
-        // still passes through by identity (see the FLIP describe block).
+        // Phase 1 decorates the hook's return with the FLIP marker, so a PLAIN CONFIG comes back as
+        // a decorated copy — the same shape `resolveProjectedPane` returns. Reference identity is
+        // therefore not what this arm asserts: the refusal rule below is the contract, and an
+        // instance candidate still passes through by identity, which is what keeps that rule able
+        // to fire (see the FLIP describe block).
         const candidate = {ntype: 'component', text: 'fresh'};
 
         workspace.resolveFreshPane = () => candidate;
