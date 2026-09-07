@@ -21,7 +21,7 @@ export const ESCAPE_MARKER = 'ticket-ref-ok';
 
 // The typed escape the published `neo-agent-skills` guard requires, accepted here IN ADDITION to
 // ESCAPE_MARKER so the two stop disagreeing on the same line. They say different things and both are
-// needed: `ticket-ref-ok` asserts "this ref is deliberate", while `[not-ticket-ref: <kind>]` asserts
+// needed: the legacy bare marker asserts "this ref is deliberate", while the typed form asserts
 // "this is not a ref at all" — and a hex colour can only be described truthfully by the second.
 // Nothing is removed. Rejecting the bare form here would block at pre-commit every deliberate ref
 // that has no typed equivalent upstream, which is a policy question rather than a lint repair.

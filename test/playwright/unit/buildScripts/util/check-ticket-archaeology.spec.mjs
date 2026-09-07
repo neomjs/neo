@@ -63,7 +63,7 @@ test.describe('check-ticket-archaeology guard', () => {
 
     /**
      * The typed escape exists because this guard and the published `neo-agent-skills` one disagreed
-     * on the same line: a bare `ticket-ref-ok` on a hex colour passed here and failed there, so a
+     * on the same line: the legacy bare marker on a hex colour passed here and failed there, so a
      * commit could clear the hook and red CI on a line it never touched.
      *
      * Both forms are asserted together on purpose. Accepting the typed one while dropping the bare
