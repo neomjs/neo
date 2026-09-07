@@ -56,10 +56,10 @@ class PopupWorkspace extends DockWorkspace {
         const me = this;
         me.workspaceSet.register(me.workspaceKey, {
             componentId: me.id,
-            dispose: () => { if (!me.isDestroyed) me.destroy() },
+            dispose    : () => { if (!me.isDestroyed) me.destroy() },
             getDocument: () => me.dockModel,
             setDocument: value => me.dockModel = value,
-            project: context => me.projectDockZoneDocument(context.snapshot.participants[me.workspaceKey], context.descriptor, me, {
+            project    : context => me.projectDockZoneDocument(context.snapshot.participants[me.workspaceKey], context.descriptor, me, {
                 preserveItemIds: context.preserveItemIds
             })
         });
@@ -100,16 +100,18 @@ class PopupWorkspace extends DockWorkspace {
 
     /**
      * @summary A full popup presents a vessel SHELL, so its dockable boundary is the content inside
-     * that shell rather than the shell itself.
+     * that shell — see {@link Neo.dashboard.dock.Workspace#resolveDockableRoot} for why the pair
+     * travels together.
      *
      * Wrapping the shell would leave {@link Neo.dashboard.dock.model.WorkspaceDocument#resolveStackRoot}
-     * unable to resolve — it reads the root's `center` and requires the root to BE an `edge-zone` —
-     * and `window.Participation` refuses whole-stack admission unless that resolution matches the
-     * transferred `groupNodeId`. So a wrapped shell would keep docking and silently stop being
-     * transferable.
+     * unable to resolve, and `window.Participation` refuses whole-stack admission unless that
+     * resolution matches the transferred `groupNodeId` — so a wrapped shell would keep docking and
+     * silently stop being transferable.
      *
-     * Falls back to the inherited arrangement boundary when no stack root resolves, so a popup whose
-     * document is not shell-shaped still docks at its own root instead of refusing every root chip.
+     * Two ways to decline, and neither substitutes a rect from a different node. No stack root: the
+     * document is not shell-shaped, so the inherited arrangement boundary applies. A stack root with
+     * no projected container: nothing measurable represents it, so no boundary is offered at all —
+     * naming the stack while measuring the shell is the very mismatch this seam exists to end.
      * @returns {Object|null}
      */
     resolveDockableRoot() {
@@ -118,11 +120,9 @@ class PopupWorkspace extends DockWorkspace {
 
         if (!nodeId) return super.resolveDockableRoot();
 
-        let host = me.getDockHost();
+        let component = me.getDockHost().down({dockNodeId: nodeId});
 
-        // The chip must measure the CONTENT, not the shell: the projected container for the stack
-        // root is the region a drop actually lands in, and the shell's rect would over-report it.
-        return host ? {component: host.down({dockNodeId: nodeId}) ?? host, nodeId} : null
+        return component ? {component, nodeId} : null
     }
 
     /**

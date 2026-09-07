@@ -445,6 +445,57 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         destroyAll(rig)
     });
 
+    test('an owner that refuses a boundary offers no root placement and commits nothing against it', async () => {
+        // The other half of the boundary contract: a `null` from the owner must mean NO root
+        // chip, never a substituted rect. `PopupWorkspace` returns null when the stack root has
+        // no projected container, so this is the consumer side of that refusal — without it the
+        // controller would be free to pair the absent boundary's id with the host's rect.
+        const rig   = compose(),
+              rects = {
+                  host : {x: 0, y: 0, width: 800, height: 600},
+                  left : {x: 0,   y: 0, width: 400, height: 600},
+                  right: {x: 400, y: 0, width: 400, height: 600}
+              };
+
+        rig.owner.dockModel = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : rig.owner.dockModel.items,
+            nodes : {
+                root        : {type: 'edge-zone', zones: {center: {nodeId: 'split-main'}}},
+                'split-main': {type: 'split', orientation: 'horizontal', children: ['left-tabs', 'right-tabs'], sizes: [0.5, 0.5]},
+                'left-tabs' : {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'},
+                'right-tabs': {type: 'tabs', items: ['gamma'], activeItemId: 'gamma'}
+            }
+        };
+
+        rig.owner.resolveDockableRoot = () => null;
+
+        rig.controller.host = {
+            id: 'host-1',
+            down(selector) {
+                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}[selector.dockNodeId] ?? null
+            },
+            getDomRect: async () => [rects.host, rects.left, rects.right]
+        };
+
+        const geometry = await rig.controller.ensureGeometry();
+
+        expect(geometry.root.nodeId, 'a refused boundary names nothing').toBe(null);
+
+        // 592 is inside the root strip — where a root placement WOULD be offered if one existed.
+        await rig.controller.onDragMove({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+
+        expect(rig.preview.dockPreview?.target?.nodeId, 'no placement may target the refused root').not.toBe('root');
+
+        await rig.controller.onDrop({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+
+        expect(rig.owner.dockModel.root, 'and nothing wrapped the arrangement').toBe('root');
+        expect(rig.owner.dockModel.nodes.root.type).toBe('edge-zone');
+
+        destroyAll(rig)
+    });
+
     test('the production measurement path: measure, map, and the degenerate self-heal', async () => {
         const rig   = compose(),
               rects = {

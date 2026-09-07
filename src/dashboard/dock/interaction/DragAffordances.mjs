@@ -126,7 +126,7 @@ class DragAffordances extends Base {
      * @protected
      */
     ensureGeometry() {
-        let me = this,
+        let me        = this,
             signature = me.getGeometrySignature();
 
         if (signature !== me.geometrySignature) {
@@ -145,11 +145,9 @@ class DragAffordances extends Base {
                 .filter(nodeId => nodes[nodeId].type === 'tabs')
                 .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
                 .filter(zone => zone.container),
-            // A root-edge drop wraps the node the OWNER declares, so the chip's nodeId and the
-            // rect it is drawn from have to name the same node. Reading the nodeId from document
-            // SHAPE while always measuring the host is what made a bottom drop preview the full
-            // width and commit a corner. Resolved LIVE every gesture: wrapping rewrites
-            // `document.root`, so a captured id is stale one drop later.
+            // The boundary its owner declares — `Workspace#resolveDockableRoot` carries why the
+            // nodeId and its rect must name ONE node. Resolved live every gesture: wrapping
+            // rewrites `document.root`, so a captured id is stale one drop later.
             dockable    = me.owner.resolveDockableRoot(),
             measureIds  = [host.id, ...zoneEntries.map(zone => zone.container.id)],
             // measured in the SAME batch, and reusing the host's rect when the boundary IS the
@@ -208,7 +206,7 @@ class DragAffordances extends Base {
      */
     getGeometrySignature() {
         const windowId = this.host?.windowId,
-              rect = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null;
+              rect     = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null;
 
         return rect ? JSON.stringify([windowId, rect.width, rect.height]) : null
     }

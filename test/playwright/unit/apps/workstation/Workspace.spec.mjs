@@ -89,13 +89,13 @@ const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='s
 
     const host = Neo.create(PopupWorkspace, {
         rootWorkspace: workspace, dockModel: provisional, workspaceSet: workspace.workspaceSet,
-        workspaceKey: workspaceId, topologyGroupId: workspace.topologyGroupId
+        workspaceKey : workspaceId, topologyGroupId: workspace.topologyGroupId
     });
     const state = {
-        app                 : {mainView: {isDestroyed: false}},
-        closeRequested      : false,
-        committed           : true,
-        disconnected        : false,
+        app           : {mainView: {isDestroyed: false}},
+        closeRequested: false,
+        committed     : true,
+        disconnected  : false,
         get document() { return host.dockModel },
         set document(value) { host.dockModel = value },
         host,
@@ -111,7 +111,7 @@ const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='s
     host.runtimeState = state;
     workspace.workspaceSet.register(workspaceId, {
         componentId: host.id,
-        dispose: () => { if (!host.isDestroyed) host.destroy() },
+        dispose    : () => { if (!host.isDestroyed) host.destroy() },
         getDocument: () => state.document,
         setDocument: document => state.document = document
     });
@@ -171,8 +171,8 @@ const releaseVessel = async (workspace, windowId, itemId='alerts') => {
 function registerPopupState(workspace, workspaceId, state) {
     const owner = Neo.create(PopupWorkspace, {
         rootWorkspace: workspace, workspaceSet: workspace.workspaceSet,
-        workspaceKey: workspaceId, topologyGroupId: workspace.topologyGroupId,
-        dockModel: state.document ?? workspace.createVesselWorkspaceDocument(state.itemId ?? 'fixture')
+        workspaceKey : workspaceId, topologyGroupId: workspace.topologyGroupId,
+        dockModel    : state.document ?? workspace.createVesselWorkspaceDocument(state.itemId ?? 'fixture')
     });
     state.workspaceId ??= workspaceId;
     state.host ??= owner;
@@ -1593,9 +1593,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('full Workspace transfer compensates refusal and settles both projections before native close', async () => {
-        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const workspace                        = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId, tabsNodeId} = stageCommittedVessel(workspace);
-        const groupId = workspace.topologyGroupId, manager = TransactionManager, order = [];
+        const groupId                          = workspace.topologyGroupId, manager = TransactionManager, order = [];
         manager.setHistoryDepth({groupId, depth: 5});
         const participant = manager.getParticipant(groupId, workspaceId), adopt = participant.adopt;
         const initialMain = WorkspaceDocument.clone(workspace.dockModel), initialPopup = WorkspaceDocument.clone(state.document);
@@ -1604,7 +1604,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         workspace.retireReturnedVessel = async () => { order.push('close-refused'); return false };
         const descriptor = {operation: 'transferItem', itemId: 'activity',
             sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID, targetWorkspaceId: workspaceId,
-            target: {operation: 'addTab', tabsNodeId}};
+            target           : {operation: 'addTab', tabsNodeId}};
         const request = {descriptor, sourceWorkspaceId: descriptor.sourceWorkspaceId, targetWorkspaceId: workspaceId};
         try {
             participant.adopt = () => { throw new Error('target refused') };
@@ -1619,7 +1619,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(workspace.dockModel.items.activity).toBeUndefined();
             const returning = {operation: 'transferNode', nodeId: WorkspaceDocument.resolveStackRoot(state.document),
                 sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
-                target: {targetNodeId: 'heavy-tabs', placement: {kind: 'tab-into'}}};
+                target           : {targetNodeId: 'heavy-tabs', placement: {kind: 'tab-into'}}};
             order.length = 0;
             expect(await workspace.commitCrossWindowTransfer({descriptor: returning,
                 sourceWorkspaceId: workspaceId, targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID})).toBe(true);
@@ -1637,7 +1637,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('Group membership alone determines whether a popup document can be resolved', () => {
-        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
         try {
             expect(workspace.getWorkspaceDocument(workspaceId)).toEqual(state.document);
@@ -1651,9 +1651,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('explicit root destruction retires its registered popup owner', () => {
-        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
-        const groupId = workspace.topologyGroupId;
+        const groupId              = workspace.topologyGroupId;
         workspace.destroy();
         expect(state.host.isDestroyed).toBe(true);
         expect(TransactionManager.getParticipant(groupId, workspaceId)).toBeNull()
@@ -1661,7 +1661,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('Group retirement disposes popup owners before the root is released', () => {
         const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
-        const {state} = stageCommittedVessel(workspace);
+        const {state}   = stageCommittedVessel(workspace);
         TransactionManager.retireGroup(workspace.topologyGroupId);
         expect(() => workspace.destroy()).not.toThrow();
         expect(state.host.isDestroyed).toBe(true);
@@ -1674,7 +1674,13 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             const stackRoot = WorkspaceDocument.resolveStackRoot(state.document),
-                  dockable  = popup.resolveDockableRoot();
+                  // The projected container for the stack root, as a double: an unrendered popup
+                  // projects nothing, and the absent case below is asserted separately.
+                  content   = {id: 'stack-content'};
+
+            popup.getDockHost = () => ({down: ({dockNodeId}) => dockNodeId === stackRoot ? content : null});
+
+            const dockable = popup.resolveDockableRoot();
 
             // A full popup presents a vessel SHELL, so its dockable boundary is the content inside.
             // Wrapping the shell would keep docking and silently stop the stack being transferable:
@@ -1684,6 +1690,18 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(state.document.nodes[state.document.root].type).toBe('edge-zone');
             expect(dockable.nodeId, 'the boundary is the stack root').toBe(stackRoot);
             expect(dockable.nodeId, 'never the shell').not.toBe(state.document.root);
+            expect(dockable.component, 'measured on the CONTENT container, not the shell').toBe(content);
+
+            // The absent-component control, and it is the one that matters: with nothing projected
+            // for the stack root there is no rect that represents it, so the boundary must be
+            // REFUSED rather than substituted with the shell's. Naming the stack while measuring
+            // the shell is the exact mismatch this whole change exists to remove — reintroducing
+            // it in the fallback would have shipped the defect inside its own fix.
+            popup.getDockHost = () => ({down: () => null});
+
+            expect(popup.resolveDockableRoot(), 'no projected container ⇒ no dockable boundary').toBe(null);
+
+            popup.getDockHost = () => ({down: ({dockNodeId}) => dockNodeId === stackRoot ? content : null});
 
             // And the transfer contract survives the drop itself: a root-edge placement against
             // that boundary is the descriptor `previewToOperation` emits, so committing one must
@@ -1707,6 +1725,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 nodes : {'plain-tabs': {type: 'tabs', items: ['solo'], activeItemId: 'solo'}}
             };
 
+            // Restored so the inherited path measures the popup itself, as it does in production.
+            delete popup.getDockHost;
+
             expect(WorkspaceDocument.resolveStackRoot(popup.dockModel), 'no shell to resolve').toBe(null);
             expect(popup.resolveDockableRoot()).toEqual({component: popup, nodeId: 'plain-tabs'})
         } finally {
@@ -1715,9 +1736,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('window release retains the full Workspace document for warm rebind', async () => {
-        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace), owner = state.host;
-        const mainBefore = WorkspaceDocument.clone(workspace.dockModel), popupBefore = WorkspaceDocument.clone(state.document);
+        const mainBefore           = WorkspaceDocument.clone(workspace.dockModel), popupBefore = WorkspaceDocument.clone(state.document);
         try {
             await releaseVessel(workspace, 'window-alerts');
             expect(workspace.dockModel).toEqual(mainBefore);
@@ -1734,7 +1755,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('reconnect lease expiry cannot discard the headless owner or its retained cursor', async () => {
-        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace), groupId = workspace.topologyGroupId;
         TransactionManager.setHistoryDepth({groupId, depth: 5});
         try {
@@ -1853,10 +1874,10 @@ test.describe.serial('Workstation.view.Workspace', () => {
     });
 
     test('mounting a popup reuses the Group document owner rather than creating a second host', async () => {
-        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace), owner = state.host;
-        const document = owner.dockModel, calls = [];
-        const target = {isDestroyed: false, add: host => calls.push(host)};
+        const document             = owner.dockModel, calls = [];
+        const target               = {isDestroyed: false, add: host => calls.push(host)};
         owner.promiseUpdate = async () => calls.push('paint');
         state.renderTarget = target;
         try {
