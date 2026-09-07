@@ -276,6 +276,14 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
             getDomRect: async () => [rects.host, rects.left, rects.right]
         };
 
+        const descriptors = [],
+              reduce      = rig.owner.applyDockZoneOperation.bind(rig.owner);
+
+        rig.owner.applyDockZoneOperation = descriptor => {
+            descriptors.push(descriptor);
+            return reduce(descriptor)
+        };
+
         // 592 sits in the 24px root strip above the host's bottom edge; the whole gesture runs the
         // production hover and release paths, so nothing here can inject the target by hand.
         await rig.controller.onDragMove({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'});
@@ -283,9 +291,16 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         expect(rig.preview.dockPreview?.placement?.kind).toBe('edge-bottom');
         expect(rig.preview.dockPreview?.target?.nodeId, 'the preview must aim at the whole arrangement').toBe('root');
 
+        // The node whose RECT was measured, captured before the release clears the geometry.
+        const measured = rig.controller.geometry.root.nodeId;
+
         await rig.controller.onDrop({clientX: 400, clientY: 592, itemId: 'gamma', sourceNodeId: 'right-tabs'});
 
         expect(rig.committed).toHaveLength(1);
+        // ONE resolution, read by both halves. Asserting only that each half says 'root' would
+        // still pass if a later edit gave the preview and the commit their own resolutions — the
+        // original defect was exactly two reads that agreed on a name and not on a node.
+        expect(descriptors[0].targetNodeId, 'the commit targets the node whose rect was measured').toBe(measured);
 
         const doc      = rig.committed[0],
               children = doc.nodes[doc.root]?.children ?? [],

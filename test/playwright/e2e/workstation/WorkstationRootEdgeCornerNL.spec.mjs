@@ -2,7 +2,8 @@ import {test, expect}       from '../../fixtures.mjs';
 import {readComponentRects} from '../utils/dockGeometry.mjs';
 
 /**
- * Whitebox-e2e: the root edge chips aim at the arrangement they are drawn from.
+ * Whitebox-e2e: root-edge corner weighting on the flagship — the drop lands the arrangement the
+ * chip promised, and the last drop takes the corner.
  *
  * The defect this journey exists for: the root edge chips are painted from the dock host's rect,
  * so the bottom chip promises the FULL window width. The resolution used to retarget an
@@ -13,31 +14,43 @@ import {readComponentRects} from '../utils/dockGeometry.mjs';
  * reconciling them. That is the blind spot `utils/dockGeometry.mjs` was written for — a geometry
  * contract that shipped through a green suite because no assertion ever read a rect.
  *
- * Product truth proven against the running workstation: on the dense `edge-zone`-rooted surface,
- * the root tier resolves the WHOLE arrangement and paints it at the host's full width. Against
- * the pre-fix source this same read returns the centre split, so the journey is defect-specific.
+ * Product truths proven against the running workstation, on the dense `edge-zone`-rooted surface:
+ * 1. a real pointer drop in the bottom root strip lands a pane spanning the whole arrangement, in
+ *    the document tree AND in pixels — the side bands travel INSIDE the wrapped node;
+ * 2. a later right drop takes the corner from it: the right pane runs the full height and the
+ *    bottom pane narrows — resolved LIVE against the document the first drop produced, so a
+ *    captured root id would re-wrap the inner node and leave the bottom pane outside the column.
  *
- * Scope note — why the release is a CANCEL. Committing the drop is covered at the unit level
- * (`test/playwright/unit/dashboard/DockDragAffordances.spec.mjs`, asserted on the document tree
- * with a pre-fix control). It is not asserted here because a release near the surface boundary
- * does not reach the dock's drop seam at all: measured at a 1280x720 viewport, releasing in the
- * bottom root strip — or on the bottom chip's own centre, y=697 against a host bottom of 720 —
- * removes the pane from the document entirely (`items` drops from 20 to 19) while the mid-gesture
- * preview at that same pointer reads `edge-bottom` on the root. The mechanism is NOT established
- * here; only that outcome and that disagreement were measured. Reported for the actual-pointer
- * lane rather than diagnosed in this spec.
+ * Against the pre-fix source the first read already fails (`split-main` for `root`), so the
+ * journey is defect-specific rather than a generic docking smoke test.
  *
  * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> NEO_E2E_PORT=8162 \
  *      npx playwright test WorkstationRootEdgeCornerNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
 
-test.describe('Workstation root-edge boundary (Neural Link)', () => {
-    test.setTimeout(120000);
+test.describe('Workstation root-edge corner weighting (Neural Link)', () => {
+    test.setTimeout(180000);
 
-    // The painted chip is measured against the host it was promised from. Splitter chrome and
-    // sub-pixel layout cost a few px; the defect costs ~25% of the width, so the two are nowhere
-    // near each other — this tolerance separates rounding from regression.
-    const EDGE_TOLERANCE = 8;
+    /**
+     * How far inside the root edge the gesture parks.
+     *
+     * Not arbitrary, and not a magic number: the root strip is `rootEdgeBandPx` (24) wide, while
+     * the tear-out boundary fires on the drag PROXY's intersection ratio against
+     * `SortZone#detachThreshold` (0.8). The proxy is 48x32 and centred on the pointer, so parking
+     * d px inside gives 0.5 + d/48 horizontally and 0.5 + d/32 vertically — below ~15px the proxy
+     * has already crossed the detach threshold and the release becomes a tear-out instead of a
+     * dock. 20 sits inside the strip on both axes and above the threshold on both.
+     *
+     * The approach matters as much as the parking spot: `reattachThreshold` (0.6) means a crossing
+     * must be EARNED BACK, so a gesture that dips closer first stays detached even after returning.
+     * These moves therefore never go nearer than this.
+     * @type {Number}
+     */
+    const EDGE_INSET = 20;
+
+    // The rendered pane is measured against the host it was promised from. Splitter chrome costs
+    // ~24px of 1280; the defect costs ~25% of the width, so the two are nowhere near each other.
+    const FULL_SPAN_RATIO = 0.95;
 
     /** @param {Object|Object[]} result @returns {String|null} */
     const readId = result => (Array.isArray(result) ? result[0] : result)?.id ?? null;
@@ -79,23 +92,23 @@ test.describe('Workstation root-edge boundary (Neural Link)', () => {
         // The dense arrangement is the whole point: an edge-zone root whose left / right / bottom
         // bands are exactly what the pre-fix commit target excluded.
         expect(dockModel.nodes[dockModel.root].type, 'the flagship boots an edge-zone root').toBe('edge-zone');
-        expect(dockModel.nodes[dockModel.root].zones.center.nodeId, 'with a centre that is NOT the root')
-            .toBeTruthy();
 
         return {app, dockModel, hostRect, wsId}
     }
 
     /**
-     * Real pointer drag of one tab header, parked at the target with the move stream settled.
+     * Real pointer drag of one tab header to `target`, parked with the move stream settled.
      *
      * The micro-jiggle is not decoration: the controller's geometry self-heal is per-move-frame,
      * and a perfectly still pointer emits no frames — the settle must not depend on exactly one
-     * measurement landing correctly.
+     * measurement landing correctly. It jiggles ALONG the edge, never toward it, for the
+     * reattach-threshold reason in {@link EDGE_INSET}.
      * @param {Object} page
      * @param {String} label the tab's visible text
      * @param {{x: Number, y: Number}} target
+     * @param {String} axis 'x' or 'y' — the direction that runs parallel to the edge
      */
-    async function parkDrag(page, label, target) {
+    async function dragTo(page, label, target, axis) {
         const header = page.locator('.neo-tab-header-button', {hasText: label}).first();
 
         await expect(header).toBeVisible();
@@ -108,62 +121,91 @@ test.describe('Workstation root-edge boundary (Neural Link)', () => {
         await expect(page.locator('.neo-tab-header-toolbar.neo-is-dragging')).toBeVisible();
         await page.mouse.move(target.x, target.y, {steps: 15});
 
-        for (const dx of [2, -2, 1]) {
-            await page.mouse.move(target.x + dx, target.y, {steps: 1});
+        for (const delta of [2, -2, 1]) {
+            await page.mouse.move(target.x + (axis === 'x' ? delta : 0), target.y + (axis === 'y' ? delta : 0), {steps: 1});
             await page.waitForTimeout(120)
         }
 
         await page.waitForTimeout(300)
     }
 
-    test('the bottom root chip resolves the whole arrangement, not the edge-zone centre', async ({page, neuralLink}) => {
+    /**
+     * @summary The rendered rect of the projected container for one document node.
+     * @param {Object} app
+     * @param {String} nodeId
+     * @returns {Promise<Object>}
+     */
+    async function nodeRect(app, nodeId) {
+        const id = readId(await app.queryComponent({dockNodeId: nodeId}, ['id']));
+
+        expect(id, `node "${nodeId}" must project a live container`).toBeTruthy();
+
+        return (await readComponentRects(app, [id]))[id]
+    }
+
+    test('a bottom root-edge drop spans the whole arrangement, and a later right drop takes the corner', async ({page, neuralLink}) => {
         const {app, dockModel, hostRect, wsId} = await bootFlagship(page, neuralLink),
-              rootId                           = dockModel.root,
-              centerId                         = dockModel.nodes[rootId].zones.center.nodeId;
+              rootBefore                       = dockModel.root,
+              centerBefore                     = dockModel.nodes[rootBefore].zones.center.nodeId;
 
-        // 8px above the host's bottom edge: inside the 24px root strip, and deliberately also
-        // deep inside the dense arrangement's own bottom band — the strip must win over the zone
-        // beneath it, which is what makes this the ROOT tier rather than a band drop.
-        await parkDrag(page, 'Audit', {x: hostRect.left + hostRect.width / 2, y: hostRect.bottom - 8});
+        await dragTo(page, 'Audit', {x: hostRect.left + hostRect.width / 2, y: hostRect.bottom - EDGE_INSET}, 'x');
 
-        // Worker truth first. A width alone would prove nothing: the edge-zone's own bottom band
-        // ALSO spans the full width, so a band placement and a root placement paint the same
-        // number. Only the resolved target separates them.
+        // Worker truth first. A width alone would prove nothing here: the edge-zone's own bottom
+        // band ALSO spans the full width, so a band placement and a root placement paint the same
+        // number. Only the resolved target separates them — and it is the pre-fix failure point.
         const previewId     = readId(await app.findInstances({className: 'Neo.dashboard.dock.interaction.Preview'}, ['id'])),
               {dockPreview} = await app.getComponent(previewId, ['dockPreview']);
 
         expect(dockPreview, 'the parked hover must resolve a preview').toBeTruthy();
         expect(dockPreview.placement.kind, 'the strip resolves a ROOT edge').toBe('edge-bottom');
-        expect(dockPreview.target.nodeId, 'aimed at the whole arrangement').toBe(rootId);
-        expect(dockPreview.target.nodeId, 'and NOT at the centre the pre-fix code retargeted to').not.toBe(centerId);
+        expect(dockPreview.target.nodeId, 'aimed at the whole arrangement').toBe(rootBefore);
+        expect(dockPreview.target.nodeId, 'and NOT the centre the pre-fix code retargeted to').not.toBe(centerBefore);
 
-        // The indicator MENU's root chip family is asserted at unit level instead
-        // (`DockDragAffordances.spec.mjs`, four edges against the same boundary, with a pre-fix
-        // control). A strip pointer is the inference tier, not the menu tier — measured here, the
-        // single live layer reports `candidateSet.root: null` at this position — and characterising
-        // when the menu populates is a different question from the boundary under test.
-
-        // Only now is the painted width meaningful: the promise belongs to the whole arrangement.
-        const promised = await page.evaluate(() => {
-            const r = document.querySelector('.neo-dock-preview-affordance')?.getBoundingClientRect();
-
-            return r && {width: r.width}
-        });
-
-        expect(promised, 'the root chip must paint a preview').toBeTruthy();
-        expect(promised.width, 'the bottom chip promises the full host width')
-            .toBeGreaterThanOrEqual(hostRect.width - EDGE_TOLERANCE);
-
-        // Cancel: this journey commits nothing, and the unchanged document is the control that
-        // the reads above came from a live gesture rather than a settled surface.
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(120);
         await page.mouse.up();
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(1200); // commit + re-projection settle
 
-        const after = (await app.getComponent(wsId, ['dockModel'])).dockModel;
+        const afterBottom = (await app.getComponent(wsId, ['dockModel'])).dockModel,
+              bottomRoot  = afterBottom.nodes[afterBottom.root],
+              droppedId   = (bottomRoot.children ?? []).find(childId => afterBottom.nodes[childId]?.items?.includes('audit'));
 
-        expect(after.root, 'the cancelled gesture committed nothing').toBe(rootId);
-        expect(Object.keys(after.items)).toHaveLength(Object.keys(dockModel.items).length)
+        expect(Object.keys(afterBottom.items), 'the pane docked rather than leaving the document')
+            .toHaveLength(Object.keys(dockModel.items).length);
+        expect(afterBottom.root, 'the drop wraps the arrangement in a NEW root').not.toBe(rootBefore);
+        expect(bottomRoot).toMatchObject({type: 'split', orientation: 'vertical'});
+        expect(droppedId, 'the dropped pane is a DIRECT child of the new root').toBeTruthy();
+        // Both halves of the corner question in one line: the edge-zone (carrying its side bands)
+        // and the dropped pane are SIBLINGS, so the pane runs the full width beneath everything.
+        expect(bottomRoot.children).toEqual([rootBefore, droppedId]);
+        expect(afterBottom.nodes[rootBefore].type, 'the bands travel inside the wrapped node').toBe('edge-zone');
+
+        // And in pixels: what the chip promised is what the surface renders. This is the arm that
+        // would have caught the original report — the tree alone cannot show a delivered width.
+        const droppedRect = await nodeRect(app, droppedId);
+
+        expect(droppedRect.width / hostRect.width, 'the delivered pane matches the promised width')
+            .toBeGreaterThanOrEqual(FULL_SPAN_RATIO);
+
+        // The operator's second gesture: the right drop takes the corner. Resolved LIVE — the
+        // boundary is now the split the bottom drop created, not the id captured before it.
+        await dragTo(page, 'Metrics', {x: hostRect.right - EDGE_INSET, y: hostRect.top + hostRect.height / 2}, 'y');
+        await page.mouse.up();
+        await page.waitForTimeout(1200);
+
+        const afterRight = (await app.getComponent(wsId, ['dockModel'])).dockModel,
+              rightRoot  = afterRight.nodes[afterRight.root],
+              rightId    = (rightRoot.children ?? []).find(childId => afterRight.nodes[childId]?.items?.includes('metrics'));
+
+        expect(rightRoot).toMatchObject({type: 'split', orientation: 'horizontal'});
+        expect(rightId, 'the right pane is a DIRECT child of the newest root').toBeTruthy();
+        expect(rightRoot.children, 'the right pane wraps everything the bottom drop produced')
+            .toEqual([afterBottom.root, rightId]);
+
+        const rightRect       = await nodeRect(app, rightId),
+              droppedNarrowed = await nodeRect(app, droppedId);
+
+        expect(rightRect.height / hostRect.height, 'the right pane runs the full height')
+            .toBeGreaterThanOrEqual(FULL_SPAN_RATIO);
+        expect(droppedNarrowed.width, 'and the bottom pane gives up the corner')
+            .toBeLessThan(droppedRect.width)
     })
 });
