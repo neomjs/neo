@@ -12,12 +12,14 @@ import Component from '../../../component/Base.mjs';
  *
  * The visible surface is the framework load mask, driven by {@link Neo.component.Base#isLoading}.
  * That mask paints `background-color: inherit` and `color: inherit` **by design** — it takes its
- * ground and ink from whatever hosts it. This class exists to BE that host: an inline
- * `Neo.create({module: Component, cls: [...]})` has no `className`, and therefore no path a theme
- * sheet can be discovered at, so the mask had nothing to inherit and resolved to the user-agent
- * default — a black panel with white text under every theme. Registering the class gives the
- * surface a themable home; `VesselPlaceholder.scss` and its per-theme values supply the two
- * properties the mask reads.
+ * ground and ink from whatever hosts it. This class exists to BE that host. The previous filler was
+ * an inline `Neo.create({module: Component, cls: [...]})`, which resolves `Neo.component.Base` and
+ * therefore that base's stylesheet — a sheet that declares neither property. Since stylesheet paths
+ * are derived from `className`, an instance with no class of its own has no address at which
+ * per-theme values could be declared: the `cls` entry was applied but no sheet in the repository
+ * defined it, so both inherit chains fell through to the user-agent default and the slot rendered
+ * black-on-white under every theme. Registering the class supplies that address;
+ * `VesselPlaceholder.scss` and its per-theme values supply the two properties the mask reads.
  */
 class VesselPlaceholder extends Component {
     static config = {

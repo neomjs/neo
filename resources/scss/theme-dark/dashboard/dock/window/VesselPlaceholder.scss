@@ -1,13 +1,6 @@
-// The cross-window pane placeholder VALUES layer (dark). Structure owns the paint
-// (`src/dashboard/dock/window/VesselPlaceholder.scss`); this file owns the values.
-//
-// `:where()` contributes ZERO specificity, so these engine defaults lose to every application
-// projection regardless of stylesheet load order — an engine default must never win that race
-// against an app skin. A host with no projection resolves exactly these values.
-//
-// The ground is the opaque form of this theme's `--dock-preview-ground`: a placeholder occupies a
-// real slot rather than floating over one, so it takes the surface colour without the overlay's
-// alpha. The load mask inherits both properties, which is what themes the spinner and the message.
+// Values for the cross-window pane placeholder; the paint and the rationale live in
+// `src/dashboard/dock/window/VesselPlaceholder.scss`. `:where()` contributes zero specificity, so
+// an application projection always wins. Ground is this theme's `--dock-preview-ground` made opaque.
 :where(.neo-theme-dark) {
     --dock-vessel-placeholder-ground: #3c3f41;
     --dock-vessel-placeholder-ink   : #e0e0e0;
