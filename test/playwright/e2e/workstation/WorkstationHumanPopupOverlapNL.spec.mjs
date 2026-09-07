@@ -714,6 +714,65 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
         }
     });
 
+    // The vacated slot is the only frame in which a user meets the placeholder, and it exists ONLY
+    // while the vessel is open and the pointer is still held: `stage()` inserts it at the source
+    // index and the next commit retires it. So the read has to happen between `beginActualTearOut`
+    // returning and `mouse.up()`. A manually constructed instance cannot stand in — that proves the
+    // class resolves theme values, not that the slot the engine actually builds resolves them.
+    test('the vacated source slot is themed while its pane is torn out (#18424)',
+    async ({page}, testInfo) => {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
+        await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
+
+        let popup;
+        try {
+            ({popup} = await beginActualTearOut({label: 'Metrics', page}));
+
+            const slot = page.locator('.neo-dashboard-dock-vessel-placeholder').first();
+
+            await expect(slot, 'the engine builds a registered placeholder into the vacated slot')
+                .toBeVisible({timeout: 10000});
+
+            const paint = await slot.evaluate(element => {
+                const
+                    style = getComputedStyle(element),
+                    mask  = element.querySelector('.neo-load-mask'),
+                    text  = element.querySelector('.neo-loading-message');
+
+                return {
+                    ground : style.getPropertyValue('--dock-vessel-placeholder-ground').trim(),
+                    ink    : style.getPropertyValue('--dock-vessel-placeholder-ink').trim(),
+                    hostBg : style.backgroundColor,
+                    hostInk: style.color,
+                    maskBg : mask && getComputedStyle(mask).backgroundColor,
+                    textInk: text && getComputedStyle(text).color
+                }
+            });
+
+            // Attached rather than only asserted: the assertions below prove the relationships,
+            // and a reviewer asking "what did the user actually see" wants the values.
+            await testInfo.attach('vacated-slot-paint', {
+                body: JSON.stringify(paint, null, 4), contentType: 'application/json'
+            });
+
+            // The defect this witnesses was a transparent host: the mask paints `inherit`, so with
+            // no host declaration both chains reached the user-agent default and the slot rendered
+            // black-on-white under every theme. Asserting "not transparent" rather than a literal
+            // colour keeps the arm true for whichever theme the app boots.
+            expect(paint.ground, 'the slot resolves a theme ground token').toBeTruthy();
+            expect(paint.ink,    'the slot resolves a theme ink token').toBeTruthy();
+            expect(paint.hostBg, 'the slot paints an opaque ground rather than falling through')
+                .not.toBe('rgba(0, 0, 0, 0)');
+            expect(paint.maskBg, 'the load mask inherits the slot ground it sits on')
+                .toBe(paint.hostBg);
+            expect(paint.textInk, 'the status message inherits the slot ink').toBe(paint.hostInk);
+        } finally {
+            await page.mouse.up().catch(() => {});
+            await popup?.close().catch(() => {});
+        }
+    });
+
     test(`${MATRIX_CELL.name}: one local proxy plus readable target choices`,
     async ({page, neuralLink}, testInfo) => {
         await test.step(MATRIX_CELL.name, async () => {
