@@ -64,7 +64,7 @@ if (programOpts.info) {
     if (!programOpts.noquestions) {
         if (!programOpts.npminstall) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'npminstall',
                 message: 'Run npm install?:',
                 choices: ['yes', 'no'],
@@ -74,7 +74,7 @@ if (programOpts.info) {
 
         if (!programOpts.env) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'env',
                 message: 'Please choose the environment:',
                 choices: ['all', 'dev', 'esm', 'prod'],
@@ -84,7 +84,7 @@ if (programOpts.info) {
 
         if (!programOpts.npminstall) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'themes',
                 message: 'Build the themes?',
                 choices: ['yes', 'no'],
@@ -94,7 +94,7 @@ if (programOpts.info) {
 
         if (!programOpts.threads) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'threads',
                 message: 'Build the threads?',
                 choices: ['yes', 'no'],
@@ -104,7 +104,7 @@ if (programOpts.info) {
 
         if (!programOpts.parsedocs) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'parsedocs',
                 message: 'Trigger the docs-json parsing?',
                 choices: ['yes', 'no'],

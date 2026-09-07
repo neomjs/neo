@@ -71,7 +71,7 @@ if (programOpts.info) {
     if (!programOpts.noquestions) {
         if (!programOpts.themes) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'themes',
                 message: 'Please choose the themes to build:',
                 choices: ['all', ...themeFolders],
@@ -81,7 +81,7 @@ if (programOpts.info) {
 
         if (!programOpts.env) {
             questions.push({
-                type   : 'list',
+                type   : 'select',
                 name   : 'env',
                 message: 'Please choose the environment:',
                 choices: ['all', 'dev', 'esm', 'prod'],
