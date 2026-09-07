@@ -413,6 +413,17 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         expect(rig.preview.dockPreview, 'the affordance never promised the drop').toBe(null);
         expect(rig.committed, 'and nothing committed').toHaveLength(0);
+
+        // The MENU tier is guarded too, not just pointer inference: an indicator hit outranks
+        // inference, so a root chip selected from the menu would otherwise light up and then be
+        // refused on release — the promise/commit mismatch this seam exists to end, in miniature.
+        rig.controller.indicators.updatePointer = () => ({
+            preview: {itemId: 'alpha', placement: {kind: 'edge-bottom'}, target: {nodeId: 'shell'}}
+        });
+
+        await rig.controller.onDragMove({clientX: 400, clientY: 300, itemId: 'alpha', sourceNodeId: 'center-tabs'});
+
+        expect(rig.preview.dockPreview, 'a menu-selected root chip is refused as well').toBe(null);
         expect(stranded, `no node may be left empty — ${JSON.stringify(doc.nodes)}`).toEqual([]);
         expect(doc.nodes.shell.zones.center.nodeId, 'the shell keeps its content').toBe('center-tabs');
 

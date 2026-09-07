@@ -280,7 +280,9 @@ class DragAffordances extends Base {
 
         const candidate = indicators?.updatePointer(pointer);
 
-        if (candidate?.preview?.itemId === itemId) return candidate.preview;
+        // Both tiers pass the same guard: a root chip selected from the MENU would otherwise
+        // promise a wrap the release refuses, which is the mismatch this whole seam exists to end.
+        if (candidate?.preview?.itemId === itemId) return me.guardEmptyWrap(candidate.preview, itemId);
 
         return me.guardEmptyWrap(producer.produce({groupNodeId, itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones}), itemId)
     }
