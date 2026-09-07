@@ -1685,6 +1685,20 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(dockable.nodeId, 'the boundary is the stack root').toBe(stackRoot);
             expect(dockable.nodeId, 'never the shell').not.toBe(state.document.root);
 
+            // And the transfer contract survives the drop itself: a root-edge placement against
+            // that boundary is the descriptor `previewToOperation` emits, so committing one must
+            // leave the shell standing and the stack still resolvable — otherwise docking would
+            // quietly cost the popup its whole-stack admission.
+            const docked = Operations.splitNode(state.document, {
+                edge : 'bottom', itemId: 'security', orientation: 'vertical',
+                sizes: [0.5, 0.5], targetNodeId: dockable.nodeId
+            });
+
+            expect(docked.errors).toEqual([]);
+            expect(docked.document.root, 'the shell is still the root').toBe(state.document.root);
+            expect(WorkspaceDocument.resolveStackRoot(docked.document), 'the stack still resolves')
+                .toBe(docked.document.nodes[state.document.root].zones.center.nodeId);
+
             // A popup whose document is NOT shell-shaped still docks — at its own root, through the
             // inherited arrangement boundary — instead of refusing every root chip.
             popup.dockModel = {
