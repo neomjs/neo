@@ -61,6 +61,60 @@ test.describe('check-ticket-archaeology guard', () => {
         expect(hits).toEqual([])
     });
 
+    /**
+     * The typed escape exists because this guard and the published `neo-agent-skills` one disagreed
+     * on the same line: the legacy bare marker on a hex colour passed here and failed there, so a
+     * commit could clear the hook and red CI on a line it never touched.
+     *
+     * Both forms are asserted together on purpose. Accepting the typed one while dropping the bare
+     * one would block every deliberate ref that has no typed equivalent upstream — a policy change,
+     * not a lint repair — and asserting only the typed one would let that regress unnoticed.
+     */
+    test('accepts the typed escape and the bare marker, and neither is a blanket bypass', () => {
+        const comment = inner => `/**\n * ${inner}\n */`;
+
+        expect(findTicketRefs(comment("backgroundColor_='#000000' [not-ticket-ref: css-color]")),
+            'a typed escape naming a known kind is accepted').toEqual([]);
+
+        expect(findTicketRefs(comment("backgroundColor_='#000000' [NOT-TICKET-REF:css-color]")),
+            'the typed escape is case-insensitive and tolerates a missing space').toEqual([]);
+
+        expect(findTicketRefs(comment('@see #12345 — the ticket this implements ticket-ref-ok: load-bearing')),
+            'the bare marker still covers a deliberate ref').toEqual([]);
+
+        // The three that must still fire. Without them this test would pass against a guard that
+        // detects nothing at all, which is the failure an escape-only assertion cannot see.
+        expect(findTicketRefs(comment("backgroundColor_='#000000'")),
+            'an all-numeric hex with no escape still fires — the escape is what makes it pass, not the pattern').toHaveLength(1);
+
+        expect(findTicketRefs(comment('@see #12345 — the ticket this implements')),
+            'a real ref with no escape still fires').toHaveLength(1);
+
+        expect(findTicketRefs(comment("backgroundColor_='#000000' [not-ticket-ref: whatever]")),
+            'an unrecognised kind is NOT a bypass — accepting it here would pass the hook and fail CI, the same divergence reversed').toHaveLength(1)
+    });
+
+    /**
+     * The typed escape excuses ONE annotated colour, not the line it sits on. A whole-line bypass
+     * would have recreated the divergence this repair exists to close, pointed the other way: the
+     * hook would fall silent where CI still flags. Both arms below were @neo-gpt's falsifiers against
+     * exactly that, and both were red before the escape was scoped to its own token.
+     */
+    test('the typed escape excuses its own colour, not the whole line it sits on', () => {
+        expect(findTicketRefs("const tag = '[not-ticket-ref: css-color]'; // #12345"),
+            'a marker inside a STRING literal never reaches comment scope, so it cannot excuse a ref in the comment'
+        ).toHaveLength(1);
+
+        expect(findTicketRefs("// backgroundColor_='#000000' [not-ticket-ref: css-color]; see #12345"),
+            'an unrelated ref sharing the line with an annotated colour stays visible'
+        ).toHaveLength(1);
+
+        // The other side of the same boundary: scoping must not stop the escape working at all.
+        expect(findTicketRefs("// backgroundColor_='#000000' [not-ticket-ref: css-color]"),
+            'an annotated colour alone is still excused'
+        ).toEqual([])
+    });
+
     test('flags the named Epic / Discussion / ADR prose forms in comments', () => {
         const hits = findTicketRefs([
             '// part of Epic #11624',
