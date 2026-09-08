@@ -32,27 +32,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The SAME classifier `test.yml` consumes, not a second copy of its predicates (#17853).
+  # Until this job existed the tier provisioned a browser and ran on every pull request and
+  # push — @neo-gpt's witness is PR #18466, one `uses:` SHA in an unrelated workflow.
+  #
+  # Sharing the classifier also hands this workflow a stale-head guard it never had: the
+  # classifier reports every suite false when the event head is behind the live PR head, so
+  # an obsolete attempt can no longer occupy a runner for twelve minutes.
+  changes:
+    name: Classify test scope
+    uses: ./.github/workflows/classify-test-scope.yml
+
   e2e-engine:
     name: e2e-engine
     runs-on: ubuntu-latest
+    needs: changes
     # Bounds provisioning plus tests. The test-time ceiling is the step below; this
     # exists so a hung install cannot occupy a runner indefinitely.
     timeout-minutes: 12
 
     steps:
+      # Gated per-step rather than on the job, and the distinction is the point: a job-level
+      # `if` yields a SKIPPED check, and a workflow-level `paths` filter yields no check at
+      # all. `test.yml:189` already carries the reason — "missing checks can block protected
+      # branches" — and #17783 may yet bind contexts on `dev`. So the tier reports green with
+      # a stated reason on an irrelevant diff, which is a status a reader and a branch rule
+      # can both act on.
+      - name: Skip e2e (engine tier)
+        if: ${{ needs.changes.outputs.run_e2e != 'true' }}
+        run: |
+          echo "e2e (engine tier) skipped: ${{ needs.changes.outputs.skip_reason }}"
+
       - name: Checkout repository
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         uses: actions/checkout@v7
 
       - name: Setup Node.js
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         run: npm ci
 
       - name: Bundle browser dependencies
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         run: npm run bundle-browser-deps
 
       # Browser provisioning is cached on the installed Playwright version, and the
@@ -60,21 +87,23 @@ jobs:
       # the same shape `test.yml` uses for its components suite, and for its reasons.
       - name: Resolve Playwright version
         id: playwright
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Restore Playwright Chromium
         id: playwright-cache
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         uses: actions/cache/restore@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
       - name: Install Playwright Chromium
-        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: npx playwright install chromium
 
       - name: Save Playwright Chromium
-        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: ~/.cache/ms-playwright
@@ -82,11 +111,12 @@ jobs:
 
       - name: Verify Chromium launches
         id: chromium-probe
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         continue-on-error: true
         run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
 
       - name: Install Playwright system dependencies
-        if: ${{ steps.chromium-probe.outcome == 'failure' }}
+        if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.chromium-probe.outcome == 'failure' }}
         run: npx playwright install-deps chromium
 
       # Its own step, because a command substitution cannot gate the command it feeds.
@@ -97,6 +127,7 @@ jobs:
       # step makes it legible in the job UI rather than buried in a test log.
       - name: Verify e2e selection floor
         id: selection
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         run: |
           paths=$(node buildScripts/util/e2eCiSelection.mjs --paths)
           echo "paths=$paths" >> "$GITHUB_OUTPUT"
@@ -107,6 +138,7 @@ jobs:
       # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the unit
       # suite already uses; each guard states the condition it stands in for.
       - name: Run e2e (engine tier)
+        if: ${{ needs.changes.outputs.run_e2e == 'true' }}
         timeout-minutes: 5
         run: npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 ${{ steps.selection.outputs.paths }}
         env:
@@ -116,12 +148,16 @@ jobs:
       # does — and the destination is unescaped on purpose: an earlier inline form wrote
       # to a file literally named `$GITHUB_STEP_SUMMARY`, so the honesty guard never
       # reached GitHub at all.
+      #
+      # Conjoined with the gate: coverage describes a run, and on a skipped diff there is
+      # no run to describe. Printing "covers 20 of 104" when nothing executed would be a
+      # louder version of the false green this summary exists to prevent.
       - name: Report tier coverage
-        if: ${{ always() }}
+        if: ${{ always() && needs.changes.outputs.run_e2e == 'true' }}
         run: node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
-        if: ${{ failure() }}
+        if: ${{ failure() && needs.changes.outputs.run_e2e == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: test-results-e2e-engine-${{ github.run_id }}
