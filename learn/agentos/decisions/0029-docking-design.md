@@ -57,7 +57,20 @@ The normative host is the engine class **`Neo.dashboard.dock.Workspace`**
 
 Interaction surfaces (splitters, drag previews, rail tabs, pin controls) emit **operation descriptors**; the reducer commits them; the view-sync re-projects. This is the only sanctioned mutation path.
 
-A consumer contributes only what is its own, through the class's template hooks: pane resolution, reveal resolution, owner-preserved item ids, pre-refresh chrome sync, extra projection options (the hover-reveal opt-in, a drag-affordance layer's cross-zone seams, tear-out policy), and the reconciler's fast-path options. The tear-out / vessel host half (`openTearOutVessel` … `onWindowDisconnect`) is not part of the class yet: its engine/app boundary is designed with the host owners under epic `#17539` before it lifts. Before this amendment the pattern existed only as the example's code, and each flagship host carried its own copy of the loop — the measurement that motivated the class lives on `#17539`.
+A basic consumer contributes plain initial `panes` and `zones` configs. Workspace captures their effective
+values in `onAfterConstructed`, after all synchronous `construct`/`onConstructed` work, before the
+constructed event and `init()`. Model `Authoring.fromZones` lowers the arrangement once; the existing
+`afterSetMounted` owner projects the absent first shell. No consumer constructor seed, resolver,
+cache or projection hook is required.
+
+A supplied valid `dockModel` takes precedence over `zones`; invalid supplied documents fail visibly.
+Later assignments or mutations of `panes`/`zones` do not replace the document or captured definitions.
+This tier is initial-only: reactive declaration reconciliation, perspective/storage configuration and
+multi-workspace authoring are separate contracts. No persisted schema changes.
+
+Template hooks remain advanced extension points for custom resolution, owner-preserved item IDs,
+pre-refresh chrome, extra projection options and reconciliation policy. Optional native lifecycle
+composition remains governed by §2.8; it is not activated by declaring panes.
 
 #### Workspace topology across windows
 
@@ -351,13 +364,26 @@ The minimal interface between the docking shell and the product surfaces that li
 
 | The embedded surface provides | The docking shell guarantees |
 |---|---|
-| A stable `componentRef` registered with the workspace's resolver | Resolution to the live instance on every projection; the instance is **moved / re-parented, never destroyed** (landed adapter rule) — one conditioned exception, see *User-triggered recreate* below |
+| A keyed `panes` component config, or a stable `componentRef` handled by an advanced resolver | Resolution through normal Container/Card creation; live declared instances are **moved / re-parented, never destroyed** during ordinary moves and rail transitions — conditioned recreate exception below; explicit close ends the instance lifetime |
 | Optionally a `blueprint` — a serializable Neo config for creation-from-saved-state | Instantiation from blueprint when no live instance exists; recoverable placeholder (never silent drop) when neither resolves (landed placeholder + stale-ref policy) |
 | Policy hints: `closable`, `pinnable`, `movable` | Enforcement at the operation layer (e.g. `setItemPinned` / `setItemAutoHidden` reject `pinnable === false`; landed) |
 | JSON-only `metadata` — no secrets, credentials, functions, DOM, live objects | No-secret validation on every persistence path (landed, #13153 class of checks) |
 | Nothing else — no layout knowledge, no dock imports, no preview access | Semantic placement continuity across moves, splits, transfers (§2.3), perspective capture/restore (§2.2), and auto-hide transitions (§2.7); item identity (`dockItemId`) stable across all of them |
 
 Two binding consequences:
+
+Declared pane keys remain independent even when they use the same component class. The host captures
+runtime configurations separately from JSON catalog records, allocates runtime component IDs and uses
+the existing component manager to resolve live instances. Lazy loaders remain normal runtime config;
+neither functions nor live bindings enter the document. Config-created rail panes can be retained by
+their Workspace owner when rail chrome releases them. Undeclared resolver/blueprint panes retain the
+existing resolution and rail ownership behavior.
+
+Closing a declared pane removes its record and retires its instance, while preserving the captured
+declaration. `Workspace.openPane(itemId, target?)` reopens through `Operations.addItem` and the ordinary
+host commit path. Placement is an optional `addTab`/`splitNode` descriptor; unknown declarations,
+existing catalog entries and invalid placements fail without partial publication. Detached catalog
+entries use move/restore operations. `addTab` still refuses absent catalog records.
 
 - **Panes are layout-blind.** An embedded surface never reads or mutates the dock document, never listens to drag surfaces, and never persists its own placement. It experiences docking exclusively as ordinary Neo component lifecycle (mount/unmount/re-parent) plus its own config updates. A pane that "helps" with layout is a contract violation.
 - **Layout is pane-blind.** The shell knows items only as catalog records. Cockpit panes and FM-UX cards add zero cases to the docking code; if a product surface needs a new docking behavior, that behavior enters through an amendment to this ADR, not through a pane-specific branch.

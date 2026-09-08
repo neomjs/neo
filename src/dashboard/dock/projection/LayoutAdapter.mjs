@@ -474,6 +474,7 @@ class LayoutAdapter extends Base {
      *     `dockRevealLocked` — whether the item it reveals is committed locked.
      * @param {String|null} [options.dockWorkspaceId] The workspace whose header-action policy the
      *     projected containers present locks through.
+     * @param {Function} [options.retainRevealPane] Lifetime owner deciding whether a rail-released pane survives.
      * @param {Function} [options.syncDockLockPane] Workspace-owned lock presentation for a resolved
      *     rail reveal pane: `(pane, itemId) => void`, binding the pane to the item's committed lock.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
@@ -567,6 +568,7 @@ class LayoutAdapter extends Base {
             dockRailLockBinding               : options.dockRailLockBinding,
             dockWorkspaceId                   : options.dockWorkspaceId ?? null,
             syncDockLockPane                  : options.syncDockLockPane,
+            retainRevealPane                  : options.retainRevealPane,
             tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
             vesselConversionConvertThreshold  : options.vesselConversionConvertThreshold,
             vesselConversionPointerExitGraceMs: options.vesselConversionPointerExitGraceMs,
@@ -667,8 +669,8 @@ class LayoutAdapter extends Base {
         const railId = `${nodeId}:edge-rail:${edge}`;
 
         return {
-            applyDockZoneOperation  : context.applyDockZoneOperation,
-            autoHideRevealOnHover   : context.autoHideRevealOnHover === true,
+            applyDockZoneOperation: context.applyDockZoneOperation,
+            autoHideRevealOnHover : context.autoHideRevealOnHover === true,
             // The rail binds whether the item it reveals is committed locked; presenting it is the
             // workspace's `syncDockLockPane`, the same callback first reveal goes through.
             ...(context.dockRailLockBinding && {bind: {dockRevealLocked: context.dockRailLockBinding(railId)}}),
@@ -684,6 +686,7 @@ class LayoutAdapter extends Base {
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
             resolveComponentRef     : context.resolveRevealComponentRef,
+            retainRevealPane        : context.retainRevealPane,
             revealPinTooltip        : context.dockActionTooltips?.revealPin ?? null,
             syncDockLockPane        : context.syncDockLockPane
         }

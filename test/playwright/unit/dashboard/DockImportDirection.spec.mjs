@@ -29,7 +29,7 @@ const staticFiles = entry => measureClosure([entry], ROOT).files,
 
       DOCK_ENTRY  = 'src/dashboard/dock/Workspace.mjs',
       TX_ENTRY    = 'src/manager/Transaction.mjs',
-      TOPOLOGY_RE = /^src\/manager\/(Transaction\.mjs|transaction\/)/,
+      TOPOLOGY_RE = /^(src\/manager\/(Transaction\.mjs|transaction\/)|src\/dashboard\/dock\/persistence\/TopologyLibrary\.mjs)/,
 
       /**
        * The manager may not reach the dock DOMAIN, not merely its two most obvious modules.
@@ -59,6 +59,7 @@ test.describe('Neo.dashboard.dock — the façade import-direction rule', () => 
         // Transitivity, not just the entry's own direct imports: `core/Base.mjs` is several hops
         // down from both entries and is reachable only if the walk actually recurses.
         expect(dock, 'the dock walk reaches transitively').toContain('src/core/Base.mjs');
+        expect(dock, 'the declaration normalizer is part of the standalone host').toContain('src/dashboard/dock/model/Authoring.mjs');
         expect(tx, 'the transaction walk reaches transitively').toContain('src/core/Base.mjs');
     });
 
@@ -97,6 +98,10 @@ test.describe('Neo.dashboard.dock — the façade import-direction rule', () => 
 
         expect(crossings([...innocent, TX_ENTRY], TOPOLOGY_RE),
             'an upward import must be caught').toEqual([TX_ENTRY]);
+
+        const library = 'src/dashboard/dock/persistence/TopologyLibrary.mjs';
+        expect(crossings([...innocent, library], TOPOLOGY_RE),
+            'optional persistence must stay outside the standalone host').toEqual([library]);
 
         expect(crossings([...innocent, 'src/manager/transaction/Commit.mjs'], TOPOLOGY_RE),
             'the folder half of the rule must be caught too').toEqual(['src/manager/transaction/Commit.mjs']);
