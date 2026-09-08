@@ -1,4 +1,5 @@
-import Controller from '../../../src/controller/Component.mjs';
+import Controller        from '../../../src/controller/Component.mjs';
+import WorkspaceDocument from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
 /**
  * @summary Workstation's native vessel policy: which OS window a torn pane converts onto, the
