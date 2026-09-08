@@ -345,8 +345,9 @@ class Workspace extends Container {
         dockShellIndex: 0,
         /**
          * Prefix of the per-item marker class the FLIP addon correlates across a re-projection.
-         * {@link #resolveProjectedPane} stamps `<prefix><encoded item id>` onto every plain pane
-         * config, so consumers never carry the marker by hand.
+         * {@link #resolveProjectedPane} and {@link #prepareRecreateCandidate} stamp
+         * `<prefix><encoded item id>` onto every plain pane config, so consumers never carry the
+         * marker by hand — including through a `resolveFreshPane` override.
          * @member {String} flipMarkerPrefix='dock-flip-item-'
          */
         flipMarkerPrefix: 'dock-flip-item-',
@@ -2736,7 +2737,13 @@ class Workspace extends Container {
         let candidate;
 
         try {
-            candidate = this.resolveFreshPane(itemId, item)
+            // Decorating what the HOOK RETURNS, rather than fixing the base `resolveFreshPane` to
+            // delegate to the decorated resolver, is deliberate: `resolveFreshPane` is the documented
+            // extension point for a cache-backed factory, and a consumer that overrides it would
+            // otherwise still answer with an undecorated candidate and re-open this gap. An instance
+            // candidate passes through untouched, so the `live-instance` refusal below still compares
+            // identities.
+            candidate = this.decorateFlipMarker(this.resolveFreshPane(itemId, item), itemId)
         } catch (error) {
             return {ok: false, candidate: null, reason: 'threw', error}
         }
