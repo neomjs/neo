@@ -161,21 +161,22 @@ class VesselController extends Controller {
      * @protected
      */
     async onDockTearOutExit(data) {
-        let me     = this,
-            active = me.component.tearOutHandlers.activeVessel;
+        let me        = this,
+            component = me.component,
+            active    = component.tearOutHandlers.activeVessel;
 
         if (active) {
-            const retired = await me.component.tearOutHandlers.retireActiveVessel(active);
+            const retired = await component.tearOutHandlers.retireActiveVessel(active);
 
             if (!retired) {
                 data.sortZone?.endWindowDrag();
                 return false
             }
 
-            me.component.vesselParkHandlers.onVesselRetired({itemId: active.itemId, retirement: true})
+            component.vesselParkHandlers.onVesselRetired({itemId: active.itemId, retirement: true})
         }
 
-        await me.component.tearOutHandlers.onDockTearOutExit(data);
+        await component.tearOutHandlers.onDockTearOutExit(data);
 
         return true
     }
@@ -217,6 +218,42 @@ class VesselController extends Controller {
     }
 
     /**
+     * @summary Records one item's park geometry, tolerating a teardown that landed mid-effect.
+     * @param {String} itemId
+     * @param {Object} geometry
+     * @protected
+     */
+    storeParkGeometry(itemId, geometry) {
+        this.tearOutParkGeometries && (this.tearOutParkGeometries[itemId] = geometry)
+    }
+
+    /**
+     * @summary Counts one park attempt and returns the new count; 1 when the map is already gone.
+     *
+     * The counter is retry authority, so an effect settling after teardown still needs an answer —
+     * it just has nowhere durable to keep it, and the workspace it would have served is going away.
+     * @param {String} itemId
+     * @returns {Number}
+     * @protected
+     */
+    bumpParkAttempts(itemId) {
+        const me = this;
+
+        if (!me.tearOutParkAttempts) return 1;
+
+        return me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1
+    }
+
+    /**
+     * @summary Clears one item's retry count, tolerating a teardown that landed mid-effect.
+     * @param {String} itemId
+     * @protected
+     */
+    releaseParkAttempts(itemId) {
+        this.tearOutParkAttempts && delete this.tearOutParkAttempts[itemId]
+    }
+
+    /**
      * @summary Retires a parked vessel outright — the disposal half of the park lifecycle.
      * Consumes the tear-out machine's active slot, then closes its exact parked vessel — the ONE
      * settle path for a committed conversion; a refusal retains exact retry authority.
@@ -230,19 +267,21 @@ class VesselController extends Controller {
         if (this.isTearingDown || this.isDestroyed) return false;
 
         let me    = this,
+
+            component = me.component,
             entry = me.resolveTearOutVessel(itemId),
             route = entry?.nativeRoute;
 
-        const disposed = await me.component.tearOutHandlers.retireActiveVessel({itemId, windowName});
+        const disposed = await component.tearOutHandlers.retireActiveVessel({itemId, windowName});
 
         if (disposed) {
             me.releaseParkGeometry(itemId);
-            delete me.tearOutParkAttempts[itemId];
+            me.releaseParkAttempts(itemId);
 
             route?.nativeHandleKey && await Neo.main.addon.DragDrop.retireWindowDragOrphanRecovery({
                 nativeHandleKey: route.nativeHandleKey,
                 targetWindowId : route.targetWindowId,
-                windowId       : me.component.windowId,
+                windowId       : component.windowId,
                 windowName
             })
         }
@@ -273,13 +312,14 @@ class VesselController extends Controller {
         if (this.isTearingDown || this.isDestroyed) return null;
 
         let me         = this,
-            {windowId} = me.component,
+            component  = me.component,
+            {windowId} = component,
             windowName = `tearout-${itemId}`;
 
         // Diagnostic trail for the birth gate: absence has three distinct layers (admission
         // refused / platform refused the window / window granted but never bound), and the
         // failure diag must name which one this gesture died in.
-        me.lastVesselOpen = {itemId, stage: 'invoked'};
+        const openReceipt = me.lastVesselOpen = {itemId, stage: 'invoked'};
 
         try {
             let [winData, bootstrap] = await Promise.all([
@@ -287,9 +327,9 @@ class VesselController extends Controller {
                     Neo.Main.getByPath({path: 'WorkstationBootstrap', windowId})
                 ]),
                 schemes       = bootstrap?.schemes || {},
-                selectedTheme = Object.hasOwn(schemes, me.component.theme)
-                    ? me.component.theme
-                    : bootstrap?.defaultTheme || me.component.theme,
+                selectedTheme = Object.hasOwn(schemes, component.theme)
+                    ? component.theme
+                    : bootstrap?.defaultTheme || component.theme,
                 width  = Math.max(Math.round(proxyRect?.width  || 480), 320),
                 height = Math.max(Math.round(proxyRect?.height || 360), 240),
                 left   = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
@@ -305,18 +345,18 @@ class VesselController extends Controller {
                 windowName
             });
 
-            me.lastVesselOpen.stage = opened === false ? 'windowOpen-false' : 'granted';
+            openReceipt.stage = opened === false ? 'windowOpen-false' : 'granted';
 
             if (opened === false) {
                 return null
             }
 
-            me.component.tearOutVesselDims = {height, width};
+            component.tearOutVesselDims = {height, width};
 
             return {popupHeight: height, popupWidth: width, windowName}
         } catch (error) {
-            me.lastVesselOpen.stage = 'threw';
-            me.lastVesselOpen.error = String(error?.message || error);
+            openReceipt.stage = 'threw';
+            openReceipt.error = String(error?.message || error);
             return null
         }
     }
@@ -341,11 +381,13 @@ class VesselController extends Controller {
         if (this.isTearingDown || this.isDestroyed) return false;
 
         let me               = this,
+
+            component = me.component,
             entry            = me.resolveTearOutVessel(itemId),
-            admission        = me.component.nativeWindows?.getAdmission(me.component.id, itemId),
+            admission        = component.nativeWindows?.getAdmission(component.id, itemId),
             expected         = `tearout-${itemId}`,
             exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
-            embodiedWindowId = entry?.windowId ?? admission?.windowId ?? me.component.tearOutEmbodiment.getWindowId(itemId),
+            embodiedWindowId = entry?.windowId ?? admission?.windowId ?? component.tearOutEmbodiment.getWindowId(itemId),
             closed           = false;
 
         const closeReceipt = me.lastTearOutClose = {
@@ -379,7 +421,7 @@ class VesselController extends Controller {
             exactTargetMatches: !nativeRoute || !exactWindowId || nativeRoute.targetWindowId === exactWindowId,
             exactWindowId     : exactWindowId ?? null,
             hasHandle         : !nativeRoute || Boolean(nativeRoute.nativeHandleKey),
-            ownerMatches      : !nativeRoute || nativeRoute.ownerWindowId === me.component.windowId,
+            ownerMatches      : !nativeRoute || nativeRoute.ownerWindowId === component.windowId,
             ownerWindowId     : nativeRoute?.ownerWindowId ?? null,
             present           : Boolean(nativeRoute),
             targetPresent     : !nativeRoute || Boolean(nativeRoute.targetWindowId),
@@ -387,7 +429,7 @@ class VesselController extends Controller {
         };
 
         if (nativeRoute && (
-            !nativeRoute.nativeHandleKey || nativeRoute.ownerWindowId !== me.component.windowId ||
+            !nativeRoute.nativeHandleKey || nativeRoute.ownerWindowId !== component.windowId ||
             !nativeRoute.targetWindowId || nativeRoute.capabilities?.close !== true ||
             (exactWindowId && nativeRoute.targetWindowId !== exactWindowId)
         )) {
@@ -397,9 +439,9 @@ class VesselController extends Controller {
 
         // The engine established retirement before this call; a refused close retains the exact
         // route + tear-out machine slot for retry, but the content goes safely home first.
-        if (embodiedWindowId && me.component.tearOutEmbodiment.isStaged(itemId)) {
-            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.component.dockModel, itemId)),
-                  settled    = me.component.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
+        if (embodiedWindowId && component.tearOutEmbodiment.isStaged(itemId)) {
+            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(component.dockModel, itemId)),
+                  settled    = component.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
                       itemId, windowId: embodiedWindowId
                   });
 
@@ -417,14 +459,14 @@ class VesselController extends Controller {
                 closed = await Neo.Main.windowNativeClose({
                     nativeHandleKey: nativeRoute.nativeHandleKey,
                     targetWindowId : nativeRoute.targetWindowId,
-                    windowId       : me.component.windowId
+                    windowId       : component.windowId
                 }) === true
             } else {
                 closeReceipt.stage = 'semantic-dispatched';
                 // Before connect there is no exact route to correlate yet; the active tear-out
                 // slot's unguessable semantic name is the only available authority. Once a route
                 // exists, ANY invalidity above fails closed — never downgrade to same-name close.
-                await Neo.Main.windowClose({names: [windowName], windowId: me.component.windowId});
+                await Neo.Main.windowClose({names: [windowName], windowId: component.windowId});
                 closed = true
             }
         } catch (error) {
@@ -470,7 +512,9 @@ class VesselController extends Controller {
         if (this.isTearingDown || this.isDestroyed) return false;
 
         let me           = this,
-            windowId     = me.component.windowId,
+
+            component = me.component,
+            windowId     = component.windowId,
             entry        = me.resolveTearOutVessel(itemId),
             route        = entry?.nativeRoute,
             sourceWindow = Neo.manager?.Window?.get(entry?.windowId),
@@ -533,7 +577,7 @@ class VesselController extends Controller {
         };
         me.lastVesselRestoreReceipt = null;
 
-        parkReceipt.parkAttempts = me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1;
+        parkReceipt.parkAttempts = me.bumpParkAttempts(itemId);
 
         if (
             !route?.nativeHandleKey || route.ownerWindowId !== windowId ||
@@ -562,7 +606,7 @@ class VesselController extends Controller {
         // the conversion bookkeeping around this call runs exactly as for a parked vessel. Popup
         // targets keep the physical park below.
         if (nativeTitlebar && targetIsMain) {
-            delete me.tearOutParkAttempts[itemId];
+            me.releaseParkAttempts(itemId);
             parkReceipt.parked   = true;
             parkReceipt.physical = false;
             parkReceipt.reason   = 'main-window target: nothing to park, the popup retires after the commit';
@@ -622,7 +666,7 @@ class VesselController extends Controller {
                 return false
             }
 
-            parkGeometry && (me.tearOutParkGeometries[itemId] = parkGeometry);
+            parkGeometry && me.storeParkGeometry(itemId, parkGeometry);
 
             let refocused = await focusTarget() === true;
 
@@ -652,7 +696,7 @@ class VesselController extends Controller {
                 return false
             }
 
-            delete me.tearOutParkAttempts[itemId];
+            me.releaseParkAttempts(itemId);
             parkReceipt.parked = true;
 
             return true
@@ -681,10 +725,12 @@ class VesselController extends Controller {
         if (this.isTearingDown || this.isDestroyed) return false;
 
         let me       = this,
-            windowId = me.component.windowId,
+
+            component = me.component,
+            windowId = component.windowId,
             entry    = me.resolveTearOutVessel(itemId),
             route    = entry?.nativeRoute,
-            geometry = me.tearOutParkGeometries[itemId] ?? null,
+            geometry = me.tearOutParkGeometries?.[itemId] ?? null,
             // `rect` is where the pane's CONTENT re-shows — the proxy's logical rect, or the
             // viewport rect captured at conversion-in. `moveTo` places the FRAME, so the window's
             // own chrome comes off the content origin; a window that never published chrome

@@ -789,6 +789,39 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('teardown DURING a granted open does not lose the grant', async () => {
+        const
+            workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalData    = Neo.Main.getWindowData,
+            originalGetPath = Neo.Main.getByPath,
+            originalOpen    = Neo.Main.windowOpen,
+            controller      = workspace.vesselController;
+
+        Neo.Main.getWindowData = async () => ({innerHeight: 700, outerHeight: 760, screenLeft: 10, screenTop: 20});
+        Neo.Main.getByPath     = async () => ({defaultTheme: 'neo-theme-neo-dark', schemes: {'neo-theme-neo-dark': 'dark'}});
+        // The platform HAS granted the window by the time teardown lands. Losing the result here
+        // leaks a real OS window that nothing owns — the grant must survive the controller.
+        Neo.Main.windowOpen = async () => {
+            controller.destroy();
+            return true
+        };
+
+        try {
+            const opened = await controller.openTearOutVessel({
+                itemId: 'alerts', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+
+            expect(opened, 'a granted open still returns its vessel dims after teardown').toEqual({
+                popupHeight: 320, popupWidth: 480, windowName: 'tearout-alerts'
+            })
+        } finally {
+            Neo.Main.getWindowData = originalData;
+            Neo.Main.getByPath     = originalGetPath;
+            Neo.Main.windowOpen    = originalOpen;
+            workspace.destroy()
+        }
+    });
+
     test('teardown DURING a dispatched effect still settles it — no throw, and no receipt written back', async () => {
         const
             workspace        = Neo.create(Workspace, {windowId: Neo.config.windowId}),
