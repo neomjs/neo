@@ -45,10 +45,10 @@ TypographySpecimen = Neo.setupClass(TypographySpecimen);
  *
  * `neo-theme-dark` is deliberate and is not a stand-in for a neo theme: the classic families are
  * the ones that DECLINE the global element typography, and declining is the half that a nested
- * scope can get wrong. This is the shape shipped on the portal home page —
- * `apps/portal/view/home/parts/Helix.mjs` and `Colors.mjs` both set `theme: 'neo-theme-dark'`
- * inside the neo-themed portal — so the fixture reproduces a real configuration rather than one
- * constructed to fail.
+ * scope can get wrong. `theme_` is a first-class per-component config, so this arrangement is
+ * reachable by any consumer; the portal ships it as `livePreviewCode` in
+ * `apps/portal/view/home/parts/Helix.mjs` and `Colors.mjs`, which mounts a classic scope inside
+ * the neo-themed page when a reader opens those previews.
  * @class Test.Playwright.Component.GlobalTypographyNesting.ClassicScope
  * @extends Neo.container.Base
  */

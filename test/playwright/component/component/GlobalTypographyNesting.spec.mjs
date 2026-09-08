@@ -12,8 +12,11 @@ import {test, expect} from '@playwright/test';
  * and lets `var()` fall through. Omitting the token and declaring it `initial` produce byte-identical
  * source in the structure layer and opposite renderings here.
  *
- * The shape is shipped, not hypothetical: `apps/portal/view/home/parts/Helix.mjs:39` and
- * `Colors.mjs:38` put `theme: 'neo-theme-dark'` — a classic theme — inside the neo-themed portal.
+ * The shape is reachable, not hypothetical, and the precise reach is worth stating. `theme_` is a
+ * first-class per-component config (`src/component/Base.mjs`), so any consumer can open a scope
+ * anywhere. In this repository the classic-inside-neo case ships as `livePreviewCode` in
+ * `apps/portal/view/home/parts/Helix.mjs` and `Colors.mjs` — source the portal compiles and mounts
+ * when a reader opens the preview, rather than a scope present in the default page render.
  *
  * **The outer assertion is the non-vacuity control and runs first by construction.** If the neo arm
  * resolved nothing, every inner expectation would still pass — for the wrong reason — because "no
