@@ -219,11 +219,11 @@ test.describe('dock maximize as a declinable plugin', () => {
 
         expect(seen, 'fired once, with the descriptor, while the outgoing document is still committed')
             .toEqual([{descriptor, stillOutgoing: true}]);
-        expect(plugin.isNeutralOperation(descriptor), 'an operation confined to the node it would own').toBe(false);
+        expect(plugin.isNeutralOperation(descriptor, workspace.dockModel), 'an operation confined to the node it would own').toBe(false);
 
         plugin.maximizedNodeId = 'main-tabs';
-        expect(plugin.isNeutralOperation(descriptor)).toBe(true);
-        expect(plugin.isNeutralOperation({operation: 'splitNode', nodeId: 'side-tabs'}), 'a topology mutation reaches beyond it').toBe(false)
+        expect(plugin.isNeutralOperation(descriptor, workspace.dockModel)).toBe(true);
+        expect(plugin.isNeutralOperation({operation: 'splitNode', nodeId: 'side-tabs'}, workspace.dockModel), 'a topology mutation reaches beyond it').toBe(false)
     });
 
     for (const [name, target, expected] of [
@@ -273,11 +273,11 @@ test.describe('dock maximize as a declinable plugin', () => {
                   set     = Neo.create(WorkspaceSet, {manager: Transaction, getGroupId: () => binding.groupId, documentModel: WorkspaceDocument}),
                   plugin  = workspace.getPlugin('dock-maximize'),
                   before  = workspace.dockModel,
-                  events  = [];
+                events    = [], refreshes = [];
             Transaction.setHistoryDepth({groupId: binding.groupId, depth: 5});
             set.register('main', {getDocument: () => workspace.dockModel, setDocument: value => workspace.dockModel = value,
                 project: context => workspace.projectDockCommit(context)});
-            workspace.refreshDockWorkspace = async () => {};
+            workspace.refreshDockWorkspace = async (descriptor, document, options) => { refreshes.push(options) };
             plugin._maximizedNodeId = 'main-tabs';
             workspace.on('beforeDockZoneDocumentChange', event => events.push(event));
             try {
@@ -285,7 +285,10 @@ test.describe('dock maximize as a declinable plugin', () => {
                 await expect.poll(() => events.length).toBe(1);
                 await workspace.refreshPromise;
                 expect(plugin.maximizedNodeId).toBe(expected);
-                expect(events[0].commitContext.captured.value).toEqual(before);
+                expect(events[0].previousDocument).toEqual(before);
+                expect(events[0].workspaceKey).toBe('main');
+                expect(refreshes[0]).not.toHaveProperty('previousDocument');
+                expect(refreshes[0]).not.toHaveProperty('workspaceKey');
                 expect(Transaction.get(binding.groupId).history.count).toBe(1);
 
                 const committed = workspace.dockModel;
@@ -308,7 +311,7 @@ test.describe('dock maximize as a declinable plugin', () => {
               descriptor = {workspaceKey: 'main', operations: [{operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'beta'}]};
         plugin._maximizedNodeId = 'main-tabs';
         expect(plugin.isNeutralChange(descriptor)).toBe(false);
-        expect(plugin.isNeutralChange(descriptor, {workspaceKey: 'other', captured: {value: workspace.dockModel}})).toBe(false)
+        expect(plugin.isNeutralChange(descriptor, workspace.dockModel, 'other')).toBe(false)
     });
 
     test('the observation follows the owner across render windows, and an await retired by the hop arms nothing', async () => {

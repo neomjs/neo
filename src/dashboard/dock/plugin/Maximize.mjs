@@ -236,12 +236,13 @@ class Maximize extends Plugin {
      * switching tabs INSIDE a maximized pane would restore it.
      * @param {Object} data
      * @param {Object|null} data.descriptor The semantic operation about to apply.
-     * @param {Object|null} [data.commitContext] Group capture and workspace identity.
+     * @param {Object|null} data.previousDocument State before the committed change.
+     * @param {String} [data.workspaceKey] Group participant identity.
      */
-    onBeforeDockZoneDocumentChange({commitContext, descriptor}) {
+    onBeforeDockZoneDocumentChange({descriptor, previousDocument, workspaceKey}) {
         let me = this;
 
-        if (me.maximizedNodeId && !me.isNeutralChange(descriptor, commitContext)) {
+        if (me.maximizedNodeId && !me.isNeutralChange(descriptor, previousDocument, workspaceKey)) {
             me.motion          = 'instant';
             me.maximizedNodeId = null
         }
@@ -765,15 +766,15 @@ class Maximize extends Plugin {
      * adopted result would mistake a cross-node move into the maximized pane for a local move.
      * Missing/mismatched context and failed reductions retain the conservative clear.
      * @param {Object|null} descriptor
-     * @param {Object|null} [context]
+     * @param {Object|null} document State before the change.
+     * @param {String} [workspaceKey] Group participant identity.
      * @returns {Boolean}
      * @protected
      */
-    isNeutralChange(descriptor, context) {
-        if (!Array.isArray(descriptor?.operations)) return this.isNeutralOperation(descriptor);
+    isNeutralChange(descriptor, document, workspaceKey) {
+        if (!Array.isArray(descriptor?.operations)) return this.isNeutralOperation(descriptor, document);
 
-        let document = context?.captured?.value;
-        if (!document || !context.workspaceKey || descriptor.workspaceKey !== context.workspaceKey) return false;
+        if (!document || !workspaceKey || descriptor.workspaceKey !== workspaceKey) return false;
 
         for (const operation of descriptor.operations) {
             if (!this.isNeutralOperation(operation, document)) return false;
@@ -792,16 +793,16 @@ class Maximize extends Plugin {
      * topology mutations, boundary crossings, whole-document applies (a `null` descriptor
      * included) — clears terminally before it applies.
      * @param {Object|null} descriptor
-     * @param {Object} [document=this.owner.dockModel] State before this operation.
+     * @param {Object} document State before this operation.
      * @returns {Boolean}
      * @protected
      */
-    isNeutralOperation(descriptor, document=this.owner.dockModel) {
+    isNeutralOperation(descriptor, document) {
         let me                                            = this,
             nodeId                                        = me.maximizedNodeId,
             {itemId, operation, tabsNodeId, targetNodeId} = descriptor || {};
 
-        if (!operation || !nodeId) {
+        if (!operation || !nodeId || !document) {
             return false
         }
 
