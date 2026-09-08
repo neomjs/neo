@@ -24,10 +24,10 @@ import {initialDocument} from '../../../../../apps/workstation/tour/denseWorksta
 test('pointer readiness reads current popup and supplied main visual owners', () => {
     for (const isMain of [false, true]) {
         const workspaceId = isMain ? Workspace.MAIN_WORKSPACE_ID : 'workstation-vessel:metrics',
-              preview = {previewId: 'current-preview'},
-              target = {currentPreview: preview},
-              visuals = {
-                  preview: {dockPreview: preview},
+              preview     = {previewId: 'current-preview'},
+              target      = {currentPreview: preview},
+              visuals     = {
+                  preview   : {dockPreview: preview},
                   indicators: {
                       activeCandidate: {preview}, candidateSet: {itemId: 'audit', cross: [], root: {chips: []}}, cls: []
                   }
@@ -39,11 +39,11 @@ test('pointer readiness reads current popup and supplied main visual owners', ()
               },
               workspace = {
                   crossWindowParticipations: new Map(isMain ? [[workspaceId, participation]] : []),
-                  dragAffordances: visuals,
-                  getPopupState: () => ({host: {participation}})
+                  dragAffordances          : visuals,
+                  getPopupState            : () => ({host: {participation}})
               },
               sourceZone = {dragCoordinator: {
-                  activeTargetZone: target,
+                  activeTargetZone   : target,
                   pointerClaimArbiter: {claimCount: 1, resolve: () => ({stableId: workspaceId})}
               }},
               read = () => Workspace.prototype.readCrossWindowGestureSnapshot.call(workspace, {
@@ -51,7 +51,7 @@ test('pointer readiness reads current popup and supplied main visual owners', ()
               });
 
         expect(read()).toMatchObject({
-            engaged: true, ready: true, preview, rendered: preview,
+            engaged   : true, ready: true, preview, rendered: preview,
             indicators: {activePreviewId: preview.previewId, itemId: 'audit', visible: true}
         });
         visuals.preview.dockPreview = {previewId: 'stale-preview'};
@@ -1693,10 +1693,28 @@ test.describe.serial('Workstation.view.Workspace', () => {
     test('explicit root destruction retires its registered popup owner', () => {
         const workspace            = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId} = stageCommittedVessel(workspace);
-        const groupId              = workspace.topologyGroupId;
+        const groupId              = workspace.topologyGroupId,
+              adapter              = workspace.workspaceSet;
+        expect(Neo.get(adapter.id)).toBe(adapter);
         workspace.destroy();
         expect(state.host.isDestroyed).toBe(true);
+        expect(adapter.isDestroyed).toBe(true);
+        expect(Neo.get(adapter.id)).toBeFalsy();
         expect(TransactionManager.getParticipant(groupId, workspaceId)).toBeNull()
+    });
+
+    test('destroying a popup does not destroy the root adapter it borrows', () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              {state}   = stageCommittedVessel(workspace),
+              adapter   = workspace.workspaceSet;
+        try {
+            expect(state.host.workspaceSet).toBe(adapter);
+            state.host.destroy();
+            expect(Neo.get(adapter.id)).toBe(adapter);
+            expect(adapter.has(Workspace.MAIN_WORKSPACE_ID)).toBe(true)
+        } finally {
+            workspace.destroy()
+        }
     });
 
     test('Group retirement disposes popup owners before the root is released', () => {

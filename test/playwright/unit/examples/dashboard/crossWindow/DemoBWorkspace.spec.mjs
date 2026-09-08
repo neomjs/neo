@@ -346,10 +346,10 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     };
 
     test('a human document publication enters the Group cursor and is undoable', async () => {
-        const before = WorkspaceDocument.clone(workspace.dockModel);
-        const itemId = Object.keys(before.items)[0];
+        const before     = WorkspaceDocument.clone(workspace.dockModel);
+        const itemId     = Object.keys(before.items)[0];
         const descriptor = {operation: 'setItemLocked', itemId, locked: true};
-        const changed = Operations.applyOperation(before, descriptor);
+        const changed    = Operations.applyOperation(before, descriptor);
         expect(changed.errors).toEqual([]);
         TransactionManager.setHistoryDepth({groupId: hostGroupId, depth: 5});
         await workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, changed.document, {descriptor});
@@ -364,12 +364,12 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     test('history-disabled transfers retain their committed before-document receipt', async () => {
         TransactionManager.setHistoryDepth({groupId: hostGroupId, depth: 0});
         const before = WorkspaceDocument.clone(workspace.dockModel);
-        const pair = {sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
+        const pair   = {sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
             targetWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
-            descriptor: {operation: 'transferItem', itemId: 'workbench',
+            descriptor       : {operation: 'transferItem', itemId: 'workbench',
                 sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
                 targetWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
-                target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}}};
+                target           : {operation: 'addTab', tabsNodeId: 'popup-tabs'}}};
         expect(await workspace.adoptCommittedTransferPair(pair)).toBe(true);
         expect(pair.sourceBefore).toEqual(before);
         expect(workspace.popupDocument.items.workbench).toEqual(before.items.workbench);
@@ -1354,11 +1354,11 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         const commit = workspace.commitCrossWindowTransfer({
             descriptor: {
-                operation: 'transferItem',
+                operation        : 'transferItem',
                 sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
                 targetWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
-                itemId: 'workbench',
-                target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+                itemId           : 'workbench',
+                target           : {operation: 'addTab', tabsNodeId: 'popup-tabs'}
             },
             sourceDocument   : detached.sourceDocument,
             sourceWorkspaceId: 'demo-b-main',
@@ -2431,14 +2431,18 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     });
 
     test('destroy tears down the runner, seam, store, and every cached pane', () => {
-        const pane                                        = workspace.resolvePane('workbench', initialDocument.items.workbench);
-        const {dockService, perspectiveStore, tourRunner} = workspace;
+        const pane                                                      = workspace.resolvePane('workbench', initialDocument.items.workbench);
+        const {dockService, perspectiveStore, tourRunner, workspaceSet} = workspace;
+
+        expect(Neo.get(workspaceSet.id)).toBe(workspaceSet);
 
         workspace.destroy();
 
         expect(tourRunner.isDestroyed).toBeTruthy();
         expect(dockService.isDestroyed).toBeTruthy();
         expect(perspectiveStore.isDestroyed).toBeTruthy();
+        expect(workspaceSet.isDestroyed).toBe(true);
+        expect(Neo.get(workspaceSet.id)).toBeFalsy();
         expect(pane.isDestroyed).toBeTruthy();
 
         workspace = null
