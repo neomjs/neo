@@ -10,6 +10,7 @@ import DockService              from '../../../../src/ai/client/DockService.mjs'
 import InstanceService          from '../../../../src/ai/client/InstanceService.mjs';
 import LegacyTransactionService from '../../../../src/ai/TransactionService.mjs';
 import WriteGuard               from '../../../../src/ai/WriteGuard.mjs';
+import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 import {dispatchServiceMethod}  from '../../../../src/ai/client/resolveServiceMethod.mjs';
 import PopupWorkspace           from '../../../../apps/workstation/view/PopupWorkspace.mjs';
 import WorkstationWorkspace     from '../../../../apps/workstation/view/Workspace.mjs';
@@ -303,6 +304,45 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
             service.destroy(); legacy.destroy()
         }
     });
+
+    for (const kind of ['main', 'popup']) {
+        test(`${kind} participant preserves maximize when a Group commit activates a local tab`, async () => {
+            const key     = kind === 'main' ? WorkstationWorkspace.MAIN_WORKSPACE_ID : 'popup',
+                  initial = document(key);
+            initial.items.second = {componentRef: 'second', title: 'Second'};
+            initial.nodes.root.items.push('second');
+
+            const owner = Neo.create(kind === 'main' ? DockWorkspace : PopupWorkspace, {
+                dockModel: initial, topologyGroupId: groupId,
+                ...(kind === 'popup' ? {workspaceSet: set, workspaceKey: key,
+                    rootWorkspace: {resolvePane: () => ({ntype: 'component'})}} : {})
+            });
+            owner.refreshDockWorkspace = async () => {};
+            if (kind === 'main') {
+                owner.workspaceSet = set;
+                owner.dockHistoryDepth = 5;
+                owner.dockPlacement = {};
+                expect(WorkstationWorkspace.prototype.registerMainWorkspace.call(owner)).toBe(true)
+            }
+
+            const plugin     = owner.getPlugin('dock-maximize'),
+                  descriptor = {operation: 'setActiveItem', tabsNodeId: 'root', itemId: 'second'},
+                  events     = [];
+            plugin._maximizedNodeId = 'root';
+            owner.on('beforeDockZoneDocumentChange', event => events.push(event));
+            try {
+                const result = owner.applyDockZoneOperation(descriptor);
+                await owner.onDockZoneDocumentChange(result.document, descriptor);
+                await expect.poll(() => events.length).toBe(1);
+                await owner.refreshPromise;
+                expect(owner.dockModel.nodes.root.activeItemId).toBe('second');
+                expect(plugin.maximizedNodeId).toBe('root');
+                expect(TransactionManager.get(groupId).history.count).toBe(1)
+            } finally {
+                owner.destroy()
+            }
+        })
+    }
 
     test('a full popup Workspace commits a human tab activation to its Group document', async () => {
         const initial = document('popup');

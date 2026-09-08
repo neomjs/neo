@@ -1,4 +1,5 @@
 import MotionSignal      from '../projection/MotionSignal.mjs';
+import Operations        from '../model/Operations.mjs';
 import Plugin            from '../../../plugin/Base.mjs';
 import Reconciler        from '../projection/Reconciler.mjs';
 import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
@@ -12,15 +13,15 @@ import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
  * maximize state, and no re-parent happens (a pane hosting an iframe reloads its browsing context
  * on re-parent). The owner is a `Neo.dashboard.dock.Workspace`; the plugin reaches it through four
  * collaborator seams and nothing else: the `dockHeaderAction` event carries the `maximize` intent,
- * the `beforeDockZoneDocumentChange` event lets a committed operation clear the transient before it
- * applies, {@link #getDockProjectionOptions} contributes the projected toggle and its icons, and
+ * the `beforeDockZoneDocumentChange` event lets a committed operation clear the transient before
+ * reconciliation, {@link #getDockProjectionOptions} contributes the projected toggle and its icons, and
  * {@link #syncDockProjection} re-applies a surviving transient after each refresh. `Escape` binds
  * on the owner's key navigation with this plugin as scope.
  *
  * Input contract while a node is maximized: in-strip tab reordering stays live; cross-zone drag
  * sources and tear-out affordances of the maximized node are suppressed (every drop target sits
  * under the maximized plane); engaging maximize closes an in-progress reveal overlay; a committed
- * dock operation that reaches beyond the maximized node clears maximize BEFORE applying,
+ * dock operation that reaches beyond the maximized node clears maximize BEFORE reconciliation,
  * terminally; operations confined to the node itself (activating one of its tabs; closing,
  * reordering or adding an item within it) defer to the re-projection rule instead, which
  * re-applies onto the surviving node and clears when the node collapsed.
@@ -228,18 +229,19 @@ class Maximize extends Plugin {
     }
 
     /**
-     * A committed operation clears maximize BEFORE applying — and that clear is terminal: the
+     * A committed operation clears maximize BEFORE reconciliation — and that clear is terminal: the
      * re-projection continuity re-applies only a transient that survived, never one an operation
      * cleared. Operations confined to the maximized node itself are the exception: they defer to
      * that same continuity rule, which re-applies onto the surviving node — without the exception,
      * switching tabs INSIDE a maximized pane would restore it.
      * @param {Object} data
      * @param {Object|null} data.descriptor The semantic operation about to apply.
+     * @param {Object|null} [data.commitContext] Group capture and workspace identity.
      */
-    onBeforeDockZoneDocumentChange({descriptor}) {
+    onBeforeDockZoneDocumentChange({commitContext, descriptor}) {
         let me = this;
 
-        if (me.maximizedNodeId && !me.isNeutralOperation(descriptor)) {
+        if (me.maximizedNodeId && !me.isNeutralChange(descriptor, commitContext)) {
             me.motion          = 'instant';
             me.maximizedNodeId = null
         }
@@ -758,6 +760,31 @@ class Maximize extends Plugin {
     }
 
     /**
+     * @summary Classifies a scalar change or an ordered Group batch against its captured document.
+     * Replaying pure reducers advances source membership between operations; checking only the
+     * adopted result would mistake a cross-node move into the maximized pane for a local move.
+     * Missing/mismatched context and failed reductions retain the conservative clear.
+     * @param {Object|null} descriptor
+     * @param {Object|null} [context]
+     * @returns {Boolean}
+     * @protected
+     */
+    isNeutralChange(descriptor, context) {
+        if (!Array.isArray(descriptor?.operations)) return this.isNeutralOperation(descriptor);
+
+        let document = context?.captured?.value;
+        if (!document || !context.workspaceKey || descriptor.workspaceKey !== context.workspaceKey) return false;
+
+        for (const operation of descriptor.operations) {
+            if (!this.isNeutralOperation(operation, document)) return false;
+            const result = Operations.applyOperation(document, operation);
+            if (result.errors.length) return false;
+            document = result.document
+        }
+        return true
+    }
+
+    /**
      * @summary Classifies a committed operation as catalog-only or confined to the maximized node — the ops
      * that must NOT pre-clear the transient: their effect stays inside the pane the user is
      * looking at, so the continuity rule ({@link #syncDockProjection}) decides from the committed
@@ -765,13 +792,13 @@ class Maximize extends Plugin {
      * topology mutations, boundary crossings, whole-document applies (a `null` descriptor
      * included) — clears terminally before it applies.
      * @param {Object|null} descriptor
+     * @param {Object} [document=this.owner.dockModel] State before this operation.
      * @returns {Boolean}
      * @protected
      */
-    isNeutralOperation(descriptor) {
+    isNeutralOperation(descriptor, document=this.owner.dockModel) {
         let me                                            = this,
             nodeId                                        = me.maximizedNodeId,
-            document                                      = me.owner.dockModel,
             {itemId, operation, tabsNodeId, targetNodeId} = descriptor || {};
 
         if (!operation || !nodeId) {
@@ -780,7 +807,7 @@ class Maximize extends Plugin {
 
         switch (operation) {
             case 'addItem':
-                return descriptor.target === undefined || me.isNeutralOperation({...descriptor.target, itemId});
+                return descriptor.target === undefined || me.isNeutralOperation({...descriptor.target, itemId}, document);
             case 'addTab': {
                 // The addTab handler re-dispatches an already-contained item to moveItem, so a
                 // descriptor targeting the maximized node can still RELOCATE the item out of a

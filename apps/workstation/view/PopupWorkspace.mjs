@@ -59,9 +59,7 @@ class PopupWorkspace extends DockWorkspace {
             dispose    : () => { if (!me.isDestroyed) me.destroy() },
             getDocument: () => me.dockModel,
             setDocument: value => me.dockModel = value,
-            project    : context => me.projectDockZoneDocument(context.snapshot.participants[me.workspaceKey], context.descriptor, me, {
-                preserveItemIds: context.preserveItemIds
-            })
+            project    : context => me.projectDockCommit(context)
         });
         me.syncParticipation()
     }

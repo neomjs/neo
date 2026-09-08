@@ -2223,20 +2223,34 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Projects a Group participant's adopted document with its captured operation context.
+     * Presentation collaborators can distinguish ordered operations against their before-state;
+     * the context is runtime-only and does not enter the document or reconciliation options.
+     * @param {Object} context The Group participant's projection context.
+     * @returns {Promise} This projection's outcome.
+     */
+    projectDockCommit(context) {
+        return this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
+            preserveItemIds: context.preserveItemIds
+        }, context)
+    }
+
+    /**
      * @summary Projects an adopted document without admitting another semantic write.
      * @param {Object|null} document The committed document to present.
      * @param {Object|null} [descriptor=null] The operation associated with the committed document.
      * @param {Object|null} [source=null] The originating interaction surface.
      * @param {Object} [projectionOptions={}] Committed topology's pane-preservation policy.
+     * @param {Object|null} [commitContext=null] Group capture and workspace identity for collaborators.
      * @returns {Promise} This projection's outcome; later projections survive its failure.
      * @protected
      */
-    projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}) {
+    projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}, commitContext=null) {
         let me = this,
             commitOptions, preserved, tabInsertDescriptor, refreshOptions, tail;
 
         // Presentation owners release transient state before the outgoing shell is reconciled.
-        me.fire('beforeDockZoneDocumentChange', {descriptor, document, source});
+        me.fire('beforeDockZoneDocumentChange', {commitContext, descriptor, document, source});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
         commitOptions       = me.getRefreshOptions(descriptor, source);
