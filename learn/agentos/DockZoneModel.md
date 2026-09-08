@@ -121,19 +121,91 @@ The persisted document is a versioned JSON object:
 
 `items` is an id-keyed catalog. Item ids are stable workspace identity, not necessarily component instance ids.
 
-Required item fields:
+Catalog fields used by adapters (the wire also accepts minimal records):
 
 - `componentRef`: stable reference used by the rendering adapter to locate or create the component.
 - `title`: display label for tab headers and persistence UIs.
-- `kind`: coarse category such as `panel`, `terminal`, `transcript`, `inspector`, or `tool`.
 
 Optional item fields:
 
+- `kind`: coarse category such as `panel`, `terminal`, `transcript`, `inspector`, or `tool`.
 - `blueprint`: a serializable Neo component config when the item is created from saved state rather than a live instance.
 - `closable`, `pinnable`, `movable`: UI policy hints. Defaults are adapter-defined.
 - `pinned`: semantic pin state. `true` means pinned open; `false` means auto-hide eligible when an adapter supports that affordance. Omitted preserves the adapter-defined default. `pinnable === false` means `setItemPinned` must reject pin-state changes.
 - `autoHidden`: semantic collapsed/auto-hide state. `true` means the item is committed as collapsed into an auto-hide affordance; `false` means the item is visible when the owning layout renders it. A pinned-open item must not be serialized with `autoHidden: true`; `setItemPinned(..., true)` clears `autoHidden`.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, secrets, PATs, or live component objects.
+
+### Authoring a Nested Arrangement
+
+`Neo.dashboard.dock.model.Authoring` converts pane declarations and a nested arrangement into the
+same committed document. Consumers describe placement without maintaining a flat structural graph:
+
+```javascript
+import Authoring from './src/dashboard/dock/model/Authoring.mjs';
+
+const {document, errors} = Authoring.fromZones({
+    nav   : {header: {text: 'Navigator'}},
+    editor: {header: {text: 'Editor'}}
+}, {
+    left  : {items: ['nav'], extent: 0.2, resizable: true},
+    center: 'editor'
+});
+```
+
+This pure model API returns `{document, errors}`; on failure `document` is `null`. It neither
+constructs components nor mutates its inputs. Host consumption and component ownership are separate
+from conversion. Successful output passes the existing document and saved-layout boundaries.
+
+| Authored shape | Meaning and defaults |
+|---|---|
+| `'editor'` or `['nav', 'editor']` | Tabs shorthand; first pane is active. |
+| `{items: ['nav', 'editor'], activeItemId: 'editor'}` | Tabs with an explicit selection. `null` preserves no selection. |
+| `{children: ['nav', 'editor'], orientation: 'horizontal'}` | Split; omitted sizes are equal fractions. Explicit sizes contain one finite nonnegative fraction per child, summing to 1. `vertical` stacks the children. |
+| `{left: {items: ['nav'], extent: 0.2}, center: 'editor'}` | Edge container. `extent` and `resizable` sit beside the child node but lower into its edge descriptor. |
+| `{type: 'edge-zone'}` | Empty edge container. An explicit `type` is also legal for tabs and splits. |
+
+Any of the three node types can be the root. `WorkspaceDocument.normalizeTree` removes empty tabs
+and redundant splits, retaining catalog-only panes. An empty root must be an edge container.
+Unknown pane names, duplicate placements, malformed shapes and unexpected node fields fail with the
+authored path, such as `zones.center.children[1].items[0]`.
+Validation collects independent errors across catalog entries and sibling nodes in one call. It stops
+descending a branch whose shape cannot be read safely and returns no partial document.
+
+Pane keys become item IDs. `componentRef` defaults to the key; wire `title` uses `header.text`, then
+the key. Nullish values use the default. Other defined fields from
+`WorkspaceDocument.dockZoneItemKeys`, including optional `kind`, policies, `metadata` and `blueprint`,
+are copied after JSON/model validation. Ordinary runtime config such as `module`, listeners and
+stores stays outside the document. A function inside a catalog field instead fails with its pane
+path. Unplaced declarations remain in the catalog, so detachment and closure stay distinguishable.
+
+An optional `id` on a structural node requests its wire ID. All explicit IDs are reserved before
+generation; duplicate IDs and a child claiming an unnamed root's `root` ID fail before lowering.
+Generated names use `root` for an unnamed root and readable `tabs-…`, `split-…` or `edge-…` prefixes
+elsewhere. Occupied names gain a `-0`, `-1`, … suffix through the existing node-ID generator. Pane
+names joined by delimiters are only naming hints: the occupancy check provides uniqueness.
+The existing document clone cannot preserve an own `__proto__` key. Authoring refuses that pane/node
+ID or nested catalog key with a path error, preventing silent loss at this boundary.
+
+### Export and Round-Trip Equality
+
+`Authoring.toConfig(document, {keepIds: true})` returns `{config: {panes, zones}, errors}` with every
+surviving node ID. On failure `config` is `null`. The default is `keepIds: true`; `false` omits all
+structural IDs. Export includes the **complete wire catalog**, mapping `title` to the ordinary pane
+`header.text` idiom and retaining unplaced items. It cannot
+reconstruct runtime component configuration that was never persisted.
+Export likewise reports independent catalog and node errors together, without returning partial config.
+Export checks the same split grammar as lowering: missing/unknown orientation and negative sizes
+fail with a document path even though the older wire validator admits those malformed values.
+
+Lowering the retained-ID export equals the original after `normalizeTree` and the documented
+catalog defaults. Lowering an IDs-dropped export preserves that same catalog and ordered structure,
+with generated IDs. This is equality after defaults, not byte equality with a minimal record that
+omitted `title` or `componentRef`. Complete-field controls retain their values.
+
+The model specs exercise the standalone dock example, Demo A, Demo B and Workstation documents,
+named collision and catalog-loss controls, and 400 deterministic generated trees. The generated
+domain has bounded depth, all three root types, tabs, splits, nested/empty edges, JSON policy fields
+and unplaced items; it is not a proof over every possible input.
 
 ### Stale Component References
 

@@ -902,6 +902,7 @@ class WorkspaceDocument extends Base {
      * items all resolve), each item appears at most once across the tree, committed item-state
      * booleans have the right type, split sizes match child count and sum to 1, and
      * `tabs.activeItemId` is null or one of `tabs.items`.
+     * Malformed node records or containers report errors without hiding safe sibling checks.
      * @param {Object} document
      * @returns {String[]} the (possibly empty) list of invariant violations
      * @static
@@ -927,37 +928,26 @@ class WorkspaceDocument extends Base {
             itemUse = {};
 
         for (const [itemId, item] of Object.entries(items)) {
-            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'pinned') && typeof item.pinned !== 'boolean') {
-                errors.push(`item "${itemId}" pinned must be a boolean`)
-            }
-
-            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'autoHidden') && typeof item.autoHidden !== 'boolean') {
-                errors.push(`item "${itemId}" autoHidden must be a boolean`)
-            }
-
-            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'lockable') && typeof item.lockable !== 'boolean') {
-                errors.push(`item "${itemId}" lockable must be a boolean`)
-            }
-
-            if (WorkspaceDocument.isJsonRecord(item) && Object.hasOwn(item, 'locked') && typeof item.locked !== 'boolean') {
-                errors.push(`item "${itemId}" locked must be a boolean`)
-            }
-
-            if (WorkspaceDocument.isJsonRecord(item) && item.pinned === true && item.autoHidden === true) {
-                errors.push(`item "${itemId}" cannot be pinned and autoHidden at the same time`)
-            }
+            errors.push(...WorkspaceDocument.validateItemPolicy(itemId, item))
         }
 
         for (const [nodeId, node] of Object.entries(nodes)) {
+            if (!WorkspaceDocument.isJsonRecord(node)) {
+                errors.push(`node "${nodeId}" must be a node record`);
+                continue
+            }
             if (node.type === 'split') {
-                (node.children || []).forEach(childId => {
+                const children = node.children || [];
+                if (!Array.isArray(children)) errors.push(`split "${nodeId}" children must be an array`);
+                else children.forEach(childId => {
                     if (!nodes[childId]) errors.push(`split "${nodeId}" references missing node "${childId}"`)
                 });
 
                 let sizes = node.sizes || [];
 
-                if (sizes.length !== (node.children || []).length) {
-                    errors.push(`split "${nodeId}" sizes length ${sizes.length} != children length ${(node.children || []).length}`)
+                if (!Array.isArray(sizes)) errors.push(`split "${nodeId}" sizes must be an array`);
+                else if (Array.isArray(children) && sizes.length !== children.length) {
+                    errors.push(`split "${nodeId}" sizes length ${sizes.length} != children length ${children.length}`)
                 } else if (sizes.length && Math.abs(sizes.reduce((a, b) => a + b, 0) - 1) > 1e-6) {
                     errors.push(`split "${nodeId}" sizes do not sum to 1`)
                 }
@@ -1009,12 +999,17 @@ class WorkspaceDocument extends Base {
                     }
                 }
             } else if (node.type === 'tabs') {
-                (node.items || []).forEach(itemId => {
+                const members = node.items || [];
+                if (!Array.isArray(members)) {
+                    errors.push(`tabs "${nodeId}" items must be an array`);
+                    continue
+                }
+                members.forEach(itemId => {
                     if (!items[itemId]) errors.push(`tabs "${nodeId}" references missing item "${itemId}"`);
                     itemUse[itemId] = (itemUse[itemId] || 0) + 1
                 });
 
-                if (node.activeItemId !== null && node.activeItemId !== undefined && !(node.items || []).includes(node.activeItemId)) {
+                if (node.activeItemId !== null && node.activeItemId !== undefined && !members.includes(node.activeItemId)) {
                     errors.push(`tabs "${nodeId}" activeItemId "${node.activeItemId}" is not one of its items`)
                 }
             }
@@ -1024,6 +1019,38 @@ class WorkspaceDocument extends Base {
             if (count > 1) errors.push(`item "${itemId}" appears ${count} times in the tree (must be at most once)`)
         });
 
+        return errors
+    }
+
+    /**
+     * @summary Validates item policy independently of opaque catalog payloads and tree structure.
+     *
+     * Both document validation and authoring use this authority. A malformed metadata/blueprint
+     * payload must not hide an independent policy error; JSON admission is checked separately.
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {String[]}
+     * @static
+     */
+    static validateItemPolicy(itemId, item) {
+        const errors = [];
+        if (!WorkspaceDocument.isJsonRecord(item)) return errors;
+
+        if (Object.hasOwn(item, 'pinned') && typeof item.pinned !== 'boolean') {
+            errors.push(`item "${itemId}" pinned must be a boolean`)
+        }
+        if (Object.hasOwn(item, 'autoHidden') && typeof item.autoHidden !== 'boolean') {
+            errors.push(`item "${itemId}" autoHidden must be a boolean`)
+        }
+        if (Object.hasOwn(item, 'lockable') && typeof item.lockable !== 'boolean') {
+            errors.push(`item "${itemId}" lockable must be a boolean`)
+        }
+        if (Object.hasOwn(item, 'locked') && typeof item.locked !== 'boolean') {
+            errors.push(`item "${itemId}" locked must be a boolean`)
+        }
+        if (item.pinned === true && item.autoHidden === true) {
+            errors.push(`item "${itemId}" cannot be pinned and autoHidden at the same time`)
+        }
         return errors
     }
 
