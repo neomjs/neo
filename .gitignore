@@ -59,6 +59,9 @@
 !/apps/shareddialog/neo-config.json
 !/apps/shareddialog/childapps/shareddialog2/index.html
 !/apps/shareddialog/childapps/shareddialog2/neo-config.json
+!/apps/workstation/index.html
+!/apps/workstation/**/*.mjs
+!/apps/workstation/neo-config.json
 
 /buildScripts/webpack/json/myApps.json
 
