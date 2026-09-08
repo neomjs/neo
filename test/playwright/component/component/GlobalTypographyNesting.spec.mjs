@@ -31,7 +31,7 @@ const
     // fallback is `revert` and not `inherit`. An `inherit` fallback computes 16px here, so this
     // constant is also what separates the two fallback keywords.
     UA_H1_SIZE    = '32px',
-    // neo-dark maps `--global-mark-background-color` to `--green-900`, which is `#000`.
+    // neo-dark maps `--global-mark-background-color` to `--green-900`, which resolves to black.
     NEO_MARK_BG   = 'rgb(0, 0, 0)',
     UA_MARK_BG    = 'rgb(255, 255, 0)',
     UA_CODE_FAMILY = 'monospace';
