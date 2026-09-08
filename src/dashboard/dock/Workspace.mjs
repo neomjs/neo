@@ -404,7 +404,7 @@ class Workspace extends Container {
 
     /**
      * The live committed dock-zone document — the single source of truth the view projects from.
-     * Advanced exclusively by {@link #onDockZoneDocumentChange}; readable through the holder
+     * Seeded at construction, then advanced through the host/Group commit path; readable through the holder
      * contract's {@link #getDockZoneDocument} before any operation has run.
      * @member {Object|null} dockModel=null
      */
@@ -2140,7 +2140,7 @@ class Workspace extends Container {
      * Hook: item ids whose live panes the consumer holds OUTSIDE the current projection and that
      * the reconciler must park rather than retire — for example a click-detached pane. Engine-owned
      * tear-out handles are merged separately and never depend on an app override. The default
-     * holds none.
+     * preserves declared catalog members, including auto-hidden panes.
      * @returns {Iterable<String>}
      */
     getPreservedItemIds() {

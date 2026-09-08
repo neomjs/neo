@@ -370,8 +370,6 @@ The minimal interface between the docking shell and the product surfaces that li
 | JSON-only `metadata` — no secrets, credentials, functions, DOM, live objects | No-secret validation on every persistence path (landed, #13153 class of checks) |
 | Nothing else — no layout knowledge, no dock imports, no preview access | Semantic placement continuity across moves, splits, transfers (§2.3), perspective capture/restore (§2.2), and auto-hide transitions (§2.7); item identity (`dockItemId`) stable across all of them |
 
-Two binding consequences:
-
 Declared pane keys remain independent even when they use the same component class. The host captures
 runtime configurations separately from JSON catalog records, allocates runtime component IDs and uses
 the existing component manager to resolve live instances. Lazy loaders remain normal runtime config;
@@ -384,6 +382,8 @@ declaration. `Workspace.openPane(itemId, target?)` reopens through `Operations.a
 host commit path. Placement is an optional `addTab`/`splitNode` descriptor; unknown declarations,
 existing catalog entries and invalid placements fail without partial publication. Detached catalog
 entries use move/restore operations. `addTab` still refuses absent catalog records.
+
+Two binding consequences:
 
 - **Panes are layout-blind.** An embedded surface never reads or mutates the dock document, never listens to drag surfaces, and never persists its own placement. It experiences docking exclusively as ordinary Neo component lifecycle (mount/unmount/re-parent) plus its own config updates. A pane that "helps" with layout is a contract violation.
 - **Layout is pane-blind.** The shell knows items only as catalog records. Cockpit panes and FM-UX cards add zero cases to the docking code; if a product surface needs a new docking behavior, that behavior enters through an amendment to this ADR, not through a pane-specific branch.
