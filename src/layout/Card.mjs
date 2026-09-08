@@ -87,9 +87,12 @@ class Card extends Base {
      * own default returns a fresh config literal. A repair pass re-resolving through that default
      * produced a new object, missed the identity guard, and constructed the item a second time.
      *
-     * An `id` names the item across those re-resolutions, so it is the stronger key where one
-     * exists. A plain `Map` rather than a `WeakMap` because a string key holds nothing alive, and
-     * entries are removed on settle by {@link #loadModule}, exactly as the identity map's are.
+     * An `id` names the item across those re-resolutions, so it is registered ALONGSIDE the
+     * identity entry rather than instead of it — never as a replacement. `core.Base.construct`
+     * deletes `config.id` while the load is still pending, so an id-only registration would stop
+     * matching the very object that started it. A plain `Map` rather than a `WeakMap` because a
+     * string key holds nothing alive, and entries are removed on settle by {@link #loadModule},
+     * exactly as the identity map's are.
      * @member {Map<String,Promise>} loadingModulesById=new Map()
      * @protected
      */
@@ -230,17 +233,19 @@ class Card extends Base {
      * surfaced as an intermittent double construction under machine load rather than as a bug.
      *
      * A second call therefore joins the in-flight promise and settles on the same instance. What
-     * counts as "the same item" is {@link #loadSlot}'s question: the config's `id` where it has one,
-     * object identity otherwise. Identity alone was not enough — a caller re-resolving the item
-     * through a documented-legal path arrives holding a new object for the same pane.
+     * counts as "the same item" is deliberately BOTH answers at once: the pending load is
+     * registered under the config's object identity and, when it has one, under its `id`. Identity
+     * alone was not enough — a caller re-resolving the item through a documented-legal path arrives
+     * holding a new object for the same pane. The `id` alone is not enough either, because
+     * construction deletes it from the config while the load is still in flight.
      * @param {Object} item
      * @param {Number} [index]
      * @returns {Promise<Neo.component.Base>}
      */
     loadModule(item, index) {
-        let me           = this,
-            {store, key} = me.#loadSlot(item),
-            inFlight     = store.get(key);
+        let me       = this,
+            {id}     = item,
+            inFlight = me.loadingModules.get(item) || (id ? me.loadingModulesById.get(id) : null);
 
         if (inFlight) {
             return inFlight
@@ -248,31 +253,24 @@ class Card extends Base {
 
         const load = me.#loadModuleOnce(item, index);
 
-        store.set(key, load);
+        // Registered under BOTH keys for the whole pending lifetime, and `id` is captured here
+        // rather than re-read on the way out — because the parked object's key CHANGES while the
+        // load is in flight. `core.Base.construct` runs `delete config.id` as it consumes the
+        // config (`src/core/Base.mjs:283`), so choosing one key per call loses a joiner in
+        // whichever direction it did not choose: an id-keyed entry misses a later caller holding
+        // the same, now id-less object, and that caller re-enters the loader against an
+        // `item.module` which has already become the resolved class. Two entries, one promise, so
+        // a re-resolved config naming the item and the original object join the same load.
+        me.loadingModules.set(item, load);
+        id && me.loadingModulesById.set(id, load);
 
-        // A rejected import must not leave the item unloadable: the entry goes whatever the outcome,
-        // so the next activation retries against a config that is still parked behind its placeholder.
-        return load.finally(() => store.delete(key))
-    }
-
-    /**
-     * The in-flight store and key for one parked item — `id` when the config carries one, object
-     * identity otherwise.
-     *
-     * A strict SUPERSET of keying on identity alone, never less, and the "otherwise" is the
-     * load-bearing half. Keying on `id` unconditionally would collide every id-less parked config
-     * onto a single `undefined` key, so a second caller would join an unrelated item's load and
-     * receive the FIRST item's instance — a worse defect than the duplicate construction this
-     * keying removes. `layout.Card` has never required an id, so that path is ordinary rather than
-     * exotic.
-     * @param {Object} item
-     * @returns {Object} `{store, key}` — the map to read and the key to read it with.
-     * @private
-     */
-    #loadSlot(item) {
-        const {id} = item;
-
-        return id ? {store: this.loadingModulesById, key: id} : {store: this.loadingModules, key: item}
+        // A rejected import must not leave the item unloadable: the entries go whatever the
+        // outcome, so the next activation retries against a config that is still parked behind its
+        // placeholder. Removed by the captured id, for the same reason it was captured.
+        return load.finally(() => {
+            me.loadingModules.delete(item);
+            id && me.loadingModulesById.delete(id)
+        })
     }
 
     /**

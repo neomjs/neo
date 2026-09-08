@@ -274,6 +274,62 @@ test.describe('Neo.container.Base#insert — a lazy module config parks, then lo
     });
 
     /**
+     * The parked object's KEY CHANGES while its load is in flight, and this arm is the only thing
+     * that says so.
+     *
+     * `core.Base.construct` runs `delete config.id` (`src/core/Base.mjs:283`) as it consumes the
+     * parked config. A caller arriving after that point holds the same object with no id —
+     * `onConstructed` is the earliest such caller, and it still sees the config literally in
+     * `container.items[1]`, because the assignment back into `items` has not happened yet.
+     *
+     * Registered under the id alone, that caller misses, re-enters `#loadModuleOnce`, and finds
+     * `item.module` already replaced by the resolved class: `TypeError: module is not a function`,
+     * with the first load still pending. Registering under BOTH keys is what makes the id an
+     * addition rather than a substitution. Found in review by @neo-gpt-emmy, who executed the Card
+     * source from both revisions rather than reading them.
+     */
+    test('a re-entrant load from onConstructed joins, though construction has consumed the id', async () => {
+        let resolveImport, reentry, parkedDuringHook;
+
+        const deferred = new Promise(resolve => {resolveImport = resolve});
+
+        container = cardContainer();
+        container.add({id: 'insert-lazy-module-reentrant', module: () => deferred, text: 'lazy'});
+
+        const parked = container.items[1];
+
+        expect(parked.id, 'the arm needs an id-bearing parked config').toBe('insert-lazy-module-reentrant');
+
+        class ReEntrant extends Button {
+            static config = {
+                className: 'Test.Unit.Container.InsertLazyModule.ReEntrant'
+            }
+
+            onConstructed() {
+                super.onConstructed();
+
+                parkedDuringHook = container.items[1] === parked;
+                reentry          = container.layout.loadModule(parked, 1).then(value => ({value}), error => ({error}))
+            }
+        }
+
+        Neo.setupClass(ReEntrant);
+
+        const first = container.layout.loadModule(parked, 1);
+
+        resolveImport({default: ReEntrant});
+
+        const a = await first,
+              b = await reentry;
+
+        expect(parkedDuringHook, 'the config is still the items entry while onConstructed runs').toBe(true);
+        expect(parked.id,        'and construction has already consumed its id').toBeUndefined();
+
+        expect(b.error, `the re-entrant caller must join, not re-enter — ${b.error?.message ?? ''}`).toBeUndefined();
+        expect(b.value, 'both callers settle on the SAME instance').toBe(a)
+    });
+
+    /**
      * The other half of the keying, and the reason it is `id` WHEN PRESENT rather than `id`.
      *
      * `layout.Card` has never required an id on a parked config — the arms above this one carry
