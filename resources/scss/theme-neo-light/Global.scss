@@ -15,69 +15,24 @@
     // The product motion vocabulary (see resources/scss/_motion.scss — one authority, all themes)
     @include motion-vocabulary;
 
-    h1 {
-        color           : var(--sem-color-fg-neutral-contrast);
-        font-family     : var(--core-fontfamily-sans);
-        font-size       : var(--core-fontsize-h1);
-        font-weight     : var(--core-fontweight-semibold);
-        letter-spacing  : -0.02em;
-        line-height     : var(--core-lineheight-headline);
-    }
-
-    h2 {
-        color           : var(--sem-color-fg-neutral-contrast);
-        font-family     : var(--core-fontfamily-sans);
-        font-size       : var(--core-fontsize-h2);
-        font-weight     : var(--core-fontweight-semibold);
-        letter-spacing  : -0.02em;
-        line-height     : var(--core-lineheight-headline);
-    }
-
-    h3 {
-        color           : var(--sem-color-fg-neutral-contrast);
-        font-family     : var(--core-fontfamily-sans);
-        font-size       : var(--core-fontsize-h3);
-        font-weight     : var(--core-fontweight-semibold);
-        letter-spacing  : -0.02em;
-        line-height     : var(--core-lineheight-headline);
-    }
-
-    p {
-        color           : var(--sem-color-fg-neutral-contrast);
-        font-family     : var(--core-fontfamily-sans);
-        font-size       : var(--core-fontsize-body);
-        font-weight     : var(--core-fontweight-regular);
-        line-height     : var(--core-lineheight-paragraph);
-    }
-
-    i, em {
-        font-style: italic;
-    }
-
-    code {
-        &:not(.hljs) {
-            background-color: #E6EDF7;
-            border          : 1px solid var(--sem-color-border-subtle);
-            border-radius   : 4px;
-            color           : var(--sem-color-fg-neutral-contrast);
-            font-family     : var(--core-fontfamily-mono);
-            font-size       : 14px;
-            font-weight     : var(--core-fontweight-regular);
-            line-height     : var(--core-lineheight-headline);
-            padding         : 2px 0.3em;
-        }
-    }
-
-    h1, h2, h3, h4, h5, h6 {
-        code:not(.hljs) {
-            margin : 0 0.15em;
-            padding: 0 0.3em;
-        }
-    }
-
-    mark {
-        background-color: var(--green-50);
-        color           : black;
-        padding         : 0.1em 0.2em;
-    }
+    // Global element typography — the VALUES for the structural rules in resources/scss/src/Global.scss
+    // (#18232). One token per property, deliberately: a shared token would compute to `unset` on the
+    // property whose type it does not match. The contract lives at the top of that file.
+    --global-heading-letter-spacing: -0.02em;
+    --global-paragraph-color       : var(--sem-color-fg-neutral-contrast);
+    --global-code-background-color : #E6EDF7;
+    --global-code-border           : 1px solid var(--sem-color-border-subtle);
+    --global-code-border-radius    : 4px;
+    --global-code-font-size        : 14px;
+    --global-code-padding          : 2px 0.3em;
+    // Declared, although the old block left heading-code colour to the general `code` rule: the
+    // structural `h1..h6 code` selector (0,1,2) now OUTWEIGHS `code:not(.hljs)` (0,1,1), so leaving
+    // this undeclared would `revert` heading code to the UA colour instead of inheriting the
+    // contrast token it renders with today. The old cascade is reproduced by stating it.
+    --global-heading-code-color    : var(--sem-color-fg-neutral-contrast);
+    --global-heading-code-margin   : 0 0.15em;
+    --global-heading-code-padding  : 0 0.3em;
+    --global-mark-background-color : var(--green-50);
+    --global-mark-color            : black;
+    --global-mark-padding          : 0.1em 0.2em;
 }
