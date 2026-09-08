@@ -6,13 +6,9 @@ setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
         useDomApiRenderer      : true,
-        // Load-bearing, and the reason this arm can observe anything at all. `VdomLifecycle`
-        // applies a flight's deltas inside `if (!Neo.config.useVdomWorker && …)`, and the harness
-        // default is `true` — so with the default the delta call is UNREACHABLE and the
-        // zero-deltas assertion below cannot fail for the reason it names. It was still able to
-        // fail: `Neo.applyDeltas` is module-global, so any other component's delta landing in the
-        // window reddened it. A vacuous assertion that reds on ambient traffic is the worst of
-        // both, and it is what made this arm an unownable intermittent.
+        // Load-bearing: `VdomLifecycle` applies a flight's deltas inside
+        // `if (!Neo.config.useVdomWorker && …)`. At the harness default of `true` that call is
+        // unreachable and the zero-deltas assertion below cannot fail for the reason it names.
         useVdomWorker          : false
     },
     appConfig: {
@@ -45,27 +41,18 @@ test.describe('VdomLifecycle destroy cancellation boundary', () => {
             parent, child;
 
         /**
-         * Every delta applied while the patch is installed, not a count of calls.
-         *
-         * A bare counter cannot express this arm's contract. `Neo.applyDeltas` is module-global and
-         * a Playwright worker runs spec files sequentially in ONE process, so an earlier file's
-         * un-awaited update landing inside the window increments a process-wide count exactly like
-         * the leak under test does. That arm reported `Received: 1` on CI and could not say whose
-         * delta it was — which is why the intermittent stayed unactionable. Recording the payloads
-         * makes a failure name its own cause on a runner nobody can attach a session to.
+         * Payloads, not a call count: `Neo.applyDeltas` is module-global and a worker runs spec
+         * files in one process, so a count cannot distinguish this flight's deltas from anyone
+         * else's. Recorded so a failure names the delta it caught.
          * @type {Object[]}
          */
         const applied = [];
 
         /**
-         * The batches that received the armed promise, by the ids they carry.
-         *
-         * The mock used to hand `armed.promise` to EVERY caller while armed. A live component
-         * reaching `updateBatch` in that window would then receive the destroyed child's stale
-         * payload — and `VdomLifecycle`'s guard gates on the flight INITIATOR, so a live joiner
-         * passes it legitimately and applies deltas that were never its own. Serving only the
-         * child's own batch removes that; asserting the joiner set means a future ancestor-timing
-         * change trips an arm instead of quietly becoming the cause.
+         * The batches served the armed promise, by the ids they carry. Only the child's own batch
+         * may be served: `VdomLifecycle`'s guard gates on the flight INITIATOR, so a live joiner
+         * would legitimately apply a destroyed peer's payload. Asserted, so an ancestor-timing
+         * change trips an arm rather than becoming the cause.
          * @type {String[]}
          */
         const armedJoiners = [];
@@ -144,12 +131,9 @@ test.describe('VdomLifecycle destroy cancellation boundary', () => {
                 vnodes: {'vdc-child': {id: 'vdc-child', nodeName: 'div'}}
             });
 
-            // In-window control, and the reason this arm can be trusted at a count of zero: a delta
-            // belonging to someone else, applied inside the same window on purpose. It must be
-            // RECORDED (so the instrument is proven live rather than silently detached) and must
-            // NOT be attributed to the destroyed flight. Ambient traffic from a neighbouring spec
-            // file arrives exactly like this, and it is what the previous process-wide counter
-            // could not tell apart from the leak.
+            // In-window control: someone else's delta, applied on purpose. It must be RECORDED
+            // (proving the recorder is attached, not silently detached) and NOT attributed to the
+            // destroyed flight. This is the shape ambient traffic from a neighbouring spec takes.
             Neo.applyDeltas(parent.windowId, {action: 'updateVtext', id: 'vdc-unrelated', value: 'ambient'});
 
             await new Promise(resolve => setTimeout(resolve, 20));
