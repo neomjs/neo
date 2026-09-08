@@ -223,33 +223,49 @@ class Window extends Manager {
      * the effect lands.
      *
      * Every axis is reported separately rather than collapsed into the verdict, so a refusal says which
-     * condition failed. `ownerWindowId` is deliberately explicit: a window asserting it owns the route
-     * passes its own id, while a runtime dispatching AS the route's owner passes `null` and the result
-     * records that ownership was never asserted.
+     * condition failed.
+     *
+     * **Asserting an identity is opting in by KEY, not by value.** Omit `ownerWindowId` and ownership
+     * goes unchecked — a runtime that dispatches AS the route's owner rather than claiming to be it.
+     * Pass the key with a nullish value and the answer is no: a caller whose own id is missing cannot
+     * be shown to own anything, and reading that as a waived check would grant on absent evidence.
+     * Independently of any assertion, a granted route must itself name a handle, an owning main thread
+     * and a target — being unasserted is not the same as being unaddressable.
      * @param {Object} data
      * @param {'close'|'focus'|'position'|'resize'} data.capability
-     * @param {String|null} [data.ownerWindowId=null] Assert this owner, or `null` to not assert one
+     * @param {String} [data.ownerWindowId] Assert this owner; omit the key to not assert one
      * @param {Object|null} [data.route=null] An already-resolved route; otherwise `windowId` resolves it
-     * @param {String|null} [data.targetWindowId=null] Require the route to address this exact window
-     * @param {String|null} [data.windowId=null] Resolve the route from this window's entry
-     * @returns {Object} `{capable, granted, hasHandle, hasTarget, ownerAsserted, ownerMatches, present, route, targetMatches}`
+     * @param {String} [data.targetWindowId] Require the route to address this exact window
+     * @param {String|null} [data.windowId=null] Resolve the route from this window's entry, and require the route to address it
+     * @returns {Object} `{capable, granted, hasHandle, hasOwner, hasTarget, ownerAsserted, ownerMatches, present, route, targetMatches}`
      */
-    resolveNativeRoute({capability, ownerWindowId=null, route=null, targetWindowId=null, windowId=null}) {
-        route ??= (windowId && this.get(windowId)?.nativeRoute) || null;
-
+    resolveNativeRoute(data) {
         const
-            present       = Boolean(route),
-            capable       = present && route.capabilities?.[capability] === true,
-            hasHandle     = present && Boolean(route.nativeHandleKey),
-            hasTarget     = present && Boolean(route.targetWindowId),
-            ownerAsserted = ownerWindowId !== null,
-            ownerMatches  = present && (!ownerAsserted || route.ownerWindowId === ownerWindowId),
-            targetMatches = present && (targetWindowId === null || route.targetWindowId === targetWindowId),
-            granted       = capable && hasHandle && hasTarget && ownerMatches && targetMatches;
+            {capability, route: supplied=null, windowId=null} = data,
+            // OMITTING a key waives that check; PASSING one that is nullish is a caller whose own
+            // identity is missing, and that refuses. Collapsing the two would turn "I have no id to
+            // compare" into "no comparison needed", which is the opposite decision.
+            assertsOwner   = 'ownerWindowId'  in data,
+            assertsTarget  = 'targetWindowId' in data || windowId !== null,
+            expectedOwner  = data.ownerWindowId,
+            // Resolving by windowId asks about THAT window, so the route has to address it.
+            expectedTarget = 'targetWindowId' in data ? data.targetWindowId : windowId,
+            route          = supplied ?? ((windowId && this.get(windowId)?.nativeRoute) || null),
+            present        = Boolean(route),
+            capable        = present && route.capabilities?.[capability] === true,
+            hasHandle      = present && Boolean(route.nativeHandleKey),
+            // The route must name an owning main thread to address even when the caller does not
+            // claim to be it: unasserted ownership is not the same as an unaddressable route.
+            hasOwner       = present && Boolean(route.ownerWindowId),
+            hasTarget      = present && Boolean(route.targetWindowId),
+            ownerMatches   = present && (!assertsOwner  || (Boolean(expectedOwner)  && route.ownerWindowId  === expectedOwner)),
+            targetMatches  = present && (!assertsTarget || (Boolean(expectedTarget) && route.targetWindowId === expectedTarget)),
+            granted        = capable && hasHandle && hasOwner && hasTarget && ownerMatches && targetMatches;
 
         return {
-            capable, granted, hasHandle, hasTarget, ownerAsserted, ownerMatches, present, targetMatches,
-            route: granted ? route : null
+            capable, granted, hasHandle, hasOwner, hasTarget, ownerMatches, present, targetMatches,
+            ownerAsserted: assertsOwner,
+            route        : granted ? route : null
         }
     }
 

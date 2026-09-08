@@ -271,13 +271,60 @@ test.describe.serial('Neo.manager.Window native route authority (#18501)', () =>
     });
 
     test('a caller that asserts no owner is granted whatever the route owner is, and the result says so', () => {
-        const route  = grantingRoute({ownerWindowId: 'some-other-window'}),
-              result = ask({capability: 'close', ownerWindowId: null, route});
+        const route = grantingRoute({ownerWindowId: 'some-other-window'});
+
+        // Omitting the key is the opt-out; the runtime that dispatches AS the route owner uses it.
+        const result = WindowManager.resolveNativeRoute({capability: 'close', route});
 
         expect(result.granted).toBe(true);
         expect(result.ownerAsserted).toBe(false);
         expect(result.route).toBe(route);
         expect(ask({route}).ownerAsserted).toBe(true)
+    });
+
+    test('a route naming no owning main thread is refused even when the caller asserts no owner', () => {
+        const result = WindowManager.resolveNativeRoute({
+            capability: 'close', route: grantingRoute({ownerWindowId: undefined})
+        });
+
+        // Unasserted ownership is not an unaddressable route: there would be no main thread to
+        // forward the dispatch to, and the caller would pass that absence straight through.
+        expect(result.hasOwner).toBe(false);
+        expect(result.granted).toBe(false);
+        expect(result.route).toBeNull();
+        expect(result).toMatchObject({capable: true, hasHandle: true, hasTarget: true, ownerAsserted: false})
+    });
+
+    test('a nullish asserted identity refuses, where an omitted one waives the check', () => {
+        const route = grantingRoute();
+
+        for (const missing of [null, undefined]) {
+            expect(WindowManager.resolveNativeRoute({capability: 'position', ownerWindowId: missing, route}))
+                .toMatchObject({granted: false, ownerAsserted: true, ownerMatches: false});
+            expect(WindowManager.resolveNativeRoute({capability: 'position', targetWindowId: missing, route}))
+                .toMatchObject({granted: false, targetMatches: false})
+        }
+
+        // The same call with both keys absent is the waived-check case, and it grants.
+        expect(WindowManager.resolveNativeRoute({capability: 'position', route}).granted).toBe(true)
+    });
+
+    test('resolving by windowId requires the entry route to address that same window', () => {
+        const route = grantingRoute({targetWindowId: 'popup-window'});
+
+        WindowManager.onWindowConnect({
+            appName   : 'DockDemo',
+            windowData: {nativeRoute: route},
+            windowId  : 'requested-popup'
+        });
+
+        // The entry supplies a route, but it addresses a different window than the one asked about.
+        const result = WindowManager.resolveNativeRoute({capability: 'focus', windowId: 'requested-popup'});
+
+        expect(result.present).toBe(true);
+        expect(result.targetMatches).toBe(false);
+        expect(result.granted).toBe(false);
+        expect(result.route).toBeNull()
     });
 
     test('the route resolves from a connected window entry when the caller passes only a windowId', () => {

@@ -760,6 +760,89 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('a missing source or owner identity refuses reshow before any native dispatch', async () => {
+        const
+            originalDragDrop = Neo.main.addon.DragDrop,
+            originalMove     = Neo.Main.windowNativeMoveTo,
+            originalResize   = Neo.Main.windowNativeResizeTo,
+            calls            = [];
+
+        // A non-terminal re-show reaches the platform through resumeWindowDrag, so that is the seam
+        // this control counts; the Main methods are stubbed to catch a terminal path if one ran.
+        Neo.main.addon.DragDrop = {
+            acknowledgeWindowDragOrphanRecovery: async () => true,
+            hasWindowDragOrphanRecovery        : async () => false,
+            resumeWindowDrag                   : async data => {calls.push(['resume', data]); return true}
+        };
+        Neo.Main.windowNativeResizeTo = async data => {calls.push(['resize', data]); return true};
+        Neo.Main.windowNativeMoveTo   = async data => {calls.push(['move',   data]); return true};
+
+        /**
+         * @summary Runs one reshow with a crafted identity pair and counts the native seam calls.
+         * @param {Object} config
+         * @param {String|null} [config.entryWindowId='source-window']
+         * @param {String|null} [config.hostWindowId] Replaces the host's own id when supplied
+         * @returns {Promise<Object>} `{admitted, dispatches}`
+         */
+        async function attempt(overrides={}) {
+            // Keyed rather than defaulted, for the reason this whole test exists: a destructuring
+            // default fires on `undefined`, so `{entryWindowId: undefined}` would silently become the
+            // valid id and the case would pass while testing nothing.
+            const
+                entryWindowId = 'entryWindowId' in overrides ? overrides.entryWindowId : 'source-window',
+                workspace     = Neo.create(Workspace, {windowId: Neo.config.windowId});
+
+            workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+                nativeRoute: {
+                    capabilities   : {close: true, focus: true, position: true, resize: true},
+                    nativeHandleKey: 'handle-source',
+                    ownerWindowId  : workspace.windowId,
+                    targetWindowId : 'source-window'
+                },
+                windowId  : entryWindowId,
+                windowName: 'tearout-audit'
+            });
+
+            if ('hostWindowId' in overrides) workspace.windowId = overrides.hostWindowId;
+
+            calls.length = 0;
+
+            const admitted = await workspace.reshowTearOutVessel({
+                itemId    : 'audit',
+                rect      : {height: 120, width: 200, x: 420, y: 240},
+                windowName: 'tearout-audit'
+            });
+
+            return {admitted, dispatches: calls.length}
+        }
+
+        try {
+            // The positive control proves the probe reaches the dispatch branch at all; without it a
+            // zero-dispatch refusal would be indistinguishable from a setup that never got there.
+            expect(await attempt()).toMatchObject({admitted: true, dispatches: 1});
+
+            // An erased host identity cannot be shown to own the route. `me.windowId` is read
+            // directly rather than through a resolver, so this is the reachable regression.
+            // Only `null` is asserted here: Neo's reactive configs IGNORE an `undefined` write, so a
+            // host cannot reach that state through the class at all — measured, not assumed. The
+            // predicate battery covers `undefined` directly, where it is reachable.
+            expect(await attempt({hostWindowId: null})).toMatchObject({admitted: false, dispatches: 0});
+
+            // The entry side is additionally guarded by resolveTearOutVessel, which refuses a
+            // connection carrying no windowId before the route is ever read.
+            for (const entryWindowId of [null, undefined]) {
+                expect(await attempt({entryWindowId})).toMatchObject({admitted: false, dispatches: 0})
+            }
+
+            // A present-but-wrong id must still refuse, so the axis is not merely presence-checked.
+            expect(await attempt({entryWindowId: 'a-different-window'})).toMatchObject({admitted: false, dispatches: 0})
+        } finally {
+            Neo.main.addon.DragDrop       = originalDragDrop;
+            Neo.Main.windowNativeMoveTo   = originalMove;
+            Neo.Main.windowNativeResizeTo = originalResize
+        }
+    });
+
     test('terminal restore compensates safely until exact extent and position both succeed', async () => {
         let
             moveAdmitted       = false,

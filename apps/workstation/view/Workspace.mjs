@@ -1670,8 +1670,11 @@ class Workspace extends DockWorkspace {
         // that exists and fails an axis is.
         const
             exactWindowId = entry?.windowId ?? admission?.windowId,
+            // No exact window means no target to constrain, which the key's ABSENCE says; passing it
+            // as null would instead say the caller lost an id it needed, and refuse.
             auth          = WindowManager.resolveNativeRoute({
-                capability: 'close', ownerWindowId: me.windowId, route: nativeRoute, targetWindowId: exactWindowId ?? null
+                capability: 'close', ownerWindowId: me.windowId, route: nativeRoute,
+                ...(exactWindowId && {targetWindowId: exactWindowId})
             });
 
         closeReceipt.route = {
@@ -1886,8 +1889,7 @@ class Workspace extends DockWorkspace {
 
         if (
             !sourcePos.granted || (needsResize && !sourceResize.granted) ||
-            // A conversion target that named no window cannot be the one this route addresses.
-            (!targetIsMain && (!targetFocus.granted || !me.vesselConversionTargetWindowId)) ||
+            (!targetIsMain && !targetFocus.granted) ||
             entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect ||
             (nativeTitlebar && (
                 sourceRect.width > targetRect.width || sourceRect.height > targetRect.height

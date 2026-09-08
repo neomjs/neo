@@ -3898,8 +3898,7 @@ class DemoBWorkspace extends Container {
         me.lastVesselRestoreReceipt = null;
 
         if (
-            // A cross-window target that named no window cannot be the one this route addresses.
-            !sourcePos.granted || !targetFocus.granted || !me.crossWindowTargetWindowId ||
+            !sourcePos.granted || !targetFocus.granted ||
             entry.windowName !== windowName || !sourceRect || !targetRect || !targetWindow.innerRect ||
             sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
         ) {
@@ -4132,9 +4131,11 @@ class DemoBWorkspace extends Container {
 
         const exactWindowId = entry?.windowId ?? admittedWindowId;
 
-        // Absence of a route is not a refusal here: such a vessel closes semantically.
+        // Absence of a route is not a refusal here: such a vessel closes semantically. No exact window
+        // means no target to constrain, which the key's ABSENCE says rather than a null value.
         const closeAuth = WindowManager.resolveNativeRoute({
-            capability: 'close', ownerWindowId: me.windowId, route: nativeRoute, targetWindowId: exactWindowId ?? null
+            capability: 'close', ownerWindowId: me.windowId, route: nativeRoute,
+            ...(exactWindowId && {targetWindowId: exactWindowId})
         });
 
         if (closeAuth.present && !closeAuth.granted) return false;
