@@ -24,6 +24,24 @@ on:
     branches: [dev]
   push:
     branches: [dev]
+  # Dispatch turns the tier into a measuring instrument (#18505). Until it existed, a hosted
+  # sample cost a pull request and arrived only when someone tripped over a red — so an
+  # intermittent had failures but no DENOMINATOR, and the rerun that unblocks a PR marks the run
+  # green and erases the sample it produced. Rates measured that way wander: #18439's arm read
+  # 2/2, then 1/2, then 1/3, then 0/19 on unchanged source.
+  #
+  # Dispatch-only rather than scheduled, deliberately: #14685's nightly runner is this
+  # repository's own evidence that unowned scheduled execution decays until nobody notices it
+  # stopped. This costs nothing when unused and always has a person behind it.
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: 'Spec paths to run instead of the tier selection (space-separated). Empty runs the ordinary selection.'
+        type: string
+      repeatEach:
+        description: 'Run each selected test this many times — the denominator of the measurement.'
+        type: string
+        default: '1'
 
 concurrency:
   # Matches `test.yml`: initial attempts share the ref stream so a new head supersedes
@@ -181,12 +199,37 @@ jobs:
       #
       # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the unit
       # suite already uses; each guard states the condition it stands in for.
+      # The five-minute ceiling is the GATE's budget and stays exactly that for `pull_request` and
+      # `push`. A dispatch is a measurement rather than a gate — N repeats of a spec are meant to
+      # take N times as long — so it gets its own budget. Sharing the gate's ceiling would silently
+      # truncate a probe and report a rate that is an artifact of the timeout.
       - name: Run e2e (engine tier)
         if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
-        timeout-minutes: 5
-        run: npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 ${{ steps.selection.outputs.paths }}
+        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 5 }}
         env:
           NEO_TEST_SKIP_CI: 'true'
+          # Dispatch inputs reach the shell as ENVIRONMENT, never interpolated into this script.
+          # `${{ inputs.specs }}` spliced into a `run:` is a command-injection surface, and
+          # "only maintainers can dispatch" is a mitigation rather than a fix. Read as `$PROBE_SPECS`
+          # the value is only ever word-split into arguments: shell metacharacters inside it are
+          # data, because they are not literal text in this script.
+          PROBE_SPECS: ${{ inputs.specs }}
+          PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
+          TIER_PATHS: ${{ steps.selection.outputs.paths }}
+        run: |
+          # `pipefail`, because a pipeline reports its LAST command's status: without it `tee`
+          # would return 0 over a red suite and the gate would pass on a failing run.
+          set -o pipefail
+
+          paths="${PROBE_SPECS:-$TIER_PATHS}"
+
+          echo "selection: ${paths}"
+          echo "repeat-each: ${PROBE_REPEAT}"
+
+          # Deliberately unquoted: the selection is a space-separated list that must word-split
+          # into separate arguments.
+          npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 \
+            --repeat-each="${PROBE_REPEAT}" ${paths} 2>&1 | tee /tmp/e2e-run.log
 
       # `always()`, because a failed run needs its coverage stated more than a green one
       # does — and the destination is unescaped on purpose: an earlier inline form wrote
@@ -196,6 +239,27 @@ jobs:
       # Conjoined with the gate: coverage describes a run, and on a skipped diff there is
       # no run to describe. Printing "covers 20 of 104" when nothing executed would be a
       # louder version of the false green this summary exists to prevent.
+      # The measurement's whole point: a rate with its DENOMINATOR, on the run page rather than
+      # reconstructed from a log by whoever reads it next. `always()`, because a probe that ends
+      # red is the one whose numbers are wanted most.
+      - name: Report probe rate
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        env:
+          PROBE_SPECS: ${{ inputs.specs }}
+          PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
+        run: |
+          {
+            echo "### Probe result"
+            echo
+            echo "- selection: \`${PROBE_SPECS:-<tier selection>}\`"
+            echo "- repeat-each: \`${PROBE_REPEAT}\`"
+            echo
+            # Playwright's own tally is the denominator. Absent means the run died before
+            # reporting, which is itself the answer and must not read as a clean zero.
+            grep -aE '^ *[0-9]+ (passed|failed|flaky|skipped|did not run)' /tmp/e2e-run.log \
+              || echo 'no Playwright summary line — the run did not reach its reporter'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Report tier coverage
         if: ${{ always() && needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
         run: node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"

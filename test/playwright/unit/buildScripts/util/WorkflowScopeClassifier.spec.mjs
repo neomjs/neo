@@ -103,7 +103,8 @@ const createRuntime = ({
     getContentError = null,
     forkOwner       = null,
     forkUnreadable  = false,
-    liveHead        = 'head-sha'
+    liveHead        = 'head-sha',
+    eventName       = 'pull_request'
 } = {}) => {
     const outputs = new Map(),
           info    = [],
@@ -151,7 +152,7 @@ const createRuntime = ({
               }
           },
           context = {
-              eventName: 'pull_request',
+              eventName,
               payload  : {
                   pull_request: {
                       base: { sha: baseSha },
@@ -463,6 +464,27 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
 });
 
 test.describe('Tests scope classifier — unavailable diffs', () => {
+
+    test('a workflow_dispatch admits every suite, and does so on purpose', async () => {
+        // The e2e tier is dispatchable as a measuring instrument, and a dispatch has no diff to
+        // classify: `getChangedFiles` returns null for any event that is not a pull request or a
+        // push, which lands on the unavailable branch and admits everything. That is the right
+        // answer — a probe naming its own specs must not be gated on paths nobody changed — but it
+        // arrives by falling through rather than by decision, and an untested fall-through is one
+        // refactor from becoming a dispatch that silently runs nothing.
+        const runtime = createRuntime({ eventName: 'workflow_dispatch' });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.listFiles, 'a dispatch has no diff to list').toBe(0);
+        expect(runtime.calls.pullsGet,  'and no head to compare').toBe(0);
+        expect(outputsOf(runtime)).toMatchObject({
+            run_components: 'true',
+            run_e2e       : 'true',
+            run_unit      : 'true',
+            skip_reason   : 'changed files unavailable'
+        });
+    });
 
     test('an empty changed-file set runs both suites', async () => {
         const runtime = createRuntime({ files: [] });
