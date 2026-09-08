@@ -37,7 +37,8 @@ class Operations extends Base {
      * @static
      */
     static operationHandlers = Object.freeze({
-        addTab: (document, descriptor) =>
+        addItem: (document, descriptor) => Operations.addItem(document, descriptor),
+        addTab : (document, descriptor) =>
             WorkspaceDocument.findContainingTabsId(document, descriptor.itemId)
                 ? Operations.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
                 : Operations.addTab(document, descriptor),
@@ -82,17 +83,18 @@ class Operations extends Base {
      * @static
      */
     static operationChangeClass = Object.freeze({
-        addTab           : 'topology',
-        applyDocument    : 'topology',
-        setActiveItem    : 'topology',
-        moveItem         : 'topology',
-        splitNode        : 'topology',
-        moveNode         : 'topology',
-        resizeSplit      : 'geometry',
-        resizeEdgeZone   : 'geometry',
-        detachItem       : 'topology',
-        closeItem        : 'topology',
-        setItemLocked    : 'itemFlags',
+        addItem       : 'topology',
+        addTab        : 'topology',
+        applyDocument : 'topology',
+        setActiveItem : 'topology',
+        moveItem      : 'topology',
+        splitNode     : 'topology',
+        moveNode      : 'topology',
+        resizeSplit   : 'geometry',
+        resizeEdgeZone: 'geometry',
+        detachItem    : 'topology',
+        closeItem     : 'topology',
+        setItemLocked : 'itemFlags',
         // Pinned and auto-hidden write one item field each, exactly like `setItemLocked` — but they
         // are the two operations that MOVE a pane between the shell and an edge rail, and the rail
         // is projected outside the shell. They are placement changes wearing an item flag, so they
@@ -150,6 +152,43 @@ class Operations extends Base {
         return descriptor.document
             ? WorkspaceDocument.commit(document, descriptor.document)
             : {document, errors: ['applyDocument requires a candidate document']}
+    }
+
+    /**
+     * @summary Creates a JSON item record, optionally placing it through `addTab` or `splitNode`.
+     * Omitted placement leaves a catalog-only item. The descriptor carries the record so queued
+     * Group writes can reduce against current committed state without replacing unrelated changes.
+     * Validation or placement failure returns the original document without the staged record.
+     * @param {Object} document
+     * @param {Object} args {itemId, item, target?} — existing item schema and placement descriptor
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static addItem(document, {itemId, item, target} = {}) {
+        const fail = errors => ({document, errors});
+
+        if (typeof itemId !== 'string' || !itemId) return fail(['addItem requires a non-empty itemId']);
+        if (Object.hasOwn(document.items || {}, itemId) || Object.hasOwn(Object.prototype, itemId)) {
+            return fail([`item "${itemId}" already exists or is reserved`])
+        }
+        if (!WorkspaceDocument.isJsonRecord(item)) return fail(['addItem item must be a JSON record']);
+
+        const invalid = WorkspaceDocument.findNonJsonValue(item, 'item') ||
+            WorkspaceDocument.findUnexpectedKey(item, WorkspaceDocument.dockZoneItemKeys, 'item');
+        if (invalid) return fail([`${invalid.path}: ${invalid.reason}`]);
+        if (target !== undefined && (!WorkspaceDocument.isJsonRecord(target) || !['addTab', 'splitNode'].includes(target.operation))) {
+            return fail(['addItem target must be an addTab or splitNode descriptor'])
+        }
+
+        const working = WorkspaceDocument.clone(document);
+        working.items ||= {};
+        working.items[itemId] = WorkspaceDocument.clone(item);
+
+        const result = target === undefined
+            ? WorkspaceDocument.commit(document, working)
+            : Operations.applyOperation(working, {...target, itemId});
+
+        return result.errors.length ? fail(result.errors) : result
     }
 
     /**

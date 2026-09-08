@@ -1305,6 +1305,71 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         });
     });
 
+    test.describe('addItem', () => {
+        test('creates a JSON catalog record without placement or caller-owned aliases', () => {
+            const input = doc(), before = structuredClone(input),
+                  item  = {componentRef: 'created', title: 'Created', metadata: {source: 'menu'},
+                      blueprint: {ntype: 'panel'}, closable: false},
+                  result = Operations.applyOperation(input, {operation: 'addItem', itemId: 'created', item});
+
+            expect(result.errors).toEqual([]);
+            expect(result.document.items.created).toEqual(item);
+            expect(result.document.nodes).toEqual(input.nodes);
+            expect(input).toEqual(before);
+            item.metadata.source = 'changed';
+            expect(result.document.items.created.metadata.source).toBe('menu');
+            expect(Operations.changeClassFor('addItem')).toBe('topology')
+        });
+
+        test('creates and places using addTab or splitNode with the outer item id', () => {
+            for (const target of [
+                {operation: 'addTab', tabsNodeId: 'main-tabs', index: 1, itemId: 'strategy'},
+                {operation: 'splitNode', targetNodeId: 'main-tabs', orientation: 'vertical', edge: 'top', sizes: [0.3, 0.7]}
+            ]) {
+                const input  = doc(), before = structuredClone(input),
+                      result = Operations.applyOperation(input, {operation: 'addItem', itemId: 'created',
+                          item: {componentRef: 'created'}, target}),
+                      containing = WorkspaceDocument.findContainingTabsId(result.document, 'created');
+
+                expect(result.errors).toEqual([]);
+                expect(result.document.items.created).toEqual({componentRef: 'created'});
+                expect(result.document.nodes[containing].activeItemId).toBe('created');
+                expect(WorkspaceDocument.validate(result.document)).toEqual([]);
+                expect(input).toEqual(before);
+                if (target.operation === 'addTab') {
+                    expect(result.document.nodes['main-tabs'].items).toEqual(['strategy', 'created', 'swarm'])
+                } else {
+                    const split = result.document.nodes[result.document.nodes.root.zones.center.nodeId];
+                    expect(split).toMatchObject({orientation: 'vertical', children: [containing, 'main-tabs'], sizes: [0.3, 0.7]})
+                }
+            }
+        });
+
+        test('refuses duplicate ids, non-JSON records, invalid policy and placement without leaking the record', () => {
+            const cyclic = {};
+            cyclic.self = cyclic;
+            const cases = [
+                ...['strategy', 'inspector', '__proto__', 'constructor', '', null, 42].map(itemId => ({itemId})),
+                ...[null, [], new Date(), {module: 'wrong-schema'}, {locked: 'yes'},
+                    {pinned: true, autoHidden: true}, {metadata: {callback: () => {}}},
+                    {metadata: cyclic}, {blueprint: {value: Infinity}}, {metadata: {[Symbol('key')]: 1}}
+                ].map(item => ({item})),
+                ...[null, {}, {operation: 'closeItem'}, {operation: 'restoreTab'},
+                    {operation: 'addTab', tabsNodeId: 'missing'},
+                    {operation: 'splitNode', targetNodeId: 'main-tabs', orientation: 'diagonal'}
+                ].map(target => ({target}))
+            ];
+            for (const overrides of cases) {
+                const input  = doc(), before = structuredClone(input),
+                      result = Operations.applyOperation(input, {operation: 'addItem', itemId: 'created',
+                          item: {componentRef: 'created'}, ...overrides});
+                expect(result.errors.length, JSON.stringify(overrides, (key, value) => value === cyclic ? '[cycle]' : value)).toBeGreaterThan(0);
+                expect(result.document).toBe(input);
+                expect(input).toEqual(before)
+            }
+        })
+    });
+
     test.describe('addTab', () => {
         test('inserts a catalog-only item at index and makes it active', () => {
             const {document, errors} = Operations.addTab(doc(), {itemId: 'inspector', tabsNodeId: 'main-tabs', index: 1});

@@ -228,6 +228,7 @@ Every mutation goes through `Neo.dashboard.dock.model.Operations`; `applyOperati
 | `splitNode` | `targetNodeId`, `orientation`, `beforeNodeId`, `afterNodeId`, `sizes` | Replaces a node with a split containing the old and new nodes. |
 | `resizeSplit` | `splitNodeId`, `sizes` | Updates an existing split node's normalized child sizes after a splitter affordance. |
 | `resizeEdgeZone` | `edgeZoneId`, `edge`, `extent` | Commits one normalized extent when that nested edge descriptor explicitly has `resizable: true`. |
+| `addItem` | `itemId`, `item`, optional `target` | Creates a JSON catalog record; an `addTab` or `splitNode` target places it atomically. Duplicate/reserved ids, invalid records and failed placement return the original document with errors. |
 | `addTab` | `itemId`, `tabsNodeId`, `index` | Inserts an item into a tab slot and may set `activeItemId`. |
 | `detachItem` | `itemId` | Removes an item from the dock tree while preserving its item record for popup/window ownership. |
 | `closeItem` | `itemId` | Removes an item from both tree and catalog when policy permits. |
@@ -239,6 +240,21 @@ Every mutation goes through `Neo.dashboard.dock.model.Operations`; `applyOperati
 | `selectSavedLayout` | collection, `layoutId` | Selects an existing saved layout id as active. |
 | `removeSavedLayout` | collection, `layoutId`, `replacementLayoutId` | Removes a named saved layout; active removals require an explicit replacement. |
 | `restoreActiveSavedLayout` | collection | Restores the active saved layout through `restoreSavedLayout()`. |
+
+For runtime creation, carry the item record in the operation so a Group participant can re-apply it
+against its current document. Seeding `document.items` outside the operation loses that input on
+the Group path; `addTab` correctly refuses unknown ids. `applyDocument` remains a whole-document
+replacement, including changes made since its candidate was prepared.
+
+```javascript
+{operation: 'addItem', itemId: 'inspector', item: {componentRef: 'inspector', title: 'Inspector'},
+ target: {operation: 'addTab', tabsNodeId: 'main-tabs'}}
+```
+
+Omit `target` to create an unplaced catalog record. The outer `itemId` controls placement; a nested
+target cannot substitute another id. `item` uses the existing JSON-only item schema, including
+optional `metadata` and `blueprint`; consumers resolve `componentRef` and construct components.
+Module factories and live component instances do not belong in the record.
 
 Every operation must maintain:
 
