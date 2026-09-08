@@ -11,7 +11,7 @@ test.describe('build programs resolve dependencies from their own module', () =>
     let root, workspace, installedEngine;
 
     test.beforeEach(() => {
-        root            = fs.mkdtempSync(path.join(os.tmpdir(), 'neo dependencies '));
+        root            = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'neo dependencies ')));
         workspace       = path.join(root, 'consumer app');
         installedEngine = path.join(workspace, 'node_modules/neo.mjs');
         // Unmodified output of createPackageJson.init('WorkspaceProbe', ...).
