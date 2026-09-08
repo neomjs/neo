@@ -19,6 +19,7 @@ import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mj
 import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
 import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
 import PopupWorkspace     from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
+import GestureDriver      from '../../../../../apps/workstation/tour/GestureDriver.mjs';
 
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
@@ -303,8 +304,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 return removalReceipt
             };
 
-            let   settled    = false;
-            const retirement = workspace.retireFilmCursorDot(cursorDot)
+            let   settled = false;
+            const driver  = await workspace.getGestureDriver(),
+                  retirement = driver.retireFilmCursorDot(cursorDot)
                 .then(value => {
                     settled = true;
                     return value
@@ -324,7 +326,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             resolveRemoval();
 
             await expect(retirement).resolves.toBe(true);
-            await expect(workspace.retireFilmCursorDot(cursorDot)).resolves.toBe(false);
+            await expect(driver.retireFilmCursorDot(cursorDot)).resolves.toBe(false);
             expect(calls).toHaveLength(2)
         } finally {
             Neo.applyDeltas = realApplyDeltas;
@@ -347,7 +349,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             const results = [];
 
             for (let boundary = 0; boundary < 6; boundary++) {
-                results.push(await workspace.retireFilmCursorDot(null))
+                results.push(await (await workspace.getGestureDriver()).retireFilmCursorDot(null))
             }
 
             expect(results).toEqual([false, false, false, false, false, false]);
@@ -2712,7 +2714,19 @@ test.describe('cross-zone dwell candidate re-verification (prototype-call)', () 
         WindowManager.register({id: 'fake-cross-zone-window', innerRect: {height: 800, width: 1200, x: 0, y: 0}, windowId: 'fake-cross-zone-window'});
 
         try {
-            return await Workspace.prototype.executeCrossZoneShowcaseStep.call(host, step, {dwellDelay});
+            const driver = Neo.create(GestureDriver, {workspace: host});
+            host.getDockHost = host.getReference;
+            driver.timeout = host.timeout;
+            driver.waitForTearOutDragArmed = host.waitForTearOutDragArmed;
+            driver.retireFilmCursorDot = host.retireFilmCursorDot;
+            driver.cancelTearOutGesture = async run => {run.pointer = null; return {}};
+            driver.interactionService.simulateEvent = host.interactionService.simulateEvent;
+            driver.interactionService.dispatch = async () => true;
+            try {
+                return await driver.executeCrossZoneShowcaseStep(step, {dwellDelay})
+            } finally {
+                driver.destroy()
+            }
         } finally {
             WindowManager.unregister('fake-cross-zone-window')
         }

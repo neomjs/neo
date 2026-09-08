@@ -1,3 +1,4 @@
+import {callWorkstationGesture}                                     from '../utils/workstationGesture.mjs';
 import {execFile}                                                   from 'node:child_process';
 import {createHash}                                                 from 'node:crypto';
 import path                                                         from 'node:path';
@@ -667,7 +668,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     async function stageMergedVessel({app, page, wsId}) {
         const
             targetPopupPromise = page.waitForEvent('popup', {timeout: 90000}),
-            ownerResult        = await app.callMethod(wsId, 'executeTearOutStep', [
+            ownerResult        = await callWorkstationGesture(app, wsId, 'executeTearOutStep', [
                 {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
                 filmPace
             ]);
@@ -683,7 +684,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
             showCursor         = filmPace.showCursor ?? false,
             cursorProofPromise = captureFilmCursorLifecycle({
-                action: () => app.callMethod(wsId, 'executeCrossWindowDockStep', [
+                action: () => callWorkstationGesture(app, wsId, 'executeCrossWindowDockStep', [
                     {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
                     {
                         attempts  : filmPace.birthAttempts ?? 180,
@@ -1325,7 +1326,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
             pageErrorRuns.push(ctx.pageErrors);
 
-            const cancelled = await app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+            const cancelled = await callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
                 ...gesture,
                 terminal: 'cancel'
             }, filmPace]);
@@ -1344,7 +1345,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
             const {evidence: errorCursorEvidence, result: failed} =
                 await captureFilmCursorLifecycle({
-                    action: () => app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+                    action: () => callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
                         ...gesture,
                         dwells: [{
                             targetNodeId : 'missing-film-target-a',
@@ -1369,7 +1370,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(await readDocument(app, wsId),
                 'the thrown film path must cancel cleanly without mutating document truth').toEqual(documentBefore);
 
-            const committed = await app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+            const committed = await callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
                 ...gesture,
                 terminal: 'commit'
             }, filmPace]);
@@ -1486,7 +1487,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             }
         };
 
-        const stepPromise = app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+        const stepPromise = callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
             dwells: [
                 {placementKind: 'edge-bottom', targetNodeId: 'scale-tabs'},
                 {placementKind: 'tab-into',    targetNodeId: 'right-bottom-tabs'}
@@ -1540,7 +1541,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(paneIdBefore, 'the pane must be live and cached before the gesture').toBeTruthy();
 
         // Drive through the workspace-owned gesture executor — real pointer, worker-truth proof.
-        const result = await app.callMethod(wsId, 'executeTearOutStep', [
+        const result = await callWorkstationGesture(app, wsId, 'executeTearOutStep', [
             {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
             filmPace
         ]);
@@ -1763,7 +1764,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             const
                 popupPromise = page.waitForEvent('popup', {timeout: 90000}),
                 continuity   = await captureWorkspaceContinuity(page, () =>
-                    app.callMethod(wsId, 'executeTearOutStep', [
+                    callWorkstationGesture(app, wsId, 'executeTearOutStep', [
                         {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
                         filmPace
                     ])
@@ -1900,7 +1901,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             heartbeatBefore = await readHeartbeat(app, wsId),
             paneIdBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
             storeIdsBefore = await readStoreIds(),
-            tearOut         = await app.callMethod(wsId, 'executeTearOutStep', [
+            tearOut         = await callWorkstationGesture(app, wsId, 'executeTearOutStep', [
                 {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
                 filmPace
             ]),
@@ -2355,7 +2356,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         // One continuous drag: out (vessel born) → back IN (vessel retires, the in-window proxy
         // resumes) — the film's back-IN morph beat, witnessed from worker truth.
-        const result = await app.callMethod(wsId, 'executeTearOutStep', [
+        const result = await callWorkstationGesture(app, wsId, 'executeTearOutStep', [
             {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
             {reenter: true, ...filmPace}
         ]);
@@ -2577,7 +2578,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         })();
 
         const {evidence: returnCursorEvidence, result} = await captureFilmCursorLifecycle({
-            action: () => app.callMethod(wsId, 'executeStackReturnStep', [
+            action: () => callWorkstationGesture(app, wsId, 'executeStackReturnStep', [
                 {ownerItemId: 'metrics'},
                 {
                     attempts : filmPace.birthAttempts ?? 180,
@@ -2862,7 +2863,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 winnerStableId   : 'workstation-vessel:metrics'
             });
 
-            const returnResult = await app.callMethod(wsId, 'executeStackReturnStep', [
+            const returnResult = await callWorkstationGesture(app, wsId, 'executeStackReturnStep', [
                 {ownerItemId: 'metrics'},
                 {
                     attempts  : filmPace.birthAttempts ?? 180,

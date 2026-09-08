@@ -1,5 +1,6 @@
-import {test, expect}      from '../../fixtures.mjs';
-import {placeNativeWindow} from '../utils/filmStage.mjs';
+import {callWorkstationGesture} from '../utils/workstationGesture.mjs';
+import {test, expect}           from '../../fixtures.mjs';
+import {placeNativeWindow}      from '../utils/filmStage.mjs';
 
 /**
  * @summary Reads the browser, emulation, and app-root geometry as distinct film-stage surfaces.
@@ -585,7 +586,7 @@ test.describe('#16498 tear-out source continuity', () => {
         await armAuditSampler(page);
 
         const popupPromise = page.waitForEvent('popup', {timeout: 90000}),
-              ownerResult  = await app.callMethod(wsId, 'executeTearOutStep', [
+              ownerResult  = await callWorkstationGesture(app, wsId, 'executeTearOutStep', [
                   {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
                   pace
               ]);
