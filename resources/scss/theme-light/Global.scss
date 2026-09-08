@@ -23,7 +23,6 @@
     //
     // This replaces the hand-written `p { …: inherit }` reset. That block stated the same intent for
     // one element; these declarations state it for every element the structure layer now covers.
-    --core-fontfamily-mono         : initial;
     --core-fontfamily-sans         : initial;
     --core-fontsize-body           : initial;
     --core-fontsize-h1             : initial;
@@ -37,6 +36,7 @@
 
     --global-code-background-color : initial;
     --global-code-border           : initial;
+    --global-code-font-family      : initial;
     --global-code-border-radius    : initial;
     --global-code-font-size        : initial;
     --global-code-padding          : initial;

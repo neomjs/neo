@@ -44,7 +44,10 @@ code:not(.hljs) {
     border          : var(--global-code-border, revert);
     border-radius   : var(--global-code-border-radius, revert);
     color           : var(--sem-color-fg-neutral-contrast, revert);
-    font-family     : var(--core-fontfamily-mono, revert);
+    // `font-family` is deliberately ABSENT here and owned by util/HighlightJs.scss, which declares it
+    // for all code via `--global-code-font-family`. Declaring it here would outrank that author rule
+    // at (0,1,1) and, for a declining family, resolve to `revert` — rolling back the author origin and
+    // erasing it rather than deferring to it.
     font-size       : var(--global-code-font-size, revert);
     font-weight     : var(--core-fontweight-regular, revert);
     line-height     : var(--core-lineheight-headline, revert);

@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neo.mjs Global Typography Nesting Fixture</title>
+    <!--
+        The REAL HighlightJs sheet, linked rather than retyped: it declares `code, .hljs {font-family:
+        Menlo, monospace}` at (0,1) and is the author rule the structural `code` rule competes with.
+        A fixture that omits it can only measure the UA baseline, and a UA-default control cannot show
+        whether an existing author declaration still applies — which is the gap this composition closes.
+        Load order is not load-bearing: the two rules differ in specificity, so the cascade decides
+        regardless of which sheet arrives first.
+    -->
+    <link rel="stylesheet" href="../../../../../dist/esm/css/src/util/HighlightJs.css">
 </head>
 <body>
     <script src="../../../../../src/MicroLoader.mjs" type="module"></script>

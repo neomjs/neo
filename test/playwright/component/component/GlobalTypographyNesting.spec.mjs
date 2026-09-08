@@ -34,7 +34,10 @@ const
     // neo-dark maps `--global-mark-background-color` to `--green-900`, which resolves to black.
     NEO_MARK_BG   = 'rgb(0, 0, 0)',
     UA_MARK_BG    = 'rgb(255, 255, 0)',
-    UA_CODE_FAMILY = 'monospace';
+    // From the composed `resources/scss/src/util/HighlightJs.scss` — an AUTHOR rule, not the UA's.
+    // The user agent's own `code` font is bare `monospace`; landing there means the author origin was
+    // discarded rather than declined.
+    AUTHOR_CODE_FAMILY = 'Menlo, monospace';
 
 const computed = (page, id, prop) =>
     page.locator(`#${id}`).evaluate((node, name) => getComputedStyle(node)[name], prop);
@@ -73,13 +76,31 @@ test.describe('Global element typography — a nested classic scope declines, an
         ).toBe(UA_MARK_BG)
     });
 
-    test('code font-family: the neo scope resolves its mono token, the nested classic scope keeps UA monospace', async ({page}) => {
+    test('code font-family: the neo scope resolves its mono token, the classic scope keeps the composed author font', async ({page}) => {
         await expect.poll(() => computed(page, 'outer-neo-code', 'fontFamily'),
             {message: 'control: the neo scope resolves --core-fontfamily-mono'}
         ).toContain('Source Code Pro');
 
+        // NOT the UA fallback. `code, .hljs {font-family: Menlo, monospace}` is an AUTHOR rule that
+        // applies in every theme, and `revert` rolls back the whole author ORIGIN rather than only the
+        // structural rule — so a classic scope that declines must still land on the composed sheet's
+        // value, not on the user agent's. This is the assertion a UA-only fixture could not make.
         await expect.poll(() => computed(page, 'inner-classic-code', 'fontFamily'),
-            {message: 'UA monospace, the second D+S falsifier'}
-        ).toBe(UA_CODE_FAMILY)
+            {message: 'the composed HighlightJs author declaration must survive the classic decline'}
+        ).toBe(AUTHOR_CODE_FAMILY)
+    });
+
+    test('control: highlighted code is untouched in both scopes', async ({page}) => {
+        // `.hljs` (0,1,0) outranks the structural `code:not(.hljs)`, so this arm must be inert to the
+        // whole batch. It is what separates "the classic decline broke inline code" from "the batch
+        // broke code styling generally" — without it, a red above has two candidate causes.
+        for (const id of ['outer-neo-code', 'inner-classic-code']) {
+            await expect.poll(() => page.locator(`#${id}`).evaluate(node => {
+                node.classList.add('hljs');
+                const family = getComputedStyle(node).fontFamily;
+                node.classList.remove('hljs');
+                return family
+            }), {message: `${id}: .hljs keeps the composed author font`}).toBe(AUTHOR_CODE_FAMILY)
+        }
     })
 });
