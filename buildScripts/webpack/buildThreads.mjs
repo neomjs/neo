@@ -5,7 +5,7 @@ import envinfo         from 'envinfo';
 import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
 import path            from 'path';
-import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const __dirname   = path.resolve(),
@@ -13,9 +13,10 @@ const __dirname   = path.resolve(),
       cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit'},
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.resolve(cwd, 'package.json')),
+      neoPath     = packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/',
       program     = new Command(),
-      webpackPath = path.dirname(fileURLToPath(import.meta.url)),
-      webpackJson = fileURLToPath(import.meta.resolve('webpack/package.json')),
+      webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
+      webpackJson = createRequire(path.join(cwd, 'package.json')).resolve('webpack/package.json'),
       webpack     = path.resolve(path.dirname(webpackJson), requireJson(webpackJson).bin.webpack),
       programName = `${packageJson.name} buildThreads`,
       questions   = [];

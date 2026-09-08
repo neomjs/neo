@@ -14,7 +14,9 @@ test.describe('build programs resolve dependencies from their own module', () =>
         root            = fs.mkdtempSync(path.join(os.tmpdir(), 'neo dependencies '));
         workspace       = path.join(root, 'consumer app');
         installedEngine = path.join(workspace, 'node_modules/neo.mjs');
-        fs.outputJsonSync(path.join(workspace, 'package.json'), {name: 'consumer', version: '1.0.0'});
+        // Unmodified output of createPackageJson.init('WorkspaceProbe', ...).
+        // https://github.com/neomjs/create-app/blob/d8ae9ffa41acd7efe0727e11789ca769d2c4f33a/tasks/createPackageJson.mjs
+        fs.copySync(path.join(import.meta.dirname, 'fixtures/neoAppPackage.json'), path.join(workspace, 'package.json'));
         fs.outputJsonSync(path.join(installedEngine, 'package.json'), {name: 'neo.mjs', type: 'module'});
 
         for (const name of ['chalk', 'commander', 'envinfo', 'fs-extra', 'inquirer', 'esbuild', 'parse5', 'marked']) {
@@ -51,9 +53,10 @@ test.describe('build programs resolve dependencies from their own module', () =>
      * @returns {Object} Child result and observed webpack calls.
      */
     function runThreads(args, env={}) {
-        const log    = path.join(root, 'calls.jsonl'),
+        const script = fs.readJsonSync(path.join(workspace, 'package.json')).scripts['build-threads'],
+              log    = path.join(root, 'calls.jsonl'),
               result = spawnSync(process.execPath,
-                  [path.join(installedEngine, 'buildScripts/webpack/buildThreads.mjs'), '-n', ...args], {
+                  [path.resolve(workspace, script.slice('node '.length)), '-n', ...args], {
                       cwd: workspace, encoding: 'utf8',
                       env: {...process.env, NEO_TEST_ARGV_LOG: log, ...env}
                   });
@@ -61,9 +64,9 @@ test.describe('build programs resolve dependencies from their own module', () =>
         return {...result, calls: fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').map(JSON.parse) : []}
     }
 
-    for (const layout of ['hoisted', 'nested']) {
+    for (const layout of ['hoisted', 'workspace']) {
         test(`thread selections and env arguments survive a ${layout} install with spaces`, () => {
-            installWebpack(path.join(layout === 'hoisted' ? root : installedEngine, 'node_modules'));
+            installWebpack(path.join(layout === 'hoisted' ? root : workspace, 'node_modules'));
 
             const result   = runThreads(['-e', 'all', '-t', 'all']),
                   expected = [];
@@ -82,6 +85,38 @@ test.describe('build programs resolve dependencies from their own module', () =>
             expect(result.calls).toEqual(expected)
         })
     }
+
+    test('the workspace compiler wins over the engine postinstall compiler', () => {
+        installWebpack(path.join(workspace, 'node_modules'));
+        installWebpack(path.join(installedEngine, 'node_modules'));
+        fs.writeFileSync(path.join(installedEngine, 'node_modules/webpack/cli/entry.cjs'), 'process.exit(91);\n');
+
+        const result = runThreads(['-e', 'dev', '-t', 'app']);
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.calls).toHaveLength(1);
+        expect(result.calls[0]).toEqual([
+            '--config', path.join(installedEngine, 'buildScripts/webpack/development/webpack.config.appworker.mjs'),
+            '--env', 'insideNeo=false'
+        ])
+    });
+
+    test('an engine checkout keeps its own config paths and framework mode', () => {
+        installWebpack(path.join(workspace, 'node_modules'));
+        fs.writeJsonSync(path.join(workspace, 'package.json'), {
+            name   : 'neo.mjs', version: '1.0.0',
+            scripts: {'build-threads': 'node ./buildScripts/webpack/buildThreads.mjs'}
+        });
+        fs.copySync(path.join(installedEngine, 'buildScripts'), path.join(workspace, 'buildScripts'));
+
+        const result = runThreads(['-f', '-e', 'dev', '-t', 'app']);
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.calls[0]).toEqual([
+            '--config', path.join(workspace, 'buildScripts/webpack/development/webpack.config.appworker.mjs'),
+            '--env', 'insideNeo=true'
+        ])
+    });
 
     test('a failed selected build exits nonzero without starting the next thread', () => {
         installWebpack(path.join(root, 'node_modules'));

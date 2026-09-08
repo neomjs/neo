@@ -132,16 +132,13 @@ if (programOpts.info) {
             childProcess.status && process.exit(childProcess.status);
         }
 
-        // Installed engines already carry these artifacts; only the engine build produces them.
-        if (packageJson.name.includes('neo.mjs')) {
-            console.log(chalk.blue('Bundling parse5...'));
-            childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/parse5.mjs`], cpOpts);
-            childProcess.status && process.exit(childProcess.status);
+        console.log(chalk.blue('Bundling parse5...'));
+        childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/parse5.mjs`], cpOpts);
+        childProcess.status && process.exit(childProcess.status);
 
-            console.log(chalk.blue('Copying marked...'));
-            childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/marked.mjs`], cpOpts);
-            childProcess.status && process.exit(childProcess.status);
-        }
+        console.log(chalk.blue('Copying marked...'));
+        childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/marked.mjs`], cpOpts);
+        childProcess.status && process.exit(childProcess.status);
 
         console.log(chalk.blue('Bundling highlight.js...'));
         childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/highlightJs.mjs`], cpOpts);
