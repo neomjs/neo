@@ -575,6 +575,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                         const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
                         return rect.width === 16 && rect.height === 16
                             && style.position === 'fixed' && style.pointerEvents === 'none'
+                            && style.backgroundColor === 'rgba(255, 90, 0, 0.92)' && style.boxShadow !== 'none'
                     }));
                     count = cursors.length;
                     unpainted = cursors.filter(painted => !painted).length

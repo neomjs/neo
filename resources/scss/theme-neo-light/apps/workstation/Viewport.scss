@@ -14,6 +14,9 @@
     --workstation-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --workstation-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
+    --workstation-film-cursor-background: rgba(255, 90, 0, 0.92);
+    --workstation-film-cursor-shadow    : 0 0 10px rgba(255, 90, 0, 0.95), 0 0 3px rgba(255, 255, 255, 0.85);
+
     // Projections into the DockPreview component-domain aliases (the settled app-neutral
     // boundary): Workstation renders the reused preview/indicator family through ITS OWN
     // daylight palette — without these, the shared SCSS silently runs on dark fallbacks.
