@@ -953,9 +953,7 @@ class Workspace extends DockWorkspace {
             componentId: me.id,
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document,
-            project    : context => me.projectDockZoneDocument(context.snapshot.participants[Workspace.MAIN_WORKSPACE_ID], context.descriptor, me, {
-                preserveItemIds: context.preserveItemIds
-            })
+            project    : context => me.projectDockCommit(context)
         });
         if (registered) {
             firstRegistration && TransactionManager.setHistoryDepth({groupId: me.topologyGroupId, depth: me.dockHistoryDepth});

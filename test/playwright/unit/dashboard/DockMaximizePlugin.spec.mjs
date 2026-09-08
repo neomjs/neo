@@ -6,13 +6,16 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import DockWorkspace  from '../../../../src/dashboard/dock/Workspace.mjs';
-import Maximize       from '../../../../src/dashboard/dock/plugin/Maximize.mjs';
-import Plugin         from '../../../../src/plugin/Base.mjs';
-import Reconciler     from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import DockWorkspace     from '../../../../src/dashboard/dock/Workspace.mjs';
+import WorkspaceDocument from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceSet      from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import Transaction       from '../../../../src/manager/Transaction.mjs';
+import Maximize          from '../../../../src/dashboard/dock/plugin/Maximize.mjs';
+import Plugin            from '../../../../src/plugin/Base.mjs';
+import Reconciler        from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/tab/Container.mjs';
 import '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
@@ -216,11 +219,11 @@ test.describe('dock maximize as a declinable plugin', () => {
 
         expect(seen, 'fired once, with the descriptor, while the outgoing document is still committed')
             .toEqual([{descriptor, stillOutgoing: true}]);
-        expect(plugin.isNeutralOperation(descriptor), 'an operation confined to the node it would own').toBe(false);
+        expect(plugin.isNeutralOperation(descriptor, workspace.dockModel), 'an operation confined to the node it would own').toBe(false);
 
         plugin.maximizedNodeId = 'main-tabs';
-        expect(plugin.isNeutralOperation(descriptor)).toBe(true);
-        expect(plugin.isNeutralOperation({operation: 'splitNode', nodeId: 'side-tabs'}), 'a topology mutation reaches beyond it').toBe(false)
+        expect(plugin.isNeutralOperation(descriptor, workspace.dockModel)).toBe(true);
+        expect(plugin.isNeutralOperation({operation: 'splitNode', nodeId: 'side-tabs'}, workspace.dockModel), 'a topology mutation reaches beyond it').toBe(false)
     });
 
     for (const [name, target, expected] of [
@@ -247,6 +250,69 @@ test.describe('dock maximize as a declinable plugin', () => {
             expect(plugin.maximizedNodeId).toBe(expected)
         })
     }
+
+    for (const [name, operations, expected] of [
+        ['local add and reorder', [
+            {operation: 'addItem', itemId: 'created', item: {componentRef: 'created'}},
+            {operation: 'addTab', itemId: 'created', tabsNodeId: 'main-tabs'},
+            {operation: 'moveItem', itemId: 'beta', targetNodeId: 'main-tabs', index: 0}
+        ], 'main-tabs'],
+        ['ordered creation and removal', [
+            {operation: 'addItem', itemId: 'created', item: {componentRef: 'created'}, target: {operation: 'addTab', tabsNodeId: 'main-tabs'}},
+            {operation: 'closeItem', itemId: 'created'}
+        ], 'main-tabs'],
+        ['cross-node move into the maximized pane', [{operation: 'moveItem', itemId: 'gamma', targetNodeId: 'main-tabs'}], null],
+        ['mixed local and cross-node changes', [
+            {operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'beta'},
+            {operation: 'moveItem', itemId: 'gamma', targetNodeId: 'main-tabs'}
+        ], null]
+    ]) {
+        test(`Group batch ${name} uses ordered captured state for maximize`, async () => {
+            create();
+            const binding = Transaction.bind({windowId: workspace.id, workspaceKey: 'main'}),
+                  set     = Neo.create(WorkspaceSet, {manager: Transaction, getGroupId: () => binding.groupId, documentModel: WorkspaceDocument}),
+                  plugin  = workspace.getPlugin('dock-maximize'),
+                  before  = workspace.dockModel,
+                events    = [], refreshes = [];
+            Transaction.setHistoryDepth({groupId: binding.groupId, depth: 5});
+            set.register('main', {getDocument: () => workspace.dockModel, setDocument: value => workspace.dockModel = value,
+                project: context => workspace.projectDockCommit(context)});
+            workspace.refreshDockWorkspace = async (descriptor, document, options) => { refreshes.push(options) };
+            plugin._maximizedNodeId = 'main-tabs';
+            workspace.on('beforeDockZoneDocumentChange', event => events.push(event));
+            try {
+                await set.commit('main', operations);
+                await expect.poll(() => events.length).toBe(1);
+                await workspace.refreshPromise;
+                expect(plugin.maximizedNodeId).toBe(expected);
+                expect(events[0].previousDocument).toEqual(before);
+                expect(events[0].workspaceKey).toBe('main');
+                expect(refreshes[0]).not.toHaveProperty('previousDocument');
+                expect(refreshes[0]).not.toHaveProperty('workspaceKey');
+                expect(Transaction.get(binding.groupId).history.count).toBe(1);
+
+                const committed = workspace.dockModel;
+                await expect(set.commit('main', [{operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'missing'}]))
+                    .rejects.toThrow('not a member');
+                expect(workspace.dockModel).toBe(committed);
+                expect(plugin.maximizedNodeId).toBe(expected);
+                expect(events).toHaveLength(1);
+                expect(Transaction.get(binding.groupId).history.count).toBe(1)
+            } finally {
+                set.destroy();
+                Transaction.retireGroup(binding.groupId)
+            }
+        })
+    }
+
+    test('a Group batch without matching capture context remains non-neutral', () => {
+        create();
+        const plugin     = workspace.getPlugin('dock-maximize'),
+              descriptor = {workspaceKey: 'main', operations: [{operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'beta'}]};
+        plugin._maximizedNodeId = 'main-tabs';
+        expect(plugin.isNeutralChange(descriptor)).toBe(false);
+        expect(plugin.isNeutralChange(descriptor, workspace.dockModel, 'other')).toBe(false)
+    });
 
     test('the observation follows the owner across render windows, and an await retired by the hop arms nothing', async () => {
         create({windowId: 1});

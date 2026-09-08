@@ -1,8 +1,11 @@
-import Component     from '../../../../../src/component/Base.mjs';
-import DockWorkspace from '../../../../../src/dashboard/dock/Workspace.mjs';
-import Maximize      from '../../../../../src/dashboard/dock/plugin/Maximize.mjs';
-import Persistence   from '../../../../../src/dashboard/dock/model/Persistence.mjs';
-import Viewport      from '../../../../../src/container/Viewport.mjs';
+import Component         from '../../../../../src/component/Base.mjs';
+import DockWorkspace     from '../../../../../src/dashboard/dock/Workspace.mjs';
+import Maximize          from '../../../../../src/dashboard/dock/plugin/Maximize.mjs';
+import Persistence       from '../../../../../src/dashboard/dock/model/Persistence.mjs';
+import WorkspaceDocument from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceSet      from '../../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import Transaction       from '../../../../../src/manager/Transaction.mjs';
+import Viewport          from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 /**
@@ -336,6 +339,12 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
          */
         closeItemId_: null,
         /**
+         * Enables the real Group participant path for the continuity witness.
+         * @member {Boolean} groupBacked_=false
+         * @reactive
+         */
+        groupBacked_: false,
+        /**
          * @member {Boolean} enableDockCloseAction=true
          */
         enableDockCloseAction: true,
@@ -431,6 +440,14 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
      * @member {String|null} docJson=null
      */
     docJson = null
+
+    /** @summary Original pane reference retained only for the Group identity witness. @member {Neo.component.Base|null} */
+    groupAlphaPane = null
+
+    /** @summary Whether the original live pane instance survived the Group projection. @returns {Boolean} */
+    get groupPaneRetained() {
+        return !!this.groupAlphaPane && !this.groupAlphaPane.isDestroyed && this.groupAlphaPane === Neo.get('dock-maximize-pane-alpha')
+    }
 
     /**
      * Spec-readable perspective capture, refreshed per {@link #captureCount} bump.
@@ -627,6 +644,41 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
         // the reconciler replaces the shell at `dockShellIndex` rather than inserting blind.
         this.add(this.projectDockModel());
         this.onDockZoneDocumentChange(structuredClone(fixtureDocument))
+    }
+
+    /**
+     * @summary Registers this fixture as the owner of one real Group document.
+     * @param {Boolean} value
+     * @protected
+     */
+    afterSetGroupBacked(value) {
+        if (!value || this.workspaceSet) return;
+        const me = this, binding = Transaction.bind({windowId: me.windowId, workspaceKey: 'main'});
+        me.groupAlphaPane = Neo.get('dock-maximize-pane-alpha');
+        me.topologyGroupId = binding.groupId;
+        me.workspaceKey = 'main';
+        me.workspaceSet = Neo.create(WorkspaceSet, {
+            manager: Transaction, getGroupId: () => binding.groupId, documentModel: WorkspaceDocument
+        });
+        Transaction.setHistoryDepth({groupId: binding.groupId, depth: 5});
+        me.workspaceSet.register('main', {
+            getDocument: () => me.dockModel,
+            setDocument: value => { me.dockModel = value; me.docJson = JSON.stringify(value) },
+            project    : context => me.projectDockCommit(context)
+        })
+    }
+
+    /** @summary The Group's semantic write count, separate from presentation work. @returns {Number} */
+    get groupHistoryCount() {
+        return Transaction.get(this.topologyGroupId)?.history?.count ?? 0
+    }
+
+    /** @summary Retires the fixture-owned adapter and Group. @param {Object[]} args */
+    destroy(...args) {
+        const set = this.workspaceSet, groupId = set && this.topologyGroupId;
+        set?.destroy();
+        super.destroy(...args);
+        groupId && Transaction.retireGroup(groupId)
     }
 
     /**

@@ -2217,9 +2217,24 @@ class Workspace extends Container {
             pending.catch(error => Neo.logError(error));
             return pending
         }
-        const projection = me.projectDockZoneDocument(document, descriptor, source);
+        const projection = me.projectDockZoneDocument(document, descriptor, source, {previousDocument: me.dockModel});
         me.dockModel = document;
         return projection
+    }
+
+    /**
+     * @summary Projects a Group participant's adopted document with its captured operation context.
+     * Presentation collaborators can distinguish ordered operations against their before-state;
+     * the context is runtime-only and does not enter the document or reconciliation options.
+     * @param {Object} context The Group participant's projection context.
+     * @returns {Promise} This projection's outcome.
+     */
+    projectDockCommit(context) {
+        return this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
+            preserveItemIds : context.preserveItemIds,
+            previousDocument: context.captured.value,
+            workspaceKey    : context.workspaceKey
+        })
     }
 
     /**
@@ -2227,21 +2242,23 @@ class Workspace extends Container {
      * @param {Object|null} document The committed document to present.
      * @param {Object|null} [descriptor=null] The operation associated with the committed document.
      * @param {Object|null} [source=null] The originating interaction surface.
-     * @param {Object} [projectionOptions={}] Committed topology's pane-preservation policy.
+     * @param {Object} [projectionOptions={}] Pane-preservation policy plus optional `previousDocument`
+     *     and `workspaceKey` for the collaborator event; those two fields never reach reconciliation.
      * @returns {Promise} This projection's outcome; later projections survive its failure.
      * @protected
      */
     projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}) {
         let me = this,
+            {previousDocument=me.dockModel, workspaceKey, ...viewOptions} = projectionOptions,
             commitOptions, preserved, tabInsertDescriptor, refreshOptions, tail;
 
         // Presentation owners release transient state before the outgoing shell is reconciled.
-        me.fire('beforeDockZoneDocumentChange', {descriptor, document, source});
+        me.fire('beforeDockZoneDocumentChange', {descriptor, document, previousDocument, source, workspaceKey});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
         commitOptions       = me.getRefreshOptions(descriptor, source);
-        preserved           = [...new Set([...commitOptions.preserveItemIds ?? [], ...projectionOptions.preserveItemIds ?? []])];
-        refreshOptions      = {...commitOptions, ...projectionOptions};
+        preserved           = [...new Set([...commitOptions.preserveItemIds ?? [], ...viewOptions.preserveItemIds ?? []])];
+        refreshOptions      = {...commitOptions, ...viewOptions};
 
         // `preserveItemIds` is the one option these two sides ADD to rather than choose between.
         // The commit's ids are panes it parked; the caller's are panes owned by sibling documents in

@@ -333,6 +333,54 @@ test.describe('dock maximize — presentation, never topology', () => {
         expect(docAfter).toBe(docBefore)
     });
 
+    test('Group tab activation preserves maximized presentation and identity; an outside change clears it', async ({page}) => {
+        await setWorkspace(page, {groupBacked: true});
+        await expect.poll(async () => (await readWorkspace(page, ['topologyGroupId']))[0]).toBeTruthy();
+
+        const main = tabsNodeWith(page, 'Alpha');
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+        await expectMaximizedCount(page, 1);
+        await maximizedRectMatchesHost(page);
+        const countBefore = (await readWorkspace(page, ['groupHistoryCount']))[0];
+        expect(await readWorkspace(page, ['groupPaneRetained'])).toEqual([true]);
+        await main.evaluate(element => window.__groupMaximizeNode = element);
+
+        await tabButton(main, 'Beta').click();
+        await expect.poll(async () => JSON.parse((await readWorkspace(page, ['docJson']))[0]).nodes['main-tabs'].activeItemId).toBe('beta');
+        await expectMaximizedCount(page, 1);
+        await maximizedRectMatchesHost(page);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+        expect(await main.evaluate(element => element === window.__groupMaximizeNode)).toBe(true);
+        expect(await readWorkspace(page, ['groupPaneRetained'])).toEqual([true]);
+        expect(await readWorkspace(page, ['groupHistoryCount'])).toEqual([countBefore + 1]);
+
+        await setWorkspace(page, {closeItemId: 'gamma'});
+        await expectMaximizedCount(page, 0);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual([null]);
+        await expect.poll(async () => (await readWorkspace(page, ['groupHistoryCount']))[0]).toBe(countBefore + 2)
+    });
+
+    test('Group in-node closes preserve maximize until the node collapses', async ({page}) => {
+        await setWorkspace(page, {groupBacked: true});
+        const main = tabsNodeWith(page, 'Alpha');
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+        await expectMaximizedCount(page, 1);
+        const countBefore = (await readWorkspace(page, ['groupHistoryCount']))[0];
+
+        await setWorkspace(page, {closeItemId: 'beta'});
+        await expect(tabButton(main, 'Beta')).toHaveCount(0);
+        await expectMaximizedCount(page, 1);
+        expect(await readPlugin(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
+
+        await setWorkspace(page, {closeItemId: 'alpha'});
+        await expectMaximizedCount(page, 0);
+        await expect.poll(async () => (await readPlugin(page, ['maximizedNodeId']))[0]).toBeNull();
+        expect(JSON.parse((await readWorkspace(page, ['docJson']))[0]).nodes['main-tabs']).toBeUndefined();
+        expect(await readWorkspace(page, ['groupHistoryCount'])).toEqual([countBefore + 2])
+    });
+
     test('inside-the-node operations keep maximize, outside operations clear it terminally, and continuity re-applies iff the node survives', async ({page}) => {
         const main = tabsNodeWith(page, 'Alpha');
 
