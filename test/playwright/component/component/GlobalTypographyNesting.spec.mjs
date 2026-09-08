@@ -37,10 +37,38 @@ const
     // From the composed `resources/scss/src/util/HighlightJs.scss` — an AUTHOR rule, not the UA's.
     // The user agent's own `code` font is bare `monospace`; landing there means the author origin was
     // discarded rather than declined.
-    AUTHOR_CODE_FAMILY = 'Menlo, monospace';
+    AUTHOR_CODE_FAMILY = 'Menlo, monospace',
+    // The user agent's own `code` font, i.e. what a declining family reaches when NO author rule
+    // supplies one. Distinct from AUTHOR_CODE_FAMILY: landing here with HighlightJs composed would
+    // mean the author origin was discarded rather than deferred to.
+    UA_CODE_FAMILY     = 'monospace';
 
 const computed = (page, id, prop) =>
     page.locator(`#${id}`).evaluate((node, name) => getComputedStyle(node)[name], prop);
+
+/**
+ * @summary Composes the REAL HighlightJs sheet into the running page, mid-test.
+ *
+ * Injected rather than linked in the fixture so one document can serve both compositions — linking it
+ * makes every specimen composed and silently retires the uncomposed arm. Injected by PATH rather than
+ * retyped, because a hand-copied `Menlo, monospace` would test this file's reconstruction of the sheet
+ * instead of the sheet. `dist/development/**` is the tree this suite's `globalSetup` guarantees
+ * (`build-themes -e dev`) and the one the fixture's own app reads, per its `environment` config.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+const composeHighlightJs = async page => {
+    await page.addStyleTag({path: 'dist/development/css/src/util/HighlightJs.css'});
+    // The sheet must actually take effect before anything is read from it; asserting the highlighted
+    // control here means a failed injection surfaces as itself rather than as a confusing red on the
+    // property under test.
+    await expect.poll(() => page.locator('#outer-neo-code').evaluate(node => {
+        node.classList.add('hljs');
+        const family = getComputedStyle(node).fontFamily;
+        node.classList.remove('hljs');
+        return family
+    }), {message: 'HighlightJs composed and in effect'}).toBe(AUTHOR_CODE_FAMILY)
+};
 
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/global-typography-nesting/index.html');
@@ -76,31 +104,55 @@ test.describe('Global element typography — a nested classic scope declines, an
         ).toBe(UA_MARK_BG)
     });
 
-    test('code font-family: the neo scope resolves its mono token, the classic scope keeps the composed author font', async ({page}) => {
+    // Both compositions are asserted, and keeping BOTH is the point. HighlightJs lazy-loads, so a
+    // document without it is an ordinary state rather than an edge case — and a revision of this file
+    // that composed the sheet into every specimen deleted the uncomposed arm and made a real
+    // regression (HighlightJs becoming a precondition for neo inline typography) invisible here.
+    test('code font-family, UNCOMPOSED: neo resolves its mono token with no HighlightJs present', async ({page}) => {
         await expect.poll(() => computed(page, 'outer-neo-code', 'fontFamily'),
-            {message: 'control: the neo scope resolves --core-fontfamily-mono'}
+            {message: 'the always-loaded structure layer must carry this on its own'}
         ).toContain('Source Code Pro');
 
-        // NOT the UA fallback. `code, .hljs {font-family: Menlo, monospace}` is an AUTHOR rule that
-        // applies in every theme, and `revert` rolls back the whole author ORIGIN rather than only the
-        // structural rule — so a classic scope that declines must still land on the composed sheet's
-        // value, not on the user agent's. This is the assertion a UA-only fixture could not make.
+        // Nothing else declares a mono font in this composition, so a declining family reaches the UA.
         await expect.poll(() => computed(page, 'inner-classic-code', 'fontFamily'),
-            {message: 'the composed HighlightJs author declaration must survive the classic decline'}
+            {message: 'classic declines and there is no author rule left to defer to'}
+        ).toBe(UA_CODE_FAMILY)
+    });
+
+    test('code font-family, COMPOSED: the classic decline defers to HighlightJs instead of erasing it', async ({page}) => {
+        await composeHighlightJs(page);
+
+        await expect.poll(() => computed(page, 'outer-neo-code', 'fontFamily'),
+            {message: 'control: neo still resolves its token once the author sheet is present'}
+        ).toContain('Source Code Pro');
+
+        // The assertion a UA-only fixture cannot make. `revert` rolls back the whole author ORIGIN,
+        // so a structural rule that outranked this sheet and then reverted would DELETE it. Landing
+        // on the author value is what proves the decline deferred rather than destroyed.
+        await expect.poll(() => computed(page, 'inner-classic-code', 'fontFamily'),
+            {message: 'the composed HighlightJs declaration must survive the classic decline'}
         ).toBe(AUTHOR_CODE_FAMILY)
     });
 
-    test('control: highlighted code is untouched in both scopes', async ({page}) => {
-        // `.hljs` (0,1,0) outranks the structural `code:not(.hljs)`, so this arm must be inert to the
-        // whole batch. It is what separates "the classic decline broke inline code" from "the batch
-        // broke code styling generally" — without it, a red above has two candidate causes.
+    test('control: highlighted code is inert to the batch in both compositions', async ({page}) => {
+        // `.hljs` outranks the inline-code rules in both sheets, so it must not move. This is what
+        // separates "the decline erased an author rule" from "the batch broke code styling generally"
+        // — without it, a red above has two candidate causes.
+        const read = id => page.locator(`#${id}`).evaluate(node => {
+            node.classList.add('hljs');
+            const family = getComputedStyle(node).fontFamily;
+            node.classList.remove('hljs');
+            return family
+        });
+
         for (const id of ['outer-neo-code', 'inner-classic-code']) {
-            await expect.poll(() => page.locator(`#${id}`).evaluate(node => {
-                node.classList.add('hljs');
-                const family = getComputedStyle(node).fontFamily;
-                node.classList.remove('hljs');
-                return family
-            }), {message: `${id}: .hljs keeps the composed author font`}).toBe(AUTHOR_CODE_FAMILY)
+            await expect.poll(() => read(id), {message: `${id}: UA, uncomposed`}).toBe(UA_CODE_FAMILY)
+        }
+
+        await composeHighlightJs(page);
+
+        for (const id of ['outer-neo-code', 'inner-classic-code']) {
+            await expect.poll(() => read(id), {message: `${id}: the author font, composed`}).toBe(AUTHOR_CODE_FAMILY)
         }
     })
 });

@@ -5,21 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neo.mjs Global Typography Nesting Fixture</title>
     <!--
-        The REAL HighlightJs sheet, linked rather than retyped: it owns the mono font for all code and
-        is the author rule the structural `code` rule competes with. A fixture that omits it can only
-        measure the UA baseline, and a UA-default control cannot show whether an existing author
-        declaration still applies — which is the gap this composition closes. Load order is not
-        load-bearing: the two rules differ in specificity, so the cascade decides either way.
+        NO HighlightJs sheet here, deliberately. This document is the UNCOMPOSED arm: the structure
+        layer and the theme sheets alone, which is what a consumer gets before HighlightJs lazy-loads.
+        The spec composes the real sheet at runtime for the second arm, so both compositions are
+        measured from one fixture.
 
-        `dist/development/**` is the correct tree and the path is load-bearing. This suite's
-        `globalSetup` runs `ensureDevelopmentThemeAssets()`, i.e. `build-themes -e dev`, so this file
-        is the one output the tier GUARANTEES — and it is the same tree this fixture's own app reads,
-        since its neo-config declares `environment: development`. An earlier revision linked
-        `dist/esm/**`, which passed locally only because an unrelated `-e esm` build happened to be
-        present and was absent in CI: the link 404'd, `code` fell back to the user agent, and BOTH
-        arms went red including the neo control. A fixture must name a path its own tier produces.
+        An earlier revision linked HighlightJs here and thereby DELETED this arm instead of adding the
+        other one — every specimen became composed, and the regression that made HighlightJs a
+        precondition for neo inline typography became invisible to the very suite meant to catch it.
+        A control is not replaced by a better control; it is kept alongside it.
     -->
-    <link rel="stylesheet" href="../../../../../dist/development/css/src/util/HighlightJs.css">
 </head>
 <body>
     <script src="../../../../../src/MicroLoader.mjs" type="module"></script>

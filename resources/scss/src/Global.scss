@@ -44,14 +44,32 @@ code:not(.hljs) {
     border          : var(--global-code-border, revert);
     border-radius   : var(--global-code-border-radius, revert);
     color           : var(--sem-color-fg-neutral-contrast, revert);
-    // `font-family` is deliberately ABSENT here and owned by util/HighlightJs.scss, which declares it
-    // for all code via `--global-code-font-family`. Declaring it here would outrank that author rule
-    // at (0,1,1) and, for a declining family, resolve to `revert` — rolling back the author origin and
-    // erasing it rather than deferring to it.
+    // `font-family` is absent HERE and declared at zero weight below — see that rule for why.
     font-size       : var(--global-code-font-size, revert);
     font-weight     : var(--core-fontweight-regular, revert);
     line-height     : var(--core-lineheight-headline, revert);
     padding         : var(--global-code-padding, revert);
+}
+
+// Inline-code font, at ZERO specificity, and the weight is the whole mechanism.
+//
+// Two sheets can supply this font and only one of them is always present:
+//   - `util/HighlightJs.scss` declares `code` at (0,0,1) reading the same token. It is the author
+//     rule that already owned the mono font, and it loads lazily.
+//   - this rule, at (0,0,0) via `:where()`, is in the always-loaded structure layer.
+//
+// Because `:where()` zeroes the selector, HighlightJs OUTRANKS this whenever it is present, so the
+// two never fight; this one speaks only when that sheet has not loaded. That is what keeps neo
+// inline code on its mono token in a document without HighlightJs — a `revert` here would hand that
+// case back to the user agent, and declaring it at (0,1,1) inside the block above would do the
+// reverse damage: outrank HighlightJs and, for a declining family, roll back the author origin and
+// erase it. Zero weight is the only position that is correct in BOTH compositions.
+//
+// Verified across the full 2×2 — {neo, classic} × {with, without HighlightJs} — against `dev`.
+// The `revert` fallback is right here precisely because no other author rule exists in the
+// uncomposed case; a family that declines and has no HighlightJs should reach the UA.
+:where(code:not(.hljs)) {
+    font-family: var(--global-code-font-family, revert);
 }
 
 h1, h2, h3, h4, h5, h6 {
