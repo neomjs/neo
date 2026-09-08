@@ -223,6 +223,31 @@ test.describe('dock maximize as a declinable plugin', () => {
         expect(plugin.isNeutralOperation({operation: 'splitNode', nodeId: 'side-tabs'}), 'a topology mutation reaches beyond it').toBe(false)
     });
 
+    for (const [name, target, expected] of [
+        ['catalog-only', undefined, 'main-tabs'],
+        ['inside the maximized pane', {operation: 'addTab', tabsNodeId: 'main-tabs', itemId: 'gamma'}, 'main-tabs'],
+        ['inside another pane', {operation: 'addTab', tabsNodeId: 'side-tabs'}, null],
+        ['splitting the maximized pane', {operation: 'splitNode', targetNodeId: 'main-tabs', orientation: 'horizontal'}, null]
+    ]) {
+        test(`addItem ${name} preserves only neutral maximize state through the commit hook`, async () => {
+            create();
+
+            const plugin     = workspace.getPlugin('dock-maximize'),
+                  descriptor = {operation: 'addItem', itemId: 'created', item: {componentRef: 'created'},
+                      ...(target === undefined ? {} : {target})},
+                  result = workspace.applyDockZoneOperation(descriptor);
+
+            expect(result.errors).toEqual([]);
+            // Isolate the pre-projection state decision from DOM measurement and animation.
+            plugin._maximizedNodeId = 'main-tabs';
+            workspace.refreshDockView = async () => {};
+            await workspace.onDockZoneDocumentChange(result.document, descriptor, workspace);
+
+            expect(workspace.dockModel.items.created).toEqual(descriptor.item);
+            expect(plugin.maximizedNodeId).toBe(expected)
+        })
+    }
+
     test('the observation follows the owner across render windows, and an await retired by the hop arms nothing', async () => {
         create({windowId: 1});
 
