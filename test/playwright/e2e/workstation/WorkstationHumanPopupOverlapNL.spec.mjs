@@ -773,8 +773,14 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
         }
     });
 
-    test(`${MATRIX_CELL.name}: one local proxy plus readable target choices`,
-    async ({page, neuralLink}, testInfo) => {
+    /**
+     * @summary Exercises the same held-pointer overlap before restoring or committing the vessel.
+     * @param {Object} fixtures
+     * @param {Object} testInfo
+     * @param {String} terminal
+     * @returns {Promise<void>}
+     */
+    async function runOverlap({page, neuralLink}, testInfo, terminal) {
         await test.step(MATRIX_CELL.name, async () => {
             const cell = MATRIX_CELL;
 
@@ -1238,17 +1244,19 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                         intervals: [25, 50]
                     }).toBe(true);
 
-                    const
+                    let proxyRectB;
+
+                    await expect.poll(async () => {
                         proxyRectB = await proxy.evaluate(element => {
                             const rect = element.getBoundingClientRect();
 
                             return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
                         });
 
-                    expect(
-                        Math.abs(proxyRectB.x - proxyRectA.x) + Math.abs(proxyRectB.y - proxyRectA.y),
-                        `${cell.name}: target-local proxy follows the still-held pointer`
-                    ).toBeGreaterThan(2);
+                        return Math.abs(proxyRectB.x - proxyRectA.x) + Math.abs(proxyRectB.y - proxyRectA.y)
+                    }, {
+                        message: `${cell.name}: target-local proxy follows the still-held pointer`
+                    }).toBeGreaterThan(2);
 
                     expect(sourcePage.isClosed(), `${cell.name}: source popup remains the same live Page`).toBe(false);
                     expect(targetPage.isClosed(), `${cell.name}: target popup remains live`).toBe(false);
@@ -1273,6 +1281,94 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                     expect(snapshotA.parkReceipt?.needsResize)
                         .toBe(sourceBefore.browser.outer.width > positioned.target.browser.inner.width
                             || sourceBefore.browser.outer.height > positioned.target.browser.inner.height);
+
+                    if (terminal === 'commit') {
+                        const paneId = await app.callMethod(wsId, 'getPaneIdentity', [cell.itemId]),
+                              {groupId} = await app.callMethod(wsId, 'controller.getTopologyState'),
+                              rows = async () => (await app.callMethod(wsId, 'transactionManager.get', [groupId])).history.rows,
+                              placement = async () => {
+                                  const [main, target, pane] = await Promise.all([
+                                      app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-main']),
+                                      app.callMethod(wsId, 'getWorkspaceDocument', [TARGET_WORKSPACE_ID]),
+                                      app.getComponent(paneId, ['windowId'])
+                                  ]);
+
+                                  return {
+                                      main: Object.values(main.nodes).some(node => node.items?.includes(cell.itemId)),
+                                      target: Object.values(target.nodes).some(node => node.items?.includes(cell.itemId)),
+                                      metrics: Object.values(target.nodes).some(node => node.items?.includes(TARGET_ITEM_ID)),
+                                      paneWindowId: pane.windowId
+                                  }
+                              };
+
+                        expect(await placement(), 'the held gesture has not committed early')
+                            .toMatchObject({main: true, target: false, metrics: true});
+                        expect((await rows()).filter(row => row.itemId === cell.itemId)).toHaveLength(0);
+
+                        await page.mouse.up();
+                        pointerDown = false;
+
+                        const committed = {main: false, target: true, metrics: true, paneWindowId: targetWindowId};
+
+                        await expect.poll(placement, {
+                            message  : 'ordinary pointer release adopts into the existing popup',
+                            timeout  : 10000,
+                            intervals: [25, 50, 100]
+                        }).toEqual(committed);
+                        await expect.poll(() => sourcePage.isClosed()).toBe(true);
+                        expect(targetPage.isClosed()).toBe(false);
+                        const retired = await awaitVesselRetirement(app, managerId, wsId, cell.itemId, sourceWindowId);
+                        expect(await app.callMethod(wsId, 'getPaneIdentity', [cell.itemId])).toBe(paneId);
+                        await expect(targetPage.locator(`[id="${paneId}"]`)).toHaveCount(1);
+                        await expect(targetPage.locator(`[id="${paneId}"]`)).toBeVisible();
+                        await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
+
+                        const afterRows = await rows(),
+                              transfers = afterRows.filter(row => row.itemId === cell.itemId);
+
+                        // Physical target staging can append placement rows while the pointer is held.
+                        // Name the pane's transaction rather than mistaking all cursor growth for a drop.
+                        expect(transfers).toHaveLength(1);
+                        expect(transfers[0]).toMatchObject({
+                            cause            : 'dock-transfer',
+                            sourceWorkspaceId: 'workstation-main',
+                            targetWorkspaceId: TARGET_WORKSPACE_ID
+                        });
+                        expect(transfers[0].participants.map(participant => participant.workspaceKey))
+                            .toEqual(['workstation-main', TARGET_WORKSPACE_ID]);
+
+                        await app.callMethod(wsId, 'transactionManager.undo', [{groupId}]);
+                        await expect.poll(async () => {
+                            const {main, target, metrics} = await placement();
+
+                            return {main, target, metrics}
+                        }).toEqual({main: true, target: false, metrics: true});
+                        expect(await app.callMethod(wsId, 'getPaneIdentity', [cell.itemId])).toBe(paneId);
+                        await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(1);
+                        await expect(page.locator(`[id="${paneId}"]`)).toBeVisible();
+                        await expect(targetPage.locator(`[id="${paneId}"]`)).toHaveCount(0);
+                        expect(await rows(), 'undo preserves every retained history row').toEqual(afterRows);
+
+                        await app.callMethod(wsId, 'transactionManager.redo', [{groupId}]);
+                        await expect.poll(placement).toEqual(committed);
+                        expect(await rows(), 'redo preserves every retained history row').toEqual(afterRows);
+                        await expect(targetPage.locator(`[id="${paneId}"]`)).toHaveCount(1);
+                        await expect(targetPage.locator(`[id="${paneId}"]`)).toBeVisible();
+                        await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
+
+                        await testInfo.attach(`human-popup-release-${cell.name}`, {
+                            body: Buffer.from(JSON.stringify({
+                                cell: cell.name, committed, paneId, retired, sourceWindowId, targetWindowId,
+                                historyIds: afterRows.map(row => row.id),
+                                transaction: {
+                                    id: transfers[0].id, cause: transfers[0].cause,
+                                    participants: transfers[0].participants.map(participant => participant.workspaceKey)
+                                }
+                            }, null, 2)),
+                            contentType: 'application/json'
+                        });
+                        return
+                    }
 
                     const targetFar = await targetHandle.cdp.send(
                         'Browser.getWindowBounds',
@@ -1479,5 +1575,14 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                 if (targetPage && !targetPage.isClosed()) await targetPage.close().catch(() => {});
             }
         })
-    })
+    }
+
+    for (const terminal of ['restore', 'commit']) {
+        const name = terminal === 'restore'
+            ? 'one local proxy plus readable target choices'
+            : 'pointer release transfers one pane with undo and redo';
+
+        test(`${MATRIX_CELL.name}: ${name}`, ({page, neuralLink}, testInfo) =>
+            runOverlap({page, neuralLink}, testInfo, terminal))
+    }
 });
