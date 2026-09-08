@@ -44,9 +44,16 @@ on:
         default: '1'
 
 concurrency:
-  # Matches `test.yml`: initial attempts share the ref stream so a new head supersedes
+  # Gate runs match `test.yml`: initial attempts share the ref stream so a new head supersedes
   # old work, while reruns keep their run_id and cannot cancel a newer head (#15593).
-  group: tests-${{ github.workflow }}-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  #
+  # A DISPATCH gets its own key instead, and this was measured rather than anticipated: two probes
+  # dispatched on one ref shared the ref-keyed group, and the second cancelled the first
+  # mid-measurement. Superseding is right for a gate — only the newest head matters — and wrong for
+  # an instrument, where every sample is wanted and repeated runs are the entire point. Keying a
+  # dispatch on its own run_id makes each probe a group of one: it cancels nothing and nothing
+  # cancels it.
+  group: tests-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || (github.run_attempt == '1' && github.ref || github.run_id) }}
   cancel-in-progress: true
 
 jobs:
