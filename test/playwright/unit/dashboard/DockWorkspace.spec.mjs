@@ -2340,7 +2340,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         // And the refusal holds if the intent is dispatched anyway — the model is the authority, not
         // the hidden flag, which a host could always bypass.
-        const refused = workspace.onDockHeaderAction({
+        const refused = await workspace.onDockHeaderAction({
             action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
         });
 
@@ -2460,7 +2460,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             .toEqual({...before.dockZone, items: null})
     });
 
-    test('the pin action reports its own missing preconditions, and stays inert while its opt-in is off', () => {
+    test('the pin action reports its own missing preconditions, and stays inert while its opt-in is off', async () => {
         workspace = Neo.create(PlainWorkspace, {
             dockModel          : createEdgeDocument(),
             enableDockPinAction: true
@@ -2470,13 +2470,13 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         workspace.dockModel = null;
 
-        expect(workspace.onDockHeaderAction({
+        expect((await workspace.onDockHeaderAction({
             action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
-        }).errors).toEqual(['Dock pin action requires a committed document']);
+        })).errors).toEqual(['Dock pin action requires a committed document']);
 
         workspace.dockModel = createEdgeDocument();
 
-        expect(workspace.onDockHeaderAction({action: 'pin', dockNodeId: 'inspector-tabs'}).errors)
+        expect((await workspace.onDockHeaderAction({action: 'pin', dockNodeId: 'inspector-tabs'})).errors)
             .toEqual(['Dock pin action requires an active item']);
 
         // With the opt-in off the name belongs to the host again: the intent is re-emitted, not acted
@@ -2581,7 +2581,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             .toBe(null);
         expect(pinAction.hidden, 'the retained action refuses at the commit boundary').toBe(true);
 
-        const refused = workspace.onDockHeaderAction({
+        const refused = await workspace.onDockHeaderAction({
             action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
         });
 

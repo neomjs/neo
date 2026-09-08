@@ -1512,11 +1512,12 @@ class Workspace extends Container {
      * Routing lives here and the effect lives in one handler per action, so a further engine action is
      * a new handler plus a row below rather than another branch grown into this method.
      *
-     * **`pop-out` is the one asynchronous row**, because vessel admission is: it returns the
-     * settlement as a Promise of the same `{document, errors}` envelope the synchronous rows return,
-     * never a bare Boolean. The projection wire discards this return, so the shape is a contract for
-     * a subclass or a direct caller rather than for the button — which is exactly why it must not
-     * quietly differ per action.
+     * **`pop-out` and `pin` are the asynchronous rows.** `pop-out` because vessel admission is;
+     * `pin` because its collapse sequence awaits each step's commit before reducing the next. Both
+     * return the settlement as a Promise of the same `{document, errors}` envelope the synchronous
+     * rows return, never a bare Boolean, and neither rejects. The projection wire discards this
+     * return, so the shape is a contract for a subclass or a direct caller rather than for the
+     * button — which is exactly why it must not quietly differ per action.
      * @param {Object} data
      * @param {String} data.action
      * @param {String} data.dockNodeId
@@ -1785,6 +1786,12 @@ class Workspace extends Container {
      * would make step 2 bypass that seam, since the seam reduces against the committed `dockModel`
      * and step 2 needs step 1's result.
      *
+     * **Step 1's publish is therefore awaited, which is why this method is async.** The direct path
+     * assigns `dockModel` synchronously, but a topology Group returns a pending transaction and
+     * advances the field later inside adopt; an unawaited step 2 then reduces against a document
+     * step 1 never reached and is refused. Awaiting preserves both properties the row requires —
+     * the steps stay independently committed, and they land in the specified order.
+     *
      * A step-2 rejection therefore leaves the item unpinned and still visible. That is §2.7's own
      * intermediate state, which it calls benign, and it is the price of the independence the row
      * requires; the alternative buys atomicity by making half the gesture unobservable.
@@ -1803,10 +1810,11 @@ class Workspace extends Container {
      * @param {Object} data
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
-     * @returns {{document:Object,errors:String[]}|null}
+     * @returns {Promise<{document:Object,errors:String[]}|null>} Resolves; never rejects — a failed
+     *     commit is returned as `errors`, because the caller is a listener slot with no rejection seam.
      * @protected
      */
-    handleDockPinAction({dockNodeId, tabContainer}={}) {
+    async handleDockPinAction({dockNodeId, tabContainer}={}) {
         let me     = this,
             itemId = me.getActiveDockItemId(tabContainer);
 
@@ -1830,16 +1838,31 @@ class Workspace extends Container {
 
         descriptors.push({operation: 'setItemAutoHidden', itemId, autoHidden: true});
 
-        for (const descriptor of descriptors) {
-            result = me.applyDockZoneOperation(descriptor);
+        // The catch converts a failure into this method's own `{document, errors}` contract rather
+        // than propagating it. Awaiting introduces that obligation: the only caller is a component
+        // listener slot — `LayoutAdapter` wires `headerAction` straight to it — so there is nowhere
+        // above to attach a rejection handler, and an escaping rejection would be unhandled. It is
+        // deliberately not re-logged; the Group branch already routes to `Neo.logError`, so what
+        // changes here is the shape of the failure, never whether it is reported.
+        try {
+            for (const descriptor of descriptors) {
+                result = me.applyDockZoneOperation(descriptor);
 
-            if (!result || result.errors?.length || !result.document) {
-                return result
+                if (!result || result.errors?.length || !result.document) {
+                    return result
+                }
+
+                // Awaited: the seam reads the committed `dockModel`, and only the direct path assigns
+                // it synchronously. Under a Group the publish is a pending transaction, so an
+                // unawaited step 2 reduces against a document step 1 has not reached.
+                await me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
             }
-
-            // Publishing here is what lets the NEXT step reduce against this one: the seam reads the
-            // committed `dockModel`, and this assigns it synchronously before the refresh is chained.
-            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
+        } catch (error) {
+            // `error?.message ?? String(error)` rather than `error.message`: a rejection value is not
+            // required to be an Error. `Promise.reject(null)` would make the property read throw
+            // INSIDE this catch, and that throw escapes the method — reintroducing the exact
+            // unhandled rejection this block exists to prevent, in the one path nothing else covers.
+            return {document: me.dockModel, errors: [error?.message ?? String(error)]}
         }
 
         return result
