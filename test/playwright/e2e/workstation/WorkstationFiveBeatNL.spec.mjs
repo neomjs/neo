@@ -560,22 +560,29 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             sampleCount          : 0,
             sourceSeen           : false,
             targetSeen           : false,
-            targetSeenWithSource : 0
+            targetSeenWithSource : 0,
+            unpaintedCursors     : 0
         };
         let running = true;
 
         const sample = async () => {
             const pages  = page.context().pages().filter(candidate => !candidate.isClosed());
             const counts = await Promise.all(pages.map(async candidate => {
-                let count = 0;
+                let count = 0, unpainted = 0;
 
                 try {
-                    count = await candidate.locator('.film-cursor').count()
+                    const cursors = await candidate.locator('.film-cursor').evaluateAll(nodes => nodes.map(node => {
+                        const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+                        return rect.width === 16 && rect.height === 16
+                            && style.position === 'fixed' && style.pointerEvents === 'none'
+                    }));
+                    count = cursors.length;
+                    unpainted = cursors.filter(painted => !painted).length
                 } catch {
                     // A popup may close between the page census and its DOM query.
                 }
 
-                return {count, page: candidate}
+                return {count, page: candidate, unpainted}
             }));
             const
                 sourceCount = counts.find(entry => entry.page === sourcePage)?.count ?? 0,
@@ -589,7 +596,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             evidence.overlapSamples       += Number(total > 1);
             evidence.sourceSeen           ||= sourceCount > 0;
             evidence.targetSeen           ||= targetCount > 0;
-            evidence.targetSeenWithSource += Number(sourceCount > 0 && targetCount > 0)
+            evidence.targetSeenWithSource += Number(sourceCount > 0 && targetCount > 0);
+            evidence.unpaintedCursors     += counts.reduce((sum, entry) => sum + entry.unpainted, 0)
         };
 
         await sample();
@@ -635,6 +643,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         if (showCursor) {
             console.log('[film-cursor-lifecycle]', JSON.stringify(evidence));
             expect(evidence.sourceSeen, 'film mode must expose the source cursor during the gesture').toBe(true);
+            expect(evidence.unpaintedCursors, 'the app stylesheet must present every cursor as a 16px input-transparent dot')
+                .toBe(0);
 
             if (expectMigration) {
                 expect(evidence.maxParticipatingPages,
