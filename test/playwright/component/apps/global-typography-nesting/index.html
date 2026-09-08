@@ -5,14 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neo.mjs Global Typography Nesting Fixture</title>
     <!--
-        The REAL HighlightJs sheet, linked rather than retyped: it declares `code, .hljs {font-family:
-        Menlo, monospace}` at (0,1) and is the author rule the structural `code` rule competes with.
-        A fixture that omits it can only measure the UA baseline, and a UA-default control cannot show
-        whether an existing author declaration still applies — which is the gap this composition closes.
-        Load order is not load-bearing: the two rules differ in specificity, so the cascade decides
-        regardless of which sheet arrives first.
+        The REAL HighlightJs sheet, linked rather than retyped: it owns the mono font for all code and
+        is the author rule the structural `code` rule competes with. A fixture that omits it can only
+        measure the UA baseline, and a UA-default control cannot show whether an existing author
+        declaration still applies — which is the gap this composition closes. Load order is not
+        load-bearing: the two rules differ in specificity, so the cascade decides either way.
+
+        `dist/development/**` is the correct tree and the path is load-bearing. This suite's
+        `globalSetup` runs `ensureDevelopmentThemeAssets()`, i.e. `build-themes -e dev`, so this file
+        is the one output the tier GUARANTEES — and it is the same tree this fixture's own app reads,
+        since its neo-config declares `environment: development`. An earlier revision linked
+        `dist/esm/**`, which passed locally only because an unrelated `-e esm` build happened to be
+        present and was absent in CI: the link 404'd, `code` fell back to the user agent, and BOTH
+        arms went red including the neo control. A fixture must name a path its own tier produces.
     -->
-    <link rel="stylesheet" href="../../../../../dist/esm/css/src/util/HighlightJs.css">
+    <link rel="stylesheet" href="../../../../../dist/development/css/src/util/HighlightJs.css">
 </head>
 <body>
     <script src="../../../../../src/MicroLoader.mjs" type="module"></script>
