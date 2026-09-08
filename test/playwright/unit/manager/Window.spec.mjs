@@ -255,6 +255,21 @@ test.describe.serial('Neo.manager.Window native route authority (#18501)', () =>
         }
     });
 
+    test('a connected window carrying no native route is refused, not treated as unrestricted', () => {
+        const windowId = 'routeless-window';
+
+        WindowManager.onWindowConnect({appName: 'DockDemo', windowData: {}, windowId});
+
+        // Distinct from the unknown-window arm above: the entry exists and is merely routeless.
+        expect(WindowManager.get(windowId).nativeRoute).toBeNull();
+
+        const result = ask({route: null, windowId});
+
+        expect(result.present).toBe(false);
+        expect(result.granted).toBe(false);
+        expect(result.route).toBeNull()
+    });
+
     test('a caller that asserts no owner is granted whatever the route owner is, and the result says so', () => {
         const route  = grantingRoute({ownerWindowId: 'some-other-window'}),
               result = ask({capability: 'close', ownerWindowId: null, route});
