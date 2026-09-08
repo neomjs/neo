@@ -1162,10 +1162,32 @@ class Main extends core.Base {
     }
 
     /**
+     * @summary Reads the light/dark hint the active theme declares, or `undefined` when none does.
+     *
+     * Every theme states its own scheme as `--neo-color-scheme` in its `Global.scss`, because the
+     * name cannot be trusted to carry it: `theme-cyberpunk` is dark and is named neither. The token
+     * is declared on the element holding the `neo-theme-*` class rather than on the document root,
+     * so the read has to find that element; custom properties inherit downward only.
+     *
+     * An undeclared theme returns `undefined` on purpose. The caller then omits the parameter and
+     * keeps the platform default, which is preferable to staging a guessed colour.
+     * @returns {'dark'|'light'|undefined}
+     * @protected
+     */
+    resolveThemeColorScheme() {
+        const
+            themed = document.querySelector('[class*="neo-theme-"]'),
+            value  = themed && getComputedStyle(themed).getPropertyValue('--neo-color-scheme').trim();
+
+        return value === 'dark' || value === 'light' ? value : undefined
+    }
+
+    /**
      * @summary Opens a popup and stages any same-origin canvas before its route-bearing navigation.
      * @param {Object}  data
      * @param {Object}  [data.nativeCapabilities] Owner-granted generic physical capabilities.
      * @param {'dark'|'light'} [data.stagedColorScheme] Admitted scheme for the temporary same-origin document.
+     * Omitted callers inherit the opener's own theme through {@link Neo.Main#resolveThemeColorScheme}.
      * @param {String}  data.url
      * @param {Boolean} [data.useTotalHeight=true] Using this flag will set outerHeight to innerHeight, ignoring header tools
      * @param {String}  data.windowFeatures
@@ -1176,6 +1198,11 @@ class Main extends core.Base {
         let existingWin = this.openWindows[windowName],
             stagedUrl   = null,
             targetName;
+
+        // A caller that names a scheme keeps it; one that does not inherits the opener's. The
+        // staging document paints before the child app exists, so without this the popup flashes
+        // the user-agent default no matter what theme the opener is showing.
+        stagedColorScheme ??= this.resolveThemeColorScheme();
 
         try {
             const resolved = typeof url === 'string' && new URL(url, window.location.href);
