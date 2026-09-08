@@ -66,7 +66,8 @@ test.describe('Workspace initial pane declarations', () => {
     });
 
     test('later replacement or mutation of declarations cannot change the captured seed', () => {
-        workspace = Neo.create(DeclaredWorkspace);
+        const panes = Neo.clone(DeclaredWorkspace.config.panes, true, true);
+        workspace = Neo.create(DeclaredWorkspace, {panes});
         const document = workspace.dockModel;
         workspace.panes.editor.text = 'mutated';
         workspace.set({panes: {editor: {ntype: 'component', text: 'replacement'}}, zones: 'second'});
