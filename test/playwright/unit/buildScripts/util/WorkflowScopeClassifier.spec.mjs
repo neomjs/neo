@@ -213,6 +213,40 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         }
     });
 
+    test('a custom-selection probe does not claim the tier\'s coverage, and the gate still does', () => {
+        // `e2eCiSelection --summary` prints "selected 14 of 105" — true of the TIER, false of a run
+        // that executed one named spec. Emitted beside a probe it would manufacture a
+        // coverage-that-was-not-run claim inside the honesty guard itself, which is the one place
+        // it would be believed. Discriminating on purpose: the gate must still emit it, so a
+        // condition that silenced the summary everywhere would pass a one-sided assertion.
+        const steps    = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
+              coverage = steps.find(step => step.name === 'Report tier coverage'),
+              probe    = steps.find(step => step.name === 'Report probe rate');
+
+        expect(coverage, 'the tier coverage step must exist to be conditioned').toBeTruthy();
+        expect(probe,    'and the probe reports its own population').toBeTruthy();
+
+        // Suppressed only when a dispatch named its own specs — never for `pull_request` / `push`.
+        expect(coverage.if).toContain("github.event_name != 'workflow_dispatch' || inputs.specs == ''");
+        expect(probe.if).toContain("github.event_name == 'workflow_dispatch'");
+    });
+
+    test('a dispatch is not silently capped by the job bound', () => {
+        // A job `timeout-minutes` CAPS a step's: the dispatch test step asks for 30, and under the
+        // gate's 12-minute job it would have received 12 — a probe killed by a limit nothing in the
+        // log names, reporting a rate that is an artifact of the bound. The job allowance must
+        // exceed the step's, and the gate's own numbers must be untouched.
+        const job  = readWorkflow('test-e2e.yml').jobs['e2e-engine'],
+              step = job.steps.find(s => s.name === 'Run e2e (engine tier)');
+
+        const nums = String(job['timeout-minutes']).match(/\d+/g).map(Number),
+              sNum = String(step['timeout-minutes']).match(/\d+/g).map(Number);
+
+        expect(Math.max(...nums), 'the dispatch job allowance').toBeGreaterThan(Math.max(...sNum));
+        expect(Math.min(...nums), 'the gate job bound is unchanged').toBe(12);
+        expect(Math.min(...sNum), 'the gate test-step ceiling is unchanged').toBe(5);
+    });
+
     test('the e2e job consumes BOTH gates on every step that costs anything', () => {
         // `test.yml` resolves its flag once into `matrix.run`; the single-job e2e pipeline has no
         // matrix to hang it on, so each step carries the conditions itself. An ungated provisioning

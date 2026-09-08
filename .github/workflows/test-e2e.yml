@@ -74,7 +74,15 @@ jobs:
     needs: changes
     # Bounds provisioning plus tests. The test-time ceiling is the step below; this
     # exists so a hung install cannot occupy a runner indefinitely.
-    timeout-minutes: 12
+    # The gate keeps its twelve minutes: provisioning plus a five-minute test step, so a hung
+    # install cannot occupy a runner indefinitely.
+    #
+    # A dispatch needs its own, and the reason is that a job bound SILENTLY CAPS a step bound. The
+    # dispatch test step below asks for thirty minutes; under a twelve-minute job it would have got
+    # twelve, and a probe killed at the job bound reports a rate that is an artifact of a limit
+    # nothing in the log names. Forty-five leaves the thirty-minute step its full allowance plus
+    # provisioning and reporting, so the step's own bound is the one that actually binds.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 45 || 12 }}
 
     steps:
       # The classifier's verdict is a PREREQUISITE's output, and re-running a failed job does not
@@ -258,6 +266,13 @@ jobs:
           {
             echo "### Probe result"
             echo
+            if [ -n "${PROBE_SPECS}" ]; then
+              echo "**This run covers the selection below and nothing else** — it is a measurement,"
+              echo "not a tier run, and its green says nothing about the tier's coverage."
+            else
+              echo "Ordinary tier selection; see the coverage section for the population it certifies."
+            fi
+            echo
             echo "- selection: \`${PROBE_SPECS:-<tier selection>}\`"
             echo "- repeat-each: \`${PROBE_REPEAT}\`"
             echo
@@ -267,8 +282,15 @@ jobs:
               || echo 'no Playwright summary line — the run did not reach its reporter'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # NOT emitted for a probe that named its own specs. `e2eCiSelection --summary` describes the
+      # TIER's population — "selected 14 of 105" — which is a true statement about the tier and a
+      # false one about a run that executed a single spec. Printing it beside a one-spec probe
+      # would manufacture exactly the coverage-that-was-not-run claim this summary exists to
+      # prevent, and it would do it in the honesty guard itself.
+      #
+      # A probe's population is reported by `Report probe rate` above, from its actual selection.
       - name: Report tier coverage
-        if: ${{ always() && needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
+        if: ${{ always() && needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' && (github.event_name != 'workflow_dispatch' || inputs.specs == '') }}
         run: node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
