@@ -135,15 +135,25 @@ jobs:
 
             const normalizedFiles = files.map(file => file.replace(/\\/g, '/'));
 
-            // package.json carries TWO unrelated kinds of change: dependency-kind edits
-            // (dependencies / devDependencies / overrides — they shift the installed tree the
-            // browser and integration suites run against) and metadata edits (scripts / version /
-            // description, which cannot). The path atom alone cannot tell them apart, so resolve
-            // the CONTENT at both refs. The completeness rule above is unchanged: anything
-            // undeterminable (missing refs, fetch or parse failure) fails TOWARD running.
-            async function packageJsonTouchesDependencies() {
+            // package.json carries unrelated kinds of change, and the path atom cannot tell them
+            // apart, so resolve the CONTENT at both refs:
+            //
+            //   dependency-kind (dependencies / devDependencies / overrides) — shifts the installed
+            //     tree every browser suite runs against.
+            //   invoked scripts — the e2e job runs `bundle-browser-deps` and its two children, and
+            //     the tier's own `webServer` launches `server-start`. Editing one of those changes
+            //     what the tier executes just as surely as editing the server config it points at.
+            //   everything else (an unrelated script, `version`, `description`) — cannot.
+            //
+            // Both facets come from ONE pair of fetches: the read is per ref, not per question.
+            // The completeness rule is unchanged — anything undeterminable (missing refs, fetch or
+            // parse failure) fails TOWARD running, for every facet at once.
+            async function packageJsonRelevance() {
+              const untouched = {dependencyKind: false, e2eScripts: false},
+                    undecided = {dependencyKind: true,  e2eScripts: true};
+
               if (!normalizedFiles.includes('package.json')) {
-                return false;
+                return untouched;
               }
 
               try {
@@ -152,10 +162,16 @@ jobs:
 
                 if (!baseRef || !headRef || /^0+$/.test(baseRef)) {
                   core.info('package.json base/head ref undeterminable; failing toward running.');
-                  return true;
+                  return undecided;
                 }
 
-                const depKindKeys = ['dependencies', 'devDependencies', 'overrides'];
+                const depKindKeys = ['dependencies', 'devDependencies', 'overrides'],
+                      // Derived from the e2e job's own launch chain rather than guessed: the
+                      // workflow step runs `bundle-browser-deps`, whose definition is
+                      // `bundle-parse5 && bundle-marked`, and `playwright.config.e2e.mjs`'s
+                      // `webServer.command` runs `server-start`. Naming the children matters —
+                      // `bundle-browser-deps` can keep its text while what it delegates to changes.
+                      e2eScriptKeys = ['bundle-browser-deps', 'bundle-marked', 'bundle-parse5', 'server-start'];
 
                 // Fork PRs: the head SHA exists only in the fork repo, so the head content read
                 // must follow the fork's coordinates — the base half stays on the PR target repo.
@@ -167,10 +183,11 @@ jobs:
 
                 core.info(`package.json head content resolves from ${headRepo.owner}/${headRepo.repo}.`);
 
-                const readDepKind = async (ref, {owner, repo}) => {
+                const readFacets = async (ref, {owner, repo}) => {
                   const res     = await github.rest.repos.getContent({owner, repo, path: 'package.json', ref});
                   const pkg     = JSON.parse(Buffer.from(res.data.content, 'base64').toString('utf8'));
                   const depKind = {};
+                  const scripts = {};
 
                   for (const key of depKindKeys) {
                     const entries = pkg[key];
@@ -180,21 +197,33 @@ jobs:
                     }
                   }
 
-                  return depKind;
+                  // Absent and present-but-empty must not compare equal: a DELETED script changes
+                  // what the tier runs exactly as much as an edited one.
+                  for (const key of e2eScriptKeys) {
+                    scripts[key] = pkg.scripts?.[key] ?? null;
+                  }
+
+                  return {depKind, scripts};
                 };
 
-                const [baseDepKind, headDepKind] = await Promise.all([readDepKind(baseRef, {owner: context.repo.owner, repo: context.repo.repo}), readDepKind(headRef, headRepo)]),
-                      relevant = JSON.stringify(baseDepKind) !== JSON.stringify(headDepKind);
+                const [base, head] = await Promise.all([readFacets(baseRef, {owner: context.repo.owner, repo: context.repo.repo}), readFacets(headRef, headRepo)]),
+                      relevance    = {
+                        dependencyKind: JSON.stringify(base.depKind) !== JSON.stringify(head.depKind),
+                        e2eScripts    : JSON.stringify(base.scripts) !== JSON.stringify(head.scripts)
+                      };
 
-                core.info(`package.json dependency-kind change: ${relevant}`);
-                return relevant;
+                core.info(`package.json dependency-kind change: ${relevance.dependencyKind}`);
+                core.info(`package.json e2e-script change: ${relevance.e2eScripts}`);
+                return relevance;
               } catch (error) {
                 core.info(`package.json relevance undeterminable (${error.message}); failing toward running.`);
-                return true;
+                return undecided;
               }
             }
 
-            const packageJsonDependencyChange = await packageJsonTouchesDependencies();
+            const packageJsonChange           = await packageJsonRelevance(),
+                  packageJsonDependencyChange = packageJsonChange.dependencyKind,
+                  packageJsonE2eScriptChange  = packageJsonChange.e2eScripts;
 
             // Keep explicit unit/component statuses on docs-only PRs instead of
             // workflow-level paths-ignore. Missing checks can block protected branches.
@@ -235,40 +264,51 @@ jobs:
               file === '.github/workflows/test.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
-            // Whitelist: the e2e (engine tier) drives real example and harness apps in a browser,
-            // so its relevant surface is strictly wider than the components suite's. Every atom
-            // here was MEASURED against the tier's own runnable selection rather than inferred
-            // from the specs' location (#17853):
+            // The e2e (engine tier) boots real example and harness apps against a built dev server,
+            // so its relevant surface is strictly wider than the components suite's — it takes in
+            // what the job LAUNCHES and BUILDS, not only what its specs import.
             //
-            //   src/                             the engine under test
-            //   examples/                        navigated by the grid, colors and dock specs
-            //   apps/                            `apps/workstation/index.html` is a nav target
-            //   test/playwright/component/apps/  dock-first-mount, dock-lock, empty-viewport
-            //   test/playwright/e2e/             the specs themselves
-            //   test/playwright/fixtures.mjs     imported directly by the specs
-            //   playwright.config.e2e.mjs        selection and projects
-            //   buildScripts/util/e2eCiSelection.mjs  DECIDES which specs the job invokes
+            // This predicate was a file list once, and the list was the defect: it named the specs'
+            // own imports and their navigation targets, and went silently false on the config's
+            // imports, the harness helpers, the theme build and the server it starts. A location
+            // list cannot help doing that, because it can only name what existed when it was
+            // written. So the boundary below is stated as RULES over the chain the job actually
+            // runs, derived from `playwright.config.e2e.mjs` (its own imports plus
+            // `webServer.command`), `fixtures.mjs`, `e2e/globalSetup.mjs` and the workflow's steps:
             //
-            // The last four are the ones a location-shaped guess omits, and this ticket's own
-            // acceptance criterion named only `examples/`. A predicate missing any of them
-            // silently skips the tier on a change that alters what it covers — which is #15368's
-            // shape, the thing this predicate exists to prevent rather than reproduce.
+            //   src/                  the engine under test
+            //   examples/, apps/      navigated by the grid, colors, dock and workstation specs
+            //   resources/scss/       compiled to the theme the paint and geometry arms measure
+            //   buildScripts/         the theme assets, the webpack server `server-start` runs,
+            //                         and `e2eCiSelection.mjs`, which DECIDES the spec population
+            //   test/playwright/      the config, the fixtures, the helpers they import, the specs
             //
-            // `apps/` whole rather than `apps/workstation/`: the completeness rule fails TOWARD
-            // running, a false positive costs one ~3-minute job and a false negative costs
-            // invisible coverage, and the churniest path under it (`apps/portal/resources/data/`)
-            // stopped being written on a schedule when the data-sync pipeline went dispatch-only
-            // (#18449).
+            // Two exclusions under `test/playwright/`, both counted: `unit/` and `component/` are
+            // the sibling suites' own spec trees and cannot change what this tier covers.
+            // `component/apps/` is re-admitted inside the second, because the e2e specs navigate
+            // those harness apps directly.
+            //
+            // Whole directories rather than narrower paths — `apps/` not `apps/workstation/`,
+            // `buildScripts/` not two files — because this gate's failure mode is SILENCE. A false
+            // positive costs one ~3-minute job; a false negative costs coverage behind a green
+            // check, and nothing reports it. The churniest path under `apps/`
+            // (`apps/portal/resources/data/`) stopped being written on a schedule when the
+            // data-sync pipeline went dispatch-only (#18449).
+            const isE2eTestSupportPath = file =>
+              file.startsWith('test/playwright/component/apps/') || (
+                file.startsWith('test/playwright/') &&
+                !file.startsWith('test/playwright/unit/') &&
+                !file.startsWith('test/playwright/component/')
+              );
+
             const isE2eRelevantPath = file =>
               file.startsWith('src/') ||
               file.startsWith('examples/') ||
               file.startsWith('apps/') ||
-              file.startsWith('test/playwright/component/apps/') ||
-              file.startsWith('test/playwright/e2e/') ||
-              file === 'test/playwright/fixtures.mjs' ||
-              file === 'test/playwright/playwright.config.e2e.mjs' ||
-              file === 'buildScripts/util/e2eCiSelection.mjs' ||
-              (file === 'package.json' && packageJsonDependencyChange) ||
+              file.startsWith('resources/scss/') ||
+              file.startsWith('buildScripts/') ||
+              isE2eTestSupportPath(file) ||
+              (file === 'package.json' && (packageJsonDependencyChange || packageJsonE2eScriptChange)) ||
               file === 'package-lock.json' ||
               file === '.github/workflows/test-e2e.yml' ||
               file === '.github/workflows/classify-test-scope.yml';

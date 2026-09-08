@@ -212,16 +212,33 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         }
     });
 
-    test('the e2e job consumes the gate on every step that costs anything', () => {
+    test('the e2e job consumes BOTH gates on every step that costs anything', () => {
         // `test.yml` resolves its flag once into `matrix.run`; the single-job e2e pipeline has no
-        // matrix to hang it on, so each step carries the condition itself. An ungated provisioning
-        // step would spend the runner this ticket exists to stop spending — and would do it
-        // quietly, since the job still reports green.
-        const steps   = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
-              ungated = steps.filter(step => !String(step.if || '').includes('run_e2e'));
+        // matrix to hang it on, so each step carries the conditions itself. An ungated provisioning
+        // step would spend the runner these gates exist to stop spending — and would do it quietly,
+        // since the job still reports green.
+        //
+        // Two conditions, not one, and the second is the rerun boundary: the classifier is a
+        // PREREQUISITE, and re-running a failed job replays a successful prerequisite's output
+        // rather than recomputing it. Without a job-local head check, a rerun can certify a tree
+        // the PR has already moved past.
+        const steps = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
+              // The head probe computes the answer, so it cannot depend on it; the skip step is
+              // gated on the inverse and reports the reason. Every OTHER step spends the runner.
+              exempt   = ['Verify current pull-request head', 'Skip e2e (engine tier)'],
+              expensive = steps.filter(step => !exempt.includes(step.name)),
+              ungated  = expensive.filter(step => {
+                  const condition = String(step.if || '');
+
+                  return !condition.includes('run_e2e') || !condition.includes('steps.head.outputs.current');
+              });
 
         expect(ungated.map(step => step.name)).toEqual([]);
-        expect(steps.length).toBeGreaterThan(10); // the filter above passes vacuously on an empty job
+
+        // The filters above pass vacuously on an empty job, and `exempt` names steps by string:
+        // a rename would silently exempt nothing and shrink `expensive` to zero.
+        expect(expensive.length).toBeGreaterThan(10);
+        expect(steps.map(step => step.name)).toEqual(expect.arrayContaining(exempt));
     });
 
 });
@@ -477,15 +494,27 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
      * @type {Object[]}
      */
     const e2eRelevant = [
-        {file: 'src/dashboard/dock/model/Operations.mjs',        why: 'the engine under test; imported by the dock specs directly'},
-        {file: 'examples/dashboard/dock/index.html',             why: 'navigated by the dock specs — the one path the AC named'},
-        {file: 'apps/workstation/index.html',                    why: 'navigated by the workstation specs; ABSENT from the AC'},
-        {file: 'test/playwright/component/apps/dock-lock/app.mjs', why: 'a harness app the e2e specs navigate to; ABSENT from the AC'},
-        {file: 'buildScripts/util/e2eCiSelection.mjs',           why: 'decides WHICH specs the job runs; ABSENT from the AC'},
-        {file: 'test/playwright/e2e/grid/RowPinning.spec.mjs',   why: 'the specs themselves'},
-        {file: 'test/playwright/fixtures.mjs',                   why: 'imported by the specs'},
-        {file: 'test/playwright/playwright.config.e2e.mjs',      why: 'selection and projects'},
-        {file: '.github/workflows/test-e2e.yml',                 why: 'the runner that invokes the tier'}
+        {file: 'src/dashboard/dock/model/Operations.mjs',            why: 'the engine under test; imported by the dock specs directly'},
+        {file: 'examples/dashboard/dock/index.html',                 why: 'navigated by the dock specs'},
+        {file: 'apps/workstation/index.html',                        why: 'navigated by the workstation specs'},
+        {file: 'test/playwright/component/apps/dock-lock/app.mjs',   why: 'a harness app the e2e specs navigate to'},
+        {file: 'test/playwright/e2e/grid/RowPinning.spec.mjs',       why: 'the specs themselves'},
+        {file: 'test/playwright/fixtures.mjs',                       why: 'imported by the specs'},
+        {file: 'test/playwright/playwright.config.e2e.mjs',          why: 'selection and projects'},
+        {file: '.github/workflows/test-e2e.yml',                     why: 'the runner that invokes the tier'},
+        {file: 'buildScripts/util/e2eCiSelection.mjs',               why: 'decides WHICH specs the job runs'},
+        // Every row below is a measured FALSE NEGATIVE of the first version of this predicate,
+        // found by executing the committed script against real inputs rather than re-reading it.
+        // They are the reason the boundary is now stated as rules over the job's launch chain: each
+        // one is consumed by the run, and none of them is a spec, an engine file or a nav target —
+        // the three shapes a location list notices.
+        {file: 'resources/scss/src/dashboard/Container.scss',        why: 'compiles to the theme the dock paint and geometry arms measure'},
+        {file: 'test/playwright/externalBrainSelection.mjs',         why: 'imported by playwright.config.e2e.mjs — it decides the ignored population'},
+        {file: 'test/playwright/resolveFreePort.mjs',                why: 'imported by playwright.config.e2e.mjs — it picks the server port'},
+        {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},
+        {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
+        {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
+        {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'}
     ];
 
     for (const {file, why} of e2eRelevant) {
@@ -533,19 +562,48 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         expect(outputsOf(runtime)).toMatchObject({ run_components: 'false', run_e2e: 'true' });
     });
 
-    test('a dependency-kind package.json edit admits the tier, a metadata one does not', async () => {
-        // Same content-resolved split the components suite gets: the e2e tier boots the installed
-        // tree in a browser, so a dependency move is relevant to it and an added npm script is not.
+    test('a component spec is NOT e2e-relevant, though its harness app is', async () => {
+        // The second counted exclusion under `test/playwright/`. The rule admits that directory
+        // broadly — that is what stopped the helper false-negatives — so the two sibling suites'
+        // spec trees have to be excluded explicitly, and `component/apps/` re-admitted inside one
+        // of them. This arm pins the seam: the spec is out, the harness app it mounts is in.
+        const spec = createRuntime({ files: ['test/playwright/component/dock/Rail.spec.mjs'] });
+
+        await executeScript(scopeScript(), spec);
+        expect(outputsOf(spec), 'a component spec').toMatchObject({ run_components: 'true', run_e2e: 'false' });
+
+        const harness = createRuntime({ files: ['test/playwright/component/apps/dock-first-mount/app.mjs'] });
+
+        await executeScript(scopeScript(), harness);
+        expect(outputsOf(harness), 'the harness app beneath it').toMatchObject({ run_e2e: 'true' });
+    });
+
+    test('package.json admits the tier on a dependency move or an INVOKED script, not on an unrelated one', async () => {
+        // Three-way, because two of these look identical as a path atom. The tier boots the
+        // installed tree, so a dependency move is relevant; it also RUNS named scripts —
+        // `bundle-browser-deps` and its children from the workflow, `server-start` from the
+        // config's own `webServer.command` — so editing one of those changes what executes just as
+        // surely as editing the server config it points at. An unrelated script cannot.
         const dependency = createRuntime({ files: ['package.json'], headPkg: { dependencies: { leftpad: '2.0.0' } } });
 
         await executeScript(scopeScript(), dependency);
         expect(outputsOf(dependency), 'dependency-kind edit').toMatchObject({ run_e2e: 'true' });
 
-        // The default head `package.json` adds an npm script and moves no dependency.
-        const metadata = createRuntime({ files: ['package.json'] });
+        // Absent at base, present at head: the tier's own webServer command line changing.
+        const invoked = createRuntime({
+            files  : ['package.json'],
+            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'webpack serve --port 9000' } }
+        });
 
-        await executeScript(scopeScript(), metadata);
-        expect(outputsOf(metadata), 'metadata-only edit').toMatchObject({ run_e2e: 'false' });
+        await executeScript(scopeScript(), invoked);
+        expect(outputsOf(invoked), 'an invoked script changing').toMatchObject({ run_e2e: 'true' });
+
+        // The default head adds `ai:new-script` and moves no dependency — the discriminating
+        // negative, and the reason the script comparison is keyed rather than wholesale.
+        const unrelated = createRuntime({ files: ['package.json'] });
+
+        await executeScript(scopeScript(), unrelated);
+        expect(outputsOf(unrelated), 'an unrelated script').toMatchObject({ run_components: 'false', run_e2e: 'false' });
     });
 
 });
