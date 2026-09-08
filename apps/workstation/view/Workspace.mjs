@@ -19,6 +19,7 @@ import WorkspaceDocument        from '../../../src/dashboard/dock/model/Workspac
 import WorkspaceController      from './WorkspaceController.mjs';
 import Operations               from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../src/dashboard/dock/model/Persistence.mjs';
+import PreviewContract          from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import InteractionService       from '../../../src/ai/client/InteractionService.mjs';
 import StateProvider            from '../../../src/state/Provider.mjs';
 import TourRunner               from '../../../src/ai/client/TourRunner.mjs';
