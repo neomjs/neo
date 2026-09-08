@@ -1,5 +1,5 @@
 import {callWorkstationTour}                                        from '../utils/workstationTour.mjs';
-import {callWorkstationGesture}                                     from '../utils/workstationGesture.mjs';
+import {callWorkstationGesture, captureCatalogsByParticipant}       from '../utils/workstationGesture.mjs';
 import {execFile}                                                   from 'node:child_process';
 import {createHash}                                                 from 'node:crypto';
 import path                                                         from 'node:path';
@@ -688,7 +688,16 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // The step awaits the vessel birth internally, so its receipt is complete here. Asserting
         // it BEFORE the popup wait converts a silent 90s waitForEvent timeout into the step's own
         // arming/birth diagnostics — the receipt names the failing gate, the timeout names nothing.
-        expect(ownerResult.errors ?? [], JSON.stringify(ownerResult.proof ?? {})).toEqual([]);
+        //
+        // The receipt reads the ORIGIN document only, so `itemKeptInCatalog: false` cannot distinguish a
+        // lost record from one the vessel participant now owns. Both catalogs travel with the failure so
+        // the message answers that, rather than a later reader re-running the battery to ask it.
+        const catalogsByParticipant = await captureCatalogsByParticipant(app, wsId);
+
+        expect(
+            ownerResult.errors ?? [],
+            JSON.stringify({proof: ownerResult.proof ?? {}, catalogsByParticipant})
+        ).toEqual([]);
         expect(ownerResult.applied, 'the metrics tear-out must apply before merge staging continues').toBe(true);
 
         const
