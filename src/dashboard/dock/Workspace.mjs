@@ -537,8 +537,11 @@ class Workspace extends Container {
     /**
      * The pure reducer of the holder contract: applies one semantic operation descriptor against
      * the live committed document and returns `model.Operations`' fail-closed `{document, errors}`
-     * result. Never mutates {@link #dockModel} — the view-sync {@link #onDockZoneDocumentChange}
-     * is the only writer, called by the committing surface on success.
+     * result. Never mutates {@link #dockModel}: the view-sync {@link #onDockZoneDocumentChange} is
+     * its writer, called by the committing surface on success. One exception, and it is bounded —
+     * a multi-step sequence stages the field between its own steps so each reduces against the last
+     * (every implementation of this reducer reads `this.dockModel`, so staging is what reaches an
+     * override), and restores it before publishing.
      * @param {Object} descriptor The semantic operation descriptor.
      * @returns {{document: Object, errors: String[]}}
      */
@@ -1822,7 +1825,8 @@ class Workspace extends Container {
             return {document: me.dockModel, errors: ['Dock pin action requires an item owned by an edge zone']}
         }
 
-        let descriptors = [],
+        let committed   = me.dockModel,
+            descriptors = [],
             result      = null;
 
         me.dockModel.items?.[itemId]?.pinned === true &&
@@ -1830,17 +1834,34 @@ class Workspace extends Container {
 
         descriptors.push({operation: 'setItemAutoHidden', itemId, autoHidden: true});
 
+        // §2.7 forbids a composite OPERATION, not a multi-operation commit: each step below stays an
+        // independent, individually validated `Operations` call. The sequence used to publish after
+        // every step, on the premise that publishing assigns `dockModel` synchronously — true of the
+        // direct path, false under a Group, which returns `pending` and advances the field later
+        // inside adopt. Step 2 then reduced against a document where step 1 had not landed and was
+        // refused, silently, because the refusal is a returned `errors` array nobody surfaces.
+        //
+        // So the reduction is staged locally and published ONCE. The field is advanced between steps
+        // rather than threaded as an argument, because the reducer is a consumer-overridable seam and
+        // every implementation of it reads `this.dockModel`; an argument would reach only the ones
+        // that opted in.
         for (const descriptor of descriptors) {
             result = me.applyDockZoneOperation(descriptor);
 
             if (!result || result.errors?.length || !result.document) {
+                // Never leave an unpublished document staged on a refusal.
+                me.dockModel = committed;
                 return result
             }
 
-            // Publishing here is what lets the NEXT step reduce against this one: the seam reads the
-            // committed `dockModel`, and this assigns it synchronously before the refresh is chained.
-            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
+            me.dockModel = result.document
         }
+
+        // Restoring before publishing is load-bearing, not tidiness: `onDockZoneDocumentChange`
+        // enters its Group branch only while `document !== me.dockModel`, so a staged field that
+        // already equals the result would route the commit down the direct path instead.
+        me.dockModel = committed;
+        me.onDockZoneDocumentChange(result.document, descriptors, tabContainer);
 
         return result
     }
@@ -2177,24 +2198,33 @@ class Workspace extends Container {
      * in THIS closure, so they are consumed by exactly one projection.
      * @param {Object|null} document The committed dock-zone document; `null` clears the workspace
      *     toward the empty projection.
-     * @param {Object|null} [descriptor=null] The semantic operation that produced `document`.
+     * @param {Object|Object[]|null} [descriptor=null] The semantic operation that produced
+     *     `document`, or the ordered operations of one multi-step sequence. An array commits as a
+     *     single transaction, which the Group reduces sequentially against its own queue head — so a
+     *     later step sees an earlier one landed, which publishing per step cannot guarantee here.
      * @param {Object|null} [source=null] The committing surface, when it identifies itself.
      * @returns {Promise} The scheduled projection's outcome.
      */
     onDockZoneDocumentChange(document, descriptor=null, source=null) {
-        const me = this, set = me.workspaceSet;
+        const me   = this,
+              set  = me.workspaceSet,
+              // A sequence commits as one transaction; the projection is still described by the step
+              // whose effect it presents, which is the last one.
+              descriptors = Array.isArray(descriptor) ? descriptor : descriptor ? [descriptor] : [],
+              primary     = descriptors[descriptors.length - 1] ?? null;
+
         if (set && me.topologyGroupId && document !== me.dockModel) {
             const manager = Neo.manager.Transaction;
             const workspaceKey = me.workspaceKey ?? set.ids()
                 .find(key => manager.getParticipant(me.topologyGroupId, key)?.componentId === me.id);
             if (!workspaceKey) return Promise.reject(new Error('dock participant not registered'));
-            const pending = descriptor?.operation
-                ? set.commit(workspaceKey, [descriptor], {provenance: {origin: 'human'}})
+            const pending = descriptors.every(entry => entry?.operation) && descriptors.length
+                ? set.commit(workspaceKey, descriptors, {provenance: {origin: 'human'}})
                 : set.write({[workspaceKey]: document}, {cause: 'dock', provenance: {origin: 'human'}});
             pending.catch(error => Neo.logError(error));
             return pending
         }
-        const projection = me.projectDockZoneDocument(document, descriptor, source);
+        const projection = me.projectDockZoneDocument(document, primary, source);
         me.dockModel = document;
         return projection
     }
