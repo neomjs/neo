@@ -86,7 +86,12 @@ test.describe.serial('Dock pin action', () => {
         set     = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument})
     });
 
-    test.afterEach(() => TransactionManager.retireGroup(groupId));
+    test.afterEach(() => {
+        // The set is a registered class instance since the adapter conversion, so retiring the Group
+        // no longer disposes it — an un-destroyed participant survives into the next arm's registry.
+        set.destroy();
+        TransactionManager.retireGroup(groupId)
+    });
 
     test('the two-step collapse reaches autoHidden under a registered Group participant', async () => {
         const workspace = Neo.create(PinWorkspace, {
@@ -189,6 +194,39 @@ test.describe.serial('Dock pin action', () => {
 
             expect(result, 'a refused commit still returns the contract shape').toBeTruthy();
             expect(result.errors.join(' '), 'and carries the refusal').toContain('commit refused by the holder')
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('a NON-Error rejection also comes back as errors, not a crash inside the catch', async () => {
+        // The sibling arm above rejects with an Error, so it witnesses only the Error case — the
+        // property the control itself has. Reading `.message` off `null` throws INSIDE the catch,
+        // which escapes the method and reintroduces the unhandled rejection the catch exists to
+        // prevent. @neo-gpt-emmy found it against the previous head.
+        //
+        // The rejection is injected AT THE SEAM rather than through a holder, and that is the whole
+        // point of the arm: a holder that throws `null` is wrapped into an Error by the transaction
+        // machinery long before this catch sees it, so a holder-based version passes on the broken
+        // source and proves nothing. It was written that way first and measured green against the
+        // defect, which is what sent me looking for the real path.
+        const workspace = Neo.create(PinWorkspace, {
+            dockModel: createDocument(), topologyGroupId: groupId, workspaceKey: 'main', workspaceSet: set
+        });
+
+        set.register('main', {
+            componentId: workspace.id,
+            getDocument: () => workspace.dockModel,
+            setDocument: value => workspace.dockModel = value
+        });
+
+        workspace.onDockZoneDocumentChange = () => Promise.reject(null);
+
+        try {
+            const result = await collapseInspector(workspace);
+
+            expect(result, 'a null rejection still returns the contract shape').toBeTruthy();
+            expect(result.errors, 'and carries one rendered entry rather than crashing').toEqual(['null'])
         } finally {
             workspace.destroy()
         }

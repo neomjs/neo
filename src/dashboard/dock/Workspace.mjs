@@ -1512,11 +1512,12 @@ class Workspace extends Container {
      * Routing lives here and the effect lives in one handler per action, so a further engine action is
      * a new handler plus a row below rather than another branch grown into this method.
      *
-     * **`pop-out` is the one asynchronous row**, because vessel admission is: it returns the
-     * settlement as a Promise of the same `{document, errors}` envelope the synchronous rows return,
-     * never a bare Boolean. The projection wire discards this return, so the shape is a contract for
-     * a subclass or a direct caller rather than for the button — which is exactly why it must not
-     * quietly differ per action.
+     * **`pop-out` and `pin` are the asynchronous rows.** `pop-out` because vessel admission is;
+     * `pin` because its collapse sequence awaits each step's commit before reducing the next. Both
+     * return the settlement as a Promise of the same `{document, errors}` envelope the synchronous
+     * rows return, never a bare Boolean, and neither rejects. The projection wire discards this
+     * return, so the shape is a contract for a subclass or a direct caller rather than for the
+     * button — which is exactly why it must not quietly differ per action.
      * @param {Object} data
      * @param {String} data.action
      * @param {String} data.dockNodeId
@@ -1857,7 +1858,11 @@ class Workspace extends Container {
                 await me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
             }
         } catch (error) {
-            return {document: me.dockModel, errors: [error.message]}
+            // `error?.message ?? String(error)` rather than `error.message`: a rejection value is not
+            // required to be an Error. `Promise.reject(null)` would make the property read throw
+            // INSIDE this catch, and that throw escapes the method — reintroducing the exact
+            // unhandled rejection this block exists to prevent, in the one path nothing else covers.
+            return {document: me.dockModel, errors: [error?.message ?? String(error)]}
         }
 
         return result
