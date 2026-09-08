@@ -56,7 +56,7 @@ test.describe('check-package-contents — fires on private state, not on the tra
     });
 
     test('FIRES: a forbidden tree regardless of extension', () => {
-        // Defect #1 was a rule pinned to a path AND an extension, which went vacuous when the corpus
+        // The first defect was a rule pinned to a path AND an extension, which went vacuous when the corpus
         // changed both. Extension independence is the property that failed, so it is the property
         // asserted — a prefix rule must not care what the file is called.
         const findings = findForbiddenEntries([
@@ -105,7 +105,7 @@ test.describe('check-package-contents — fires on private state, not on the tra
     });
 
     test('a rule survives its tree being RENAMED — the defect this guard exists to end', () => {
-        // The sharpest case in this file, because the guard nearly reproduced defect #1 itself.
+        // The sharpest case in this file, because the guard nearly reproduced the first defect itself.
         //
         // The original `.npmignore` rule was pinned to a path AND an extension, and went vacuous when
         // the tree it named moved and changed extension. A gate pinned one level too deep reproduces

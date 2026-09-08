@@ -60,7 +60,7 @@ class Markdown extends Component {
          */
         renderFrontmatter: true,
         /**
-         * True to automatically replace ticket references (e.g. #123) with clickable links.
+         * True to automatically replace hash-prefixed ticket numbers with clickable links.
          * @member {Boolean} replaceTicketIds=false
          */
         replaceTicketIds: false,

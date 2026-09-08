@@ -63,7 +63,7 @@ export const FORBIDDEN_PREFIXES = [
     },
     {
         // Anchored on the tree, not on a path-plus-extension, and that is the whole point — it is
-        // the shape defect #1 in the module docblock arrived at. Pin a rule to `resources/content/
+        // the first defect in the module docblock arrived at. Pin a rule to `resources/content/
         // *.md` and a corpus that grows a second extension or a nested directory walks straight out
         // of the rule's reach while the rule still reads as if it covers it. A prefix has no such
         // axis to slip on: a subtree that does not exist yet is excluded by default, and widening is
