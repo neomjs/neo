@@ -233,6 +233,7 @@
  "Neo.dashboard.dock.interaction.TabContainer": "Neo.tab.Container",
  "Neo.dashboard.dock.interaction.TabEnterButton": "Neo.tab.header.Button",
  "Neo.dashboard.dock.interaction.TabSortZone": "Neo.draggable.tab.header.toolbar.SortZone",
+ "Neo.dashboard.dock.model.Authoring": "Neo.core.Base",
  "Neo.dashboard.dock.model.Operations": "Neo.core.Base",
  "Neo.dashboard.dock.model.Persistence": "Neo.core.Base",
  "Neo.dashboard.dock.model.PreviewContract": "Neo.core.Base",
