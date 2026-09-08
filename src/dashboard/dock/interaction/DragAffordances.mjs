@@ -1,7 +1,6 @@
-import Base              from '../../../core/Base.mjs';
-import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
-import PreviewProducer   from './PreviewProducer.mjs';
-import PreviewContract   from '../model/PreviewContract.mjs';
+import Base            from '../../../core/Base.mjs';
+import PreviewProducer from './PreviewProducer.mjs';
+import PreviewContract from '../model/PreviewContract.mjs';
 
 /**
  * @class Neo.dashboard.dock.interaction.DragAffordances
@@ -120,13 +119,14 @@ class DragAffordances extends Base {
      * @summary Measures once per gesture and window size (memoized as a promise so the
      * ~60hz move stream never stacks measurements): the host rect (the overlays' coordinate
      * origin), every projected tabs-zone rect with its parent-split orientation, and the
-     * chips' root target — the edge-zone's CENTER node when the document root is an
-     * edge-zone, the root itself otherwise.
+     * chips' root target — the boundary its owner declares through
+     * {@link Neo.dashboard.dock.Workspace#resolveDockableRoot}, measured on that boundary's
+     * own component so the chip's nodeId and its rect describe the same node.
      * @returns {Promise<Object|null>} {hostRect, zones, root} or null when nothing is measurable
      * @protected
      */
     ensureGeometry() {
-        let me = this,
+        let me        = this,
             signature = me.getGeometrySignature();
 
         if (signature !== me.geometrySignature) {
@@ -145,14 +145,19 @@ class DragAffordances extends Base {
                 .filter(nodeId => nodes[nodeId].type === 'tabs')
                 .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
                 .filter(zone => zone.container),
-            // a zone entry is an OBJECT DESCRIPTOR ({nodeId, …} — the v13.2 contract rejects the
-            // retired string shorthand) — the canonical unwrap keeps the producer's fail-closed
-            // id guard from silently dropping every root edge chip
-            rootId      = nodes[me.owner.dockModel.root]?.type === 'edge-zone'
-                ? (WorkspaceDocument.getZoneNodeId(nodes[me.owner.dockModel.root].zones?.center) ?? me.owner.dockModel.root)
-                : me.owner.dockModel.root;
+            // The boundary its owner declares — `Workspace#resolveDockableRoot` carries why the
+            // nodeId and its rect must name ONE node. Resolved live every gesture: wrapping
+            // rewrites `document.root`, so a captured id is stale one drop later.
+            dockable    = me.owner.resolveDockableRoot(),
+            measureIds  = [host.id, ...zoneEntries.map(zone => zone.container.id)],
+            // measured in the SAME batch, and reusing the host's rect when the boundary IS the
+            // host — the ordinary whole-arrangement root, which is most documents
+            rootIndex   = dockable && dockable.component !== host ? measureIds.push(dockable.component.id) - 1 : 0;
 
-        const promise = host.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
+        const promise = host.getDomRect(measureIds).then(rects => {
+            let hostRect  = rects[0],
+                zoneRects = rects.slice(1, zoneEntries.length + 1);
+
             if (me.dragGeometry === promise && me.geometrySignature !== me.getGeometrySignature()) {
                 me.clear();
                 return null
@@ -160,7 +165,7 @@ class DragAffordances extends Base {
 
             let geometry = hostRect?.width > 0 && hostRect?.height > 0 && {
                 hostRect,
-                root : {nodeId: rootId, rect: hostRect},
+                root : {nodeId: dockable?.nodeId ?? null, rect: rects[rootIndex]},
                 zones: zoneEntries
                     .map((zone, index) => ({
                         nodeId     : zone.nodeId,
@@ -201,7 +206,7 @@ class DragAffordances extends Base {
      */
     getGeometrySignature() {
         const windowId = this.host?.windowId,
-              rect = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null;
+              rect     = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null;
 
         return rect ? JSON.stringify([windowId, rect.width, rect.height]) : null
     }
@@ -273,9 +278,39 @@ class DragAffordances extends Base {
 
         const candidate = indicators?.updatePointer(pointer);
 
-        if (candidate?.preview?.itemId === itemId) return candidate.preview;
+        // Both tiers pass the same guard: a root chip selected from the MENU would otherwise
+        // promise a wrap the release refuses, which is the mismatch this whole seam exists to end.
+        if (candidate?.preview?.itemId === itemId) return me.guardEmptyWrap(candidate.preview, itemId);
 
-        return producer.produce({groupNodeId, itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones})
+        return me.guardEmptyWrap(producer.produce({groupNodeId, itemId, pointer, root: geometry.root, sourceNodeId, zones: geometry.zones}), itemId)
+    }
+
+    /**
+     * @summary Refuses a root placement that would dock the arrangement's only pane beside nothing.
+     *
+     * A root-edge drop wraps the whole arrangement, so when the dragged item IS the whole
+     * arrangement the wrap pairs the new pane with an empty half. Tabs and splits vanish in that
+     * state — `normalizeTree` deletes them — but an `edge-zone` survives losing every zone on
+     * purpose: it stays a resolvable re-attachment anchor
+     * ({@link Neo.dashboard.dock.model.WorkspaceDocument#captureNodeHome}). So an edge-zone root is
+     * the one target whose empty half would persist in the committed tree, and it is the only case
+     * this refuses — a tabs or split root still commits exactly as before.
+     *
+     * Refused at preview time, not only at commit, so the affordance never promises a drop the
+     * document would keep as a stranded half.
+     * @param {Object|null} preview
+     * @param {String} itemId
+     * @returns {Object|null} the preview, or null when it must not be offered
+     * @protected
+     */
+    guardEmptyWrap(preview, itemId) {
+        const document = this.owner?.dockModel,
+              target   = document?.nodes?.[preview?.target?.nodeId],
+              items    = document?.items;
+
+        if (target?.type !== 'edge-zone' || !items) return preview;
+
+        return Object.keys(items).length === 1 && items[itemId] ? null : preview
     }
 
     /**
@@ -380,7 +415,7 @@ class DragAffordances extends Base {
 
         me.clear();
 
-        let descriptor = PreviewContract.previewToOperation(preview);
+        let descriptor = PreviewContract.previewToOperation(me.guardEmptyWrap(preview, itemId));
 
         if (descriptor) {
             let result = me.owner.applyDockZoneOperation(descriptor);

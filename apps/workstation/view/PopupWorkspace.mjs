@@ -1,5 +1,6 @@
-import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
-import Participation from '../../../src/dashboard/dock/window/Participation.mjs';
+import DockWorkspace     from '../../../src/dashboard/dock/Workspace.mjs';
+import Participation     from '../../../src/dashboard/dock/window/Participation.mjs';
+import WorkspaceDocument from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
 /**
  * @summary Owns one popup document while resolving the root's existing live pane instances.
@@ -55,10 +56,10 @@ class PopupWorkspace extends DockWorkspace {
         const me = this;
         me.workspaceSet.register(me.workspaceKey, {
             componentId: me.id,
-            dispose: () => { if (!me.isDestroyed) me.destroy() },
+            dispose    : () => { if (!me.isDestroyed) me.destroy() },
             getDocument: () => me.dockModel,
             setDocument: value => me.dockModel = value,
-            project: context => me.projectDockZoneDocument(context.snapshot.participants[me.workspaceKey], context.descriptor, me, {
+            project    : context => me.projectDockZoneDocument(context.snapshot.participants[me.workspaceKey], context.descriptor, me, {
                 preserveItemIds: context.preserveItemIds
             })
         });
@@ -95,6 +96,33 @@ class PopupWorkspace extends DockWorkspace {
     getDockProjectionOptions() {
         return {...super.getDockProjectionOptions(), workspaceId: this.workspaceKey,
             crossWindowSortGroup: this.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP, enableStackDrag: true}
+    }
+
+    /**
+     * @summary A full popup presents a vessel SHELL, so its dockable boundary is the content inside
+     * that shell — see {@link Neo.dashboard.dock.Workspace#resolveDockableRoot} for why the pair
+     * travels together.
+     *
+     * Wrapping the shell would leave {@link Neo.dashboard.dock.model.WorkspaceDocument#resolveStackRoot}
+     * unable to resolve, and `window.Participation` refuses whole-stack admission unless that
+     * resolution matches the transferred `groupNodeId` — so a wrapped shell would keep docking and
+     * silently stop being transferable.
+     *
+     * Two ways to decline, and neither substitutes a rect from a different node. No stack root: the
+     * document is not shell-shaped, so the inherited arrangement boundary applies. A stack root with
+     * no projected container: nothing measurable represents it, so no boundary is offered at all —
+     * naming the stack while measuring the shell is the very mismatch this seam exists to end.
+     * @returns {Object|null}
+     */
+    resolveDockableRoot() {
+        let me     = this,
+            nodeId = WorkspaceDocument.resolveStackRoot(me.dockModel);
+
+        if (!nodeId) return super.resolveDockableRoot();
+
+        let component = me.getDockHost().down({dockNodeId: nodeId});
+
+        return component ? {component, nodeId} : null
     }
 
     /**

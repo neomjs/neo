@@ -10,6 +10,7 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import Container       from '../../../../src/container/Base.mjs';
+import DockWorkspace   from '../../../../src/dashboard/dock/Workspace.mjs';
 import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
@@ -843,7 +844,11 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             },
             resolvePane(itemId, item) {
                 return resolvePane?.(itemId, item) ?? null
-            }
+            },
+            // BORROWED, never reimplemented: the root chip's boundary is a dock-owner seam, so a
+            // double that answered it in its own words could agree with an assertion the shipped
+            // resolution disagrees with. With no host this correctly resolves to null.
+            resolveDockableRoot: DockWorkspace.prototype.resolveDockableRoot
         });
 
         const createParticipation = config => Neo.create(DockCrossWindowParticipation, {
@@ -860,6 +865,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             workspace.dockModel = targetDoc();
             workspace.getDockHost = () => workspace;
             workspace.getDockProjectionOptions = () => ({});
+            workspace.resolveDockableRoot = DockWorkspace.prototype.resolveDockableRoot;
             workspace.getDomRect = async () => [
                 {x: 100, y: 80, width: 800, height: 600},
                 {x: 100, y: 80, width: 800, height: 600}
