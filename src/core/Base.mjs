@@ -1147,20 +1147,40 @@ class Base {
     }
 
     /**
-     * Stores timeoutIds internally, so that destroy() can clear them if needed
-     * @param {Number} time in milliseconds
-     * @returns {Promise<any>}
+     * @summary Waits for a delay owned by this instance, optionally cancellable by its caller.
+     * Abort rejects with the signal's reason; destruction rejects with Neo.isDestroyed.
+     * Every terminal removes the abort listener and async registration. A pre-aborted signal
+     * creates no timer. Omitting the signal retains the ordinary timeout contract.
+     * @param {Number} time Delay in milliseconds
+     * @param {Object} [options={}]
+     * @param {AbortSignal} [options.signal] Cancels this wait while leaving its owner alive
+     * @returns {Promise<void>}
      */
-    timeout(time) {
+    timeout(time, {signal}={}) {
         let me = this;
 
         return new Promise((resolve, reject) => {
-            let id = setTimeout(() => {
+            if (signal?.aborted) {
+                reject(signal.reason);
+                return
+            }
+
+            const cleanup = () => {
                 me.unregisterAsync(id);
+                signal?.removeEventListener('abort', onAbort)
+            }, fail = reason => {
+                cleanup();
+                reject(reason)
+            }, onAbort = () => {
+                clearTimeout(id);
+                fail(signal.reason)
+            }, id = setTimeout(() => {
+                cleanup();
                 resolve()
             }, time);
 
-            me.registerAsync(id, reject)
+            me.registerAsync(id, fail);
+            signal?.addEventListener('abort', onAbort, {once: true})
         })
     }
 

@@ -250,10 +250,10 @@ class Rail extends Container {
         const me = this;
 
         return Neo.create(RevealStateMachine, {
-            dwellMs      : Number.isFinite(me.revealDwellMs)        ? me.revealDwellMs        : undefined,
-            graceMs      : Number.isFinite(me.revealDismissGraceMs) ? me.revealDismissGraceMs : undefined,
             onChange     : me.onRevealStateChange.bind(me),
-            revealOnHover: me.autoHideRevealOnHover
+            revealOnHover: me.autoHideRevealOnHover,
+            ...(Number.isFinite(me.revealDwellMs) && {dwellMs: me.revealDwellMs}),
+            ...(Number.isFinite(me.revealDismissGraceMs) && {graceMs: me.revealDismissGraceMs})
         })
     }
 
