@@ -2481,7 +2481,7 @@ async function runTourProbe(workspace, ...args) {
     const service = Neo.create(DockService);
     workspace.dockService = service;
     try {
-        return await TourController.prototype.runTourSpec.call({
+        return await TourController.prototype.runSpecTour.call({
             workspace, specRunners: new Set(), trap: promise => promise
         }, ...args)
     } finally {

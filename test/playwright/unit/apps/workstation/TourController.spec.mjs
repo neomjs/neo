@@ -6,6 +6,142 @@ import Workspace      from '../../../../../apps/workstation/view/Workspace.mjs';
 
 setup({appConfig: {name: 'WorkstationTourControllerTest'}});
 
+/** @summary A caller-controlled acknowledgement boundary. @returns {Object} */
+function deferred() {
+    let resolve;
+    const promise = new Promise(done => resolve = done);
+    return {promise, resolve}
+}
+
+test('the configured runner cannot begin its next beat before the controller cue settles', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          cue        = deferred(), entered = deferred(), beats = [];
+    controller.executeCue = () => {entered.resolve(); return cue.promise};
+    controller.setPipProgress = async () => {};
+    controller.tourRunner = {script: {
+        schema: 'neo.tour.script.v1', id: 'settlement-control', title: 'Settlement control',
+        scenes: [{id: 's', title: 'Scene', steps: [
+            {type: 'pause', ms: 0, cue: {type: 'test-cue'}},
+            {type: 'pause', ms: 0}
+        ]}]
+    }};
+    const runner = controller.tourRunner;
+    runner.on('beat', data => beats.push(data.stepIndex));
+    try {
+        const run = runner.start();
+        await entered.promise;
+        await new Promise(setImmediate);
+        expect(beats).toEqual([0]);
+        cue.resolve({applied: true, errors: []});
+        expect((await run).completed).toBe(true);
+        expect(beats).toEqual([0, 1]);
+        await controller.progressPromise
+    } finally {cue.resolve({applied: true, errors: []}); workspace.destroy()}
+});
+
+test('repeated starts share the entry projection and cancellation does not start the runner afterward', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          entry      = deferred(), entered = deferred(), runner = controller.getTourRunner();
+    let starts = 0, projections = 0;
+    controller.setPipProgress = async () => {};
+    workspace.refreshDockWorkspace = () => {projections++; entered.resolve(); return entry.promise};
+    runner.start = async () => {starts++; return {completed: true, errors: [], log: []}};
+    try {
+        const first = controller.startTour();
+        await entered.promise;
+        expect(controller.startTour()).toBe(first);
+        expect(projections).toBe(1);
+        await controller.cancelTour();
+        expect(await first).toMatchObject({completed: false, cancelled: true});
+        entry.resolve();
+        await new Promise(setImmediate);
+        expect(starts).toBe(0);
+        expect(workspace.isDestroyed).toBeFalsy()
+    } finally {entry.resolve(); workspace.destroy()}
+});
+
+test('cancelling a replay probe waits for its displaced-document restoration', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          live       = workspace.dockModel, entry = deferred(), entered = deferred(),
+          restore    = deferred(), restoring = deferred();
+    let calls = 0;
+    workspace.refreshDockWorkspace = () => {
+        if (++calls === 1) {entered.resolve(); return entry.promise}
+        restoring.resolve();
+        return restore.promise
+    };
+    const run = controller.runTourSpec(null, {restoreDocument: true});
+    run.catch(() => {});
+    try {
+        await entered.promise;
+        let   settled      = false;
+        const cancellation = controller.cancelTour().then(() => {settled = true});
+        await restoring.promise;
+        expect(workspace.dockModel).toBe(live);
+        await new Promise(setImmediate);
+        expect(settled).toBe(false);
+        entry.resolve();
+        restore.resolve();
+        await cancellation;
+        await expect(run).rejects.toBe(Neo.isDestroyed);
+        expect(calls).toBe(2)
+    } finally {entry.resolve(); restore.resolve(); workspace.destroy()}
+});
+
+test('cancellation during final settlement returns cancellation rather than reading a disposed owner', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          refresh    = deferred(), started = deferred(), runner = controller.getTourRunner();
+    controller.setPipProgress = async () => {};
+    workspace.refreshDockWorkspace = async () => {};
+    runner.start = async () => {
+        workspace.refreshPromise = refresh.promise;
+        started.resolve();
+        return {completed: true, errors: [], log: []}
+    };
+    try {
+        const run = controller.startTour();
+        await started.promise;
+        await new Promise(setImmediate);
+        await controller.cancelTour();
+        expect(await run).toMatchObject({completed: false, cancelled: true});
+        expect(workspace.isDestroyed).toBeFalsy()
+    } finally {refresh.resolve(); workspace.destroy()}
+});
+
+test('cancellation and reactivation wait for a driver input that was already dispatched', async () => {
+    const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          root      = workspace.getController(), controller = await root.getTourController(),
+          driver    = controller.getGestureDriver(), service = driver.interactionService,
+          input     = deferred(), started = deferred(), events = [];
+    service.simulateEvent = () => {started.resolve(); return input.promise};
+    service.dispatch = async ({type}) => {events.push(type); return true};
+    const gesture = driver.runGesture(run => driver.simulateEvent(run, {events: [{
+        targetId: 'held-tab', windowId: workspace.windowId, type: 'mousedown', options: {buttons: 1}
+    }]}));
+    gesture.catch(() => {});
+    try {
+        await started.promise;
+        let   cancelled    = false, reactivated = false;
+        const cancellation = controller.cancelTour().then(() => {cancelled = true}),
+              next = root.getTourController().then(value => {reactivated = true; return value});
+        await new Promise(setImmediate);
+        expect(cancelled).toBe(false);
+        expect(reactivated).toBe(false);
+        expect(Neo.get(service.id)).toBe(service);
+        input.resolve(true);
+        await cancellation;
+        await expect(gesture).rejects.toBe(Neo.isDestroyed);
+        const replacement = await next;
+        expect(replacement).not.toBe(controller);
+        expect(events).toEqual(['keydown', 'mouseup']);
+        expect(service.isDestroyed).toBe(true)
+    } finally {input.resolve(true); workspace.destroy()}
+});
+
 test('normal chrome binds the root provider without a playback controller or runner', () => {
     const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
     try {

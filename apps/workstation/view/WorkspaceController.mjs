@@ -25,6 +25,7 @@ class WorkspaceController extends Controller {
         if (me.isDestroyed || !bar || bar.isDestroyed) throw Neo.isDestroyed;
         if (bar.controller && !bar.controller.isDestroyed) return bar.controller;
         return me.tourControllerPromise ??= (async () => {
+            await me.trap(Promise.resolve(bar.controller?.settledPromise));
             const {default: TourController} = await me.trap(import('./TourController.mjs'));
             if (bar.isDestroyed) throw Neo.isDestroyed;
             bar.controller = {module: TourController, workspace: me.component};

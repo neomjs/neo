@@ -40,6 +40,12 @@ class TourController extends Controller {
     /** @member {Set<Neo.ai.client.TourRunner>} specRunners */
     specRunners = new Set()
 
+    /** @member {Promise|null} #settledPromise=null Retains cleanup completion after the controller retires. */
+    #settledPromise = null
+
+    /** @summary The owned playback/driver cleanup boundary used before reactivation. @returns {Promise|null} */
+    get settledPromise() { return this.#settledPromise }
+
     /** @summary Retires playback before its workspace starts disposing the borrowed services. */
     onComponentConstructed() {
         this.observeConfig(this.workspace, 'isDestroying', value => value && this.destroy())
@@ -105,7 +111,7 @@ class TourController extends Controller {
     async setPipProgress(count) {
         if (this.isDestroyed) throw Neo.isDestroyed;
         this.setState({'tour.completedCount': count});
-        await this.getReference('tour-pips')?.promiseUpdate()
+        await this.trap(Promise.resolve(this.getReference('tour-pips')?.promiseUpdate()))
     }
 
     /** @summary Starts at most one visible playback, including its entry projection. @returns {Promise<Object>} */
@@ -128,18 +134,21 @@ class TourController extends Controller {
 
     /** @summary Cancels this playback owner and waits for its already-started cue work. @returns {Promise<void>} */
     async cancelTour() {
-        const pending = [this.playbackPromise, this.cuePromise, this.progressPromise];
-        this.component.controller = null;
-        await Promise.allSettled(pending)
+        const bar = this.component;
+        this.destroy();
+        await this.settledPromise;
+        if (!bar.isDestroyed && bar.controller === this) bar.controller = null
     }
 
     /** @summary Retires playback-owned objects without disposing borrowed workspace state. */
     destroy() {
         if (this.isDestroyed) return;
-        const provider = this.getStateProvider();
+        const provider = this.getStateProvider(), driver = this.gestureDriver,
+              pending  = [this.playbackPromise, this.cuePromise, this.progressPromise];
         this.tourRunner = null;
         this.gestureDriver = null;
         this.specRunners.forEach(runner => runner.isDestroyed || runner.destroy());
+        this.#settledPromise = Promise.allSettled([...pending, driver?.settledPromise]);
         super.destroy();
         provider && !provider.isDestroyed && provider.setData({'tour.running': false})
     }
@@ -157,7 +166,7 @@ class TourController extends Controller {
             case 'scroll':
                 return this.scrollScaleGrid(cue.index)
             case 'canvas-update':
-                await this.workspace.refreshPromise;
+                await this.trap(Promise.resolve(this.workspace.refreshPromise));
                 return this.workspace.pulseScaleSparkline()
             case 'cross-zone-showcase':
                 return (await this.getGestureDriver()).executeCrossZoneShowcaseStep(cue, cue.options)
@@ -185,30 +194,31 @@ class TourController extends Controller {
     async navigateOverflowMenu(itemId) {
         // The reducer schedules projection asynchronously. Resolve the consumer only after that transaction,
         // otherwise `down()` can capture the retiring source toolbar and wait on its deliberately hidden control.
-        await this.workspace.refreshPromise;
+        const workspace = this.workspace;
+        await this.trap(Promise.resolve(workspace.refreshPromise));
 
-        let tabs   = this.workspace.down({dockNodeId: 'heavy-tabs'}),
+        let tabs   = workspace.down({dockNodeId: 'heavy-tabs'}),
             plugin = tabs?.getTabBar()?.getPlugin('tab-overflow'),
             control;
 
         // The hidden staging transaction already captured natural widths. This consumer boundary only
         // refreshes the visible extent so the cue never turns a stable cache into a second measurement pass.
-        await plugin?.project(false);
-        control = await this.workspace.waitForOverflowMenu(plugin);
+        await this.trap(Promise.resolve(plugin?.project(false)));
+        control = await this.trap(workspace.waitForOverflowMenu(plugin));
 
         if (!control) return false;
 
-        await control.toggleMenu();
-        await this.timeout(700);
-
-        const
-            menuItems = control.menuList?.items || [],
-            item      = menuItems.find(entry => entry.text === this.workspace.dockModel.items[itemId]?.title);
-
-        item?.handler?.();
-        control.menuList && (control.menuList.hidden = true);
-
-        return item ? {activatedItemId: itemId, menuItemCount: menuItems.length} : false
+        try {
+            await control.toggleMenu();
+            if (this.isDestroyed) throw Neo.isDestroyed;
+            await this.timeout(700);
+            const menuItems = control.menuList?.items || [],
+                  item      = menuItems.find(entry => entry.text === workspace.dockModel.items[itemId]?.title);
+            item?.handler?.();
+            return item ? {activatedItemId: itemId, menuItemCount: menuItems.length} : false
+        } finally {
+            if (control.menuList && !control.menuList.isDestroyed) control.menuList.hidden = true
+        }
     }
 
     /**
@@ -216,7 +226,7 @@ class TourController extends Controller {
      * @param {Object} data
      */
     onTourBeat(data) {
-        let me            = this, workspace = me.workspace,
+        let me            = this,
             cueSettlement = Promise.resolve();
 
         data.caption && me.setTourCaption(data.caption);
@@ -335,11 +345,30 @@ class TourController extends Controller {
      * pipeline continue from); `restoreDocument: true` turns the replay into a pure probe that
      * restores the displaced live document afterwards.
      * @param {Object} [script=workstationTourScript] `null` also resolves to the default script.
-     * @param {Object} [opts]
-     * @param {Boolean} [opts.restoreDocument=false] Restore the pre-replay live document after the run.
+     * @param {Object} [options]
+     * @param {Boolean} [options.restoreDocument=false] Restore the pre-replay live document after the run.
      * @returns {Promise<Object>}
      */
-    async runTourSpec(script=workstationTourScript, {restoreDocument=false}={}) {
+    runTourSpec(script=workstationTourScript, options={}) {
+        if (this.isDestroyed) return Promise.reject(Neo.isDestroyed);
+        if (this.playbackPromise) return Promise.reject(new Error('A Workstation playback is already running'));
+        this.setState({'tour.running': true});
+        return this.playbackPromise = this.runSpecTour(script, options).finally(() => {
+            if (!this.isDestroyed) {
+                this.playbackPromise = null;
+                this.setState({'tour.running': false})
+            }
+        })
+    }
+
+    /**
+     * @summary Executes one owned spec replay and restores its displaced document when requested.
+     * @param {Object} script
+     * @param {Object} options
+     * @param {Boolean} [options.restoreDocument=false]
+     * @returns {Promise<Object>}
+     */
+    async runSpecTour(script, {restoreDocument=false}={}) {
         let me           = this, workspace = me.workspace,
             dockService  = workspace.dockService,
             specRunners  = me.specRunners,
@@ -358,35 +387,16 @@ class TourController extends Controller {
 
         specRunners.add(runner);
 
-        // Two consumer contracts share this front door. As a DRIVER (default), the replay's
-        // resulting document stays live — the film pipeline and journey specs continue from it.
-        // As a PROBE (`restoreDocument: true`), the displaced live document is restored after
-        // the replay, so a replay can never edit the surface it measures. The transaction owns
-        // the baseline swap too: a rejecting entry projection must still destroy the runner and
-        // service, and must still restore the probe's displaced document.
-        //
-        // The ENTRY projection REQUESTS `geometryOnly` — a validated in-place ADMISSION, not a
-        // skip, and not a claim about the outcome. What reaches `DockFlip.play` is the reconciler's
-        // reported `landedInPlace`, so a reset across a diverged layout can no longer declare
-        // stable topology over a swap that already happened:
-        // `DockProjectionReconciler.reconcileProjection` (:314) attempts
-        // `reconcileStableTopology` (:130), which returns null on ANY node/type/ancestry/order/
-        // orientation delta and falls back to the full staged transaction. The workspace boots
-        // from the same `initialDocument` the entry re-stages, so the proven-stable in-place
-        // path applies and the staged shell swap — whose intermediate state presents a cleared
-        // workspace body on camera (one compositor frame, measured at capture minFrameIndex
-        // 7/59, minEntropy 0.41 vs baseline 5.30) — never runs on the same-topology path. A
-        // genuinely changed topology still takes the staged path unchanged (the residual blank
-        // for that branch is documented on the ticket; present-no-intermediate-state is the
-        // deferred stronger shape). The RESTORE projection stays full deliberately: at
-        // probe-restore time the shell typically diverges from the displaced document, so
-        // admission would validate-and-fall-back with no gain.
+        // A driver leaves its result live; a probe restores the exact displaced document even
+        // when entry projection rejects. The request owns its runner and borrows the dock service.
+        // Entry requests validated in-place admission; a topology mismatch still stages normally.
+        // Restore remains a full projection because the replay can have changed that topology.
         let completed = false,
             out       = null;
 
         try {
             workspace.dockModel = WorkspaceDocument.clone(initialDocument);
-            await workspace.refreshDockWorkspace(null, workspace.dockModel, {geometryOnly: true});
+            await me.trap(workspace.refreshDockWorkspace(null, workspace.dockModel, {geometryOnly: true}));
 
             // The entry projection is finished and the replay has not begun. Published because a
             // frame-capturing consumer cannot otherwise tell the two apart: both happen inside one
@@ -397,7 +407,7 @@ class TourController extends Controller {
             const entryCompletedAt = Date.now(),
                   result           = await me.trap(runner.start());
 
-            await workspace.refreshPromise;
+            await me.trap(Promise.resolve(workspace.refreshPromise));
 
             out = {...result, document: WorkspaceDocument.clone(workspace.dockModel), phases: {entryCompletedAt}};
 
@@ -495,18 +505,18 @@ class TourController extends Controller {
                     alreadyRecorded || errors.push(`${label} failed: ${detail}`)
                 }
             },
-            settlements = await Promise.allSettled([
+            settlements = await me.trap(Promise.allSettled([
                 me.cuePromise,
                 workspace.refreshPromise,
                 me.progressPromise
-            ]);
+            ]));
 
         ['surface cue settlement', 'dock refresh settlement', 'progress settlement']
             .forEach((label, index) => appendError(label, settlements[index]));
 
-        const [finalProgress] = await Promise.allSettled([
+        const [finalProgress] = await me.trap(Promise.allSettled([
             me.setPipProgress(TourController.totalBeats().length)
-        ]);
+        ]));
 
         appendError('final progress paint', finalProgress);
 
