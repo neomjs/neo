@@ -26,7 +26,11 @@ const
     WORKSTATION_SURFACE  = Object.freeze({
         darkPath     : path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/workstation/Viewport.scss'),
         lightPath    : path.join(repoRoot, 'resources/scss/theme-neo-light/apps/workstation/Viewport.scss'),
-        modeInvariant: new Set(['--workstation-font-mono', '--workstation-font-sans']),
+        // The recording pointer keeps its annotation color when the application's skin changes.
+        modeInvariant: new Set([
+            '--workstation-film-cursor-background', '--workstation-film-cursor-shadow',
+            '--workstation-font-mono', '--workstation-font-sans'
+        ]),
         viewDir      : path.join(repoRoot, 'resources/scss/src/apps/workstation')
     });
 

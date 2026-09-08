@@ -2,6 +2,18 @@
 // app-owned Workstation token layer; all motion rides the dashboard aliases, including the
 // reduced-motion collapse owned by Neo.dashboard.Container.
 
+.workstation-film-cursor {
+    background-color: var(--workstation-film-cursor-background);
+    border-radius   : 50%;
+    box-shadow      : var(--workstation-film-cursor-shadow);
+    display         : block;
+    height          : 16px;
+    pointer-events  : none;
+    position        : fixed;
+    width           : 16px;
+    z-index         : 99999;
+}
+
 .workstation-workspace {
     // The grid/tab token bridge sits on `.workstation-viewport`, one level up: the `?popout=`
     // vessel is a viewport WITHOUT a workspace, so a bridge scoped here never reached the pane it
