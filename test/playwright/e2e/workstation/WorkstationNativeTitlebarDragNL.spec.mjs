@@ -87,7 +87,7 @@ async function moveNative(handle, left, top) {
  */
 async function readMainParticipationId(app) {
     const participations = asArray(await app.findInstances(
-        {className: 'Neo.dashboard.dock.window.Participation'}, ['id', 'workspaceId']
+        {className: 'Workstation.window.Participation'}, ['id', 'workspaceId']
     ));
 
     return participations.find(entry => entry.properties?.workspaceId === 'workstation-main')?.id ?? null

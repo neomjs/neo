@@ -12,6 +12,7 @@ import * as core                from '../../../../../src/core/_export.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
+import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
@@ -1031,6 +1032,83 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('main participation executes the engine preview and preserves borrowed visuals across refresh', async () => {
+        const workspace       = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              originalPreview = DockParticipation.prototype.defaultPreviewFor,
+              WindowManager   = Neo.manager.Window,
+              originalGet     = WindowManager.get;
+        let defaultCalls = 0;
+
+        try {
+            await workspace.crossWindowParticipationPromise;
+            const first       = workspace.crossWindowParticipations.get(Workspace.MAIN_WORKSPACE_ID),
+                  affordances = workspace.dragAffordances;
+
+            WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1280, height: 720}});
+            DockParticipation.prototype.defaultPreviewFor = function(payload) {
+                ++defaultCalls;
+                return originalPreview.call(this, payload)
+            };
+
+            expect(first.previewFor).toBeNull();
+            expect(first.clearPreview).toBeNull();
+            expect(first.affordances).toBe(affordances);
+            first.target.previewFor({draggedItem: {dockItemId: 'queues'}, localX: 50, localY: 50});
+            expect(defaultCalls).toBe(1);
+            await affordances.ensureGeometry();
+
+            const replacement = await workspace.refreshCrossWindowParticipation();
+            expect(first.isDestroyed).toBe(true);
+            expect(replacement).not.toBe(first);
+            expect(replacement.affordances).toBe(affordances);
+            expect(replacement.ownedAffordances).toBeNull();
+            expect(affordances.isDestroyed).not.toBe(true);
+            expect(affordances.preview.isDestroyed).not.toBe(true);
+            replacement.target.onRemoteDragLeave();
+            expect(affordances.preview.dockPreview).toBeNull()
+        } finally {
+            DockParticipation.prototype.defaultPreviewFor = originalPreview;
+            WindowManager.get = originalGet;
+            workspace.destroy()
+        }
+    });
+
+    test('popup participation alone owns and retires its default overlays when rebound', async () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+
+        try {
+            await workspace.crossWindowParticipationPromise;
+            const {state, workspaceId} = stageCommittedVessel(workspace),
+                  host                 = state.host;
+
+            host.windowId = 'popup-preview-owner';
+            const first       = host.participation,
+                  affordances = first.resolveAffordances(),
+                  preview     = first.ownedPreview,
+                  indicators  = first.ownedIndicators;
+
+            expect(first.constructor).toBe(DockParticipation);
+            expect(first.previewFor).toBeNull();
+            expect(first.clearPreview).toBeNull();
+            expect(workspace.crossWindowParticipations.has(workspaceId)).toBe(false);
+
+            host.syncParticipation();
+            expect(first.isDestroyed).toBe(true);
+            expect(affordances.isDestroyed).toBe(true);
+            expect(preview.isDestroyed).toBe(true);
+            expect(indicators.isDestroyed).toBe(true);
+            expect(host.participation).not.toBe(first);
+            expect(host.participation.ownedAffordances).toBeNull();
+
+            const replacement = host.participation;
+            host.windowId = null;
+            expect(replacement.isDestroyed).toBe(true);
+            expect(host.participation).toBeNull()
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('remote main previews resolve through the affordance geometry: the full grammar on the pointed zone, the stored-home tab-into off-zone', async () => {
         const
             workspace         = Neo.create(Workspace, {windowId: Neo.config.windowId}),
@@ -1055,8 +1133,8 @@ test.describe.serial('Workstation.view.Workspace', () => {
                     .map(([nodeId]) => zoneId(nodeId)),
                 rects                   = {[host.id]: hostRect, [zoneId('left-tabs')]: leftRect, [zoneId('heavy-tabs')]: heavyRect},
                 local                   = rect => ({x: rect.x - hostRect.x, y: rect.y - hostRect.y, width: rect.width, height: rect.height}),
-                render                  = (point, sourceWorkspace = sourceWorkspaceId) => workspace.renderCrossWindowPreview(
-                    Workspace.MAIN_WORKSPACE_ID,
+                render                  = (point, sourceWorkspace = sourceWorkspaceId) => workspace.crossWindowParticipations
+                    .get(Workspace.MAIN_WORKSPACE_ID).target.previewFor(
                     {
                         draggedItem : {dockItemId: 'queues', dockSourceWorkspaceId: sourceWorkspace},
                         localX      : point.x,
@@ -1081,6 +1159,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                     return ids.map(id => rects[id] ?? farRect)
                 };
                 renderer.applyTargetGeometry = rect => paintedRects.push(rect);
+                await workspace.refreshCrossWindowParticipation();
 
                 // The first frame warms the SAME once-per-gesture measurement the indicator tier
                 // uses — the host plus EVERY projected tabs zone — and hides until it settles.
@@ -1118,6 +1197,12 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 expect(split.placement.kind).toBe('split-before');
                 expect(paintedRects.at(-1)).toEqual(local(heavyRect));
                 expect(renderer.dockPreview?.previewId).toBe(split.previewId);
+
+                const settledGeometry = affordances.geometry;
+                expect(render({x: -1, y: -1})).toBeNull();
+                expect(renderer.dockPreview).toBeNull();
+                expect(affordances.geometry, 'a refused frame must not end the shared geometry session')
+                    .toBe(settledGeometry);
 
                 // Off every zone but inside the window: the stored home acquires the drop as a
                 // tab-into, painted on the home's exact rect — never on the pointer's empty position.
@@ -1189,7 +1274,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             // The construct-time participation resolves before windowId exists in this
             // harness — refresh it now that the window identity is set.
-            const participation = await workspace.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID);
+            const participation = await workspace.refreshCrossWindowParticipation();
 
             const
                 host               = workspace.getReference('dock-host'),
@@ -1957,10 +2042,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             await workspace.crossWindowParticipationPromise;
             workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: 'window-alerts'});
-            registerPopupState(workspace, workspaceId, {
+            const state = registerPopupState(workspace, workspaceId, {
                 itemId  : 'alerts',
                 windowId: 'window-alerts'
             });
+            state.host.windowId = state.windowId;
 
             const
                 WindowManager = Neo.manager.Window,
@@ -1970,19 +2056,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
             try {
                 WindowManager.get = () => ({innerRect});
 
-                expect(workspace.hitTestCrossWindowTarget(
-                    workspaceId,
-                    300,
-                    200
-                )).toBe(true);
+                expect(state.host.participation.target.hitTest(300, 200)).toBe(true);
 
                 innerRect = {width: 240, height: 160};
 
-                expect(workspace.hitTestCrossWindowTarget(
-                    workspaceId,
-                    300,
-                    200
-                )).toBe(false)
+                expect(state.host.participation.target.hitTest(300, 200)).toBe(false)
             } finally {
                 WindowManager.get = originalGet
             }
