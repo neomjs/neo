@@ -1,6 +1,7 @@
 import DomEventManager from '../../manager/DomEvent.mjs';
 import HashHistory     from '../../util/HashHistory.mjs';
 import Service         from './Service.mjs';
+import WindowManager   from '../../manager/Window.mjs';
 
 /**
  * @summary Registers the JSON-RPC method prefixes one RuntimeService instance answers.
@@ -313,9 +314,11 @@ class RuntimeService extends Service {
             return {success: false, error: `Unknown windowId '${windowId}'.`}
         }
 
-        const {nativeRoute} = windowEntry;
+        // This runtime dispatches AS the route's owner rather than asserting it owns the window, so it
+        // asserts no owner and passes ownerWindowId straight through to Main.
+        const {route} = WindowManager.resolveNativeRoute({capability: 'close', route: windowEntry.nativeRoute});
 
-        if (!nativeRoute?.capabilities?.close) {
+        if (!route) {
             return {
                 success    : false,
                 unsupported: true,
@@ -324,9 +327,9 @@ class RuntimeService extends Service {
         }
 
         const accepted = await Neo.Main.windowNativeClose({
-            nativeHandleKey: nativeRoute.nativeHandleKey,
-            targetWindowId : nativeRoute.targetWindowId,
-            windowId       : nativeRoute.ownerWindowId
+            nativeHandleKey: route.nativeHandleKey,
+            targetWindowId : route.targetWindowId,
+            windowId       : route.ownerWindowId
         });
 
         if (accepted !== true) {
@@ -367,9 +370,9 @@ class RuntimeService extends Service {
             return {success: false, error: `Unknown windowId '${windowId}'.`}
         }
 
-        const {nativeRoute} = windowEntry;
+        const {route} = WindowManager.resolveNativeRoute({capability: 'position', route: windowEntry.nativeRoute});
 
-        if (!nativeRoute?.capabilities?.position) {
+        if (!route) {
             return {
                 success    : false,
                 unsupported: true,
@@ -378,9 +381,9 @@ class RuntimeService extends Service {
         }
 
         const positioned = await Neo.Main.windowNativeMoveTo({
-            nativeHandleKey: nativeRoute.nativeHandleKey,
-            targetWindowId : nativeRoute.targetWindowId,
-            windowId       : nativeRoute.ownerWindowId,
+            nativeHandleKey: route.nativeHandleKey,
+            targetWindowId : route.targetWindowId,
+            windowId       : route.ownerWindowId,
             x,
             y
         });
@@ -409,9 +412,9 @@ class RuntimeService extends Service {
             return {success: false, error: `Unknown windowId '${windowId}'.`}
         }
 
-        const {nativeRoute} = windowEntry;
+        const {route} = WindowManager.resolveNativeRoute({capability: 'focus', route: windowEntry.nativeRoute});
 
-        if (!nativeRoute?.capabilities?.focus) {
+        if (!route) {
             return {
                 success    : false,
                 unsupported: true,
@@ -420,9 +423,9 @@ class RuntimeService extends Service {
         }
 
         const focused = await Neo.Main.windowNativeFocus({
-            nativeHandleKey: nativeRoute.nativeHandleKey,
-            targetWindowId : nativeRoute.targetWindowId,
-            windowId       : nativeRoute.ownerWindowId
+            nativeHandleKey: route.nativeHandleKey,
+            targetWindowId : route.targetWindowId,
+            windowId       : route.ownerWindowId
         });
 
         if (focused !== true) {

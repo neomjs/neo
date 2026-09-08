@@ -213,6 +213,47 @@ class Window extends Manager {
     }
 
     /**
+     * @summary Decides whether a caller may dispatch a native window effect, before it dispatches one.
+     *
+     * Native-window authority is split in two: the App Worker resolves the topology entry, and the
+     * owning main thread revalidates the live generation before touching the handle. `Neo.Main` holds
+     * that second half and stays the last word — it additionally sees whether the window is closed,
+     * whether a same-name open replaced the entry, and whether the native method exists, none of which
+     * an App-Worker caller can observe. A grant here is therefore permission to ask, never a promise
+     * the effect lands.
+     *
+     * Every axis is reported separately rather than collapsed into the verdict, so a refusal says which
+     * condition failed. `ownerWindowId` is deliberately explicit: a window asserting it owns the route
+     * passes its own id, while a runtime dispatching AS the route's owner passes `null` and the result
+     * records that ownership was never asserted.
+     * @param {Object} data
+     * @param {'close'|'focus'|'position'|'resize'} data.capability
+     * @param {String|null} [data.ownerWindowId=null] Assert this owner, or `null` to not assert one
+     * @param {Object|null} [data.route=null] An already-resolved route; otherwise `windowId` resolves it
+     * @param {String|null} [data.targetWindowId=null] Require the route to address this exact window
+     * @param {String|null} [data.windowId=null] Resolve the route from this window's entry
+     * @returns {Object} `{capable, granted, hasHandle, hasTarget, ownerAsserted, ownerMatches, present, route, targetMatches}`
+     */
+    resolveNativeRoute({capability, ownerWindowId=null, route=null, targetWindowId=null, windowId=null}) {
+        route ??= (windowId && this.get(windowId)?.nativeRoute) || null;
+
+        const
+            present       = Boolean(route),
+            capable       = present && route.capabilities?.[capability] === true,
+            hasHandle     = present && Boolean(route.nativeHandleKey),
+            hasTarget     = present && Boolean(route.targetWindowId),
+            ownerAsserted = ownerWindowId !== null,
+            ownerMatches  = present && (!ownerAsserted || route.ownerWindowId === ownerWindowId),
+            targetMatches = present && (targetWindowId === null || route.targetWindowId === targetWindowId),
+            granted       = capable && hasHandle && hasTarget && ownerMatches && targetMatches;
+
+        return {
+            capable, granted, hasHandle, hasTarget, ownerAsserted, ownerMatches, present, targetMatches,
+            route: granted ? route : null
+        }
+    }
+
+    /**
      * @returns {Object}
      */
     toJSON() {
