@@ -1,10 +1,10 @@
 name: Data Sync Watchdog
 
+# Dispatch-only since #18449. On a schedule this posted an hourly "breach continues" comment onto
+# the standing alarm — #17834 reached 61 bot comments — for a corpus freeze that is a decision
+# rather than a defect: the producer left in the repo split and the corpus moves to #17416. The
+# breach/recovery logic is unchanged; only the cadence is gone.
 on:
-  schedule:
-    # 20 minutes past the hourly Data Sync Pipeline, so each evaluation sees the
-    # pipeline's own run for the hour settle first.
-    - cron: '20 * * * *'
   workflow_dispatch:
     inputs:
       forceBreach:
