@@ -11,13 +11,14 @@ const
  * One stable `left-tabs` target is exercised through both landed routes:
  *
  * - in-window: a real Audit-tab pointer gesture drives `DockDragAffordances`;
- * - popup→main: a real Activity tear-out supplies the source window, then the registered
+ * - popup→main: a real Activity header pop-out supplies the source window, then the registered
  *   `CrossWindowDragTarget` drives the main target's remote-preview callback.
  *
  * Each route runs in both Workstation themes. The retained matrix binds the semantic node id,
  * exact target/host/window rectangles, preview rectangle, DPR, zoom, and same-scale crop for
- * top/right/bottom/left. The test compares the four thicknesses directly; independent maxima
- * or source-code symmetry are deliberately insufficient.
+ * top/right/bottom/left. The default result-region presentation must occupy the exact half of
+ * that target for each direction. Equal pixel thickness across unequal axes would describe the
+ * optional legacy bands, not the region the current default promises.
  *
  * Run:
  * NEO_E2E_PORT=8096 npx playwright test WorkstationDockPreviewSymmetryNL \
@@ -101,6 +102,8 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
         expect(hostId, 'the preview containing block must resolve by reference').toBeTruthy();
         expect(targetId, 'left-tabs must resolve to one exact component id').toBeTruthy();
         expect(previewId, 'the main preview renderer must resolve by reference').toBeTruthy();
+        expect((await app.getComponent(previewId, ['resultRegionPreviews'])).resultRegionPreviews,
+            'this journey covers the default result-region presentation').toBe(true);
 
         return {app, hostId, previewId, targetId, wsId}
     }
@@ -357,10 +360,10 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
     }
 
     /**
-     * Enforces exact target reuse, edge containment, and four-way CSS/physical thickness equality.
+     * Enforces exact target reuse, edge containment, and the half-target result region on every axis.
      * @param {Object[]} frames
      */
-    function assertSymmetry(frames) {
+    function assertResultRegions(frames) {
         expect(frames.map(frame => frame.edge)).toEqual(EDGES);
 
         const
@@ -373,6 +376,8 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
             const
                 target     = frame.targetRect,
                 affordance = frame.affordanceRect;
+
+            expect(frame.affordanceClass).toContain('neo-dock-preview-region');
 
             for (const key of ['left', 'top', 'width', 'height']) {
                 expect(Math.abs(target[key] - reference[key]),
@@ -403,15 +408,17 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
             physicalThickness[frame.edge] = cssThickness[frame.edge] * frame.devicePixelRatio
         });
 
-        const
-            cssValues      = Object.values(cssThickness),
-            physicalValues = Object.values(physicalThickness);
+        frames.forEach(frame => {
+            const expected = (frame.edge === 'top' || frame.edge === 'bottom'
+                ? frame.targetRect.height : frame.targetRect.width) / 2;
 
-        expect(Math.max(...cssValues) - Math.min(...cssValues),
-            `four-axis CSS thicknesses: ${JSON.stringify(cssThickness)}`).toBeLessThanOrEqual(1);
-        expect(Math.max(...physicalValues) - Math.min(...physicalValues),
-            `four-axis rendered thicknesses: ${JSON.stringify(physicalThickness)}`)
-            .toBeLessThanOrEqual(frames[0].devicePixelRatio)
+            expect(Math.abs(cssThickness[frame.edge] - expected),
+                `${frame.route}/${frame.theme}/${frame.edge} must fill half its target axis`)
+                .toBeLessThanOrEqual(tolerance);
+            expect(Math.abs(physicalThickness[frame.edge] - expected * frame.devicePixelRatio),
+                `${frame.route}/${frame.theme}/${frame.edge} must preserve the region at device scale`)
+                .toBeLessThanOrEqual(tolerance * frame.devicePixelRatio)
+        })
     }
 
     /**
@@ -450,7 +457,7 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
             await cancelPhysicalDrag(page)
         }
 
-        assertSymmetry(frames);
+        assertResultRegions(frames);
 
         return frames
     }
@@ -554,12 +561,12 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
             await app.callMethod(remoteTargetId, 'onRemoteDragLeave')
         }
 
-        assertSymmetry(frames);
+        assertResultRegions(frames);
 
         return frames
     }
 
-    test('one exact target stays symmetric across four edges, two routes, and both themes', async ({
+    test('one exact target paints its result regions across four edges, two routes, and both themes', async ({
         page,
         neuralLink
     }, testInfo) => {
@@ -583,18 +590,27 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
 
             await setTheme(app, page, wsId, THEMES[0]);
 
-            const
-                popupPromise  = page.waitForEvent('popup', {timeout: 90000}),
-                tearOutResult = await app.callMethod(wsId, 'executeTearOutStep', [
-                    {itemId: 'activity', sourceNodeId: 'left-tabs'},
-                    {birthAttempts: 240, moveDelay: 16, moveSteps: 5}
-                ]);
+            const chrome = await app.callMethod(wsId, 'getTabChromeIdentity', ['left-tabs']);
+            expect(chrome?.buttons?.activity, 'Activity has live tab chrome').toBeTruthy();
+            await page.locator(`#${chrome.buttons.activity}`).click();
+
+            const action = await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
+            expect(action?.id, 'the engine exposes the native pop-out action').toBeTruthy();
+            await expect(page.locator(`#${action.id}`)).toBeVisible();
+
+            const popupPromise = page.waitForEvent('popup', {timeout: 30000});
+            await page.locator(`#${action.id}`).click();
 
             popup = await popupPromise;
             await popup.waitForLoadState('domcontentloaded');
 
-            expect(tearOutResult.errors).toEqual([]);
-            expect(tearOutResult.applied, 'Activity must be owned by one real popup source').toBe(true);
+            await expect.poll(async () => {
+                const source = await app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-main']),
+                      target = await app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-vessel:activity']);
+
+                return !source.items.activity &&
+                    target?.nodes?.['workstation-vessel-tabs:activity']?.items?.includes('activity') === true
+            }, {message: 'the Group must transfer Activity into its popup document'}).toBe(true);
             await expect(popup.locator('.workstation-viewport')).toBeVisible();
             await page.waitForTimeout(900);
 

@@ -25,7 +25,7 @@ class Participation extends DockParticipation {
         const me = this;
 
         if (!me.defaultHitTest(payload?.localX, payload?.localY)) {
-            me.defaultClearPreview();
+            me.resolveAffordances()?.renderPreview(null, payload?.dwell ?? null);
             return null
         }
 

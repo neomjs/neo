@@ -1198,6 +1198,12 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 expect(paintedRects.at(-1)).toEqual(local(heavyRect));
                 expect(renderer.dockPreview?.previewId).toBe(split.previewId);
 
+                const settledGeometry = affordances.geometry;
+                expect(render({x: -1, y: -1})).toBeNull();
+                expect(renderer.dockPreview).toBeNull();
+                expect(affordances.geometry, 'a refused frame must not end the shared geometry session')
+                    .toBe(settledGeometry);
+
                 // Off every zone but inside the window: the stored home acquires the drop as a
                 // tab-into, painted on the home's exact rect — never on the pointer's empty position.
                 workspace.tearOutHandlers.recordPlacement('queues', {index: 1, tabsNodeId: 'right-top-tabs'});
