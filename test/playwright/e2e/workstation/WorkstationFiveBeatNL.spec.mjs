@@ -2006,11 +2006,15 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             y: targetBox.y + targetBox.height / 2
         };
 
-        expect(await app.callMethod(wsId, 'hitTestCrossWindowTarget', [
-            'workstation-main',
+        const participationId = readId(await app.findInstances({
+            className: 'Workstation.window.Participation', workspaceId: 'workstation-main'
+        }, ['id']));
+
+        expect(participationId, 'the main window owns its interaction participant').toBeTruthy();
+        expect(await app.callMethod(participationId, 'defaultHitTest', [
             candidateLocalPoint.x,
             candidateLocalPoint.y
-        ]), 'the exact physical target point must pass the lower-layer workspace hit test').toBe(true);
+        ]), 'the exact physical target point must pass the participant hit test').toBe(true);
 
         const
             mainChromeHeight  = mainPlacement.browser.outer.height - mainPlacement.browser.inner.height,
