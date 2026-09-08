@@ -23,10 +23,10 @@ test('Workstation activates one playback controller through Start and retains it
     expect(await readController()).toBeNull();
     expect(await readRuntime()).toEqual([false, false, false]);
     const resize = await app.executeDockOperation(workspaceId, {
-        operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.55, 0.45]
+        operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.625, 0.375]
     });
     expect(resize.applied).toBe(true);
-    expect((await app.getDockTopology(workspaceId)).document.nodes['split-main'].sizes).toEqual([0.55, 0.45]);
+    expect((await app.getDockTopology(workspaceId)).document.nodes['split-main'].sizes).toEqual([0.625, 0.375]);
     expect(await readRuntime(), 'ordinary docking must not load playback').toEqual([false, false, false]);
     const initialTheme = (await app.getComponent(workspaceId, ['theme'])).theme;
     await page.locator('.workstation-theme-button').click();
