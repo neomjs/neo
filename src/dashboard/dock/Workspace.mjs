@@ -1809,7 +1809,8 @@ class Workspace extends Container {
      * @param {Object} data
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
-     * @returns {{document:Object,errors:String[]}|null}
+     * @returns {Promise<{document:Object,errors:String[]}|null>} Resolves; never rejects — a failed
+     *     commit is returned as `errors`, because the caller is a listener slot with no rejection seam.
      * @protected
      */
     async handleDockPinAction({dockNodeId, tabContainer}={}) {
@@ -1836,17 +1837,27 @@ class Workspace extends Container {
 
         descriptors.push({operation: 'setItemAutoHidden', itemId, autoHidden: true});
 
-        for (const descriptor of descriptors) {
-            result = me.applyDockZoneOperation(descriptor);
+        // The catch converts a failure into this method's own `{document, errors}` contract rather
+        // than propagating it. Awaiting introduces that obligation: the only caller is a component
+        // listener slot — `LayoutAdapter` wires `headerAction` straight to it — so there is nowhere
+        // above to attach a rejection handler, and an escaping rejection would be unhandled. It is
+        // deliberately not re-logged; the Group branch already routes to `Neo.logError`, so what
+        // changes here is the shape of the failure, never whether it is reported.
+        try {
+            for (const descriptor of descriptors) {
+                result = me.applyDockZoneOperation(descriptor);
 
-            if (!result || result.errors?.length || !result.document) {
-                return result
+                if (!result || result.errors?.length || !result.document) {
+                    return result
+                }
+
+                // Awaited: the seam reads the committed `dockModel`, and only the direct path assigns
+                // it synchronously. Under a Group the publish is a pending transaction, so an
+                // unawaited step 2 reduces against a document step 1 has not reached.
+                await me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
             }
-
-            // Awaited: the seam reads the committed `dockModel`, and only the direct path assigns it
-            // synchronously. Under a Group the publish is a pending transaction, so an unawaited step
-            // 2 reduces against a document step 1 has not reached.
-            await me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
+        } catch (error) {
+            return {document: me.dockModel, errors: [error.message]}
         }
 
         return result

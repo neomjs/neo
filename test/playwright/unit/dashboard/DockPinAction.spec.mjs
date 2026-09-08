@@ -169,6 +169,31 @@ test.describe.serial('Dock pin action', () => {
         }
     });
 
+    test('a rejected commit comes back as errors — the handler resolves, never rejects', async () => {
+        // The await introduced this obligation: the sole caller is a component listener slot with
+        // nowhere to attach a rejection handler, so an escaping rejection would be unhandled. This
+        // arm is what makes the docblock's "never rejects" a checked property rather than a promise
+        // in prose — if the handler propagated, the `await` below would throw and fail the test.
+        const workspace = Neo.create(PinWorkspace, {
+            dockModel: createDocument(), topologyGroupId: groupId, workspaceKey: 'main', workspaceSet: set
+        });
+
+        set.register('main', {
+            componentId: workspace.id,
+            getDocument: () => workspace.dockModel,
+            setDocument: () => { throw new Error('commit refused by the holder') }
+        });
+
+        try {
+            const result = await collapseInspector(workspace);
+
+            expect(result, 'a refused commit still returns the contract shape').toBeTruthy();
+            expect(result.errors.join(' '), 'and carries the refusal').toContain('commit refused by the holder')
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('an item no edge owns is refused, and the committed document is untouched', async () => {
         // `center` sits in the root centre, which §2.7 forbids collapsing. The guard is what keeps a
         // stale-but-still-dispatchable header action from committing, so it is worth its own arm.
