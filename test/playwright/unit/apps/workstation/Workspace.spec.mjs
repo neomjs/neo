@@ -751,6 +751,106 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('teardown cancels an effect BEFORE dispatch — no platform call is made after destroy', async () => {
+        const
+            workspace        = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalDragDrop = Neo.main.addon.DragDrop,
+            originalFocus    = Neo.Main.windowNativeFocus,
+            originalOpen     = Neo.Main.windowOpen,
+            calls            = [];
+
+        Neo.main.addon.DragDrop = {
+            acknowledgeWindowDragOrphanRecovery: async () => {calls.push('acknowledge'); return true},
+            hasWindowDragOrphanRecovery        : async () => {calls.push('hasRecovery');  return false},
+            parkWindowDrag                     : async () => {calls.push('park');         return true},
+            resumeWindowDrag                   : async () => {calls.push('resume');       return true}
+        };
+        Neo.Main.windowNativeFocus = async () => {calls.push('focus');  return true};
+        Neo.Main.windowOpen        = async () => {calls.push('open');   return true};
+
+        const controller = workspace.vesselController;
+
+        try {
+            controller.destroy();
+
+            // Every effect entry point refuses in its own return shape, before any dispatch.
+            await expect(controller.parkTearOutVessel({itemId: 'audit', windowName: 'tearout-audit'})).resolves.toBe(false);
+            await expect(controller.reshowTearOutVessel({itemId: 'audit', windowName: 'tearout-audit'})).resolves.toBe(false);
+            await expect(controller.closeTearOutVessel({itemId: 'audit', windowName: 'tearout-audit'})).resolves.toBe(false);
+            await expect(controller.disposeParkedTearOutVessel({itemId: 'audit', windowName: 'tearout-audit'})).resolves.toBe(false);
+            await expect(controller.openTearOutVessel({itemId: 'audit'})).resolves.toBeNull();
+
+            expect(calls, 'a torn-down controller dispatches no platform effect').toEqual([])
+        } finally {
+            Neo.main.addon.DragDrop    = originalDragDrop;
+            Neo.Main.windowNativeFocus = originalFocus;
+            Neo.Main.windowOpen        = originalOpen;
+            workspace.destroy()
+        }
+    });
+
+    test('teardown DURING a dispatched effect still settles it — no throw, and no receipt written back', async () => {
+        const
+            workspace        = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalDragDrop = Neo.main.addon.DragDrop,
+            originalMove     = Neo.Main.windowNativeMoveTo,
+            originalResize   = Neo.Main.windowNativeResizeTo,
+            calls            = [],
+            sourceRoute      = {
+                capabilities   : {close: true, focus: true, position: true, resize: true},
+                nativeHandleKey: 'handle-source',
+                ownerWindowId  : workspace.windowId,
+                targetWindowId : 'source-window'
+            },
+            geometry         = {
+                park   : {height: 260, width: 360, x: 800, y: 120},
+                restore: {height: 546, width: 640, x: 40, y: 60}
+            };
+
+        workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+            nativeRoute: sourceRoute,
+            windowId   : 'source-window',
+            windowName : 'tearout-audit'
+        });
+
+        const controller = workspace.vesselController;
+
+        controller.tearOutParkGeometries.audit = geometry;
+
+        Neo.main.addon.DragDrop = {
+            acknowledgeWindowDragOrphanRecovery: async () => {calls.push('acknowledge'); return true},
+            hasWindowDragOrphanRecovery        : async () => {calls.push('hasRecovery'); return false},
+            // The teardown lands mid-flight: this is the platform call this path dispatches, so
+            // destroying inside it is a settlement-after-dispatch, not a cancellation.
+            resumeWindowDrag                   : async () => {
+                calls.push('resume');
+                controller.destroy();
+                return true
+            }
+        };
+        Neo.Main.windowNativeResizeTo = async () => {calls.push('resize'); return true};
+        Neo.Main.windowNativeMoveTo   = async () => {calls.push('move');   return true};
+
+        try {
+            const settled = await controller.reshowTearOutVessel({
+                itemId: 'audit', rect: {height: 120, width: 200, x: 420, y: 240}, windowName: 'tearout-audit'
+            });
+
+            expect(settled, 'an in-flight effect settles rather than throwing on cleared state').toBe(true);
+            expect(calls, 'the dispatched effect ran to completion').toEqual(['resume']);
+            // `core.Base#destroy` DELETES own properties rather than nulling them, so the honest
+            // assertion is falsiness: the point is that the settling effect did not write a receipt
+            // back onto a torn-down controller.
+            expect(controller.lastVesselRestoreReceipt, 'cleared state stays cleared — the receipt is not resurrected')
+                .toBeFalsy()
+        } finally {
+            Neo.main.addon.DragDrop       = originalDragDrop;
+            Neo.Main.windowNativeMoveTo   = originalMove;
+            Neo.Main.windowNativeResizeTo = originalResize;
+            workspace.destroy()
+        }
+    });
+
     test('terminal restore compensates safely until exact extent and position both succeed', async () => {
         let
             moveAdmitted       = false,

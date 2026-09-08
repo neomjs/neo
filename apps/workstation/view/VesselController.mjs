@@ -90,16 +90,44 @@ class VesselController extends Controller {
     lastTearOutClose = null
 
     /**
-     * @summary Releases only what this controller owns.
+     * @summary True from the first line of `destroy()` until `super.destroy()` returns, so an effect
+     * that has not yet dispatched a platform call refuses to start one while an already-dispatched
+     * effect still settles and honours its obligations.
      *
-     * The park geometries and retry counters are physical-recovery state for gestures that are over
-     * by the time a workspace tears down. The borrowed owners above are deliberately untouched:
-     * retiring a Group participant or a tear-out handler from here would destroy something this
-     * controller never created.
+     * It covers only that window on purpose: `core.Base#destroy` deletes every writable own
+     * property, so this flag is gone afterwards and `isDestroyed` — which that same method sets —
+     * carries the signal from there. The guards test both, and the pair is total.
+     * @member {Boolean} isTearingDown=false
+     * @protected
+     */
+    isTearingDown = false
+
+    /**
+     * @summary Releases only what this controller owns, without stranding an effect still in flight.
+     *
+     * Teardown is **not** quiescent — a gesture can be mid-dispatch when the workspace goes away —
+     * so the contract has two halves:
+     *
+     * - **Cancellation before dispatch.** Every effect entry point refuses while `isTearingDown` or
+     *   `isDestroyed` holds, in its own return shape, so no NEW platform call is started.
+     * - **Settlement after dispatch.** An already-dispatched effect runs to completion and keeps its
+     *   platform obligations. It can, because its receipt is a local object rather than a field read
+     *   back off the instance, and because park-geometry release goes through
+     *   {@link #releaseParkGeometry}. Both matter: `core.Base#destroy` DELETES own properties, so a
+     *   settling effect touching them directly throws into a surrounding catch — reporting a
+     *   successful platform call as a refusal.
+     *
+     * Nothing is written back onto a torn-down controller, and each platform effect still happens
+     * exactly once. The borrowed owners are deliberately untouched: retiring a Group participant or
+     * a tear-out handler from here would destroy something this controller never created.
      * @param {...*} args
      */
     destroy(...args) {
         const me = this;
+
+        // Set before anything is cleared: an in-flight effect reads this at its next dispatch
+        // boundary, so nothing new starts while the fields are going away.
+        me.isTearingDown = true;
 
         me.tearOutParkGeometries = {};
         me.tearOutParkAttempts   = {};
@@ -174,6 +202,22 @@ class VesselController extends Controller {
     }
 
     /**
+     * @summary Drops one item's park geometry, tolerating a teardown that landed mid-effect.
+     *
+     * Clearing the map is bookkeeping this controller owns; the platform obligations around it are
+     * not. `core.Base#destroy` DELETES own properties, so an effect still settling would throw on
+     * `delete undefined[itemId]` — and the surrounding catch swallowed that throw, turning a
+     * successful platform call into a reported refusal. One seam, because a guard added to the site
+     * someone happens to be reading leaves the other five unguarded.
+     * @param {String} itemId
+     * @protected
+     */
+    releaseParkGeometry(itemId) {
+        this.tearOutParkGeometries && delete this.tearOutParkGeometries[itemId]
+    }
+
+    /**
+     * @summary Retires a parked vessel outright — the disposal half of the park lifecycle.
      * Consumes the tear-out machine's active slot, then closes its exact parked vessel — the ONE
      * settle path for a committed conversion; a refusal retains exact retry authority.
      * @param {Object} vessel
@@ -183,6 +227,8 @@ class VesselController extends Controller {
      * @protected
      */
     async disposeParkedTearOutVessel({itemId, windowName}) {
+        if (this.isTearingDown || this.isDestroyed) return false;
+
         let me    = this,
             entry = me.resolveTearOutVessel(itemId),
             route = entry?.nativeRoute;
@@ -190,7 +236,7 @@ class VesselController extends Controller {
         const disposed = await me.component.tearOutHandlers.retireActiveVessel({itemId, windowName});
 
         if (disposed) {
-            delete me.tearOutParkGeometries[itemId];
+            me.releaseParkGeometry(itemId);
             delete me.tearOutParkAttempts[itemId];
 
             route?.nativeHandleKey && await Neo.main.addon.DragDrop.retireWindowDragOrphanRecovery({
@@ -224,6 +270,8 @@ class VesselController extends Controller {
      * @protected
      */
     async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
+        if (this.isTearingDown || this.isDestroyed) return null;
+
         let me         = this,
             {windowId} = me.component,
             windowName = `tearout-${itemId}`;
@@ -274,6 +322,7 @@ class VesselController extends Controller {
     }
 
     /**
+     * @summary Consumes the tear-out slot, then closes that exact vessel; a refusal keeps retry authority.
      * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
      * or a refused model commit). Identity is the slot's lineage token — a successor admission for
      * the same item shares the window name, never the token — so a retirement presenting a superseded
@@ -289,6 +338,8 @@ class VesselController extends Controller {
      * @protected
      */
     async closeTearOutVessel({generationToken, itemId, nativeRoute, windowName}) {
+        if (this.isTearingDown || this.isDestroyed) return false;
+
         let me               = this,
             entry            = me.resolveTearOutVessel(itemId),
             admission        = me.component.nativeWindows?.getAdmission(me.component.id, itemId),
@@ -389,13 +440,14 @@ class VesselController extends Controller {
             return false
         }
 
-        delete me.tearOutParkGeometries[itemId];
+        me.releaseParkGeometry(itemId);
         closeReceipt.stage = 'acknowledged';
 
         return true
     }
 
     /**
+     * @summary Moves a live vessel off-screen for the duration of a gesture, recording why if the platform refuses.
      * Parks one converted vessel behind its conversion target — the cover geometry that keeps
      * the REAL OS window alive while the proxy embodies over the target. Close-and-reopen is a
      * one-way door (mid-gesture popup acquisition reads as unsolicited), so conversion parks
@@ -415,13 +467,16 @@ class VesselController extends Controller {
      * @protected
      */
     async parkTearOutVessel({itemId, nativeTitlebar=false, windowName}) {
+        if (this.isTearingDown || this.isDestroyed) return false;
+
         let me           = this,
+            windowId     = me.component.windowId,
             entry        = me.resolveTearOutVessel(itemId),
             route        = entry?.nativeRoute,
             sourceWindow = Neo.manager?.Window?.get(entry?.windowId),
             targetWindow = Neo.manager?.Window?.get(me.vesselConversionTargetWindowId),
             targetRoute  = targetWindow?.nativeRoute,
-            targetIsMain = me.vesselConversionTargetWindowId === me.component.windowId,
+            targetIsMain = me.vesselConversionTargetWindowId === windowId,
             // The size check and the authority check speak published inner-window geometry (a child
             // omitting outerRect never rejects an authorized live vessel); the park POSITION is a
             // frame: `moveTo` places the source frame on the target's frame origin, so the parked
@@ -448,17 +503,17 @@ class VesselController extends Controller {
                 restore: restoreRect
             } : null;
 
-        me.lastVesselParkReceipt = {
+        const parkReceipt = me.lastVesselParkReceipt = {
             authority: {
                 entryNameMatches     : entry?.windowName === windowName,
                 sourceHasHandle      : Boolean(route?.nativeHandleKey),
-                sourceOwnerMatches   : route?.ownerWindowId === me.component.windowId,
+                sourceOwnerMatches   : route?.ownerWindowId === windowId,
                 sourcePositionCapable: route?.capabilities?.position === true,
                 sourceResizeCapable  : route?.capabilities?.resize === true,
                 sourceTargetMatches  : route?.targetWindowId === entry?.windowId,
                 targetFocusCapable   : targetRoute?.capabilities?.focus === true,
                 targetHasHandle      : Boolean(targetRoute?.nativeHandleKey),
-                targetOwnerMatches   : targetRoute?.ownerWindowId === me.component.windowId,
+                targetOwnerMatches   : targetRoute?.ownerWindowId === windowId,
                 targetTargetMatches  : targetRoute?.targetWindowId === me.vesselConversionTargetWindowId
             },
             needsResize,
@@ -478,14 +533,14 @@ class VesselController extends Controller {
         };
         me.lastVesselRestoreReceipt = null;
 
-        me.lastVesselParkReceipt.parkAttempts = me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1;
+        parkReceipt.parkAttempts = me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1;
 
         if (
-            !route?.nativeHandleKey || route.ownerWindowId !== me.component.windowId ||
+            !route?.nativeHandleKey || route.ownerWindowId !== windowId ||
             route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
             (needsResize && route.capabilities?.resize !== true) ||
             (!targetIsMain && (
-                !targetRoute?.nativeHandleKey || targetRoute.ownerWindowId !== me.component.windowId ||
+                !targetRoute?.nativeHandleKey || targetRoute.ownerWindowId !== windowId ||
                 targetRoute.targetWindowId !== me.vesselConversionTargetWindowId ||
                 targetRoute.capabilities?.focus !== true
             )) ||
@@ -494,7 +549,7 @@ class VesselController extends Controller {
                 sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
             ))
         ) {
-            me.lastVesselParkReceipt.reason = 'native route or live cover geometry refused';
+            parkReceipt.reason = 'native route or live cover geometry refused';
             return false
         }
 
@@ -508,9 +563,9 @@ class VesselController extends Controller {
         // targets keep the physical park below.
         if (nativeTitlebar && targetIsMain) {
             delete me.tearOutParkAttempts[itemId];
-            me.lastVesselParkReceipt.parked   = true;
-            me.lastVesselParkReceipt.physical = false;
-            me.lastVesselParkReceipt.reason   = 'main-window target: nothing to park, the popup retires after the commit';
+            parkReceipt.parked   = true;
+            parkReceipt.physical = false;
+            parkReceipt.reason   = 'main-window target: nothing to park, the popup retires after the commit';
             return true
         }
 
@@ -527,25 +582,25 @@ class VesselController extends Controller {
             : Neo.Main.windowNativeFocus({
                 nativeHandleKey: targetRoute.nativeHandleKey,
                 targetWindowId : targetRoute.targetWindowId,
-                windowId       : me.component.windowId
+                windowId       : windowId
             });
 
         try {
             let focused = await focusTarget() === true;
 
-            me.lastVesselParkReceipt.focused = focused;
+            parkReceipt.focused = focused;
 
             if (!focused) {
                 // A popup target: the owner focuses a window it opened, which the platform grants
                 // once the OS releases the dragged source. The coordinator retries the park.
-                me.lastVesselParkReceipt.refusedAt = 'focus';
+                parkReceipt.refusedAt = 'focus';
                 return false
             }
 
             const moveData = {
                 nativeHandleKey: route.nativeHandleKey,
                 targetWindowId : route.targetWindowId,
-                windowId       : me.component.windowId,
+                windowId,
                 windowName,
                 x              : targetOuter.x,
                 y              : targetOuter.y
@@ -560,10 +615,10 @@ class VesselController extends Controller {
                 ? Neo.Main.windowNativeMoveTo(moveData)
                 : Neo.main.addon.DragDrop.parkWindowDrag(moveData)) === true;
 
-            me.lastVesselParkReceipt.moved = moved;
+            parkReceipt.moved = moved;
 
             if (!moved) {
-                me.lastVesselParkReceipt.refusedAt = 'move';
+                parkReceipt.refusedAt = 'move';
                 return false
             }
 
@@ -571,13 +626,13 @@ class VesselController extends Controller {
 
             let refocused = await focusTarget() === true;
 
-            me.lastVesselParkReceipt.refocused = refocused;
+            parkReceipt.refocused = refocused;
 
             if (!refocused) {
                 const restoreData = {
                     nativeHandleKey: route.nativeHandleKey,
                     targetWindowId : route.targetWindowId,
-                    windowId       : me.component.windowId,
+                    windowId,
                     windowName,
                     x              : sourceOuter.x,
                     y              : sourceOuter.y
@@ -586,10 +641,10 @@ class VesselController extends Controller {
                     ? Neo.Main.windowNativeMoveTo(restoreData)
                     : Neo.main.addon.DragDrop.resumeWindowDrag(restoreData)) === true;
 
-                me.lastVesselParkReceipt.compensated = compensated;
-                me.lastVesselParkReceipt.parked      = !compensated;
-                me.lastVesselParkReceipt.refusedAt   = 'refocus';
-                compensated && delete me.tearOutParkGeometries[itemId];
+                parkReceipt.compensated = compensated;
+                parkReceipt.parked      = !compensated;
+                parkReceipt.refusedAt   = 'refocus';
+                compensated && me.releaseParkGeometry(itemId);
 
                 // Recovery ownership and visual admission are separate: if target refocus failed,
                 // the real source may still cover the target. Never publish conversion-ready on
@@ -598,17 +653,18 @@ class VesselController extends Controller {
             }
 
             delete me.tearOutParkAttempts[itemId];
-            me.lastVesselParkReceipt.parked = true;
+            parkReceipt.parked = true;
 
             return true
         } catch (error) {
-            me.lastVesselParkReceipt.error  = String(error?.message || error);
-            me.lastVesselParkReceipt.reason = 'platform effect threw';
+            parkReceipt.error  = String(error?.message || error);
+            parkReceipt.reason = 'platform effect threw';
             return false
         }
     }
 
     /**
+     * @summary Returns a parked vessel to its recorded geometry and acknowledges the recovery obligation.
      * Re-shows the same exact parked generation at the logical pointer-owned origin. During a
      * live gesture the DragDrop addon also resumes physical pointer-follow; at a native drag
      * terminal that addon has already reset its session, so a strict refusal falls through to
@@ -622,7 +678,10 @@ class VesselController extends Controller {
      * @protected
      */
     async reshowTearOutVessel({itemId, rect, terminal=false, windowName}) {
+        if (this.isTearingDown || this.isDestroyed) return false;
+
         let me       = this,
+            windowId = me.component.windowId,
             entry    = me.resolveTearOutVessel(itemId),
             route    = entry?.nativeRoute,
             geometry = me.tearOutParkGeometries[itemId] ?? null,
@@ -636,7 +695,7 @@ class VesselController extends Controller {
                 y: rect.y - (chrome?.top  ?? 0)
             } : null;
 
-        me.lastVesselRestoreReceipt = {
+        const restoreReceipt = me.lastVesselRestoreReceipt = {
             frame,
             geometry,
             rect: rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y},
@@ -644,20 +703,20 @@ class VesselController extends Controller {
         };
 
         if (
-            !route?.nativeHandleKey || route.ownerWindowId !== me.component.windowId ||
+            !route?.nativeHandleKey || route.ownerWindowId !== windowId ||
             route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
             (geometry && route.capabilities?.resize !== true) ||
             entry.windowName !== windowName ||
             !Number.isFinite(rect?.x) || !Number.isFinite(rect?.y)
         ) {
-            me.lastVesselRestoreReceipt.reason = 'native route or restore geometry refused';
+            restoreReceipt.reason = 'native route or restore geometry refused';
             return false
         }
 
         let data = {
             nativeHandleKey: route.nativeHandleKey,
             targetWindowId : route.targetWindowId,
-            windowId       : me.component.windowId,
+            windowId,
             windowName,
             x              : frame.x,
             y              : frame.y
@@ -667,26 +726,26 @@ class VesselController extends Controller {
             if (!terminal) {
                 const admitted = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
 
-                me.lastVesselRestoreReceipt.admitted = admitted;
-                admitted && delete me.tearOutParkGeometries[itemId];
+                restoreReceipt.admitted = admitted;
+                admitted && me.releaseParkGeometry(itemId);
 
                 return admitted
             }
 
             const addonRestored = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
 
-            me.lastVesselRestoreReceipt.addonRestored = addonRestored;
+            restoreReceipt.addonRestored = addonRestored;
 
             if (addonRestored) {
-                delete me.tearOutParkGeometries[itemId];
-                me.lastVesselRestoreReceipt.admitted = true;
+                me.releaseParkGeometry(itemId);
+                restoreReceipt.admitted = true;
 
                 return true
             }
 
             const recoveryPending = await Neo.main.addon.DragDrop.hasWindowDragOrphanRecovery(data) === true;
 
-            me.lastVesselRestoreReceipt.recoveryPending = recoveryPending;
+            restoreReceipt.recoveryPending = recoveryPending;
 
             // A matching predecessor effect still owns exact recovery. Never race it with a second
             // direct route mutation or degrade a required extent restore into position-only success.
@@ -696,17 +755,17 @@ class VesselController extends Controller {
                 const resized = await Neo.Main.windowNativeResizeTo({
                     nativeHandleKey: route.nativeHandleKey,
                     targetWindowId : route.targetWindowId,
-                    windowId       : me.component.windowId,
+                    windowId,
                     ...geometry.restore
                 }) === true;
 
-                me.lastVesselRestoreReceipt.resized = resized;
+                restoreReceipt.resized = resized;
 
                 if (!resized) {
                     await Neo.Main.windowNativeResizeTo({
                         nativeHandleKey: route.nativeHandleKey,
                         targetWindowId : route.targetWindowId,
-                        windowId       : me.component.windowId,
+                        windowId,
                         ...geometry.park
                     });
                     return false
@@ -716,30 +775,30 @@ class VesselController extends Controller {
             const moved = await Neo.Main.windowNativeMoveTo({
                 nativeHandleKey: route.nativeHandleKey,
                 targetWindowId : route.targetWindowId,
-                windowId       : me.component.windowId,
+                windowId,
                 x              : rect.x,
                 y              : rect.y
             }) === true;
 
-            me.lastVesselRestoreReceipt.moved = moved;
+            restoreReceipt.moved = moved;
 
             if (!moved) {
                 if (geometry) {
                     const compensationResized = await Neo.Main.windowNativeResizeTo({
                         nativeHandleKey: route.nativeHandleKey,
                         targetWindowId : route.targetWindowId,
-                        windowId       : me.component.windowId,
+                        windowId,
                         ...geometry.park
                     }) === true;
 
-                    me.lastVesselRestoreReceipt.compensationResized = compensationResized;
+                    restoreReceipt.compensationResized = compensationResized;
 
                     if (compensationResized) {
-                        me.lastVesselRestoreReceipt.compensationMoved =
+                        restoreReceipt.compensationMoved =
                             await Neo.Main.windowNativeMoveTo({
                                 nativeHandleKey: route.nativeHandleKey,
                                 targetWindowId : route.targetWindowId,
-                                windowId       : me.component.windowId,
+                                windowId,
                                 x              : geometry.park.x,
                                 y              : geometry.park.y
                             }) === true
@@ -749,13 +808,16 @@ class VesselController extends Controller {
                 return false
             }
 
-            me.lastVesselRestoreReceipt.admitted = true;
-            delete me.tearOutParkGeometries[itemId];
+            restoreReceipt.admitted = true;
+            // The map is gone if a teardown landed mid-flight. Clearing it is bookkeeping this
+            // controller owns; the acknowledgement below is an obligation to the platform, and it
+            // must not be skipped because our own bookkeeping no longer has anywhere to write.
+            me.releaseParkGeometry(itemId);
             await Neo.main.addon.DragDrop.acknowledgeWindowDragOrphanRecovery(data);
 
             return true
         } catch (error) {
-            me.lastVesselRestoreReceipt.error = String(error?.message || error);
+            restoreReceipt.error = String(error?.message || error);
             return false
         }
     }
