@@ -22,6 +22,7 @@ import Persistence              from '../../../src/dashboard/dock/model/Persiste
 import StateProvider            from '../../../src/state/Provider.mjs';
 import TourToolbar              from './TourToolbar.mjs';
 import TransactionManager       from '../../../src/manager/Transaction.mjs';
+import WindowManager            from '../../../src/manager/Window.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
@@ -1665,25 +1666,27 @@ class Workspace extends DockWorkspace {
             admission?.windowId && Neo.manager?.Window?.get(admission.windowId)?.nativeRoute
         );
 
-        const exactWindowId = entry?.windowId ?? admission?.windowId;
+        // Absence of a route is not a refusal here: such a vessel closes semantically. Only a route
+        // that exists and fails an axis is.
+        const
+            exactWindowId = entry?.windowId ?? admission?.windowId,
+            auth          = WindowManager.resolveNativeRoute({
+                capability: 'close', ownerWindowId: me.windowId, route: nativeRoute, targetWindowId: exactWindowId ?? null
+            });
 
         closeReceipt.route = {
-            closeCapable      : !nativeRoute || nativeRoute.capabilities?.close === true,
-            exactTargetMatches: !nativeRoute || !exactWindowId || nativeRoute.targetWindowId === exactWindowId,
+            closeCapable      : !auth.present || auth.capable,
+            exactTargetMatches: !auth.present || auth.targetMatches,
             exactWindowId     : exactWindowId ?? null,
-            hasHandle         : !nativeRoute || Boolean(nativeRoute.nativeHandleKey),
-            ownerMatches      : !nativeRoute || nativeRoute.ownerWindowId === me.windowId,
+            hasHandle         : !auth.present || auth.hasHandle,
+            ownerMatches      : !auth.present || auth.ownerMatches,
             ownerWindowId     : nativeRoute?.ownerWindowId ?? null,
-            present           : Boolean(nativeRoute),
-            targetPresent     : !nativeRoute || Boolean(nativeRoute.targetWindowId),
+            present           : auth.present,
+            targetPresent     : !auth.present || auth.hasTarget,
             targetWindowId    : nativeRoute?.targetWindowId ?? null
         };
 
-        if (nativeRoute && (
-            !nativeRoute.nativeHandleKey || nativeRoute.ownerWindowId !== me.windowId ||
-            !nativeRoute.targetWindowId || nativeRoute.capabilities?.close !== true ||
-            (exactWindowId && nativeRoute.targetWindowId !== exactWindowId)
-        )) {
+        if (auth.present && !auth.granted) {
             closeReceipt.stage = 'route-refused';
             return false
         }
@@ -1842,18 +1845,25 @@ class Workspace extends DockWorkspace {
                 restore: restoreRect
             } : null;
 
+        const
+            sourceArgs   = {ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null},
+            targetArgs   = {ownerWindowId: me.windowId, route: targetRoute, targetWindowId: me.vesselConversionTargetWindowId ?? null},
+            sourcePos    = WindowManager.resolveNativeRoute({...sourceArgs, capability: 'position'}),
+            sourceResize = WindowManager.resolveNativeRoute({...sourceArgs, capability: 'resize'}),
+            targetFocus  = WindowManager.resolveNativeRoute({...targetArgs, capability: 'focus'});
+
         me.lastVesselParkReceipt = {
             authority: {
                 entryNameMatches     : entry?.windowName === windowName,
-                sourceHasHandle      : Boolean(route?.nativeHandleKey),
-                sourceOwnerMatches   : route?.ownerWindowId === me.windowId,
-                sourcePositionCapable: route?.capabilities?.position === true,
-                sourceResizeCapable  : route?.capabilities?.resize === true,
-                sourceTargetMatches  : route?.targetWindowId === entry?.windowId,
-                targetFocusCapable   : targetRoute?.capabilities?.focus === true,
-                targetHasHandle      : Boolean(targetRoute?.nativeHandleKey),
-                targetOwnerMatches   : targetRoute?.ownerWindowId === me.windowId,
-                targetTargetMatches  : targetRoute?.targetWindowId === me.vesselConversionTargetWindowId
+                sourceHasHandle      : sourcePos.hasHandle,
+                sourceOwnerMatches   : sourcePos.ownerMatches,
+                sourcePositionCapable: sourcePos.capable,
+                sourceResizeCapable  : sourceResize.capable,
+                sourceTargetMatches  : sourcePos.targetMatches,
+                targetFocusCapable   : targetFocus.capable,
+                targetHasHandle      : targetFocus.hasHandle,
+                targetOwnerMatches   : targetFocus.ownerMatches,
+                targetTargetMatches  : targetFocus.targetMatches
             },
             needsResize,
             parkSize,
@@ -1875,14 +1885,9 @@ class Workspace extends DockWorkspace {
         me.lastVesselParkReceipt.parkAttempts = me.tearOutParkAttempts[itemId] = (me.tearOutParkAttempts[itemId] ?? 0) + 1;
 
         if (
-            !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
-            route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
-            (needsResize && route.capabilities?.resize !== true) ||
-            (!targetIsMain && (
-                !targetRoute?.nativeHandleKey || targetRoute.ownerWindowId !== me.windowId ||
-                targetRoute.targetWindowId !== me.vesselConversionTargetWindowId ||
-                targetRoute.capabilities?.focus !== true
-            )) ||
+            !sourcePos.granted || (needsResize && !sourceResize.granted) ||
+            // A conversion target that named no window cannot be the one this route addresses.
+            (!targetIsMain && (!targetFocus.granted || !me.vesselConversionTargetWindowId)) ||
             entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect ||
             (nativeTitlebar && (
                 sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
@@ -2037,10 +2042,14 @@ class Workspace extends DockWorkspace {
             terminal
         };
 
+        // Restoring always moves and only sometimes resizes, so resize is asked for only when needed.
+        const
+            routeArgs    = {ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null},
+            positionAuth = WindowManager.resolveNativeRoute({...routeArgs, capability: 'position'}),
+            resizeAuth   = geometry && WindowManager.resolveNativeRoute({...routeArgs, capability: 'resize'});
+
         if (
-            !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
-            route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
-            (geometry && route.capabilities?.resize !== true) ||
+            !positionAuth.granted || (geometry && !resizeAuth.granted) ||
             entry.windowName !== windowName ||
             !Number.isFinite(rect?.x) || !Number.isFinite(rect?.y)
         ) {

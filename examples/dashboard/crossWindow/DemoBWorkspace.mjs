@@ -24,6 +24,7 @@ import WorkspaceSet                       from '../../../src/dashboard/dock/wind
 import VesselPark                         from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                 from '../../../src/manager/Transaction.mjs';
+import WindowManager                      from '../../../src/manager/Window.mjs';
 import PreviewContract                    from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {demoBTourScript, initialDocument} from './demoBPerspectives.mjs';
 import '../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
@@ -3869,17 +3870,23 @@ class DemoBWorkspace extends Container {
             sourceRect   = sourceWindow?.innerRect,
             targetRect   = targetWindow?.innerRect;
 
+        const
+            sourceArgs  = {ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null},
+            targetArgs  = {ownerWindowId: me.windowId, route: targetRoute, targetWindowId: me.crossWindowTargetWindowId ?? null},
+            sourcePos   = WindowManager.resolveNativeRoute({...sourceArgs, capability: 'position'}),
+            targetFocus = WindowManager.resolveNativeRoute({...targetArgs, capability: 'focus'});
+
         me.lastVesselParkReceipt = {
             authority: {
                 entryNameMatches     : entry?.windowName === windowName,
-                sourceHasHandle      : Boolean(route?.nativeHandleKey),
-                sourceOwnerMatches   : route?.ownerWindowId === me.windowId,
-                sourcePositionCapable: route?.capabilities?.position === true,
-                sourceTargetMatches  : route?.targetWindowId === entry?.windowId,
-                targetFocusCapable   : targetRoute?.capabilities?.focus === true,
-                targetHasHandle      : Boolean(targetRoute?.nativeHandleKey),
-                targetOwnerMatches   : targetRoute?.ownerWindowId === me.windowId,
-                targetTargetMatches  : targetRoute?.targetWindowId === me.crossWindowTargetWindowId
+                sourceHasHandle      : sourcePos.hasHandle,
+                sourceOwnerMatches   : sourcePos.ownerMatches,
+                sourcePositionCapable: sourcePos.capable,
+                sourceTargetMatches  : sourcePos.targetMatches,
+                targetFocusCapable   : targetFocus.capable,
+                targetHasHandle      : targetFocus.hasHandle,
+                targetOwnerMatches   : targetFocus.ownerMatches,
+                targetTargetMatches  : targetFocus.targetMatches
             },
             source: sourceRect && {
                 height: sourceRect.height, width: sourceRect.width, x: sourceRect.x, y: sourceRect.y
@@ -3891,11 +3898,8 @@ class DemoBWorkspace extends Container {
         me.lastVesselRestoreReceipt = null;
 
         if (
-            !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
-            route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
-            !targetRoute?.nativeHandleKey || targetRoute.ownerWindowId !== me.windowId ||
-            targetRoute.targetWindowId !== me.crossWindowTargetWindowId ||
-            targetRoute.capabilities?.focus !== true ||
+            // A cross-window target that named no window cannot be the one this route addresses.
+            !sourcePos.granted || !targetFocus.granted || !me.crossWindowTargetWindowId ||
             entry.windowName !== windowName || !sourceRect || !targetRect || !targetWindow.innerRect ||
             sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
         ) {
@@ -3986,8 +3990,9 @@ class DemoBWorkspace extends Container {
             data;
 
         if (
-            !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
-            route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
+            !WindowManager.resolveNativeRoute({
+                capability: 'position', ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null
+            }).granted ||
             entry.windowName !== windowName ||
             !Number.isFinite(rect?.x) || !Number.isFinite(rect?.y)
         ) return false;
@@ -4127,11 +4132,12 @@ class DemoBWorkspace extends Container {
 
         const exactWindowId = entry?.windowId ?? admittedWindowId;
 
-        if (nativeRoute && (
-            !nativeRoute.nativeHandleKey || nativeRoute.ownerWindowId !== me.windowId ||
-            !nativeRoute.targetWindowId || nativeRoute.capabilities?.close !== true ||
-            (exactWindowId && nativeRoute.targetWindowId !== exactWindowId)
-        )) return false;
+        // Absence of a route is not a refusal here: such a vessel closes semantically.
+        const closeAuth = WindowManager.resolveNativeRoute({
+            capability: 'close', ownerWindowId: me.windowId, route: nativeRoute, targetWindowId: exactWindowId ?? null
+        });
+
+        if (closeAuth.present && !closeAuth.granted) return false;
 
         // The Group established retirement before this call, so a refused close retains the exact
         // route and the tear-out machine slot for retry while the content stays safely home. A
