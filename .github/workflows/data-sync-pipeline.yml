@@ -1,9 +1,14 @@
 name: Data Sync Pipeline
 
-# Watched by data-sync-watchdog.yml (staleness alarm over run-status + committed-corpus axes).
+# Watched by data-sync-watchdog.yml (staleness alarm over run-status + committed-corpus axes),
+# which is dispatch-only for the same reason.
+#
+# Dispatch-only since #18449: the corpus is leaving this repository for a dedicated content-sync
+# repo (#17416), so a schedule here can only re-churn `resources/content/**`. The freshness guard
+# (`buildScripts/dataSyncPipeline.mjs`, #17920) is untouched — stopping the cadence is not
+# silencing its verdict. Dispatch stays so #17416 can rehearse the cutover rather than restore
+# this file from history.
 on:
-  schedule:
-    - cron: '0 * * * *' # Run hourly
   workflow_dispatch:
     inputs:
 
