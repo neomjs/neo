@@ -1072,7 +1072,15 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         let originalLocalStorage;
 
         function createExampleHarness() {
+            const host = Neo.create(DockWorkspace, {
+                panes: MainContainer.config.panes,
+                zones: MainContainer.config.zones
+            });
+            const dockModel = WorkspaceDocument.clone(host.dockModel);
+            host.destroy();
+
             const example = {
+                dockModel,
                 createDefaultLayoutCollection  : MainContainer.prototype.createDefaultLayoutCollection,
                 createPerspectiveButton        : MainContainer.prototype.createPerspectiveButton,
                 createPerspectiveToolbar       : MainContainer.prototype.createPerspectiveToolbar,
@@ -2438,10 +2446,10 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
                 plain : {componentRef: 'plain',  title: 'Plain',  kind: 'panel'}
             },
             nodes: {
-                root        : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, left: {nodeId: 'inner'}}},
-                'main-tabs' : {type: 'tabs', items: ['main'], activeItemId: 'main'},
-                inner       : {type: 'edge-zone', zones: {center: {nodeId: 'plain-tabs'}, top: {nodeId: 'buried-tabs'}}},
-                'plain-tabs': {type: 'tabs', items: ['plain'],  activeItemId: 'plain'},
+                root         : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, left: {nodeId: 'inner'}}},
+                'main-tabs'  : {type: 'tabs', items: ['main'], activeItemId: 'main'},
+                inner        : {type: 'edge-zone', zones: {center: {nodeId: 'plain-tabs'}, top: {nodeId: 'buried-tabs'}}},
+                'plain-tabs' : {type: 'tabs', items: ['plain'],  activeItemId: 'plain'},
                 'buried-tabs': {type: 'tabs', items: ['buried'], activeItemId: 'buried'}
             }
         });

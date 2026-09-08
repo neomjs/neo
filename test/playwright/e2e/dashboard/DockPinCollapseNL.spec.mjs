@@ -76,6 +76,10 @@ const tabsNodeId = async (app, dockNodeId) => {
     return record?.id ?? record?.properties?.id
 };
 
+/** @summary Resolves incidental tabs-node identity from its stable pane membership. */
+const tabsNodeHolding = (document, itemId) => Object.entries(document.nodes).find(([, node]) =>
+    node.type === 'tabs' && node.items.includes(itemId))?.[0];
+
 /**
  * Clicks one pane's tab header, which is how a user gives that pane focus. The engine set is
  * FOCUS-GATED (`showOnFocus`, `visibility: hidden` while closed), so without this the actions are
@@ -149,13 +153,16 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
 
         // Setup truth: the inspector sits VISIBLE in the right edge band, and nothing rails yet. The
         // sibling spec has to commit an auto-hide here; this one gets there by pressing a button.
-        const before = await readModel();
+        const before        = await readModel();
+        const inspectorNode = tabsNodeHolding(before, 'inspector');
 
-        expect(before?.nodes?.['inspector-tabs']?.items, 'the example seeds the inspector in the right edge band').toEqual(['inspector']);
+        expect(inspectorNode, 'inspector occupies a real tabs node').toBeTruthy();
+        expect(before.nodes[inspectorNode].items, 'the example seeds the inspector in the right edge band').toEqual(['inspector']);
+        expect(before.nodes[before.root].zones.right.nodeId).toBe(inspectorNode);
         expect(before?.items?.inspector?.autoHidden, 'the inspector must start visible').not.toBe(true);
         await expect(page.locator('.neo-dashboard-dock-edge-rail .neo-dashboard-dock-rail-tab')).toHaveCount(0);
 
-        const inspectorTabsId = await tabsNodeId(app, 'inspector-tabs'),
+        const inspectorTabsId = await tabsNodeId(app, inspectorNode),
               mainTabsId      = await tabsNodeId(app, 'main-tabs');
 
         expect(inspectorTabsId, 'the inspector band projects a live TabContainer').toBeTruthy();
@@ -243,7 +250,7 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
         const restored = await readModel();
 
         expect(restored.items.inspector.autoHidden, 'returning clears the collapse').toBe(false);
-        expect(restored.nodes['inspector-tabs'].items, 'the pane is back in its tab flow').toEqual(['inspector']);
+        expect(restored.nodes[inspectorNode].items, 'the pane is back in its tab flow').toEqual(['inspector']);
         await expect(
             page.locator('.neo-dashboard-dock-edge-rail .neo-dashboard-dock-rail-tab'),
             'and the rail it came from is gone'
@@ -261,11 +268,13 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
             const {app, readModel} = await bootDockExample({page, neuralLink, theme});
 
             const inspectorButtonId = await focusPane(app, page, 'inspector');
+            const inspectorNode     = tabsNodeHolding(await readModel(), 'inspector');
+            expect(inspectorNode, 'inspector occupies a real tabs node').toBeTruthy();
 
             await page.mouse.move(0, 0);
 
             const
-                inspectorTabsId = await tabsNodeId(app, 'inspector-tabs'),
+                inspectorTabsId = await tabsNodeId(app, inspectorNode),
                 pinAction       = await app.callMethod(inspectorTabsId, 'getAction', ['pin']),
                 pinButton       = page.locator(`#${pinAction.id}`),
                 inlineAction    = await readRevealPinStyle(pinButton),

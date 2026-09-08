@@ -3,6 +3,6 @@
     "basePath"   : "../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DockFlip", "DragDrop", "Navigator", "Stylesheet"],
+    "mainThreadAddons": ["DockFlip", "DragDrop", "LocalStorage", "Navigator", "Stylesheet"],
     "useAiClient": true
 }

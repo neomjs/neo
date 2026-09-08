@@ -91,8 +91,12 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         const { app, holderId, readModel } = await bootDockExample({ page, neuralLink });
 
         // Setup truth: inspector sits visible in the right edge band; nothing rails yet.
-        const before = await readModel();
-        expect(before?.nodes?.['inspector-tabs']?.items, 'the example must seed the inspector in the right edge band').toEqual(['inspector']);
+        const before        = await readModel();
+        const inspectorNode = Object.entries(before.nodes).find(([, node]) =>
+            node.type === 'tabs' && node.items.includes('inspector'))?.[0];
+        expect(inspectorNode, 'inspector occupies a real tabs node').toBeTruthy();
+        expect(before.nodes[inspectorNode].items, 'the example must seed the inspector in the right edge band').toEqual(['inspector']);
+        expect(before.nodes[before.root].zones.right.nodeId).toBe(inspectorNode);
         expect(before?.items?.inspector?.autoHidden, 'the inspector must start visible').not.toBe(true);
         await expect(page.locator('.neo-dashboard-dock-edge-rail .neo-dashboard-dock-rail-tab')).toHaveCount(0);
 

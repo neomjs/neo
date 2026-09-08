@@ -33,10 +33,12 @@ test.describe('Dock cross-zone drag journey (Neural Link)', () => {
 
         const readModel = async () => (await app.getComponent(holderId, ['dockModel'])).dockModel;
 
-        const before     = await readModel();
-        const sourceNode = tabsNodeHolding(before, 'strategy');
+        const before       = await readModel();
+        const sourceNode   = tabsNodeHolding(before, 'strategy');
+        const terminalNode = tabsNodeHolding(before, 'terminal');
         expect(sourceNode, 'strategy must start in main-tabs').toBe('main-tabs');
-        expect(tabsNodeHolding(before, 'terminal'), 'terminal must start in terminal-tabs').toBe('terminal-tabs');
+        expect(terminalNode, 'terminal must start in a tabs node').toBeTruthy();
+        expect(terminalNode, 'the terminal target must be a different zone').not.toBe(sourceNode);
 
         // drag the Strategy header (main-tabs) and drop it over the Terminal zone (a DIFFERENT tabs node)
         const strategyTab = page.locator('.neo-tab-header-button', { hasText: 'Strategy' }).first();
@@ -60,10 +62,10 @@ test.describe('Dock cross-zone drag journey (Neural Link)', () => {
 
         const after      = await readModel();
         const targetNode = tabsNodeHolding(after, 'strategy');
-        console.log('[cross-zone] strategy:', sourceNode, '->', targetNode, '| terminal-tabs items:', JSON.stringify(after?.nodes?.['terminal-tabs']?.items));
+        console.log('[cross-zone] strategy:', sourceNode, '->', targetNode, '| terminal zone items:', JSON.stringify(after?.nodes?.[terminalNode]?.items));
 
-        // worker truth: the drop relocated strategy OUT of main-tabs INTO terminal-tabs through the producer pipeline
+        // Worker truth: the producer moved strategy into the zone which held terminal before the gesture.
         expect(targetNode, 'the cross-zone drop must move strategy to the Terminal zone — the producer contract')
-            .toBe('terminal-tabs');
+            .toBe(terminalNode);
     });
 });

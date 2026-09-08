@@ -15,9 +15,9 @@ const values  = record => record?.properties || record || {};
  * Structural half of the op-suite ticket only — animation assertions land once the motion-contract
  * disposition settles, and the tour-replay spec waits on the Demo-A tour surface.
  *
- * Seeded workspace (examples/dashboard/dock — `initialDockModel` in the example is the live authority):
- * root edge-zone {center: root-split, right: inspector-tabs}; root-split = horizontal [main-tabs, side-split];
- * side-split = vertical [terminal-tabs{terminal}, logs-tabs{logs}]; inspector-tabs{inspector}. `main-tabs`
+ * Seeded workspace (examples/dashboard/dock — the example's panes/zones declarations are the authority):
+ * root edge-zone {center: root-split, right: inspector's tabs}; root-split = horizontal [main-tabs, side-split];
+ * side-split holds the terminal and logs tabs vertically; inspector occupies the right edge. `main-tabs`
  * carries the demo's grown tab catalog (strategy, swarm, metrics, …) and may keep growing — a spec that
  * asserts a post-operation remainder DERIVES it from a pre-operation topology read; a pinned remainder
  * literal goes stale the day the demo gains a pane, while the operations under test stay correct.
@@ -63,9 +63,149 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
 
         expect(topo.root).toBe('root');
         expect(tabsNodeHolding(topo, 'strategy')).toBe('main-tabs');
-        expect(tabsNodeHolding(topo, 'inspector')).toBe('inspector-tabs');
+        const inspectorNode = tabsNodeHolding(topo, 'inspector');
+        expect(inspectorNode, 'inspector occupies a real tabs node').toBeTruthy();
+        expect(topo.nodes[topo.root].zones.right.nodeId).toBe(inspectorNode);
         // the read half and the holder's own committed truth are the SAME document
         expect(JSON.stringify(topo)).toBe(JSON.stringify(committed));
+    });
+
+    test('the declared default renders four pane groups with the complete title inventory and centered content', async ({page, neuralLink}, testInfo) => {
+        const {app, holderId} = await connect(page, neuralLink),
+              document        = await readTopology(app, holderId),
+              titles          = ['Strategy', 'Swarm', 'Terminal', 'Logs', 'Inspector', 'Metrics', 'Timeline', 'Agents', 'Alerts', 'History'].sort(),
+              paneKeys        = ['strategy', 'terminal', 'logs', 'inspector'],
+              nodeIds         = paneKeys.map(itemId => tabsNodeHolding(document, itemId));
+
+        expect(Object.values(document.items).map(item => item.title).sort()).toEqual(titles);
+        expect(nodeIds.every(Boolean), 'every visible pane belongs to a real tabs node').toBe(true);
+        expect(new Set(nodeIds).size).toBe(4);
+        expect(Object.values(document.nodes).filter(node => node.type === 'tabs')).toHaveLength(4);
+        expect(document.nodes['root-split']).toMatchObject({orientation: 'horizontal', sizes: [0.65, 0.35]});
+        expect(document.nodes['side-split']).toMatchObject({orientation: 'vertical', sizes: [0.6, 0.4]});
+        expect(document.nodes[document.root].zones.right.nodeId).toBe(tabsNodeHolding(document, 'inspector'));
+        await expect(page.locator('.neo-dashboard-dock-tabs')).toHaveCount(4);
+        await expect.poll(async () => (await page.locator('.neo-tab-header-button').allTextContents())
+            .map(title => title.trim()).sort()).toEqual(titles);
+
+        const boxes = {};
+        for (const itemId of paneKeys) {
+            const nodeId  = tabsNodeHolding(document, itemId),
+                  records = asArray(await app.queryComponent({dockNodeId: nodeId}, ['id'])),
+                  tabId   = records[0]?.id ?? values(records[0]).id;
+            expect(tabId, `${itemId} has projected tab chrome`).toBeTruthy();
+            expect(document.nodes[nodeId].activeItemId).toBe(itemId);
+            const tabs = page.locator(`#${tabId}`),
+                  card = await app.callMethod(tabId, 'getActiveCard', []);
+            expect(card?.id, `${itemId} has a real active component`).toBeTruthy();
+            const pane = page.locator(`#${card.id}`);
+            await expect(tabs).toBeVisible();
+            await expect(pane).toHaveText(document.items[itemId].title);
+            await expect(pane).toBeVisible();
+            await expect.poll(() => pane.evaluate(element => {
+                const style = getComputedStyle(element);
+                return {fontSize: style.fontSize, display: style.display, alignItems: style.alignItems, justifyContent: style.justifyContent}
+            })).toEqual({fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center'});
+            boxes[itemId] = await tabs.boundingBox();
+            expect(boxes[itemId].width).toBeGreaterThan(0);
+            expect(boxes[itemId].height).toBeGreaterThan(0)
+        }
+
+        expect(boxes.strategy.x + boxes.strategy.width).toBeLessThanOrEqual(boxes.terminal.x + 2);
+        expect(boxes.terminal.y + boxes.terminal.height).toBeLessThanOrEqual(boxes.logs.y + 2);
+        expect(boxes.terminal.x).toBeCloseTo(boxes.logs.x, 0);
+        expect(boxes.terminal.width).toBeCloseTo(boxes.logs.width, 0);
+        expect(boxes.terminal.x + boxes.terminal.width).toBeLessThanOrEqual(boxes.inspector.x + 2);
+        expect(boxes.strategy.height).toBeGreaterThan(boxes.terminal.height);
+        expect(boxes.strategy.y).toBeCloseTo(boxes.inspector.y, 0);
+        expect((await app.getComponent(holderId, ['dockModel'])).dockModel).toEqual(document);
+
+        const screenshot = testInfo.outputPath('dock-example-declarative-default.png');
+        await page.screenshot({path: screenshot, fullPage: true, animations: 'disabled'});
+        await testInfo.attach('dock-example-declarative-default', {path: screenshot, contentType: 'image/png'})
+    });
+
+    test('Review and Operator retain toolbar identity, and a saved layout survives restore and page reload', async ({page, neuralLink}) => {
+        const {app, holderId} = await connect(page, neuralLink),
+              toolbar         = page.locator('.neo-dashboard-dock-perspective-toolbar'),
+              storageKey      = 'neo.examples.dashboard.dock.layoutCollection',
+              button          = title => toolbar.getByRole('button', {name: title, exact: true}),
+              readButtons     = () => toolbar.locator('.neo-button').evaluateAll(nodes =>
+                  nodes.map(node => ({id: node.id, text: node.textContent.trim()}))),
+              readCollection = async () => (await app.getComponent(holderId, ['layoutCollection'])).layoutCollection,
+              readStored = () => page.evaluate(key => {
+                  const value = localStorage.getItem(key);
+                  return value ? JSON.parse(value) : null
+              }, storageKey);
+
+        await expect(button('Operator')).toBeVisible();
+        await expect(button('Review')).toBeVisible();
+        const initialButtons = await readButtons(), toolbarId = await toolbar.getAttribute('id'),
+              retainedNodes  = await Promise.all([toolbar, ...initialButtons.map(entry => page.locator(`#${entry.id}`))]
+                  .map(locator => locator.elementHandle()));
+        expect(initialButtons.map(entry => entry.text)).toEqual(['Operator', 'Review', 'Save Current', 'Delete Active']);
+
+        await button('Review').click();
+        await expect.poll(async () => (await readCollection()).activeLayoutId).toBe('review-focus');
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes['root-split'].sizes).toEqual([0.48, 0.52]);
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes['main-tabs'].activeItemId).toBe('swarm');
+        expect((await readTopology(app, holderId)).nodes['side-split'].sizes).toEqual([0.42, 0.58]);
+        await expect(button('Review')).toHaveClass(/neo-dashboard-dock-perspective-active/);
+        expect(await readButtons()).toEqual(initialButtons);
+
+        await button('Operator').click();
+        await expect.poll(async () => (await readCollection()).activeLayoutId).toBe('operator-default');
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes['root-split'].sizes).toEqual([0.65, 0.35]);
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes['main-tabs'].activeItemId).toBe('strategy');
+        await expect(button('Operator')).toHaveClass(/neo-dashboard-dock-perspective-active/);
+        expect(await readButtons()).toEqual(initialButtons);
+
+        // Save a document which visibly differs from the declared Operator default.
+        await button('Review').click();
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes['main-tabs'].activeItemId).toBe('swarm');
+        const savedDocument = await readTopology(app, holderId);
+        await button('Save Current').click();
+        await expect(button('Saved 1')).toBeVisible();
+        const savedId = 'saved-perspective-1';
+        await expect.poll(async () => (await readCollection()).activeLayoutId).toBe(savedId);
+        await expect.poll(async () => (await readStored())?.activeLayoutId, {
+            message: 'the Save Current gesture must reach the actual main-thread storage key'
+        }).toBe(savedId);
+        const stored = await readStored();
+        expect(stored.schema).toBe('neo.dock.layoutCollection.v1');
+        expect(stored.layouts[savedId].dockZone).toEqual(savedDocument);
+        await expect.poll(async () => (await readButtons()).map(entry => entry.text))
+            .toEqual(['Operator', 'Review', 'Saved 1', 'Save Current', 'Delete Active']);
+        const buttonsAfterSave = await readButtons();
+        for (const entry of initialButtons) {
+            expect(buttonsAfterSave.find(current => current.text === entry.text)?.id).toBe(entry.id)
+        }
+        expect(await toolbar.getAttribute('id')).toBe(toolbarId);
+        for (const node of retainedNodes) expect(await node.evaluate(element => element.isConnected)).toBe(true);
+
+        const resized = await app.executeDockOperation(holderId, {
+            operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.5, 0.5]
+        });
+        expect(resized).toMatchObject({applied: true, errors: []});
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes['root-split'].sizes).toEqual([0.5, 0.5]);
+        expect((await readStored()).layouts[savedId].dockZone).toEqual(savedDocument);
+        await button('Saved 1').click();
+        await expect.poll(() => readTopology(app, holderId)).toEqual(savedDocument);
+        expect(await readButtons()).toEqual(buttonsAfterSave);
+
+        await page.reload();
+        await expect(page.locator('.neo-dashboard-dock-tabs')).toHaveCount(4);
+        const currentHolderId = await page.locator('.neo-dock-workspace').getAttribute('id'),
+              currentApp      = await neuralLink.connectToApp('Neo.examples.dashboard.dock'),
+              currentHolders  = asArray(await currentApp.findInstances({className: 'Neo.examples.dashboard.dock.MainContainer'}, ['id']));
+        expect(currentHolderId, 'bind the post-reload read to the holder rendered in this page').toBeTruthy();
+        expect(currentHolders.map(record => record.id ?? values(record).id)).toContain(currentHolderId);
+        await expect.poll(async () => (await currentApp.getComponent(currentHolderId, ['layoutCollection'])).layoutCollection?.activeLayoutId)
+            .toBe(savedId);
+        await expect.poll(() => readTopology(currentApp, currentHolderId)).toEqual(savedDocument);
+        await expect(page.locator('.neo-dashboard-dock-perspective-toolbar').getByRole('button', {name: 'Saved 1', exact: true}))
+            .toHaveClass(/neo-dashboard-dock-perspective-active/);
+        await expect(page.locator('[class~="dock-flip-item-swarm"]')).toBeVisible()
     });
 
     test('a deferred first document cannot poison the SharedWorker mount or later edge resizes', async ({page, neuralLink}) => {
@@ -275,14 +415,17 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
             timeout: 10000
         }).toBe(successorButtonId);
 
-        const terminalRecords = await app.queryComponent({dockNodeId: 'terminal-tabs'}, ['id', 'ntype']),
+        const terminalNode = tabsNodeHolding(after, 'terminal');
+        expect(terminalNode, 'terminal remains in its own tabs node before closing').toBeTruthy();
+
+        const terminalRecords = await app.queryComponent({dockNodeId: terminalNode}, ['id', 'ntype']),
               terminalRecord  = Array.isArray(terminalRecords) ? terminalRecords[0] : terminalRecords,
               terminalId      = terminalRecord?.id ?? terminalRecord?.properties?.id,
               terminalAction  = await app.callMethod(terminalId, 'getAction', ['close']);
 
         expect(terminalId, 'the single-item terminal stack must remain projected').toBeTruthy();
         await page.locator(`#${terminalAction.id}`).click();
-        await expect.poll(async () => (await readTopology(app, holderId)).nodes['terminal-tabs'], {
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes[terminalNode], {
             message: 'closing the only item lets normalization prune its tabs node',
             timeout: 10000
         }).toBeUndefined();
@@ -297,14 +440,17 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         const { app, holderId } = await connect(page, neuralLink);
 
         // derive the expected remainders from the seeded document itself — exact, and growth-proof
-        const before         = await readTopology(app, holderId);
-        const mainBefore     = before.nodes['main-tabs'].items;
-        const terminalBefore = before.nodes['terminal-tabs'].items;
+        const before       = await readTopology(app, holderId);
+        const mainBefore   = before.nodes['main-tabs'].items;
+        const terminalNode = tabsNodeHolding(before, 'terminal');
+
+        expect(terminalNode, 'the target is the existing terminal tabs node').toBeTruthy();
+        const terminalBefore = before.nodes[terminalNode].items;
 
         expect(mainBefore, 'seed: swarm must start in main-tabs').toContain('swarm');
 
         const result = await app.executeDockOperation(holderId, {
-            operation: 'moveItem', itemId: 'swarm', targetNodeId: 'terminal-tabs', index: 1
+            operation: 'moveItem', itemId: 'swarm', targetNodeId: terminalNode, index: 1
         });
 
         const expectedTerminal = [...terminalBefore];
@@ -312,25 +458,27 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
 
         expect(result.errors).toEqual([]);
         expect(result.applied).toBe(true);
-        expect(result.document.nodes['terminal-tabs'].items).toEqual(expectedTerminal);
+        expect(result.document.nodes[terminalNode].items).toEqual(expectedTerminal);
         expect(result.document.nodes['main-tabs'].items).toEqual(mainBefore.filter(id => id !== 'swarm'));
 
         const topo = await readTopology(app, holderId);
         expect(JSON.stringify(topo), 'independent read must agree with the returned delta').toBe(JSON.stringify(result.document));
-        expect(tabsNodeHolding(topo, 'swarm')).toBe('terminal-tabs');
+        expect(tabsNodeHolding(topo, 'swarm')).toBe(terminalNode);
     });
 
     test('split class: splitNode wraps the item and splits the target; delta and independent read agree', async ({ page, neuralLink }) => {
         const { app, holderId } = await connect(page, neuralLink);
 
         // derive the expected remainder from the seeded document itself — exact, and growth-proof
-        const before     = await readTopology(app, holderId);
-        const mainBefore = before.nodes['main-tabs'].items;
+        const before       = await readTopology(app, holderId);
+        const mainBefore   = before.nodes['main-tabs'].items;
+        const terminalNode = tabsNodeHolding(before, 'terminal');
 
         expect(mainBefore, 'seed: swarm must start in main-tabs').toContain('swarm');
+        expect(terminalNode, 'the split target is the existing terminal tabs node').toBeTruthy();
 
         const result = await app.executeDockOperation(holderId, {
-            operation: 'splitNode', itemId: 'swarm', targetNodeId: 'terminal-tabs', orientation: 'horizontal', edge: 'right'
+            operation: 'splitNode', itemId: 'swarm', targetNodeId: terminalNode, orientation: 'horizontal', edge: 'right'
         });
 
         expect(result.errors).toEqual([]);
@@ -340,7 +488,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         expect(JSON.stringify(topo)).toBe(JSON.stringify(result.document));
 
         // swarm left main-tabs and lives in a NEW single-tab node inside a NEW horizontal split
-        // whose children are [terminal-tabs, newTabs] (edge 'right' trails)
+        // whose children are [the original terminal node, newTabs] (edge 'right' trails)
         expect(topo.nodes['main-tabs'].items).toEqual(mainBefore.filter(id => id !== 'swarm'));
 
         const swarmTabs = tabsNodeHolding(topo, 'swarm');
@@ -350,7 +498,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         const newSplit = Object.values(topo.nodes).find(n =>
             n.type === 'split' && n.orientation === 'horizontal' && (n.children || []).includes(swarmTabs));
         expect(newSplit, 'a new horizontal split must hold the new pane').toBeTruthy();
-        expect(newSplit.children).toEqual(['terminal-tabs', swarmTabs]);
+        expect(newSplit.children).toEqual([terminalNode, swarmTabs]);
     });
 
     test('resize class: resizeSplit commits new sizes; delta and independent read agree', async ({ page, neuralLink }) => {

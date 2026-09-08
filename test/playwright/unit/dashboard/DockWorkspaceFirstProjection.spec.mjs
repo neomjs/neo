@@ -167,6 +167,42 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         expect(DockReconciler.collectProjectedTabs(workspace.items[1]).size).toBe(4)
     });
 
+    test('the example derives its presets from the effective declared arrangement', async () => {
+        workspace = Neo.create(MainContainer, {
+            zones: {
+                center: {
+                    id      : 'root-split', orientation: 'horizontal', sizes: [0.25, 0.75],
+                    children: [
+                        {id: 'main-tabs', items: ['swarm', 'strategy']},
+                        {id: 'side-split', orientation: 'vertical', children: ['terminal', 'logs']}
+                    ]
+                },
+                right: {items: ['inspector'], extent: 0.2}
+            }
+        });
+
+        await workspace.layoutCollectionLoadPromise;
+
+        const {dockModel, layoutCollection} = workspace;
+
+        expect(dockModel.nodes['root-split'].sizes).toEqual([0.25, 0.75]);
+        expect(dockModel.nodes['main-tabs'].activeItemId).toBe('swarm');
+        expect(layoutCollection.layouts['operator-default'].dockZone).toEqual(dockModel);
+        expect(layoutCollection.layouts['review-focus'].dockZone.nodes['root-split'].sizes).toEqual([0.48, 0.52]);
+        expect(workspace.items[0].dockNodeType).toBe('perspective-toolbar')
+    });
+
+    test('an explicitly supplied document survives example initialization', async () => {
+        const document = createDocument();
+
+        workspace = Neo.create(MainContainer, {dockModel: document, zones: 'not-a-declared-pane'});
+        await workspace.layoutCollectionLoadPromise;
+
+        expect(workspace.dockModel).toEqual(document);
+        expect(workspace.layoutCollection.layouts['operator-default'].dockZone).toEqual(document);
+        expect(workspace.items[0].dockNodeType).toBe('perspective-toolbar')
+    });
+
     test('a rejected initial mount retires its shell and spends exactly one clean retry', async () => {
         workspace = Neo.create(DockWorkspace, {dockModel: createDocument()});
 
