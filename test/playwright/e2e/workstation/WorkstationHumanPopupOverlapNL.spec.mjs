@@ -1244,17 +1244,19 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                         intervals: [25, 50]
                     }).toBe(true);
 
-                    const
+                    let proxyRectB;
+
+                    await expect.poll(async () => {
                         proxyRectB = await proxy.evaluate(element => {
                             const rect = element.getBoundingClientRect();
 
                             return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
                         });
 
-                    expect(
-                        Math.abs(proxyRectB.x - proxyRectA.x) + Math.abs(proxyRectB.y - proxyRectA.y),
-                        `${cell.name}: target-local proxy follows the still-held pointer`
-                    ).toBeGreaterThan(2);
+                        return Math.abs(proxyRectB.x - proxyRectA.x) + Math.abs(proxyRectB.y - proxyRectA.y)
+                    }, {
+                        message: `${cell.name}: target-local proxy follows the still-held pointer`
+                    }).toBeGreaterThan(2);
 
                     expect(sourcePage.isClosed(), `${cell.name}: source popup remains the same live Page`).toBe(false);
                     expect(targetPage.isClosed(), `${cell.name}: target popup remains live`).toBe(false);
