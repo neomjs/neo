@@ -20,10 +20,10 @@ import '../../../../src/tab/Container.mjs';
 /**
  * @summary A committed document whose `inspector` item is PINNED and owned by the `right` edge.
  *
- * Both properties are load-bearing for `#18448`. Edge ownership is what `handleDockPinAction`
- * requires before it will commit at all, and `pinned: true` is what makes the collapse a TWO-step
- * sequence — the model refuses `autoHidden` on a pinned item, so the action must first unpin. A
- * single-step collapse cannot reproduce the defect, because there is no second step to starve.
+ * Both properties are load-bearing. Edge ownership is what `handleDockPinAction` requires before it
+ * will commit at all, and `pinned: true` is what makes the collapse a TWO-step sequence — the model
+ * refuses `autoHidden` on a pinned item, so the action must first unpin. A single-step collapse
+ * cannot exercise the staging at all, because there is no second step to starve.
  * @returns {Object}
  */
 function createDocument() {
@@ -93,7 +93,7 @@ async function collapseInspector(workspace) {
     }
 }
 
-test.describe.serial('Dock pin action (#18448)', () => {
+test.describe.serial('Dock pin action', () => {
     let groupId, set;
 
     test.beforeEach(() => {

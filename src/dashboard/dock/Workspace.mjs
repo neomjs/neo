@@ -1782,21 +1782,15 @@ class Workspace extends Container {
      * §2.7 specifies a two-step sequence and forbids a composite OPERATION — not a multi-operation
      * commit: `setItemPinned(false)` when the item is pinned (the model rejects `autoHidden` on a
      * pinned item), then `setItemAutoHidden(true)`. Each step stays an independent, individually
-     * validated reduction through {@link #applyDockZoneOperation}, so both remain visible at the
-     * class's own write seam — the one `DockService` and `DockSplitter` already reach a holder
-     * through. What `#18448` changed is only WHEN the result is published.
+     * validated reduction through {@link #applyDockZoneOperation}.
      *
-     * The sequence used to publish after every step, on the premise that publishing assigns
-     * `dockModel` synchronously so the next step could reduce against it. That is true of the direct
-     * path and FALSE under a topology Group, which returns `pending` and advances the field later
-     * inside adopt. Step 2 then reduced against a document where step 1 had not landed, and the model
-     * refused it — silently, because a refusal is a returned `errors` array nobody surfaces.
-     *
-     * So the reduction is staged locally — `dockModel` advanced between steps — and published ONCE
-     * with the ordered descriptors. The field is advanced rather than passed as an argument because
-     * this reducer is a consumer-overridable seam whose implementations read `this.dockModel`; an
-     * argument would reach only the implementations that opted in. On refusal the staged field is
-     * restored, so no unpublished document is ever left behind.
+     * The reduction is staged locally — `dockModel` advanced between steps — and published ONCE with
+     * the ordered descriptors. Publishing per step would not do: only the direct path assigns
+     * `dockModel` synchronously, while a topology Group returns `pending` and advances the field
+     * later, so step 2 would reduce against a document step 1 had not reached. The field is advanced
+     * rather than passed as an argument because this reducer is a consumer-overridable seam whose
+     * implementations read `this.dockModel`; an argument would reach only those that opted in. On
+     * refusal the staged field is restored, so no unpublished document is left behind.
      *
      * An UNPINNED item — the ordinary case — is a single step and a single publish; only collapsing a
      * pinned pane reduces twice.
@@ -1840,17 +1834,6 @@ class Workspace extends Container {
 
         descriptors.push({operation: 'setItemAutoHidden', itemId, autoHidden: true});
 
-        // §2.7 forbids a composite OPERATION, not a multi-operation commit: each step below stays an
-        // independent, individually validated `Operations` call. The sequence used to publish after
-        // every step, on the premise that publishing assigns `dockModel` synchronously — true of the
-        // direct path, false under a Group, which returns `pending` and advances the field later
-        // inside adopt. Step 2 then reduced against a document where step 1 had not landed and was
-        // refused, silently, because the refusal is a returned `errors` array nobody surfaces.
-        //
-        // So the reduction is staged locally and published ONCE. The field is advanced between steps
-        // rather than threaded as an argument, because the reducer is a consumer-overridable seam and
-        // every implementation of it reads `this.dockModel`; an argument would reach only the ones
-        // that opted in.
         for (const descriptor of descriptors) {
             result = me.applyDockZoneOperation(descriptor);
 
@@ -1863,9 +1846,8 @@ class Workspace extends Container {
             me.dockModel = result.document
         }
 
-        // Restoring before publishing is load-bearing, not tidiness: `onDockZoneDocumentChange`
-        // enters its Group branch only while `document !== me.dockModel`, so a staged field that
-        // already equals the result would route the commit down the direct path instead.
+        // Load-bearing: the Group branch is entered only while `document !== me.dockModel`, so a
+        // staged field equal to the result would route the commit down the direct path.
         me.dockModel = committed;
         me.onDockZoneDocumentChange(result.document, descriptors, tabContainer);
 
