@@ -581,7 +581,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             // Group to join, and the main participant registers the moment the window id arrives.
             expect(resizeCalls).toEqual([]);
             expect(workspace.workspaceSet.ids(), 'no window, no Group, no membership yet').toEqual([]);
-            expect(workspace.vesselConversionTargetWindowId).toBeNull();
+            expect(workspace.vesselController.vesselConversionTargetWindowId).toBeNull();
 
             workspace.windowId = Neo.config.windowId;
 
@@ -592,7 +592,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             chrome.get('right-top-tabs').tab.fire('dockVesselConversionIn', {
                 itemId: 'audit', record: {sourceRect: null}, targetId: targetWorkspaceId
             });
-            expect(workspace.vesselConversionTargetWindowId).toBe('window-alerts');
+            expect(workspace.vesselController.vesselConversionTargetWindowId).toBe('window-alerts');
 
             chrome.forEach(({bar}, nodeId) => {
                 expect(bar.sortZoneConfig, `${nodeId} joins the one cross-window source group`).toMatchObject({
@@ -659,7 +659,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             windowId   : 'source-window',
             windowName : 'tearout-audit'
         });
-        workspace.vesselConversionTargetWindowId = 'target-window';
+        workspace.vesselController.vesselConversionTargetWindowId = 'target-window';
         Neo.manager.Window.get = id => records.get(id) ?? null;
         Neo.Main.windowNativeFocus = async data => {
             focusCalls.push(data);
@@ -677,7 +677,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         };
 
         try {
-            await expect(workspace.parkTearOutVessel({
+            await expect(workspace.vesselController.parkTearOutVessel({
                 itemId: 'audit', windowName: 'tearout-audit'
             })).resolves.toBe(true);
             expect(focusCalls).toEqual([
@@ -702,17 +702,17 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 x              : 800,
                 y              : 120
             }]);
-            expect(workspace.tearOutParkGeometries.audit).toEqual({
+            expect(workspace.vesselController.tearOutParkGeometries.audit).toEqual({
                 park   : {height: 260, width: 360, x: 800, y: 120},
                 restore: {height: 546, width: 640, x: 40, y: 60}
             });
-            expect(workspace.lastVesselParkReceipt).toMatchObject({
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({
                 needsResize: true,
                 parked     : true,
                 parkSize   : {height: 260, width: 360}
             });
 
-            await expect(workspace.reshowTearOutVessel({
+            await expect(workspace.vesselController.reshowTearOutVessel({
                 itemId    : 'audit',
                 rect      : {height: 120, width: 200, x: 420, y: 240},
                 windowName: 'tearout-audit'
@@ -726,20 +726,20 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 x              : 420,
                 y              : 173
             }]);
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
+            expect(workspace.vesselController.lastVesselRestoreReceipt).toMatchObject({
                 frame: {x: 420, y: 173},
                 rect : {height: 120, width: 200, x: 420, y: 240}
             });
-            expect(workspace.tearOutParkGeometries.audit).toBeUndefined();
+            expect(workspace.vesselController.tearOutParkGeometries.audit).toBeUndefined();
 
             sourceRoute.capabilities.resize = false;
 
-            await expect(workspace.parkTearOutVessel({
+            await expect(workspace.vesselController.parkTearOutVessel({
                 itemId: 'audit', windowName: 'tearout-audit'
             })).resolves.toBe(false);
             expect(focusCalls).toHaveLength(2);
             expect(parkCalls).toHaveLength(1);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({
                 authority: {sourceResizeCapable: false},
                 reason   : 'native route or live cover geometry refused'
             })
@@ -778,7 +778,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             windowId   : 'source-window',
             windowName : 'tearout-audit'
         });
-        workspace.tearOutParkGeometries.audit = geometry;
+        workspace.vesselController.tearOutParkGeometries.audit = geometry;
         Neo.main.addon.DragDrop = {
             acknowledgeWindowDragOrphanRecovery: async () => true,
             hasWindowDragOrphanRecovery        : async () => false,
@@ -801,7 +801,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         };
 
         try {
-            await expect(workspace.reshowTearOutVessel(requested)).resolves.toBe(false);
+            await expect(workspace.vesselController.reshowTearOutVessel(requested)).resolves.toBe(false);
             expect(calls).toEqual([
                 ['resize', {
                     height         : 546,
@@ -836,17 +836,17 @@ test.describe.serial('Workstation.view.Workspace', () => {
                     y              : 120
                 }]
             ]);
-            expect(workspace.tearOutParkGeometries.audit).toBe(geometry);
+            expect(workspace.vesselController.tearOutParkGeometries.audit).toBe(geometry);
 
             calls.length        = 0;
             parkResizeAdmitted = false;
 
-            await expect(workspace.reshowTearOutVessel(requested)).resolves.toBe(false);
+            await expect(workspace.vesselController.reshowTearOutVessel(requested)).resolves.toBe(false);
             expect(calls.map(([type]) => type)).toEqual(['resize', 'move', 'resize']);
             expect(calls.some(([type, data]) => (
                 type === 'move' && data.x === geometry.park.x && data.y === geometry.park.y
             ))).toBe(false);
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
+            expect(workspace.vesselController.lastVesselRestoreReceipt).toMatchObject({
                 compensationResized: false,
                 moved              : false
             });
@@ -855,10 +855,10 @@ test.describe.serial('Workstation.view.Workspace', () => {
             moveAdmitted         = true;
             parkResizeAdmitted   = true;
 
-            await expect(workspace.reshowTearOutVessel(requested)).resolves.toBe(true);
+            await expect(workspace.vesselController.reshowTearOutVessel(requested)).resolves.toBe(true);
             expect(calls.map(([type]) => type)).toEqual(['resize', 'move']);
-            expect(workspace.tearOutParkGeometries.audit).toBeUndefined();
-            expect(workspace.lastVesselRestoreReceipt).toMatchObject({
+            expect(workspace.vesselController.tearOutParkGeometries.audit).toBeUndefined();
+            expect(workspace.vesselController.lastVesselRestoreReceipt).toMatchObject({
                 admitted: true,
                 moved   : true,
                 resized : true,
@@ -918,7 +918,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             windowId   : 'source-window',
             windowName : 'tearout-audit'
         });
-        workspace.vesselConversionTargetWindowId = 'target-window';
+        workspace.vesselController.vesselConversionTargetWindowId = 'target-window';
         Neo.manager.Window.get = id => records.get(id) ?? null;
         Neo.Main.windowNativeFocus = async () => focusOutcomes.shift();
         Neo.main.addon.DragDrop = {
@@ -933,10 +933,10 @@ test.describe.serial('Workstation.view.Workspace', () => {
             for (compensate of [true, false]) {
                 focusOutcomes = [true, false];
 
-                await expect(workspace.parkTearOutVessel({
+                await expect(workspace.vesselController.parkTearOutVessel({
                     itemId: 'audit', windowName: 'tearout-audit'
                 })).resolves.toBe(false);
-                expect(workspace.lastVesselParkReceipt).toMatchObject({
+                expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({
                     compensated: compensate,
                     focused    : true,
                     parked     : !compensate,
@@ -945,9 +945,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 expect(resumeCalls.at(-1)).toMatchObject({x: 40, y: 60});
 
                 if (compensate) {
-                    expect(workspace.tearOutParkGeometries.audit).toBeUndefined()
+                    expect(workspace.vesselController.tearOutParkGeometries.audit).toBeUndefined()
                 } else {
-                    expect(workspace.tearOutParkGeometries.audit).toEqual({
+                    expect(workspace.vesselController.tearOutParkGeometries.audit).toEqual({
                         park   : {height: 260, width: 360, x: 800, y: 120},
                         restore: {height: 546, width: 640, x: 40, y: 60}
                     })
@@ -1427,7 +1427,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
-            workspace.vesselConversionTargetWindowId = ownerWindowId;
+            workspace.vesselController.vesselConversionTargetWindowId = ownerWindowId;
 
             Neo.manager.Window.get = windowId => ({
                 [sourceWindowId]: {
@@ -1440,15 +1440,15 @@ test.describe.serial('Workstation.view.Workspace', () => {
             Neo.Main.windowNativeFocus  = async data => { platformCalls.push(['nativeFocus', data]); return false };
             Neo.Main.windowNativeMoveTo = async data => { platformCalls.push(['move', data]); return false };
 
-            await expect(workspace.parkTearOutVessel({
+            await expect(workspace.vesselController.parkTearOutVessel({
                 itemId        : 'alerts',
                 nativeTitlebar: true,
                 windowName    : 'tearout-alerts'
             }), 'the park is satisfied without asking the platform').resolves.toBe(true);
 
             expect(platformCalls, 'no focus, no move — nothing was parked').toEqual([]);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({parked: true, physical: false});
-            expect(workspace.lastVesselParkReceipt.authority.sourceHasHandle, 'the source route is still checked').toBe(true)
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({parked: true, physical: false});
+            expect(workspace.vesselController.lastVesselParkReceipt.authority.sourceHasHandle, 'the source route is still checked').toBe(true)
         } finally {
             Neo.manager.Window.get      = originalManagerGet;
             Neo.Main.windowFocus        = originalWindowFocus;
@@ -1491,7 +1491,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 windowId  : sourceWindowId,
                 windowName: 'tearout-alerts'
             });
-            workspace.vesselConversionTargetWindowId = targetWindowId;
+            workspace.vesselController.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
                 [sourceWindowId]: {
@@ -1526,7 +1526,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 }
             };
 
-            await expect(workspace.parkTearOutVessel({
+            await expect(workspace.vesselController.parkTearOutVessel({
                 itemId        : 'alerts',
                 nativeTitlebar: true,
                 windowName    : 'tearout-alerts'
@@ -1551,13 +1551,13 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             // The second park sees its refocus refused: on a popup target the source may still cover
             // the target, so the move is compensated back to the source rect and the park is refused.
-            await expect(workspace.parkTearOutVessel({
+            await expect(workspace.vesselController.parkTearOutVessel({
                 itemId        : 'alerts',
                 nativeTitlebar: true,
                 windowName    : 'tearout-alerts'
             })).resolves.toBe(false);
 
-            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: true, moved: true, refocused: false, compensated: true, refusedAt: 'refocus'});
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({focused: true, moved: true, refocused: false, compensated: true, refusedAt: 'refocus'});
             expect(nativeMoveCalls.map(({x, y}) => ({x, y})), 'the park move, then the compensation').toEqual([
                 {x: targetRect.x, y: targetRect.y},
                 {x: sourceRect.x, y: sourceRect.y}
@@ -1604,7 +1604,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
-            workspace.vesselConversionTargetWindowId = targetWindowId;
+            workspace.vesselController.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
                 [sourceWindowId]: {innerRect: sourceRect, nativeRoute: routeFor(sourceWindowId, {position: true})},
@@ -1621,34 +1621,34 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 resumeWindowDrag: async () => true
             };
 
-            const park = () => workspace.parkTearOutVessel({itemId: 'alerts', nativeTitlebar: true, windowName: 'tearout-alerts'});
+            const park = () => workspace.vesselController.parkTearOutVessel({itemId: 'alerts', nativeTitlebar: true, windowName: 'tearout-alerts'});
 
             // Attempt 1: the OS still holds the source — the owner's focus of the target is refused,
             // the park is refused at the focus, and the receipt counts the attempt.
             await expect(park(), 'refused while the OS holds the window').resolves.toBe(false);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: false, parkAttempts: 1, refusedAt: 'focus'});
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({focused: false, parkAttempts: 1, refusedAt: 'focus'});
             expect(nativeMoveCalls, 'nothing moved on a refused focus').toEqual([]);
 
             // Attempt 2: released — focus, move and refocus are granted; the park lands and the count
             // reads the retry that got it there.
             await expect(park(), 'parks on release').resolves.toBe(true);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: true, moved: true, refocused: true, parked: true, parkAttempts: 2});
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({focused: true, moved: true, refocused: true, parked: true, parkAttempts: 2});
 
             // A later park starts a fresh count.
             await expect(park()).resolves.toBe(true);
-            expect(workspace.lastVesselParkReceipt.parkAttempts, 'the count resets after a park').toBe(1);
+            expect(workspace.vesselController.lastVesselParkReceipt.parkAttempts, 'the count resets after a park').toBe(1);
 
             // A main-window park is satisfied without a platform effect and resets the count as well.
-            workspace.tearOutParkAttempts.alerts = 3;
-            workspace.vesselConversionTargetWindowId = ownerWindowId;
+            workspace.vesselController.tearOutParkAttempts.alerts = 3;
+            workspace.vesselController.vesselConversionTargetWindowId = ownerWindowId;
             Neo.manager.Window.get = windowId => ({
                 [sourceWindowId]: {innerRect: sourceRect, nativeRoute: routeFor(sourceWindowId, {position: true})},
                 [ownerWindowId] : {innerRect: targetRect, nativeRoute: null}
             })[windowId] ?? null;
 
             await expect(park()).resolves.toBe(true);
-            expect(workspace.lastVesselParkReceipt).toMatchObject({parked: true, physical: false, parkAttempts: 4});
-            expect(workspace.tearOutParkAttempts.alerts, 'a satisfied main-window park clears the count').toBeUndefined()
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({parked: true, physical: false, parkAttempts: 4});
+            expect(workspace.vesselController.tearOutParkAttempts.alerts, 'a satisfied main-window park clears the count').toBeUndefined()
         } finally {
             Neo.main.addon.DragDrop     = originalDragDrop;
             Neo.manager.Window.get      = originalManagerGet;
@@ -1682,7 +1682,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             workspace.nativeWindows.recordOwner(workspace.id, "alerts", {windowId: sourceWindowId, windowName: 'tearout-alerts'});
-            workspace.vesselConversionTargetWindowId = targetWindowId;
+            workspace.vesselController.vesselConversionTargetWindowId = targetWindowId;
 
             Neo.manager.Window.get = windowId => ({
                 [sourceWindowId]: {innerRect: sourceRect, nativeRoute: routeFor(sourceWindowId, {position: true})},
@@ -1699,13 +1699,13 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 resumeWindowDrag: async () => true
             };
 
-            await expect(workspace.parkTearOutVessel({
+            await expect(workspace.vesselController.parkTearOutVessel({
                 itemId        : 'alerts',
                 nativeTitlebar: true,
                 windowName    : 'tearout-alerts'
             }), 'a popup target keeps the strict focus gate').resolves.toBe(false);
 
-            expect(workspace.lastVesselParkReceipt).toMatchObject({focused: false, refusedAt: 'focus'});
+            expect(workspace.vesselController.lastVesselParkReceipt).toMatchObject({focused: false, refusedAt: 'focus'});
             expect(nativeMoveCalls, 'nothing moved').toEqual([])
         } finally {
             Neo.main.addon.DragDrop     = originalDragDrop;
@@ -2084,7 +2084,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 windowId       : 'tear-child',
                 windowName     : 'tearout-alerts'
             });
-            workspace.tearOutParkGeometries.alerts = {
+            workspace.vesselController.tearOutParkGeometries.alerts = {
                 park   : {height: 260, width: 360, x: 800, y: 120},
                 restore: {height: 546, width: 640, x: 40, y: 60}
             };
@@ -2102,7 +2102,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             await releaseVessel(workspace, 'tear-child');
 
             expect(workspace.nativeWindows.getConnection(workspace.id, 'alerts')).toBeNull();
-            expect(workspace.tearOutParkGeometries.alerts).toBeUndefined();
+            expect(workspace.vesselController.tearOutParkGeometries.alerts).toBeUndefined();
             expect(calls).toEqual([
                 ['proxy', 'tear-child'],
                 ['tear-out', {
@@ -2233,7 +2233,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             expect(result).toBeNull();
             expect(windowOpenCalls).toEqual([]);
-            expect(workspace.lastVesselOpen).toEqual({
+            expect(workspace.vesselController.lastVesselOpen).toEqual({
                 error : 'WorkstationBootstrap unavailable',
                 itemId: 'alerts',
                 stage : 'threw'
@@ -2265,13 +2265,13 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             await expect(workspace.closeTearOutVessel({generationToken: 'lineage-1', itemId: 'alerts', windowName: 'tearout-alerts'}))
                 .resolves.toBe(false);
-            expect(workspace.lastTearOutClose).toMatchObject({identity: {lineageMatches: false}, stage: 'identity-refused'});
+            expect(workspace.vesselController.lastTearOutClose).toMatchObject({identity: {lineageMatches: false}, stage: 'identity-refused'});
             expect(workspace.nativeWindows.getConnection(workspace.id, 'alerts'), 'the live vessel survives the stale retirement').toMatchObject({windowId: 'tear-live'});
             expect(closes, 'nothing reached the platform').toEqual([]);
 
             await expect(workspace.closeTearOutVessel({generationToken: 'lineage-2', itemId: 'alerts', windowName: 'tearout-alerts'}))
                 .resolves.toBe(true);
-            expect(workspace.lastTearOutClose.stage).toBe('acknowledged');
+            expect(workspace.vesselController.lastTearOutClose.stage).toBe('acknowledged');
             expect(closes).toEqual([{names: ['tearout-alerts'], windowId: workspace.windowId}])
         } finally {
             Neo.Main.windowClose = originalClose;
