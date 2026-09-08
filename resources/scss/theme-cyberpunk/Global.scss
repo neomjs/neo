@@ -24,11 +24,38 @@
     --cyber-border        : #30363d;
     --cyber-glow          : 0 0 10px var(--cyber-cyan);
 
-    p {
-        color      : inherit;
-        font-family: inherit;
-        font-size  : inherit;
-        font-weight: inherit;
-        line-height: inherit;
-    }
+    // Global element typography — this family DECLINES it (#18232), and `initial` is how a family
+    // says so. It is NOT the same as omitting the token: the structural rules in
+    // resources/scss/src/Global.scss reach their `revert` fallback only when a token is ABSENT, and
+    // inside a neo-themed ancestor these tokens are present by INHERITANCE. Declaring the decline is
+    // what keeps a nested classic scope — the portal's Helix and Colors previews are exactly this —
+    // rendering as the user-agent rather than as neo.
+    //
+    // This replaces the hand-written `p { …: inherit }` reset. That block stated the same intent for
+    // one element; these declarations state it for every element the structure layer now covers.
+    --core-fontfamily-sans         : initial;
+    --core-fontsize-body           : initial;
+    --core-fontsize-h1             : initial;
+    --core-fontsize-h2             : initial;
+    --core-fontsize-h3             : initial;
+    --core-fontweight-regular      : initial;
+    --core-fontweight-semibold     : initial;
+    --core-lineheight-headline     : initial;
+    --core-lineheight-paragraph    : initial;
+    --sem-color-fg-neutral-contrast: initial;
+
+    --global-code-background-color : initial;
+    --global-code-border           : initial;
+    --global-code-font-family      : initial;
+    --global-code-border-radius    : initial;
+    --global-code-font-size        : initial;
+    --global-code-padding          : initial;
+    --global-heading-code-color    : initial;
+    --global-heading-code-margin   : initial;
+    --global-heading-code-padding  : initial;
+    --global-heading-letter-spacing: initial;
+    --global-mark-background-color : initial;
+    --global-mark-color            : initial;
+    --global-mark-padding          : initial;
+    --global-paragraph-color       : initial;
 }

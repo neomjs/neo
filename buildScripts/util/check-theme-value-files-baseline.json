@@ -1,33 +1,8 @@
 [
     {
-        "file": "resources/scss/theme-cyberpunk/Global.scss",
-        "blocks": 1,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
-    },
-    {
-        "file": "resources/scss/theme-dark/Global.scss",
-        "blocks": 1,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
-    },
-    {
-        "file": "resources/scss/theme-light/Global.scss",
-        "blocks": 1,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
-    },
-    {
-        "file": "resources/scss/theme-neo-dark/Global.scss",
-        "blocks": 10,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
-    },
-    {
         "file": "resources/scss/theme-neo-dark/dialog/Base.scss",
         "blocks": 3,
         "reason": "exempt #18145 — see the neo-light entry; same rule, same blocker."
-    },
-    {
-        "file": "resources/scss/theme-neo-light/Global.scss",
-        "blocks": 10,
-        "reason": "pending #18145 — Global.scss is the sweep last batch; the ticket expects it to graduate to its own ticket."
     },
     {
         "file": "resources/scss/theme-neo-light/dialog/Base.scss",

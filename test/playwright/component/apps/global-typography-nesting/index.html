@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo.mjs Global Typography Nesting Fixture</title>
+    <!--
+        NO HighlightJs sheet here, deliberately. This document is the UNCOMPOSED arm: the structure
+        layer and the theme sheets alone, which is what a consumer gets before HighlightJs lazy-loads.
+        The spec composes the real sheet at runtime for the second arm, so both compositions are
+        measured from one fixture.
+
+        An earlier revision linked HighlightJs here and thereby DELETED this arm instead of adding the
+        other one — every specimen became composed, and the regression that made HighlightJs a
+        precondition for neo inline typography became invisible to the very suite meant to catch it.
+        A control is not replaced by a better control; it is kept alongside it.
+    -->
+</head>
+<body>
+    <script src="../../../../../src/MicroLoader.mjs" type="module"></script>
+</body>
+</html>
