@@ -66,31 +66,16 @@ PinWorkspace = Neo.setupClass(PinWorkspace);
 /**
  * @summary Resolves the projected `inspector-tabs` container and collapses it through the real action.
  *
- * `handleDockPinAction` publishes but does not RETURN the publish — under a Group that publish is a
- * pending transaction, so an assertion made straight after the call would read the document before
- * the Group has adopted it and would pass or fail on timing rather than on the fix. The pass-through
- * below captures that promise without altering what the action does.
+ * The action is async because it awaits each step's publish before reducing the next — under a Group
+ * that publish is a pending transaction. Awaiting the call is therefore sufficient; no seam has to be
+ * wrapped to observe the settled document.
  * @param {Neo.dashboard.dock.Workspace} workspace
  * @returns {Promise<{document:Object,errors:String[]}|null>}
  */
-async function collapseInspector(workspace) {
-    const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('inspector-tabs'),
-          original     = workspace.onDockZoneDocumentChange;
+function collapseInspector(workspace) {
+    const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('inspector-tabs');
 
-    let published = null;
-
-    workspace.onDockZoneDocumentChange = function(...args) {
-        published = original.apply(this, args);
-        return published
-    };
-
-    try {
-        const result = workspace.handleDockPinAction({dockNodeId: 'inspector-tabs', tabContainer});
-        await published;
-        return result
-    } finally {
-        delete workspace.onDockZoneDocumentChange
-    }
+    return workspace.handleDockPinAction({dockNodeId: 'inspector-tabs', tabContainer})
 }
 
 test.describe.serial('Dock pin action', () => {
@@ -192,7 +177,7 @@ test.describe.serial('Dock pin action', () => {
 
         try {
             const tabContainer = Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs'),
-                  result       = workspace.handleDockPinAction({dockNodeId: 'center-tabs', tabContainer});
+                  result       = await workspace.handleDockPinAction({dockNodeId: 'center-tabs', tabContainer});
 
             expect(result.errors).toEqual(['Dock pin action requires an item owned by an edge zone']);
             expect(workspace.dockModel).toEqual(before)

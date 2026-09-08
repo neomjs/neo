@@ -537,11 +537,8 @@ class Workspace extends Container {
     /**
      * The pure reducer of the holder contract: applies one semantic operation descriptor against
      * the live committed document and returns `model.Operations`' fail-closed `{document, errors}`
-     * result. Never mutates {@link #dockModel}: the view-sync {@link #onDockZoneDocumentChange} is
-     * its writer, called by the committing surface on success. One exception, and it is bounded —
-     * a multi-step sequence stages the field between its own steps so each reduces against the last
-     * (every implementation of this reducer reads `this.dockModel`, so staging is what reaches an
-     * override), and restores it before publishing.
+     * result. Never mutates {@link #dockModel} — the view-sync {@link #onDockZoneDocumentChange}
+     * is the only writer, called by the committing surface on success.
      * @param {Object} descriptor The semantic operation descriptor.
      * @returns {{document: Object, errors: String[]}}
      */
@@ -1779,21 +1776,27 @@ class Workspace extends Container {
     /**
      * Commits the engine-owned pin action — docking design record §2.7's collapse-to-rail sequence.
      *
-     * §2.7 specifies a two-step sequence and forbids a composite OPERATION — not a multi-operation
-     * commit: `setItemPinned(false)` when the item is pinned (the model rejects `autoHidden` on a
-     * pinned item), then `setItemAutoHidden(true)`. Each step stays an independent, individually
-     * validated reduction through {@link #applyDockZoneOperation}.
+     * §2.7 specifies a two-step sequence and forbids a composite operation: `setItemPinned(false)`
+     * when the item is pinned (the model rejects `autoHidden` on a pinned item), then
+     * `setItemAutoHidden(true)`. Each step is an INDEPENDENT commit — reduced through
+     * {@link #applyDockZoneOperation} and published through {@link #onDockZoneDocumentChange} on its
+     * own — so both steps stay visible at the class's own write seam, the one `DockService` and
+     * `DockSplitter` already reach a holder through. Folding them into a single published change
+     * would make step 2 bypass that seam, since the seam reduces against the committed `dockModel`
+     * and step 2 needs step 1's result.
      *
-     * The reduction is staged locally — `dockModel` advanced between steps — and published ONCE with
-     * the ordered descriptors. Publishing per step would not do: only the direct path assigns
-     * `dockModel` synchronously, while a topology Group returns `pending` and advances the field
-     * later, so step 2 would reduce against a document step 1 had not reached. The field is advanced
-     * rather than passed as an argument because this reducer is a consumer-overridable seam whose
-     * implementations read `this.dockModel`; an argument would reach only those that opted in. On
-     * refusal the staged field is restored, so no unpublished document is left behind.
+     * **Step 1's publish is therefore awaited, which is why this method is async.** The direct path
+     * assigns `dockModel` synchronously, but a topology Group returns a pending transaction and
+     * advances the field later inside adopt; an unawaited step 2 then reduces against a document
+     * step 1 never reached and is refused. Awaiting preserves both properties the row requires —
+     * the steps stay independently committed, and they land in the specified order.
      *
-     * An UNPINNED item — the ordinary case — is a single step and a single publish; only collapsing a
-     * pinned pane reduces twice.
+     * A step-2 rejection therefore leaves the item unpinned and still visible. That is §2.7's own
+     * intermediate state, which it calls benign, and it is the price of the independence the row
+     * requires; the alternative buys atomicity by making half the gesture unobservable.
+     *
+     * An UNPINNED item — the ordinary case — is a single step and a single refresh; only collapsing a
+     * pinned pane commits twice.
      *
      * **Eligibility is re-derived here, from the current document, and not inherited from the chrome
      * that emitted the intent.** The pin action's binding ({@link Neo.dashboard.dock.projection.HeaderActionPolicy#createActionBindings}) hides it wherever no edge owns the
@@ -1809,7 +1812,7 @@ class Workspace extends Container {
      * @returns {{document:Object,errors:String[]}|null}
      * @protected
      */
-    handleDockPinAction({dockNodeId, tabContainer}={}) {
+    async handleDockPinAction({dockNodeId, tabContainer}={}) {
         let me     = this,
             itemId = me.getActiveDockItemId(tabContainer);
 
@@ -1825,8 +1828,7 @@ class Workspace extends Container {
             return {document: me.dockModel, errors: ['Dock pin action requires an item owned by an edge zone']}
         }
 
-        let committed   = me.dockModel,
-            descriptors = [],
+        let descriptors = [],
             result      = null;
 
         me.dockModel.items?.[itemId]?.pinned === true &&
@@ -1838,18 +1840,14 @@ class Workspace extends Container {
             result = me.applyDockZoneOperation(descriptor);
 
             if (!result || result.errors?.length || !result.document) {
-                // Never leave an unpublished document staged on a refusal.
-                me.dockModel = committed;
                 return result
             }
 
-            me.dockModel = result.document
+            // Awaited: the seam reads the committed `dockModel`, and only the direct path assigns it
+            // synchronously. Under a Group the publish is a pending transaction, so an unawaited step
+            // 2 reduces against a document step 1 has not reached.
+            await me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
         }
-
-        // Load-bearing: the Group branch is entered only while `document !== me.dockModel`, so a
-        // staged field equal to the result would route the commit down the direct path.
-        me.dockModel = committed;
-        me.onDockZoneDocumentChange(result.document, descriptors, tabContainer);
 
         return result
     }
@@ -2186,33 +2184,24 @@ class Workspace extends Container {
      * in THIS closure, so they are consumed by exactly one projection.
      * @param {Object|null} document The committed dock-zone document; `null` clears the workspace
      *     toward the empty projection.
-     * @param {Object|Object[]|null} [descriptor=null] The semantic operation that produced
-     *     `document`, or the ordered operations of one multi-step sequence. An array commits as a
-     *     single transaction, which the Group reduces sequentially against its own queue head — so a
-     *     later step sees an earlier one landed, which publishing per step cannot guarantee here.
+     * @param {Object|null} [descriptor=null] The semantic operation that produced `document`.
      * @param {Object|null} [source=null] The committing surface, when it identifies itself.
      * @returns {Promise} The scheduled projection's outcome.
      */
     onDockZoneDocumentChange(document, descriptor=null, source=null) {
-        const me   = this,
-              set  = me.workspaceSet,
-              // A sequence commits as one transaction; the projection is still described by the step
-              // whose effect it presents, which is the last one.
-              descriptors = Array.isArray(descriptor) ? descriptor : descriptor ? [descriptor] : [],
-              primary     = descriptors[descriptors.length - 1] ?? null;
-
+        const me = this, set = me.workspaceSet;
         if (set && me.topologyGroupId && document !== me.dockModel) {
             const manager = Neo.manager.Transaction;
             const workspaceKey = me.workspaceKey ?? set.ids()
                 .find(key => manager.getParticipant(me.topologyGroupId, key)?.componentId === me.id);
             if (!workspaceKey) return Promise.reject(new Error('dock participant not registered'));
-            const pending = descriptors.every(entry => entry?.operation) && descriptors.length
-                ? set.commit(workspaceKey, descriptors, {provenance: {origin: 'human'}})
+            const pending = descriptor?.operation
+                ? set.commit(workspaceKey, [descriptor], {provenance: {origin: 'human'}})
                 : set.write({[workspaceKey]: document}, {cause: 'dock', provenance: {origin: 'human'}});
             pending.catch(error => Neo.logError(error));
             return pending
         }
-        const projection = me.projectDockZoneDocument(document, primary, source);
+        const projection = me.projectDockZoneDocument(document, descriptor, source);
         me.dockModel = document;
         return projection
     }
