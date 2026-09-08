@@ -758,7 +758,7 @@ class Maximize extends Plugin {
     }
 
     /**
-     * Classifies a committed operation descriptor as confined to the maximized node — the ops
+     * @summary Classifies a committed operation as catalog-only or confined to the maximized node — the ops
      * that must NOT pre-clear the transient: their effect stays inside the pane the user is
      * looking at, so the continuity rule ({@link #syncDockProjection}) decides from the committed
      * outcome instead (node survived ⇒ re-apply; collapsed away ⇒ clear). Everything else —
@@ -779,6 +779,8 @@ class Maximize extends Plugin {
         }
 
         switch (operation) {
+            case 'addItem':
+                return descriptor.target === undefined || me.isNeutralOperation({...descriptor.target, itemId});
             case 'addTab': {
                 // The addTab handler re-dispatches an already-contained item to moveItem, so a
                 // descriptor targeting the maximized node can still RELOCATE the item out of a

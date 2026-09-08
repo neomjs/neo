@@ -13,8 +13,9 @@ import WriteGuard               from '../../../../src/ai/WriteGuard.mjs';
 import {dispatchServiceMethod}  from '../../../../src/ai/client/resolveServiceMethod.mjs';
 import PopupWorkspace           from '../../../../apps/workstation/view/PopupWorkspace.mjs';
 import WorkstationWorkspace     from '../../../../apps/workstation/view/Workspace.mjs';
-import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations               from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
+import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import PerspectiveLibrary       from '../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import WorkspaceSet             from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 
@@ -64,6 +65,63 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
     }
 
     const write = (workspaces, options = {}) => set.write(workspaces, {cause: 'replace-workspaces', provenance: {origin: 'unit'}, ...options});
+
+    test('addItem creates and places through a registered Group, preserving a queued lock and history', async () => {
+        const main       = holder('main'),
+              descriptor = {operation: 'addItem', itemId: 'created', item: {componentRef: 'created', title: 'Created'},
+                  target: {operation: 'addTab', tabsNodeId: 'root'}},
+              direct     = Operations.applyOperation(main.document, descriptor);
+
+        const lock = set.commit('main', [{operation: 'setItemLocked', itemId: 'main', locked: true}]),
+              add  = set.commit('main', [descriptor]);
+        await Promise.all([lock, add]);
+
+        expect(direct.errors).toEqual([]);
+        expect(main.document.items.created).toEqual(descriptor.item);
+        expect(main.document.nodes.root.items).toEqual(['main', 'created']);
+        expect(main.document.nodes).toEqual(direct.document.nodes);
+        expect(main.document.items.main.locked).toBe(true);
+        expect(TransactionManager.get(groupId).history.count).toBe(2);
+
+        await TransactionManager.undo({groupId});
+        expect(main.document.items.created).toBeUndefined();
+        expect(main.document.nodes.root.items).toEqual(['main']);
+        expect(main.document.items.main.locked).toBe(true);
+        await TransactionManager.redo({groupId});
+        expect(main.document.items.created).toEqual(descriptor.item);
+        expect(main.document.nodes.root.activeItemId).toBe('created');
+        expect(main.document.items.main.locked).toBe(true)
+    });
+
+    test('addItem creates an unplaced record and refuses a queued duplicate without another history entry', async () => {
+        const main  = holder('main'),
+              first = {operation: 'addItem', itemId: 'created', item: {componentRef: 'created', title: 'First'}};
+        const results = await Promise.allSettled([
+            set.commit('main', [first]),
+            set.commit('main', [{...first, item: {...first.item, title: 'Duplicate'}}])
+        ]);
+
+        expect(results[0].status).toBe('fulfilled');
+        expect(results[1].status).toBe('rejected');
+        expect(results[1].reason.message).toContain('already exists');
+        expect(main.document.items.created).toEqual(first.item);
+        expect(main.document.nodes).toEqual(document('main').nodes);
+        expect(TransactionManager.get(groupId).history.count).toBe(1)
+    });
+
+    test('addItem invalid placement and the old out-of-band seed path leave Group truth untouched', async () => {
+        const main   = holder('main'), original = main.document,
+              seeded = WorkspaceDocument.clone(original);
+        seeded.items.created = {componentRef: 'created'};
+        const placement = {operation: 'addTab', itemId: 'created', tabsNodeId: 'root'};
+        expect(Operations.applyOperation(seeded, placement).errors).toEqual([]);
+        await expect(set.commit('main', [placement])).rejects.toThrow('unknown item "created"');
+        await expect(set.commit('main', [{operation: 'addItem', itemId: 'created', item: seeded.items.created,
+            target: {operation: 'addTab', tabsNodeId: 'missing'}}])).rejects.toThrow('not a tabs node');
+        expect(main.document).toBe(original);
+        expect(main.writes).toEqual([]);
+        expect(TransactionManager.get(groupId).history).toBeNull()
+    });
 
     test('registered callbacks survive adapter disposal through queued write, compensation and undo', async () => {
         const projected   = [],
