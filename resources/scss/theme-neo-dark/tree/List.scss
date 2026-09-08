@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-tree-list
+:where(.neo-theme-neo-dark) { // .neo-tree-list
     --tree-list-color          : var(--sem-color-text-neutral-default);
     --tree-list-indent-base    : 16px;
     --tree-list-indent-step    : 16px;
