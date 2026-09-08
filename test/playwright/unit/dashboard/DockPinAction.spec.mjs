@@ -6,14 +6,14 @@ setup({
     }
 });
 
-import {test, expect}           from '@playwright/test';
-import Neo                      from '../../../../src/Neo.mjs';
-import * as core                from '../../../../src/core/_export.mjs';
-import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
-import Reconciler               from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
-import TransactionManager       from '../../../../src/manager/Transaction.mjs';
-import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
+import Reconciler         from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import TransactionManager from '../../../../src/manager/Transaction.mjs';
+import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceSet       from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/tab/Container.mjs';
 
@@ -98,7 +98,7 @@ test.describe.serial('Dock pin action', () => {
 
     test.beforeEach(() => {
         groupId = TransactionManager.bind({windowId: 'dock-pin-action-root', workspaceKey: 'main'}).groupId;
-        set     = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument})
+        set     = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument})
     });
 
     test.afterEach(() => TransactionManager.retireGroup(groupId));
