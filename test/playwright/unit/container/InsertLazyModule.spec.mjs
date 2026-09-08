@@ -330,6 +330,65 @@ test.describe('Neo.container.Base#insert — a lazy module config parks, then lo
     });
 
     /**
+     * A joiner that matched by `id` must keep its join after its OWN id is consumed.
+     *
+     * The id-hit returns the in-flight promise, and it would be natural to stop there — the caller
+     * got what it asked for. But it leaves that config holding no identity entry, and `id` is the
+     * volatile key: four sites delete it from a config as they consume it. So the joiner's claim
+     * on the flight lasts only until something takes its id, after which it re-enters the loader
+     * and builds a second instance.
+     *
+     * Object identity is the one key that cannot change, which is why every participant is
+     * registered under it rather than only the initiator. Probe contributed by @neo-gpt-emmy as
+     * the open half of a review action.
+     *
+     * The second phase is the cost of that registration: participants must be RELEASED on settle,
+     * or a joiner's entry outlives the flight and the documented retry path becomes a cache.
+     */
+    test('a joiner that matched by id keeps its join after its own id is consumed, and is released on settle', async () => {
+        let resolveImport;
+
+        const deferred = new Promise(resolve => {resolveImport = resolve});
+
+        container = cardContainer();
+        container.add({id: 'insert-lazy-module-alias', module: () => deferred, text: 'lazy'});
+
+        const parked = container.items[1],
+              alias  = {id: parked.id, module: () => deferred, text: 'lazy'};
+
+        Counted.constructions = 0;
+
+        const first  = container.layout.loadModule(parked, 1),
+              joined = container.layout.loadModule(alias, 1);
+
+        // Compared as resolved instances rather than as promises: the initiator receives the
+        // `.finally()`-wrapped promise and a joiner receives the raw one, so the two are never
+        // identical by reference even when they are the same flight.
+        //
+        // The volatile key, taken exactly as construction takes it — before anything settles.
+        delete alias.id;
+
+        const afterIdLoss = container.layout.loadModule(alias, 1);
+
+        resolveImport({default: Counted});
+
+        const [a, b, c] = await Promise.all([first, joined, afterIdLoss]);
+
+        expect(Counted.constructions, 'exactly one construction across all three callers').toBe(1);
+        expect(b, 'the alias joined the flight by id').toBe(a);
+        expect(c, 'and still settles on the SAME instance after losing its id').toBe(a);
+
+        // Released on settle: the next call is a real retry, not a replay of the settled promise.
+        // `alias` was never constructed, so its `module` is still a function and a retry can run.
+        Counted.constructions = 0;
+
+        const retried = await container.layout.loadModule(alias, 1);
+
+        expect(Counted.constructions, 'a settled flight is not cached for a joiner').toBe(1);
+        expect(retried, 'and the retry yields its own instance').not.toBe(a)
+    });
+
+    /**
      * The other half of the keying, and the reason it is `id` WHEN PRESENT rather than `id`.
      *
      * `layout.Card` has never required an id on a parked config — the arms above this one carry

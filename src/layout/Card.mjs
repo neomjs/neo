@@ -99,6 +99,21 @@ class Card extends Base {
     loadingModulesById = new Map()
 
     /**
+     * Every parked config participating in one in-flight load, keyed by that load's promise.
+     *
+     * Exists only so the settle handler can release what the flight registered. The initiator is
+     * known to it directly; a joiner is not, and a joiner's identity entry outliving the flight
+     * would turn the documented retry-after-settle path into a silent cache — the next caller
+     * would receive the settled promise and the previous instance instead of loading again.
+     *
+     * A `WeakMap` keyed on the promise, so a flight that somehow never settles cannot pin its
+     * participants; the explicit delete in {@link #loadModule} is the ordinary path.
+     * @member {WeakMap<Promise,Object[]>} #loadParticipants=new WeakMap()
+     * @private
+     */
+    #loadParticipants = new WeakMap()
+
+    /**
      * Modifies the CSS classes of the container items this layout is bound to.
      * Automatically gets triggered after changing the value of activeIndex.
      * Lazy loads items which use a module config containing a function.
@@ -248,6 +263,16 @@ class Card extends Base {
             inFlight = me.loadingModules.get(item) || (id ? me.loadingModulesById.get(id) : null);
 
         if (inFlight) {
+            // A joiner that matched by `id` holds no identity entry of its own, and `id` is the
+            // VOLATILE key: four sites delete it from a config as they consume it
+            // (`Neo.mjs:263`, `collection/Base.mjs:633`, `core/Base.mjs:283`,
+            // `functional/component/Base.mjs:493`). Registering the joiner under its own object
+            // identity — the one key that cannot change — keeps its join for the rest of the
+            // flight rather than only until its id is taken. Auditing those four call sites
+            // instead would be an audit that rots at the fifth.
+            me.loadingModules.set(item, inFlight);
+            me.#loadParticipants.get(inFlight)?.push(item);
+
             return inFlight
         }
 
@@ -261,14 +286,21 @@ class Card extends Base {
         // the same, now id-less object, and that caller re-enters the loader against an
         // `item.module` which has already become the resolved class. Two entries, one promise, so
         // a re-resolved config naming the item and the original object join the same load.
+        const participants = [item];
+
+        me.#loadParticipants.set(load, participants);
         me.loadingModules.set(item, load);
         id && me.loadingModulesById.set(id, load);
 
         // A rejected import must not leave the item unloadable: the entries go whatever the
         // outcome, so the next activation retries against a config that is still parked behind its
-        // placeholder. Removed by the captured id, for the same reason it was captured.
+        // placeholder. EVERY participant is removed, not just the initiator — a joiner's identity
+        // entry outliving the flight would hand the next caller a settled promise and the old
+        // instance, quietly converting the retry path into a cache. Removed by the captured id for
+        // the same reason it was captured.
         return load.finally(() => {
-            me.loadingModules.delete(item);
+            participants.forEach(participant => me.loadingModules.delete(participant));
+            me.#loadParticipants.delete(load);
             id && me.loadingModulesById.delete(id)
         })
     }
