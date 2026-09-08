@@ -9,6 +9,7 @@ import WorkspaceDocument from './WorkspaceDocument.mjs';
  * `fromZones` accepts component configurations but copies only the document catalog fields.
  * `toConfig` exports that catalog and a nested tree; it cannot recover runtime configuration.
  * Both APIs fail closed, leave inputs untouched and apply WorkspaceDocument.normalizeTree.
+ * Independent validation failures accumulate; malformed branches stop before unsafe traversal.
  * Round trips compare after normalization and catalog defaults, not byte-for-byte with an
  * input that omitted title/componentRef. No component construction or host lifecycle lives here.
  */
@@ -45,26 +46,30 @@ class Authoring extends Base {
      * Catalog defaults: componentRef is the pane key; title is header.text, then the key
      * (nullish values use the default). Other defined catalog fields pass
      * through the existing JSON/model checks. Unplaced panes remain in the catalog.
+     * Independent failures are collected across readable branches; malformed branches stop
+     * safely, and any error prevents lowering from publishing a partial document.
      * @param {Object<String,Object>} panes Pane configs keyed by stable item ID
      * @param {Object|String|String[]} zones Nested root
      * @returns {{document:(Object|null), errors:String[]}}
      * @static
      */
     static fromZones(panes, zones) {
+        const errors = [];
         try {
-            if (!WorkspaceDocument.isJsonRecord(panes)) throw new Error('panes: must be a record of pane configurations');
-            this.validateJson(zones, 'zones');
-
-            const items    = Object.fromEntries(Object.entries(panes).map(([key, pane]) => [key, this.toItem(key, pane)])),
+            const catalogKnown = WorkspaceDocument.isJsonRecord(panes);
+            if (!catalogKnown) errors.push('panes: must be a record of pane configurations');
+            this.validateJson(zones, 'zones', errors);
+            const items    = Object.fromEntries(Object.entries(catalogKnown ? panes : {}).map(([key, pane]) => [key, this.toItem(key, pane, errors)])),
                   occupied = {},
                   explicit = new Set(),
                   placed   = new Set(),
                   rootId   = WorkspaceDocument.isJsonRecord(zones) && Object.hasOwn(zones, 'id') ? zones.id : 'root';
 
-            occupied[rootId] = true;
-            const tree     = this.readNode(zones, 'zones', {explicit, placed, rootId, items}, true),
+            const tree     = this.readNode(zones, 'zones', {explicit, placed, rootId, items, catalogKnown, errors, seen: new WeakSet()}, true),
                   document = {schema: WorkspaceDocument.SCHEMA, root: rootId, items, nodes: {}};
 
+            if (errors.length) return {document: null, errors};
+            occupied[rootId] = true;
             explicit.forEach(id => { occupied[id] = true });
 
             const lower = (node, isRoot=false) => {
@@ -89,11 +94,12 @@ class Authoring extends Base {
 
             document.root = lower(tree, true);
             const normalized = WorkspaceDocument.normalizeTree(document);
-            if (!Object.hasOwn(normalized.nodes, normalized.root)) throw new Error('zones: normalizes to an empty root; use an empty edge-zone instead');
-            const errors = WorkspaceDocument.validate(normalized);
+            if (!Object.hasOwn(normalized.nodes, normalized.root)) errors.push('normalizes to an empty root; use an empty edge-zone instead');
+            else errors.push(...WorkspaceDocument.validate(normalized));
             return errors.length ? {document: null, errors: errors.map(error => `zones: ${error}`)} : {document: normalized, errors: []}
         } catch (error) {
-            return {document: null, errors: [error.message]}
+            errors.push(error.message);
+            return {document: null, errors}
         }
     }
 
@@ -103,6 +109,8 @@ class Authoring extends Base {
      * Retained IDs reproduce the normalized document after fromZones' catalog defaults.
      * `keepIds: false` preserves catalog and tree semantics with freshly generated node IDs.
      * Runtime-only component configuration is unavailable in a document and is never invented.
+     * Readable records contribute errors independently. Recursive graph validation and
+     * normalization run only after their JSON/shape prerequisites are satisfied.
      * @param {Object} document A JSON-only dock-zone document
      * @param {Object} [options]
      * @param {Boolean} [options.keepIds=true] Include every surviving node ID
@@ -110,34 +118,17 @@ class Authoring extends Base {
      * @static
      */
     static toConfig(document, options={}) {
+        const errors = [];
         try {
-            if (!WorkspaceDocument.isJsonRecord(options)) throw new Error('options: must be a record');
-            const {keepIds=true} = options;
-            if (typeof keepIds !== 'boolean') throw new Error('options.keepIds: must be a boolean');
-            this.validateJson(document, 'document');
-            if (!WorkspaceDocument.isJsonRecord(document)) throw new Error('document: must be a record');
-            if (!WorkspaceDocument.isJsonRecord(document.items)) throw new Error('document.items: must be a record');
-            if (!WorkspaceDocument.isJsonRecord(document.nodes)) throw new Error('document.nodes: must be a record');
-            for (const [id, node] of Object.entries(document.nodes)) {
-                const path = this.path('document.nodes', id);
-                if (!WorkspaceDocument.isJsonRecord(node)) throw new Error(`${path}: must be a node record`);
-                if (!Object.hasOwn(WorkspaceDocument.dockZoneNodeKeys, node.type)) throw new Error(`${path}.type: must be a supported node type`);
-                if (node.type === 'split') {
-                    if (!Array.isArray(node.children)) throw new Error(`${path}.children: must be an array`);
-                    this.validateSplit(node, path, node.children.length);
-                }
-                if (node.type === 'tabs' && !Array.isArray(node.items)) throw new Error(`${path}.items: must be an array`);
-            }
-            const unexpected = WorkspaceDocument.findUnexpectedDockZoneKey(document, 'document');
-            if (unexpected) throw new Error(`${unexpected.path}: ${unexpected.reason}`);
-
-            const shape = WorkspaceDocument.computeShapeFingerprint(document);
-            if (shape.errors.length) return {config: null, errors: shape.errors};
-            const errors = WorkspaceDocument.validate(document);
+            const optionsValid = WorkspaceDocument.isJsonRecord(options),
+                  {keepIds=true} = optionsValid ? options : {};
+            if (!optionsValid) errors.push('options: must be a record');
+            else if (typeof keepIds !== 'boolean') errors.push('options.keepIds: must be a boolean');
+            this.validateDocument(document, errors);
             if (errors.length) return {config: null, errors};
 
             const normalized = WorkspaceDocument.normalizeTree(document);
-            if (!Object.hasOwn(normalized.nodes, normalized.root)) throw new Error('document.root: normalizes to an empty root');
+            if (!Object.hasOwn(normalized.nodes, normalized.root)) return {config: null, errors: ['document.root: normalizes to an empty root']};
 
             const inline = id => {
                 const node = normalized.nodes[id], out = keepIds ? {id} : {};
@@ -166,7 +157,8 @@ class Authoring extends Base {
             }));
             return {config: {panes, zones: inline(normalized.root)}, errors: []}
         } catch (error) {
-            return {config: null, errors: [error.message]}
+            errors.push(error.message);
+            return {config: null, errors}
         }
     }
 
@@ -174,81 +166,110 @@ class Authoring extends Base {
      * @summary Copies one pane's wire fields and validates them before cloning.
      * @param {String} key
      * @param {Object} pane
-     * @returns {Object}
+     * @param {String[]} errors Collected independent refusals.
+     * @returns {Object|null}
      * @protected
      * @static
      */
-    static toItem(key, pane) {
+    static toItem(key, pane, errors) {
         const path = this.path('panes', key);
-        if (key === '__proto__') throw new Error(`${path}: is not supported by the document clone boundary`);
-        if (!WorkspaceDocument.isJsonRecord(pane)) throw new Error(`${path}: must be a pane configuration record`);
-        const item = Object.fromEntries([...WorkspaceDocument.dockZoneItemKeys]
+        if (key === '__proto__') errors.push(`${path}: is not supported by the document clone boundary`);
+        if (!WorkspaceDocument.isJsonRecord(pane)) {
+            errors.push(`${path}: must be a pane configuration record`);
+            return null
+        }
+        const start = errors.length;
+        const item  = Object.fromEntries([...WorkspaceDocument.dockZoneItemKeys]
             .filter(field => field !== 'title' && pane[field] !== undefined).map(field => [field, pane[field]]));
         item.componentRef ??= key;
         item.title = pane.header?.text ?? key;
-        this.validateJson(item.title, `${path}.header.text`);
-        this.validateJson(item, path);
-        const errors = WorkspaceDocument.validate({schema: WorkspaceDocument.SCHEMA, root: 'root', items: {[key]: item}, nodes: {root: {type: 'edge-zone', zones: {}}}});
-        if (errors.length) throw new Error(`${path}: ${errors.join('; ')}`);
-        return WorkspaceDocument.clone(item)
+        this.validateJson(item.title, `${path}.header.text`, errors);
+        this.validateJson({...item, title: null}, path, errors);
+        this.validateItemPolicy(key, item, path, errors);
+        return errors.length === start ? WorkspaceDocument.clone(item) : null
     }
 
     /**
      * @summary Checks authored grammar and reserves explicit IDs before building the flat graph.
      * @param {*} value
      * @param {String} path
-     * @param {Object} context Shared explicit IDs, pane placement and catalog
+     * @param {Object} context Shared errors, visited objects, explicit IDs, pane placement and catalog
      * @param {Boolean} [isRoot=false]
      * @param {Boolean} [isEdgeChild=false]
-     * @returns {Object} Parsed node with deterministic naming hints
+     * @returns {Object|null} Parsed node, or null when this branch cannot be inspected safely
      * @protected
      * @static
      */
     static readNode(value, path, context, isRoot=false, isEdgeChild=false) {
         const shorthand = typeof value === 'string' || Array.isArray(value),
-              record    = shorthand ? {} : value;
-        if (!WorkspaceDocument.isJsonRecord(record)) throw new Error(`${path}: must be a node record, pane name or pane array`);
+              record    = shorthand ? {} : value,
+              {errors}  = context;
+        if (!WorkspaceDocument.isJsonRecord(record)) {
+            errors.push(`${path}: must be a node record, pane name or pane array`);
+            return null
+        }
+        if (value && typeof value === 'object') {
+            if (context.seen.has(value)) {
+                errors.push(`${path}: cyclic or repeated node configuration`);
+                return null
+            }
+            context.seen.add(value)
+        }
         const edges = [...WorkspaceDocument.dockZoneEdgeKeys],
               type  = shorthand ? 'tabs' : Object.hasOwn(record, 'type') ? record.type : (Object.hasOwn(record, 'items') ? 'tabs'
                   : Object.hasOwn(record, 'children') ? 'split' : edges.some(edge => Object.hasOwn(record, edge)) ? 'edge-zone' : null);
-        if (!Object.hasOwn(WorkspaceDocument.dockZoneNodeKeys, type)) throw new Error(`${path}: needs items, children, an edge key or a supported type`);
+        if (typeof type !== 'string' || !Object.hasOwn(WorkspaceDocument.dockZoneNodeKeys, type)) {
+            errors.push(`${path}: needs items, children, an edge key or a supported type`);
+            return null
+        }
         const allowed = new Set(type === 'edge-zone' ? ['type', ...edges] : WorkspaceDocument.dockZoneNodeKeys[type]);
         allowed.add('id');
         if (isEdgeChild) { allowed.add('extent'); allowed.add('resizable') }
-        const unexpected = WorkspaceDocument.findUnexpectedKey(record, allowed, path);
-        if (unexpected) throw new Error(`${unexpected.path}: is not part of this node type`);
+        for (const key of Reflect.ownKeys(record)) {
+            if (!allowed.has(key)) errors.push(`${this.path(path, String(key))}: is not part of this node type`)
+        }
 
         const node = {type};
         if (Object.hasOwn(record, 'id')) {
             const id = record.id;
-            if (typeof id !== 'string' || !id.trim()) throw new Error(`${path}.id: must be a non-empty string`);
-            if (id === '__proto__') throw new Error(`${path}.id: "__proto__" is not supported by the document clone boundary`);
-            if (context.explicit.has(id) || (!isRoot && id === context.rootId)) throw new Error(`${path}.id: duplicate or reserved node ID "${id}"`);
-            context.explicit.add(id);
-            node.id = id;
+            if (typeof id !== 'string' || !id.trim()) errors.push(`${path}.id: must be a non-empty string`);
+            else if (id === '__proto__') errors.push(`${path}.id: "__proto__" is not supported by the document clone boundary`);
+            else if (context.explicit.has(id) || (!isRoot && id === context.rootId)) errors.push(`${path}.id: duplicate or reserved node ID "${id}"`);
+            else {
+                context.explicit.add(id);
+                node.id = id
+            }
         }
 
         if (type === 'tabs') {
             const items = typeof value === 'string' ? [value] : Array.isArray(value) ? value : record.items;
-            if (!Array.isArray(items)) throw new Error(`${path}.items: must be an array of pane names`);
+            if (!Array.isArray(items)) {
+                errors.push(`${path}.items: must be an array of pane names`);
+                return null
+            }
             items.forEach((key, index) => {
                 const itemPath = typeof value === 'string' ? path : `${path}${Array.isArray(value) ? '' : '.items'}[${index}]`;
-                if (typeof key !== 'string' || !Object.hasOwn(context.items, key)) throw new Error(`${itemPath}: unknown pane "${key}"`);
-                if (context.placed.has(key)) throw new Error(`${itemPath}: pane "${key}" is already placed`);
-                context.placed.add(key);
+                if (typeof key !== 'string') errors.push(`${itemPath}: must be a pane name`);
+                else if (context.catalogKnown && !Object.hasOwn(context.items, key)) errors.push(`${itemPath}: unknown pane "${key}"`);
+                else if (context.placed.has(key)) errors.push(`${itemPath}: pane "${key}" is already placed`);
+                else context.placed.add(key);
             });
             node.items = [...items];
             node.activeItemId = Object.hasOwn(record, 'activeItemId') ? record.activeItemId : items[0] ?? null;
-            if (node.activeItemId !== null && !items.includes(node.activeItemId)) throw new Error(`${path}.activeItemId: must name one of this node's panes or be null`);
-            node.firstPane = items[0];
-            node.prefix = `tabs-${items[0] ?? 'empty'}`;
+            if (node.activeItemId !== null && !items.includes(node.activeItemId)) errors.push(`${path}.activeItemId: must name one of this node's panes or be null`);
+            node.firstPane = typeof items[0] === 'string' ? items[0] : undefined;
+            node.prefix = `tabs-${node.firstPane ?? 'empty'}`;
         } else if (type === 'split') {
-            if (!Array.isArray(record.children)) throw new Error(`${path}.children: must be an array of nodes`);
+            if (!Array.isArray(record.children)) {
+                errors.push(`${path}.children: must be an array of nodes`);
+                this.validateSplit(record, path, null, errors);
+                return null
+            }
             node.orientation = record.orientation;
-            node.children = record.children.map((child, i) => this.readNode(child, `${path}.children[${i}]`, context));
-            node.sizes = Object.hasOwn(record, 'sizes') ? record.sizes : node.children.map(() => 1 / node.children.length);
-            this.validateSplit(node, path, node.children.length);
-            node.sizes = [...node.sizes];
+            node.children = record.children.map((child, i) => this.readNode(child, `${path}.children[${i}]`, context)).filter(Boolean);
+            node.sizes = Object.hasOwn(record, 'sizes') ? record.sizes : record.children.map(() => 1 / record.children.length);
+            this.validateSplit(node, path, record.children.length, errors);
+            if (Array.isArray(node.sizes)) node.sizes = [...node.sizes];
             node.firstPane = node.children.find(child => child.firstPane !== undefined)?.firstPane;
             node.prefix = `split-${node.children.map(child => child.firstPane ?? 'empty').join('-')}`;
         } else {
@@ -256,16 +277,16 @@ class Authoring extends Base {
                 const value = record[edge], descriptor = {};
                 if (WorkspaceDocument.isJsonRecord(value)) {
                     if (Object.hasOwn(value, 'extent')) {
-                        if (typeof value.extent !== 'number' || !(value.extent > 0 && value.extent < 1)) throw new Error(`${path}.${edge}.extent: must be a fraction between 0 and 1`);
+                        if (typeof value.extent !== 'number' || !(value.extent > 0 && value.extent < 1)) errors.push(`${path}.${edge}.extent: must be a fraction between 0 and 1`);
                         descriptor.extent = value.extent;
                     }
                     if (Object.hasOwn(value, 'resizable')) {
-                        if (typeof value.resizable !== 'boolean') throw new Error(`${path}.${edge}.resizable: must be a boolean`);
+                        if (typeof value.resizable !== 'boolean') errors.push(`${path}.${edge}.resizable: must be a boolean`);
                         descriptor.resizable = value.resizable;
                     }
                 }
                 return {edge, descriptor, child: this.readNode(value, `${path}.${edge}`, context, false, true)}
-            });
+            }).filter(({child}) => child);
             const panes = node.children.map(({child}) => child.firstPane).filter(key => key !== undefined);
             node.firstPane = panes[0];
             node.prefix = panes.length ? `edge-${panes.join('-')}` : 'edge';
@@ -274,46 +295,174 @@ class Authoring extends Base {
     }
 
     /**
-     * @summary Applies the same split grammar at the authoring and export boundaries.
-     * @param {Object} node
+     * @summary Applies canonical item-policy validation while retaining the authored path.
+     * @param {String} key
+     * @param {Object} item
      * @param {String} path
-     * @param {Number} count
+     * @param {String[]} errors
      * @protected
      * @static
      */
-    static validateSplit(node, path, count) {
-        const {orientation, sizes} = node;
+    static validateItemPolicy(key, item, path, errors) {
+        errors.push(...WorkspaceDocument.validateItemPolicy(key, item).map(error => `${path}: ${error}`))
+    }
 
-        if (!this.orientations.includes(orientation)) {
-            throw new Error(`${path}.orientation: must be ${this.orientations.join(' or ')}`)
+    /**
+     * @summary Collects record-shape errors before admitting the existing wire validators.
+     *
+     * Catalog/node siblings remain inspectable when another record is malformed. Canonical wire
+     * validation continues across malformed node records; recursive fingerprinting waits for a
+     * traversable shape. No synthetic repairs or parallel schema authority normalize invalid input.
+     * @param {*} document
+     * @param {String[]} errors
+     * @protected
+     * @static
+     */
+    static validateDocument(document, errors) {
+        const jsonStart = errors.length;
+        this.validateJson(document, 'document', errors);
+        const jsonSafe = errors.length === jsonStart;
+        if (!WorkspaceDocument.isJsonRecord(document)) {
+            errors.push('document: must be a record');
+            return
         }
-
-        if (!Array.isArray(sizes) || sizes.length !== count ||
-            sizes.some(size => !Number.isFinite(size) || size < 0) ||
-            (sizes.length && Math.abs(sizes.reduce((a, b) => a + b, 0) - 1) > 1e-6)) {
-            throw new Error(`${path}.sizes: must contain one finite nonnegative fraction per child, summing to 1`)
+        for (const key of Object.keys(document)) {
+            if (!WorkspaceDocument.dockZoneDocumentKeys.has(key)) errors.push(`${this.path('document', key)}: is outside the document schema`)
+        }
+        const catalogKnown = WorkspaceDocument.isJsonRecord(document.items),
+              nodesKnown   = WorkspaceDocument.isJsonRecord(document.nodes), catalog = [];
+        let traversable = catalogKnown && nodesKnown, safeReferences = true;
+        if (typeof document.root !== 'string') {
+            errors.push('document.root: must be a node ID');
+            traversable = safeReferences = false
+        }
+        if (!catalogKnown) errors.push('document.items: must be a record');
+        else for (const [key, item] of Object.entries(document.items)) {
+            const path = this.path('document.items', key);
+            if (!WorkspaceDocument.isJsonRecord(item)) {
+                errors.push(`${path}: must be an item record`);
+                traversable = false;
+                continue
+            }
+            for (const field of Object.keys(item)) {
+                if (!WorkspaceDocument.dockZoneItemKeys.has(field)) errors.push(`${this.path(path, field)}: is outside the item schema`)
+            }
+            catalog.push({key, item, path})
+        }
+        if (!nodesKnown) errors.push('document.nodes: must be a record');
+        else for (const [id, node] of Object.entries(document.nodes)) {
+            const path = this.path('document.nodes', id);
+            if (!WorkspaceDocument.isJsonRecord(node)) {
+                errors.push(`${path}: must be a node record`);
+                traversable = false;
+                continue
+            }
+            if (typeof node.type !== 'string' || !Object.hasOwn(WorkspaceDocument.dockZoneNodeKeys, node.type)) {
+                errors.push(`${path}.type: must be a supported node type`);
+                traversable = false;
+                continue
+            }
+            for (const field of Object.keys(node)) {
+                if (!WorkspaceDocument.dockZoneNodeKeys[node.type].has(field)) errors.push(`${this.path(path, field)}: is outside this node type`)
+            }
+            if (node.type === 'split') {
+                const readable = Array.isArray(node.children);
+                this.validateSplit(node, path, readable ? node.children.length : null, errors);
+                if (!readable) {
+                    errors.push(`${path}.children: must be an array`);
+                    traversable = false
+                } else node.children.forEach((childId, index) => {
+                    if (typeof childId !== 'string') {
+                        errors.push(`${path}.children[${index}]: must be a node ID`);
+                        traversable = safeReferences = false
+                    }
+                });
+            } else if (node.type === 'tabs') {
+                if (!Array.isArray(node.items)) {
+                    errors.push(`${path}.items: must be an array`);
+                    traversable = false
+                } else node.items.forEach((itemId, index) => {
+                    if (typeof itemId !== 'string') {
+                        errors.push(`${path}.items[${index}]: must be an item ID`);
+                        traversable = safeReferences = false
+                    }
+                });
+            } else if (node.type === 'edge-zone' && !WorkspaceDocument.isJsonRecord(node.zones)) {
+                errors.push(`${path}.zones: must be a record`);
+                traversable = false
+            }
+        }
+        // Graph traversal still requires readable shapes; the canonical validator can report
+        // malformed node containers and continue checking independent records without recursion.
+        if (traversable && jsonSafe) errors.push(...WorkspaceDocument.computeShapeFingerprint(document).errors);
+        if (catalogKnown && nodesKnown && jsonSafe && safeReferences) {
+            errors.push(...WorkspaceDocument.validate(document))
+        } else {
+            // Safe catalog records still have independent policy failures even when an unrelated
+            // node prevents calling the whole-document validator.
+            catalog.forEach(({key, item, path}) => this.validateItemPolicy(key, item, path, errors))
         }
     }
 
     /**
-     * @summary Rejects non-JSON values and keys that the document clone cannot preserve.
-     * @param {*} value
+     * @summary Applies the same split grammar at the authoring and export boundaries.
+     * @param {Object} node
      * @param {String} path
+     * @param {Number|null} count Null when malformed children prevent checking arity.
+     * @param {String[]} errors
      * @protected
      * @static
      */
-    static validateJson(value, path) {
-        const failure = WorkspaceDocument.findNonJsonValue(value, path);
-        if (failure) throw new Error(`${failure.path}: ${failure.reason}`);
-        const checkKeys = (value, path) => {
-            if (value === null || typeof value !== 'object') return;
-            for (const key of Object.keys(value)) {
-                const childPath = Array.isArray(value) ? `${path}[${key}]` : this.path(path, key);
-                if (key === '__proto__') throw new Error(`${childPath}: is not supported by the document clone boundary`);
-                checkKeys(value[key], childPath);
+    static validateSplit(node, path, count, errors) {
+        const {orientation, sizes} = node;
+
+        if (!this.orientations.includes(orientation)) {
+            errors.push(`${path}.orientation: must be ${this.orientations.join(' or ')}`)
+        }
+
+        if (count === null && sizes === undefined) return;
+        if (!Array.isArray(sizes) || (count !== null && sizes.length !== count) ||
+            sizes.some(size => !Number.isFinite(size) || size < 0) ||
+            (sizes.length && Math.abs(sizes.reduce((a, b) => a + b, 0) - 1) > 1e-6)) {
+            errors.push(`${path}.sizes: must contain one finite nonnegative fraction per child, summing to 1`)
+        }
+    }
+
+    /**
+     * @summary Collects JSON/clone-boundary failures, stopping at an invalid or repeated object.
+     * @param {*} value
+     * @param {String} path
+     * @param {String[]} errors
+     * @param {WeakSet<Object>} [seen=new WeakSet()]
+     * @protected
+     * @static
+     */
+    static validateJson(value, path, errors, seen=new WeakSet()) {
+        if (!Array.isArray(value) && !WorkspaceDocument.isJsonRecord(value)) {
+            const failure = WorkspaceDocument.findNonJsonValue(value, path);
+            if (failure) errors.push(`${failure.path}: ${failure.reason}`);
+            return
+        }
+        if (seen.has(value)) {
+            errors.push(`${path}: cyclic or repeated object is not JSON-serializable`);
+            return
+        }
+        seen.add(value);
+        const array = Array.isArray(value),
+              keys  = array ? [
+                  ...Array.from({length: value.length}, (_, i) => String(i)),
+                  ...Reflect.ownKeys(value).filter(key => key !== 'length' &&
+                      (typeof key !== 'string' || !/^(0|[1-9]\d*)$/.test(key) || Number(key) >= value.length))
+              ] : Reflect.ownKeys(value);
+        for (const key of keys) {
+            const childPath = array ? `${path}[${String(key)}]` : this.path(path, String(key));
+            if (typeof key === 'symbol') errors.push(`${childPath}: symbol keys are not JSON-serializable`);
+            else {
+                if (key === '__proto__') errors.push(`${childPath}: is not supported by the document clone boundary`);
+                if (WorkspaceDocument.forbiddenPreviewKeys.has(key)) errors.push(`${childPath}: runtime-only field must not enter committed dock-zone state`);
+                this.validateJson(value[key], childPath, errors, seen)
             }
-        };
-        checkKeys(value, path)
+        }
     }
 
     /**

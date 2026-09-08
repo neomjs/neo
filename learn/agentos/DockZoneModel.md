@@ -168,6 +168,8 @@ Any of the three node types can be the root. `WorkspaceDocument.normalizeTree` r
 and redundant splits, retaining catalog-only panes. An empty root must be an edge container.
 Unknown pane names, duplicate placements, malformed shapes and unexpected node fields fail with the
 authored path, such as `zones.center.children[1].items[0]`.
+Validation collects independent errors across catalog entries and sibling nodes in one call. It stops
+descending a branch whose shape cannot be read safely and returns no partial document.
 
 Pane keys become item IDs. `componentRef` defaults to the key; wire `title` uses `header.text`, then
 the key. Nullish values use the default. Other defined fields from
@@ -191,6 +193,7 @@ surviving node ID. On failure `config` is `null`. The default is `keepIds: true`
 structural IDs. Export includes the **complete wire catalog**, mapping `title` to the ordinary pane
 `header.text` idiom and retaining unplaced items. It cannot
 reconstruct runtime component configuration that was never persisted.
+Export likewise reports independent catalog and node errors together, without returning partial config.
 Export checks the same split grammar as lowering: missing/unknown orientation and negative sizes
 fail with a document path even though the older wire validator admits those malformed values.
 

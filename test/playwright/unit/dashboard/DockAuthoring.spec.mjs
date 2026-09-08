@@ -154,10 +154,92 @@ test('export refuses split fields that cannot return through the authoring gramm
 
 test('export names malformed options and unsupported node types without throwing', () => {
     const source = Authoring.fromZones({a: {}}, 'a').document;
+    expect(Authoring.toConfig(source, {keepIds: undefined})).toEqual(Authoring.toConfig(source));
+    expect(Authoring.toConfig(source, {keepIds: null}).errors.join()).toContain('options.keepIds');
     expect(Authoring.toConfig(source, null).errors.join()).toContain('options');
     expect(Authoring.toConfig(source, {keepIds: 'yes'}).errors.join()).toContain('options.keepIds');
     source.nodes.root.type = 'constructor';
     const result = Authoring.toConfig(source);
     expect(result.config).toBeNull();
     expect(result.errors.join()).toContain('document.nodes.root.type');
+});
+
+test('lowering reports independent catalog, node and sibling errors in one refusal', () => {
+    const panes = {a: {locked: 'yes'}, b: null, c: {locked: 'yes', metadata: {first: () => {}, second: () => {}}}},
+          zones = {left: {items: ['missing'], extent: 2, resizable: 'yes'},
+              center: {orientation: 'diagonal', sizes: [1], children: ['a', {items: ['b'], activeItemId: 'other'}]}},
+          result = Authoring.fromZones(panes, zones);
+
+    expect(result.document).toBeNull();
+    for (const path of ['panes.a', 'panes.b', 'panes.c.metadata.first', 'panes.c.metadata.second',
+        'zones.left.items[0]', 'zones.left.extent', 'zones.left.resizable',
+        'zones.center.orientation', 'zones.center.sizes', 'zones.center.children[1].activeItemId']) {
+        expect(result.errors.join('\n'), path).toContain(path)
+    }
+    expect(result.errors.join('\n')).not.toContain('unknown pane "b"');
+    expect(result.errors.join('\n')).toContain('panes.c: item "c" locked must be a boolean');
+});
+
+test('lowering stops a cyclic or malformed branch while checking its independent siblings', () => {
+    const zones = {type: 'edge-zone', left: null, right: {items: ['missing']}};
+    zones.center = zones;
+    const result = Authoring.fromZones({a: {pinned: true, autoHidden: true}}, zones);
+
+    expect(result.document).toBeNull();
+    for (const path of ['panes.a', 'zones.left', 'zones.right.items[0]', 'zones.center']) {
+        expect(result.errors.join('\n'), path).toContain(path)
+    }
+    expect(result.errors.join('\n')).toContain('cyclic');
+    expect(result.errors.join('\n')).not.toMatch(/call stack|zones\.center\./);
+});
+
+test('lowering retains JSON admission for symbols, hidden properties and non-JSON array members', () => {
+    const hidden = () => {}, key = Symbol('hidden'),
+          zones  = {left: ['a'], right: {items: ['b']}, center: [hidden]};
+    zones.left[key] = hidden;
+    Object.defineProperty(zones.right, 'opaque', {value: hidden});
+    const result = Authoring.fromZones({a: {}, b: {}}, zones);
+
+    expect(result.document).toBeNull();
+    for (const path of ['zones.left[Symbol(hidden)]', 'zones.right.opaque', 'zones.center[0]']) {
+        expect(result.errors.join('\n'), path).toContain(path)
+    }
+    expect(zones.left[key]).toBe(hidden);
+    expect(Object.getOwnPropertyDescriptor(zones.right, 'opaque').value).toBe(hidden);
+});
+
+test('export reports catalog and sibling node failures even when another node is malformed', () => {
+    const document = {schema: WorkspaceDocument.SCHEMA, root: 'root', items: {a: {locked: 'yes'}, b: null}, nodes: {
+        root    : {type: 'split', orientation: 'diagonal', sizes: [1], children: ['broken', 'tabs']},
+        broken  : null,
+        tabs    : {type: 'tabs', items: ['a'], activeItemId: 'other'},
+        badSplit: {type: 'split', orientation: 'vertical', children: {}, sizes: {}},
+        badTabs : {type: 'tabs', items: {a: true}}
+    }}, before = structuredClone(document), result = Authoring.toConfig(document, {keepIds: 'yes'});
+
+    expect(result.config).toBeNull();
+    for (const path of ['options.keepIds', 'item "a" locked', 'document.items.b',
+        'document.nodes.root.orientation', 'document.nodes.root.sizes', 'document.nodes.broken',
+        'tabs "tabs" activeItemId', 'split "badSplit" children', 'split "badSplit" sizes', 'tabs "badTabs" items']) {
+        expect(result.errors.join('\n'), path).toContain(path)
+    }
+    expect(result.errors.join('\n')).not.toContain('document.nodes.broken.');
+    expect(document).toEqual(before);
+    const canonicalErrors = WorkspaceDocument.validate(document).join('\n');
+    for (const message of ['node "broken"', 'split "badSplit" children', 'split "badSplit" sizes', 'tabs "badTabs" items', 'tabs "tabs" activeItemId']) {
+        expect(canonicalErrors).toContain(message)
+    }
+});
+
+test('export detects a graph cycle without hiding independent catalog and node errors', () => {
+    const document = {schema: WorkspaceDocument.SCHEMA, root: 'root', items: {a: {locked: 'yes'}}, nodes: {
+        root: {type: 'edge-zone', zones: {left: {nodeId: 'root'}, center: {nodeId: 'tabs'}}},
+        tabs: {type: 'tabs', items: ['a'], activeItemId: 'missing'}
+    }}, result = Authoring.toConfig(document);
+
+    expect(result.config).toBeNull();
+    expect(result.errors.join('\n')).toContain('item "a" locked');
+    expect(result.errors.join('\n')).toContain('tabs "tabs" activeItemId');
+    expect(result.errors.join('\n')).toContain('cycle');
+    expect(result.errors.join('\n')).not.toContain('call stack');
 });
