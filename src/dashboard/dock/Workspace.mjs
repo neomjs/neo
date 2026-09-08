@@ -1779,21 +1779,27 @@ class Workspace extends Container {
     /**
      * Commits the engine-owned pin action — docking design record §2.7's collapse-to-rail sequence.
      *
-     * §2.7 specifies a two-step sequence and forbids a composite operation: `setItemPinned(false)`
-     * when the item is pinned (the model rejects `autoHidden` on a pinned item), then
-     * `setItemAutoHidden(true)`. Each step is an INDEPENDENT commit — reduced through
-     * {@link #applyDockZoneOperation} and published through {@link #onDockZoneDocumentChange} on its
-     * own — so both steps stay visible at the class's own write seam, the one `DockService` and
-     * `DockSplitter` already reach a holder through. Folding them into a single published change
-     * would make step 2 bypass that seam, since the seam reduces against the committed `dockModel`
-     * and step 2 needs step 1's result.
+     * §2.7 specifies a two-step sequence and forbids a composite OPERATION — not a multi-operation
+     * commit: `setItemPinned(false)` when the item is pinned (the model rejects `autoHidden` on a
+     * pinned item), then `setItemAutoHidden(true)`. Each step stays an independent, individually
+     * validated reduction through {@link #applyDockZoneOperation}, so both remain visible at the
+     * class's own write seam — the one `DockService` and `DockSplitter` already reach a holder
+     * through. What `#18448` changed is only WHEN the result is published.
      *
-     * A step-2 rejection therefore leaves the item unpinned and still visible. That is §2.7's own
-     * intermediate state, which it calls benign, and it is the price of the independence the row
-     * requires; the alternative buys atomicity by making half the gesture unobservable.
+     * The sequence used to publish after every step, on the premise that publishing assigns
+     * `dockModel` synchronously so the next step could reduce against it. That is true of the direct
+     * path and FALSE under a topology Group, which returns `pending` and advances the field later
+     * inside adopt. Step 2 then reduced against a document where step 1 had not landed, and the model
+     * refused it — silently, because a refusal is a returned `errors` array nobody surfaces.
      *
-     * An UNPINNED item — the ordinary case — is a single step and a single refresh; only collapsing a
-     * pinned pane commits twice.
+     * So the reduction is staged locally — `dockModel` advanced between steps — and published ONCE
+     * with the ordered descriptors. The field is advanced rather than passed as an argument because
+     * this reducer is a consumer-overridable seam whose implementations read `this.dockModel`; an
+     * argument would reach only the implementations that opted in. On refusal the staged field is
+     * restored, so no unpublished document is ever left behind.
+     *
+     * An UNPINNED item — the ordinary case — is a single step and a single publish; only collapsing a
+     * pinned pane reduces twice.
      *
      * **Eligibility is re-derived here, from the current document, and not inherited from the chrome
      * that emitted the intent.** The pin action's binding ({@link Neo.dashboard.dock.projection.HeaderActionPolicy#createActionBindings}) hides it wherever no edge owns the
