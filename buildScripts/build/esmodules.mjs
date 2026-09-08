@@ -1,5 +1,6 @@
 import fs                   from 'fs-extra';
 import path                 from 'path';
+import {fileURLToPath}      from 'node:url';
 import * as Terser          from 'terser';
 import {isDistAppAsset}     from '../util/distAppAssets.mjs';
 import {minifyHtml}         from '../util/minifyHtml.mjs';
@@ -137,24 +138,14 @@ Promise.all(promises).then(() => {
         fs.copySync(docsOutputPath, path.resolve(root, outputBasePath, 'docs/output'))
     }
 
-    // `src/functional/util/HtmlTemplateProcessor.mjs` imports `../../../dist/parse5.mjs`, an esbuild
-    // artifact from `npm run bundle-parse5` that no source root carries — so the copied source
-    // reached a file the output tree never had. Copied here, beside `docs/output`, because it is the
-    // same shape: an artifact the tree needs and the minifier does not produce.
-    //
-    // Guarded, and the guard is NOT dead code — which is worth stating, because it looks like it is.
-    // `templateBuildProcessor` imports the same bundle at module scope, so this script cannot start
-    // without one; but that import resolves relative to THIS FILE, i.e. against the engine package,
-    // while the copy below reads `root`, the workspace being built. Inside this repository those are
-    // the same path and the check does read as unreachable. In a consuming workspace they are not:
-    // the engine supplies the bundle the loader needs and the workspace root has none, so an
-    // unconditional copy fails a build that is otherwise correct.
-    //
-    // Absent, nothing is copied and the guard below names the dangling import honestly. Giving the
-    // workspace case a real source is a packaging question, not a copy-site one.
-    const parse5Path = path.resolve(root, 'dist/parse5.mjs');
-    if (fs.existsSync(parse5Path)) {
-        fs.copySync(parse5Path, path.resolve(root, outputBasePath, 'dist/parse5.mjs'))
+    // These bundles belong to the engine supplying this build, not the consumer's cwd.
+    // Their relative imports survive the source-tree flattening unchanged.
+    for (const name of ['parse5', 'marked']) {
+        const bundlePath = fileURLToPath(new URL(`../../dist/${name}.mjs`, import.meta.url));
+
+        if (fs.existsSync(bundlePath)) {
+            fs.copySync(bundlePath, path.resolve(root, outputBasePath, `dist/${name}.mjs`))
+        }
     }
 
     if (failures.length > 0) {

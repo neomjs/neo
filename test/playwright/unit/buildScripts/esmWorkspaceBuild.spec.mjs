@@ -1,8 +1,9 @@
-import {spawnSync}    from 'child_process';
-import fs             from 'fs-extra';
-import os             from 'os';
-import path           from 'path';
-import {test, expect} from '@playwright/test';
+import {spawnSync}     from 'child_process';
+import fs              from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import {pathToFileURL} from 'node:url';
+import {test, expect}  from '@playwright/test';
 
 /**
  * Drives the real `buildScripts/build/esmodules.mjs` over a synthetic greenfield workspace.
@@ -99,6 +100,38 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         workspace && fs.removeSync(workspace);
         external && fs.removeSync(external);
         workspace = external = null
+    });
+
+    test('browser parser imports retain their engine-owned bundles in consumer output', async () => {
+        workspace = createWorkspace({declareExtraRoot: true});
+
+        // Exercise the real import addresses at both source depths. View lifecycle is outside
+        // this build fixture; the exported function observes the parser the emitted import loads.
+        for (const file of ['src/component/Markdown.mjs', 'src/app/content/Component.mjs']) {
+            const source    = fs.readFileSync(path.join(engineRoot, file), 'utf8'),
+                  statement = source.match(/^import\s+\{marked\}.*$/m)?.[0];
+
+            expect(statement).toBeTruthy();
+            fs.outputFileSync(path.join(workspace, 'node_modules/neo.mjs', file),
+                `${statement}\nexport const render = input => marked.parse(input);\n`)
+        }
+
+        expect(fs.existsSync(path.join(workspace, 'dist/marked.mjs'))).toBe(false);
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, output).toBe(0);
+
+        for (const file of ['src/component/Markdown.mjs', 'src/app/content/Component.mjs']) {
+            const {render} = await import(pathToFileURL(path.join(workspace, 'dist/esm', file)).href);
+
+            expect(render('**consumer**')).toBe('<p><strong>consumer</strong></p>\n')
+        }
+
+        for (const name of ['marked', 'parse5']) {
+            expect(fs.readFileSync(path.join(workspace, `dist/esm/dist/${name}.mjs`)))
+                .toEqual(fs.readFileSync(path.join(engineRoot, `dist/${name}.mjs`)))
+        }
     });
 
     test('a configured workspace builds a tree whose every import resolves', () => {

@@ -179,7 +179,10 @@ export function collectMainContextFailures({mode, contextModules}, workspace, ar
 function createFixture(workspace) {
     const files = {
         'package.json'                    : JSON.stringify({name: 'neo-consumer-fixture', version: '1.0.0', type: 'module'}, null, 4),
-        'apps/probe/data/ConsumerOnly.mjs': 'export default class ConsumerOnly {}\n',
+        'apps/probe/data/ConsumerOnly.mjs':
+            "import Markdown from '../../../node_modules/neo.mjs/src/component/Markdown.mjs';\n" +
+            "import Content from '../../../node_modules/neo.mjs/src/app/content/Component.mjs';\n" +
+            'export default class ConsumerOnly {static consumers = [Markdown, Content]}\n',
         'RootOnly.mjs'                    : 'export default "root-level node script";\n',
         'client/src/Unrelated.mjs'        : 'export default "unrelated application tree";\n'
     };
@@ -281,8 +284,9 @@ async function main() {
         createFixture(workspace);
 
         console.log('check-consumer-runtime-build: packing…');
-        const packed = execFileSync('npm', ['pack', '--pack-destination', workspace], {cwd: ROOT, encoding: 'utf8'})
-            .trim().split('\n').pop().trim();
+        // The caller builds the artifacts; hook-install lifecycle output must not become a filename.
+        const packed = JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', workspace],
+            {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}))[0].filename;
 
         console.log(`check-consumer-runtime-build: installing ${packed} into the fixture…`);
         // The published package declares no runtime dependencies, so a consumer that builds neo's

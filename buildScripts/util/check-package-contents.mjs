@@ -91,6 +91,10 @@ export const FORBIDDEN_PREFIXES = [
  */
 export const REQUIRED_ENTRIES = [
     {
+        path: 'dist/marked.mjs',
+        why : 'Markdown and app content import this browser ESM parser by relative path; consumers do not install the engine devDependencies.'
+    },
+    {
         path: 'dist/parse5.mjs',
         why : 'src/functional/util/HtmlTemplateProcessor.mjs imports this bundle by relative path, and buildScripts/util/templateBuildProcessor.mjs imports it at module scope — so an installed engine needs it to RUN the dist/esm build, not merely to execute the tree that build emits. A consumer cannot rebuild it: parse5 and esbuild are both devDependencies.'
     }

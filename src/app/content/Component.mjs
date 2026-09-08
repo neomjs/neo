@@ -1,5 +1,5 @@
 import Markdown from '../../component/Markdown.mjs';
-import {marked} from '../../../node_modules/marked/lib/marked.esm.js';
+import {marked} from '../../../dist/marked.mjs';
 
 /**
  * @summary Displays interactive content (Markdown) within the Portal application.

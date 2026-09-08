@@ -52,8 +52,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Bundle parse5
-        run: npm run bundle-parse5
+      - name: Bundle browser dependencies
+        run: npm run bundle-browser-deps
 
       # Browser provisioning is cached on the installed Playwright version, and the
       # system libraries are installed only when a launch probe says they are missing —
