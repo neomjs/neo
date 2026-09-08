@@ -1,15 +1,15 @@
 import {setup} from '../../setup.mjs';
 setup({appConfig: {name: 'DockPlacementTest'}});
 
-import {expect, test}           from '@playwright/test';
-import Neo                      from '../../../../src/Neo.mjs';
-import * as core                from '../../../../src/core/_export.mjs';
-import Transaction              from '../../../../src/manager/Transaction.mjs';
-import WindowManager            from '../../../../src/manager/Window.mjs';
-import DragCoordinator          from '../../../../src/manager/DragCoordinator.mjs';
-import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Placement                from '../../../../src/dashboard/dock/window/Placement.mjs';
-import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import {expect, test}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import Transaction       from '../../../../src/manager/Transaction.mjs';
+import WindowManager     from '../../../../src/manager/Window.mjs';
+import DragCoordinator   from '../../../../src/manager/DragCoordinator.mjs';
+import WorkspaceDocument from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Placement         from '../../../../src/dashboard/dock/window/Placement.mjs';
+import WorkspaceSet      from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 
 /** @summary Creates one item-disjoint, validated dock document. @param {String} key @returns {Object} */
 function document(key) {
@@ -37,7 +37,7 @@ test.describe.serial('Dock relative placement participant', () => {
         Transaction.setHistoryDepth({groupId, depth: 5});
         const reserved = Transaction.reserve({groupId, workspaceKey: 'popup'});
         Transaction.bind({...reserved, windowId: popupWindow});
-        workspaces = createDockWorkspaceSet({manager: Transaction, getGroupId: () => groupId, documentModel: WorkspaceDocument});
+        workspaces = Neo.create(WorkspaceSet, {manager: Transaction, getGroupId: () => groupId, documentModel: WorkspaceDocument});
         const docs = {'workstation-main': document('main'), popup: document('popup')};
         for (const key of Object.keys(docs)) {
             workspaces.register(key, {getDocument: () => docs[key], setDocument: value => docs[key] = value})
@@ -49,6 +49,7 @@ test.describe.serial('Dock relative placement participant', () => {
 
     test.afterEach(() => {
         placement?.destroy();
+        workspaces?.destroy();
         Transaction.retireGroup(groupId);
         WindowManager.unregister(mainWindow);
         WindowManager.unregister(popupWindow);

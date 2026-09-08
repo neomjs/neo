@@ -11,12 +11,12 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
 import '../../../../src/tab/Container.mjs';    // registers the `tab-container` ntype the projection emits
-import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
-import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
-import TopologyReconciler       from '../../../../src/dashboard/dock/model/TopologyReconciler.mjs';
-import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
-import TransactionManager       from '../../../../src/manager/Transaction.mjs';
-import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
+import Persistence        from '../../../../src/dashboard/dock/model/Persistence.mjs';
+import TopologyReconciler from '../../../../src/dashboard/dock/model/TopologyReconciler.mjs';
+import WorkspaceSet       from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import TransactionManager from '../../../../src/manager/Transaction.mjs';
+import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
 /**
  * @summary The holder seam pair a multi-window perspective restore reaches an app through.
@@ -93,6 +93,7 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
     const groups = [];
 
     test.afterEach(() => {
+        workspace?.workspaceSet?.destroy();
         workspace?.isDestroyed === false && workspace.destroy();
         workspace = null;
         groups.splice(0).forEach(groupId => TransactionManager.retireGroup(groupId))
@@ -108,7 +109,7 @@ test.describe('Neo.dashboard.dock.window.TopologySeams — the multi-window rest
         const
             groupId = TransactionManager.bind({windowId: `seams-host-${groups.length + 1}`, workspaceKey: 'main'}).groupId,
             vessel  = {document: vesselDoc()},
-            set     = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
+            set     = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
 
         groups.push(groupId);
 

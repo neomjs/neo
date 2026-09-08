@@ -16,7 +16,7 @@ import WorkstationWorkspace     from '../../../../apps/workstation/view/Workspac
 import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary       from '../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
-import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import WorkspaceSet             from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 
 /** @summary Creates a valid, item-disjoint dock document. @param {String} key @param {String} title @returns {Object} */
 function document(key, title = 'before') {
@@ -38,10 +38,13 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
         TransactionManager.setHistoryDepth({groupId, depth: 5});
         const popup = TransactionManager.reserve({groupId, workspaceKey: 'popup'});
         TransactionManager.bind({...popup, windowId: 'workspace-set-transaction-popup'});
-        set = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument})
+        set = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => groupId, documentModel: WorkspaceDocument})
     });
 
-    test.afterEach(() => TransactionManager.retireGroup(groupId));
+    test.afterEach(() => {
+        set?.destroy();
+        TransactionManager.retireGroup(groupId)
+    });
 
     /** @summary Registers a document holder without reading it during registration. @param {String} key @param {Object} options @returns {Object} */
     function holder(key, {project, fail} = {}) {
@@ -62,16 +65,58 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
 
     const write = (workspaces, options = {}) => set.write(workspaces, {cause: 'replace-workspaces', provenance: {origin: 'unit'}, ...options});
 
+    test('registered callbacks survive adapter disposal through queued write, compensation and undo', async () => {
+        const projected   = [],
+              main        = holder('main', {project: context => projected.push(context.preserveItemIds)}),
+              popup       = holder('popup', {fail: value => value.items.popup.title === 'refused'}),
+              participant = TransactionManager.getParticipant(groupId, 'main'),
+              prepare     = participant.prepare,
+              adapterId   = set.id;
+        let release, entered;
+        const gate      = new Promise(resolve => release = resolve),
+              preparing = new Promise(resolve => entered = resolve);
+
+        participant.prepare = async (...args) => {
+            entered();
+            await gate;
+            return prepare(...args)
+        };
+
+        expect(Neo.get(adapterId)).toBe(set);
+        const pending = write({main: document('main', 'queued')});
+        await preparing;
+        set.destroy();
+        release();
+
+        expect(Neo.get(adapterId)).toBeFalsy();
+        expect(TransactionManager.participantKeys(groupId)).toEqual(['main', 'popup']);
+        expect((await pending).snapshot.participants.main).toEqual(document('main', 'queued'));
+        expect(main.document.items.main.title).toBe('queued');
+        await expect.poll(() => projected).toEqual([['popup']]);
+
+        await expect(TransactionManager.write({groupId, cause: 'after-adapter-disposal', changes: [
+            {workspaceKey: 'main', input: document('main', 'compensate')},
+            {workspaceKey: 'popup', input: document('popup', 'refused')}
+        ]})).rejects.toThrow('second setter refused');
+
+        expect(main.document.items.main.title).toBe('queued');
+        expect(popup.document).toEqual(document('popup'));
+        await TransactionManager.undo({groupId});
+        expect(main.document).toEqual(document('main'));
+        await expect.poll(() => projected.length).toBe(2);
+        expect(projected.at(-1)).toEqual(['popup'])
+    });
+
     test('Neural Link A and human B share one Group cursor and undo newest-first', async () => {
-        const main = holder('main'), context = {agentId: 'dock-writer-a', sessionId: 'dock-session-a'};
+        const main   = holder('main'), context = {agentId: 'dock-writer-a', sessionId: 'dock-session-a'};
         const legacy = Neo.create(LegacyTransactionService);
         const client = {transactionService: legacy, writeGuard: Neo.create(WriteGuard)};
-        const dock = Neo.create(DockService, {client}), commands = Neo.create(InstanceService, {client});
+        const dock   = Neo.create(DockService, {client}), commands = Neo.create(InstanceService, {client});
         client.services = {dock, instance: commands};
         const originalGetComponent = Neo.getComponent;
-        const component = {
-            id: 'group-history-holder', topologyGroupId: groupId, workspaceKey: 'main', workspaceSet: set,
-            getDockZoneDocument: () => main.document,
+        const component            = {
+            id                      : 'group-history-holder', topologyGroupId: groupId, workspaceKey: 'main', workspaceSet: set,
+            getDockZoneDocument     : () => main.document,
             onDockZoneDocumentChange: value => main.document = value
         };
         set.register('main', {...main.seams, componentId: component.id});
@@ -117,14 +162,14 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
     });
 
     test('window perspective restore uses the Group cursor and refuses before moving the library pointer', async () => {
-        const main = holder('main'), original = WorkspaceDocument.clone(main.document);
+        const main  = holder('main'), original = WorkspaceDocument.clone(main.document);
         const store = Neo.create(PerspectiveLibrary), dock = Neo.create(DockService);
         for (const [layoutId, title] of [['current', 'before'], ['saved', 'restored']]) {
             const layout = Persistence.capturePerspective(document('main', title), {layoutId, title}).layout;
             expect(store.savePerspective(layout, {activate: layoutId === 'current'}).saved).toBe(true)
         }
         const component = {id: 'restore-holder', topologyGroupId: groupId, workspaceSet: set,
-            perspectiveStore: store, getDockZoneDocument: () => main.document,
+            perspectiveStore        : store, getDockZoneDocument: () => main.document,
             onDockZoneDocumentChange: value => main.document = value};
         set.register('main', {...main.seams, componentId: component.id});
         const lookup = Neo.getComponent, commit = set.commit;
@@ -154,12 +199,12 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
     });
 
     test('a named dock batch prepares both operations before one Group commit', async () => {
-        const main = holder('main'), context = {agentId: 'batch-writer', sessionId: 'batch-session'};
+        const main   = holder('main'), context = {agentId: 'batch-writer', sessionId: 'batch-session'};
         const legacy = Neo.create(LegacyTransactionService), client = {transactionService: legacy, writeGuard: Neo.create(WriteGuard)};
-        const dock = Neo.create(DockService, {client}), commands = Neo.create(InstanceService, {client});
+        const dock   = Neo.create(DockService, {client}), commands = Neo.create(InstanceService, {client});
         client.services = {dock, instance: commands};
         const originalGetComponent = Neo.getComponent;
-        const component = {id: 'batch-holder', topologyGroupId: groupId, workspaceSet: set,
+        const component            = {id: 'batch-holder', topologyGroupId: groupId, workspaceSet: set,
             getDockZoneDocument: () => main.document};
         set.register('main', {...main.seams, componentId: component.id});
         Neo.getComponent = id => id === component.id ? component : originalGetComponent(id);
@@ -186,7 +231,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
 
     test('mixed replay is refused before the first dock or non-dock effect', async () => {
         holder('main');
-        const calls = [], legacy = Neo.create(LegacyTransactionService);
+        const calls   = [], legacy = Neo.create(LegacyTransactionService);
         const service = Neo.create(InstanceService, {client: {transactionService: legacy,
             handleRequest: (...args) => { calls.push(args); return {applied: true} }}});
         try {
@@ -206,14 +251,14 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
         initial.items.second = {componentRef: 'second', title: 'Second', kind: 'panel'};
         initial.nodes.root.items.push('second');
         const popup = Neo.create(PopupWorkspace, {
-            dockModel: initial, rootWorkspace: {resolvePane: () => ({ntype: 'component'})},
+            dockModel      : initial, rootWorkspace: {resolvePane: () => ({ntype: 'component'})},
             topologyGroupId: groupId, workspaceKey: 'popup', workspaceSet: set
         });
         set.register('popup', {componentId: popup.id, getDocument: () => popup.dockModel,
             setDocument: value => popup.dockModel = value});
         try {
             const descriptor = {operation: 'setActiveItem', tabsNodeId: 'root', itemId: 'second'};
-            const result = popup.applyDockZoneOperation(descriptor);
+            const result     = popup.applyDockZoneOperation(descriptor);
             await popup.onDockZoneDocumentChange(result.document, descriptor);
             expect(set.getDocument('popup').nodes.root.activeItemId).toBe('second');
             expect(TransactionManager.get(groupId).history.count).toBe(1);
@@ -229,15 +274,15 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
         main.document.nodes.tabs = main.document.nodes.root;
         main.document.nodes.root = {type: 'edge-zone', zones: {center: {nodeId: 'tabs'}}};
         const initial = WorkspaceDocument.clone(main.document);
-        const root = {
+        const root    = {
             get dockModel() { return main.document },
-            workspaceSet: set, topologyGroupId: groupId,
-            getPopupState: WorkstationWorkspace.prototype.getPopupState,
-            getPopupStates: WorkstationWorkspace.prototype.getPopupStates,
-            stateProvider: TransactionManager.getProvider(groupId),
-            resolvePane: () => ({ntype: 'component'}),
+            workspaceSet                 : set, topologyGroupId: groupId,
+            getPopupState                : WorkstationWorkspace.prototype.getPopupState,
+            getPopupStates               : WorkstationWorkspace.prototype.getPopupStates,
+            stateProvider                : TransactionManager.getProvider(groupId),
+            resolvePane                  : () => ({ntype: 'component'}),
             createVesselWorkspaceDocument: WorkstationWorkspace.prototype.createVesselWorkspaceDocument,
-            tearOutHandlers: {capturePane: () => true, adoptPane() {
+            tearOutHandlers              : {capturePane: () => true, adoptPane() {
                 expect(main.document.items[itemId]).toBeUndefined();
                 expect(TransactionManager.get(groupId).history.count).toBe(1)
             }}
@@ -397,12 +442,13 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
 
     test('the model seam is required by queued writes without changing synchronous adoption', async () => {
         const main   = holder('main');
-        const legacy = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId});
+        const legacy = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => groupId});
         legacy.register('main', main.seams);
 
         expect(legacy.adoptAll({main: document('main', 'synchronous')})).toBe(true);
         await expect(legacy.write({main: document('main', 'queued')}, {cause: 'test'})).rejects.toThrow(/injected documentModel/);
         expect(main.document.items.main.title).toBe('synchronous');
-        expect(main.writes).toHaveLength(1)
+        expect(main.writes).toHaveLength(1);
+        legacy.destroy()
     })
 });

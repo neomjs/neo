@@ -342,8 +342,8 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                 getForeignDocument: () => source,
                 resolveOwnershipId: () => 'group-1',
             sortGroup         : 'dock-demo',
-                windowId          : 'window-b',
-                workspaceId       : 'B'
+                windowId   : 'window-b',
+                workspaceId: 'B'
             });
 
             const result = participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceOwnershipId: 'group-1', dockSourceWorkspaceId: 'A'});
@@ -1156,10 +1156,10 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         });
 
         test('a registered native popup supplies its own document and refuses empty or multi-item single-pane drags', async () => {
-            const {default: manager}       = await import('../../../../src/manager/Transaction.mjs');
-            const {createDockWorkspaceSet} = await import('../../../../src/dashboard/dock/window/WorkspaceSet.mjs');
-            const groupId                  = manager.bind({windowId: 'native-popup-owner-root', workspaceKey: 'main'}).groupId;
-            const pane                     = {id: 'pane-terminal', isDestroyed: false,
+            const {default: manager}      = await import('../../../../src/manager/Transaction.mjs');
+            const {default: WorkspaceSet} = await import('../../../../src/dashboard/dock/window/WorkspaceSet.mjs');
+            const groupId                 = manager.bind({windowId: 'native-popup-owner-root', workspaceKey: 'main'}).groupId;
+            const pane                    = {id: 'pane-terminal', isDestroyed: false,
                 dockGroupNodeId: 'stale-stack', dockSourceNodeId: 'stale-tabs'};
             const workspace = createWorkspaceStub({
                 dockModel    : targetDoc(), topologyGroupId: groupId,
@@ -1172,7 +1172,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             delete popup.nodes['main-tabs'];
             delete popup.nodes.root.zones.center;
 
-            const workspaceSet = createDockWorkspaceSet({manager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
+            const workspaceSet = Neo.create(WorkspaceSet, {manager, getGroupId: () => groupId, documentModel: WorkspaceDocument});
             workspaceSet.register('A', {getDocument: () => workspace.dockModel, setDocument: value => workspace.dockModel = value});
             workspaceSet.register('popup-document', {getDocument: () => popup, setDocument: value => popup = value});
             workspace.nativeWindows.registerSource(workspace.id, {
@@ -1201,6 +1201,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                 expect(participation.target.getNativeWindowDrag('native-popup-live'), 'an empty registered owner cannot borrow the main document').toBeNull()
             } finally {
                 participation?.destroy();
+                workspaceSet.destroy();
                 manager.retireGroup(groupId)
             }
         });

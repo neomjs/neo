@@ -8,11 +8,25 @@ setup({
     mockMain        : false
 });
 
-import {test, expect}           from '@playwright/test';
-import Neo                      from '../../../../src/Neo.mjs';
-import * as core                from '../../../../src/core/_export.mjs';
-import TransactionManager       from '../../../../src/manager/Transaction.mjs';
-import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import {test, expect}     from '@playwright/test';
+import {execFileSync}     from 'node:child_process';
+import {fileURLToPath}    from 'node:url';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import TransactionManager from '../../../../src/manager/Transaction.mjs';
+import WorkspaceSet       from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+
+class ObservedWorkspaceSet extends WorkspaceSet {
+    static config = {className: 'Test.Unit.DockWorkspaceSet.Observed'}
+
+    /** @summary Counts real participant resolution through inherited public methods. @param {String} id @returns {Object|null} */
+    getParticipant(id) {
+        this.resolutions = (this.resolutions || 0) + 1;
+        return super.getParticipant(id)
+    }
+}
+
+Neo.setupClass(ObservedWorkspaceSet);
 
 /**
  * @summary The dock's `{workspaceId → document}` view of a Group's participant membership (docking
@@ -29,10 +43,11 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over 
         // The host window binds into a Group the way its app registration does; the adapter reads
         // that Group back through the same seam the hosts hand it.
         groupId = TransactionManager.bind({windowId: 'workspace-set-host', workspaceKey: 'main'}).groupId;
-        set     = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => groupId})
+        set     = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => groupId})
     });
 
     test.afterEach(() => {
+        set?.destroy();
         TransactionManager.retireGroup(groupId);
         TransactionManager.reconnectLeaseMs = 20000
     });
@@ -53,8 +68,45 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over 
         return holder
     }
 
+    test('the registered adapter dispatches inherited operations through its subclass', () => {
+        const extended = Neo.create(ObservedWorkspaceSet, {manager: TransactionManager, getGroupId: () => groupId}),
+              holder   = createHolder();
+
+        try {
+            expect(Neo.ns('Neo.dashboard.dock.window.WorkspaceSet', false)).toBe(WorkspaceSet);
+            expect(Neo.get(extended.id)).toBe(extended);
+            extended.register('main', holder.seams);
+            expect(extended.has('main')).toBe(true);
+            expect(extended.getDocument('main')).toBe(holder.document);
+            expect(extended.resolutions).toBe(2);
+            expect(Object.hasOwn(extended, 'has')).toBe(false)
+        } finally {
+            extended.destroy()
+        }
+    });
+
+    test('configured overwrites reach the registered adapter before creation', () => {
+        const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `
+            await import('./src/Neo.mjs');
+            await import('./src/core/_export.mjs');
+            Neo.overwrites = {};
+            let calls = 0;
+            Neo.ns('Neo.dashboard.dock.window.WorkspaceSet', true, Neo.overwrites).getParticipant =
+                () => { calls++; return {getDocument: () => 'overwritten'} };
+            const {default: WorkspaceSet} = await import('./src/dashboard/dock/window/WorkspaceSet.mjs');
+            const adapter = Neo.create(WorkspaceSet);
+            const document = adapter.getDocument('main');
+            adapter.destroy();
+            process.stdout.write(JSON.stringify({
+                registered: WorkspaceSet === Neo.dashboard.dock.window.WorkspaceSet, document, calls
+            }));
+        `], {cwd: fileURLToPath(new URL('../../../../', import.meta.url)), encoding: 'utf8'}));
+
+        expect(result).toEqual({registered: true, document: 'overwritten', calls: 1})
+    });
+
     test('before the host binds there is no membership: registration is refused and every lookup fails closed', () => {
-        const unbound = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => null}),
+        const unbound = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => null}),
               holder  = createHolder({rootId: 'root-early'});
 
         expect(unbound.register('main', holder.seams), 'no Group to join').toBe(false);
@@ -64,7 +116,8 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over 
         expect(unbound.size).toBe(0);
         expect(unbound.unregister('main')).toBe(false);
         expect(unbound.adoptAll({main: {rootId: 'x'}}), 'nothing to adopt into').toBe(false);
-        expect(TransactionManager.participantKeys(groupId), 'the refusal wrote nowhere').toEqual([])
+        expect(TransactionManager.participantKeys(groupId), 'the refusal wrote nowhere').toEqual([]);
+        unbound.destroy()
     });
 
     test('membership is the Group\'s, and it outlives the binding: a released and expired slot keeps the participants and the Group', async () => {
@@ -88,7 +141,7 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over 
         // The fixture's resolver is the hosts' shape: a Group remembered once, never re-derived. A
         // resolver reading the LIVE binding instead loses the membership with the window — which is
         // why the engine Workspace, the Workstation and DemoB remember their Group.
-        const liveResolver = createDockWorkspaceSet({
+        const liveResolver = Neo.create(WorkspaceSet, {
             getGroupId: () => TransactionManager.findByWindow('workspace-set-host')?.groupId ?? null,
             manager   : TransactionManager
         });
@@ -98,7 +151,8 @@ test.describe('Neo.dashboard.dock.window.WorkspaceSet — the dock adapter over 
 
         // Retirement stays the owner's explicit decision.
         expect(set.unregister('main')).toBe(true);
-        expect(set.ids()).toEqual([])
+        expect(set.ids()).toEqual([]);
+        liveResolver.destroy()
     });
 
     test('register → resolve: document truth flows through the owner seam, live', () => {

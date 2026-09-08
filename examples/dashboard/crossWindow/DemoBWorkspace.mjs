@@ -20,7 +20,7 @@ import InteractionService                 from '../../../src/ai/client/Interacti
 import {createDockKeyboardCommands}       from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
 import {createDockTearOutHandlers}        from '../../../src/dashboard/dock/window/TearOut.mjs';
 import {createDockVesselEmbodiment}       from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
-import {createDockWorkspaceSet}           from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import WorkspaceSet                       from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import VesselPark                         from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                 from '../../../src/manager/Transaction.mjs';
@@ -493,7 +493,7 @@ class DemoBWorkspace extends Container {
         // admitted at registration, and a Group the carrier already held is known before this
         // constructor runs; a first boot's minted identity arrives with its accepted binding, and
         // `onTopologyBind` registers the participants then.
-        me.workspaceSet = createDockWorkspaceSet({manager: TransactionManager, getGroupId: () => me.topologyGroupId, documentModel: WorkspaceDocument});
+        me.workspaceSet = Neo.create(WorkspaceSet, {manager: TransactionManager, getGroupId: () => me.topologyGroupId, documentModel: WorkspaceDocument});
         me.adoptTopologyGroup(TransactionManager.findByWindow(me.windowId)?.groupId ?? null);
 
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
@@ -4577,6 +4577,7 @@ class DemoBWorkspace extends Container {
         me.dockPreviewProducer?.destroy();
         me.interactionService?.destroy();
         me.perspectiveStore?.destroy();
+        me.workspaceSet?.destroy();
 
         Object.values(me.paneCache).forEach(pane => {
             pane?.isDestroyed || pane?.destroy?.()

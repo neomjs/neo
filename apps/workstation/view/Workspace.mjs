@@ -27,7 +27,7 @@ import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
 }                                                from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
-import {createDockWorkspaceSet}                 from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import WorkspaceSet                             from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import VesselPark                               from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import PreviewContract                          from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
@@ -436,14 +436,14 @@ class Workspace extends DockWorkspace {
         me.topologyLibrary ??= Neo.create(TopologyLibrary, {
             collection: Persistence.createTopologyCollection([], {activeLayoutId: null}).collection
         });
-        me.workspaceSet = createDockWorkspaceSet({documentModel: WorkspaceDocument, manager: TransactionManager, getGroupId: () => me.topologyGroupId});
+        me.workspaceSet = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, manager: TransactionManager, getGroupId: () => me.topologyGroupId});
 
         for (const [workspaceId, document] of Object.entries(me.initialTopology?.workspaces ?? {})) {
             if (workspaceId === Workspace.MAIN_WORKSPACE_ID) continue;
             const host = Neo.create(PopupWorkspace, {
-                dockModel: WorkspaceDocument.clone(document), flex: 1, rootWorkspace: me,
+                dockModel      : WorkspaceDocument.clone(document), flex: 1, rootWorkspace: me,
                 topologyGroupId: me.topologyGroupId, workspaceKey: workspaceId, workspaceSet: me.workspaceSet,
-                stateProvider: {module: StateProvider, parent: me.stateProvider}
+                stateProvider  : {module: StateProvider, parent: me.stateProvider}
             });
             const state = {
                 committed   : true,
@@ -1160,7 +1160,7 @@ class Workspace extends DockWorkspace {
             },
             previewToOperation   : preview => PreviewContract.previewToOperation(preview),
             // Docking design record §2.3: every window of this root declares the root's Group as its commit authority.
-            resolveOwnershipId   : () => me.resolveTopologyGroup() ?? null,
+            resolveOwnershipId    : () => me.resolveTopologyGroup() ?? null,
             resumeNativeWindowDrag: isMain ? itemId => me.nativeVesselParkHandlers.onGestureTerminal({
                 itemId,
                 outcome: 'rejected'
@@ -1169,7 +1169,7 @@ class Workspace extends DockWorkspace {
                 itemId : draggedItem?.dockItemId,
                 outcome: 'committed'
             }) : null,
-            sortGroup          : Workspace.CROSS_WINDOW_SORT_GROUP,
+            sortGroup              : Workspace.CROSS_WINDOW_SORT_GROUP,
             suspendNativeWindowDrag: isMain ? (itemId, data) => {
                 me.vesselConversionTargetWindowId = data?.targetWindowId ?? null;
 
@@ -1290,7 +1290,7 @@ class Workspace extends DockWorkspace {
      * @returns {Object|null}
      */
     getPopupState(workspaceId) {
-        const id = TransactionManager.getParticipant(this.topologyGroupId, workspaceId)?.componentId;
+        const id    = TransactionManager.getParticipant(this.topologyGroupId, workspaceId)?.componentId;
         const owner = id && Neo.getComponent(id);
         return owner?.rootWorkspace === this ? owner.runtimeState ?? null : null
     }
@@ -1671,10 +1671,10 @@ class Workspace extends DockWorkspace {
         if (!descriptor || !me.workspaceSet.has(sourceWorkspaceId) || !me.workspaceSet.has(targetWorkspaceId)) return false;
         try {
             const committed = await me.workspaceSet.transfer(descriptor, {provenance: {origin: 'human'}});
-            const receipt = me.lastCrossWindowTransfer = {
-                applied: true, descriptor, sourceWorkspaceId, targetWorkspaceId,
+            const receipt   = me.lastCrossWindowTransfer = {
+                applied      : true, descriptor, sourceWorkspaceId, targetWorkspaceId,
                 transactionId: committed.transactionId, phases: ['documents-adopted'],
-                reconciled: false, closeRequested: false, topologyExited: false
+                reconciled   : false, closeRequested: false, topologyExited: false
             };
             const source = me.getPopupState(sourceWorkspaceId), target = me.getPopupState(targetWorkspaceId);
             await Promise.all([me.refreshPromise, source?.host?.refreshPromise, target?.host?.refreshPromise]);
@@ -1695,7 +1695,7 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     async mountVesselWorkspace(workspaceId) {
-        const state = this.getPopupState(workspaceId), host = state?.host;
+        const state  = this.getPopupState(workspaceId), host = state?.host;
         const target = state?.renderTarget ?? state?.app?.mainView;
         if (!host || host.isDestroyed || !target || target.isDestroyed) return false;
         host.parent?.remove(host, false, true);
@@ -3096,15 +3096,15 @@ class Workspace extends DockWorkspace {
             return true
         }
         const workspaceId = vessel.workspaceKey ?? Workspace.vesselWorkspaceId(itemId);
-        const existing = me.getPopupState(workspaceId);
-        let state = existing;
+        const existing    = me.getPopupState(workspaceId);
+        let   state       = existing;
         try {
             if (!me.tearOutHandlers.capturePane(itemId)) throw new Error(`No live pane for ${itemId}`);
             if (!state) {
                 const host = Neo.create(PopupWorkspace, {
-                    dockModel: me.createVesselWorkspaceDocument(itemId), flex: 1,
+                    dockModel    : me.createVesselWorkspaceDocument(itemId), flex: 1,
                     rootWorkspace: me, topologyGroupId: me.topologyGroupId,
-                    workspaceKey: workspaceId, workspaceSet: me.workspaceSet,
+                    workspaceKey : workspaceId, workspaceSet: me.workspaceSet,
                     stateProvider: {module: StateProvider, parent: me.stateProvider}
                 });
                 state = {host, itemId, workspaceId, committed: false, disconnected: true,
@@ -3113,9 +3113,9 @@ class Workspace extends DockWorkspace {
                 host.runtimeState = state
             }
             await me.workspaceSet.transfer({
-                operation: 'transferItem', itemId, sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                operation        : 'transferItem', itemId, sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                 targetWorkspaceId: workspaceId,
-                target: {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(itemId)}
+                target           : {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(itemId)}
             }, {provenance: {origin: 'human'}});
             state.committed = true;
             me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.id, itemId) || null);
@@ -4837,6 +4837,7 @@ class Workspace extends DockWorkspace {
         me.tourRunner?.destroy();
         me.dockService?.destroy();
         me.perspectiveStore?.destroy();
+        me.workspaceSet?.destroy();
         me.topologyLibrary?.destroy();
         me.dragAffordances?.destroy();
         me.interactionService?.destroy();
