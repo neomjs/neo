@@ -11,8 +11,8 @@ are only five of them. Everything else belongs to one engine class.
 
 `Neo.dashboard.dock.Workspace` centralizes the host loop that connects a dock document to its live projection:
 refresh scheduling, reconciliation, motion and cross-zone drops. Both the minimal example and the workstation use
-that engine class today. Every snippet in this guide follows one of those live consumers, so you can compare the
-adoption pattern against a small workspace or a feature-rich one.
+that engine class today. The basic path below uses initial declarations; the existing consumers also show the advanced
+extension points for richer application integration.
 
 ## One class, five decisions
 
@@ -22,8 +22,8 @@ flowchart TD
     classDef engine fill:#1b2e4e,stroke:#3498db,stroke-width:1px,color:#eee
 
     Extend["extends Neo.dashboard.dock.Workspace"]:::yours
-    Seed["Decision 1 — seed + mount<br/>your initial document, your shell placement"]:::yours
-    Panes["Decision 2 — resolvePane<br/>your components become panes"]:::yours
+    Seed["Decision 1 — zones<br/>your initial arrangement"]:::yours
+    Panes["Decision 2 — panes<br/>your component configurations"]:::yours
     Policy["Decision 3 — policies<br/>pinnable · movable · closable<br/>the reducer is the authority"]:::yours
     Skin["Decision 4 — skin by tokens<br/>override anchor, never repaint internals"]:::yours
     Persist["Decision 5 — persistence<br/>saved layouts + perspectives"]:::yours
@@ -47,139 +47,133 @@ dock host that resolves to no live container **throws** instead of leaving stale
 `null` document projects a clean empty shell instead of exploding. Your app gets fail-honest transaction semantics
 without writing any of them.
 
-## Decision 1 — seed the document, mount the first shell
+## Decision 1 — declare the initial arrangement
 
-The class owns the loop, not your boot state. Two responsibilities stay with you forever, and the engine refuses —
-loudly — to guess either one:
+A basic workspace needs two declarations: the components you want to offer, and where they begin.
+The engine turns them into a dock document and mounts its first shell. Your subclass does not need
+a constructor, a resolver or a pane cache:
 
 ```javascript readonly
 import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
-import WorkspaceDocument from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Persistence from '../../../src/dashboard/dock/model/Persistence.mjs';
-
-const initialDockModel = {
-    schema: 'neo.dock.zone.v1',
-    root  : 'root',
-    items : {
-        editor : {componentRef: 'Editor',  title: 'Editor',  kind: 'panel'},
-        preview: {componentRef: 'Preview', title: 'Preview', kind: 'panel'}
-    },
-    nodes: {
-        root         : {type: 'edge-zone', zones: {center: {nodeId: 'main-split'}}},
-        'main-split' : {type: 'split', orientation: 'horizontal', children: ['editor-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
-        'editor-tabs': {type: 'tabs', items: ['editor'],  activeItemId: 'editor'},
-        'side-tabs'  : {type: 'tabs', items: ['preview'], activeItemId: 'preview'}
-    }
-};
+import EditorPanel from './EditorPanel.mjs';
 
 class Workspace extends DockWorkspace {
     static config = {
         className: 'MyApp.view.Workspace',
-        layout   : {ntype: 'vbox', align: 'stretch'}
-    }
-
-    construct(config) {
-        super.construct(config);
-
-        this.dockModel = WorkspaceDocument.clone(initialDockModel);
-        this.add(this.projectDockModel())
+        layout   : {ntype: 'vbox', align: 'stretch'},
+        panes    : {
+            editor: {module: EditorPanel, header: {text: 'Editor'}},
+            preview: {
+                module: () => import('./PreviewPanel.mjs'),
+                header: {text: 'Preview'}
+            }
+        },
+        zones: {
+            center: {
+                orientation: 'horizontal',
+                children   : ['editor', 'preview'],
+                sizes      : [0.6, 0.4]
+            }
+        }
     }
 }
+
+export default Neo.setupClass(Workspace);
 ```
 
-That is a complete, working docking workspace: two tabbed zones in a resizable split, drag a tab across zones, done.
-The document is plain serializable JSON — an item **catalog** (what exists) and a **node tree** (where it lives) —
-and `WorkspaceDocument.clone` gives your seed a private copy so later commits never mutate your constant.
+Each string names a pane; an array groups panes into tabs. A split declares its orientation and
+children. An edge map places those groups around a center. You describe the arrangement directly,
+without maintaining a separate table of node IDs and references. IDs are generated once and then
+travel with the committed document.
 
-Initial edge bands use the same nested descriptor shape. Give the band a committed normalized extent and opt it into
-the splitter explicitly:
+For example, a right-hand inspector band can declare its size and resize permission in the same place:
 
 ```javascript readonly
 zones: {
-    center: {nodeId: 'main-split'},
-    right : {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}
+    center: 'editor',
+    right : {items: ['preview'], extent: 0.25, resizable: true}
 }
 ```
 
-The adapter projects the right boundary splitter automatically. Move frames resize only the real band under its CSS
-min/max bounds; release emits one `resizeEdgeZone` operation. The descriptor is also what auto-hide reveal and
-perspective restore read, so there is no app-side size map to maintain.
+The engine projects the splitter, previews its movement, and commits the resulting normalized
+extent. Tab activation likewise commits the selected item automatically. Neither interaction needs
+an application listener or a parallel size/selection map.
 
-Split boundaries need even less from you: every projected split splitter previews the conserved adjacent pair live by
-default — both panes track the pointer with their total constant, bounded by both members' CSS min/max — and release
-commits one `resizeSplit` equal to the final preview. There is nothing to enable; set `liveResize: false` on a
-splitter only when you explicitly want the deferred proxy-and-commit presentation back.
+**Initial means once.** Workspace captures the effective `panes` and `zones` in
+`onAfterConstructed`, after the complete synchronous `construct` and `onConstructed` chains,
+before the `constructed` event and `init()`. You can compute initial values in either construction
+hook, including after `super.onConstructed()`. Mounting still goes through the existing
+`afterSetMounted` path. Changing or mutating either declaration after capture does not replace the
+active document or the captured pane definitions; these are plain initial configs, not live
+declaration bindings.
 
-Tab activation is equally automatic. Every projected tab strip converts its live `activeIndex` change into
-`setActiveItem`; this does not depend on close-action chrome being enabled. Do not mirror the selected tab in app state
-or add a listener of your own—the next projection reads the committed `activeItemId`.
+A valid supplied `dockModel` takes precedence over `zones`. This lets a caller restore a saved
+document while supplying the current runtime pane configurations. Invalid supplied documents and
+invalid declarations fail visibly with paths; they do not silently fall back to another layout.
+With neither declarations nor a document, the existing empty-workspace behavior remains available.
 
-Two placement configs cover the layouts real apps actually have. The example app
-(`examples/dashboard/dock/MainContainer.mjs`) puts a perspective toolbar above its shell, so it declares
-`dockShellIndex: 1` (the shell is the *second* child) and `dockProjectionConfig: {flex: 1}` (the shell takes the
-remaining height in the vbox). The workstation goes further: it mounts the projection inside a dedicated child —
-`dockHostReference: 'dock-host'` — because its drag-preview renderer and drop indicators live *beside* the projected
-shell as persistent overlay siblings that must survive every re-projection. Start with neither; add them when your
-chrome asks for them.
-
-Getting these two wrong is not subtle, which is the point: the reconciler refuses to run without a mounted shell at
-the declared index, with an error that names what is missing. No half-rendered workspace, no silent guess.
-
-**Keep the application root and workspace separate.** A `DockWorkspace` is application content, not an application
-root. Your standalone app still gets a real `Neo.container.Viewport`, and the dock workspace is its flex child:
+**Keep the application root and workspace separate.** Your app still gets a real
+`Neo.container.Viewport`, with the workspace as its flex child:
 
 ```javascript readonly
 import Viewport from '../../src/container/Viewport.mjs';
-import MainContainer from './MainContainer.mjs'; // extends Neo.dashboard.dock.Workspace
+import Workspace from './Workspace.mjs';
 
 Neo.app({
     mainView: {
         module: Viewport,
-        items : [{module: MainContainer, flex: 1}]
+        items : [{module: Workspace, flex: 1}]
     }
 })
 ```
 
-The Viewport now owns what only a Viewport should own: mounting against `document.body`, the `neo-viewport` root
-class, the body contract and its own stylesheet. Do **not** copy those configs onto your workspace, and never add
-`'Neo.container.Viewport'` to `additionalThemeFiles` to make a dashboard impersonate the root.
+The Viewport owns mounting against `document.body` and its stylesheet. Workspace already declares
+the dashboard theme dependency; if you replace `additionalThemeFiles`, retain
+`'Neo.dashboard.Container'` beside your additional dependencies.
 
-The narrower theme rule still matters. `DockWorkspace` already declares `'Neo.dashboard.Container'`, which carries
-the dock token and motion contract — splitter cursors, `--dock-*` custom properties and reveal keyframes. A subclass
-that declares its own `additionalThemeFiles` list replaces the inherited list, so repeat the dashboard entry beside
-your genuine extra dependencies. That rule preserves the workspace's own styling; it does not license borrowing a
-parent class's stylesheet instead of creating the parent.
+Start with the shell inside the workspace itself. When persistent app chrome needs another
+placement, `dockShellIndex` chooses its child index, `dockProjectionConfig` configures the projected
+root, and `dockHostReference` selects a dedicated child host. These are placement options, not a
+request to implement another mount loop. Existing consumers that explicitly seed a shell can keep
+that advanced path.
 
-## Decision 2 — your components become panes
+## Decision 2 — configure the panes your application needs
 
-The document's item catalog says *what exists*; `resolvePane` says *what renders it*. It is the one hook every
-consumer overrides, and it receives the stable item id plus the persisted item record:
+A pane declaration is an ordinary component config. Use a registered `module`, `className` or
+`ntype`; use a lazy `module: () => import(...)` for a surface that should load on activation.
+Container and Card retain their normal creation and lazy-loading roles. An auto-hidden pane first
+loads when its rail is revealed.
+
+Two keys may use the same component class with different text, bindings or other config. They get
+separate component identities and keep their own state through tab moves and rail transitions.
+The pane key is its dock item identity and default persisted `componentRef`; `header.text` supplies
+its catalog title. Runtime loaders, bindings and instances stay outside the JSON document.
+
+Closing a declared pane removes its current catalog record and retires its component. The initial
+declaration survives, so a control can reopen it without rebuilding the catalog:
 
 ```javascript readonly
-resolvePane(itemId, item) {
-    return {
-        editor : {module: EditorPanel,  flag: 'editor'},
-        preview: {module: PreviewPanel, value: this.currentUrl}
-    }[itemId] ?? super.resolvePane(itemId, item)
-}
+const result = await workspace.openPane('preview', {
+    operation : 'addTab',
+    tabsNodeId: targetTabsId
+});
 ```
 
-Three return shapes are legal, and the two live consumers demonstrate the range:
+The target uses the current committed document's node ID. The call uses `Operations.addItem` and
+the normal host commit path; success includes the projection. An unknown declaration, invalid
+placement or already-existing record returns errors without a partial insertion. A detached item
+still has a catalog record: move or restore it through the normal operations rather than reopening
+it. Closing and reopening creates a fresh component; moving an existing pane preserves it.
 
-- **A config object** (the example's choice): the engine creates the component when the pane first materializes. The
-  class stamps a FLIP marker class onto plain configs automatically, so your pane joins the motion correlation
-  without you carrying any marker by hand.
-- **A live component instance** (the workstation's choice — it caches twenty panes across re-projections and tour
-  resets): returned untouched, never decorated. Identity resolves through the committed document, and the reconciler
-  hands the *same instance* into the next projection. This is the mechanism behind the system's signature move — a
-  ticking clock that keeps ticking through splits, tab moves, and tear-outs.
-- **Nothing you claim**: the inherited default renders a titled placeholder, so an item nobody resolved is visible
-  scaffolding instead of a silent hole. The default renders the title as **escaped text** — persisted titles are
-  data, never markup, and the class's unit suite pins that with a hostile `<img onerror>` title.
+The existing Reload action delegates to a pane's `dockReload()` when available. Its recreate fallback
+can also rebuild a declared pane: the fresh instance gets a new runtime ID while its dock identity,
+document and tab chrome remain. An already-loaded lazy pane uses its loaded class for that replacement.
 
-`resolveRevealPane` is the same resolution for auto-hide reveal overlays and defaults to `resolvePane`; override it
-only when a reveal should render differently from the tabbed flow. `getPaneHeaderText` feeds placeholder and default
-titles — the workstation uses it to give cached panes stable header names.
+For an advanced consumer, `resolvePane(itemId, item)` remains an extension point for application-owned
+instances or custom configs. `resolveRevealPane` can specialize reveal presentation.
+The inherited resolver handles declared keys and otherwise provides the existing escaped-title
+placeholder. Applications that override resolution retain responsibility for their custom pane
+lifetimes. The basic declaration path needs neither override.
 
 ## Decision 3 — policies live in the model, not in your UI
 

@@ -118,6 +118,12 @@ class Rail extends Container {
          */
         resolveComponentRef: null,
         /**
+         * Optional lifetime owner for a materialized reveal pane. True parks it on release;
+         * that owner resolves and retires the instance independently of this rail's chrome.
+         * @member {Function|null} retainRevealPane=null
+         */
+        retainRevealPane: null,
+        /**
          * Whether the item this rail currently reveals is committed locked — bound by the projection
          * to the workspace's header truth, so a lock transition while the reveal stays open reaches
          * the revealed pane through {@link #syncDockLockPane} without a second materialization.
@@ -432,6 +438,8 @@ class Rail extends Container {
      * cached reveal pane that outlives the flow pane's creation unregisters that id when the rail
      * tears down, leaving a live pane nobody can address and a refresh that throws mid-teardown.
      * Destroying it here, while it is still the id's only holder, keeps the registry honest.
+     * A Workspace which retains declared panes supplies retainRevealPane; those instances are
+     * detached without destruction and resolved by that owner on the next projection.
      *
      * Live instances are never cached (parked, never owned — see {@link #syncRevealPane}), so a
      * consumer's own pane cannot be destroyed through this path.
@@ -447,7 +455,7 @@ class Rail extends Container {
      * in-flight update that still diffs the pane's vnode — either one wedges the refresh (measured:
      * a reconcile whose `promiseUpdate` never settles).
      * @param {String} itemId
-     * @returns {Promise<void>} Settles once the pane is gone from the DOM and the registry.
+     * @returns {Promise<void>} Settles once the pane leaves this rail's slot and ownership.
      * @protected
      */
     async releaseRevealPane(itemId) {
@@ -473,19 +481,19 @@ class Rail extends Container {
             }
 
             parent = pane.parent;
+            const retain = me.retainRevealPane?.(pane, itemId) === true;
 
             // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
             // resolve a slot that no longer lists it — go through the parent only while it does.
             if (parent?.items?.includes(pane)) {
-                // `removeAt` splices the vdom BEFORE the payload is built and destroys the pane, so
-                // the removal it publishes never references the instance; hand its landing back.
-                parent.remove(pane, true);
+                // Splice the slot before publishing, then let the removal land before reuse.
+                parent.remove(pane, !retain);
                 await parent.promiseUpdate()
             } else {
                 // Parked: the dismissal already spliced it out, but that update may still be in
                 // flight with the pane's vnode in its diff — let it land before the instance goes.
                 await parent?.promiseUpdate?.();
-                pane.isDestroyed || pane.destroy()
+                retain || pane.isDestroyed || pane.destroy()
             }
         } finally {
             // `destroy()` deletes own properties, so a rail torn down across the awaits above has no
@@ -504,13 +512,22 @@ class Rail extends Container {
     destroy(...args) {
         let me = this;
 
+        const slot = me.revealOverlay?.paneSlot, pane = slot?.items?.[0];
+        if (pane && me.retainRevealPane?.(pane, me.revealOverlay.revealPaneItemId) === true) {
+            slot.remove(pane, false)
+        }
+
         me.syncOutsidePointerListener(false);
         me.revealMachine?.destroy();
         me.revealMachine = null;
         me.revealOverlay = null;
 
-        Object.values(me.revealPaneCache).forEach(pane => {
-            pane?.isDestroyed || pane?.destroy?.()
+        Object.entries(me.revealPaneCache).forEach(([itemId, pane]) => {
+            if (me.retainRevealPane?.(pane, itemId) === true) {
+                pane.parent?.items?.includes(pane) && pane.parent.remove(pane, false)
+            } else {
+                pane?.isDestroyed || pane?.destroy?.()
+            }
         });
         me.revealPaneCache = {};
         me.revealPaneLoads = {};

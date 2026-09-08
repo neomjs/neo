@@ -1,4 +1,5 @@
 import Component                   from '../../component/Base.mjs';
+import Authoring                   from './model/Authoring.mjs';
 import Container                   from '../../container/Base.mjs';
 import NeoArray                    from '../../util/Array.mjs';
 import {isDescriptor}              from '../../core/ConfigSymbols.mjs';
@@ -28,10 +29,10 @@ import TopologySeams               from './window/TopologySeams.mjs';
  * that hands the surviving live panes into the next projection instead of recreating them
  * ({@link #refreshDockWorkspace} over {@link Neo.dashboard.dock.projection.Reconciler}, bracketed by
  * the FLIP motion signal). Before this class, each consumer wrote that loop by hand; this class owns
- * it once, and a consumer contributes only what is genuinely its own through template hooks:
+ * it once. A basic consumer declares initial {@link #panes} and {@link #zones}; advanced consumers
+ * specialize the existing template hooks:
  *
- * - {@link #resolvePane} — which live component or config renders a catalog item (the one hook
- *   every consumer overrides);
+ * - {@link #resolvePane} — custom live component or config resolution beyond declared panes;
  * - {@link #resolveRevealPane} — the same resolution for auto-hide reveal overlays;
  * - {@link #getPreservedItemIds} — consumer-held panes that must survive a projection they are
  *   absent from (the engine adds its own tear-out handles independently);
@@ -56,8 +57,8 @@ import TopologySeams               from './window/TopologySeams.mjs';
  * {@link Neo.dashboard.dock.interaction.DragAffordances} (`dockModel` plus the reducer and the view-sync), so an
  * agent, a splitter, a rail, a drag gesture and a tour runner all commit through one path.
  *
- * Two invariants every method here protects: the committed document advances ONLY inside
- * {@link #onDockZoneDocumentChange}, and every re-projection is ONE atomic ownership transaction —
+ * After initial construction, the committed document advances through {@link #onDockZoneDocumentChange}
+ * (or Group adoption), and every re-projection is ONE atomic ownership transaction —
  * commits schedule off the SETTLED tail of {@link #refreshPromise}, so a later commit can never
  * start a second staged shell before the first settled, and a FAILED transaction stays observable
  * on its own {@link #refreshPromise} snapshot without suppressing any later one. A configured
@@ -373,12 +374,37 @@ class Workspace extends Container {
          * @member {String|null} topologyGroupId_=null
          * @reactive
          */
-        topologyGroupId_: null
+        topologyGroupId_: null,
+
+        /**
+         * Initial component configs keyed by pane ID. Captured after `onConstructed`, before
+         * mounting; later assignments or mutations do not change the consumed declarations.
+         * Modules, lazy loaders, bindings and other runtime config stay outside the document.
+         * @member {Object|null} panes=null
+         */
+        panes: null,
+
+        /**
+         * Initial nested dock arrangement. Strings/arrays name tabs; objects describe splits
+         * or edge zones. A supplied valid dockModel wins. Later assignments do not reset it.
+         * @member {Object|String|String[]|null} zones=null
+         */
+        zones: null
     }
+
+    /** Captured configs with runtime IDs resolved by the component manager.
+     * @member {Object|null} paneDeclarations=null @protected
+     */
+    paneDeclarations = null
+
+    /** Initial catalog records retained for reopening through addItem.
+     * @member {Object|null} declaredPaneItems=null @protected
+     */
+    declaredPaneItems = null
 
     /**
      * The live committed dock-zone document — the single source of truth the view projects from.
-     * Advanced exclusively by {@link #onDockZoneDocumentChange}; readable through the holder
+     * Seeded at construction, then advanced through the host/Group commit path; readable through the holder
      * contract's {@link #getDockZoneDocument} before any operation has run.
      * @member {Object|null} dockModel=null
      */
@@ -544,6 +570,93 @@ class Workspace extends Container {
      */
     applyDockZoneOperation(descriptor) {
         return Operations.applyOperation(this.dockModel, descriptor)
+    }
+
+    /**
+     * @summary Captures effective initial declarations after the complete onConstructed chain.
+     * Runs before the constructed event and init/mount; first projection remains owned by
+     * afterSetMounted. An invalid supplied document or declaration fails before publishing a seed.
+     * @protected
+     */
+    onAfterConstructed() {
+        const me = this, errors = [], supplied = me.dockModel !== null;
+
+        if (supplied) Authoring.validateDocument(me.dockModel, errors);
+        if (errors.length) throw new Error(`dockModel: ${errors.join('; ')}`);
+
+        if (me.panes !== null || me.zones !== null) {
+            const {document, errors} = Authoring.fromZones(me.panes ?? {}, supplied ? {type: 'edge-zone'} : me.zones ?? {type: 'edge-zone'});
+            if (errors.length) throw new Error(errors.join('; '));
+
+            const declarations = Neo.clone(me.panes ?? {}, true, true), ids = new Set();
+            Object.entries(declarations).forEach(([key, pane]) => {
+                pane.id ||= Neo.getId('dock-pane');
+                if (ids.has(pane.id) || Neo.get(pane.id)) errors.push(`panes.${key}.id: already in use`);
+                ids.add(pane.id)
+            });
+            if (errors.length) throw new Error(errors.join('; '));
+
+            me.paneDeclarations = declarations;
+            me.declaredPaneItems = document.items;
+            if (!supplied) me.dockModel = document
+        }
+
+        super.onAfterConstructed()
+    }
+
+    /**
+     * @summary Opens a closed declared pane through the ordinary addItem commit path.
+     * `target` is an addTab or splitNode placement descriptor; omission creates a catalog-only
+     * item. Existing records (including detached items) are refused by addItem; use normal
+     * move/restore operations for those. Awaiting success includes the host commit/projection.
+     * @param {String} itemId
+     * @param {Object} [target]
+     * @returns {Promise<{document:Object, errors:String[]}>}
+     */
+    async openPane(itemId, target) {
+        const me = this, item = me.getPaneDeclaration(itemId) && me.declaredPaneItems[itemId];
+        if (!item) return {document: me.dockModel, errors: [`unknown declared pane "${itemId}"`]};
+
+        const descriptor = {operation: 'addItem', itemId, item, ...(target === undefined ? {} : {target})},
+              result     = me.applyDockZoneOperation(descriptor);
+
+        if (!result.errors.length) await me.onDockZoneDocumentChange(result.document, descriptor, me);
+        return result.errors.length ? result : {document: me.dockModel, errors: []}
+    }
+
+    /**
+     * @summary Whether a materialized declared pane still belongs to this Workspace's catalog.
+     * Rails use this ownership decision when releasing their config-created reveal panes.
+     * @param {Neo.component.Base} pane
+     * @param {String} itemId
+     * @returns {Boolean}
+     * @protected
+     */
+    retainDeclaredPane(pane, itemId) {
+        return !!this.dockModel?.items?.[itemId] && this.getPaneDeclaration(itemId)?.id === pane?.id
+    }
+
+    /**
+     * @summary Looks up an own declaration by its stable dock item key.
+     * @param {String} itemId
+     * @returns {Object|null}
+     * @protected
+     */
+    getPaneDeclaration(itemId) {
+        const declarations = this.paneDeclarations;
+        return declarations && Object.hasOwn(declarations, itemId) ? declarations[itemId] : null
+    }
+
+    /**
+     * @summary Retires declared instances no longer owned by the catalog, including parked panes.
+     * The captured configs survive a close; the component manager owns live instance lookup.
+     * @param {Object|null} document Null releases all declarations during Workspace teardown.
+     * @protected
+     */
+    releaseDeclaredPanes(document) {
+        Object.entries(this.paneDeclarations || {}).forEach(([itemId, config]) => {
+            if (!document?.items?.[itemId]) this.settleDockPane(Neo.get(config.id))
+        })
     }
 
     /**
@@ -1146,6 +1259,7 @@ class Workspace extends Container {
      */
     destroy(...args) {
         const me = this;
+        me.releaseDeclaredPanes(null);
         me.transactionManager?.un({bind: me.onTopologyGroupBinding, scope: me});
         me.nativeWindows?.unregisterSource(me.id);
         me.tearOutHandlers?.retirePaneState?.();
@@ -2026,11 +2140,11 @@ class Workspace extends Container {
      * Hook: item ids whose live panes the consumer holds OUTSIDE the current projection and that
      * the reconciler must park rather than retire — for example a click-detached pane. Engine-owned
      * tear-out handles are merged separately and never depend on an app override. The default
-     * holds none.
+     * preserves declared catalog members, including auto-hidden panes.
      * @returns {Iterable<String>}
      */
     getPreservedItemIds() {
-        return []
+        return Object.keys(this.paneDeclarations || {}).filter(itemId => this.dockModel?.items?.[itemId])
     }
 
     /**
@@ -2207,7 +2321,7 @@ class Workspace extends Container {
     onDockZoneDocumentChange(document, descriptor=null, source=null) {
         const me = this, set = me.workspaceSet;
         if (set && me.topologyGroupId && document !== me.dockModel) {
-            const manager = Neo.manager.Transaction;
+            const manager      = Neo.manager.Transaction;
             const workspaceKey = me.workspaceKey ?? set.ids()
                 .find(key => manager.getParticipant(me.topologyGroupId, key)?.componentId === me.id);
             if (!workspaceKey) return Promise.reject(new Error('dock participant not registered'));
@@ -2382,6 +2496,7 @@ class Workspace extends Container {
                 // serve as it is resolved, and the reload action's binding reads it.
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.publishPaneContract(itemId, me.resolveProjectedPane(itemId, item))),
                 resolveRevealComponentRef: (componentRef, item, itemId) => me.decorateFlipMarker(me.resolveRevealPane(itemId, item), itemId),
+                ...(me.paneDeclarations && {retainRevealPane: me.retainDeclaredPane.bind(me)}),
                 // Header state is data the projected chrome binds to, resolved against this
                 // workspace's provider through the tree: the engine actions carry the policy's
                 // formatters, a tabs node's container binds its locked items, a rail its revealed one.
@@ -2549,6 +2664,8 @@ class Workspace extends Container {
         // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
         if (result === null) return;
 
+        me.releaseDeclaredPanes(document);
+
         // Awaited on purpose, in plugins order: refreshPromise is the settled-surface contract, and
         // a collaborator presentation that re-applies after it settles is a surface nobody can
         // await. A collaborator that rejects is reported and skipped — presentation never fails a
@@ -2649,15 +2766,20 @@ class Workspace extends Container {
 
     /**
      * Hook: resolves a catalog item to the live component or the plain config that renders it.
-     * The default renders a titled placeholder pane — the model contract's recoverable fallback
-     * for an item no consumer claimed — so a workspace is never silently empty; every consumer
-     * overrides this with its own panes. The title renders as ESCAPED text: persisted titles are
-     * data, never markup. A thrown error fails the projection loudly.
+     * Declared keys resolve through the component manager, or return a fresh config for ordinary
+     * Container/Card creation. Other items keep the escaped-title placeholder fallback. Override
+     * for custom application resolution; its instance lifetime remains the application's own.
      * @param {String} itemId The stable workspace identity from the item catalog.
      * @param {Object} item The persisted item record (`componentRef`, `title`, `kind`, policy hints).
      * @returns {Object|Neo.component.Base}
      */
     resolvePane(itemId, item) {
+        const declaration = this.paneDeclarations && this.getPaneDeclaration(itemId);
+
+        if (declaration) {
+            return Neo.get(declaration.id) || Neo.clone(declaration, true, true)
+        }
+
         return {
             cls  : ['neo-dock-workspace-placeholder'],
             ntype: 'component',
@@ -2713,9 +2835,8 @@ class Workspace extends Container {
     /**
      * Hook: produces a **fresh** candidate pane for an item, bypassing any live-instance cache.
      *
-     * Defaults to {@link #resolvePane} — only the consumer knows how to build its own pane. A
-     * cache-backed `resolvePane` is safe here: {@link #prepareRecreateCandidate} compares by
-     * identity and refuses with `live-instance`, leaving the live pane untouched.
+     * Declared panes use a fresh runtime ID and the already-loaded class. Other items delegate to
+     * resolvePane; prepareRecreateCandidate refuses a live-instance answer without disturbing it.
      *
      * `null` declines for that item.
      * @param {String} itemId The stable workspace identity from the item catalog.
@@ -2723,6 +2844,13 @@ class Workspace extends Container {
      * @returns {Object|Neo.component.Base|null}
      */
     resolveFreshPane(itemId, item) {
+        const declaration = this.paneDeclarations && this.getPaneDeclaration(itemId);
+        if (declaration) {
+            const config = Neo.clone(declaration, true, true), live = Neo.get(declaration.id);
+            config.id = Neo.getId('dock-pane');
+            if (Neo.typeOf(config.module) === 'Function' && live) config.module = live.constructor;
+            return config
+        }
         return this.resolvePane(itemId, item)
     }
 
@@ -2942,7 +3070,9 @@ class Workspace extends Container {
 
                     committed.error && errors.push(committed.error.message)
                 } else {
-                    pane = committed.pane
+                    pane = committed.pane;
+                    const declaration = me.paneDeclarations && me.getPaneDeclaration(itemId);
+                    if (declaration) declaration.id = pane.id
                 }
             }
         } finally {
