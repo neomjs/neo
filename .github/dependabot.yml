@@ -18,9 +18,14 @@ updates:
     groups:
       all-deps:
         patterns: ["*"]
-        # Monaco is exact-pinned: a version bump requires addon/wrapper compatibility checks.
-        # Keep its update in a standalone PR so it cannot hide inside the bulk dependency diff.
-        exclude-patterns: ["monaco-editor"]
+        # Both exclusions are exact-pinned, for the same reason: their diff has to be read, and a
+        # standalone PR is the only place that happens. Inside the bulk bump it gets skimmed.
+        #
+        # Monaco: a version bump requires addon/wrapper compatibility checks.
+        # neo-agent-skills: `.claude/skills/*` symlinks into it, so a release rewrites the workflows
+        # every agent in this checkout obeys. A caret would let install date decide which rules an
+        # agent reads; the exact pin makes that a reviewed fact instead.
+        exclude-patterns: ["monaco-editor", "neo-agent-skills"]
 
   - package-ecosystem: github-actions
     directory: "/"
