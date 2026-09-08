@@ -7,11 +7,18 @@ import * as yaml         from 'js-yaml';
 /**
  * The scope classifier decides whether this repository's test suites run at all.
  *
- * `.github/workflows/test.yml`'s `changes` job holds one inline `actions/github-script` step whose
- * outputs gate every expensive job downstream. `neomjs/neo` CI is exactly two projects — `unit` and
- * `components` — so a classifier that answers `false` too eagerly does not turn anything red. It
- * produces a green run with nothing behind it — a coverage loss indistinguishable from success,
- * which is the one class of regression a test suite cannot report about itself.
+ * `.github/workflows/classify-test-scope.yml` holds one inline `actions/github-script` step whose
+ * outputs gate every expensive job downstream. `neomjs/neo` CI is three projects — `unit`,
+ * `components` and the separately-piped `e2e` engine tier — so a classifier that answers `false`
+ * too eagerly does not turn anything red. It produces a green run with nothing behind it — a
+ * coverage loss indistinguishable from success, which is the one class of regression a test suite
+ * cannot report about itself.
+ *
+ * **One classifier, two callers.** It lived inline in `test.yml`, which is why the e2e tier once
+ * ran on every pull request and push: a workflow cannot read another workflow's job outputs, so
+ * the separately-piped tier had no gate available to it. It is a reusable workflow now, called by
+ * `test.yml` and `test-e2e.yml` alike, so the arms below assert one predicate rather than two
+ * copies that could disagree.
  *
  * **Why the subject is reached through YAML rather than imported.** The classifier is not a module.
  * It is a string inside a workflow file, evaluated by `actions/github-script` with `github`,
@@ -31,8 +38,8 @@ import * as yaml         from 'js-yaml';
  * and would re-arm the same deletion at the next boundary change.
  *
  * Seven of the nine deleted arms asserted `run_integration` and `run_parity`. **Those outputs no
- * longer exist**: the `changes` job declares `run_unit`, `run_components` and `skip_reason`, because
- * the integration and parity suites left with the extraction. That is a legitimate topology change
+ * longer exist**: the classifier declares `run_unit`, `run_components`, `run_e2e` and
+ * `skip_reason`, because the integration and parity suites left with the extraction. That is a legitimate topology change
  * in the subject, not a defect in it, so those keys are dropped rather than repaired — and said out
  * loud here, since a restored spec that quietly sheds assertions is indistinguishable from one
  * trimmed to make the suite green.
@@ -51,15 +58,22 @@ const __dirname     = path.dirname(fileURLToPath(import.meta.url)),
 const readWorkflow = name => yaml.load(fs.readFileSync(path.join(workflowsDir, name), 'utf8'));
 
 /**
+ * The reusable workflow that owns the predicate. Named once so an arm asserting the classifier's
+ * SHAPE and an arm executing its SCRIPT cannot end up reading two different files.
+ * @type {String}
+ */
+const CLASSIFIER = 'classify-test-scope.yml';
+
+/**
  * @summary The committed classifier source, read from the workflow on every call.
  *
  * Deliberately re-read rather than cached at module scope: the assertion is about what
- * `test.yml` contains right now, and a cached string would keep passing against a workflow the
- * repository no longer has.
+ * `classify-test-scope.yml` contains right now, and a cached string would keep passing against a
+ * workflow the repository no longer has.
  * @returns {String} The inline script body of the `scope` step.
  */
 const scopeScript = () =>
-    readWorkflow('test.yml').jobs.changes.steps.find(step => step.id === 'scope').with.script;
+    readWorkflow(CLASSIFIER).jobs.classify.steps.find(step => step.id === 'scope').with.script;
 
 /**
  * @summary A mocked `actions/github-script` environment for one classifier run.
@@ -167,12 +181,64 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
 
     test('the job declares exactly the suites this repository runs', () => {
         // Pins the contract this whole file is written against. `neomjs/neo` CI is `unit` +
-        // `components`; the integration and parity outputs the pre-split spec asserted are gone.
-        // If a suite is ever added back, this arm reds FIRST and points at the missing coverage,
-        // rather than the arms below silently classifying for a surface nobody asserted.
-        const outputs = readWorkflow('test.yml').jobs.changes.outputs;
+        // `components` + the `e2e` engine tier; the integration and parity outputs the pre-split
+        // spec asserted are gone. If a suite is ever added back, this arm reds FIRST and points at
+        // the missing coverage, rather than the arms below silently classifying for a surface
+        // nobody asserted.
+        const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
-        expect(Object.keys(outputs).sort()).toEqual(['run_components', 'run_unit', 'skip_reason']);
+        expect(Object.keys(outputs).sort()).toEqual(['run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+    });
+
+    test('every job output is re-declared to callers', () => {
+        // The failure mode the extraction introduced, and the reason it gets its own arm: a
+        // reusable workflow's job outputs are INTERNAL. A caller reads `needs.<job>.outputs.x`
+        // only if `on.workflow_call.outputs` re-declares it, and an undeclared one resolves to
+        // the empty string rather than erroring. `run_e2e` missing here would gate the e2e tier
+        // on `'' == 'true'` — permanently false, permanently green, permanently running nothing.
+        const workflow = readWorkflow(CLASSIFIER);
+
+        expect(Object.keys(workflow.on.workflow_call.outputs).sort())
+            .toEqual(Object.keys(workflow.jobs.classify.outputs).sort());
+    });
+
+    test('both test workflows gate on this classifier rather than their own copy', () => {
+        // A second copy of the predicate is the outcome this extraction exists to prevent, and it
+        // would be invisible to every other arm in this file: they all read ONE workflow, so a
+        // caller that reverted to an inline classifier — or dropped the gate entirely, which is
+        // the state the e2e tier was in before it consumed this one — would keep them green.
+        for (const [name, job] of [['test.yml', 'changes'], ['test-e2e.yml', 'changes']]) {
+            expect(readWorkflow(name).jobs[job].uses, name).toBe(`./.github/workflows/${CLASSIFIER}`);
+        }
+    });
+
+    test('the e2e job consumes BOTH gates on every step that costs anything', () => {
+        // `test.yml` resolves its flag once into `matrix.run`; the single-job e2e pipeline has no
+        // matrix to hang it on, so each step carries the conditions itself. An ungated provisioning
+        // step would spend the runner these gates exist to stop spending — and would do it quietly,
+        // since the job still reports green.
+        //
+        // Two conditions, not one, and the second is the rerun boundary: the classifier is a
+        // PREREQUISITE, and re-running a failed job replays a successful prerequisite's output
+        // rather than recomputing it. Without a job-local head check, a rerun can certify a tree
+        // the PR has already moved past.
+        const steps = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
+              // The head probe computes the answer, so it cannot depend on it; the skip step is
+              // gated on the inverse and reports the reason. Every OTHER step spends the runner.
+              exempt   = ['Verify current pull-request head', 'Skip e2e (engine tier)'],
+              expensive = steps.filter(step => !exempt.includes(step.name)),
+              ungated  = expensive.filter(step => {
+                  const condition = String(step.if || '');
+
+                  return !condition.includes('run_e2e') || !condition.includes('steps.head.outputs.current');
+              });
+
+        expect(ungated.map(step => step.name)).toEqual([]);
+
+        // The filters above pass vacuously on an empty job, and `exempt` names steps by string:
+        // a rename would silently exempt nothing and shrink `expensive` to zero.
+        expect(expensive.length).toBeGreaterThan(10);
+        expect(steps.map(step => step.name)).toEqual(expect.arrayContaining(exempt));
     });
 
 });
@@ -191,6 +257,7 @@ test.describe('Tests scope classifier — stale-head guard', () => {
         expect(runtime.calls.getContent).toBe(0);
         expect(outputsOf(runtime)).toMatchObject({
             run_components: 'false',
+            run_e2e       : 'false',
             run_unit      : 'false'
         });
         expect(outputsOf(runtime).skip_reason).toContain('stale workflow head');
@@ -204,7 +271,7 @@ test.describe('Tests scope classifier — stale-head guard', () => {
 
         expect(runtime.calls.pullsGet).toBe(1);
         expect(runtime.calls.listFiles).toBe(1);
-        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_unit: 'true' });
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true', run_unit: 'true' });
     });
 
 });
@@ -326,7 +393,7 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
 
         await executeScript(scopeScript(), runtime);
 
-        expect(outputsOf(runtime)).toMatchObject({ run_components: 'false', run_unit: 'false' });
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'false', run_e2e: 'false', run_unit: 'false' });
         expect(outputsOf(runtime).skip_reason).toContain('does not touch relevant paths');
     });
 
@@ -371,13 +438,26 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
     });
 
     test('the workflow classifies edits to itself into the components suite', async () => {
-        // A change to the classifier must run the suites it gates, or a scoping regression ships
-        // on the one PR guaranteed not to exercise it.
+        // A change to the runner must run the suites it invokes, or a scoping regression ships on
+        // the one PR guaranteed not to exercise it. `test.yml` does not invoke the e2e tier, so it
+        // does not admit it — the two runners each answer for their own suites.
         const runtime = createRuntime({ files: ['.github/workflows/test.yml'] });
 
         await executeScript(scopeScript(), runtime);
 
-        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_unit: 'true' });
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'false', run_unit: 'true' });
+    });
+
+    test('an edit to the shared classifier admits every suite it gates', async () => {
+        // The predicate now lives in a file of its own, and that file decides for all three
+        // suites. If it were absent from its own whitelists, the one PR that changes scoping
+        // would be the one PR that runs nothing — the same shape as the arm above, with a wider
+        // blast radius since a single edit here can silence every suite at once.
+        const runtime = createRuntime({ files: [`.github/workflows/${CLASSIFIER}`] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true', run_unit: 'true' });
     });
 
 });
@@ -391,9 +471,139 @@ test.describe('Tests scope classifier — unavailable diffs', () => {
 
         expect(outputsOf(runtime)).toMatchObject({
             run_components: 'true',
+            run_e2e       : 'true',
             run_unit      : 'true',
             skip_reason   : 'changed files unavailable'
         });
+    });
+
+});
+
+test.describe('Tests scope classifier — the e2e engine tier predicate', () => {
+
+    /**
+     * The tier's relevant paths, MEASURED against its own runnable selection rather than inferred
+     * from where the specs live. Each entry names the spec surface that establishes it, because a
+     * predicate atom without a witness is a guess that reads like a decision.
+     *
+     * Three of these are the ones an `examples/`-plus-config-chain reading omits, which is the
+     * reading the tier's own layout invites. Gated on that shorter list it would go quiet on a
+     * change to the workstation app, to a component harness app, or to the module that DECIDES
+     * which specs the job invokes — and going quiet behind a green check is the failure this
+     * whole predicate exists to prevent.
+     * @type {Object[]}
+     */
+    const e2eRelevant = [
+        {file: 'src/dashboard/dock/model/Operations.mjs',            why: 'the engine under test; imported by the dock specs directly'},
+        {file: 'examples/dashboard/dock/index.html',                 why: 'navigated by the dock specs'},
+        {file: 'apps/workstation/index.html',                        why: 'navigated by the workstation specs'},
+        {file: 'test/playwright/component/apps/dock-lock/app.mjs',   why: 'a harness app the e2e specs navigate to'},
+        {file: 'test/playwright/e2e/grid/RowPinning.spec.mjs',       why: 'the specs themselves'},
+        {file: 'test/playwright/fixtures.mjs',                       why: 'imported by the specs'},
+        {file: 'test/playwright/playwright.config.e2e.mjs',          why: 'selection and projects'},
+        {file: '.github/workflows/test-e2e.yml',                     why: 'the runner that invokes the tier'},
+        {file: 'buildScripts/util/e2eCiSelection.mjs',               why: 'decides WHICH specs the job runs'},
+        // Every row below is a measured FALSE NEGATIVE of the first version of this predicate,
+        // found by executing the committed script against real inputs rather than re-reading it.
+        // They are the reason the boundary is now stated as rules over the job's launch chain: each
+        // one is consumed by the run, and none of them is a spec, an engine file or a nav target —
+        // the three shapes a location list notices.
+        {file: 'resources/scss/src/dashboard/Container.scss',        why: 'compiles to the theme the dock paint and geometry arms measure'},
+        {file: 'test/playwright/externalBrainSelection.mjs',         why: 'imported by playwright.config.e2e.mjs — it decides the ignored population'},
+        {file: 'test/playwright/resolveFreePort.mjs',                why: 'imported by playwright.config.e2e.mjs — it picks the server port'},
+        {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},
+        {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
+        {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
+        {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'}
+    ];
+
+    for (const {file, why} of e2eRelevant) {
+        test(`admits the tier on ${file}`, async () => {
+            const runtime = createRuntime({ files: [file] });
+
+            await executeScript(scopeScript(), runtime);
+
+            expect(outputsOf(runtime), why).toMatchObject({ run_e2e: 'true' });
+        });
+    }
+
+    test('a baseline-pin-only change does NOT run the tier', async () => {
+        // The witnessed regression, preserved as an executable arm: a pull request whose entire
+        // diff was one `uses:` SHA in `pr-baseline.yml` provisioned a browser and ran the full
+        // engine suite. This is the negative the predicate exists to produce.
+        const runtime = createRuntime({ files: ['.github/workflows/pr-baseline.yml'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({ run_e2e: 'false' });
+        expect(outputsOf(runtime).skip_reason).toContain('does not touch relevant paths');
+    });
+
+    test('a unit-only spec change does NOT run the tier', async () => {
+        // The discriminating negative. `test/playwright/` is not one surface: the e2e predicate
+        // admits the e2e tree and the component HARNESS APPS the e2e specs navigate to, and
+        // nothing else under it. Whitelisting the directory wholesale would pass every arm above
+        // while making this one red, which is why it is here.
+        const runtime = createRuntime({ files: ['test/playwright/unit/core/Base.spec.mjs'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({ run_e2e: 'false', run_unit: 'true' });
+    });
+
+    test('an examples-only change runs the tier and NOT the components suite', async () => {
+        // The AC's own verification, stated as the classifier sees it: `examples/` is absent from
+        // the components whitelist and present in the e2e one, so this diff separates the two
+        // predicates rather than merely exercising both at once.
+        const runtime = createRuntime({ files: ['examples/grid/bigData/app.mjs'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'false', run_e2e: 'true' });
+    });
+
+    test('a component spec is NOT e2e-relevant, though its harness app is', async () => {
+        // The second counted exclusion under `test/playwright/`. The rule admits that directory
+        // broadly — that is what stopped the helper false-negatives — so the two sibling suites'
+        // spec trees have to be excluded explicitly, and `component/apps/` re-admitted inside one
+        // of them. This arm pins the seam: the spec is out, the harness app it mounts is in.
+        const spec = createRuntime({ files: ['test/playwright/component/dock/Rail.spec.mjs'] });
+
+        await executeScript(scopeScript(), spec);
+        expect(outputsOf(spec), 'a component spec').toMatchObject({ run_components: 'true', run_e2e: 'false' });
+
+        const harness = createRuntime({ files: ['test/playwright/component/apps/dock-first-mount/app.mjs'] });
+
+        await executeScript(scopeScript(), harness);
+        expect(outputsOf(harness), 'the harness app beneath it').toMatchObject({ run_e2e: 'true' });
+    });
+
+    test('package.json admits the tier on a dependency move or an INVOKED script, not on an unrelated one', async () => {
+        // Three-way, because two of these look identical as a path atom. The tier boots the
+        // installed tree, so a dependency move is relevant; it also RUNS named scripts —
+        // `bundle-browser-deps` and its children from the workflow, `server-start` from the
+        // config's own `webServer.command` — so editing one of those changes what executes just as
+        // surely as editing the server config it points at. An unrelated script cannot.
+        const dependency = createRuntime({ files: ['package.json'], headPkg: { dependencies: { leftpad: '2.0.0' } } });
+
+        await executeScript(scopeScript(), dependency);
+        expect(outputsOf(dependency), 'dependency-kind edit').toMatchObject({ run_e2e: 'true' });
+
+        // Absent at base, present at head: the tier's own webServer command line changing.
+        const invoked = createRuntime({
+            files  : ['package.json'],
+            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'webpack serve --port 9000' } }
+        });
+
+        await executeScript(scopeScript(), invoked);
+        expect(outputsOf(invoked), 'an invoked script changing').toMatchObject({ run_e2e: 'true' });
+
+        // The default head adds `ai:new-script` and moves no dependency — the discriminating
+        // negative, and the reason the script comparison is keyed rather than wholesale.
+        const unrelated = createRuntime({ files: ['package.json'] });
+
+        await executeScript(scopeScript(), unrelated);
+        expect(outputsOf(unrelated), 'an unrelated script').toMatchObject({ run_components: 'false', run_e2e: 'false' });
     });
 
 });

@@ -1,0 +1,331 @@
+name: Classify test scope
+
+# The one changed-path classifier, shared by every workflow that runs a test suite.
+#
+# It lived inline in `test.yml` and was correct there while `test.yml` owned every suite. That
+# stopped holding when the e2e tier moved to its own pipeline (#18408, on operator direction:
+# "it would need to be an own pipeline, that takes no longer than 5m"). The tier then ran on
+# EVERY pull request and push — @neo-gpt's witness is PR #18466, whose entire diff is one `uses:`
+# SHA and which provisioned and ran the tier anyway — because the only classifier in the
+# repository sat inside a workflow that does not gate it.
+#
+# The two ways out were a second copy of this predicate or one shared caller-agnostic job. A
+# second copy drifts, and two statements of one fact that disagree is the exact failure the
+# components whitelist below already carries a comment about. Extraction rather than relocation:
+# `neomjs/neo-agent-skills#14` centralises non-product governance and explicitly excludes
+# repository-specific product tests, so these Engine path predicates stay in this repository.
+#
+# Sharing a classifier does NOT couple the suites' reds. Callers keep separate workflow
+# identities and separate checks, which is the half of #14685's failing-honest intent that
+# outlived its retired mechanism: an e2e failure must not be readable as `test.yml` being red.
+
+on:
+  workflow_call:
+    outputs:
+      run_unit:
+        description: Whether the unit suite is relevant to the changed paths.
+        value: ${{ jobs.classify.outputs.run_unit }}
+      run_components:
+        description: Whether the components suite is relevant to the changed paths.
+        value: ${{ jobs.classify.outputs.run_components }}
+      run_e2e:
+        description: Whether the e2e (engine tier) suite is relevant to the changed paths.
+        value: ${{ jobs.classify.outputs.run_e2e }}
+      skip_reason:
+        description: Human-readable reason a caller can print when it skips.
+        value: ${{ jobs.classify.outputs.skip_reason }}
+
+jobs:
+  classify:
+    name: Classify test scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_unit: ${{ steps.scope.outputs.run_unit }}
+      run_components: ${{ steps.scope.outputs.run_components }}
+      run_e2e: ${{ steps.scope.outputs.run_e2e }}
+      skip_reason: ${{ steps.scope.outputs.skip_reason }}
+
+    steps:
+      - name: Classify changed paths
+        id: scope
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const eventName = context.eventName;
+
+            async function getChangedFiles() {
+              if (eventName === 'pull_request') {
+                const files = await github.paginate(github.rest.pulls.listFiles, {
+                  owner      : context.repo.owner,
+                  repo       : context.repo.repo,
+                  pull_number: context.payload.pull_request.number,
+                  per_page   : 100
+                });
+
+                return files.map(file => file.filename);
+              }
+
+              if (eventName === 'push') {
+                const before = context.payload.before;
+                const after  = context.payload.after;
+
+                if (!before || !after || /^0+$/.test(before)) {
+                  return null;
+                }
+
+                const comparison = await github.rest.repos.compareCommitsWithBasehead({
+                  owner   : context.repo.owner,
+                  repo    : context.repo.repo,
+                  basehead: `${before}...${after}`,
+                  per_page: 100
+                });
+
+                return comparison.data.files?.map(file => file.filename) || null;
+              }
+
+              return null;
+            }
+
+            async function isCurrentPullRequestHead() {
+              if (eventName !== 'pull_request') {
+                return true;
+              }
+
+              const pull = await github.rest.pulls.get({
+                owner      : context.repo.owner,
+                repo       : context.repo.repo,
+                pull_number: context.payload.pull_request.number
+              });
+              const eventHead = context.payload.pull_request.head.sha;
+              const liveHead  = pull.data.head.sha;
+
+              if (eventHead === liveHead) {
+                return true;
+              }
+
+              const reason = `stale workflow head ${eventHead}; live PR head is ${liveHead}`;
+
+              core.notice(`Skipping expensive test suites: ${reason}`);
+              core.setOutput('run_unit', 'false');
+              core.setOutput('run_components', 'false');
+              core.setOutput('run_e2e', 'false');
+              core.setOutput('skip_reason', reason);
+              await core.summary
+                .addHeading('Stale workflow attempt')
+                .addRaw(`Skipped expensive test suites because ${reason}.`)
+                .write();
+
+              return false;
+            }
+
+            if (!await isCurrentPullRequestHead()) {
+              return;
+            }
+
+            const files = await getChangedFiles();
+
+            if (!files || files.length === 0) {
+              core.info('Changed files are unavailable; running full test suites.');
+              core.setOutput('run_unit', 'true');
+              core.setOutput('run_components', 'true');
+              core.setOutput('run_e2e', 'true');
+              core.setOutput('skip_reason', 'changed files unavailable');
+              return;
+            }
+
+            const normalizedFiles = files.map(file => file.replace(/\\/g, '/'));
+
+            // package.json carries unrelated kinds of change, and the path atom cannot tell them
+            // apart, so resolve the CONTENT at both refs:
+            //
+            //   dependency-kind (dependencies / devDependencies / overrides) — shifts the installed
+            //     tree every browser suite runs against.
+            //   invoked scripts — the e2e job runs `bundle-browser-deps` and its two children, and
+            //     the tier's own `webServer` launches `server-start`. Editing one of those changes
+            //     what the tier executes just as surely as editing the server config it points at.
+            //   everything else (an unrelated script, `version`, `description`) — cannot.
+            //
+            // Both facets come from ONE pair of fetches: the read is per ref, not per question.
+            // The completeness rule is unchanged — anything undeterminable (missing refs, fetch or
+            // parse failure) fails TOWARD running, for every facet at once.
+            async function packageJsonRelevance() {
+              const untouched = {dependencyKind: false, e2eScripts: false},
+                    undecided = {dependencyKind: true,  e2eScripts: true};
+
+              if (!normalizedFiles.includes('package.json')) {
+                return untouched;
+              }
+
+              try {
+                const baseRef = eventName === 'pull_request' ? context.payload.pull_request.base.sha : context.payload.before;
+                const headRef = eventName === 'pull_request' ? context.payload.pull_request.head.sha : context.payload.after;
+
+                if (!baseRef || !headRef || /^0+$/.test(baseRef)) {
+                  core.info('package.json base/head ref undeterminable; failing toward running.');
+                  return undecided;
+                }
+
+                const depKindKeys = ['dependencies', 'devDependencies', 'overrides'],
+                      // Derived from the e2e job's own launch chain rather than guessed: the
+                      // workflow step runs `bundle-browser-deps`, whose definition is
+                      // `bundle-parse5 && bundle-marked`, and `playwright.config.e2e.mjs`'s
+                      // `webServer.command` runs `server-start`. Naming the children matters —
+                      // `bundle-browser-deps` can keep its text while what it delegates to changes.
+                      e2eScriptKeys = ['bundle-browser-deps', 'bundle-marked', 'bundle-parse5', 'server-start'];
+
+                // Fork PRs: the head SHA exists only in the fork repo, so the head content read
+                // must follow the fork's coordinates — the base half stays on the PR target repo.
+                // Same-repo PRs and push events keep the single-repo path; an unreadable fork
+                // (deleted / private) throws below and keeps the fail-open stance.
+                const headRepo = eventName === 'pull_request' && context.payload.pull_request.head.repo?.fork === true
+                  ? {owner: context.payload.pull_request.head.repo.owner.login, repo: context.payload.pull_request.head.repo.name}
+                  : {owner: context.repo.owner, repo: context.repo.repo};
+
+                core.info(`package.json head content resolves from ${headRepo.owner}/${headRepo.repo}.`);
+
+                const readFacets = async (ref, {owner, repo}) => {
+                  const res     = await github.rest.repos.getContent({owner, repo, path: 'package.json', ref});
+                  const pkg     = JSON.parse(Buffer.from(res.data.content, 'base64').toString('utf8'));
+                  const depKind = {};
+                  const scripts = {};
+
+                  for (const key of depKindKeys) {
+                    const entries = pkg[key];
+
+                    if (entries && typeof entries === 'object') {
+                      depKind[key] = Object.keys(entries).sort().map(name => [name, entries[name]]);
+                    }
+                  }
+
+                  // Absent and present-but-empty must not compare equal: a DELETED script changes
+                  // what the tier runs exactly as much as an edited one.
+                  for (const key of e2eScriptKeys) {
+                    scripts[key] = pkg.scripts?.[key] ?? null;
+                  }
+
+                  return {depKind, scripts};
+                };
+
+                const [base, head] = await Promise.all([readFacets(baseRef, {owner: context.repo.owner, repo: context.repo.repo}), readFacets(headRef, headRepo)]),
+                      relevance    = {
+                        dependencyKind: JSON.stringify(base.depKind) !== JSON.stringify(head.depKind),
+                        e2eScripts    : JSON.stringify(base.scripts) !== JSON.stringify(head.scripts)
+                      };
+
+                core.info(`package.json dependency-kind change: ${relevance.dependencyKind}`);
+                core.info(`package.json e2e-script change: ${relevance.e2eScripts}`);
+                return relevance;
+              } catch (error) {
+                core.info(`package.json relevance undeterminable (${error.message}); failing toward running.`);
+                return undecided;
+              }
+            }
+
+            const packageJsonChange           = await packageJsonRelevance(),
+                  packageJsonDependencyChange = packageJsonChange.dependencyKind,
+                  packageJsonE2eScriptChange  = packageJsonChange.e2eScripts;
+
+            // Keep explicit unit/component statuses on docs-only PRs instead of
+            // workflow-level paths-ignore. Missing checks can block protected branches.
+            const isDocsOnlyPath = file =>
+              file.endsWith('.md') ||
+              file.startsWith('learn/') ||
+              file.startsWith('resources/content/');
+
+            // Unit has committed content guards, notably the release-note mutable
+            // GitHub-link scan, discussion markdown fixture reads, and generated
+            // portal index fixtures.
+            // `learn/` is docs-only by path but not by consequence: its links are checked against
+            // learn/tree.json, so a guide-only edit can introduce a route that resolves to no record.
+            // Without this the corpus gate is skipped exactly on the PRs it exists to catch.
+            const requiresUnitForContent = file =>
+              file.startsWith('resources/content/release-notes/') ||
+              file.startsWith('resources/content/discussions/') ||
+              file.startsWith('apps/portal/resources/data/') ||
+              file.startsWith('learn/');
+
+            // Whitelist: the components suite mounts real components in a browser against
+            // the webpack dev server — engine (src/), live-compiled theme SCSS, the component
+            // specs + their harness apps, the config chain, dep manifests, or this workflow.
+            // Same completeness rule as integration: a missed path silently skips the suite
+            // (#15368 — this suite ran in NO workflow at all until it was wired here).
+            //
+            // "This workflow" is now two files: the runner that invokes the suite and the
+            // classifier that gates it. An edit to either can change what the suite covers, so
+            // both are named — extracting the predicate must not make editing the predicate
+            // invisible to the suites it decides for.
+            const isComponentsRelevantPath = file =>
+              file.startsWith('src/') ||
+              file.startsWith('resources/scss/') ||
+              file.startsWith('test/playwright/component/') ||
+              file === 'test/playwright/playwright.config.component.mjs' ||
+              (file === 'package.json' && packageJsonDependencyChange) ||
+              file === 'package-lock.json' ||
+              file === '.github/workflows/test.yml' ||
+              file === '.github/workflows/classify-test-scope.yml';
+
+            // The e2e (engine tier) boots real example and harness apps against a built dev server,
+            // so its relevant surface is strictly wider than the components suite's — it takes in
+            // what the job LAUNCHES and BUILDS, not only what its specs import.
+            //
+            // This predicate was a file list once, and the list was the defect: it named the specs'
+            // own imports and their navigation targets, and went silently false on the config's
+            // imports, the harness helpers, the theme build and the server it starts. A location
+            // list cannot help doing that, because it can only name what existed when it was
+            // written. So the boundary below is stated as RULES over the chain the job actually
+            // runs, derived from `playwright.config.e2e.mjs` (its own imports plus
+            // `webServer.command`), `fixtures.mjs`, `e2e/globalSetup.mjs` and the workflow's steps:
+            //
+            //   src/                  the engine under test
+            //   examples/, apps/      navigated by the grid, colors, dock and workstation specs
+            //   resources/scss/       compiled to the theme the paint and geometry arms measure
+            //   buildScripts/         the theme assets, the webpack server `server-start` runs,
+            //                         and `e2eCiSelection.mjs`, which DECIDES the spec population
+            //   test/playwright/      the config, the fixtures, the helpers they import, the specs
+            //
+            // Two exclusions under `test/playwright/`, both counted: `unit/` and `component/` are
+            // the sibling suites' own spec trees and cannot change what this tier covers.
+            // `component/apps/` is re-admitted inside the second, because the e2e specs navigate
+            // those harness apps directly.
+            //
+            // Whole directories rather than narrower paths — `apps/` not `apps/workstation/`,
+            // `buildScripts/` not two files — because this gate's failure mode is SILENCE. A false
+            // positive costs one ~3-minute job; a false negative costs coverage behind a green
+            // check, and nothing reports it. The churniest path under `apps/`
+            // (`apps/portal/resources/data/`) stopped being written on a schedule when the
+            // data-sync pipeline went dispatch-only (#18449).
+            const isE2eTestSupportPath = file =>
+              file.startsWith('test/playwright/component/apps/') || (
+                file.startsWith('test/playwright/') &&
+                !file.startsWith('test/playwright/unit/') &&
+                !file.startsWith('test/playwright/component/')
+              );
+
+            const isE2eRelevantPath = file =>
+              file.startsWith('src/') ||
+              file.startsWith('examples/') ||
+              file.startsWith('apps/') ||
+              file.startsWith('resources/scss/') ||
+              file.startsWith('buildScripts/') ||
+              isE2eTestSupportPath(file) ||
+              (file === 'package.json' && (packageJsonDependencyChange || packageJsonE2eScriptChange)) ||
+              file === 'package-lock.json' ||
+              file === '.github/workflows/test-e2e.yml' ||
+              file === '.github/workflows/classify-test-scope.yml';
+
+            const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
+            const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
+            const runE2e         = normalizedFiles.some(isE2eRelevantPath);
+
+            core.info(`Changed files: ${normalizedFiles.join(', ')}`);
+            core.info(`run_unit=${runUnit}`);
+            core.info(`run_components=${runComponents}`);
+            core.info(`run_e2e=${runE2e}`);
+
+            core.setOutput('run_unit', String(runUnit));
+            core.setOutput('run_components', String(runComponents));
+            core.setOutput('run_e2e', String(runE2e));
+            core.setOutput(
+              'skip_reason',
+              'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
+            );
