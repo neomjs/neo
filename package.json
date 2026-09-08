@@ -23,6 +23,8 @@
         "build-highlightjs"                    : "node ./buildScripts/build/highlightJs.mjs",
         "build-themes"                         : "node ./buildScripts/build/themes.mjs -f",
         "build-threads"                        : "node ./buildScripts/webpack/buildThreads.mjs -f",
+        "bundle-browser-deps"                  : "npm run bundle-parse5 && npm run bundle-marked",
+        "bundle-marked"                        : "node ./buildScripts/build/marked.mjs",
         "bundle-parse5"                        : "node ./buildScripts/build/parse5.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-engine-brain-boundary"          : "node ./buildScripts/util/check-engine-brain-boundary.mjs",

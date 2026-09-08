@@ -1,7 +1,7 @@
 import Component   from './Base.mjs';
 import HighlightJs from '../util/HighlightJs.mjs';
 import IdGenerator from '../core/IdGenerator.mjs';
-import {marked}    from '../../node_modules/marked/lib/marked.esm.js';
+import {marked}    from '../../dist/marked.mjs';
 
 const
     regexFrontMatter  = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/,
@@ -60,7 +60,7 @@ class Markdown extends Component {
          */
         renderFrontmatter: true,
         /**
-         * True to automatically replace ticket references (e.g. #123) with clickable links.
+         * True to automatically replace hash-prefixed ticket numbers with clickable links.
          * @member {Boolean} replaceTicketIds=false
          */
         replaceTicketIds: false,

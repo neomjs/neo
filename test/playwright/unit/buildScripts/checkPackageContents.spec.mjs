@@ -56,7 +56,7 @@ test.describe('check-package-contents — fires on private state, not on the tra
     });
 
     test('FIRES: a forbidden tree regardless of extension', () => {
-        // Defect #1 was a rule pinned to a path AND an extension, which went vacuous when the corpus
+        // The first defect was a rule pinned to a path AND an extension, which went vacuous when the corpus
         // changed both. Extension independence is the property that failed, so it is the property
         // asserted — a prefix rule must not care what the file is called.
         const findings = findForbiddenEntries([
@@ -105,7 +105,7 @@ test.describe('check-package-contents — fires on private state, not on the tra
     });
 
     test('a rule survives its tree being RENAMED — the defect this guard exists to end', () => {
-        // The sharpest case in this file, because the guard nearly reproduced defect #1 itself.
+        // The sharpest case in this file, because the guard nearly reproduced the first defect itself.
         //
         // The original `.npmignore` rule was pinned to a path AND an extension, and went vacuous when
         // the tree it named moved and changed extension. A gate pinned one level too deep reproduces
@@ -162,13 +162,13 @@ test.describe('check-package-contents — a required entry cannot be silently dr
     test('FIRES: the parse5 bundle absent from the packed set', () => {
         // The exact regression `/dist` produced: a plausible-looking tarball with the producer script
         // present and the artifact it produces missing.
-        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'package.json'];
+        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'package.json', 'dist/marked.mjs'];
 
         expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
     });
 
     test('PASSES: the same set once the artifact ships', () => {
-        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'dist/parse5.mjs'];
+        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'dist/parse5.mjs', 'dist/marked.mjs'];
 
         expect(findMissingEntries(packed)).toEqual([])
     });
@@ -177,7 +177,7 @@ test.describe('check-package-contents — a required entry cannot be silently dr
         // A prefix or suffix match would let `dist/esm/dist/parse5.mjs` — the copy the build emits
         // INTO the output tree — stand in for the published bundle at the root. They are different
         // files with different consumers, and only the root one is what an installed engine imports.
-        const packed = ['dist/esm/dist/parse5.mjs', 'vendor/dist/parse5.mjs', 'dist/parse5.mjs.map'];
+        const packed = ['dist/esm/dist/parse5.mjs', 'vendor/dist/parse5.mjs', 'dist/parse5.mjs.map', 'dist/marked.mjs'];
 
         expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
     });
@@ -192,4 +192,11 @@ test.describe('check-package-contents — a required entry cannot be silently dr
             expect(rule.why.length).toBeGreaterThan(40)
         })
     })
+});
+
+test('the marked producer cannot substitute for the shipped runtime bundle', async () => {
+    const {findMissingEntries} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+    expect(findMissingEntries(['dist/parse5.mjs', 'buildScripts/build/marked.mjs']).map(entry => entry.path))
+        .toEqual(['dist/marked.mjs'])
 });

@@ -291,9 +291,9 @@ jobs:
 
       # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
       # Harmless for the other suites.
-      - name: Bundle parse5
+      - name: Bundle browser dependencies
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        run: npm run bundle-parse5
+        run: npm run bundle-browser-deps
 
       # The components suite launches real Chromium against the dev server; unit runs
       # browserless, so browser provisioning stays scoped to this suite.
