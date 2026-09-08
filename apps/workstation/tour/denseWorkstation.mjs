@@ -183,3 +183,14 @@ export const workstationTourScript = Object.freeze({
         }]
     }]
 });
+
+/**
+ * @summary Initial bindable tour presentation; importing it creates no playback runtime.
+ * @type {Object}
+ */
+export const initialTourState = Object.freeze({
+    caption       : `${workstationTourScript.title} — twenty panes, 100k rows, a 10/sec feed, real overflow, and two themes.`,
+    completedCount: 0,
+    running       : false,
+    totalBeats    : workstationTourScript.scenes.flatMap(scene => scene.steps).length
+});

@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {callWorkstationTour} from '../utils/workstationTour.mjs';
+import {test, expect}        from '../../fixtures.mjs';
 
 /**
  * Whitebox-e2e: the dense tour and the Sparkline offscreen pipeline survive rendering starvation.
@@ -125,7 +126,7 @@ test.describe('Workstation rendering starvation: sparkline registration + dense 
         // TOUR LEG: the full dense tour settles with a complete receipt. The RPC is fired
         // without awaiting so no bridge timeout can shadow the app-side truth; the receipt
         // poll is the settle gate.
-        const tourRpc = app.callMethod(workspaceId, 'startTour').catch(error => ({rpcError: String(error)}));
+        const tourRpc = callWorkstationTour(app, workspaceId, 'startTour').catch(error => ({rpcError: String(error)}));
 
         await expect.poll(async () => {
             try {
