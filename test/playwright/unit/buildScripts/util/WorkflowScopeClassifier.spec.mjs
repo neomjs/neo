@@ -247,6 +247,15 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // Scoped to named files: an ordinary tier run passes directories, whose file count is not a
         // caller assertion, and a guard that compared against those would fail every gate run.
         expect(run).toContain('if [ -n "${PROBE_SPECS}" ]');
+
+        // By NAME, never by count. A cardinality check is defeated by mixing a file with a
+        // directory — one gated spec plus `e2e/colors` requests one `.spec.mjs` token and selects
+        // one file, a different one, so one equals one and the probe measures something nobody
+        // asked for. The guard must therefore search the listing for each named spec.
+        expect(run, 'each named spec must be sought in the listing').toContain('grep -qF');
+        expect(run, 'and the failure must name what was missing').toContain('were not selected');
+        expect(run, 'a bare cardinality comparison is the defeated form')
+            .not.toMatch(/-ne\s+"\$\{requested\}"/);
     });
 
     test('a dispatch is not silently capped by the job bound', () => {

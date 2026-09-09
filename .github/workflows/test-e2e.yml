@@ -253,15 +253,25 @@ jobs:
           #
           # Checked only when the caller named files: a directory's file count is not an assertion
           # about what should run, so comparing against it would fail every ordinary tier run.
+          # Compared by NAME, not by count. A cardinality check is defeated by mixing a file with a
+          # directory: naming one gated spec plus `e2e/colors` requests one `.spec.mjs` token and
+          # selects one file — `colors/tearOutMatrix.spec.mjs`, with zero of the spec actually named.
+          # One equals one, the guard passes, and the probe measured something nobody asked for.
+          # Every named file must therefore appear in the listing on its own account.
           if [ -n "${PROBE_SPECS}" ]; then
-            requested=$(printf '%s\n' ${PROBE_SPECS} | grep -c '\.spec\.mjs$' || true)
+            requested=$(printf '%s\n' ${PROBE_SPECS} | grep '\.spec\.mjs$' || true)
 
-            if [ "${requested}" -gt 0 ]; then
-              selected=$(npx playwright test -c test/playwright/playwright.config.e2e.mjs --list ${paths} 2>&1 \
-                | grep -oE 'in [0-9]+ file' | grep -oE '[0-9]+' | tail -1)
+            if [ -n "${requested}" ]; then
+              listing=$(npx playwright test -c test/playwright/playwright.config.e2e.mjs --list ${paths} 2>&1)
+              missing=''
 
-              if [ "${selected:-0}" -ne "${requested}" ]; then
-                echo "::error::probe selection mismatch — asked for ${requested} spec file(s), Playwright selected ${selected:-0}."
+              while read -r want; do
+                [ -z "${want}" ] && continue
+                printf '%s\n' "${listing}" | grep -qF "${want#test/playwright/e2e/}" || missing="${missing} ${want}"
+              done <<< "${requested}"
+
+              if [ -n "${missing}" ]; then
+                echo "::error::probe selection mismatch — these named specs were not selected:${missing}"
                 echo "Specs removed by testIgnore are dropped without warning; with NEO_AGENTOS_RUNTIME_ROOT unset that is the whole Brain-gated set."
                 exit 1
               fi
