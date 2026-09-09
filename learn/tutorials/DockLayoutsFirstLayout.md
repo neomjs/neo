@@ -152,20 +152,6 @@ The engine derives them from what you wrote, and the benefit is not that the alg
 benefit is that there is nothing to keep in sync.** You never invented `center-split-0`, so you can never
 misspell it, never leave it behind after a rename, and never have two nodes accidentally sharing one.
 
-You *can* name a node when you want to address it later:
-
-```javascript
-zones: {
-    center: {
-        id         : 'main-split',
-        orientation: 'horizontal',
-        children   : [{id: 'code-tabs', items: ['editor']}, {items: ['preview']}]
-    }
-}
-```
-
-Name the ones you will refer to; let the engine handle the rest. That is the whole rule.
-
 ## What the engine does with your two configs
 
 ```mermaid
