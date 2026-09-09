@@ -5,7 +5,11 @@ const appName = 'CoreVdomDestroyCancellationTest';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
-        useDomApiRenderer      : true
+        useDomApiRenderer      : true,
+        // Load-bearing: `VdomLifecycle` applies a flight's deltas inside
+        // `if (!Neo.config.useVdomWorker && …)`. At the harness default of `true` that call is
+        // unreachable and the zero-deltas assertion below cannot fail for the reason it names.
+        useVdomWorker          : false
     },
     appConfig: {
         name: appName
@@ -33,16 +37,39 @@ test.describe('VdomLifecycle destroy cancellation boundary', () => {
         const realUpdateBatch = VdomHelper.updateBatch;
         const realApplyDeltas = Neo.applyDeltas;
 
-        let armed      = null,
-            deltaCalls = 0,
+        let armed = null,
             parent, child;
 
+        /**
+         * Payloads, not a call count: `Neo.applyDeltas` is module-global and a worker runs spec
+         * files in one process, so a count cannot distinguish this flight's deltas from anyone
+         * else's. Recorded so a failure names the delta it caught.
+         * @type {Object[]}
+         */
+        const applied = [];
+
+        /**
+         * The batches served the armed promise, by the ids they carry. Only the child's own batch
+         * may be served: `VdomLifecycle`'s guard gates on the flight INITIATOR, so a live joiner
+         * would legitimately apply a destroyed peer's payload. Asserted, so an ancestor-timing
+         * change trips an arm rather than becoming the cause.
+         * @type {String[]}
+         */
+        const armedJoiners = [];
+
         VdomHelper.updateBatch = function(data) {
-            return armed ? armed.promise : realUpdateBatch.call(this, data)
+            const ids = Object.keys(data?.updates || {});
+
+            if (armed && ids.includes('vdc-child')) {
+                armedJoiners.push(ids.join('+'));
+                return armed.promise
+            }
+
+            return realUpdateBatch.call(this, data)
         };
-        Neo.applyDeltas = function(...args) {
-            deltaCalls++;
-            return realApplyDeltas?.apply(this, args)
+        Neo.applyDeltas = function(windowId, deltas) {
+            applied.push(...(Array.isArray(deltas) ? deltas : [deltas]));
+            return realApplyDeltas?.apply(this, arguments)
         };
 
         try {
@@ -93,15 +120,29 @@ test.describe('VdomLifecycle destroy cancellation boundary', () => {
             expect(VDomUpdate.postUpdateQueueMap.get('vdc-child'),'no post-update residue').toBeFalsy();
             expect(parentUpdates, 'the waiting ancestor restarts exactly once').toBe(1);
 
-            // Resolve the STALE success payload after destruction: nothing may apply.
-            deltaCalls = 0;
+            // Only the child's own batch may hold the armed promise. A second entry here means a
+            // live component is being served a destroyed peer's payload — see `armedJoiners`.
+            expect(armedJoiners, 'only the destroyed child\'s own batch received the armed promise').toEqual(['vdc-child']);
+
+            // Resolve the STALE success payload after destruction: nothing of the child's may apply.
+            applied.length = 0;
             resolveStale({
                 deltas: [{action: 'updateVtext', id: 'vdc-child', value: 'stale'}],
                 vnodes: {'vdc-child': {id: 'vdc-child', nodeName: 'div'}}
             });
+
+            // In-window control: someone else's delta, applied on purpose. It must be RECORDED
+            // (proving the recorder is attached, not silently detached) and NOT attributed to the
+            // destroyed flight. This is the shape ambient traffic from a neighbouring spec takes.
+            Neo.applyDeltas(parent.windowId, {action: 'updateVtext', id: 'vdc-unrelated', value: 'ambient'});
+
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            expect(deltaCalls, 'a stale success payload from a destroyed flight must apply ZERO deltas').toBe(0)
+            expect(applied.some(delta => delta?.id === 'vdc-unrelated'), 'the recorder must be live').toBe(true);
+
+            const staleApplied = applied.filter(delta => delta?.id === 'vdc-child');
+
+            expect(staleApplied, `a stale success payload from a destroyed flight must apply ZERO deltas — applied in window: ${JSON.stringify(applied)}`).toEqual([])
         } finally {
             VdomHelper.updateBatch = realUpdateBatch;
             Neo.applyDeltas        = realApplyDeltas;
