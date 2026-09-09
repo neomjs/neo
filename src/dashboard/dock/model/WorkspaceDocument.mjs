@@ -388,9 +388,10 @@ class WorkspaceDocument extends Base {
         // schema this document declares, so listing them as "unexpected" describes today's allowlist
         // rather than the document, and buries the one fact a caller can act on.
         //
-        // Reported, never null: `Persistence#validatePerspectiveRecord` reaches this scan WITHOUT a
-        // companion `validate()` call, so returning null here would let an older document through in
-        // silence on that one path. A recognised refusal keeps every entry point loud.
+        // Reported, never null. This is a public static: its answer cannot assume the caller ran
+        // {@link #validate} first, and returning null would make "no finding" mean two different
+        // things — nothing wrong, and too old to judge. Every in-repo caller does currently pair the
+        // two, so this is defence in depth rather than a live gap.
         if (WorkspaceDocument.RETIRED_SCHEMAS.has(document.schema)) {
             return {
                 key   : 'schema',

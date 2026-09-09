@@ -173,9 +173,9 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             const retired = doc();
             retired.schema = 'neo.dock.zone.v1';
 
-            // `Persistence#validatePerspectiveRecord` reaches this scan without a companion
-            // validate(), so a null here would let an older document through in silence on that
-            // one path. This arm is the reason the scan reports instead of short-circuiting.
+            // The scan is a public static and this arm calls it directly, without a companion
+            // validate() — which is exactly the shape a future caller could take. A null answer
+            // would conflate "nothing wrong" with "too old to judge"; this pins the refusal.
             const finding = WorkspaceDocument.findUnexpectedDockZoneKey(retired, 'savedLayout.dockZone');
 
             expect(finding).not.toBeNull();
