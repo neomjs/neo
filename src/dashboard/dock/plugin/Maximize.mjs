@@ -474,7 +474,7 @@ class Maximize extends Plugin {
         MotionSignal.enter(owner);
 
         try {
-            played = flip.play({hostId: host.id, markerPrefix: me.markerPrefix, windowId: host.windowId})
+            played = flip.play({geometryOnly: true, hostId: host.id, markerPrefix: me.markerPrefix, windowId: host.windowId})
         } catch (error) {
             played = Promise.reject(error)
         }
