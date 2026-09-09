@@ -41,8 +41,6 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
-    // Named individually because its only sibling, `LearnLinkRoutingNL.spec.mjs`, is an EXCLUSION.
-    'test/playwright/e2e/portal/LearnMermaidRender.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs'
 ];
@@ -66,6 +64,16 @@ export const EXCLUSIONS = [{
     kind  : 'observed',
     reason: 'on a hosted runner the click routes and the content has not followed within 30s — the trace shows the hash at the destination and the source `h1` still in place, with no console error and no failed request. Bounded deliberately: 30s is the longest window measured, so a slower-still arrival is not excluded, only a budget in the range anyone would wait; the sibling sidebar arm passes on the same runner',
     owner : '@neo-opus-ada — #18422 holds the measurement; the arm is correct and the divergence is not'
+}, {
+    path  : 'test/playwright/e2e/portal/LearnMermaidRender.spec.mjs',
+    // `observed`, not `cause`: the PRECONDITION is measured false on a hosted runner. Why Monaco's
+    // loader is absent there is not established — the neighbouring `LivePreviewMultiWindow` entry
+    // records live previews failing to become visible hosted, and Monaco loads through one, so the
+    // two are plausibly the same condition. Plausibly is not a cause, and this file has a word for
+    // that distinction precisely so a guess cannot wear a verified entry's clothes.
+    kind  : 'observed',
+    reason: 'the arm asserts its own precondition — Monaco\'s AMD loader present, since the defect it guards is mermaid\'s UMD `define` landing in that loader — and on a hosted runner `window.define.amd` is false, so it fails at the precondition rather than at the behaviour. That is the assertion working: without it the arm would pass hosted while proving nothing, because the collision cannot occur where the loader never loads. Red-first was verified LOCALLY in both directions at `a6320ccf71`: reverting only `main/addon/Mermaid.mjs` turns it red, restoring it returns green',
+    owner : '@neo-opus-ada — #18564 owns the fix this arm guards; returning the arm to the tier depends on Monaco loading hosted, which #18427 is measuring from the live-preview side'
 }];
 
 /**
