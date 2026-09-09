@@ -8,9 +8,8 @@ import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
 import MotionSignal      from './MotionSignal.mjs';
 import TabOverflowPlugin from '../../../tab/plugin/Overflow.mjs';
 
-// Private runtime restoration slot for live component instances projected through the popup
-// stack grip. Symbol-keyed so it can never collide with application config or persisted data.
-const stackHeaderSource = Symbol('dockStackHeaderSource');
+// Restores a live pane's header after transient insertion or stack-grip decoration.
+const projectedHeaderSource = Symbol('dockProjectedHeaderSource');
 
 /**
  * @summary Projects dock-zone model nodes into existing Neo layout and tab configs.
@@ -123,15 +122,14 @@ class LayoutAdapter extends Base {
     }
 
     /**
-     * @summary Applies adapter-owned item metadata and one-use add-tab decoration to a pane config.
+     * @summary Applies item metadata and transient header decoration to a pane config or live instance.
      *
      * Reconciliation discovers live panes before consulting its app resolver. When a pane is genuinely
      * absent, this helper lets that resolver prepare the same config the normal projection path
      * would have emitted without copying dashboard-owned header policy into the consuming workspace.
-     * Add-tab animation remains plain-config-only. The stack handle also supports a LIVE component
-     * instance through a symbol-keyed runtime header overlay whose exact prior ownership/value is
-     * restored as soon as that instance projects without the handle; the popup affordance therefore
-     * cannot leak into the main workspace or persisted item state.
+     * Live instances retain their original header ownership/value behind both the stack grip and
+     * add-tab animation. Each call starts from that original header, so an unrelated projection
+     * removes the transient decoration without copying it into application or persisted state.
      * @param {*} component Resolved pane config or live component instance.
      * @param {String} itemId Stable item identity.
      * @param {Object} item Persisted item record.
@@ -143,35 +141,35 @@ class LayoutAdapter extends Base {
      * @static
      */
     static decorateProjectedItem(component, itemId, item, {nodeId=null, stackHandle=false, tabInsertDescriptor=null}={}) {
-        let config = this.decorateItemConfig(component, itemId, item),
+        let config      = this.decorateItemConfig(component, itemId, item),
+            isLive      = config instanceof Base,
+            canDecorate = isLive || config?.constructor === Object,
+            isInsertion = canDecorate && tabInsertDescriptor?.operation === 'addTab'
+                && tabInsertDescriptor.itemId === itemId && tabInsertDescriptor.tabsNodeId === nodeId,
             header;
 
-        if (config instanceof Base) {
-            let source = config[stackHeaderSource];
+        if (isLive) {
+            const source = config[projectedHeaderSource];
 
-            if (stackHandle) {
-                source ||= config[stackHeaderSource] = {
-                    hadOwn: Object.hasOwn(config, 'header'),
-                    value : config.header
-                };
-                config.header = this.createStackHeader(source.value, itemId, item)
-            } else if (source) {
+            if (source) {
                 if (source.hadOwn) {
                     config.header = source.value
                 } else {
                     delete config.header
                 }
 
-                delete config[stackHeaderSource]
+                delete config[projectedHeaderSource]
             }
 
-            return config
+            if (stackHandle || isInsertion) {
+                config[projectedHeaderSource] = {
+                    hadOwn: Object.hasOwn(config, 'header'),
+                    value : config.header
+                }
+            }
         }
 
-        if (config?.constructor === Object
-            && tabInsertDescriptor?.operation === 'addTab'
-            && tabInsertDescriptor.itemId === itemId
-            && tabInsertDescriptor.tabsNodeId === nodeId) {
+        if (isInsertion) {
             header = config.header || {text: item?.title || itemId};
             config.header = {
                 ...header,
@@ -184,7 +182,7 @@ class LayoutAdapter extends Base {
             }
         }
 
-        if (config?.constructor === Object && stackHandle) {
+        if (canDecorate && stackHandle) {
             config.header = this.createStackHeader(config.header, itemId, item)
         }
 

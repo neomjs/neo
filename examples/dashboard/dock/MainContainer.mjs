@@ -10,98 +10,19 @@ import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype 
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
 
 /**
- * A representative dock-zone document (`neo.dock.zone.v1`): an edge-zone root whose center is a
- * horizontal split of a two-tab main zone and a vertical side-split of two single-tab zones, plus a
- * right edge band holding a single-tab inspector zone — the auto-hide surface (committing
- * `setItemAutoHidden` on an edge-band item collapses it to a `Neo.dashboard.dock.interaction.Rail` edge tab).
- * The shape `Neo.dashboard.dock.projection.LayoutAdapter.project` consumes — see its spec for the full contract.
- * Used as the example's INITIAL committed document; the live document advances on each commit
- * (see `MainContainer#dockModel`).
- * @type {Object}
- */
-const initialDockModel = {
-    schema: 'neo.dock.zone.v1',
-    root  : 'root',
-    items : {
-        strategy : {componentRef: 'Strategy',  title: 'Strategy',  kind: 'panel'},
-        swarm    : {componentRef: 'Swarm',     title: 'Swarm',     kind: 'panel'},
-        terminal : {componentRef: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
-        logs     : {componentRef: 'Logs',      title: 'Logs',      kind: 'panel'},
-        inspector: {componentRef: 'Inspector', title: 'Inspector', kind: 'panel'},
-        metrics  : {componentRef: 'Metrics',   title: 'Metrics',   kind: 'panel'},
-        timeline : {componentRef: 'Timeline',  title: 'Timeline',  kind: 'panel'},
-        agents   : {componentRef: 'Agents',    title: 'Agents',    kind: 'panel'},
-        alerts   : {componentRef: 'Alerts',    title: 'Alerts',    kind: 'panel'},
-        history  : {componentRef: 'History',   title: 'History',   kind: 'panel'}
-    },
-    nodes: {
-        root            : {
-            type : 'edge-zone',
-            zones: {
-                center: {nodeId: 'root-split'},
-                right : {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}
-            }
-        },
-        'root-split'    : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-split'], sizes: [0.65, 0.35]},
-        'main-tabs'     : {type: 'tabs',  items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history'], activeItemId: 'strategy'},
-        'side-split'    : {type: 'split', orientation: 'vertical', children: ['terminal-tabs', 'logs-tabs'], sizes: [0.6, 0.4]},
-        'terminal-tabs' : {type: 'tabs',  items: ['terminal'],  activeItemId: 'terminal'},
-        'logs-tabs'     : {type: 'tabs',  items: ['logs'],      activeItemId: 'logs'},
-        'inspector-tabs': {type: 'tabs',  items: ['inspector'], activeItemId: 'inspector'}
-    }
-};
-
-const reviewDockModel = WorkspaceDocument.clone(initialDockModel);
-
-reviewDockModel.nodes['root-split'].sizes = [0.48, 0.52];
-reviewDockModel.nodes['main-tabs'].activeItemId = 'swarm';
-reviewDockModel.nodes['side-split'].sizes = [0.42, 0.58];
-
-/**
- * Example-local saved perspectives, persisted through the same `DockZoneModel` collection helpers as user-saved
- * layouts. The documents stay JSON-only and storage-backend agnostic.
- * @type {Object[]}
- */
-const seededPerspectives = [{
-    document: initialDockModel,
-    layoutId: 'operator-default',
-    title   : 'Operator'
-}, {
-    document: reviewDockModel,
-    layoutId: 'review-focus',
-    title   : 'Review'
-}];
-
-/**
- * @summary Standalone, interactive example for the dashboard dock-zone layout system — the minimal
- * consumer of {@link Neo.dashboard.dock.Workspace}.
- *
- * The engine class owns the whole host loop: the committed document ({@link #dockModel}), the pure
- * reducer (`applyDockZoneOperation`), the deferred, promise-chained re-projection through
- * `projection.LayoutAdapter` and `projection.Reconciler` (`onDockZoneDocumentChange`), the FLIP
- * motion bracket, and the in-window cross-zone drop path. Every splitter previews live by default:
- * a split boundary moves its conserved adjacent pair on the main thread (totals constant, both
- * members' CSS bounds respected) and the edge boundary resizes its band the same way — release
- * commits exactly one `resizeSplit` / `resizeEdgeZone` matching the final preview, Escape restores
- * the exact pre-drag geometry, and the layout re-projects from the new committed document — the
- * example adds nothing to that mechanism.
- *
- * What the example owns is exactly what an adopting app owns: which pane renders a catalog item
- * ({@link #resolvePane}), and its own chrome — a perspective toolbar consuming the saved-layout
- * collection helpers the model exposes (seed perspectives stored as `neo.dock.layoutCollection.v1`,
- * selecting a perspective calls `restoreActiveSavedLayout()`, Save Current upserts the live committed
- * document, Delete Active keeps a valid replacement active) plus browser-local persistence through the
- * main-thread `LocalStorage` addon, so App-Worker code never reaches for `window.localStorage` directly.
- * The toolbar re-syncs on every re-projection through the {@link #beforeRefreshDockWorkspace} hook.
- *
- * `app.mjs` composes this workspace as the flex child of a real `Neo.container.Viewport`. The
- * Viewport owns application mounting, root sizing and the body contract; this class owns only the
- * dock document, projection and example chrome.
- *
- * See `learn/agentos/DockZoneModel.md` for the model/projection contract and
- * `learn/guides/uibuildingblocks/DockLayouts.md` for the adoption guide.
  * @class Neo.examples.dashboard.dock.MainContainer
  * @extends Neo.dashboard.dock.Workspace
+ * @summary Declarative dock layout with optional example-owned perspectives and tour replay.
+ *
+ * The panes and zones configs define the complete initial arrangement. Workspace owns lowering,
+ * pane resolution, first projection and interaction lifetimes. Named structural IDs below are
+ * used by the Review preset and tour operations; other node IDs belong to the engine.
+ *
+ * The remaining methods demonstrate saved-layout collections, a persistent toolbar and LocalStorage
+ * through the main-thread addon. These features consume the captured document and are independent
+ * of initial layout authoring. A supplied document retains the host's precedence over declarations.
+ *
+ * See learn/guides/uibuildingblocks/DockLayouts.md for the adoption guide.
  */
 class MainContainer extends DockWorkspace {
     static config = {
@@ -143,7 +64,41 @@ class MainContainer extends DockWorkspace {
         /**
          * @member {Object} layout={ntype:'vbox', align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * Ordinary pane configs keyed by their stable workspace identity. Strategy supplies
+         * the existing reload delegation demo; the other panes use the host's recreate path.
+         * @member {Object} panes
+         */
+        panes: {
+            strategy : {module: ReloadablePane, cls: ['neo-example-dock-pane'], header: {text: 'Strategy'}, componentRef: 'Strategy', kind: 'panel'},
+            swarm    : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Swarm'}, componentRef: 'Swarm', kind: 'panel', text: 'Swarm'},
+            terminal : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Terminal'}, componentRef: 'Terminal', kind: 'terminal', text: 'Terminal'},
+            logs     : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Logs'}, componentRef: 'Logs', kind: 'panel', text: 'Logs'},
+            inspector: {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Inspector'}, componentRef: 'Inspector', kind: 'panel', text: 'Inspector'},
+            metrics  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Metrics'}, componentRef: 'Metrics', kind: 'panel', text: 'Metrics'},
+            timeline : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Timeline'}, componentRef: 'Timeline', kind: 'panel', text: 'Timeline'},
+            agents   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Agents'}, componentRef: 'Agents', kind: 'panel', text: 'Agents'},
+            alerts   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Alerts'}, componentRef: 'Alerts', kind: 'panel', text: 'Alerts'},
+            history  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'History'}, componentRef: 'History', kind: 'panel', text: 'History'}
+        },
+        /**
+         * Nested placement: center tabs beside a vertical split, with an inspector edge band.
+         * @member {Object} zones
+         */
+        zones: {
+            center: {
+                id      : 'root-split', orientation: 'horizontal', sizes: [0.65, 0.35],
+                children: [{
+                    id   : 'main-tabs',
+                    items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history']
+                }, {
+                    id      : 'side-split', orientation: 'vertical', sizes: [0.6, 0.4],
+                    children: ['terminal', 'logs']
+                }]
+            },
+            right: {items: ['inspector'], extent: 0.25, resizable: true}
+        }
     }
 
     /**
@@ -171,17 +126,15 @@ class MainContainer extends DockWorkspace {
     savedPerspectiveCount = 0
 
     /**
-     * @summary Creates example-owned perspective state and toolbar; the engine mounts the first shell.
-     * @param {Object} config
+     * @summary Creates perspective chrome after Workspace captures the initial declarations.
+     * @protected
      */
-    construct(config) {
-        super.construct(config);
+    onAfterConstructed() {
+        super.onAfterConstructed();
 
-        let me = this;
+        const me = this;
 
         me.layoutCollection = me.createDefaultLayoutCollection();
-        me.dockModel        = PerspectiveLibrary.restoreActiveSavedLayout(me.layoutCollection).document || WorkspaceDocument.clone(initialDockModel);
-
         me.add(me.createPerspectiveToolbar());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
     }
@@ -194,30 +147,6 @@ class MainContainer extends DockWorkspace {
      */
     beforeRefreshDockWorkspace(document, refreshOptions) {
         this.syncPerspectiveToolbar()
-    }
-
-    /**
-     * Resolves a catalog item to the pane rendered inside its dock zone. For this example, a simple
-     * centered label per panel; a real app resolves each item to its feature view. The FLIP marker
-     * class is stamped by the engine class, never here.
-     * @param {String} itemId The stable workspace identity from the item catalog.
-     * @param {Object} item The persisted item record.
-     * @returns {Object}
-     */
-    resolvePane(itemId, item) {
-        // Strategy demonstrates the reload delegation contract; see ReloadablePane below.
-        if (itemId === 'strategy') {
-            return {
-                module: ReloadablePane,
-                style : {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'}
-            }
-        }
-
-        return {
-            ntype: 'component',
-            style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
-            html : item?.componentRef ?? itemId
-        }
     }
 
     /**
@@ -264,11 +193,23 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Builds a valid default collection from the example's seeded perspectives.
+     * @summary Derives Operator and Review perspectives from the effective initial document.
      * @returns {Object}
      */
     createDefaultLayoutCollection() {
-        let layouts = seededPerspectives.map(({document, layoutId, title}) => {
+        const operator = WorkspaceDocument.clone(this.dockModel),
+              review   = WorkspaceDocument.clone(operator),
+              nodes    = review.nodes;
+
+        // Restored documents can have different topology; adjust only the matching named regions.
+        if (nodes['root-split']?.type === 'split' && nodes['root-split'].children.length === 2) nodes['root-split'].sizes = [0.48, 0.52];
+        if (nodes['main-tabs']?.items?.includes('swarm')) nodes['main-tabs'].activeItemId = 'swarm';
+        if (nodes['side-split']?.type === 'split' && nodes['side-split'].children.length === 2) nodes['side-split'].sizes = [0.42, 0.58];
+
+        let layouts = [
+                {document: operator, layoutId: 'operator-default', title: 'Operator'},
+                {document: review, layoutId: 'review-focus', title: 'Review'}
+            ].map(({document, layoutId, title}) => {
                 let {layout, errors} = Persistence.createSavedLayout(document, {
                     layoutId,
                     title,

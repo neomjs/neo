@@ -229,12 +229,16 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         // state-relative (shared heap): pick a REAL cross-zone move from the current doc —
         // an item out of main-tabs if it has one, else one back INTO it
-        const topo0     = await app.getDockTopology(holderId);
-        const doc0      = topo0?.document ?? topo0;
-        const mainItems = doc0.nodes['main-tabs']?.items || [];
+        const topo0        = await app.getDockTopology(holderId);
+        const doc0         = topo0?.document ?? topo0;
+        const mainItems    = doc0.nodes['main-tabs']?.items || [];
+        const terminalNode = Object.entries(doc0.nodes).find(([, node]) =>
+            node.type === 'tabs' && node.items.includes('terminal'))?.[0];
+        expect(terminalNode, 'the terminal pane must identify the other tabs node').toBeTruthy();
+        expect(terminalNode, 'the move crosses distinct zones').not.toBe('main-tabs');
         const move      = mainItems.length
-            ? { itemId: mainItems[0], targetNodeId: 'terminal-tabs' }
-            : { itemId: (doc0.nodes['terminal-tabs']?.items || [])[0], targetNodeId: 'main-tabs' };
+            ? { itemId: mainItems[0], targetNodeId: terminalNode }
+            : { itemId: (doc0.nodes[terminalNode]?.items || [])[0], targetNodeId: 'main-tabs' };
         expect(move.itemId, 'a movable item must exist in the shared-heap doc').toBeTruthy();
 
         // the moved pane's OWN marker (the per-item correlation key the projection stamps) —

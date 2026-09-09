@@ -91,8 +91,12 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         const { app, holderId, readModel } = await bootDockExample({ page, neuralLink });
 
         // Setup truth: inspector sits visible in the right edge band; nothing rails yet.
-        const before = await readModel();
-        expect(before?.nodes?.['inspector-tabs']?.items, 'the example must seed the inspector in the right edge band').toEqual(['inspector']);
+        const before        = await readModel();
+        const inspectorNode = Object.entries(before.nodes).find(([, node]) =>
+            node.type === 'tabs' && node.items.includes('inspector'))?.[0];
+        expect(inspectorNode, 'inspector occupies a real tabs node').toBeTruthy();
+        expect(before.nodes[inspectorNode].items, 'the example must seed the inspector in the right edge band').toEqual(['inspector']);
+        expect(before.nodes[before.root].zones.right.nodeId).toBe(inspectorNode);
         expect(before?.items?.inspector?.autoHidden, 'the inspector must start visible').not.toBe(true);
         await expect(page.locator('.neo-dashboard-dock-edge-rail .neo-dashboard-dock-rail-tab')).toHaveCount(0);
 
@@ -108,7 +112,7 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
 
         await tuckInspector({ app, holderId, page });
 
-        // Product truth #1: the committed auto-hidden item projects as a REAL rail button.
+        // The committed auto-hidden item projects as a real rail button.
         const railTab = page.locator('.neo-dashboard-dock-rail-tab', { hasText: 'Inspector' }).first();
         await expect(railTab, 'the inspector must collapse to a labeled edge-rail tab').toBeVisible({ timeout: 10000 });
 
@@ -158,7 +162,7 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
 
         const firstRevealAnimationStarts = await page.evaluate(() => window.__neoDockRevealAnimationStarts);
 
-        // Product truth #2: reveal is runtime-only — worker truth is byte-stable across the reveal.
+        // Reveal is runtime-only: worker truth is byte-stable across the reveal.
         const revealed = await readModel();
         expect(JSON.stringify(revealed), 'the committed document must NOT change on reveal').toBe(JSON.stringify(hidden));
 
@@ -214,7 +218,7 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         await overlay.locator('.neo-dashboard-dock-reveal-pin').first().click();
         await page.waitForTimeout(1500);
 
-        // Product truth #3: the pin gesture mutated worker truth through the semantic path.
+        // The pin gesture mutated worker truth through the semantic path.
         const pinned = await readModel();
         console.log('[auto-hide] inspector:', JSON.stringify(hidden?.items?.inspector), '->', JSON.stringify(pinned?.items?.inspector));
         expect(pinned?.items?.inspector?.pinned,     'the pin gesture must commit setItemPinned(true)').toBe(true);
@@ -247,14 +251,14 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         await expect(overlay).toBeVisible({timeout: 10000});
         await expect(prose, 'the prose-bearing non-focusable pane must be rendered').toBeVisible();
 
-        // Honest reading interaction #1: whitespace in the pane slot keeps the focused reveal.
+        // Whitespace in the pane slot keeps the focused reveal.
         await paneSlot.click({position: {x: 12, y: 12}});
         await expect(overlay, 'inside whitespace must not dismiss the reveal').toBeVisible();
         await expect.poll(() => overlay.evaluate(element => document.activeElement === element), {
             message: 'inside mousedown must refocus the tabindex=-1 overlay root'
         }).toBe(true);
 
-        // Honest reading interaction #2: selection remains browser-native. A local listener would
+        // Selection remains browser-native. A local listener would
         // preventDefault on mousedown and make this arm red even if the overlay stayed painted.
         await prose.dblclick();
         await expect.poll(() => page.evaluate(() => document.getSelection()?.toString().trim() || ''), {

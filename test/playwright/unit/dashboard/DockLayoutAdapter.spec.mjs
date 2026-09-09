@@ -671,6 +671,49 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         ])
     });
 
+    test('a retained live pane gets one insertion header and restores its original header afterward', () => {
+        const pane           = Neo.create(Component, {header: {text: 'Swarm', cls: ['stable-header']}}),
+              item           = {componentRef: 'Swarm', kind: 'panel', title: 'Swarm'},
+              originalHeader = pane.header,
+              options        = {
+                  nodeId             : 'main-tabs',
+                  tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs'}
+              };
+
+        try {
+            expect(DockLayoutAdapter.decorateProjectedItem(pane, 'swarm', item, options)).toBe(pane);
+            expect(pane.header.module).toBe(DockTabEnterButton);
+            expect(pane.header.cls).toEqual(['stable-header', 'neo-dashboard-dock-tab-enter', 'dock-tab-enter-item-swarm']);
+            expect(originalHeader).toEqual({text: 'Swarm', cls: ['stable-header']});
+
+            DockLayoutAdapter.decorateProjectedItem(pane, 'swarm', item, {...options, stackHandle: true});
+            expect(pane.header.text[1].cls).toEqual(['neo-dock-stack-handle']);
+            expect(pane.header.cls.filter(cls => cls === 'neo-dashboard-dock-tab-enter')).toHaveLength(1);
+
+            DockLayoutAdapter.decorateProjectedItem(pane, 'swarm', item, {...options, nodeId: 'other-tabs'});
+            expect(pane.header).toBe(originalHeader);
+            expect(pane.header).not.toHaveProperty('module')
+        } finally {
+            pane.destroy()
+        }
+    });
+
+    test('a live pane without an own header regains that absence after insertion decoration', () => {
+        const pane = Neo.create(Component, {}), item = {componentRef: 'bare', title: 'Bare'};
+
+        try {
+            expect(Object.hasOwn(pane, 'header')).toBe(false);
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item, {
+                nodeId: 'target', tabInsertDescriptor: {operation: 'addTab', itemId: 'bare', tabsNodeId: 'target'}
+            });
+            expect(pane.header.module).toBe(DockTabEnterButton);
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item);
+            expect(Object.hasOwn(pane, 'header')).toBe(false)
+        } finally {
+            pane.destroy()
+        }
+    });
+
     test('projects the documented edge-zone root model through the dashboard adapter', () => {
         let result = DockLayoutAdapter.project(createEdgeZoneModel(), {
                 resolveComponentRef: componentRef => ({
