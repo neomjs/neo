@@ -231,6 +231,24 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         expect(probe.if).toContain("github.event_name == 'workflow_dispatch'");
     });
 
+    test('a probe refuses to measure less than it was asked to', () => {
+        // `testIgnore` deselects the Brain-gated specs, and naming one on the command line does not
+        // override it — so a selector mixing a gated spec with a reachable one runs only the
+        // reachable half and exits 0. Measured on this tree: two files requested, one selected,
+        // "3 passed". A rate whose denominator was silently reduced, dressed as a clean pass.
+        //
+        // A gated spec named ALONE already fails with "No tests found"; the mixed selector is the
+        // one that lies, so the guard compares requested spec FILES against what Playwright selects.
+        const run = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps
+            .find(step => step.name === 'Run e2e (engine tier)').run;
+
+        expect(run, 'the guard must compare requested against selected').toContain('probe selection mismatch');
+        expect(run, 'and it must exit non-zero rather than warn').toMatch(/probe selection mismatch[\s\S]*exit 1/);
+        // Scoped to named files: an ordinary tier run passes directories, whose file count is not a
+        // caller assertion, and a guard that compared against those would fail every gate run.
+        expect(run).toContain('if [ -n "${PROBE_SPECS}" ]');
+    });
+
     test('a dispatch is not silently capped by the job bound', () => {
         // A job `timeout-minutes` CAPS a step's: the dispatch test step asks for 30, and under the
         // gate's 12-minute job it would have received 12 — a probe killed by a limit nothing in the

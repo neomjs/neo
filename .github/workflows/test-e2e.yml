@@ -241,6 +241,33 @@ jobs:
           echo "selection: ${paths}"
           echo "repeat-each: ${PROBE_REPEAT}"
 
+          # A probe must never measure LESS than it was asked to.
+          #
+          # `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent specs, and naming
+          # one on the command line does NOT override it. A selector mixing a gated spec with a
+          # reachable one therefore runs only the reachable half and exits 0 — measured: two files
+          # requested, one file selected, "3 passed", exit 0. That is a rate whose denominator was
+          # silently reduced, reported as a clean pass, which is precisely the false green this tier
+          # exists to remove. A gated spec named ALONE already fails with "No tests found"; it is the
+          # mixed selector that lies.
+          #
+          # Checked only when the caller named files: a directory's file count is not an assertion
+          # about what should run, so comparing against it would fail every ordinary tier run.
+          if [ -n "${PROBE_SPECS}" ]; then
+            requested=$(printf '%s\n' ${PROBE_SPECS} | grep -c '\.spec\.mjs$' || true)
+
+            if [ "${requested}" -gt 0 ]; then
+              selected=$(npx playwright test -c test/playwright/playwright.config.e2e.mjs --list ${paths} 2>&1 \
+                | grep -oE 'in [0-9]+ file' | grep -oE '[0-9]+' | tail -1)
+
+              if [ "${selected:-0}" -ne "${requested}" ]; then
+                echo "::error::probe selection mismatch — asked for ${requested} spec file(s), Playwright selected ${selected:-0}."
+                echo "Specs removed by testIgnore are dropped without warning; with NEO_AGENTOS_RUNTIME_ROOT unset that is the whole Brain-gated set."
+                exit 1
+              fi
+            fi
+          fi
+
           # Deliberately unquoted: the selection is a space-separated list that must word-split
           # into separate arguments.
           npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 \
