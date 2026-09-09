@@ -763,6 +763,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             originalDragDrop = Neo.main.addon.DragDrop,
             originalMove     = Neo.Main.windowNativeMoveTo,
             originalResize   = Neo.Main.windowNativeResizeTo,
+            originalGet      = Neo.manager.Window.get,
             calls            = [],
             sourceRoute      = {
                 capabilities   : {close: true, focus: true, position: true, resize: true},
@@ -781,6 +782,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
             windowName : 'tearout-audit'
         });
         workspace.tearOutParkGeometries.audit = geometry;
+        Neo.manager.Window.get = id => id === 'source-window'
+            ? {chrome: {left: 8, top: 67}}
+            : originalGet.call(Neo.manager.Window, id);
         Neo.main.addon.DragDrop = {
             acknowledgeWindowDragOrphanRecovery: async () => true,
             hasWindowDragOrphanRecovery        : async () => false,
@@ -818,8 +822,8 @@ test.describe.serial('Workstation.view.Workspace', () => {
                     nativeHandleKey: 'handle-source',
                     targetWindowId : 'source-window',
                     windowId       : workspace.windowId,
-                    x              : 420,
-                    y              : 240
+                    x              : 412,
+                    y              : 173
                 }],
                 ['resize', {
                     height         : 260,
@@ -870,6 +874,61 @@ test.describe.serial('Workstation.view.Workspace', () => {
             Neo.main.addon.DragDrop       = originalDragDrop;
             Neo.Main.windowNativeMoveTo   = originalMove;
             Neo.Main.windowNativeResizeTo = originalResize;
+            Neo.manager.Window.get        = originalGet;
+            workspace.destroy()
+        }
+    });
+
+    test('terminal restore without resize geometry preserves the requested content origin', async () => {
+        const
+            workspace        = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalDragDrop = Neo.main.addon.DragDrop,
+            originalMove     = Neo.Main.windowNativeMoveTo,
+            originalGet      = Neo.manager.Window.get,
+            calls            = [],
+            sourceRoute      = {
+                capabilities   : {position: true},
+                nativeHandleKey: 'handle-source',
+                ownerWindowId  : workspace.windowId,
+                targetWindowId : 'source-window'
+            };
+
+        workspace.nativeWindows.sources.get(workspace.id).connections.set('audit', {
+            nativeRoute: sourceRoute,
+            windowId   : 'source-window',
+            windowName : 'tearout-audit'
+        });
+        Neo.main.addon.DragDrop = {
+            acknowledgeWindowDragOrphanRecovery: async () => true,
+            hasWindowDragOrphanRecovery        : async () => false,
+            resumeWindowDrag                   : async data => { calls.push(['resume', data]); return false }
+        };
+        Neo.Main.windowNativeMoveTo = async data => { calls.push(['move', data]); return true };
+
+        try {
+            for (const [chrome, expectedFrame] of [
+                [{left: 0, top: 0}, {x: 420, y: 240}],
+                [{left: 8, top: 67}, {x: 412, y: 173}]
+            ]) {
+                Neo.manager.Window.get = id => id === 'source-window'
+                    ? {chrome}
+                    : originalGet.call(Neo.manager.Window, id);
+                calls.length = 0;
+
+                await expect(workspace.reshowTearOutVessel({
+                    itemId: 'audit', rect: {x: 420, y: 240}, terminal: true, windowName: 'tearout-audit'
+                })).resolves.toBe(true);
+
+                expect(calls.map(([type, {x, y}]) => ({type, x, y}))).toEqual([
+                    {type: 'resume', ...expectedFrame},
+                    {type: 'move', ...expectedFrame}
+                ]);
+                expect(workspace.tearOutParkGeometries.audit).toBeUndefined()
+            }
+        } finally {
+            Neo.main.addon.DragDrop     = originalDragDrop;
+            Neo.Main.windowNativeMoveTo = originalMove;
+            Neo.manager.Window.get     = originalGet;
             workspace.destroy()
         }
     });
