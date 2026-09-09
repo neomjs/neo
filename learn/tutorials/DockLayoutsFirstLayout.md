@@ -8,8 +8,9 @@ to describe where things sit.
 
 Neo's dock lets you skip that. You declare **what your panes are** and **where they go**, and the engine
 builds the splitters, the tab bars, the edge rails and the drag targets for you. This guide takes you
-from nothing to a working, draggable four-pane layout — and every example on this page is live. You can
-edit them in place and watch the result change.
+from nothing to a working, draggable four-pane layout — and every layout on this page is live. You can
+edit them in place and watch the result change. (One later snippet is deliberately static; it says so and
+explains why.)
 
 ## The smallest thing that works
 
@@ -216,9 +217,9 @@ contract on one pane.
 
 ## Where to go next
 
-- **[Dock Layouts](./DockLayouts.md)** — how docking works across windows, where layout state lives, and
+- **[Dock Layouts](../guides/uibuildingblocks/DockLayouts.md)** — how docking works across windows, where layout state lives, and
   the ownership boundaries you inherit once an application grows past one window.
-- **[Dock Layouts Adoption](./DockLayoutsAdoption.md)** — computing a layout from application data and
+- **[Dock Layouts Adoption](../guides/uibuildingblocks/DockLayoutsAdoption.md)** — computing a layout from application data and
   integrating the workspace into an existing view hierarchy.
 - **Dock Zone Model** (`learn/agentos/DockZoneModel.md`) — the reference for the document vocabulary: the
   exact fields a pane record and a zone node accept.
