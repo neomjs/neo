@@ -480,7 +480,7 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Drag:end entry point. The drag listeners fan out across the owner and its child items, so one
+     * @summary Drag:end entry point. The drag listeners fan out across the owner and its child items, so one
      * native release can deliver multiple drag:end events. This entry latches synchronously and routes
      * exactly one delivery into {@link #processDragEnd} — without it, the async drop pipeline runs
      * twice (double traces, double layout refreshes, double lock verdicts in grids).
@@ -498,7 +498,9 @@ class SortZone extends DragZone {
         try {
             await me.processDragEnd(data)
         } finally {
-            me.dragEndActive = false
+            if (!me.isDestroying && !me.isDestroyed) {
+                me.dragEndActive = false
+            }
         }
     }
 

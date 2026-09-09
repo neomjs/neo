@@ -1112,7 +1112,7 @@ class TabSortZone extends TabHeaderSortZone {
     }
 
     /**
-     * Extends the base drag-end: fires a `dockCrossZoneDrop` event on the owner tab.Container (`owner.up()`)
+     * @summary Extends the base drag-end: fires a `dockCrossZoneDrop` event on the owner tab.Container (`owner.up()`)
      * carrying the release point + dragged item id. The adapter wires the listener for it — the same
      * tab.Container node whose `moveTo` listener handles the within-container reorder — and its closure holds
      * the dock reducer (the reliable seam: a closure captured at projection time, not a cloned config nor a
@@ -1132,8 +1132,8 @@ class TabSortZone extends TabHeaderSortZone {
      *
      * Cross-window gestures close through {@link Neo.manager.DragCoordinator#onDragEnd} FIRST: a
      * release over an engaged remote target commits there, and the coordinator arms
-     * {@link #remoteDropCommitted} via {@link #onRemoteDropOut} on this same call stack — so the
-     * local decision below always sees the truth.
+     * {@link #remoteDropCommitted} via {@link #onRemoteDropOut}. Async targets settle before this
+     * source chooses its terminal; synchronous targets keep their same-stack continuation.
      * @param {Object} data
      */
     async processDragEnd(data) {
@@ -1152,22 +1152,31 @@ class TabSortZone extends TabHeaderSortZone {
               ),
               conversionTargetConverted = me.vesselConversionSensor?.targetConverted === true;
 
-        let postCleanup = null;
+        let commitError = null,
+            postCleanup = null;
+
+        try {
+            if (me.sortGroup && me.dragComponent) {
+                const completion = me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
+                    draggedItem   : me.dragComponent,
+                    sourceSortZone: me
+                });
+
+                if (typeof completion?.then === 'function') {
+                    await completion
+                }
+            }
+        } catch (error) {
+            commitError = error
+        }
+
+        if (me.isDestroying || me.isDestroyed) {
+            if (commitError) throw commitError;
+            return
+        }
 
         if (me.stackDragActive) {
-            let commitError    = null,
-                terminalItemId = me.dragComponent?.dockItemId ?? itemId ?? null;
-
-            try {
-                if (me.sortGroup && me.dragComponent) {
-                    me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
-                        draggedItem   : me.dragComponent,
-                        sourceSortZone: me
-                    })
-                }
-            } catch (error) {
-                commitError = error
-            }
+            let terminalItemId = me.dragComponent?.dockItemId ?? itemId ?? null;
 
             const committed = !data.cancelled && !commitError && me.remoteDropCommitted,
                 outcome     = committed ? 'committed' : data.cancelled ? 'cancelled' : 'rejected';
@@ -1198,19 +1207,6 @@ class TabSortZone extends TabHeaderSortZone {
             }
 
             return
-        }
-
-        let commitError = null;
-
-        try {
-            if (me.sortGroup && me.dragComponent) {
-                me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
-                    draggedItem   : me.dragComponent,
-                    sourceSortZone: me
-                })
-            }
-        } catch (error) {
-            commitError = error
         }
 
         if (!data.cancelled && me.releaseVoidsReorder(data || {})) {
@@ -1288,10 +1284,14 @@ class TabSortZone extends TabHeaderSortZone {
         try {
             await super.processDragEnd(data)
         } finally {
-            me.resetVesselConversion?.()
+            if (!me.isDestroying && !me.isDestroyed) {
+                me.resetVesselConversion?.()
+            }
         }
 
-        await postCleanup?.();
+        if (!me.isDestroying && !me.isDestroyed) {
+            await postCleanup?.()
+        }
 
         if (commitError) {
             throw commitError

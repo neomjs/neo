@@ -1344,14 +1344,18 @@ class DragCoordinator extends Manager {
     }
 
     /**
-     * Finalizes a dashboard window drag by either dropping into the active target
+     * @summary Finalizes a dashboard window drag by either dropping into the active target
      * or leaving the source popup as the terminal drop state.
+     * Synchronous targets retire the source on this call stack. Async targets return completion
+     * for source cleanup to await; arbitration itself is released before another gesture starts.
      * @param {Object} data
      * @param {Neo.component.Base} data.draggedItem
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
+     * @returns {Promise<*>|undefined} Async target outcome after source retirement, when applicable.
      */
     onDragEnd(data) {
-        let me = this;
+        let me                            = this,
+            {draggedItem, sourceSortZone} = data;
 
         // The gesture reaches a terminal on every branch below, so its token dies here — the
         // committed target already lives in `activeTargetZone`; claims are hover-time state only.
@@ -1363,51 +1367,31 @@ class DragCoordinator extends Manager {
                 me.activeTargetZone.onRemoteDragLeave?.();
                 me.activeTargetZone = null
             } else if (me.activeTargetZone) {
-                // The TARGET decides whether the gesture committed: onRemoteDrop() returns the committed
-                // operation, or null when there was no preview, no operation, or the commit declined.
-                // Engagement is not commitment, so its answer cannot be discarded.
-                // `finally`, because a throwing commit is the REJECTED terminal — and a terminal that
-                // leaves `activeTargetZone` populated hands the next release a commit destination from a
-                // gesture that already failed. The error is not swallowed: cleanup is exact-once on every
-                // terminal, including the ones that raise.
+                // Engagement is not commitment: only the target's accepted outcome retires the source.
                 try {
-                    let result = me.activeTargetZone.onRemoteDrop(data.draggedItem);
+                    let result = me.activeTargetZone.onRemoteDrop(draggedItem);
 
-                // Source retirement follows the OUTCOME, not the attempt. Retiring unconditionally
-                // armed the source's `remoteDropCommitted`, whose whole meaning is "a remote target
-                // committed this transfer" — and which suppresses the source's in-window drop path on
-                // that belief. On a null commit the target never took the item while the source had
-                // already let go, so the item stranded with no owner. Leaving the flag unarmed lets the
-                // source's ordinary in-window path run and restore it: the restore is the pre-existing
-                // default, not a new capability — it was simply unreachable behind a false signal.
-                //
-                // Targets answer synchronously OR asynchronously, and the two cannot share a branch: a
-                // Promise is ALWAYS truthy, so testing the returned value directly reads every async
-                // target as committed — the identical defect wearing the fix's own shape.
-                //
-                // The split is not symmetry for its own sake; each side has a different truth deadline.
-                // A SYNC target must retire on this call stack, because the source reads
-                // `remoteDropCommitted` synchronously in its own drag-end continuation — deferring
-                // would arm the flag after the decision it exists to inform. An ASYNC target's outcome
-                // is not knowable this tick at all, so retirement waits for the resolution; that is
-                // sound only because an async target's source cleanup carries no same-call reader.
                     if (typeof result?.then === 'function') {
-                        result.then(operation => {
-                            if (operation) {
-                                data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                        return result.then(operation => {
+                            if (operation && !sourceSortZone.isDestroying && !sourceSortZone.isDestroyed) {
+                                sourceSortZone.onRemoteDropOut(draggedItem)
                             }
+
+                            return operation
                         })
-                    } else if (result) {
-                        data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                    } else if (result && !sourceSortZone.isDestroying && !sourceSortZone.isDestroyed) {
+                        sourceSortZone.onRemoteDropOut(draggedItem)
                     }
                 } finally {
                     me.activeTargetZone = null
                 }
-            } else if (data.sourceSortZone.isWindowDragging) {
-                data.sourceSortZone.onTerminalWindowDrop?.(data.draggedItem)
+            } else if (sourceSortZone.isWindowDragging) {
+                sourceSortZone.onTerminalWindowDrop?.(draggedItem)
             }
         } finally {
-            data.sourceSortZone.resetVesselConversion?.();
+            if (!sourceSortZone.isDestroying && !sourceSortZone.isDestroyed) {
+                sourceSortZone.resetVesselConversion?.()
+            }
             me.activeSourceZone           = null;
             me.activeTargetCommitEligible = false;
             me.activeTransitionOwned      = false
