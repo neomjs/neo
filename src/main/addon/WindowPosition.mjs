@@ -77,6 +77,14 @@ class WindowPosition extends Base {
     resizeListener = null
 
     /**
+     * The one-shot pointer probe that measures the viewport origin. Non-null only while a sample is
+     * outstanding, so re-arming is idempotent and no window carries a standing pointer listener.
+     * @member {Function|null} viewportProbe=null
+     * @protected
+     */
+    viewportProbe = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -127,7 +135,75 @@ class WindowPosition extends Base {
             me.resizeListener =  me.onResize.bind(me)
         }
 
-        window[value ? 'addEventListener' : 'removeEventListener']('resize', me.resizeListener)
+        window[value ? 'addEventListener' : 'removeEventListener']('resize', me.resizeListener);
+
+        value ? me.armViewportProbe() : me.disarmViewportProbe()
+    }
+
+    /**
+     * @summary Releases an outstanding pointer sample when observation stops.
+     *
+     * Without this, a probe armed while observing outlives it: the `once` listener stays attached
+     * and the next pointer motion writes an offset and publishes geometry for a window that has
+     * stopped observing. `armViewportProbe`'s promise is that no window carries a standing pointer
+     * listener, and that promise has to survive being switched off.
+     * @protected
+     */
+    disarmViewportProbe() {
+        let me = this;
+
+        if (me.viewportProbe) {
+            window.removeEventListener('pointermove', me.viewportProbe, {capture: true});
+            me.viewportProbe = null
+        }
+    }
+
+    /**
+     * @summary Arms a single pointer sample that measures where this window's viewport actually
+     * starts inside its frame.
+     *
+     * `event.screenX - event.clientX` IS the viewport's screen-space left edge — the browser states
+     * it instead of us inferring it, so one reading survives a docked devtools panel, a platform's
+     * border widths and the macOS menu bar alike. What {@link Neo.manager.Window#calculateGeometry}
+     * has to guess from `outerWidth - innerWidth` is WHICH edge lost the space, and a panel docked
+     * left and one docked right make that difference identical — the side is simply not in those
+     * numbers. It is in this one.
+     *
+     * Stored relative to the frame, because that offset is invariant under movement: only a resize
+     * can change it, and a resize is an event, so this needs no poll. One sample, then the listener
+     * removes itself; a window nobody observes never arms one at all.
+     * @protected
+     */
+    armViewportProbe() {
+        let me = this;
+
+        if (me.viewportProbe) return;
+
+        me.viewportProbe = event => {
+            // `screenLeft`/`screenTop`, not `screenX`/`screenY`: aliases on a real window, but this
+            // offset is consumed relative to the frame origin `getWindowData` publishes, and that
+            // is the pair it publishes. One name for one quantity.
+            let win = window,
+                x   = event.screenX - event.clientX - win.screenLeft,
+                y   = event.screenY - event.clientY - win.screenTop;
+
+            let old = win.neoViewportOffset;
+
+            me.viewportProbe = null;
+
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+            win.neoViewportOffset = {x, y};
+
+            // Change-driven, exactly like `checkMovement`: a publication is a worker round trip, and
+            // a sample that confirms the offset we already hold is not news. Publishing on every
+            // pointer sample would inject a message into whatever gesture happens to be running.
+            if (!old || old.x !== x || old.y !== y) {
+                me.publishGeometry()
+            }
+        };
+
+        window.addEventListener('pointermove', me.viewportProbe, {capture: true, once: true, passive: true})
     }
 
     /**
@@ -288,7 +364,15 @@ class WindowPosition extends Base {
 
         // A fixed-origin resize is still a geometry change. The conversion metric consumes live
         // extents every frame, so movement-only publication would make its post-resize decision stale.
-        me.publishGeometry()
+        me.publishGeometry();
+
+        // A resize is the only EVENT that reports the viewport moving inside its frame, so this is
+        // where the measured offset goes stale and has to be taken again. Not the only cause: a
+        // panel re-docked from one side to the other at equal width changes neither `innerWidth`
+        // nor `innerHeight`, fires nothing, and leaves the previous offset standing. That case is
+        // still no worse than the assumptions it replaced, and it is stated rather than papered
+        // over — see `usableViewportOffset` for the other known bound.
+        me.armViewportProbe()
     }
 
     /**

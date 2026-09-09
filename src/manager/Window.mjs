@@ -58,6 +58,30 @@ class Window extends Manager {
     }
 
     /**
+     * @summary Admits a measured viewport offset only when it can physically describe this frame.
+     *
+     * The offset is the viewport's origin relative to the frame's, measured on the main thread as
+     * `event.screenX - event.clientX - window.screenLeft`. It is exact at page zoom 1; under browser
+     * zoom `clientX` is page CSS pixels while `screenX` is screen CSS pixels, so the reading can
+     * drift. Rather than correct for a zoom factor no web API reports reliably, this bounds the
+     * offset inside the frame: a viewport cannot start before its frame, and cannot leave less room
+     * than it occupies. An out-of-bounds reading falls back to the border assumptions, which is
+     * exactly today's behaviour — a bad measurement degrades to the status quo, never past it.
+     * @param {Object|null} offset
+     * @param {Number} widthDiff `outerWidth - innerWidth`
+     * @param {Number} heightDiff `outerHeight - innerHeight`
+     * @returns {Object|null} The admitted offset, or null
+     * @protected
+     */
+    usableViewportOffset(offset, widthDiff, heightDiff) {
+        if (!offset || !Number.isFinite(offset.x) || !Number.isFinite(offset.y)) return null;
+
+        const {x, y} = offset;
+
+        return x >= 0 && y >= 0 && x <= widthDiff && y <= heightDiff ? offset : null
+    }
+
+    /**
      * Interprets one raw window report into the manager's two rectangles and the chrome between them.
      *
      * `screenLeft` / `screenTop` name the window FRAME's origin — the top-left of the OS window
@@ -68,13 +92,20 @@ class Window extends Manager {
      * above the screen. `outerRect` is therefore the frame itself and `innerRect` the frame shifted
      * by the chrome. The chrome split assumes symmetric side borders and a bottom border equal to a
      * side border, so the remaining height difference is the title bar.
-     * @param {Object} data The raw report: `innerHeight`, `innerWidth`, `outerHeight`, `outerWidth`, `screenLeft`, `screenTop`, and Firefox's `mozInnerScreenX/Y`
+     * **`chrome` is the content inset within the frame, panels included** — not a decorative border
+     * width. It is derived from the two origins, so it always agrees with whichever of the three
+     * sources answered. On a window with a devtools panel docked left or top, `chrome.left` /
+     * `chrome.top` therefore contain the panel, which is the correct content inset and is what a
+     * caller converting a content origin into a frame origin needs. Read by
+     * {@link Neo.dashboard.dock.window.NativeVesselTransaction#toFrameOrigin} and published into
+     * agent-visible payloads by `src/ai/Client.mjs`.
+     * @param {Object} data The raw report: `innerHeight`, `innerWidth`, `outerHeight`, `outerWidth`, `screenLeft`, `screenTop`, Firefox's `mozInnerScreenX/Y`, and an optional measured `viewportOffset`
      * @returns {Object} {chrome, innerRect, outerRect}
      */
     calculateGeometry(data) {
         const {
             innerHeight, innerWidth, mozInnerScreenX, mozInnerScreenY,
-            outerHeight, outerWidth, screenLeft, screenTop
+            outerHeight, outerWidth, screenLeft, screenTop, viewportOffset
         } = data;
 
         const
@@ -85,35 +116,49 @@ class Window extends Manager {
             // Assumption: Bottom border matches side border (common in Windows)
             bottomBorder = sideBorder,
             // The rest is the top chrome (header)
-            topChrome    = heightDiff - bottomBorder;
-
-        const chrome = {
-            bottom: bottomBorder,
-            left  : sideBorder,
-            right : sideBorder,
-            top   : topChrome
-        };
+            topChrome    = heightDiff - bottomBorder,
+            firefox      = typeof mozInnerScreenX === 'number',
+            measured     = this.usableViewportOffset(viewportOffset, widthDiff, heightDiff);
 
         let viewportLeft, viewportTop;
 
-        if (typeof mozInnerScreenX === 'number') {
+        if (firefox) {
             // Firefox publishes the viewport origin directly
             viewportLeft = mozInnerScreenX;
             viewportTop  = mozInnerScreenY
+        } else if (measured) {
+            // A real viewport reading. It outranks the border assumptions because it carries what
+            // they cannot express: WHICH edge lost the space. A panel docked left and one docked
+            // right produce the same `widthDiff`, so the side is absent from these numbers and
+            // present only in a measurement.
+            viewportLeft = screenLeft + measured.x;
+            viewportTop  = screenTop  + measured.y
         } else {
             // Chrome, Edge and Safari report the frame origin: the viewport sits inside the chrome
             viewportLeft = screenLeft + sideBorder;
             viewportTop  = screenTop  + topChrome
         }
 
+        // Firefox derives its frame from the viewport it published; everyone else reported the
+        // frame in the first place. Deriving `chrome` from the two origins rather than from the
+        // assumptions keeps it consistent with whichever branch answered — so a 479 px panel on
+        // the right reports `right: 479` instead of splitting itself across both sides.
+        const
+            frameLeft = firefox ? viewportLeft - sideBorder : screenLeft,
+            frameTop  = firefox ? viewportTop  - topChrome  : screenTop,
+            left      = viewportLeft - frameLeft,
+            top       = viewportTop  - frameTop;
+
+        const chrome = {
+            bottom: heightDiff - top,
+            left,
+            right : widthDiff - left,
+            top
+        };
+
         const innerRect = new Rectangle(viewportLeft, viewportTop, innerWidth, innerHeight);
 
-        const outerRect = new Rectangle(
-            viewportLeft - sideBorder,
-            viewportTop  - topChrome,
-            outerWidth,
-            outerHeight
-        );
+        const outerRect = new Rectangle(frameLeft, frameTop, outerWidth, outerHeight);
 
         return {chrome, innerRect, outerRect}
     }
