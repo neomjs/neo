@@ -320,7 +320,9 @@ The engine's value sheets therefore declare at `:where(.neo-theme-neo-dark)` wei
 }
 ```
 
-The dock layer and the tooltip sheets carry this weight today; the remaining value sheets move family by family, each one measured first, because a sheet's own rules may have relied on outranking an equal-weight structure rule. While a family still declares at theme-root weight, project into it with more specificity than the engine sheet — an element-scoped rule such as `body:has(.myapp-viewport) .neo-tooltip` — rather than relying on load order.
+Families move to this weight one at a time, each measured before it moves, because a sheet's own rules may have relied on outranking an equal-weight structure rule. While a family still declares at theme-root weight, project into it with more specificity than the engine sheet — an element-scoped rule such as `body:has(.myapp-viewport) .neo-tooltip` — rather than relying on load order.
+
+Which families have moved is a property of the tree, not of this sentence: `grep -rl ':where(.neo-theme-neo-dark)' resources/scss/theme-neo-dark` answers it, and stays right without an edit here.
 
 ### Bad Practice & The Right Way Forward
 
