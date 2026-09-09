@@ -103,7 +103,8 @@ const createRuntime = ({
     getContentError = null,
     forkOwner       = null,
     forkUnreadable  = false,
-    liveHead        = 'head-sha'
+    liveHead        = 'head-sha',
+    eventName       = 'pull_request'
 } = {}) => {
     const outputs = new Map(),
           info    = [],
@@ -151,7 +152,7 @@ const createRuntime = ({
               }
           },
           context = {
-              eventName: 'pull_request',
+              eventName,
               payload  : {
                   pull_request: {
                       base: { sha: baseSha },
@@ -210,6 +211,67 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         for (const [name, job] of [['test.yml', 'changes'], ['test-e2e.yml', 'changes']]) {
             expect(readWorkflow(name).jobs[job].uses, name).toBe(`./.github/workflows/${CLASSIFIER}`);
         }
+    });
+
+    test('a custom-selection probe does not claim the tier\'s coverage, and the gate still does', () => {
+        // `e2eCiSelection --summary` prints "selected 14 of 105" — true of the TIER, false of a run
+        // that executed one named spec. Emitted beside a probe it would manufacture a
+        // coverage-that-was-not-run claim inside the honesty guard itself, which is the one place
+        // it would be believed. Discriminating on purpose: the gate must still emit it, so a
+        // condition that silenced the summary everywhere would pass a one-sided assertion.
+        const steps    = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
+              coverage = steps.find(step => step.name === 'Report tier coverage'),
+              probe    = steps.find(step => step.name === 'Report probe rate');
+
+        expect(coverage, 'the tier coverage step must exist to be conditioned').toBeTruthy();
+        expect(probe,    'and the probe reports its own population').toBeTruthy();
+
+        // Suppressed only when a dispatch named its own specs — never for `pull_request` / `push`.
+        expect(coverage.if).toContain("github.event_name != 'workflow_dispatch' || inputs.specs == ''");
+        expect(probe.if).toContain("github.event_name == 'workflow_dispatch'");
+    });
+
+    test('a probe refuses to measure less than it was asked to', () => {
+        // `testIgnore` deselects the Brain-gated specs, and naming one on the command line does not
+        // override it — so a selector mixing a gated spec with a reachable one runs only the
+        // reachable half and exits 0. Measured on this tree: two files requested, one selected,
+        // "3 passed". A rate whose denominator was silently reduced, dressed as a clean pass.
+        //
+        // A gated spec named ALONE already fails with "No tests found"; the mixed selector is the
+        // one that lies, so the guard compares requested spec FILES against what Playwright selects.
+        const run = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps
+            .find(step => step.name === 'Run e2e (engine tier)').run;
+
+        expect(run, 'the guard must compare requested against selected').toContain('probe selection mismatch');
+        expect(run, 'and it must exit non-zero rather than warn').toMatch(/probe selection mismatch[\s\S]*exit 1/);
+        // Scoped to named files: an ordinary tier run passes directories, whose file count is not a
+        // caller assertion, and a guard that compared against those would fail every gate run.
+        expect(run).toContain('if [ -n "${PROBE_SPECS}" ]');
+
+        // By NAME, never by count. A cardinality check is defeated by mixing a file with a
+        // directory — one gated spec plus `e2e/colors` requests one `.spec.mjs` token and selects
+        // one file, a different one, so one equals one and the probe measures something nobody
+        // asked for. The guard must therefore search the listing for each named spec.
+        expect(run, 'each named spec must be sought in the listing').toContain('grep -qF');
+        expect(run, 'and the failure must name what was missing').toContain('were not selected');
+        expect(run, 'a bare cardinality comparison is the defeated form')
+            .not.toMatch(/-ne\s+"\$\{requested\}"/);
+    });
+
+    test('a dispatch is not silently capped by the job bound', () => {
+        // A job `timeout-minutes` CAPS a step's: the dispatch test step asks for 30, and under the
+        // gate's 12-minute job it would have received 12 — a probe killed by a limit nothing in the
+        // log names, reporting a rate that is an artifact of the bound. The job allowance must
+        // exceed the step's, and the gate's own numbers must be untouched.
+        const job  = readWorkflow('test-e2e.yml').jobs['e2e-engine'],
+              step = job.steps.find(s => s.name === 'Run e2e (engine tier)');
+
+        const nums = String(job['timeout-minutes']).match(/\d+/g).map(Number),
+              sNum = String(step['timeout-minutes']).match(/\d+/g).map(Number);
+
+        expect(Math.max(...nums), 'the dispatch job allowance').toBeGreaterThan(Math.max(...sNum));
+        expect(Math.min(...nums), 'the gate job bound is unchanged').toBe(12);
+        expect(Math.min(...sNum), 'the gate test-step ceiling is unchanged').toBe(5);
     });
 
     test('the e2e job consumes BOTH gates on every step that costs anything', () => {
@@ -463,6 +525,27 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
 });
 
 test.describe('Tests scope classifier — unavailable diffs', () => {
+
+    test('a workflow_dispatch admits every suite, and does so on purpose', async () => {
+        // The e2e tier is dispatchable as a measuring instrument, and a dispatch has no diff to
+        // classify: `getChangedFiles` returns null for any event that is not a pull request or a
+        // push, which lands on the unavailable branch and admits everything. That is the right
+        // answer — a probe naming its own specs must not be gated on paths nobody changed — but it
+        // arrives by falling through rather than by decision, and an untested fall-through is one
+        // refactor from becoming a dispatch that silently runs nothing.
+        const runtime = createRuntime({ eventName: 'workflow_dispatch' });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.listFiles, 'a dispatch has no diff to list').toBe(0);
+        expect(runtime.calls.pullsGet,  'and no head to compare').toBe(0);
+        expect(outputsOf(runtime)).toMatchObject({
+            run_components: 'true',
+            run_e2e       : 'true',
+            run_unit      : 'true',
+            skip_reason   : 'changed files unavailable'
+        });
+    });
 
     test('an empty changed-file set runs both suites', async () => {
         const runtime = createRuntime({ files: [] });
