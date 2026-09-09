@@ -152,17 +152,6 @@ The engine derives them from what you wrote, and the benefit is not that the alg
 benefit is that there is nothing to keep in sync.** You never invented `center-split-0`, so you can never
 misspell it, never leave it behind after a rename, and never have two nodes accidentally sharing one.
 
-That is the whole rule: **write your panes and your zones, and let the engine name the structure.**
-
-Most layout systems make you invent a name so you can find a node again, so the reflex to hand-author one
-is worth naming. You do not need it here, and this is what the paragraph above is for: a name you never
-wrote is a name that cannot drift out of sync with anything.
-
-**You do not need to address a structural node to build a layout, and this tutorial deliberately does not
-show you how.** If you later find that you genuinely do, that is a question about your application's
-identity strategy rather than about the dock, and it is worth answering deliberately instead of by adding
-a string to a config.
-
 ## What the engine does with your two configs
 
 ```mermaid
@@ -219,7 +208,7 @@ contract on one pane.
 - **[Dock Layouts Adoption](../guides/uibuildingblocks/DockLayoutsAdoption.md)** — computing a layout from application data and
   integrating the workspace into an existing view hierarchy.
 - **Dock Zone Model** (`learn/agentos/DockZoneModel.md`) — the reference for the document vocabulary: the
-  exact fields a pane record and a zone node accept, including the ones this tutorial has no use for.
+  exact fields a pane record and a zone node accept.
 
 Start with the second example on this page. Change a key, add a pane, move it to another zone, and watch
 what the engine builds for you.
