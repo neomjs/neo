@@ -213,6 +213,63 @@ class Window extends Manager {
     }
 
     /**
+     * @summary Decides whether a caller may dispatch a native window effect, before it dispatches one.
+     *
+     * Native-window authority is split in two: the App Worker resolves the topology entry, and the
+     * owning main thread revalidates the live generation before touching the handle. `Neo.Main` holds
+     * that second half and stays the last word — it additionally sees whether the window is closed,
+     * whether a same-name open replaced the entry, and whether the native method exists, none of which
+     * an App-Worker caller can observe. A grant here is therefore permission to ask, never a promise
+     * the effect lands.
+     *
+     * Every axis is reported separately rather than collapsed into the verdict, so a refusal says which
+     * condition failed.
+     *
+     * **Asserting an identity is opting in by KEY, not by value.** Omit `ownerWindowId` and ownership
+     * goes unchecked — a runtime that dispatches AS the route's owner rather than claiming to be it.
+     * Pass the key with a nullish value and the answer is no: a caller whose own id is missing cannot
+     * be shown to own anything, and reading that as a waived check would grant on absent evidence.
+     * Independently of any assertion, a granted route must itself name a handle, an owning main thread
+     * and a target — being unasserted is not the same as being unaddressable.
+     * @param {Object} data
+     * @param {'close'|'focus'|'position'|'resize'} data.capability
+     * @param {String} [data.ownerWindowId] Assert this owner; omit the key to not assert one
+     * @param {Object|null} [data.route=null] An already-resolved route; otherwise `windowId` resolves it
+     * @param {String} [data.targetWindowId] Require the route to address this exact window
+     * @param {String|null} [data.windowId=null] Resolve the route from this window's entry, and require the route to address it
+     * @returns {Object} `{capable, granted, hasHandle, hasOwner, hasTarget, ownerAsserted, ownerMatches, present, route, targetMatches}`
+     */
+    resolveNativeRoute(data) {
+        const
+            {capability, route: supplied=null, windowId=null} = data,
+            // OMITTING a key waives that check; PASSING one that is nullish is a caller whose own
+            // identity is missing, and that refuses. Collapsing the two would turn "I have no id to
+            // compare" into "no comparison needed", which is the opposite decision.
+            assertsOwner   = 'ownerWindowId'  in data,
+            assertsTarget  = 'targetWindowId' in data || windowId !== null,
+            expectedOwner  = data.ownerWindowId,
+            // Resolving by windowId asks about THAT window, so the route has to address it.
+            expectedTarget = 'targetWindowId' in data ? data.targetWindowId : windowId,
+            route          = supplied ?? ((windowId && this.get(windowId)?.nativeRoute) || null),
+            present        = Boolean(route),
+            capable        = present && route.capabilities?.[capability] === true,
+            hasHandle      = present && Boolean(route.nativeHandleKey),
+            // The route must name an owning main thread to address even when the caller does not
+            // claim to be it: unasserted ownership is not the same as an unaddressable route.
+            hasOwner       = present && Boolean(route.ownerWindowId),
+            hasTarget      = present && Boolean(route.targetWindowId),
+            ownerMatches   = present && (!assertsOwner  || (Boolean(expectedOwner)  && route.ownerWindowId  === expectedOwner)),
+            targetMatches  = present && (!assertsTarget || (Boolean(expectedTarget) && route.targetWindowId === expectedTarget)),
+            granted        = capable && hasHandle && hasOwner && hasTarget && ownerMatches && targetMatches;
+
+        return {
+            capable, granted, hasHandle, hasOwner, hasTarget, ownerMatches, present, targetMatches,
+            ownerAsserted: assertsOwner,
+            route        : granted ? route : null
+        }
+    }
+
+    /**
      * @returns {Object}
      */
     toJSON() {
