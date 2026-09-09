@@ -69,13 +69,49 @@ class Card extends Base {
     }
 
     /**
-     * In-flight {@link #loadModule} calls, keyed by the parked item config so a second caller joins
-     * the first load instead of starting its own. Keyed by the config rather than stored on it,
-     * because the config itself is handed to `Neo.create` once the module resolves.
+     * In-flight {@link #loadModule} calls for parked items carrying no `id`, keyed by the config
+     * object so a second caller joins the first load instead of starting its own. Keyed by the
+     * config rather than stored on it, because the config itself is handed to `Neo.create` once the
+     * module resolves.
      * @member {WeakMap<Object,Promise>} loadingModules=new WeakMap()
      * @protected
      */
     loadingModules = new WeakMap()
+
+    /**
+     * In-flight {@link #loadModule} calls for parked items carrying an `id`.
+     *
+     * Object identity alone does not span a re-resolution. A consumer may legally hand `loadModule`
+     * a DIFFERENT config object for the same item: `dashboard.dock`'s reconciler documents both
+     * shapes as permitted — a cache-backed resolver returns the same instances, while the engine's
+     * own default returns a fresh config literal. A repair pass re-resolving through that default
+     * produced a new object, missed the identity guard, and constructed the item a second time.
+     *
+     * An `id` names the item across those re-resolutions, so it is registered ALONGSIDE the
+     * identity entry rather than instead of it — never as a replacement. `core.Base.construct`
+     * deletes `config.id` while the load is still pending, so an id-only registration would stop
+     * matching the very object that started it. A plain `Map` rather than a `WeakMap` because a
+     * string key holds nothing alive, and entries are removed on settle by {@link #loadModule},
+     * exactly as the identity map's are.
+     * @member {Map<String,Promise>} loadingModulesById=new Map()
+     * @protected
+     */
+    loadingModulesById = new Map()
+
+    /**
+     * Every parked config participating in one in-flight load, keyed by that load's promise.
+     *
+     * Exists only so the settle handler can release what the flight registered. The initiator is
+     * known to it directly; a joiner is not, and a joiner's identity entry outliving the flight
+     * would turn the documented retry-after-settle path into a silent cache — the next caller
+     * would receive the settled promise and the previous instance instead of loading again.
+     *
+     * A `WeakMap` keyed on the promise, so a flight that somehow never settles cannot pin its
+     * participants; the explicit delete in {@link #loadModule} is the ordinary path.
+     * @member {WeakMap<Promise,Object[]>} #loadParticipants=new WeakMap()
+     * @private
+     */
+    #loadParticipants = new WeakMap()
 
     /**
      * Modifies the CSS classes of the container items this layout is bound to.
@@ -211,28 +247,62 @@ class Card extends Base {
      * orphaning a live component. The window is exactly the import's duration, which is why it
      * surfaced as an intermittent double construction under machine load rather than as a bug.
      *
-     * A second call therefore joins the in-flight promise and settles on the same instance. The
-     * promise is keyed in a `WeakMap` by the parked config rather than stored on it, because that
-     * config is passed to `Neo.create` once it resolves.
+     * A second call therefore joins the in-flight promise and settles on the same instance. What
+     * counts as "the same item" is deliberately BOTH answers at once: the pending load is
+     * registered under the config's object identity and, when it has one, under its `id`. Identity
+     * alone was not enough — a caller re-resolving the item through a documented-legal path arrives
+     * holding a new object for the same pane. The `id` alone is not enough either, because
+     * construction deletes it from the config while the load is still in flight.
      * @param {Object} item
      * @param {Number} [index]
      * @returns {Promise<Neo.component.Base>}
      */
     loadModule(item, index) {
         let me       = this,
-            inFlight = me.loadingModules.get(item);
+            {id}     = item,
+            inFlight = me.loadingModules.get(item) || (id ? me.loadingModulesById.get(id) : null);
 
         if (inFlight) {
+            // A joiner that matched by `id` holds no identity entry of its own, and `id` is the
+            // VOLATILE key: four sites delete it from a config as they consume it
+            // (`Neo.mjs:263`, `collection/Base.mjs:633`, `core/Base.mjs:283`,
+            // `functional/component/Base.mjs:493`). Registering the joiner under its own object
+            // identity — the one key that cannot change — keeps its join for the rest of the
+            // flight rather than only until its id is taken. Auditing those four call sites
+            // instead would be an audit that rots at the fifth.
+            me.loadingModules.set(item, inFlight);
+            me.#loadParticipants.get(inFlight)?.push(item);
+
             return inFlight
         }
 
         const load = me.#loadModuleOnce(item, index);
 
-        me.loadingModules.set(item, load);
+        // Registered under BOTH keys for the whole pending lifetime, and `id` is captured here
+        // rather than re-read on the way out — because the parked object's key CHANGES while the
+        // load is in flight. `core.Base.construct` runs `delete config.id` as it consumes the
+        // config (`src/core/Base.mjs:283`), so choosing one key per call loses a joiner in
+        // whichever direction it did not choose: an id-keyed entry misses a later caller holding
+        // the same, now id-less object, and that caller re-enters the loader against an
+        // `item.module` which has already become the resolved class. Two entries, one promise, so
+        // a re-resolved config naming the item and the original object join the same load.
+        const participants = [item];
 
-        // A rejected import must not leave the item unloadable: the entry goes whatever the outcome,
-        // so the next activation retries against a config that is still parked behind its placeholder.
-        return load.finally(() => me.loadingModules.delete(item))
+        me.#loadParticipants.set(load, participants);
+        me.loadingModules.set(item, load);
+        id && me.loadingModulesById.set(id, load);
+
+        // A rejected import must not leave the item unloadable: the entries go whatever the
+        // outcome, so the next activation retries against a config that is still parked behind its
+        // placeholder. EVERY participant is removed, not just the initiator — a joiner's identity
+        // entry outliving the flight would hand the next caller a settled promise and the old
+        // instance, quietly converting the retry path into a cache. Removed by the captured id for
+        // the same reason it was captured.
+        return load.finally(() => {
+            participants.forEach(participant => me.loadingModules.delete(participant));
+            me.#loadParticipants.delete(load);
+            id && me.loadingModulesById.delete(id)
+        })
     }
 
     /**

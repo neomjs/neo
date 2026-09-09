@@ -225,6 +225,211 @@ test.describe('Neo.container.Base#insert — a lazy module config parks, then lo
         expect(container.items[1], 'the container holds the instance both callers received').toBe(a)
     });
 
+    /**
+     * The arm above holds the SAME config object twice. This one holds two different objects naming
+     * one item — which is what a re-resolution produces, and what object identity cannot see.
+     *
+     * `dashboard.dock`'s reconciler documents both resolver shapes as legal: a cache-backed one
+     * returns the same instances, the engine's own default returns a fresh config literal. Under the
+     * default, a repair pass re-resolving a pane mid-import arrived holding a new object, missed the
+     * identity-keyed guard and constructed the pane twice. That surfaced as an intermittent CI red
+     * whose two loads carried frame-identical stacks, differing only in the projection pass that
+     * raised them — so the call site could never have told them apart.
+     *
+     * Deterministic here for the same reason the arm above is: the deferred loader holds the window
+     * open rather than leaving it as wide as a real import.
+     */
+    test('a re-resolved config naming the same id joins the in-flight load instead of constructing again', async () => {
+        let resolveImport;
+
+        const deferred = new Promise(resolve => {resolveImport = resolve});
+
+        container = cardContainer();
+        container.add({id: 'insert-lazy-module-reresolved', module: () => deferred, text: 'lazy'});
+
+        const parked = container.items[1];
+
+        expect(parked, 'the config must be parked, not constructed').not.toBeInstanceOf(Neo.core.Base);
+
+        // What the repair pass holds: a fresh literal for the same pane. Built here rather than
+        // driven through the dock, because the discriminator is the pair of configs, not the route.
+        const reResolved = {id: parked.id, module: () => deferred, text: 'lazy'};
+
+        expect(reResolved, 'void unless the two configs are genuinely different objects').not.toBe(parked);
+        expect(reResolved.id, 'and genuinely name the same item').toBe(parked.id);
+
+        // File-shared counter: unscoped, this reads the constructions of every arm before it.
+        Counted.constructions = 0;
+
+        const first  = container.layout.loadModule(parked,     1),
+              second = container.layout.loadModule(reResolved, 1);
+
+        resolveImport({default: Counted});
+
+        const [a, b] = await Promise.all([first, second]);
+
+        expect(Counted.constructions, 'exactly one construction').toBe(1);
+        expect(a, 'both callers settle on the SAME instance').toBe(b);
+        expect(container.items[1], 'the container holds the instance both callers received').toBe(a)
+    });
+
+    /**
+     * The parked object's KEY CHANGES while its load is in flight, and this arm is the only thing
+     * that says so.
+     *
+     * `core.Base.construct` runs `delete config.id` (`src/core/Base.mjs:283`) as it consumes the
+     * parked config. A caller arriving after that point holds the same object with no id —
+     * `onConstructed` is the earliest such caller, and it still sees the config literally in
+     * `container.items[1]`, because the assignment back into `items` has not happened yet.
+     *
+     * Registered under the id alone, that caller misses, re-enters `#loadModuleOnce`, and finds
+     * `item.module` already replaced by the resolved class: `TypeError: module is not a function`,
+     * with the first load still pending. Registering under BOTH keys is what makes the id an
+     * addition rather than a substitution. Found in review by @neo-gpt-emmy, who executed the Card
+     * source from both revisions rather than reading them.
+     */
+    test('a re-entrant load from onConstructed joins, though construction has consumed the id', async () => {
+        let resolveImport, reentry, parkedDuringHook;
+
+        const deferred = new Promise(resolve => {resolveImport = resolve});
+
+        container = cardContainer();
+        container.add({id: 'insert-lazy-module-reentrant', module: () => deferred, text: 'lazy'});
+
+        const parked = container.items[1];
+
+        expect(parked.id, 'the arm needs an id-bearing parked config').toBe('insert-lazy-module-reentrant');
+
+        class ReEntrant extends Button {
+            static config = {
+                className: 'Test.Unit.Container.InsertLazyModule.ReEntrant'
+            }
+
+            onConstructed() {
+                super.onConstructed();
+
+                parkedDuringHook = container.items[1] === parked;
+                reentry          = container.layout.loadModule(parked, 1).then(value => ({value}), error => ({error}))
+            }
+        }
+
+        Neo.setupClass(ReEntrant);
+
+        const first = container.layout.loadModule(parked, 1);
+
+        resolveImport({default: ReEntrant});
+
+        const a = await first,
+              b = await reentry;
+
+        expect(parkedDuringHook, 'the config is still the items entry while onConstructed runs').toBe(true);
+        expect(parked.id,        'and construction has already consumed its id').toBeUndefined();
+
+        expect(b.error, `the re-entrant caller must join, not re-enter — ${b.error?.message ?? ''}`).toBeUndefined();
+        expect(b.value, 'both callers settle on the SAME instance').toBe(a)
+    });
+
+    /**
+     * A joiner that matched by `id` must keep its join after its OWN id is consumed.
+     *
+     * The id-hit returns the in-flight promise, and it would be natural to stop there — the caller
+     * got what it asked for. But it leaves that config holding no identity entry, and `id` is the
+     * volatile key: four sites delete it from a config as they consume it. So the joiner's claim
+     * on the flight lasts only until something takes its id, after which it re-enters the loader
+     * and builds a second instance.
+     *
+     * Object identity is the one key that cannot change, which is why every participant is
+     * registered under it rather than only the initiator. Probe contributed by @neo-gpt-emmy as
+     * the open half of a review action.
+     *
+     * The second phase is the cost of that registration: participants must be RELEASED on settle,
+     * or a joiner's entry outlives the flight and the documented retry path becomes a cache.
+     */
+    test('a joiner that matched by id keeps its join after its own id is consumed, and is released on settle', async () => {
+        let resolveImport;
+
+        const deferred = new Promise(resolve => {resolveImport = resolve});
+
+        container = cardContainer();
+        container.add({id: 'insert-lazy-module-alias', module: () => deferred, text: 'lazy'});
+
+        const parked = container.items[1],
+              alias  = {id: parked.id, module: () => deferred, text: 'lazy'};
+
+        Counted.constructions = 0;
+
+        const first  = container.layout.loadModule(parked, 1),
+              joined = container.layout.loadModule(alias, 1);
+
+        // Compared as resolved instances rather than as promises: the initiator receives the
+        // `.finally()`-wrapped promise and a joiner receives the raw one, so the two are never
+        // identical by reference even when they are the same flight.
+        //
+        // The volatile key, taken exactly as construction takes it — before anything settles.
+        delete alias.id;
+
+        const afterIdLoss = container.layout.loadModule(alias, 1);
+
+        resolveImport({default: Counted});
+
+        const [a, b, c] = await Promise.all([first, joined, afterIdLoss]);
+
+        expect(Counted.constructions, 'exactly one construction across all three callers').toBe(1);
+        expect(b, 'the alias joined the flight by id').toBe(a);
+        expect(c, 'and still settles on the SAME instance after losing its id').toBe(a);
+
+        // Released on settle: the next call is a real retry, not a replay of the settled promise.
+        // `alias` was never constructed, so its `module` is still a function and a retry can run.
+        Counted.constructions = 0;
+
+        const retried = await container.layout.loadModule(alias, 1);
+
+        expect(Counted.constructions, 'a settled flight is not cached for a joiner').toBe(1);
+        expect(retried, 'and the retry yields its own instance').not.toBe(a)
+    });
+
+    /**
+     * The other half of the keying, and the reason it is `id` WHEN PRESENT rather than `id`.
+     *
+     * `layout.Card` has never required an id on a parked config — the arms above this one carry
+     * none — so keying on `id` alone would collide every id-less item onto a single `undefined`
+     * key. The second caller would then join an unrelated load and receive the FIRST item's
+     * instance: a container quietly holding the wrong component, which is worse than the duplicate
+     * construction the id keying exists to remove. This arm fails on that shortcut and passes on
+     * the superset.
+     */
+    test('two id-less parked configs load independently rather than colliding on one absent key', async () => {
+        let resolveA, resolveB;
+
+        const deferredA = new Promise(resolve => {resolveA = resolve}),
+              deferredB = new Promise(resolve => {resolveB = resolve});
+
+        container = cardContainer();
+        container.add({module: () => deferredA, text: 'lazy a'});
+        container.add({module: () => deferredB, text: 'lazy b'});
+
+        const parkedA = container.items[1],
+              parkedB = container.items[2];
+
+        expect(parkedA.id, 'the arm needs a genuinely id-less config').toBeUndefined();
+        expect(parkedB.id, 'the arm needs a genuinely id-less config').toBeUndefined();
+
+        Counted.constructions = 0;
+
+        // Both in flight together: a shared key is only observable while neither has settled.
+        const first  = container.layout.loadModule(parkedA, 1),
+              second = container.layout.loadModule(parkedB, 2);
+
+        resolveA({default: Counted});
+        resolveB({default: Counted});
+
+        const [a, b] = await Promise.all([first, second]);
+
+        expect(Counted.constructions, 'each id-less item constructs its own instance').toBe(2);
+        expect(a, 'two different items must not settle on one instance').not.toBe(b);
+        expect(container.items[2], 'and each slot holds its own').toBe(b)
+    });
+
     test('a failed import leaves nothing in flight, so the next call retries', async () => {
         const failing  = {module: () => Promise.reject(new Error('chunk gone')), text: 'lazy'},
               original = console.error;
