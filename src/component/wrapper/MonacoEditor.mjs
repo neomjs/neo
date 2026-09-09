@@ -309,7 +309,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetUseThemeAwareness(value, oldValue) {
-        value && this.afterSetTheme(this.theme, null)
+        value && (this.editorTheme = this.resolveEditorTheme())
     }
 
     /**
@@ -337,9 +337,31 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetTheme(value, oldValue) {
-        if (this.useThemeAwareness && value) {
-            this.editorTheme = value.includes('dark') ? 'vs-dark' : 'vs'
-        }
+        this.editorTheme = this.resolveEditorTheme()
+    }
+
+    /**
+     * @summary Maps this component's resolved theme onto one of Monaco's own theme names.
+     *
+     * Resolution goes through {@link Neo.component.Base#getTheme}, never the `theme` config. A child
+     * inside a themed scope carries no theme class of its own by design, so that config is `null`
+     * for precisely the components which inherit a theme — and `container.Base#afterSetTheme` only
+     * stamps live items on a CHANGE, leaving construction to `createItem`. Reading the config
+     * therefore answers `null` on first render and the right value only after a theme toggle, which
+     * is exactly the asymmetry this repairs. `getTheme()` answers the component's own theme first,
+     * so an explicitly configured one still wins.
+     *
+     * Pure, so {@link #getInitialOptions} can build a correctly themed editor rather than create a
+     * light one and repaint it: nothing delays creation, so there is no window for a later repaint
+     * to land in unseen.
+     * @returns {String} One of {@link #editorThemes}
+     * @protected
+     */
+    resolveEditorTheme() {
+        let me    = this,
+            theme = me.useThemeAwareness && me.getTheme();
+
+        return theme ? (theme.includes('dark') ? 'vs-dark' : 'vs') : me.editorTheme
     }
 
     /**
@@ -447,7 +469,7 @@ class MonacoEditor extends Base {
             minimap             : me.minimap,
             readOnly            : me.readOnly,
             scrollBeyondLastLine: me.scrollBeyondLastLine,
-            theme               : me.editorTheme,
+            theme               : me.resolveEditorTheme(),
             value               : me.stringifyValue(me.value),
             windowId            : me.windowId,
 

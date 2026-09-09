@@ -224,6 +224,61 @@ test.describe('Monaco wrapper against the installed browser distribution', () =>
         }), EDITOR_ID)).toEqual({value: 'const replacement = 2;', models: 1})
     });
 
+    test('theme awareness resolves through the component chain, not the null theme config (#18569)', async ({page}) => {
+        // Asserted on the RENDERED node throughout. `editorTheme` was already the value the reader
+        // never sees: the defect produced a light editor in a dark app, and a config assertion is
+        // exactly what would have stayed green — `monaco.editor.setTheme` is global to the page, so
+        // a correct config that never reaches creation looks identical from the worker side.
+        const editorClass = () => page.locator(`#${EDITOR_ID} .monaco-editor`).getAttribute('class');
+
+        const setConfigs = async data => {
+            const reply = await page.evaluate(config => Neo.worker.App.setConfigs(config), data);
+
+            expect(reply?.data ?? reply).toMatchObject({success: true})
+        };
+
+        await page.goto(FIXTURE_URL, {waitUntil: 'domcontentloaded'});
+        await expectEditor(page);
+        await destroyEditor(page);
+
+        // The host carries the theme; the editor is created underneath it and declares none of its
+        // own. That is the whole shape of the defect — `container.Base#afterSetTheme` stamps live
+        // items on a CHANGE and leaves construction to `createItem`, so an inheriting child's
+        // `theme` config is null at exactly the moment `getInitialOptions` reads it.
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-neo-dark'});
+
+        const reply = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), {
+            id               : EDITOR_ID,
+            language         : 'javascript',
+            ntype            : 'test-monaco-editor',
+            parentId         : HOST_ID,
+            testGeneration   : 'themed',
+            useThemeAwareness: true,
+            value            : 'const themed = 1;'
+        });
+
+        expect(reply?.data ?? reply).toMatchObject({success: true, id: EDITOR_ID});
+        await expectEditor(page);
+
+        // Correct AT CREATION, not corrected afterwards: nothing delays the create call any more,
+        // so a fix which only fires on a later theme change would leave the first paint light —
+        // and this assertion is what refuses that.
+        expect(await editorClass(), 'a dark host creates a dark editor').toContain('vs-dark');
+        expect((await readConfigs(page, EDITOR_ID, ['theme']))[0], 'and it inherits rather than declaring').toBeNull();
+
+        // Both directions, on the same instance: a component hardcoded to `vs-dark` passes the
+        // assertion above and fails here, which is the mirror of the bug being fixed.
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-neo-light'});
+        await expect.poll(editorClass, {message: 'a live theme change repaints the editor'}).toContain('vs');
+        expect(await editorClass(), 'and light is not dark').not.toContain('vs-dark');
+
+        // The opt-out still opts out: awareness off pins the declared theme against a dark host.
+        await setConfigs({id: EDITOR_ID, editorTheme: 'vs', useThemeAwareness: false});
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-neo-dark'});
+        await expect.poll(editorClass, {message: 'useThemeAwareness:false ignores the host theme'}).toContain('vs');
+        expect(await editorClass()).not.toContain('vs-dark')
+    });
+
     test('the actual Portal boot completes Monaco addon initialization even when home paints first', async ({page}) => {
         await page.goto('apps/portal/index.html#home', {waitUntil: 'domcontentloaded'});
         await expect(page.locator('.portal-main-content')).toBeVisible({timeout: 20000});
