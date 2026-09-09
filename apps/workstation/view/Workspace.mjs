@@ -461,13 +461,8 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     historyStepBadge(count) {
-        const provider = TransactionManager.getProvider(this.topologyGroupId);
-
-        if (!provider) {
-            return null
-        }
-
-        const steps = count(provider);
+        const provider = TransactionManager.getProvider(this.topologyGroupId),
+              steps    = provider ? count(provider) : 0;
 
         return Number.isFinite(steps) && steps > 0 ? `${steps}` : null
     }
