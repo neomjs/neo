@@ -349,10 +349,18 @@ class Client extends Base {
     }
 
     /**
+     * @summary Reports a socket-level failure, which for an optional bridge is not an app fault.
+     *
+     * `warn`, not `error`, and the level is the whole point. This fires on every boot of every app
+     * declaring `useAiClient` whenever no Neural Link bridge is listening — the ordinary state for
+     * CI and for anyone not running one. The event itself carries nothing: the WebSocket spec
+     * deliberately reduces it to `{isTrusted: true}` so a page cannot probe why a connection
+     * failed, and the actionable detail lives on the close event's code instead. An error level on
+     * a content-free, expected condition trains readers to skip the channel.
      * @param {Event} event
      */
     onSocketError(event) {
-        console.error('Neo.ai.Client: WebSocket Error', event)
+        console.warn('Neo.ai.Client: WebSocket Error', event)
     }
 
     /**
