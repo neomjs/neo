@@ -14,14 +14,16 @@ import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/Wo
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import '../../../../../src/manager/Instance.mjs';
-import TransactionManager  from '../../../../../src/manager/Transaction.mjs';
-import FeedPane            from '../../../../../apps/workstation/view/FeedPane.mjs';
-import ScalePane           from '../../../../../apps/workstation/view/ScalePane.mjs';
-import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
-import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
-import GestureDriver       from '../../../../../apps/workstation/tour/GestureDriver.mjs';
-import TourController      from '../../../../../apps/workstation/view/TourController.mjs';
-import DockService         from '../../../../../src/ai/client/DockService.mjs';
+import TransactionManager from '../../../../../src/manager/Transaction.mjs';
+import StateProvider      from '../../../../../src/state/Provider.mjs';
+import Toolbar            from '../../../../../src/toolbar/Base.mjs';
+import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
+import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
+import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
+import PopupWorkspace     from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
+import GestureDriver      from '../../../../../apps/workstation/tour/GestureDriver.mjs';
+import TourController     from '../../../../../apps/workstation/view/TourController.mjs';
+import DockService        from '../../../../../src/ai/client/DockService.mjs';
 
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
@@ -3227,5 +3229,88 @@ test.describe('Workstation topology bar — the view declares it, the controller
             ['undo', {groupId: 'topology-bar-group'}],
             ['redo', {groupId: 'topology-bar-group'}]
         ])
+    });
+
+    test('the history controls carry the steps they can still take, in both directions (#18558)', async () => {
+        // Real history rather than a hand-published cursor. The badge exists to be trustworthy, and
+        // a formula checked against numbers this arm invented could only confirm the model it was
+        // written from — here `historyCursor` and `historyLength` are the engine's. Depth is
+        // manager-wide and read when the Group is created, so it is raised around this one.
+        const restoreDepth = TransactionManager.historyDepth;
+
+        TransactionManager.historyDepth = 5;
+
+        const group = TransactionManager.bind({windowId: 'topology-badge-window', workspaceKey: 'main'}),
+              owned = {value: {kind: 'initial'}, generation: 1, revision: 0},
+              // The production method on the minimal host it actually reads: the Group id is the
+              // whole of what the factory and the formatter need, and a constructed Workspace would
+              // bind a Group of its own and set the depth this arm is controlling.
+              host  = {historyStepBadge: Workspace.prototype.historyStepBadge, topologyGroupId: group.groupId};
+
+        TransactionManager.registerParticipant({groupId: group.groupId, workspaceKey: 'main', participant: {
+            domain    : 'dock',
+            capture   : () => ({...owned, value: structuredClone(owned.value)}),
+            prepare   : input => input,
+            adopt     : value => {owned.value = structuredClone(value); owned.revision++},
+            compensate: captured => Object.assign(owned, captured, {value: structuredClone(captured.value)})
+        }});
+
+        // A materialised toolbar, not the declaration: the count has to survive `toolbar.Base`
+        // turning `actions` into buttons and the binding effect running the formatter. Calling the
+        // formatter off the config object would exercise the arithmetic and none of the wiring.
+        // The local provider holds no data — the formatters read the Group's own leaf where it
+        // lives — but a component only binds once it can resolve one.
+        const bar  = Neo.create(Toolbar, {...Workspace.prototype.createTopologyBar.call(host), stateProvider: {}}),
+              undo = bar.getAction('undo'),
+              redo = bar.getAction('redo'),
+              // Read it where a user does: the badge is a vdom node the button hides rather than
+              // drops, so "no steps" has to mean an absent node and never the string '0'.
+              read    = () => [undo, redo].map(button => [
+                  button.badgeText, button.badgeNode.removeDom === true, button.disabled
+              ]),
+              command = (method, kind) => TransactionManager[method]({
+                  groupId: group.groupId, cause: `spec-${method}`, provenance: {origin: 'unit'},
+                  ...(kind ? {descriptor: {kind}, changes: [{workspaceKey: 'main', input: {kind}}]} : {})
+              });
+
+        try {
+            expect(read(), 'an empty history shows no depth either way')
+                .toEqual([[null, true, true], [null, true, true]]);
+
+            await command('write', 'a');
+            await command('write', 'b');
+
+            expect(read(), 'two steps behind the cursor, none ahead')
+                .toEqual([['2', false, false], [null, true, true]]);
+
+            await command('undo');
+
+            // The state that tells the two formulas apart: swapped, mirrored and off-by-one counts
+            // all read alike here, and no constant survives 2 → 1 on the same control.
+            expect(read(), 'one step each way')
+                .toEqual([['1', false, false], ['1', false, false]]);
+
+            await command('undo');
+
+            expect(read(), 'nothing behind the cursor, two ahead')
+                .toEqual([[null, true, true], ['2', false, false]]);
+
+            await command('redo');
+
+            expect(read(), 'redo walks the cursor back up')
+                .toEqual([['1', false, false], ['1', false, false]]);
+
+            // Fails closed on the same read as `disabled`. Asked through the helper, because a
+            // retired Group's provider publishes nothing for a binding effect to re-run on — and
+            // the formatter returning a number proves the `null` comes from the missing provider
+            // rather than from the arithmetic.
+            TransactionManager.retireGroup(group.groupId);
+
+            expect(host.historyStepBadge(() => 99), 'a retired Group has no depth to show').toBe(null)
+        } finally {
+            bar.destroy();
+            TransactionManager.retireGroup(group.groupId);
+            TransactionManager.historyDepth = restoreDepth
+        }
     })
 });
