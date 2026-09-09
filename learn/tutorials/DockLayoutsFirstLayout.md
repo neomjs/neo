@@ -219,7 +219,7 @@ contract on one pane.
 - **[Dock Layouts Adoption](../guides/uibuildingblocks/DockLayoutsAdoption.md)** — computing a layout from application data and
   integrating the workspace into an existing view hierarchy.
 - **Dock Zone Model** (`learn/agentos/DockZoneModel.md`) — the reference for the document vocabulary: the
-  exact fields a pane record and a zone node accept.
+  exact fields a pane record and a zone node accept, including the ones this tutorial has no use for.
 
 Start with the second example on this page. Change a key, add a pane, move it to another zone, and watch
 what the engine builds for you.
