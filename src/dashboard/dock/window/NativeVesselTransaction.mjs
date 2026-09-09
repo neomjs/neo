@@ -164,13 +164,18 @@ class NativeVesselTransaction extends Base {
                 // Retiring the vessel without retiring its orphan recovery leaves a matching
                 // predecessor effect owning a window that no longer exists, which then competes
                 // with the next park on the same handle. One consumer does this and one does not.
+                // Same asymmetry as the acknowledgement: the retirement is bookkeeping over an
+                // effect the consumer may never have armed, and it must not be able to revoke a
+                // disposal that already happened.
                 if (disposed && route?.nativeHandleKey) {
-                    await Neo.main.addon.DragDrop.retireWindowDragOrphanRecovery({
-                        nativeHandleKey: route.nativeHandleKey,
-                        targetWindowId : route.targetWindowId,
-                        windowId       : descriptor.ownerWindowId(),
-                        windowName
-                    })
+                    try {
+                        await Neo.main.addon.DragDrop.retireWindowDragOrphanRecovery?.({
+                            nativeHandleKey: route.nativeHandleKey,
+                            targetWindowId : route.targetWindowId,
+                            windowId       : descriptor.ownerWindowId(),
+                            windowName
+                        })
+                    } catch (error) {/* nothing armed, or already retired: the disposal stands */}
                 }
 
                 return disposed
@@ -304,35 +309,96 @@ class NativeVesselTransaction extends Base {
                     admissions = NativeVesselTransaction.resolveAdmissions(descriptor, entry, descriptor.targetWindowId() ?? null),
                     owesResize = Boolean(geometry);
 
-                descriptor.publishReceipt('restore', {
+                const receipt = {
                     authority: NativeVesselTransaction.describeAuthority(admissions, entry?.windowName === windowName),
                     frame,
                     geometry,
                     owesResize,
                     terminal
-                });
+                };
+
+                // Published first and amended in place, same as the park: a caller reading it
+                // after a refusal must see which beat refused and what was compensated.
+                descriptor.publishReceipt('restore', receipt);
 
                 if (
                     !admissions.sourcePos.granted || (owesResize && !admissions.sourceResize.granted) ||
                     entry?.windowName !== windowName || !frame
                 ) {
+                    receipt.reason = 'native route or restore geometry refused';
                     return false
                 }
 
-                const data = {
-                    nativeHandleKey: route.nativeHandleKey,
-                    targetWindowId : route.targetWindowId,
-                    windowId       : descriptor.ownerWindowId(),
-                    windowName,
-                    x              : frame.x,
-                    y              : frame.y
-                };
+                const
+                    handle = {
+                        nativeHandleKey: route.nativeHandleKey,
+                        targetWindowId : route.targetWindowId,
+                        windowId       : descriptor.ownerWindowId()
+                    },
+                    data   = {...handle, windowName, x: frame.x, y: frame.y},
+                    resize = extent => Neo.Main.windowNativeResizeTo({...handle, ...extent});
 
                 try {
-                    return terminal
-                        ? await Neo.Main.windowNativeMoveTo(data) === true
-                        : await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true
+                    // A non-terminal re-show hands the window back to the live drag, which owns the
+                    // move itself. Only a terminal restore drives the platform directly, and only
+                    // it has an extent to give back.
+                    if (!terminal) {
+                        receipt.admitted = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
+                        return receipt.admitted
+                    }
+
+                    // Extent before position: a window restored to its old size at the park origin
+                    // is briefly visible in the wrong place, whereas the reverse ordering is not
+                    // observable. On refusal the park extent is put back, so a half-restored
+                    // window never survives the failure.
+                    if (owesResize) {
+                        receipt.resized = await resize(geometry.restore) === true;
+
+                        if (!receipt.resized) {
+                            await resize(geometry.park);
+                            receipt.refusedAt = 'resize';
+                            return false
+                        }
+                    }
+
+                    receipt.moved = await Neo.Main.windowNativeMoveTo(data) === true;
+
+                    if (!receipt.moved) {
+                        // Compensating a failed move means undoing the extent too, in the same
+                        // order it was applied — otherwise the vessel keeps its restored size at
+                        // the park origin and the next re-show measures from a lie.
+                        if (owesResize) {
+                            receipt.compensationResized = await resize(geometry.park) === true;
+
+                            if (receipt.compensationResized) {
+                                receipt.compensationMoved = await Neo.Main.windowNativeMoveTo({
+                                    ...handle, windowName, x: geometry.park.x, y: geometry.park.y
+                                }) === true
+                            }
+                        }
+
+                        receipt.refusedAt = 'move';
+                        return false
+                    }
+
+                    receipt.admitted = true;
+
+                    // The vessel is home; this releases the recovery effect that was owning the
+                    // failure case, and it is deliberately unable to revoke the success above.
+                    // A consumer that never arms orphan recovery has nothing to release, and a
+                    // bookkeeping release that threw would otherwise convert a completed restore
+                    // into a refusal — losing a success claim after an await.
+                    try {
+                        receipt.recoveryAcknowledged =
+                            await Neo.main.addon.DragDrop.acknowledgeWindowDragOrphanRecovery?.(data) === true
+                    } catch (error) {
+                        receipt.recoveryAcknowledged = false
+                    }
+
+                    return true
                 } catch (error) {
+                    receipt.error     = String(error?.message || error);
+                    receipt.refusedAt = 'throw';
                     return false
                 }
             }
