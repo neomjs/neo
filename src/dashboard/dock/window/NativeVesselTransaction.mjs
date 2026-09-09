@@ -137,10 +137,22 @@ class NativeVesselTransaction extends Base {
      * @param {Function} descriptor.targetWindowId Returns the conversion target's `windowId`.
      * @param {Function} [descriptor.restoreGeometry] `itemId => geometry|null`. Absent or returning
      * `null` declares a position-only transaction, which is NOT gated on `resize`.
+     * @param {String} [descriptor.rectPlane='inner'] Which published rect the cover metric and the
+     * park origin speak — `'inner'` or `'outer'`. A child window may legitimately omit `outerRect`,
+     * so a consumer whose admission does not depend on the frame stays on the inner plane rather
+     * than refusing an otherwise-authorized live vessel.
      * @returns {{disposeVessel:Function,parkVessel:Function,reshowVessel:Function}}
      */
     static effectsFor(descriptor) {
-        const restoreGeometry = descriptor.restoreGeometry ?? (() => null);
+        const
+            restoreGeometry = descriptor.restoreGeometry ?? (() => null),
+            // Which published rect the cover metric and the park origin speak. A child window may
+            // legitimately omit `outerRect`, so a consumer whose admission does not depend on the
+            // frame stays on `innerRect` rather than rejecting an otherwise-authorized vessel.
+            plane           = descriptor.rectPlane === 'outer' ? 'outerRect' : 'innerRect',
+            snapshot        = rect => rect && {
+                height: rect.height, width: rect.width, x: rect.x, y: rect.y
+            };
 
         return {
             disposeVessel: async ({itemId, windowName}) => {
@@ -169,23 +181,109 @@ class NativeVesselTransaction extends Base {
                     entry          = descriptor.resolveVessel(itemId),
                     targetWindowId = descriptor.targetWindowId() ?? null,
                     geometry       = restoreGeometry(itemId),
+                    sourceWindow   = WindowManager.get(entry?.windowId),
+                    targetWindow   = WindowManager.get(targetWindowId),
+                    targetRoute    = targetWindow?.nativeRoute ?? null,
+                    route          = entry?.nativeRoute ?? null,
+                    sourceRect     = sourceWindow?.[plane] ?? null,
+                    targetRect     = targetWindow?.[plane] ?? null,
                     admissions     = NativeVesselTransaction.resolveAdmissions(descriptor, entry, targetWindowId),
                     authority      = NativeVesselTransaction.describeAuthority(admissions, entry?.windowName === windowName),
                     // The obligation, not the capability: `resize` is required exactly when this
                     // transaction has promised to restore an extent later.
-                    owesResize     = Boolean(geometry);
+                    owesResize     = Boolean(geometry),
+                    receipt        = {authority, geometry, owesResize, sourceRect: snapshot(sourceRect), targetRect: snapshot(targetRect)};
 
-                descriptor.publishReceipt('park', {authority, geometry, owesResize});
+                // The receipt is a stage machine this method amends as the choreography advances,
+                // so it is published FIRST and mutated in place. A caller reading it after a
+                // refusal must be able to see how far the transaction got, which a receipt
+                // assembled only on success cannot express.
+                descriptor.publishReceipt('park', receipt);
                 descriptor.publishReceipt('restore', null);
 
                 if (
                     !admissions.sourcePos.granted || (owesResize && !admissions.sourceResize.granted) ||
-                    !admissions.targetFocus.granted || !authority.entryNameMatches
+                    !admissions.targetFocus.granted || !authority.entryNameMatches ||
+                    !sourceRect || !targetRect
                 ) {
+                    receipt.reason = 'native route or live cover geometry refused';
                     return false
                 }
 
-                return true
+                const focusTarget = () => Neo.Main.windowNativeFocus({
+                    nativeHandleKey: targetRoute.nativeHandleKey,
+                    targetWindowId : targetRoute.targetWindowId,
+                    windowId       : descriptor.ownerWindowId()
+                });
+
+                try {
+                    receipt.focused = await focusTarget() === true;
+
+                    if (!receipt.focused) {
+                        receipt.refusedAt = 'focus';
+                        return false
+                    }
+
+                    // A source frame that does not fit behind the target shrinks through its own
+                    // exact route first; the restore extent is what `geometry` already promised.
+                    if (owesResize) {
+                        receipt.resized = await Neo.Main.windowNativeResizeTo({
+                            height         : Math.min(sourceRect.height, targetRect.height),
+                            nativeHandleKey: route.nativeHandleKey,
+                            targetWindowId : route.targetWindowId,
+                            width          : Math.min(sourceRect.width, targetRect.width),
+                            windowId       : descriptor.ownerWindowId()
+                        }) === true;
+
+                        if (!receipt.resized) {
+                            receipt.refusedAt = 'resize';
+                            return false
+                        }
+                    }
+
+                    receipt.requested = {x: targetRect.x, y: targetRect.y};
+                    receipt.moved     = await Neo.main.addon.DragDrop.parkWindowDrag({
+                        nativeHandleKey: route.nativeHandleKey,
+                        targetWindowId : route.targetWindowId,
+                        windowId       : descriptor.ownerWindowId(),
+                        windowName,
+                        x              : targetRect.x,
+                        y              : targetRect.y
+                    }) === true;
+
+                    if (!receipt.moved) {
+                        receipt.refusedAt = 'move';
+                        return false
+                    }
+
+                    receipt.refocused = await focusTarget() === true;
+
+                    if (receipt.refocused) {
+                        receipt.parked = true;
+                        return true
+                    }
+
+                    // The z-order that hides the parked vessel is what a refocus buys. Without it
+                    // the source sits visibly over the target, so the move is undone rather than
+                    // left half-applied — and a successful compensation is a REFUSAL, because the
+                    // vessel is back where it started and nothing is parked.
+                    receipt.compensated = await Neo.main.addon.DragDrop.resumeWindowDrag({
+                        nativeHandleKey: route.nativeHandleKey,
+                        targetWindowId : route.targetWindowId,
+                        windowId       : descriptor.ownerWindowId(),
+                        windowName,
+                        x              : sourceRect.x,
+                        y              : sourceRect.y
+                    }) === true;
+
+                    receipt.parked    = !receipt.compensated;
+                    receipt.refusedAt = 'refocus';
+
+                    return !receipt.compensated
+                } catch (error) {
+                    receipt.refusedAt = 'throw';
+                    return false
+                }
             },
 
             reshowVessel: async ({itemId, rect, terminal=false, windowName}) => {
