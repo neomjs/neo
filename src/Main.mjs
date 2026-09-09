@@ -338,7 +338,12 @@ class Main extends core.Base {
                 width      : screen.width
             },
             screenLeft: win.screenLeft,
-            screenTop : win.screenTop
+            screenTop : win.screenTop,
+            // Measured by `main.addon.WindowPosition`'s pointer probe when this window is observed;
+            // absent until a sample lands, and absent forever on a window nobody observes. Consumers
+            // fall back to deriving the viewport from assumed border widths, which is what every
+            // window did before this existed.
+            viewportOffset: win.neoViewportOffset ?? null
         }
     }
 

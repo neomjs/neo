@@ -63,13 +63,19 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
     });
 
     test('a fixed-origin resize publishes the complete window snapshot', () => {
-        const addon = {
-            adjustWindowPositions: false,
-            publishGeometry      : WindowPosition.prototype.publishGeometry,
-            windows              : {}
-        };
+        // A resize is also the only event that can invalidate the measured viewport offset, so the
+        // double records the re-arm rather than pretending the collaborator is absent.
+        const rearmed = [],
+              addon   = {
+                  adjustWindowPositions: false,
+                  armViewportProbe     : () => rearmed.push(true),
+                  publishGeometry      : WindowPosition.prototype.publishGeometry,
+                  windows              : {}
+              };
 
         WindowPosition.prototype.onResize.call(addon, {});
+
+        expect(rearmed, 'a resize re-measures where the viewport starts inside the frame').toEqual([true]);
 
         expect(sent).toEqual([['app', {
             action: 'windowPositionChange',
@@ -212,5 +218,127 @@ test.describe('Neo.main.addon.WindowPosition — live geometry publication', () 
 
         expect(configs).toEqual({observeResize: true});
         expect(data).toEqual({observeResize: true})
+    })
+});
+
+/**
+ * @summary The viewport-origin probe: one pointer sample, taken because the numbers cannot be
+ * inferred.
+ *
+ * `outerWidth - innerWidth` says how much width the viewport lost and never to which edge, so a
+ * devtools panel docked left and one docked right are byte-identical to
+ * {@link Neo.manager.Window#calculateGeometry}. `event.screenX - event.clientX` is the viewport's
+ * screen-space left edge as the browser states it, and carries the side for free.
+ */
+test.describe('Neo.main.addon.WindowPosition — the viewport-origin probe', () => {
+    let addon, listeners, originalWindow;
+
+    /** @returns {Object} A window double that records listener traffic and owns a frame origin. */
+    const makeWindow = () => ({
+        addEventListener   : (type, fn, opts) => listeners.push({fn, opts, type}),
+        removeEventListener: (type, fn) => {
+            const index = listeners.findIndex(entry => entry.fn === fn && entry.type === type);
+            index > -1 && listeners.splice(index, 1)
+        },
+        screenLeft: 100,
+        screenTop : 50
+    });
+
+    /**
+     * Dispatches to the outstanding pointer listener the way a browser does: a `once` listener is
+     * removed BEFORE it is invoked. Modelling that is the point — the probe relies on `once` for
+     * its removal and nulls its own handle, so a double that kept the entry could not witness the
+     * one-shot contract at all.
+     * @param {Object} event
+     */
+    const firePointer = event => {
+        const index = listeners.findIndex(entry => entry.type === 'pointermove'),
+              entry = listeners[index];
+
+        entry.opts?.once && listeners.splice(index, 1);
+        entry.fn(event)
+    };
+
+    test.beforeEach(() => {
+        listeners      = [];
+        originalWindow = globalThis.window;
+        globalThis.window = makeWindow();
+
+        addon = {
+            armViewportProbe: WindowPosition.prototype.armViewportProbe,
+            published       : 0,
+            publishGeometry() { this.published++ },
+            viewportProbe   : null
+        }
+    });
+
+    test.afterEach(() => {
+        originalWindow === undefined ? delete globalThis.window : globalThis.window = originalWindow
+    });
+
+    test('one sample measures the offset from the frame, publishes it, and does not stay attached', () => {
+        addon.armViewportProbe();
+
+        expect(listeners).toHaveLength(1);
+        expect(listeners[0].type).toBe('pointermove');
+        // `once` is what makes this a sample rather than a subscription; `passive` keeps it off the
+        // scroll-blocking path of a gesture that is already moving a window.
+        expect(listeners[0].opts).toEqual({capture: true, once: true, passive: true});
+
+        // A pointer at client (40, 20) sitting at screen (140, 187) on a frame whose origin is
+        // (100, 50): the viewport starts 0 px in from the frame's left and 117 px below its top.
+        firePointer({clientX: 40, clientY: 20, screenX: 140, screenY: 187});
+
+        expect(globalThis.window.neoViewportOffset).toEqual({x: 0, y: 117});
+        expect(addon.published, 'the correction reaches the worker on the sample, not on the next resize').toBe(1);
+        expect(addon.viewportProbe, 'the probe releases itself once it has its answer').toBeNull();
+        expect(listeners, 'and the browser removed the one-shot listener').toHaveLength(0)
+    });
+
+    test('a panel on the left is measured as a left offset, which is the whole reason to measure', () => {
+        addon.armViewportProbe();
+        // Same frame, same window size — but the viewport now starts 479 px in from the left.
+        firePointer({clientX: 40, clientY: 20, screenX: 619, screenY: 187});
+
+        expect(globalThis.window.neoViewportOffset).toEqual({x: 479, y: 117})
+    });
+
+    test('re-arming while a sample is outstanding does not attach a second listener', () => {
+        addon.armViewportProbe();
+        addon.armViewportProbe();
+        addon.armViewportProbe();
+
+        expect(listeners, 'one outstanding sample is enough').toHaveLength(1);
+
+        firePointer({clientX: 0, clientY: 0, screenX: 100, screenY: 137});
+
+        // Only after the sample lands may a new one be armed — that is what a resize does.
+        addon.armViewportProbe();
+        expect(listeners).toHaveLength(1);
+        expect(addon.viewportProbe).not.toBeNull()
+    });
+
+    test('a non-finite reading is discarded rather than published', () => {
+        addon.armViewportProbe();
+        firePointer({clientX: NaN, clientY: 20, screenX: 140, screenY: 187});
+
+        expect(globalThis.window.neoViewportOffset, 'nothing is written').toBeUndefined();
+        expect(addon.published, 'and nothing is published').toBe(0);
+        expect(addon.viewportProbe, 'the sample is still spent — a bad reading is not a retry loop').toBeNull()
+    });
+
+    test('observation is what arms it: a window nobody observes carries no pointer listener', () => {
+        const observed = {
+            armViewportProbe: WindowPosition.prototype.armViewportProbe,
+            onResize        : () => {},
+            resizeListener  : null,
+            viewportProbe   : null
+        };
+
+        WindowPosition.prototype.afterSetObserveResize.call(observed, false, true);
+        expect(listeners.filter(entry => entry.type === 'pointermove'), 'off means off').toHaveLength(0);
+
+        WindowPosition.prototype.afterSetObserveResize.call(observed, true, false);
+        expect(listeners.filter(entry => entry.type === 'pointermove')).toHaveLength(1)
     })
 });
