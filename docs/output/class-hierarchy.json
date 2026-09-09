@@ -249,6 +249,7 @@
  "Neo.dashboard.dock.projection.MotionSignal": "Neo.core.Base",
  "Neo.dashboard.dock.projection.Reconciler": "Neo.core.Base",
  "Neo.dashboard.dock.window.DragTarget": "Neo.core.Base",
+ "Neo.dashboard.dock.window.NativeVesselTransaction": "Neo.core.Base",
  "Neo.dashboard.dock.window.Participation": "Neo.core.Base",
  "Neo.dashboard.dock.window.Placement": "Neo.core.Base",
  "Neo.dashboard.dock.window.TopologySeams": "Neo.core.Base",
