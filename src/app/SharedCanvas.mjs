@@ -60,8 +60,7 @@ class SharedCanvas extends Canvas {
      */
     afterSetIsCanvasReady(value, oldValue) {
         if (value) {
-            let mode = this.theme?.includes('dark') ? 'dark' : 'light';
-            this.renderer?.setTheme(mode);
+            this.renderer?.setTheme(this.resolveColorScheme());
             this.fire('canvasReady')
         }
     }
@@ -120,9 +119,8 @@ class SharedCanvas extends Canvas {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
-        if (value && this.isCanvasReady) {
-            let mode = value.includes('dark') ? 'dark' : 'light';
-            this.renderer.setTheme(mode)
+        if (this.isCanvasReady) {
+            this.renderer.setTheme(this.resolveColorScheme())
         }
     }
 

@@ -35,6 +35,25 @@ class Canvas extends Component {
          */
         offscreenRegistered_: false,
         /**
+         * Maps a Neo theme onto the light/dark hint a renderer needs.
+         *
+         * A map rather than a substring test on the theme name, because the name does not carry the
+         * answer: `neo-theme-cyberpunk` is dark — `--neo-background-color: #0d1117`, and its own
+         * `--neo-color-scheme` says `dark` — and is named neither. Every theme declares that token,
+         * but the main-thread reader for it is protected and absent from the app remote manifest, so
+         * a component in the App Worker cannot ask, and a renderer registration needs the answer
+         * synchronously. A config rather than a constant, so a consumer can extend it for a theme
+         * Neo does not ship.
+         * @member {Object} themeMap
+         */
+        themeMap: {
+            'neo-theme-cyberpunk': 'dark',
+            'neo-theme-dark'     : 'dark',
+            'neo-theme-light'    : 'light',
+            'neo-theme-neo-dark' : 'dark',
+            'neo-theme-neo-light': 'light'
+        },
+        /**
          * @member {Object} _vdom={tag: 'canvas'}
          */
         _vdom:
@@ -143,6 +162,27 @@ class Canvas extends Component {
      */
     onDomResize(data) {
         this.fire('resize', data)
+    }
+
+    /**
+     * @summary Maps the theme this canvas actually renders under onto a light/dark hint.
+     *
+     * Resolution goes through {@link Neo.component.Base#getTheme}, never the `theme` config. A child
+     * inside a themed scope carries no theme class of its own by design, so that config is `null` for
+     * precisely the components which inherit a theme — and `container.Base#afterSetTheme` only stamps
+     * live items on a CHANGE, leaving construction to `createItem`. Reading the config therefore
+     * answers `null` on first render and the right value only after a theme toggle, which paints a
+     * light canvas in a dark app until someone touches the theme switcher. `getTheme()` answers the
+     * component's own theme first, so a canvas declaring one is not overruled by the scope it sits in.
+     *
+     * Pure and synchronous, so a renderer registration can carry the answer rather than correct it
+     * afterwards, and an unmapped theme yields `'light'` — adding a theme cannot silently repaint an
+     * existing app.
+     * @returns {'dark'|'light'}
+     * @protected
+     */
+    resolveColorScheme() {
+        return this.themeMap[this.getTheme()] ?? 'light'
     }
 }
 
