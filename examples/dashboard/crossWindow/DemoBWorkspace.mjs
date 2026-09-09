@@ -21,6 +21,7 @@ import {createDockKeyboardCommands}       from '../../../src/dashboard/dock/inte
 import {createDockTearOutHandlers}        from '../../../src/dashboard/dock/window/TearOut.mjs';
 import {createDockVesselEmbodiment}       from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import WorkspaceSet                       from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import NativeVesselTransaction            from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import VesselPark                         from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                 from '../../../src/manager/Transaction.mjs';
@@ -637,6 +638,19 @@ class DemoBWorkspace extends Container {
 
         // Conversion never reacquires a popup. The source-owned admission machines retain the
         // existing tear-out vessel while this host binds their effects to its exact native route.
+        // The transaction itself is the engine's; this host supplies only what varies between
+        // consumers. No `restoreGeometry` is declared, which is the whole of this host's policy:
+        // its re-show restores a position and never an extent, so the park may not shrink.
+        me.vesselTransaction = NativeVesselTransaction.effectsFor({
+            ownerWindowId : () => me.windowId,
+            publishReceipt: (key, receipt) => {
+                key === 'park' ? (me.lastVesselParkReceipt = receipt) : (me.lastVesselRestoreReceipt = receipt)
+            },
+            resolveVessel : itemId => me.resolveTearOutVessel(itemId),
+            retireVessel  : vessel => me.tearOutHandlers.retireActiveVessel(vessel),
+            targetWindowId: () => me.crossWindowTargetWindowId
+        });
+
         me.vesselParkHandlers = Neo.create(VesselPark, {
             disposeVessel: vessel => me.disposeParkedTearOutVessel(vessel),
             parkVessel   : vessel => me.parkTearOutVessel(vessel),
@@ -3842,198 +3856,35 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary Focuses the already-admitted target, then pauses pointer-follow and parks the exact
-     * connected tear-out generation behind it.
-     *
-     * Focus is admitted BEFORE the physical move, then reasserted AFTER it. A content-bearing moved
-     * window can regain document focus on some window managers; the second focus is therefore the
-     * cover-order receipt, not ceremony. Initial refusal leaves the source untouched. Move refusal
-     * lets DragDrop re-enable pointer-follow, while post-move focus refusal resumes the exact source
-     * rect before reporting a refused park. If that compensation is itself refused, admitted parked
-     * ownership is retained so the lifecycle machine still owns the only recovery route.
+     * Parks the converted vessel behind its conversion target through the engine's default
+     * transaction. This host declares no geometry restore, so the park is position-only: an
+     * oversized source is refused rather than shrunk, because nothing here will give the extent
+     * back. See {@link Neo.dashboard.dock.window.NativeVesselTransaction}.
      * @param {Object} vessel
-     * @param {String} vessel.itemId
-     * @param {String} vessel.windowName
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async parkTearOutVessel({itemId, windowName}) {
-        let me           = this,
-            entry        = me.resolveTearOutVessel(itemId),
-            route        = entry?.nativeRoute,
-            sourceWindow = Neo.manager?.Window?.get(entry?.windowId),
-            targetWindow = Neo.manager?.Window?.get(me.crossWindowTargetWindowId),
-            targetRoute  = targetWindow?.nativeRoute,
-            // The conversion metric and the exact native move both speak published inner-window
-            // geometry. A child can legitimately omit outerRect, so making the optional frame
-            // estimate an admission prerequisite would reject a fully-authorized live vessel.
-            sourceRect   = sourceWindow?.innerRect,
-            targetRect   = targetWindow?.innerRect;
-
-        const
-            sourceArgs  = {ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null},
-            targetArgs  = {ownerWindowId: me.windowId, route: targetRoute, targetWindowId: me.crossWindowTargetWindowId ?? null},
-            sourcePos   = WindowManager.resolveNativeRoute({...sourceArgs, capability: 'position'}),
-            targetFocus = WindowManager.resolveNativeRoute({...targetArgs, capability: 'focus'});
-
-        me.lastVesselParkReceipt = {
-            authority: {
-                entryNameMatches     : entry?.windowName === windowName,
-                sourceHasHandle      : sourcePos.hasHandle,
-                sourceOwnerMatches   : sourcePos.ownerMatches,
-                sourcePositionCapable: sourcePos.capable,
-                sourceTargetMatches  : sourcePos.targetMatches,
-                targetFocusCapable   : targetFocus.capable,
-                targetHasHandle      : targetFocus.hasHandle,
-                targetOwnerMatches   : targetFocus.ownerMatches,
-                targetTargetMatches  : targetFocus.targetMatches
-            },
-            source: sourceRect && {
-                height: sourceRect.height, width: sourceRect.width, x: sourceRect.x, y: sourceRect.y
-            },
-            target: targetRect && {
-                height: targetRect.height, width: targetRect.width, x: targetRect.x, y: targetRect.y
-            }
-        };
-        me.lastVesselRestoreReceipt = null;
-
-        if (
-            !sourcePos.granted || !targetFocus.granted ||
-            entry.windowName !== windowName || !sourceRect || !targetRect || !targetWindow.innerRect ||
-            sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
-        ) {
-            me.lastVesselParkReceipt.reason = 'native route or cover geometry refused';
-            return false
-        }
-
-        try {
-            let focused = await Neo.Main.windowNativeFocus({
-                    nativeHandleKey: targetRoute.nativeHandleKey,
-                    targetWindowId : targetRoute.targetWindowId,
-                    windowId       : me.windowId
-                }) === true;
-
-            me.lastVesselParkReceipt.focused = focused;
-
-            if (!focused) return false;
-
-            me.lastVesselParkReceipt.requested = {
-                x: targetWindow.innerRect.x,
-                y: targetWindow.innerRect.y
-            };
-
-            let moved = await Neo.main.addon.DragDrop.parkWindowDrag({
-                nativeHandleKey: route.nativeHandleKey,
-                targetWindowId : route.targetWindowId,
-                windowId       : me.windowId,
-                windowName,
-                x              : targetWindow.innerRect.x,
-                y              : targetWindow.innerRect.y
-            }) === true;
-
-            me.lastVesselParkReceipt.moved = moved;
-
-            if (!moved) return false;
-
-            let refocused = await Neo.Main.windowNativeFocus({
-                nativeHandleKey: targetRoute.nativeHandleKey,
-                targetWindowId : targetRoute.targetWindowId,
-                windowId       : me.windowId
-            }) === true;
-
-            me.lastVesselParkReceipt.refocused = refocused;
-
-            if (!refocused) {
-                let compensated = await Neo.main.addon.DragDrop.resumeWindowDrag({
-                    nativeHandleKey: route.nativeHandleKey,
-                    targetWindowId : route.targetWindowId,
-                    windowId       : me.windowId,
-                    windowName,
-                    x              : sourceRect.x,
-                    y              : sourceRect.y
-                }) === true;
-
-                me.lastVesselParkReceipt.compensated = compensated;
-                me.lastVesselParkReceipt.parked      = !compensated;
-
-                return !compensated
-            }
-
-            me.lastVesselParkReceipt.parked = true;
-
-            return true
-        } catch {
-            me.lastVesselParkReceipt.reason = 'platform effect threw';
-            return false
-        }
+    parkTearOutVessel(vessel) {
+        return this.vesselTransaction.parkVessel(vessel)
     }
 
     /**
-     * @summary Re-shows the same exact native generation at the logical pointer-owned origin.
-     *
-     * During a live gesture the DragDrop addon also resumes physical pointer-follow. At a native
-     * drag terminal that addon has already reset its session, so a strict refusal falls through
-     * to the same exact Main route for the final restore; semantic-name routing is never used.
-     * @param {Object} vessel
-     * @param {String} vessel.itemId
-     * @param {Object} vessel.rect
-     * @param {Boolean} [vessel.terminal=false]
-     * @param {String} vessel.windowName
-     * @returns {Promise<Boolean>}
-     * @protected
+     * Re-shows the parked vessel at its pre-conversion origin through the engine's default
+     * transaction, which converts that content origin into the frame origin the native move
+     * consumes. @param {Object} vessel @returns {Promise<Boolean>} @protected
      */
-    async reshowTearOutVessel({itemId, rect, terminal=false, windowName}) {
-        let me    = this,
-            entry = me.resolveTearOutVessel(itemId),
-            route = entry?.nativeRoute,
-            data;
-
-        if (
-            !WindowManager.resolveNativeRoute({
-                capability: 'position', ownerWindowId: me.windowId, route, targetWindowId: entry?.windowId ?? null
-            }).granted ||
-            entry.windowName !== windowName ||
-            !Number.isFinite(rect?.x) || !Number.isFinite(rect?.y)
-        ) return false;
-
-        data = {
-            nativeHandleKey: route.nativeHandleKey,
-            targetWindowId : route.targetWindowId,
-            windowId       : me.windowId,
-            windowName,
-            x              : rect.x,
-            y              : rect.y
-        };
-        me.lastVesselRestoreReceipt = {
-            admitted : false,
-            requested: {x: rect.x, y: rect.y},
-            terminal,
-            windowId : route.targetWindowId
-        };
-
-        try {
-            const admitted = terminal
-                ? await Neo.Main.windowNativeMoveTo(data) === true
-                : await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true
-
-            me.lastVesselRestoreReceipt.admitted = admitted;
-
-            return admitted
-        } catch {
-            return false
-        }
+    reshowTearOutVessel(vessel) {
+        return this.vesselTransaction.reshowVessel(vessel)
     }
 
     /**
-     * @summary Consumes the tear-out machine's active slot, then closes its exact parked vessel.
+     * Retires the parked vessel and its orphan recovery together — the default owns that pairing.
      * @param {Object} vessel
-     * @param {String} vessel.itemId
-     * @param {String} vessel.windowName
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async disposeParkedTearOutVessel({itemId, windowName}) {
-        return this.tearOutHandlers.retireActiveVessel({itemId, windowName})
+    disposeParkedTearOutVessel(vessel) {
+        return this.vesselTransaction.disposeVessel(vessel)
     }
 
     /**
