@@ -104,7 +104,7 @@
         "autoprefixer"                 : "^10.5.5",
         "chalk"                        : "^6.0.0",
         "commander"                    : "^15.0.0",
-        "cssnano"                      : "^9.0.2",
+        "cssnano"                      : "^9.0.3",
         "envinfo"                      : "^7.21.0",
         "esbuild"                      : "^0.28.2",
         "fast-glob"                    : "^3.3.3",
