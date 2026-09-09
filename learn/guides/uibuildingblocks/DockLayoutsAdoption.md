@@ -107,10 +107,76 @@ hook, including after `super.onConstructed()`. Mounting still goes through the e
 active document or the captured pane definitions; these are plain initial configs, not live
 declaration bindings.
 
-A valid supplied `dockModel` takes precedence over `zones`. This lets a caller restore a saved
-document while supplying the current runtime pane configurations. Invalid supplied documents and
-invalid declarations fail visibly with paths; they do not silently fall back to another layout.
-With neither declarations nor a document, the existing empty-workspace behavior remains available.
+### A supplied document wins, and that is the whole restore story
+
+Most real applications do not start empty on the second visit. They have a document already — from
+storage, from a server, from the perspective the user left open — and they still want their pane
+configurations declared in one readable place. Both at once is the normal case, not an advanced one:
+
+```javascript readonly
+class Workspace extends DockWorkspace {
+    static config = {
+        className: 'MyApp.view.Workspace',
+        panes    : {editor: {module: EditorPanel, header: {text: 'Editor'}},
+                    preview: {module: PreviewPanel, header: {text: 'Preview'}}},
+        // The declared default: side by side.
+        zones    : {center: {orientation: 'horizontal', children: ['editor', 'preview']}}
+    }
+
+    construct(config) {
+        super.construct(config);
+
+        // A restored document — deliberately NOT the arrangement declared above.
+        const saved = MyApp.storage.readLayout();
+
+        saved && (this.dockModel = saved)
+    }
+}
+```
+
+The restored arrangement is what mounts. `zones` is the default for a first visit and nothing more;
+a valid `dockModel` supersedes it, while `panes` continues to supply the live component
+configurations the restored document's keys resolve against. That separation is the point — the
+document carries *where things are*, your declaration carries *what they are*, and only one of them
+needs to survive a release.
+
+Invalid input on either side fails visibly with the authored path rather than falling back to some
+other layout, so a typo in a declaration and a corrupt saved document produce a complaint you can
+act on instead of a plausible-looking wrong arrangement.
+
+### Initial means once — and a later assignment will not undo the user's work
+
+This is the contract most worth internalising, because the alternative is a class of bug that only
+appears in front of a customer. `panes` and `zones` are consumed **once**, at first creation. After
+that the committed document is the truth, and the user is editing it.
+
+So a later assignment does not recompile anything:
+
+```javascript readonly
+// The user has dragged Preview into its own edge band. Then some code does this:
+workspace.zones = {center: {items: ['editor']}}
+```
+
+The committed document does not move. Not the node graph, not the tab order, not the active item —
+the arrangement the user built is still exactly what they see. The assignment changes a *future*
+default, never the current layout.
+
+That is worth stating as loudly as the guide can, because the intuitive reading is the opposite one.
+If you want to change the live arrangement, you use a documented operation and it commits through the
+reducer like every other change:
+
+```javascript readonly
+const {errors} = workspace.applyDockZoneOperation({
+    operation   : 'moveItem',
+    itemId      : 'preview',
+    targetNodeId: someTabsNodeId
+});
+```
+
+**Altering a future default and changing the current layout are two different acts**, and the engine
+refuses to conflate them. A workspace that silently re-seeded itself whenever a config was touched
+would throw away a user's arrangement on a re-render, which is precisely the failure this contract
+exists to make impossible.
 
 **Keep the application root and workspace separate.** Your app still gets a real
 `Neo.container.Viewport`, with the workspace as its flex child:
@@ -151,6 +217,56 @@ The pane key is its dock item identity, and the projection lowers it onto the pa
 Nothing is persisted for that — name a `reference` on the record only if you want a different one.
 `header.text` supplies the catalog title. Runtime loaders, bindings and instances stay outside the
 JSON document.
+
+Here is what all of that looks like in one catalog — a lazy surface, two keys sharing a class, and
+policy travelling with the record rather than with your UI:
+
+```javascript readonly
+panes: {
+    // Loads on first activation, not at boot. An auto-hidden pane loads when its rail is revealed.
+    reports: {module: () => import('./ReportsPanel.mjs'), header: {text: 'Reports'}},
+
+    // Two keys, ONE class, different configuration — and two independent component identities.
+    logsApp : {module: LogPanel, header: {text: 'App log'},  source: 'app'},
+    logsHttp: {module: LogPanel, header: {text: 'HTTP log'}, source: 'http'},
+
+    // Policy is a property of the item, so every caller meets the same refusal.
+    console: {module: ConsolePanel, header: {text: 'Console'}, closable: false, movable: false}
+}
+```
+
+`logsApp` and `logsHttp` are not one component shown twice. They are two instances that keep their
+own scroll position, their own bindings and their own state through tab moves and rail transitions —
+which is the behaviour you want and the one a keyed catalog gives you for free. Their keys are also
+their references, so a controller reaches each by the name you already wrote.
+
+Notice what does *not* appear in that catalog: no ids, no `reference`, no title field. The key is the
+identity, `header.text` is the label, and the persisted record for a pane like `reports` is exactly
+`{title: 'Reports'}` — one field. Everything else on those declarations is ordinary runtime component
+config that never enters the document.
+
+**Computing the initial declaration.** Real applications rarely know their opening arrangement
+statically — it depends on the user's role, their last session, the data that loaded. Compute it in
+either construction hook; the effective values are captured once, after the synchronous `construct`
+and `onConstructed` chains have run:
+
+```javascript readonly
+construct(config) {
+    super.construct(config);
+
+    const tabs = ['editor', 'preview'];
+
+    MyApp.user.canAudit && tabs.push('audit');
+
+    this.zones = {center: {items: tabs}}
+}
+```
+
+That is a **static choice made from data you have at construction**, and it is worth being precise
+about what it is not: it is not a live subscription. If the user's permissions change later, this
+declaration does not re-run and the arrangement does not rearrange itself — see *Initial means once*
+above. Recomputing an opening layout and reacting to a change are different problems, and only the
+first one is solved here.
 
 Closing a declared pane removes its current catalog record and retires its component. The initial
 declaration survives, so a control can reopen it without rebuilding the catalog:
@@ -280,6 +396,69 @@ The deeper mechanics of the journey (claims, vessels, conversion, reintegration)
 needs tear-out today, read the workstation's composition first. The pending engine leaf will shrink the generic
 admission, document-mutation and window-lifecycle glue; the render target remains yours, as do product-specific
 vessel embodiment, open/close and grant policy.
+
+## Migrating a consumer that already does this by hand
+
+If you adopted docking before the declarations existed, you wrote the boot half yourself: a document
+built in `construct`, a `resolvePane` switch mapping ids to components, often a cache so the switch
+did not rebuild a live pane on every projection, and a hand-placed first shell. That code worked. It
+is also the code the engine now owns, and the migration is mostly deletion.
+
+**Before** — every consumer wrote some version of this:
+
+```javascript readonly
+construct(config) {
+    super.construct(config);
+
+    this.dockModel = structuredClone(myDefaultDocument);   // hand-maintained node ids
+    this.paneCache = {};                                   // so resolvePane stops rebuilding
+}
+
+resolvePane(itemId, item) {
+    if (this.paneCache[itemId]) {
+        return this.paneCache[itemId]
+    }
+
+    switch (itemId) {                                      // a second registry of the same names
+        case 'editor' : return this.paneCache[itemId] = Neo.create(EditorPanel,  {…});
+        case 'preview': return this.paneCache[itemId] = Neo.create(PreviewPanel, {…});
+    }
+}
+
+createItems() {                                            // mounting the first shell by hand
+    return [this.projectDockModel()]
+}
+```
+
+**After:**
+
+```javascript readonly
+static config = {
+    panes: {editor : {module: EditorPanel,  header: {text: 'Editor'}},
+            preview: {module: PreviewPanel, header: {text: 'Preview'}}},
+    zones: {center: {orientation: 'horizontal', children: ['editor', 'preview']}}
+}
+```
+
+**What disappears, and why it was never yours.** The hand-maintained document goes because `zones`
+lowers into one, generating the structural ids you used to keep in your head. The `resolvePane`
+switch goes because the catalog already maps keys to configurations — it was a second registry of
+the same names, and two registries drift. The cache goes because the engine preserves pane identity
+across re-projections itself; the cache existed to compensate for a resolver being called repeatedly,
+which is the engine's problem and not yours. The `createItems` mount goes because the class mounts
+its own first shell.
+
+**What legitimately stays application code.** Perspective toolbars, tour or replay drivers, saved
+layout collections, storage adapters, anything that consumes the committed document — none of that
+is layout authoring and none of it is absorbed. The minimal example keeps its perspective toolbar and
+its tour adapter for exactly this reason, and they are unchanged by the migration. If you have a
+genuine reason to own a pane's construction, `resolvePane` is still there; the difference is that it
+is now an extension point you reach for deliberately rather than the price of entry.
+
+**Do it in one commit and read the diff.** The satisfying part of this migration is that the diff is
+almost entirely red, and the arrangement on screen is identical afterwards — which is the check worth
+making. If your layout looks different after migrating, your hand-built document and your declaration
+disagreed about something, and that disagreement was already in your code.
 
 ## The hooks ladder — adopt at the depth your app needs
 
