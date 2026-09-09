@@ -166,8 +166,30 @@ export function summary(root = process.cwd()) {
     ].join('\n')
 }
 
+/**
+ * @summary One line stating what the run covers, for the job LOG rather than the step summary.
+ *
+ * The summary is the complete account and lives where a reader has to go looking for it. This is the
+ * same arithmetic in one line, printed beside the work, so the number a reader meets first is the
+ * accurate one. Both come from {@link populations}, so they cannot disagree.
+ * @param {String} [root=process.cwd()]
+ * @returns {String}
+ */
+export function coverageLine(root = process.cwd()) {
+    const {executed, total} = populations(root);
+
+    return `e2e coverage: ${executed} of ${total} spec files selected, ${total - executed} excluded. ` +
+        `Excluded files are DESELECTED, not skipped — no reporter below can name them. ` +
+        `The job summary lists every exclusion class and its owner.`
+}
+
 if (process.argv[1]?.endsWith('e2eCiSelection.mjs')) {
     const mode = process.argv[2];
+
+    if (mode === '--coverage-line') {
+        console.log(coverageLine());
+        process.exit(0)
+    }
 
     if (mode === '--paths') {
         assertSelectionFloor();

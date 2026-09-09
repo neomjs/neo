@@ -34,25 +34,41 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
         expect(stated, 'and it must be the header\'s own complement').toBe(total - executed);
     });
 
-    test('the residual survives a new exclusion class, which a sum of named classes would not', () => {
-        // The generalising arm. `ignored + gpu` was correct when written and wrong the moment a
-        // third class existed; EXCLUSIONS is that third class. This asserts the residual accounts
-        // for it — i.e. that the number is derived by subtraction rather than by enumerating the
-        // classes someone remembered.
+    test('the residual accounts for EVERY class, including any a named sum would omit', () => {
+        // The identity the subtraction relies on, asserted directly rather than through today's
+        // figures: the complement of the selected count equals the sum of every exclusion class
+        // that exists. It holds when `EXCLUSIONS` is empty as readily as when it is not, so this
+        // arm does not require the tree to currently carry a third class — a requirement that would
+        // make the guard's own coverage depend on the defect still being present.
         const {brainFree, executed, gpu, ignored, total} = populations(root);
 
-        expect(EXCLUSIONS.length, 'the arm is void unless a third class exists').toBeGreaterThan(0);
-
-        // The sum that used to be published, reconstructed here purely to show it is NOT the answer.
-        expect(ignored + gpu, 'the old sum under-reports by exactly the third class')
-            .toBe(total - executed - EXCLUSIONS.length);
+        expect(total - executed, 'the complement must account for every class')
+            .toBe(ignored + gpu + EXCLUSIONS.length);
 
         expect(summary(root)).toContain(`${total - executed} excluded files`);
-        expect(summary(root), 'the under-reporting sum must not appear').not.toContain(`${ignored + gpu} excluded files`);
 
-        // Pins the relationship the floor check at `assertSelectionFloor` also depends on, so a
-        // change to one of them cannot silently drift from the other.
+        // Pins the relationship `assertSelectionFloor` also depends on, so the two cannot drift.
         expect(executed).toBe(brainFree - gpu - EXCLUSIONS.length);
+    });
+
+    test('a class beyond the first two is what a named sum drops — discriminating only when one exists', () => {
+        // The conditional discriminator. `ignored + gpu` was correct when written and wrong the
+        // moment a third class appeared, so the interesting comparison exists only while one does.
+        // Asserted conditionally rather than unconditionally: an arm that REQUIRED the two-class sum
+        // to be wrong would fail the day someone legitimately empties `EXCLUSIONS`, which is the
+        // outcome this repository is working toward.
+        const {executed, gpu, ignored, total} = populations(root);
+
+        if (!EXCLUSIONS.length) {
+            expect(ignored + gpu, 'with two classes the sum and the complement coincide')
+                .toBe(total - executed);
+            return
+        }
+
+        expect(ignored + gpu, 'a named two-class sum under-reports by the third')
+            .toBe(total - executed - EXCLUSIONS.length);
+        expect(summary(root), 'and the under-reporting sum must not be what got published')
+            .not.toContain(`${ignored + gpu} excluded files`);
     });
 
     test('every individually excluded file names a cause and an owner', () => {

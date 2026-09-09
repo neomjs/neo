@@ -69,17 +69,16 @@ export function excludedSpecNotice({ignore, total}) {
         return null
     }
 
-    // Deliberately reports ONLY this module's own exclusion class and states no coverage figure.
-    // It used to close with `covers ${total - ignore.length}`, which read as the run's coverage and
-    // was not: this module cannot see the GPU-bound specs or the individually excluded files, which
-    // are removed downstream. On `dev` that made it announce 20 where 14 were selected — 43% high,
-    // in the line that prints on every run, while the accurate figure sat in a step summary nobody
-    // reads beside the tick. A module that cannot see every exclusion class must not publish the
-    // residual; it can only publish its own subtrahend.
+    // States this module's own exclusion class and no coverage figure. It sees only the Brain-gated
+    // specs; other classes are applied downstream, so any residual computed here would be arithmetic
+    // on incomplete information. A module that cannot see every class publishes its own subtrahend
+    // and never the remainder.
+    //
+    // Restoring the variable makes these files ELIGIBLE, which is not the same as selected — the
+    // later classes still apply — so the wording promises eligibility rather than a count.
     return `e2e: NEO_AGENTOS_RUNTIME_ROOT is unset — ${ignore.length} of ${total} spec files are ` +
-        `EXCLUDED from selection, not skipped, so nothing below this line reports them. Other ` +
-        `exclusion classes are applied after this point, so this is not the run's full exclusion ` +
-        `and no coverage figure is stated here — the job's coverage summary is the only place every ` +
-        `class is counted. Set NEO_AGENTOS_RUNTIME_ROOT to an absolute neo-agent-brain checkout ` +
-        `root to select all ${total}.`
+        `EXCLUDED from selection, not skipped, so nothing below this line reports them. This counts ` +
+        `the Brain-gated class only; further exclusions are applied downstream, so no coverage ` +
+        `figure is stated here. Set NEO_AGENTOS_RUNTIME_ROOT to an absolute neo-agent-brain ` +
+        `checkout root to make these ${ignore.length} eligible again.`
 }

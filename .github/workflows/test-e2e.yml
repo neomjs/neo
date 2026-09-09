@@ -173,6 +173,12 @@ jobs:
         id: selection
         if: ${{ needs.changes.outputs.run_e2e == 'true' && steps.head.outputs.current == 'true' }}
         run: |
+          # The accurate figure, in the LOG. The step summary is the complete account and a reader
+          # has to go looking for it; the number met first was the runtime notice's, which counted
+          # only one exclusion class and therefore over-stated coverage. Both this line and the
+          # summary come from `populations`, so they cannot disagree.
+          node buildScripts/util/e2eCiSelection.mjs --coverage-line
+
           paths=$(node buildScripts/util/e2eCiSelection.mjs --paths)
           echo "paths=$paths" >> "$GITHUB_OUTPUT"
 
