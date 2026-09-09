@@ -157,7 +157,12 @@ export function summary(root = process.cwd()) {
             ...QUARANTINES.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ${entry.reason}. Owner: ${entry.owner}.`),
             ''
         ] : ['No arm in this tier is quarantined. Skips still in the log come from `test.fixme` contracts — rows declared but not yet written — which are a spec\'s own debt rather than a failure this job suppressed.', '']),
-        `**Selected is not executed.** This line reports what the job SELECTED; whether those specs ran and passed is the job's own status, because a provisioning failure reaches this summary too. A green check certifies the ${executed} selected files only — any skip inside them is accounted for above, while the ${ignored + gpu} excluded files appear nowhere in the run at all.`
+        // `total - executed`, never a sum of the named classes. The sum was `ignored + gpu`, which
+        // omitted EXCLUSIONS and reported 89 where the header two paragraphs above said 14 of 105 —
+        // a guard whose only job is accurate counting, contradicting itself. A corrected sum would
+        // have the same defect one exclusion class later; a subtraction from the selected count
+        // cannot drift, because both operands are the ones the header already stands behind.
+        `**Selected is not executed.** This line reports what the job SELECTED; whether those specs ran and passed is the job's own status, because a provisioning failure reaches this summary too. A green check certifies the ${executed} selected files only — any skip inside them is accounted for above, while the ${total - executed} excluded files appear nowhere in the run at all.`
     ].join('\n')
 }
 

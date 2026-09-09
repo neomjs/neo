@@ -69,8 +69,17 @@ export function excludedSpecNotice({ignore, total}) {
         return null
     }
 
+    // Deliberately reports ONLY this module's own exclusion class and states no coverage figure.
+    // It used to close with `covers ${total - ignore.length}`, which read as the run's coverage and
+    // was not: this module cannot see the GPU-bound specs or the individually excluded files, which
+    // are removed downstream. On `dev` that made it announce 20 where 14 were selected — 43% high,
+    // in the line that prints on every run, while the accurate figure sat in a step summary nobody
+    // reads beside the tick. A module that cannot see every exclusion class must not publish the
+    // residual; it can only publish its own subtrahend.
     return `e2e: NEO_AGENTOS_RUNTIME_ROOT is unset — ${ignore.length} of ${total} spec files are ` +
-        `EXCLUDED from selection, not skipped, so nothing below this line reports them. This run ` +
-        `covers ${total - ignore.length}. Set NEO_AGENTOS_RUNTIME_ROOT to an absolute ` +
-        `neo-agent-brain checkout root to select all ${total}.`
+        `EXCLUDED from selection, not skipped, so nothing below this line reports them. Other ` +
+        `exclusion classes are applied after this point, so this is not the run's full exclusion ` +
+        `and no coverage figure is stated here — the job's coverage summary is the only place every ` +
+        `class is counted. Set NEO_AGENTOS_RUNTIME_ROOT to an absolute neo-agent-brain checkout ` +
+        `root to select all ${total}.`
 }

@@ -87,16 +87,24 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
         expect(matcher.test('/repo/e2e/aab/Dock1.spec.mjs')).toBe(false)
     });
 
-    test('the notice names both counts, the survivors and the variable that restores them', () => {
+    test('the notice names its own exclusion and states NO coverage figure', () => {
         const notice = excludedSpecNotice({ignore: new Array(78), total: 95});
 
         expect(notice).toContain('NEO_AGENTOS_RUNTIME_ROOT');
         expect(notice).toContain('78 of 95');
-        // The survivor count is the number a reader is about to mistake for the whole tier.
-        expect(notice).toContain('covers 17');
         // "not skipped" is load-bearing prose, not decoration: `Skipped: 0` is what the summary will
         // say a few lines below, and this sentence is the only thing that contradicts it.
-        expect(notice).toContain('not skipped')
+        expect(notice).toContain('not skipped');
+
+        // This arm used to pin `covers 17`, under a comment reading "the survivor count is the
+        // number a reader is about to mistake for the whole tier" — the hazard named, then asserted.
+        // It is not a survivor count: this module sees only its own exclusion class, and the GPU-bound
+        // and individually excluded files are removed downstream. On `dev` it announced 20 where 14
+        // were selected. A module that cannot see every class must publish its own subtrahend and no
+        // residual, so the absence of a coverage figure is the contract now.
+        expect(notice).not.toContain('covers');
+        expect(notice, 'no bare survivor arithmetic may reappear').not.toMatch(/covers?\s+\d+/);
+        expect(notice).toContain('no coverage figure is stated here')
     });
 
     test('nothing excluded means nothing announced — no exclusion-of-zero notice', () => {
