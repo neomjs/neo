@@ -5,8 +5,10 @@ setup({appConfig: {name: 'WorkstationTopologyControllerTest'}});
 import {test, expect}      from '@playwright/test';
 import Neo                 from '../../../../../src/Neo.mjs';
 import * as core           from '../../../../../src/core/_export.mjs';
+import '../../../../../src/manager/Instance.mjs';
 import Transaction         from '../../../../../src/manager/Transaction.mjs';
 import TopologyLibrary     from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
+import Toolbar             from '../../../../../src/toolbar/Base.mjs';
 import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceController.mjs';
 
 /**
@@ -121,59 +123,54 @@ test.describe('Workstation topology save and close coordination', () => {
         }
     });
 
-    test('the topology bar carries undo and redo as bound actions that dispatch to the Group and own no history logic', () => {
-        // Popup rows come from Group participant identity; supplying none keeps the arm on the two
-        // Group actions rather than on the bar's row building.
-        const component  = {getPopupStates: () => [], topologyGroupId: 'topology-bar-group'},
-              bar        = WorkspaceController.prototype.createTopologyBar.call({component}),
-              actions    = Object.fromEntries((bar.actions || []).map(action => [action.action, action])),
-              dispatched = [];
+    test('the controller fills only the tail of the view-declared bar and cannot destroy what the view authored', () => {
+        // A real toolbar, so `bar.add` and `item.destroy` are the engine's and not a double's; the
+        // reference is how the controller finds it, exactly as it does in the live view.
+        const bar = Neo.create(Toolbar, {
+            items    : [{ntype: 'button', handler: 'saveTopology', text: 'Save workspace'},
+                        {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'}],
+            reference: 'topology-toolbar'
+        });
 
-        expect(Object.keys(actions).sort()).toEqual(['redo', 'undo']);
+        let participants = ['alpha'];
 
-        // Persistent, not focus-gated: an undo control that appears only once the bar holds focus is
-        // undiscoverable exactly when a user reaches for it.
-        expect(actions.undo.showOnFocus).toBe(false);
-        expect(actions.redo.showOnFocus).toBe(false);
+        // `isConstructed` sends `controller.Component#construct` down its immediate branch, so the
+        // engine's own `onComponentConstructed` seam runs here — the wiring is under test, not just
+        // the method it calls.
+        const controller = Neo.create(WorkspaceController, {
+            component: {
+                down          : () => bar,
+                getPopupStates: () => participants.map(workspaceId => ({workspaceId})),
+                isConstructed : true
+            }
+        });
 
-        // Enablement reads the Group's own leaf where it lives. `getData` resolves to that leaf's
-        // `core.Config`, so a binding effect running this formatter registers it and re-runs when it
-        // changes — no copy is held here, so there is no second publication path that could go stale
-        // when `setHistoryDepth` publishes without a commit.
-        const group = Transaction.bind({windowId: 'topology-bar-window', workspaceKey: 'main'});
+        expect(bar.items.map(item => item.text), 'the lifecycle hook already populated it').toEqual([
+            'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
+        ]);
 
-        component.topologyGroupId = group.groupId;
+        expect(controller.syncTopologyBar()).toBe(true);
+        expect(bar.items.map(item => item.text), 'and a resync is not additive').toEqual([
+            'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
+        ]);
 
-        expect(actions.undo.bind.disabled(), 'an empty history disables Undo').toBe(true);
-        expect(actions.redo.bind.disabled()).toBe(true);
+        // Each derived button carries the participant it addresses, which is the whole of what the
+        // declarative handlers read — no closure over the controller or over this call.
+        expect(bar.items.slice(2).map(item => [item.handler, item.workspaceKey])).toEqual([
+            ['onOpenTopologyWorkspace', 'alpha'], ['onMountTopologyWorkspace', 'alpha']
+        ]);
 
-        Transaction.getProvider(group.groupId).setData({canRedo: true, canUndo: true});
+        // Re-running is not additive, and the authored head survives a resync that removes every
+        // participant — the failure mode of replacing the whole list instead of its tail.
+        participants = [];
 
-        expect(actions.undo.bind.disabled(), 'the Group\'s own leaf enables it').toBe(false);
-        expect(actions.redo.bind.disabled()).toBe(false);
+        expect(controller.syncTopologyBar()).toBe(true);
+        expect(bar.items.map(item => item.handler)).toEqual(['saveTopology', 'closeTopology']);
 
-        // Fails closed on the SAME expression rather than through a separate teardown path.
-        Transaction.retireGroup(group.groupId);
-        expect(actions.undo.bind.disabled(), 'a retired Group reads disabled').toBe(true);
+        // An unreachable bar is reported, never assumed: a destroyed view must not read as synced.
+        bar.destroy();
+        expect(controller.syncTopologyBar(), 'a destroyed bar is not a synced bar').toBe(false);
 
-        component.topologyGroupId = 'topology-bar-group';
-
-        const originals = {redo: Transaction.redo, undo: Transaction.undo};
-
-        Transaction.redo = data => {dispatched.push(['redo', data]); return Promise.resolve()};
-        Transaction.undo = data => {dispatched.push(['undo', data]); return Promise.resolve()};
-
-        try {
-            actions.undo.handler();
-            actions.redo.handler()
-        } finally {
-            Object.assign(Transaction, originals)
-        }
-
-        // The whole of the consumer's contribution: the Group id and the command name.
-        expect(dispatched).toEqual([
-            ['undo', {groupId: 'topology-bar-group'}],
-            ['redo', {groupId: 'topology-bar-group'}]
-        ])
+        controller.destroy()
     })
 });
