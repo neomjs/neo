@@ -1081,7 +1081,11 @@ class Rail extends Container {
                 slot.add(me.revealPaneCache[nextId])
             } else {
                 item     = me.dockZoneDocument?.items?.[nextId];
-                resolved = item?.componentRef != null ? me.resolveComponentRef(item.componentRef, item, nextId) : null;
+                // The item id is the lookup identity, so a record is always resolvable and the
+                // blueprint below stays the fallback for what the resolver declines. The former
+                // `componentRef != null` guard gated this call on a field the resolver never read,
+                // which declined reveal for any record that simply omitted it.
+                resolved = item ? me.resolveComponentRef(item.reference ?? nextId, item, nextId) : null;
 
                 if (!resolved && item?.blueprint) {
                     resolved = Neo.clone(item.blueprint, true)

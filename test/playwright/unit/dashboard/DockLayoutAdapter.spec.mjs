@@ -662,7 +662,10 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             );
 
         expect(config.dockItemId).toBe('swarm');
-        expect(config.data).toEqual({componentRef: 'Swarm', dockItemId: 'swarm'});
+        expect(config.data).toEqual({dockItemId: 'swarm'});
+        // The projected pane resolves through the engine's own lookup, defaulted to its dock
+        // identity, which is what puts data-ref on the pane root.
+        expect(config.reference).toBe('swarm');
         expect(config.header.text).toBe('Swarm');
         expect(config.header.module).toBe(DockTabEnterButton);
         expect(config.header.cls).toEqual([

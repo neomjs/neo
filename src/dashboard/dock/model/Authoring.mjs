@@ -43,8 +43,9 @@ class Authoring extends Base {
      * `root`; other nodes use readable pane-derived prefixes and occupancy suffixes (`-0`, …).
      * Prefixes are hints, not a uniqueness guarantee. Errors name the authored config path.
      *
-     * Catalog defaults: componentRef is the pane key; title is header.text, then the key
-     * (nullish values use the default). Other defined catalog fields pass
+     * Catalog defaults: title is header.text, then the key (nullish values use the default).
+     * The pane key is the item's identity, so lowering derives no lookup field from it — a pane
+     * names a `reference` only to override the key at projection time. Other defined catalog fields pass
      * through the existing JSON/model checks. Unplaced panes remain in the catalog.
      * Independent failures are collected across readable branches; malformed branches stop
      * safely, and any error prevents lowering from publishing a partial document.
@@ -181,7 +182,6 @@ class Authoring extends Base {
         const start = errors.length;
         const item  = Object.fromEntries([...WorkspaceDocument.dockZoneItemKeys]
             .filter(field => field !== 'title' && pane[field] !== undefined).map(field => [field, pane[field]]));
-        item.componentRef ??= key;
         item.title = pane.header?.text ?? key;
         this.validateJson(item.title, `${path}.header.text`, errors);
         this.validateJson({...item, title: null}, path, errors);

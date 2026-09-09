@@ -54,7 +54,9 @@ function expectedDocument(document) {
     const result = WorkspaceDocument.normalizeTree(document);
 
     for (const [key, item] of Object.entries(result.items)) {
-        result.items[key] = {...item, componentRef: item.componentRef ?? key, title: item.title ?? key}
+        // `title` is the only defaulted catalog field: lowering derives no lookup key from the
+        // pane key, so `reference` and the retired `componentRef` survive only when authored.
+        result.items[key] = {...item, title: item.title ?? key}
     }
 
     return result
@@ -133,7 +135,10 @@ function randomDocument(seed) {
 
     const item = () => {
         const id = `pane-${seed}-${itemIndex++}`, record = {}, autoHidden = random() < 0.25;
-        if (random() < 0.7) record.componentRef = `component-${id}`;
+        if (random() < 0.7) record.reference = `reference-${id}`;
+        // The retired key still round-trips: it stays allowlisted so already-persisted documents
+        // carrying it keep validating, and a document is the one place it may still appear.
+        if (random() < 0.4) record.componentRef = `component-${id}`;
         if (random() < 0.7) record.title = `Pane ${id}`;
         if (random() < 0.5) record.kind = 'panel';
         Object.assign(record, {autoHidden, pinned: !autoHidden && random() < 0.3,
@@ -245,7 +250,7 @@ test.describe('Neo.dashboard.dock.model.Authoring round trips', () => {
             catalogOnly += Object.keys(document.items).filter(id => !placed.has(id)).length;
             for (const item of Object.values(document.items)) {
                 if (item.autoHidden) autoHidden++;
-                if (item.title === undefined || item.componentRef === undefined) missingFields++;
+                if (item.title === undefined) missingFields++;
                 if (item.blueprint) blueprints++
             }
             assertRoundTrip(document, `seed ${seed}`)

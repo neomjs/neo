@@ -39,12 +39,21 @@ class WorkspaceDocument extends Base {
 
     /**
      * Fields allowed on persisted dock-zone item records.
+     *
+     * `reference` is the component-lookup key, spelled as the engine spells it everywhere else
+     * (`component.Base#reference_`), so a projected pane resolves through `getReference()` and the
+     * view-controller path and carries `data-ref` on its root.
+     *
+     * `componentRef` is its retired predecessor, retained here **read-only**: this Set is a strict
+     * allowlist and {@link #findUnexpectedKey} rejects anything outside it, so dropping the name
+     * would make every already-persisted layout carrying it fail validation and refuse to restore.
+     * Nothing reads it and nothing writes it any more — it costs one entry and no logic.
      * @member {Set<String>} dockZoneItemKeys
      * @protected
      * @static
      */
     static dockZoneItemKeys = new Set([
-        'componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned',
+        'reference', 'componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned',
         'autoHidden', 'lockable', 'locked', 'movable', 'metadata'
     ])
 
