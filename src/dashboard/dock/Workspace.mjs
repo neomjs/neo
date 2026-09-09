@@ -2165,47 +2165,25 @@ class Workspace extends Container {
     }
 
     /**
-     * Hook: the reconciler's fast-path options for the refresh a commit schedules —
-     * `{geometryOnly}` for a pure boundary move, `{retainTopology}` for item-only deltas on a
-     * proven-identical shell, `{preserveItemIds}` for owner-held ids known only at THIS commit (a
-     * pane parked by the operation itself), merged with the standing {@link #getPreservedItemIds}
-     * set. The default derives both fast paths from the operation's declared change class, so a
-     * consumer that overrides nothing already gets them. The committing surface passes
-     * `descriptor` as it identifies the operation — engine surfaces pass the semantic descriptor;
-     * a host's own paths may pass their options object — and the override maps whatever shapes its
-     * commit sites produce.
-     * @param {Object|null} descriptor The semantic operation that produced the document, when known.
+     * @summary Selects reconciliation fast paths from scalar or Group operation change classes.
+     * Nonempty homogeneous batches admit a fast path; others use full reconciliation.
+     * The reconciler still validates structure and reports the actual path as `landedInPlace`.
+     * Overrides may add `preserveItemIds`, merged with {@link #getPreservedItemIds}.
+     * @param {Object|null} descriptor A semantic operation or a Group descriptor with `operations`.
      * @param {Object|null} source The committing surface, when it identifies itself.
      * @returns {Object}
      */
     getRefreshOptions(descriptor, source) {
-        // Derived, not declined. `model/Operations` declares what each operation can change beside
-        // the reducer that implements it, so the engine answers from knowledge a consumer cannot
-        // have: only the reducer knows `setItemLocked` assigns one item field and touches `nodes`
-        // nowhere, while `moveItem` restructures. Before this, the default was `{}` — the full
-        // staged transaction for every commit — so one lock click re-parented the splits and edge
-        // rows and every retained header in the app repainted.
-        //
-        // An operation with no declared class falls through to `topology`, i.e. exactly the old
-        // behaviour, so a vocabulary that outgrows the map degrades to slow rather than to wrong.
-        // `topology` is the one class with nothing to emit, because it IS the full transaction.
-        //
-        // Both emitted values are admission REQUESTS, never claims: `reconcileStableTopology`
-        // returns null on any node/type/ancestry/order/orientation delta and the caller falls
-        // through to the staged transaction, with `landedInPlace` reporting the path actually
-        // taken. A class that were ever wrong would therefore cost one refused validation pass,
-        // not a wrong projection — which is why the fast path can be derived at all.
-        switch (Operations.changeClassFor(descriptor?.operation)) {
-            // Both resize reducers clone the document and write exactly one field —
-            // `nodes[id].sizes`, `nodes[id].zones[edge].extent` — and survive `WorkspaceDocument.commit`,
-            // normalization included, with the node tree, the node id set and `items` all
-            // byte-identical. Nothing moved but the boundary, so nothing needs restaging.
+        const operations = Object.hasOwn(descriptor ?? {}, 'operations') ? descriptor.operations : [descriptor],
+              classes    = new Set(Array.isArray(operations)
+                  ? operations.map(value => Operations.changeClassFor(value?.operation)) : []);
+
+        if (classes.size !== 1) return {};
+
+        switch (classes.values().next().value) {
             case 'geometry':
                 return {geometryOnly: true};
 
-            // The item-flag reducers write one `items[id]` field and touch `nodes` nowhere, so the
-            // shell is stable and only items reconcile — a railed item included: its rail is stable
-            // topology too, keyed by its edge-zone node and edge, and reconciles its items in place.
             case 'itemFlags':
                 return {retainTopology: true}
         }

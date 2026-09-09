@@ -18,6 +18,7 @@ import DockService              from '../../../../src/ai/client/DockService.mjs'
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 import TransactionManager       from '../../../../src/manager/Transaction.mjs';
 import WorkspaceDocument        from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceSet             from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import Operations               from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
@@ -543,6 +544,76 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // Every fixture bound its host into a Group; retire them so no arm inherits another's slots.
         [...TransactionManager.items].forEach(group => TransactionManager.retireGroup(group.id));
         TransactionManager.reconnectLeaseMs = 20000
+    });
+
+    test.describe('Group refresh classification', () => {
+        const geometry = {operation: 'resizeSplit'},
+              itemFlag = {operation: 'setItemLocked'};
+
+        for (const [name, descriptor, expected] of [
+            ['one geometry operation', {operations: [geometry]}, {geometryOnly: true}],
+            ['different geometry operations', {operations: [geometry, {operation: 'resizeEdgeZone'}]}, {geometryOnly: true}],
+            ['item flags', {operations: [itemFlag, itemFlag]}, {retainTopology: true}],
+            ['scalar geometry', geometry, {geometryOnly: true}],
+            ['scalar item flag', itemFlag, {retainTopology: true}],
+            ['mixed classes', {operations: [geometry, itemFlag]}, {}],
+            ['structural operation', {operations: [geometry, {operation: 'moveItem'}]}, {}],
+            ['unknown final operation', {operations: [geometry, {operation: 'futureOperation'}]}, {}],
+            ['unknown first operation', {operations: [{operation: 'futureOperation'}, geometry]}, {}],
+            ['inherited operation name', {operations: [geometry, {operation: 'toString'}]}, {}],
+            ['empty batch', {operation: 'resizeSplit', operations: []}, {}],
+            ['malformed batch', {operation: 'resizeSplit', operations: {}}, {}],
+            ['missing operation', {operations: [geometry, null]}, {}],
+            ['missing descriptor', null, {}]
+        ]) {
+            test(name, () => {
+                const before = structuredClone(descriptor);
+
+                expect(DockWorkspace.prototype.getRefreshOptions(descriptor)).toEqual(expected);
+                expect(descriptor, 'classification does not rewrite committed context').toEqual(before)
+            })
+        }
+
+        test('a real Group resize batch updates geometry without replacing the shell', async () => {
+            const {groupId} = TransactionManager.bind({windowId: 'dock-batch-projection-test', workspaceKey: 'main'});
+            TransactionManager.setHistoryDepth({groupId, depth: 5});
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), topologyGroupId: groupId});
+
+            const set = Neo.create(WorkspaceSet, {
+                documentModel: WorkspaceDocument,
+                getGroupId   : () => groupId,
+                manager      : TransactionManager
+            }),
+                shell = workspace.getDockHost().items[0],
+                split = shell.down({dockNodeId: 'root-split'}),
+                afterRefresh = workspace.afterRefreshDockWorkspace.bind(workspace);
+
+            let outcome;
+
+            workspace.afterRefreshDockWorkspace = context => {
+                outcome = context.result;
+                return afterRefresh(context)
+            };
+
+            try {
+                expect(set.register('main', {
+                    getDocument: () => workspace.dockModel,
+                    setDocument: value => workspace.dockModel = value,
+                    project    : context => workspace.projectDockCommit(context)
+                })).toBe(true);
+                await set.commit('main', [{operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.75, 0.25]}]);
+                await workspace.refreshPromise;
+
+                expect(workspace.dockModel.nodes['root-split'].sizes, 'the Group write really committed').toEqual([0.75, 0.25]);
+                expect(outcome?.landedInPlace, 'the actual reconciler accepted stable topology').toBe(true);
+                expect(workspace.getDockHost().items[0]).toBe(shell);
+                expect(shell.down({dockNodeId: 'root-split'})).toBe(split);
+                expect(split.items.filter(item => item.dockNodeType === 'tabs').map(item => item.flex)).toEqual([0.75, 0.25]);
+                expect(TransactionManager.get(workspace.topologyGroupId).history.count).toBe(1)
+            } finally {
+                set.destroy()
+            }
+        })
     });
 
     test.describe('#17947 pop-out dispatches the drag terminal, never a second lifecycle', () => {
