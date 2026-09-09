@@ -31,9 +31,9 @@ function createDocument() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},
-            beta : {reference: 'beta',  title: 'Beta',  kind: 'panel'},
-            gamma: {reference: 'gamma', title: 'Gamma', kind: 'panel'}
+            alpha: {reference: 'alpha', title: 'Alpha'},
+            beta : {reference: 'beta',  title: 'Beta'},
+            gamma: {reference: 'gamma', title: 'Gamma'}
         },
         nodes: {
             root       : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.6, 0.4]},

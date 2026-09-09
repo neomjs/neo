@@ -36,22 +36,18 @@ const createModel = () => ({
         strategy: {
             reference: 'strategy',
             title    : 'Strategy',
-            kind     : 'panel'
         },
         swarm: {
             reference: 'swarm',
             title    : 'Swarm',
-            kind     : 'panel'
         },
         terminal: {
             reference: 'terminal',
             title    : 'Terminal',
-            kind     : 'terminal'
         },
         missing: {
             reference: 'missing',
             title    : 'Missing',
-            kind     : 'panel'
         }
     },
     nodes: {
@@ -92,22 +88,18 @@ const createEdgeZoneModel = () => ({
         strategy: {
             reference: 'strategy',
             title    : 'Strategy',
-            kind     : 'panel'
         },
         swarm: {
             reference: 'swarm',
             title    : 'Swarm',
-            kind     : 'panel'
         },
         terminal: {
             reference: 'terminal',
             title    : 'Terminal',
-            kind     : 'terminal'
         },
         inspector: {
             reference: 'inspector',
             title    : 'Inspector',
-            kind     : 'inspector'
         }
     },
     nodes: {
@@ -154,9 +146,9 @@ const createTabsBandModel = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
-        detail  : {reference: 'detail',   title: 'Detail',   kind: 'inspector', autoHidden: true},
-        operator: {reference: 'operator', title: 'Operator', kind: 'tool',      autoHidden: true}
+        strategy: {reference: 'strategy', title: 'Strategy'},
+        detail  : {reference: 'detail',   title: 'Detail',   autoHidden: true},
+        operator: {reference: 'operator', title: 'Operator', autoHidden: true}
     },
     nodes: {
         root       : {
@@ -650,7 +642,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('an absent-item resolver can reuse the adapter-owned metadata and addTab decoration', () => {
         const
-            item   = {reference: 'Swarm', kind: 'panel', title: 'Swarm'},
+            item   = {reference: 'Swarm', title: 'Swarm'},
             config = DockLayoutAdapter.decorateProjectedItem(
                 {ntype: 'component'},
                 'swarm',
@@ -681,7 +673,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('a retained live pane gets one insertion header and restores its original header afterward', () => {
         const pane           = Neo.create(Component, {header: {text: 'Swarm', cls: ['stable-header']}}),
-              item           = {reference: 'Swarm', kind: 'panel', title: 'Swarm'},
+              item           = {reference: 'Swarm', title: 'Swarm'},
               originalHeader = pane.header,
               options        = {
                   nodeId             : 'main-tabs',
@@ -778,8 +770,8 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         let model = createEdgeZoneModel();
 
         Object.assign(model.items, {
-            navigator: {reference: 'navigator', title: 'Navigator', kind: 'panel'},
-            feed     : {reference: 'feed',      title: 'Feed',      kind: 'panel'}
+            navigator: {reference: 'navigator', title: 'Navigator'},
+            feed     : {reference: 'feed',      title: 'Feed'}
         });
         Object.assign(model.nodes, {
             'left-tabs'  : {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'},
@@ -1101,7 +1093,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('projects one rail per edge with correct membership (multi-edge grouping)', () => {
         let model = createEdgeZoneModel();
 
-        model.items.navigator    = {reference: 'navigator', title: 'Navigator', kind: 'panel'};
+        model.items.navigator    = {reference: 'navigator', title: 'Navigator'};
         model.nodes['left-tabs'] = {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'};
         model.nodes.root.zones.left = {nodeId: 'left-tabs', extent: 0.2, resizable: true};
 
@@ -1556,7 +1548,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test.describe('whole-stack projection threading — one model-derived grip', () => {
         test('a live pane gets a reversible runtime header overlay with its original restored exactly', () => {
             const pane    = Neo.create(Component, {header: {text: 'Live pane'}}),
-                item      = {reference: 'live', kind: 'panel', title: 'Live pane'},
+                item      = {reference: 'live', title: 'Live pane'},
                 decorated = DockLayoutAdapter.decorateProjectedItem(pane, 'live', item, {stackHandle: true}),
                 grip      = decorated.header.text[1];
 

@@ -16,7 +16,7 @@ function document(key) {
     return {
         schema: WorkspaceDocument.SCHEMA,
         root  : 'root',
-        items : {[key]: {reference: key, kind: 'panel'}},
+        items : {[key]: {reference: key}},
         nodes : {root: {type: 'tabs', items: [key], activeItemId: key}}
     }
 }

@@ -31,8 +31,8 @@ function createDocument() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            center   : {reference: 'Center',    title: 'Center',    kind: 'panel'},
-            inspector: {reference: 'Inspector', title: 'Inspector', kind: 'panel', pinned: true}
+            center   : {reference: 'Center',    title: 'Center'},
+            inspector: {reference: 'Inspector', title: 'Inspector', pinned: true}
         },
         nodes: {
             root: {

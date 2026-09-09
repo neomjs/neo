@@ -41,9 +41,9 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         schema: 'neo.dock.zone.v1',
         root  : 'split-main',
         items : {
-            alpha: {reference: 'ref-alpha', title: 'Alpha', kind: 'pane'},
-            beta : {reference: 'ref-beta',  title: 'Beta',  kind: 'pane'},
-            gamma: {reference: 'ref-gamma', title: 'Gamma', kind: 'pane'}
+            alpha: {reference: 'ref-alpha', title: 'Alpha'},
+            beta : {reference: 'ref-beta',  title: 'Beta'},
+            gamma: {reference: 'ref-gamma', title: 'Gamma'}
         },
         nodes: {
             'split-main': {type: 'split', orientation: 'horizontal', children: ['left-tabs', 'right-tabs'], sizes: [0.5, 0.5]},
@@ -338,8 +338,8 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
             root  : 'root',
             items : {
                 ...rig.owner.dockModel.items,
-                delta  : {reference: 'ref-delta',   title: 'Delta',   kind: 'pane'},
-                epsilon: {reference: 'ref-epsilon', title: 'Epsilon', kind: 'pane'}
+                delta  : {reference: 'ref-delta',   title: 'Delta'},
+                epsilon: {reference: 'ref-epsilon', title: 'Epsilon'}
             },
             nodes: {
                 root        : {type: 'edge-zone', zones: {center: {nodeId: 'split-main'}, bottom: {nodeId: 'band-tabs', extent: 0.25, resizable: true}}},

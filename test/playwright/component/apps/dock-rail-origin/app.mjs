@@ -12,11 +12,11 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        main  : {reference: 'main',   title: 'Main',   kind: 'panel'},
-        left  : {reference: 'left',   title: 'Left',   kind: 'panel', autoHidden: true},
-        right : {reference: 'right',  title: 'Right',  kind: 'panel', autoHidden: true},
-        top   : {reference: 'top',    title: 'Top',    kind: 'panel', autoHidden: true},
-        bottom: {reference: 'bottom', title: 'Bottom', kind: 'panel', autoHidden: true}
+        main  : {reference: 'main',   title: 'Main'},
+        left  : {reference: 'left',   title: 'Left',   autoHidden: true},
+        right : {reference: 'right',  title: 'Right',  autoHidden: true},
+        top   : {reference: 'top',    title: 'Top',    autoHidden: true},
+        bottom: {reference: 'bottom', title: 'Bottom', autoHidden: true}
     },
     nodes: {
         root: {type: 'edge-zone', zones: {

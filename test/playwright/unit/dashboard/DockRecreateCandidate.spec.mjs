@@ -651,7 +651,7 @@ test.describe('dock recreate — a refresh after recreate resolves the candidate
             model     = {
                 schema: 'neo.dock.zone.v1',
                 root  : 'root-tabs',
-                items : {alpha: {reference: 'alpha', kind: 'panel', title: 'Alpha'}},
+                items : {alpha: {reference: 'alpha', title: 'Alpha'}},
                 nodes : {'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'}}
             },
             pane = Neo.create(Component, {header: {text: 'Alpha'}}),

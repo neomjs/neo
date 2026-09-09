@@ -25,7 +25,7 @@ function document(key, title = 'before') {
     return {
         schema: WorkspaceDocument.SCHEMA,
         root  : 'root',
-        items : {[key]: {reference: key, title, kind: 'panel'}},
+        items : {[key]: {reference: key, title}},
         nodes : {root: {type: 'tabs', items: [key], activeItemId: key}}
     }
 }
@@ -346,7 +346,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
 
     test('a full popup Workspace commits a human tab activation to its Group document', async () => {
         const initial = document('popup');
-        initial.items.second = {reference: 'second', title: 'Second', kind: 'panel'};
+        initial.items.second = {reference: 'second', title: 'Second'};
         initial.nodes.root.items.push('second');
         const popup = Neo.create(PopupWorkspace, {
             dockModel      : initial, rootWorkspace: {resolvePane: () => ({ntype: 'component'})},

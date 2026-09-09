@@ -2015,7 +2015,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             // inherited arrangement boundary — instead of refusing every root chip.
             popup.dockModel = {
                 schema: 'neo.dock.zone.v1', root: 'plain-tabs',
-                items : {solo: {reference: 'solo', title: 'Solo', kind: 'pane'}},
+                items : {solo: {reference: 'solo', title: 'Solo'}},
                 nodes : {'plain-tabs': {type: 'tabs', items: ['solo'], activeItemId: 'solo'}}
             };
 

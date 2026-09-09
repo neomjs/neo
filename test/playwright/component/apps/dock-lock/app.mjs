@@ -7,20 +7,18 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        alpha    : {reference: 'alpha',     title: 'Alpha',     kind: 'panel'},
-        beta     : {reference: 'beta',      title: 'Beta',      kind: 'panel'},
-        delegated: {reference: 'delegated', title: 'Delegated', kind: 'panel'},
+        alpha    : {reference: 'alpha',     title: 'Alpha'},
+        beta     : {reference: 'beta',      title: 'Beta'},
+        delegated: {reference: 'delegated', title: 'Delegated'},
         railed   : {
             reference : 'railed',
             title     : 'Railed',
-            kind      : 'panel',
             autoHidden: true,
             locked    : true
         },
         reader: {
             reference : 'reader',
             title     : 'Reader',
-            kind      : 'panel',
             autoHidden: true,
             locked    : true
         }

@@ -28,9 +28,9 @@ const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        editor  : {reference: 'Editor',   title: 'Editor',   kind: 'panel'},
-        preview : {reference: 'Preview',  title: 'Preview',  kind: 'panel'},
-        terminal: {reference: 'Terminal', title: 'Terminal', kind: 'terminal'}
+        editor  : {reference: 'Editor',   title: 'Editor'},
+        preview : {reference: 'Preview',  title: 'Preview'},
+        terminal: {reference: 'Terminal', title: 'Terminal'}
     },
     nodes: {
         root         : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}}},
@@ -54,8 +54,8 @@ const createEdgeDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        center   : {reference: 'Center',    title: 'Center',    kind: 'panel'},
-        inspector: {reference: 'Inspector', title: 'Inspector', kind: 'panel'}
+        center   : {reference: 'Center',    title: 'Center'},
+        inspector: {reference: 'Inspector', title: 'Inspector'}
     },
     nodes: {
         root            : {
@@ -1182,7 +1182,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // the user never touched is strictly worse than the misplacement this seam fixes.
             const occupied = WorkspaceDocument.clone(workspace.dockModel);
 
-            occupied.items['late']       = {reference: 'Late', title: 'Late', kind: 'panel'};
+            occupied.items['late']       = {reference: 'Late', title: 'Late'};
             occupied.nodes['late-right']  = {type: 'tabs', items: ['late'], activeItemId: 'late'};
             WorkspaceDocument.setZoneNodeId(occupied.nodes[placement.home.parentId], placement.home.slot, 'late-right');
             workspace.onDockZoneDocumentChange(occupied);
@@ -2151,7 +2151,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         // Merely RENDERING the action changes no committed state — the projection is view-only.
         expect(workspace.getDockZoneDocument().items.inspector).toEqual({
-            reference: 'Inspector', title: 'Inspector', kind: 'panel', pinned: true
+            reference: 'Inspector', title: 'Inspector', pinned: true
         });
 
         pinAction.handler({component: pinAction});
@@ -2290,7 +2290,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             document   = createEdgeDocument(),
             railTabIds = rail => (rail?.items || []).filter(item => item.dockItemId != null).map(item => item.dockItemId);
 
-        document.items.logs = {reference: 'Logs', title: 'Logs', kind: 'panel'};
+        document.items.logs = {reference: 'Logs', title: 'Logs'};
         document.nodes['inspector-tabs'].items.push('logs');
 
         document.items.inspector.autoHidden = true;
@@ -2360,13 +2360,13 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         // Two items in the same edge band, opposite policies — so the action's availability changes
         // with the ACTIVE item inside one tabs node, which is what the sync has to get right.
-        document.items.notes = {reference: 'Notes', title: 'Notes', kind: 'panel', pinnable: false};
+        document.items.notes = {reference: 'Notes', title: 'Notes', pinnable: false};
         document.nodes['inspector-tabs'].items.push('notes');
 
         // A SECOND center item, so activating it drives the workspace's own policy sync over a
         // center-owned pane. With only one center item the sync never runs there and the assertion
         // below would only re-read what the adapter computed at projection time.
-        document.items.readme = {reference: 'Readme', title: 'Readme', kind: 'panel'};
+        document.items.readme = {reference: 'Readme', title: 'Readme'};
         document.nodes['center-tabs'].items.push('readme');
 
         workspace = Neo.create(PlainWorkspace, {
@@ -2717,7 +2717,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
     test('a model-ahead close targets live chrome but focuses the model-selected successor', async () => {
         const document = createDocument();
 
-        document.items.aux = {reference: 'Aux', title: 'Aux', kind: 'panel'};
+        document.items.aux = {reference: 'Aux', title: 'Aux'};
         document.nodes['side-tabs'].items.push('aux');
 
         workspace = Neo.create(PlainWorkspace, {

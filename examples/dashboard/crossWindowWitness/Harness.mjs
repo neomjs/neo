@@ -85,12 +85,12 @@ class Harness extends Viewport {
 
         const sourceDoc = () => ({
             schema: 'neo.dock.zone.v1', root: 'root',
-            items : {strategy: {title: 'Strategy', kind: 'panel'}, terminal: {title: 'Terminal', kind: 'terminal'}},
+            items : {strategy: {title: 'Strategy'}, terminal: {title: 'Terminal'}},
             nodes : {root: {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}}, 'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'}, 'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
         });
         const targetDoc = () => ({
             schema: 'neo.dock.zone.v1', root: 'root',
-            items : {alpha: {title: 'Alpha', kind: 'panel'}},
+            items : {alpha: {title: 'Alpha'}},
             nodes : {root: {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}}, 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}}
         });
 

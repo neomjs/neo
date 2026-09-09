@@ -46,8 +46,8 @@ test.describe('Neo.dashboard.dock.model.PreviewContract', () => {
             const document = {
                 schema: 'neo.dock.zone.v1', root: 'root',
                 items: {
-                    strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
-                    inspector: {reference: 'inspector', title: 'Inspector', kind: 'panel'}
+                    strategy: {reference: 'strategy', title: 'Strategy'},
+                    inspector: {reference: 'inspector', title: 'Inspector'}
                 },
                 nodes: {
                     root: {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
