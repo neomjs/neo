@@ -1,6 +1,50 @@
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
+import {test, expect}      from '@playwright/test';
+import {getEventListeners} from 'node:events';
+import Neo                 from '../../../../src/Neo.mjs';
+import * as core           from '../../../../src/core/_export.mjs';
+
+/**
+ * @summary Observes native timers and the real Base registry without replacing their behavior.
+ * @param {Neo.core.Base} instance
+ * @returns {Object} Counters and restoration for this test's scoped spies.
+ */
+const observeTimeouts = instance => {
+    const set       = globalThis.setTimeout, clear = globalThis.clearTimeout,
+          register  = instance.registerAsync, unregister = instance.unregisterAsync,
+          scheduled = [], cleared = [], registered = [], unregistered = [], pending = new Set();
+
+    globalThis.setTimeout = (...args) => {
+        const id = set(...args);
+        scheduled.push(id);
+        return id
+    };
+    globalThis.clearTimeout = id => {
+        cleared.push(id);
+        return clear(id)
+    };
+    instance.registerAsync = (id, reject) => {
+        registered.push(id);
+        pending.add(id);
+        return register.call(instance, id, reject)
+    };
+    instance.unregisterAsync = id => {
+        unregistered.push(id);
+        pending.delete(id);
+        return unregister.call(instance, id)
+    };
+
+    return {
+        scheduled, cleared, registered, unregistered, pending,
+        restore() {
+            globalThis.setTimeout = set;
+            globalThis.clearTimeout = clear;
+            if (!instance.isDestroyed) {
+                delete instance.registerAsync;
+                delete instance.unregisterAsync
+            }
+        }
+    }
+};
 
 test.describe('core/Base bounded predicate waits', () => {
     test('immediate success schedules no timeout', async () => {
@@ -87,6 +131,27 @@ test.describe('core/Base bounded predicate waits', () => {
 });
 
 test.describe('core/Base Timeout Handling', () => {
+    test('an aborted wait clears its timer while the owner remains alive', async () => {
+        const instance = Neo.create(core.Base), controller = new AbortController(),
+              clear    = globalThis.clearTimeout, cleared = [], reason = new Error('superseded');
+        let outcome;
+
+        globalThis.clearTimeout = id => { cleared.push(id); clear(id) };
+        const pending = instance.timeout(60_000, {signal: controller.signal}).catch(error => { outcome = error });
+
+        try {
+            controller.abort(reason);
+            expect(cleared).toHaveLength(1);
+            await pending;
+            expect(outcome).toBe(reason);
+            expect(instance.isDestroyed).not.toBe(true)
+        } finally {
+            instance.destroy();
+            await pending;
+            globalThis.clearTimeout = clear
+        }
+    });
+
     test('timeout() should resolve after the specified delay', async () => {
         class TestClass extends core.Base {
             static config = {
@@ -96,7 +161,7 @@ test.describe('core/Base Timeout Handling', () => {
         TestClass = Neo.setupClass(TestClass);
 
         const instance = Neo.create(TestClass);
-        const start = Date.now();
+        const start    = Date.now();
         await instance.timeout(100);
         const end = Date.now();
 
@@ -271,4 +336,141 @@ test.describe('core/Base Timeout Handling', () => {
         instance.destroy();
         expect(instance.isDestroyed).toBe(true);
     });
+});
+
+test.describe('core/Base optional timeout signals', () => {
+    test('a pre-aborted signal allocates no timer, listener or async registration', async () => {
+        const instance = Neo.create(core.Base), controller = new AbortController(),
+              reason   = {superseded: true}, observed = observeTimeouts(instance);
+
+        controller.abort(reason);
+
+        try {
+            const result = instance.timeout(60_000, {signal: controller.signal}).catch(error => error);
+
+            expect(observed.scheduled).toEqual([]);
+            expect(observed.registered).toEqual([]);
+            expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+            expect(await result).toBe(reason);
+            instance.destroy();
+            expect(observed.cleared).toEqual([])
+        } finally {
+            try { !instance.isDestroyed && instance.destroy() } finally { observed.restore() }
+        }
+    });
+
+    test('aborting one wait leaves its sibling registered and able to complete', async () => {
+        const instance = Neo.create(core.Base), first = new AbortController(), second = new AbortController(),
+              reason   = new Error('replace only the first wait'), observed = observeTimeouts(instance);
+        let cancelled, sibling;
+
+        try {
+            cancelled = instance.timeout(60_000, {signal: first.signal}).catch(error => error);
+            sibling = instance.timeout(0, {signal: second.signal});
+            sibling.catch(() => {});
+            const [firstId, secondId] = observed.registered;
+
+            expect(observed.pending.size).toBe(2);
+            expect(getEventListeners(first.signal, 'abort')).toHaveLength(1);
+            expect(getEventListeners(second.signal, 'abort')).toHaveLength(1);
+            first.abort(reason);
+
+            expect(observed.cleared).toEqual([firstId]);
+            expect([...observed.pending]).toEqual([secondId]);
+            expect(getEventListeners(first.signal, 'abort')).toHaveLength(0);
+            expect(getEventListeners(second.signal, 'abort')).toHaveLength(1);
+            expect(await cancelled).toBe(reason);
+            expect(await sibling).toBeUndefined();
+            expect(observed.pending.size).toBe(0);
+            expect(getEventListeners(second.signal, 'abort')).toHaveLength(0);
+            expect(instance.isDestroyed).not.toBe(true);
+            instance.destroy();
+            expect(observed.cleared).toEqual([firstId])
+        } finally {
+            try {
+                !instance.isDestroyed && instance.destroy();
+                await Promise.allSettled([cancelled, sibling])
+            } finally { observed.restore() }
+        }
+    });
+
+    for (const terminal of ['elapsed', 'aborted', 'destroyed']) {
+        test(`${terminal} removes the listener and registry entry before a late abort`, async () => {
+            const instance = Neo.create(core.Base), controller = new AbortController(),
+                  reason   = new Error('cancelled by caller'), observed = observeTimeouts(instance), settlements = [];
+            let result;
+
+            try {
+                result = instance.timeout(terminal === 'elapsed' ? 0 : 60_000, {signal: controller.signal}).then(
+                    value => { settlements.push({status: 'fulfilled', value}) },
+                    error => { settlements.push({status: 'rejected', error}) }
+                );
+                const [id] = observed.registered;
+
+                expect(observed.pending.size).toBe(1);
+                expect(getEventListeners(controller.signal, 'abort')).toHaveLength(1);
+                if (terminal === 'aborted') controller.abort(reason);
+                if (terminal === 'destroyed') instance.destroy();
+                await result;
+
+                expect(settlements).toHaveLength(1);
+                if (terminal === 'elapsed') {
+                    expect(settlements[0]).toEqual({status: 'fulfilled', value: undefined})
+                } else {
+                    expect(settlements[0].status).toBe('rejected');
+                    expect(settlements[0].error).toBe(terminal === 'aborted' ? reason : Neo.isDestroyed)
+                }
+                expect(observed.pending.size).toBe(0);
+                expect(observed.unregistered).toEqual([id]);
+                expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+                const clears = [...observed.cleared];
+
+                expect(clears).toEqual(terminal === 'elapsed' ? [] : [id]);
+                controller.abort(new Error('too late'));
+                !instance.isDestroyed && instance.destroy();
+                await Promise.resolve();
+
+                expect(settlements).toHaveLength(1);
+                expect(observed.cleared).toEqual(clears);
+                expect(observed.unregistered).toEqual([id]);
+                expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0)
+            } finally {
+                try {
+                    !instance.isDestroyed && instance.destroy();
+                    await result
+                } finally { observed.restore() }
+            }
+        })
+    }
+
+    test('repeated cancellation retires obsolete waits before the next one is armed', async () => {
+        const instance = Neo.create(core.Base), observed = observeTimeouts(instance), controllers = [], results = [];
+
+        try {
+            for (let index = 0; index < 25; index++) {
+                const controller = new AbortController();
+                controllers.push(controller);
+                results.push(instance.timeout(60_000, {signal: controller.signal}).catch(error => error));
+                expect(observed.pending.size).toBe(1);
+                controller.abort('superseded');
+                expect(observed.pending.size).toBe(0)
+            }
+
+            expect(await Promise.all(results)).toEqual(Array(25).fill('superseded'));
+            expect(observed.registered).toHaveLength(25);
+            expect(new Set(observed.cleared)).toEqual(new Set(observed.registered));
+            expect(observed.cleared).toHaveLength(25);
+            controllers.forEach(controller => expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0));
+
+            await instance.timeout(0);
+            expect(observed.pending.size).toBe(0);
+            instance.destroy();
+            expect(observed.cleared).toHaveLength(25)
+        } finally {
+            try {
+                !instance.isDestroyed && instance.destroy();
+                await Promise.allSettled(results)
+            } finally { observed.restore() }
+        }
+    })
 });

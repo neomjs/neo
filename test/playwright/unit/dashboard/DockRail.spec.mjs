@@ -6,9 +6,9 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import Neo               from '../../../../src/Neo.mjs';
-import * as core         from '../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the registry the release witness reads
 import Button             from '../../../../src/button/Base.mjs';
 import DockLayoutAdapter  from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
@@ -57,6 +57,37 @@ const createStubOverlay = () => ({
     }
 });
 
+/** @summary Delivers native timers while Base retains real registration and cancellation ownership. */
+const createNativeClock = () => {
+    const set = globalThis.setTimeout, clear = globalThis.clearTimeout, pending = new Map();
+    let   now = 0, nextId = 0;
+
+    globalThis.setTimeout = (fn, delay) => {
+        const id = ++nextId;
+        pending.set(id, {fn, delay, at: now + delay});
+        return id
+    };
+    globalThis.clearTimeout = id => pending.delete(id);
+
+    return {
+        pending,
+        async advance(milliseconds) {
+            now += milliseconds;
+            for (const [id, timer] of [...pending].sort((a, b) => a[1].at - b[1].at)) {
+                if (timer.at <= now && pending.has(id)) {
+                    pending.delete(id);
+                    timer.fn();
+                    await Promise.resolve()
+                }
+            }
+        },
+        restore() {
+            globalThis.setTimeout = set;
+            globalThis.clearTimeout = clear
+        }
+    }
+};
+
 test.describe('Neo.dashboard.dock.interaction.Rail', () => {
     let rail;
 
@@ -90,51 +121,128 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         expect(machine.isDestroyed).toBe(true)
     });
 
-    test('each Rail owns independent reveal state and cancels only its own pending timer', () => {
-        const pending    = new Map();
-        let   nextId     = 0;
-        const createRail = () => Neo.create(DockRail, {
-            edge: 'right', railItems: createRailItems(),
-            createRevealMachine() {
-                return Neo.create(RevealStateMachine, {
-                    onChange     : this.onRevealStateChange.bind(this),
-                    revealOnHover: true,
-                    setTimeoutFn(fn) {
-                        const id = ++nextId;
-                        pending.set(id, fn);
-                        return id
-                    },
-                    clearTimeoutFn: id => pending.delete(id)
-                })
-            }
-        });
-
-        rail = createRail();
-        const other      = createRail();
-        const firstOwner = rail.revealMachine;
+    test('each Rail owns independent reveal state and cancels only its own pending timer', async () => {
+        const clock = createNativeClock(), registrations = new Map(), registeredCalls = new Map();
+        let other;
 
         try {
-            expect(firstOwner).not.toBe(other.revealMachine);
-            firstOwner.tabHoverIn('terminal');
+            const createRail = () => {
+                const result = Neo.create(DockRail, {
+                    edge: 'right', railItems: createRailItems(), autoHideRevealOnHover: true
+                });
+                // Overlay motion has its own timer; this witness isolates the two reveal owners.
+                result.bindRevealOverlay(createStubOverlay());
+                const owner    = result.revealMachine, pending = new Set(),
+                      register = owner.registerAsync, unregister = owner.unregisterAsync;
+                registrations.set(owner, pending);
+                registeredCalls.set(owner, 0);
+                owner.registerAsync = (id, reject) => {
+                    pending.add(id);
+                    registeredCalls.set(owner, registeredCalls.get(owner) + 1);
+                    return register.call(owner, id, reject)
+                };
+                owner.unregisterAsync = id => {
+                    pending.delete(id);
+                    return unregister.call(owner, id)
+                };
+                return result
+            };
+
+            rail = createRail();
+            other = createRail();
+            const firstOwner = rail.revealMachine, secondOwner = other.revealMachine;
+
+            expect(firstOwner).not.toBe(secondOwner);
+            rail.onTabHoverIn({component: tabsOf(rail)[0]});
+            expect(registeredCalls.get(firstOwner)).toBe(1);
             expect(other.revealMachine.state).toBe('idle');
-            other.revealMachine.tabHoverIn('terminal');
-            expect(pending.size).toBe(2);
+            other.onTabHoverIn({component: tabsOf(other)[0]});
+            expect(registeredCalls.get(secondOwner)).toBe(1);
+            expect(clock.pending.size).toBe(2);
 
             rail.destroy();
+            await Promise.resolve();
             expect(firstOwner.isDestroyed).toBe(true);
-            expect(other.revealMachine.isDestroyed).not.toBe(true);
-            expect(pending.size).toBe(1);
-            const callback = [...pending.values()][0];
-            pending.clear();
-            callback();
-            expect(other.revealMachine.state).toBe('revealed');
+            expect(secondOwner.isDestroyed).not.toBe(true);
+            expect(registrations.get(firstOwner).size).toBe(0);
+            expect([...clock.pending.keys()]).toEqual([...registrations.get(secondOwner)]);
+            expect(clock.pending.size).toBe(1);
+            await clock.advance(150);
+            expect(secondOwner.state).toBe('revealed');
+            expect(registrations.get(secondOwner).size).toBe(0);
 
-            other.revealMachine.overlayPointerLeave();
-            expect(pending.size).toBe(1);
+            other.onTabHoverOut({});
+            expect(secondOwner.state).toBe('dismiss-pending');
+            expect(registeredCalls.get(secondOwner)).toBe(2);
+            expect(clock.pending.size).toBe(1);
             other.destroy();
-            expect(pending.size).toBe(0)
+            await Promise.resolve();
+            expect(clock.pending.size).toBe(0);
+            expect(registrations.get(secondOwner).size).toBe(0)
         } finally {
-            other.destroy()
+            try {
+                rail?.destroy();
+                other?.destroy();
+                await Promise.resolve()
+            } finally { clock.restore() }
+        }
+    });
+
+    test('Rail defaults and live timing or hover updates reach the existing reveal owner', async () => {
+        const clock = createNativeClock();
+
+        try {
+            rail = Neo.create(DockRail, {edge: 'right', railItems: createRailItems()});
+            rail.bindRevealOverlay(createStubOverlay());
+            const owner = rail.revealMachine, input = {component: tabsOf(rail)[0]};
+
+            expect(owner.dwellMs).toBe(150);
+            expect(owner.graceMs).toBe(300);
+            expect(owner.revealOnHover).toBe(false);
+            rail.onTabHoverIn(input);
+            expect(owner.state).toBe('idle');
+            expect(clock.pending.size).toBe(0);
+
+            rail.set({revealDwellMs: 12, revealDismissGraceMs: 34, autoHideRevealOnHover: true});
+            expect(rail.revealMachine).toBe(owner);
+            expect(owner.dwellMs).toBe(12);
+            expect(owner.graceMs).toBe(34);
+            expect(owner.revealOnHover).toBe(true);
+            rail.onTabHoverIn(input);
+            expect([...clock.pending.values()].map(timer => timer.delay)).toEqual([12]);
+            await clock.advance(11);
+            expect(owner.state).toBe('dwell-pending');
+            await clock.advance(1);
+            expect(owner.state).toBe('revealed');
+
+            rail.onTabHoverOut({});
+            expect([...clock.pending.values()].map(timer => timer.delay)).toEqual([34]);
+            await clock.advance(33);
+            expect(owner.state).toBe('dismiss-pending');
+            await clock.advance(1);
+            expect(owner.state).toBe('idle');
+            expect(clock.pending.size).toBe(0);
+
+            rail.set({revealDwellMs: NaN, revealDismissGraceMs: Infinity, autoHideRevealOnHover: 'true'});
+            expect(owner.dwellMs).toBe(12);
+            expect(owner.graceMs).toBe(34);
+            expect(owner.revealOnHover).toBe(false);
+            rail.onTabHoverIn(input);
+            expect(owner.state).toBe('idle');
+            expect(clock.pending.size).toBe(0);
+
+            rail.set({revealDwellMs: 0, revealDismissGraceMs: 0, autoHideRevealOnHover: true});
+            rail.onTabHoverIn(input);
+            await clock.advance(0);
+            expect(owner.state).toBe('revealed');
+            rail.onTabHoverOut({});
+            await clock.advance(0);
+            expect(owner.state).toBe('idle')
+        } finally {
+            try {
+                rail?.destroy();
+                await Promise.resolve()
+            } finally { clock.restore() }
         }
     });
 

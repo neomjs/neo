@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {test, expect} from '../../fixtures.mjs';
 
 /**
  * Retargeting a reveal — clicking another item of the same rail while one is open — swapped the
@@ -27,6 +27,22 @@ const readSlotAnimations = overlay => overlay.evaluate(node => ({
     title: node.querySelector('.neo-dashboard-dock-reveal-title')?.textContent.trim()
 }));
 
+/** @summary Reads the app worker's real owner/wait receipt through the existing RMA fixture. */
+const readReveal = async neo => {
+    const reply = await neo.getConfig('dock-rail-retarget-workspace', 'revealWaitState');
+    return reply?.data ?? reply
+};
+
+/** @summary Configures the rendered Rail through its existing live policy configs. */
+const observeReveal = async (neo, dwellMs, graceMs) => {
+    await neo.setConfig('dock-rail-retarget-workspace', {observeRevealWaits: true});
+    const probe = await readReveal(neo);
+    await neo.setConfig(probe.railId, {
+        autoHideRevealOnHover: true, revealDwellMs: dwellMs, revealDismissGraceMs: graceMs
+    });
+    return probe
+};
+
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/dock-rail-retarget/index.html');
     await page.waitForSelector('#dock-rail-retarget-workspace', {state: 'attached'});
@@ -35,6 +51,81 @@ test.beforeEach(async ({page}) => {
 });
 
 test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slides the incoming pane in', () => {
+    test('hover dwell reveals without taking focus, and returning cancels the real dismiss grace', async ({page, neo}, testInfo) => {
+        const main       = page.locator('#dock-rail-retarget-pane-main'), overlay = page.locator(OVERLAY),
+              mainHeader = page.locator('.neo-tab-header-button', {hasText: 'Main'});
+        await mainHeader.focus();
+        const focusedId = await mainHeader.getAttribute('id');
+        expect(await page.evaluate(() => document.activeElement.id)).toBe(focusedId);
+        const initial = await observeReveal(neo, 120, 1000);
+
+        await page.locator(TAB('Alpha')).hover();
+        await expect(overlay.locator('.dock-rail-retarget-pane-alpha')).toBeVisible();
+        await expect.poll(async () => (await readReveal(neo)).state).toBe('revealed');
+        const revealed = await readReveal(neo);
+        expect(revealed.waits).toContainEqual({delay: 120, itemId: 'alpha', state: 'dwell-pending', status: 'elapsed'});
+        expect(revealed.registeredWaits).toBeGreaterThan(0);
+        expect(revealed.pendingWaits).toBe(0);
+        expect(await page.evaluate(() => document.activeElement.id), 'hover must not steal keyboard focus').toBe(focusedId);
+
+        const screenshot = testInfo.outputPath('hover-dwell-reveal.png');
+        await page.screenshot({path: screenshot, animations: 'disabled'});
+        await testInfo.attach('hover-dwell-reveal', {path: screenshot, contentType: 'image/png'});
+
+        await overlay.locator('.dock-rail-retarget-pane-alpha').hover();
+        await expect.poll(async () => (await readReveal(neo)).pendingWaits).toBe(0);
+        const beforeReturn = await readReveal(neo);
+        await main.hover();
+        await overlay.locator('.dock-rail-retarget-pane-alpha').hover();
+        await expect.poll(async () => (await readReveal(neo)).state).toBe('revealed');
+        const rescued = await readReveal(neo);
+        expect(rescued.waits.slice(beforeReturn.waits.length)).toContainEqual({
+            delay: 1000, itemId: 'alpha', state: 'dismiss-pending', status: 'aborted'
+        });
+        expect(rescued.pendingWaits).toBe(0);
+        await expect(overlay).toBeVisible();
+
+        // A subsequent uncancelled grace supplies the elapsed-time positive control.
+        await main.hover();
+        await expect(overlay).toBeHidden();
+        const dismissed = await readReveal(neo);
+        expect(dismissed.waits.at(-1)).toEqual({delay: 1000, itemId: 'alpha', state: 'dismiss-pending', status: 'elapsed'});
+        expect(dismissed.state).toBe('idle');
+        expect(dismissed.pendingWaits).toBe(0);
+        expect(dismissed.documentJson).toBe(initial.documentJson)
+    });
+
+    test('hover retarget cancels the obsolete dwell and Rail teardown cancels its pending Base wait', async ({page, neo}) => {
+        const initial = await observeReveal(neo, 1000, 60_000), overlay = page.locator(OVERLAY);
+        await page.locator(TAB('Alpha')).hover();
+        await page.locator(TAB('Beta')).hover();
+        await expect(overlay.locator('.dock-rail-retarget-pane-beta')).toBeVisible();
+        const revealed = await readReveal(neo);
+
+        expect(revealed.waits).toContainEqual({delay: 1000, itemId: 'alpha', state: 'dwell-pending', status: 'aborted'});
+        expect(revealed.waits).toContainEqual({delay: 1000, itemId: 'beta', state: 'dwell-pending', status: 'elapsed'});
+        expect(revealed.revealedItemId).toBe('beta');
+        expect(revealed.registeredWaits).toBeGreaterThanOrEqual(2);
+        expect(revealed.pendingWaits).toBe(0);
+        await expect(overlay.locator('.dock-rail-retarget-pane-alpha')).toHaveCount(0);
+
+        await overlay.locator('.dock-rail-retarget-pane-beta').hover();
+        await page.locator('#dock-rail-retarget-pane-main').hover();
+        await expect.poll(async () => (await readReveal(neo)).pendingWaits).toBe(1);
+        expect((await readReveal(neo)).state).toBe('dismiss-pending');
+        const response = await neo.destroyComponent(initial.railId);
+        expect((response?.data ?? response).success).toBe(true);
+        await expect(page.locator('.neo-dashboard-dock-edge-rail-right')).toHaveCount(0);
+        await expect.poll(async () => (await readReveal(neo)).pendingWaits).toBe(0);
+        const retired = await readReveal(neo);
+
+        expect(retired.waits.at(-1)).toEqual({delay: 60_000, itemId: 'beta', state: 'dismiss-pending', status: 'destroyed'});
+        expect(retired.ownerDestroyed).toBe(true);
+        expect(retired.ownerRegistered).toBe(false);
+        expect(retired.documentJson).toBe(initial.documentJson);
+        await expect(page.locator('#dock-rail-retarget-pane-main')).toBeVisible()
+    });
+
     test('clicking the other item of an open rail re-runs the content entry, and the next retarget alternates', async ({page}) => {
         const overlay = page.locator(OVERLAY);
 

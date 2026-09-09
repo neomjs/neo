@@ -47,7 +47,65 @@ class RailRetargetWorkspace extends DockWorkspace {
          * Mirrors the shape both shipping consumers give their dock host.
          * @member {Object} style={position:'relative'}
          */
-        style: {position: 'relative'}
+        style: {position: 'relative'},
+        /** @member {Boolean} observeRevealWaits_=false Enables the fixture's real-wait witness. */
+        observeRevealWaits_: false
+    }
+
+    /** @member {Object|null} revealWaitProbe=null Test observations survive the Rail's teardown. */
+    revealWaitProbe = null
+
+    /**
+     * @summary Observes the existing owner's inherited waits without replacing timer behavior.
+     * @param {Boolean} value
+     */
+    afterSetObserveRevealWaits(value) {
+        if (!value || this.revealWaitProbe) return;
+        const rail     = this.down({dockNodeType: 'edge-rail', dockEdge: 'right'}),
+              owner    = rail.revealMachine, timeout = owner.timeout,
+              register = owner.registerAsync, unregister = owner.unregisterAsync,
+              probe    = this.revealWaitProbe = {
+                  railId    : rail.id, ownerId: owner.id, owner,
+                  registered: 0, pending: new Set(), waits: []
+              };
+
+        owner.registerAsync = (id, reject) => {
+            probe.registered++;
+            probe.pending.add(id);
+            return register.call(owner, id, reject)
+        };
+        owner.unregisterAsync = id => {
+            probe.pending.delete(id);
+            return unregister.call(owner, id)
+        };
+        owner.timeout = (delay, options) => {
+            const receipt = {delay, itemId: owner.pendingItemId ?? owner.revealedItemId, state: owner.state, status: 'pending'},
+                  wait    = timeout.call(owner, delay, options);
+            probe.waits.push(receipt);
+            wait.then(() => {receipt.status = 'elapsed'}, error => {
+                receipt.status = error === Neo.isDestroyed ? 'destroyed' :
+                    options.signal.aborted && error === options.signal.reason ? 'aborted' : `error:${String(error)}`
+            });
+            return wait
+        }
+    }
+
+    /** @summary Returns serializable observations of the real reveal owner and its async lifetime. @returns {Object|null} */
+    get revealWaitState() {
+        const probe = this.revealWaitProbe;
+        if (!probe) return null;
+        return {
+            railId         : probe.railId, ownerId: probe.ownerId,
+            state          : probe.owner.state ?? null,
+            pendingItemId  : probe.owner.pendingItemId ?? null,
+            revealedItemId : probe.owner.revealedItemId ?? null,
+            registeredWaits: probe.registered,
+            pendingWaits   : probe.pending.size,
+            ownerDestroyed : probe.owner.isDestroyed === true,
+            ownerRegistered: !!Neo.get(probe.ownerId),
+            waits          : probe.waits.map(receipt => ({...receipt})),
+            documentJson   : JSON.stringify(this.dockModel)
+        }
     }
 
     /**
