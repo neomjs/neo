@@ -78,6 +78,7 @@ resources/content/
 # produced on the consumer side: parse5 and esbuild are both devDependencies.
 !/dist/parse5.mjs
 !/dist/marked.mjs
+!/dist/mermaid.mjs
 /docs/output
 /tmp
 
