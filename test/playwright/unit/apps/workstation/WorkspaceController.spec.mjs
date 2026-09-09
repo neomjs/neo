@@ -6,9 +6,11 @@ import {test, expect}      from '@playwright/test';
 import Neo                 from '../../../../../src/Neo.mjs';
 import * as core           from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
+import ComponentManager    from '../../../../../src/manager/Component.mjs';
 import Transaction         from '../../../../../src/manager/Transaction.mjs';
 import TopologyLibrary     from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import Toolbar             from '../../../../../src/toolbar/Base.mjs';
+import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
 import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceController.mjs';
 
 /**
@@ -123,14 +125,27 @@ test.describe('Workstation topology save and close coordination', () => {
         }
     });
 
-    test('the controller fills only the tail of the view-declared bar and cannot destroy what the view authored', () => {
-        // A real toolbar, so `bar.add` and `item.destroy` are the engine's and not a double's; the
-        // reference is how the controller finds it, exactly as it does in the live view.
-        const bar = Neo.create(Toolbar, {
-            items    : [{ntype: 'button', handler: 'saveTopology', text: 'Save workspace'},
-                        {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'}],
-            reference: 'topology-toolbar'
-        });
+    test('the controller fills only its own buttons and cannot destroy what the toolbar owns', () => {
+        // The VIEW's own factory, not a hand-written stand-in. `actions` is where the defect lived:
+        // toolbar.Base merges `createActionItemConfigs()` into `items` as a spacer plus one item per
+        // action, so the live bar holds five items, not two. A fixture that omits `actions` cannot
+        // reproduce the defect and therefore cannot certify the fix — the previous one omitted it.
+        const bar = Neo.create(Toolbar, Workspace.prototype.createTopologyBar.call({topologyGroupId: 'spec-group'}));
+
+        expect(bar.items.length, 'two authored items, plus the spacer and one item per action').toBe(5);
+        expect(bar.getActionSpacer(), 'the toolbar owns a spacer once actions exist').not.toBeNull();
+
+        // The invariant whose violation threw `Component not found for id` on every viewport sync:
+        // a placeholder in the parent vdom must resolve to a live component. `items.length =` and a
+        // bare `destroy()` each break it silently — nothing reds until a vdom walk reaches the stub.
+        const expectVdomAligned = message => {
+            const ids = bar.getVdomItemsRoot().cn.map(node => node.componentId);
+
+            expect(ids.length, message).toBe(bar.items.length);
+            expect(ids.filter(id => id && !ComponentManager.get(id)), message).toEqual([])
+        };
+
+        expectVdomAligned('aligned before the controller runs');
 
         let participants = ['alpha'];
 
@@ -145,27 +160,47 @@ test.describe('Workstation topology save and close coordination', () => {
             }
         });
 
-        expect(bar.items.map(item => item.text), 'the lifecycle hook already populated it').toEqual([
+        // Ordinary items only: the spacer and the action group are the toolbar's own structure and
+        // are asserted separately, because reaching into them is exactly what the defect was.
+        const ordinaryTexts = () => bar.items
+            .filter(item => item.isToolbarAction !== true && item.isToolbarActionSpacer !== true)
+            .map(item => item.text);
+
+        expect(ordinaryTexts(), 'the lifecycle hook already populated it').toEqual([
             'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
         ]);
 
+        // Positional `slice(count)` destroyed these three, and `items.length = count` left their
+        // vdom placeholders pointing at the corpses.
+        expect(bar.getAction('undo'), 'the toolbar keeps its own actions across a sync').not.toBeNull();
+        expect(bar.getAction('redo')).not.toBeNull();
+        expect(bar.getActionSpacer(), 'and its own spacer').not.toBeNull();
+        expectVdomAligned('aligned after the first sync');
+
         expect(controller.syncTopologyBar()).toBe(true);
-        expect(bar.items.map(item => item.text), 'and a resync is not additive').toEqual([
+        expect(ordinaryTexts(), 'and a resync is not additive').toEqual([
             'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
         ]);
+        expectVdomAligned('aligned after a resync');
+
+        // The derived buttons join the ordinary items ahead of the `flex: 1` action spacer, rather
+        // than stranded past it on the far side of undo/redo.
+        expect(bar.items.indexOf(bar.getActionSpacer()), 'derived buttons precede the action group').toBe(4);
 
         // Each derived button carries the participant it addresses, which is the whole of what the
         // declarative handlers read — no closure over the controller or over this call.
-        expect(bar.items.slice(2).map(item => [item.handler, item.workspaceKey])).toEqual([
+        expect(bar.items.slice(2, 4).map(item => [item.handler, item.workspaceKey])).toEqual([
             ['onOpenTopologyWorkspace', 'alpha'], ['onMountTopologyWorkspace', 'alpha']
         ]);
 
         // Re-running is not additive, and the authored head survives a resync that removes every
-        // participant — the failure mode of replacing the whole list instead of its tail.
+        // participant — the failure mode of replacing the whole list instead of only its own.
         participants = [];
 
         expect(controller.syncTopologyBar()).toBe(true);
-        expect(bar.items.map(item => item.handler)).toEqual(['saveTopology', 'closeTopology']);
+        expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace']);
+        expect(bar.getAction('undo'), 'an emptied participant set still leaves the actions alone').not.toBeNull();
+        expectVdomAligned('aligned after every participant leaves');
 
         // An unreachable bar is reported, never assumed: a destroyed view must not read as synced.
         bar.destroy();
