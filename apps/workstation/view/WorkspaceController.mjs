@@ -13,15 +13,6 @@ class WorkspaceController extends Controller {
         className: 'Workstation.view.WorkspaceController'
     }
 
-    /**
-     * How many topology-bar buttons the VIEW authors. `syncTopologyBar` replaces everything after
-     * them, so this is the one number both sides must agree on — named here rather than repeated as
-     * a literal on each side, which is how the two would drift.
-     * @member {Number} authoredTopologyButtonCount=2
-     * @static
-     */
-    static authoredTopologyButtonCount = 2
-
     /** @member {Promise|null} tourControllerPromise=null */
     tourControllerPromise = null
 
@@ -141,14 +132,30 @@ class WorkspaceController extends Controller {
         const recovery = me.component.getPopupStates().flatMap(({workspaceId}) => [
             {handler: 'onOpenTopologyWorkspace', text: `Open ${workspaceId} as window`, workspaceKey: workspaceId},
             {handler: 'onMountTopologyWorkspace', text: `Show ${workspaceId} here`,      workspaceKey: workspaceId}
-        ]).map(config => ({ntype: 'button', ...config}));
+        ]).map(config => ({ntype: 'button', isTopologyRecoveryButton: true, ...config}));
 
-        // The two authored buttons are the view's and stay; only the derived tail is replaced, so
-        // a resync cannot destroy structure the view declared.
-        bar.items.slice(me.constructor.authoredTopologyButtonCount).forEach(item => item.destroy());
-        bar.items.length = me.constructor.authoredTopologyButtonCount;
+        // Identity, never position. `items` also carries what the toolbar materialises from the
+        // view's `actions` — a spacer plus one item per action — so ANY index into it addresses
+        // engine-owned structure. Flagging our own is the same device the toolbar uses for
+        // its (`isToolbarAction`, `isToolbarActionSpacer`), and it cannot drift against the view.
+        const stale = bar.items.filter(item => item.isTopologyRecoveryButton === true);
 
-        recovery.length && bar.add(recovery);
+        // `remove` routes through `removeAt`, the one path that splices `items` AND
+        // `getVdomItemsRoot().cn`. A bare `destroy()` defaults `updateParentVdom` to false and
+        // leaves a `{componentId}` placeholder resolving to nothing, which throws on the next
+        // viewport vdom sync rather than here.
+        stale.forEach(item => bar.remove(item, true, true));
+
+        if (recovery.length > 0) {
+            // Ahead of the action spacer, so these join the ordinary items instead of stranding
+            // past a `flex: 1` gap on the far side of undo/redo.
+            const spacer = bar.getActionSpacer();
+
+            bar.insert(spacer ? bar.items.indexOf(spacer) : bar.items.length, recovery)
+        } else if (stale.length > 0) {
+            bar.updateDepth = -1;
+            bar.update()
+        }
 
         return true
     }

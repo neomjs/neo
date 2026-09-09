@@ -22,7 +22,6 @@ import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorks
 import GestureDriver       from '../../../../../apps/workstation/tour/GestureDriver.mjs';
 import TourController      from '../../../../../apps/workstation/view/TourController.mjs';
 import DockService         from '../../../../../src/ai/client/DockService.mjs';
-import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceController.mjs';
 
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
@@ -3177,12 +3176,12 @@ test.describe('Workstation topology bar — the view declares it, the controller
 
         expect(Object.keys(actions).sort()).toEqual(['redo', 'undo']);
 
-        // The authored head is the view's contract with its controller: `syncTopologyBar` replaces
-        // everything after exactly this many items, so the count is asserted against the number the
-        // controller reads rather than against a literal repeated on both sides.
+        // This is the DECLARATION, not a toolbar. `createTopologyBar` returns a plain object, so
+        // `items` is what the view wrote and never what `toolbar.Base` materialises from `actions`
+        // — a spacer plus one item per action. A count read here certified nothing about the live
+        // bar; the materialised bar and its sync are exercised in WorkspaceController.spec.
         expect(bar.reference).toBe('topology-toolbar');
         expect(bar.items.map(item => item.handler)).toEqual(['saveTopology', 'closeTopology']);
-        expect(bar.items).toHaveLength(WorkspaceController.authoredTopologyButtonCount);
 
         // Persistent, not focus-gated: an undo control that appears only once the bar holds focus is
         // undiscoverable exactly when a user reaches for it.

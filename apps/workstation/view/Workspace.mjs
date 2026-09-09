@@ -420,8 +420,9 @@ class Workspace extends DockWorkspace {
             }],
             cls : ['workstation-topologybar'],
             flex: 'none',
-            // Exactly `WorkspaceController.authoredTopologyButtonCount` items: the controller
-            // replaces everything after them and must not be able to destroy these.
+            // Ordinary items. The controller adds its per-workspace recovery buttons beside them
+            // and removes only the ones it flagged, so neither side counts the other's and this
+            // list is free to grow.
             items : [
                 {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
                 {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'}
