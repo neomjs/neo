@@ -403,16 +403,30 @@ class Workspace extends DockWorkspace {
             // no mirror to keep in step with `setHistoryDepth`, which publishes without a commit.
             // A retired or unknown Group resolves to nothing and reads disabled, so the control
             // fails closed on the same expression rather than through a separate teardown.
+            // Same leaf for the depth badges: `historyCursor` and `historyLength` are published
+            // alongside the flags above, so they add no second publication path. `historyDepth` is
+            // deliberately unused — it is the Group's configured CAP, and would read as a constant.
             actions: [{
-                action     : 'undo',
-                bind       : {disabled: () => TransactionManager.getProvider(me.topologyGroupId)?.getData('canUndo') !== true},
+                action: 'undo',
+                bind  : {
+                    // `cursor` starts at -1 and `canUndo` is `cursor > -1`, so the steps behind the
+                    // cursor are `cursor + 1`.
+                    badgeText: () => me.historyStepBadge(provider => provider.getData('historyCursor') + 1),
+                    disabled : () => TransactionManager.getProvider(me.topologyGroupId)?.getData('canUndo') !== true
+                },
                 handler    : () => TransactionManager.undo({groupId: me.topologyGroupId}),
                 iconCls    : 'fa fa-rotate-left',
                 showOnFocus: false,
                 text       : 'Undo'
             }, {
-                action     : 'redo',
-                bind       : {disabled: () => TransactionManager.getProvider(me.topologyGroupId)?.getData('canRedo') !== true},
+                action: 'redo',
+                bind  : {
+                    // `canRedo` is `cursor < count - 1`, so the rows ahead of the cursor are
+                    // `count - 1 - cursor`.
+                    badgeText: () => me.historyStepBadge(provider =>
+                        provider.getData('historyLength') - 1 - provider.getData('historyCursor')),
+                    disabled : () => TransactionManager.getProvider(me.topologyGroupId)?.getData('canRedo') !== true
+                },
                 handler    : () => TransactionManager.redo({groupId: me.topologyGroupId}),
                 iconCls    : 'fa fa-rotate-right',
                 showOnFocus: false,
@@ -430,6 +444,27 @@ class Workspace extends DockWorkspace {
             layout   : {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'},
             reference: 'topology-toolbar'
         }
+    }
+
+    /**
+     * @summary The step count one history control shows on its badge, or `null` for none.
+     *
+     * Shared by both bindings so the two counts cannot drift into different notions of "available",
+     * and so the missing-Group answer is decided once. A retired or unknown Group has no provider
+     * and yields `null` — the same fail-closed reading its `disabled` bind takes, rather than a
+     * badge surviving on a control that can no longer act.
+     *
+     * Reads inside the callback are the caller's effect dependencies, so a formatter that consults
+     * two keys re-runs on either.
+     * @param {Function} count `(provider) => Number` steps available in that direction
+     * @returns {String|null} The badge text, or `null` when there is nothing to show
+     * @protected
+     */
+    historyStepBadge(count) {
+        const provider = TransactionManager.getProvider(this.topologyGroupId),
+              steps    = provider ? count(provider) : 0;
+
+        return Number.isFinite(steps) && steps > 0 ? `${steps}` : null
     }
 
     /**

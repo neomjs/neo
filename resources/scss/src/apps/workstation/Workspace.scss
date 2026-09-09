@@ -129,17 +129,37 @@
 }
 
 .workstation-topologybar {
+    // `.neo-toolbar` paints its padding from this token, so a plain `padding` here loses the cascade
+    // to it on source order at equal specificity — the declaration this replaces computed to the
+    // shared 5px. Going through the token is also what gives the trailing button's badge room: the
+    // bar is flush right, and at 5px the count overflows the viewport edge.
+    --toolbar-padding: 6px 12px;
+
     background   : var(--workstation-panel);
     border-bottom: 1px solid var(--workstation-line);
     gap          : 6px;
-    padding      : 6px 12px;
 
+    // Every axis the button paints on is named here on purpose. `button/Base.scss` keeps `color`
+    // inheriting at the root so the child glyph and text nodes can own themed colours — which means
+    // a consumer that sets only background and text hands the disabled state to the UA
+    // `button:disabled` cascade, and Chromium paints GrayText. Glyph and disabled tokens are not
+    // polish; they are the half of the contract the engine deliberately leaves to us. Opacity stays
+    // at 1 so the state reads as a colour change rather than a wash over the label.
     .neo-button {
-        --button-background-color      : var(--workstation-panel-2);
-        --button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --button-border                : 1px solid var(--workstation-line);
-        --button-height                : 32px;
-        --button-text-color            : var(--workstation-ink);
+        --button-background-color         : var(--workstation-panel-2);
+        --button-background-color-disabled: var(--workstation-panel-2);
+        --button-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --button-badge-background-color   : var(--workstation-signal);
+        --button-badge-color              : var(--workstation-panel);
+        --button-border                   : 1px solid var(--workstation-line);
+        --button-border-disabled          : 1px solid var(--workstation-line);
+        --button-glyph-color              : var(--workstation-ink-dim);
+        --button-glyph-color-disabled     : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
+        --button-glyph-color-hover        : var(--workstation-signal);
+        --button-height                   : 32px;
+        --button-opacity-disabled         : 1;
+        --button-text-color               : var(--workstation-ink);
+        --button-text-color-disabled      : color-mix(in srgb, var(--workstation-ink) 45%, transparent);
     }
 }
 
