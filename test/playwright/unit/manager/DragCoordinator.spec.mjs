@@ -317,6 +317,67 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         ])
     });
 
+    test('async completion is returned without retaining arbitration or clearing a newer gesture', async () => {
+        const pending = Promise.withResolvers(),
+              source  = createSourceZone(),
+              item    = {id: 'tab-1'},
+              target  = createTargetZone(pending.promise);
+
+        DragCoordinator.activeSourceZone = source;
+        DragCoordinator.activeTargetZone = target;
+        const completion = DragCoordinator.onDragEnd({draggedItem: item, sourceSortZone: source});
+
+        expect(typeof completion?.then).toBe('function');
+        expect(calls).toEqual([['onRemoteDrop', 'tab-1']]);
+        expect(DragCoordinator.activeSourceZone).toBeNull();
+        expect(DragCoordinator.activeTargetZone).toBeNull();
+
+        const nextSource = createSourceZone(),
+              nextTarget = createTargetZone(null);
+
+        DragCoordinator.activeSourceZone = nextSource;
+        DragCoordinator.activeTargetZone = nextTarget;
+        DragCoordinator.activeTargetCommitEligible = true;
+        DragCoordinator.activeTransitionOwned = true;
+        pending.resolve({type: 'transferItem'});
+        await completion;
+
+        expect(calls).toEqual([['onRemoteDrop', 'tab-1'], ['onRemoteDropOut', 'tab-1']]);
+        expect(DragCoordinator.activeSourceZone).toBe(nextSource);
+        expect(DragCoordinator.activeTargetZone).toBe(nextTarget);
+        expect(DragCoordinator.activeTargetCommitEligible).toBe(true);
+        expect(DragCoordinator.activeTransitionOwned).toBe(true)
+    });
+
+    test('async rejection reaches the caller without retiring the source', async () => {
+        const pending = Promise.withResolvers(),
+              source  = createSourceZone(),
+              error   = new Error('target declined');
+
+        DragCoordinator.activeTargetZone = createTargetZone(pending.promise);
+        const completion = DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source}),
+              rejected   = expect(completion).rejects.toBe(error);
+
+        pending.reject(error);
+        await rejected;
+        expect(calls).toEqual([['onRemoteDrop', 'tab-1']])
+    });
+
+    for (const flag of ['isDestroying', 'isDestroyed']) {
+        test(`async completion does not retire a source with ${flag}`, async () => {
+            const pending = Promise.withResolvers(),
+                  source  = createSourceZone();
+
+            DragCoordinator.activeTargetZone = createTargetZone(pending.promise);
+            const completion = DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+            source[flag] = true;
+            pending.resolve({type: 'transferItem'});
+            await completion;
+            expect(calls).toEqual([['onRemoteDrop', 'tab-1']])
+        })
+    }
+
     test('a SYNC commit still retires on the SAME call stack — the source reads the flag synchronously', () => {
         // The deadline that forbids simply making onDragEnd async: DockTabSortZone's processDragEnd
         // reads `remoteDropCommitted` in its own synchronous continuation, so an awaited retirement

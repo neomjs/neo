@@ -10,6 +10,7 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import DockTabSortZone   from '../../../../src/dashboard/dock/interaction/TabSortZone.mjs';
+import ContainerSortZone from '../../../../src/draggable/container/SortZone.mjs';
 import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
 
 /**
@@ -325,6 +326,118 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 expect(state.startIndex).toBe(-1)
             }
         })
+    });
+
+    test.describe('asynchronous target settlement', () => {
+        let coordinator, originalCleanup;
+
+        test.beforeAll(async () => {
+            coordinator = (await import('../../../../src/manager/DragCoordinator.mjs')).default
+        });
+
+        test.beforeEach(() => {
+            originalCleanup = TabHeaderSortZone.prototype.processDragEnd
+        });
+
+        test.afterEach(() => {
+            TabHeaderSortZone.prototype.processDragEnd = originalCleanup;
+            coordinator.activeSourceZone = coordinator.activeTargetZone = null;
+            coordinator.activeTargetCommitEligible = coordinator.activeTransitionOwned = false
+        });
+
+        for (const stack of [false, true]) {
+            for (const outcome of ['committed', 'refused', 'refused-false', 'rejected']) {
+                test(`${stack ? 'stack' : 'pane'} waits for ${outcome} before its terminal and cleanup`, async () => {
+                    const pending = Promise.withResolvers(),
+                          calls   = [],
+                          error   = new Error('target failure'),
+                          zone    = {
+                              dockItemIds           : ['graph'],
+                              dragComponent         : {dockItemId: 'graph', id: 'graph-button'},
+                              dragCoordinator       : coordinator,
+                              dragEnd               : () => calls.push(['cleanup']),
+                              fireDockLifecycleEvent: DockTabSortZone.prototype.fireDockLifecycleEvent,
+                              onRemoteDropOut() {
+                                  calls.push(['remote-out']);
+                                  this.remoteDropCommitted = true
+                              },
+                              owner                 : {up: () => ({fire: (name, data) => calls.push([name, data])})},
+                              processDragEnd        : DockTabSortZone.prototype.processDragEnd,
+                              releaseVoidsReorder   : () => false,
+                              remoteDropCommitted   : false,
+                              sortGroup             : 'async-dock-test',
+                              stackDragActive       : stack,
+                              startIndex            : 0,
+                              vesselConversionSensor: {converted: true, targetConverted: true}
+                          };
+
+                    TabHeaderSortZone.prototype.processDragEnd = async () => calls.push(['cleanup']);
+                    coordinator.activeTargetZone = {onRemoteDrop: () => pending.promise};
+                    const running = ContainerSortZone.prototype.onDragEnd.call(zone, {cancelled: false}),
+                          settled = running.then(() => null, failure => failure);
+
+                    expect(calls, 'pending has no source terminal, retirement or base cleanup').toEqual([]);
+                    expect(zone.dragEndActive).toBe(true);
+                    await ContainerSortZone.prototype.onDragEnd.call(zone, {});
+                    await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
+                    expect(calls).toEqual([]);
+
+                    outcome === 'rejected' ? pending.reject(error)
+                        : pending.resolve(outcome === 'committed' ? {} : outcome === 'refused-false' ? false : null);
+                    expect(await settled).toBe(outcome === 'rejected' ? error : null);
+
+                    const terminal = stack ? ['dockStackDragTerminal'] : outcome === 'committed'
+                        ? ['dockVesselConversionTerminal'] : ['dockTearOutCancel', 'dockVesselConversionRetired'];
+
+                    expect(calls.map(([name]) => name)).toEqual([
+                        ...(outcome === 'committed' ? ['remote-out'] : []), ...terminal, 'cleanup'
+                    ]);
+                    if (stack || outcome === 'committed') {
+                        expect(calls.find(([name]) => name === terminal[0])[1].outcome)
+                            .toBe(outcome === 'committed' ? 'committed' : 'rejected')
+                    }
+                    expect(zone.remoteDropCommitted).toBe(false);
+                    expect(zone.dragEndActive).toBe(false)
+                })
+            }
+
+            test(`${stack ? 'stack' : 'pane'} destroyed during settlement receives no late work or properties`, async () => {
+                const pending = Promise.withResolvers(),
+                      calls   = [],
+                      zone    = Neo.create(DockTabSortZone, {
+                          owner: {addDomListeners() {}, cls: [], dragResortable: false,
+                              items: [], on() {}, style: {}, up: () => ({fire: name => calls.push(name)})}
+                      });
+
+                try {
+                    await zone.ready();
+                    Object.assign(zone, {
+                        dragComponent  : {dockItemId: 'graph', id: 'graph-button'},
+                        dragCoordinator: coordinator,
+                        onRemoteDropOut: () => calls.push('remote-out'),
+                        sortGroup      : 'async-dock-destroy-test',
+                        stackDragActive: stack,
+                        startIndex     : 0
+                    });
+                    TabHeaderSortZone.prototype.processDragEnd = async () => calls.push('cleanup');
+                    coordinator.activeTargetZone = {onRemoteDrop: () => pending.promise};
+                    const running = zone.onDragEnd({cancelled: false});
+
+                    expect(calls).toEqual([]);
+                    zone.destroy();
+                    const keys         = Object.keys(zone).sort(),
+                          afterDestroy = [...calls];
+
+                    pending.resolve({type: 'transferItem'});
+                    await running;
+                    expect(calls).toEqual(afterDestroy);
+                    expect(Object.keys(zone).sort()).toEqual(keys);
+                    expect(Object.hasOwn(zone, 'dragEndActive')).toBe(false)
+                } finally {
+                    zone.destroy()
+                }
+            })
+        }
     });
 
     test.describe('tear-out gesture terminals — the choreography outcome routing', () => {
