@@ -137,7 +137,25 @@ class WindowPosition extends Base {
 
         window[value ? 'addEventListener' : 'removeEventListener']('resize', me.resizeListener);
 
-        value && me.armViewportProbe()
+        value ? me.armViewportProbe() : me.disarmViewportProbe()
+    }
+
+    /**
+     * @summary Releases an outstanding pointer sample when observation stops.
+     *
+     * Without this, a probe armed while observing outlives it: the `once` listener stays attached
+     * and the next pointer motion writes an offset and publishes geometry for a window that has
+     * stopped observing. `armViewportProbe`'s promise is that no window carries a standing pointer
+     * listener, and that promise has to survive being switched off.
+     * @protected
+     */
+    disarmViewportProbe() {
+        let me = this;
+
+        if (me.viewportProbe) {
+            window.removeEventListener('pointermove', me.viewportProbe, {capture: true});
+            me.viewportProbe = null
+        }
     }
 
     /**
@@ -169,10 +187,18 @@ class WindowPosition extends Base {
                 x   = event.screenX - event.clientX - win.screenLeft,
                 y   = event.screenY - event.clientY - win.screenTop;
 
+            let old = win.neoViewportOffset;
+
             me.viewportProbe = null;
 
-            if (Number.isFinite(x) && Number.isFinite(y)) {
-                win.neoViewportOffset = {x, y};
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+            win.neoViewportOffset = {x, y};
+
+            // Change-driven, exactly like `checkMovement`: a publication is a worker round trip, and
+            // a sample that confirms the offset we already hold is not news. Publishing on every
+            // pointer sample would inject a message into whatever gesture happens to be running.
+            if (!old || old.x !== x || old.y !== y) {
                 me.publishGeometry()
             }
         };
@@ -340,9 +366,12 @@ class WindowPosition extends Base {
         // extents every frame, so movement-only publication would make its post-resize decision stale.
         me.publishGeometry();
 
-        // A resize is also the ONLY thing that can move the viewport inside its frame — opening or
-        // re-docking a devtools panel arrives here and nowhere else — so this is where the measured
-        // offset goes stale and has to be taken again.
+        // A resize is the only EVENT that reports the viewport moving inside its frame, so this is
+        // where the measured offset goes stale and has to be taken again. Not the only cause: a
+        // panel re-docked from one side to the other at equal width changes neither `innerWidth`
+        // nor `innerHeight`, fires nothing, and leaves the previous offset standing. That case is
+        // still no worse than the assumptions it replaced, and it is stated rather than papered
+        // over — see `usableViewportOffset` for the other known bound.
         me.armViewportProbe()
     }
 

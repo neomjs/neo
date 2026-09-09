@@ -327,18 +327,42 @@ test.describe('Neo.main.addon.WindowPosition — the viewport-origin probe', () 
         expect(addon.viewportProbe, 'the sample is still spent — a bad reading is not a retry loop').toBeNull()
     });
 
-    test('observation is what arms it: a window nobody observes carries no pointer listener', () => {
-        const observed = {
-            armViewportProbe: WindowPosition.prototype.armViewportProbe,
-            onResize        : () => {},
-            resizeListener  : null,
-            viewportProbe   : null
-        };
-
-        WindowPosition.prototype.afterSetObserveResize.call(observed, false, true);
-        expect(listeners.filter(entry => entry.type === 'pointermove'), 'off means off').toHaveLength(0);
+    test('observing arms the probe and UNobserving releases it, so no window carries a standing listener', () => {
+        const pointerListeners = () => listeners.filter(entry => entry.type === 'pointermove'),
+              observed         = {
+                  armViewportProbe   : WindowPosition.prototype.armViewportProbe,
+                  disarmViewportProbe: WindowPosition.prototype.disarmViewportProbe,
+                  onResize           : () => {},
+                  resizeListener     : null,
+                  viewportProbe      : null
+              };
 
         WindowPosition.prototype.afterSetObserveResize.call(observed, true, false);
-        expect(listeners.filter(entry => entry.type === 'pointermove')).toHaveLength(1)
+        expect(pointerListeners(), 'observing takes a sample').toHaveLength(1);
+
+        // The half that matters, and that an assert-on-an-empty-array cannot reach: the outstanding
+        // sample must not outlive observation. A probe left attached writes an offset and publishes
+        // geometry for a window that stopped observing.
+        WindowPosition.prototype.afterSetObserveResize.call(observed, false, true);
+        expect(pointerListeners(), 'unobserving releases the outstanding sample').toHaveLength(0);
+        expect(observed.viewportProbe).toBeNull()
+    });
+
+    test('a sample that confirms the offset we already hold does not publish', () => {
+        // A publication is a worker round trip. Publishing on every pointer sample would inject a
+        // message into whatever gesture happens to be running — which is not free in a fixture that
+        // drives pointer interactions, and is not news either.
+        addon.armViewportProbe();
+        firePointer({clientX: 40, clientY: 20, screenX: 140, screenY: 187});
+        expect(addon.published, 'the first sample is news').toBe(1);
+
+        addon.armViewportProbe();
+        firePointer({clientX: 10, clientY: 90, screenX: 110, screenY: 257});
+        expect(globalThis.window.neoViewportOffset, 'same offset, read through different coordinates').toEqual({x: 0, y: 117});
+        expect(addon.published, 'and confirming it is not').toBe(1);
+
+        addon.armViewportProbe();
+        firePointer({clientX: 40, clientY: 20, screenX: 619, screenY: 187});
+        expect(addon.published, 'a CHANGED origin is news again').toBe(2)
     })
 });

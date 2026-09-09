@@ -61,7 +61,7 @@ class Window extends Manager {
      * @summary Admits a measured viewport offset only when it can physically describe this frame.
      *
      * The offset is the viewport's origin relative to the frame's, measured on the main thread as
-     * `event.screenX - event.clientX - window.screenX`. It is exact at page zoom 1; under browser
+     * `event.screenX - event.clientX - window.screenLeft`. It is exact at page zoom 1; under browser
      * zoom `clientX` is page CSS pixels while `screenX` is screen CSS pixels, so the reading can
      * drift. Rather than correct for a zoom factor no web API reports reliably, this bounds the
      * offset inside the frame: a viewport cannot start before its frame, and cannot leave less room
@@ -92,7 +92,14 @@ class Window extends Manager {
      * above the screen. `outerRect` is therefore the frame itself and `innerRect` the frame shifted
      * by the chrome. The chrome split assumes symmetric side borders and a bottom border equal to a
      * side border, so the remaining height difference is the title bar.
-     * @param {Object} data The raw report: `innerHeight`, `innerWidth`, `outerHeight`, `outerWidth`, `screenLeft`, `screenTop`, and Firefox's `mozInnerScreenX/Y`
+     * **`chrome` is the content inset within the frame, panels included** — not a decorative border
+     * width. It is derived from the two origins, so it always agrees with whichever of the three
+     * sources answered. On a window with a devtools panel docked left or top, `chrome.left` /
+     * `chrome.top` therefore contain the panel, which is the correct content inset and is what a
+     * caller converting a content origin into a frame origin needs. Read by
+     * {@link Neo.dashboard.dock.window.NativeVesselTransaction#toFrameOrigin} and published into
+     * agent-visible payloads by `src/ai/Client.mjs`.
+     * @param {Object} data The raw report: `innerHeight`, `innerWidth`, `outerHeight`, `outerWidth`, `screenLeft`, `screenTop`, Firefox's `mozInnerScreenX/Y`, and an optional measured `viewportOffset`
      * @returns {Object} {chrome, innerRect, outerRect}
      */
     calculateGeometry(data) {
