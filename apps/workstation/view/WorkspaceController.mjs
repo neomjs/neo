@@ -13,6 +13,15 @@ class WorkspaceController extends Controller {
         className: 'Workstation.view.WorkspaceController'
     }
 
+    /**
+     * How many topology-bar buttons the VIEW authors. `syncTopologyBar` replaces everything after
+     * them, so this is the one number both sides must agree on — named here rather than repeated as
+     * a literal on each side, which is how the two would drift.
+     * @member {Number} authoredTopologyButtonCount=2
+     * @static
+     */
+    static authoredTopologyButtonCount = 2
+
     /** @member {Promise|null} tourControllerPromise=null */
     tourControllerPromise = null
 
@@ -102,53 +111,62 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * @summary Provides explicit save/close and user-activated recovery for headless saved windows.
-     * @returns {Object} Toolbar configuration.
+     * @summary Populates the reference-addressed parts of the view once its tree exists.
+     *
+     * The engine's own seam for controllers that need references, so the view never has to hand
+     * itself over to be finished.
      */
-    createTopologyBar() {
-        const me    = this,
-              items = [{ntype: 'button', text: 'Save workspace', handler: () => me.saveTopology()},
-                  {ntype: 'button', text: 'Close workspace', handler: () => me.closeTopology()}];
+    onComponentConstructed() {
+        this.syncTopologyBar()
+    }
 
-        for (const workspaceKey of me.component.getPopupStates().map(state => state.workspaceId)) {
-            items.push(
-                {ntype: 'button', text: `Open ${workspaceKey} as window`, handler: () => me.openTopologyWorkspace(workspaceKey)},
-                {ntype: 'button', text: `Show ${workspaceKey} here`, handler: () => me.mountTopologyWorkspace(workspaceKey, me.component)}
-            )
-        }
+    /**
+     * @summary Fills the view-declared topology bar's per-workspace recovery buttons.
+     *
+     * The bar itself is declared by the view, which owns its structure; this reaches it through
+     * its reference and supplies only the part that depends on live Group membership.
+     *
+     * Idempotent and re-callable, but wired to {@link #onComponentConstructed} alone — the same
+     * single population the previous shape performed. `WorkspaceSet` publishes no membership
+     * signal, so a participant registered after boot still gains no buttons until a reload; that
+     * is unchanged here and needs a signal in the engine, not a second reader in this file.
+     * @returns {Boolean} Whether the bar was reachable.
+     */
+    syncTopologyBar() {
+        const me  = this,
+              bar = me.getReference('topology-toolbar');
 
-        return {
-            ntype: 'toolbar',
-            // Undo and redo are the Group's, not this bar's — and they read it WHERE IT LIVES.
-            // `state.Provider#getData` resolves to the leaf's own `core.Config`, so a formatter that
-            // reads the Group's provider inside a binding effect registers that exact leaf and
-            // re-runs when it changes. No copy is kept here, which means there is no second
-            // publication path to keep in step: `setHistoryDepth` publishes without a commit, and a
-            // mirror fed by commits alone would have gone stale exactly there.
-            //
-            // A retired or unknown Group resolves to nothing and reads disabled, so the control fails
-            // closed on the same expression rather than through a separate teardown.
-            actions: [{
-                action     : 'undo',
-                bind       : {disabled: () => TransactionManager.getProvider(me.component.topologyGroupId)?.getData('canUndo') !== true},
-                handler    : () => TransactionManager.undo({groupId: me.component.topologyGroupId}),
-                iconCls    : 'fa fa-rotate-left',
-                showOnFocus: false,
-                text       : 'Undo'
-            }, {
-                action     : 'redo',
-                bind       : {disabled: () => TransactionManager.getProvider(me.component.topologyGroupId)?.getData('canRedo') !== true},
-                handler    : () => TransactionManager.redo({groupId: me.component.topologyGroupId}),
-                iconCls    : 'fa fa-rotate-right',
-                showOnFocus: false,
-                text       : 'Redo'
-            }],
-            cls      : ['workstation-topologybar'],
-            flex     : 'none',
-            items,
-            layout   : {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'},
-            reference: 'topology-toolbar'
-        }
+        if (!bar || bar.isDestroyed) return false;
+
+        const recovery = me.component.getPopupStates().flatMap(({workspaceId}) => [
+            {handler: 'onOpenTopologyWorkspace', text: `Open ${workspaceId} as window`, workspaceKey: workspaceId},
+            {handler: 'onMountTopologyWorkspace', text: `Show ${workspaceId} here`,      workspaceKey: workspaceId}
+        ]).map(config => ({ntype: 'button', ...config}));
+
+        // The two authored buttons are the view's and stay; only the derived tail is replaced, so
+        // a resync cannot destroy structure the view declared.
+        bar.items.slice(me.constructor.authoredTopologyButtonCount).forEach(item => item.destroy());
+        bar.items.length = me.constructor.authoredTopologyButtonCount;
+
+        recovery.length && bar.add(recovery);
+
+        return true
+    }
+
+    /**
+     * @summary Declarative handler: opens the addressed participant in its own window.
+     * @param {Object} data
+     */
+    onOpenTopologyWorkspace(data) {
+        return this.openTopologyWorkspace(data.component.workspaceKey)
+    }
+
+    /**
+     * @summary Declarative handler: mounts the addressed participant into the root inline.
+     * @param {Object} data
+     */
+    onMountTopologyWorkspace(data) {
+        return this.mountTopologyWorkspace(data.component.workspaceKey, this.component)
     }
 
     /**

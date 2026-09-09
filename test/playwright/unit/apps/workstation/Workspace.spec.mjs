@@ -14,14 +14,15 @@ import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/Wo
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import '../../../../../src/manager/Instance.mjs';
-import TransactionManager from '../../../../../src/manager/Transaction.mjs';
-import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
-import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
-import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
-import PopupWorkspace     from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
-import GestureDriver      from '../../../../../apps/workstation/tour/GestureDriver.mjs';
-import TourController     from '../../../../../apps/workstation/view/TourController.mjs';
-import DockService        from '../../../../../src/ai/client/DockService.mjs';
+import TransactionManager  from '../../../../../src/manager/Transaction.mjs';
+import FeedPane            from '../../../../../apps/workstation/view/FeedPane.mjs';
+import ScalePane           from '../../../../../apps/workstation/view/ScalePane.mjs';
+import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
+import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
+import GestureDriver       from '../../../../../apps/workstation/tour/GestureDriver.mjs';
+import TourController      from '../../../../../apps/workstation/view/TourController.mjs';
+import DockService         from '../../../../../src/ai/client/DockService.mjs';
+import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceController.mjs';
 
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
@@ -3162,5 +3163,70 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
         expect(refreshOptionsFor({operation: 'moveItem', preserveItemIds: ['editor']}),
             'and a commit-scoped park still rides along')
             .toEqual({geometryOnly: false, retainTopology: false, preserveItemIds: ['editor']})
+    })
+});
+
+test.describe('Workstation topology bar — the view declares it, the controller fills it (#18460)', () => {
+    test('the topology bar carries undo and redo as bound actions that dispatch to the Group and own no history logic', () => {
+        // The factory reads the Group id off the host and nothing else — the per-participant rows
+        // are the controller's, so this arm stays on the two Group actions.
+        const host       = {topologyGroupId: 'topology-bar-group'},
+              bar        = Workspace.prototype.createTopologyBar.call(host),
+              actions    = Object.fromEntries((bar.actions || []).map(action => [action.action, action])),
+              dispatched = [];
+
+        expect(Object.keys(actions).sort()).toEqual(['redo', 'undo']);
+
+        // The authored head is the view's contract with its controller: `syncTopologyBar` replaces
+        // everything after exactly this many items, so the count is asserted against the number the
+        // controller reads rather than against a literal repeated on both sides.
+        expect(bar.reference).toBe('topology-toolbar');
+        expect(bar.items.map(item => item.handler)).toEqual(['saveTopology', 'closeTopology']);
+        expect(bar.items).toHaveLength(WorkspaceController.authoredTopologyButtonCount);
+
+        // Persistent, not focus-gated: an undo control that appears only once the bar holds focus is
+        // undiscoverable exactly when a user reaches for it.
+        expect(actions.undo.showOnFocus).toBe(false);
+        expect(actions.redo.showOnFocus).toBe(false);
+
+        // Enablement reads the Group's own leaf where it lives. `getData` resolves to that leaf's
+        // `core.Config`, so a binding effect running this formatter registers it and re-runs when it
+        // changes — no copy is held here, so there is no second publication path that could go stale
+        // when `setHistoryDepth` publishes without a commit.
+        const group = TransactionManager.bind({windowId: 'topology-bar-window', workspaceKey: 'main'});
+
+        host.topologyGroupId = group.groupId;
+
+        expect(actions.undo.bind.disabled(), 'an empty history disables Undo').toBe(true);
+        expect(actions.redo.bind.disabled()).toBe(true);
+
+        TransactionManager.getProvider(group.groupId).setData({canRedo: true, canUndo: true});
+
+        expect(actions.undo.bind.disabled(), 'the Group\'s own leaf enables it').toBe(false);
+        expect(actions.redo.bind.disabled()).toBe(false);
+
+        // Fails closed on the SAME expression rather than through a separate teardown path.
+        TransactionManager.retireGroup(group.groupId);
+        expect(actions.undo.bind.disabled(), 'a retired Group reads disabled').toBe(true);
+
+        host.topologyGroupId = 'topology-bar-group';
+
+        const originals = {redo: TransactionManager.redo, undo: TransactionManager.undo};
+
+        TransactionManager.redo = data => {dispatched.push(['redo', data]); return Promise.resolve()};
+        TransactionManager.undo = data => {dispatched.push(['undo', data]); return Promise.resolve()};
+
+        try {
+            actions.undo.handler();
+            actions.redo.handler()
+        } finally {
+            Object.assign(TransactionManager, originals)
+        }
+
+        // The whole of the consumer's contribution: the Group id and the command name.
+        expect(dispatched).toEqual([
+            ['undo', {groupId: 'topology-bar-group'}],
+            ['redo', {groupId: 'topology-bar-group'}]
+        ])
     })
 });

@@ -380,6 +380,58 @@ class Workspace extends DockWorkspace {
     #feedIntervalId = null
 
     /**
+     * @summary Declares the topology bar: explicit save/close, the Group's undo/redo, and the
+     * reference through which its controller fills the per-workspace recovery buttons.
+     *
+     * The structure is the view's; the live membership is the controller's. A factory rather than a
+     * module because the undo/redo formatters need this instance — `state.Provider#createBinding`
+     * calls a formatter with the provider as scope, so a `static config` on a separate toolbar class
+     * could not reach {@link #topologyGroupId}. Same reason `createStatusBar` is a factory.
+     *
+     * Handlers are declarative names resolved through the configured controller chain, so nothing
+     * here closes over the controller instance.
+     * @returns {Object}
+     * @protected
+     */
+    createTopologyBar() {
+        let me = this;
+
+        return {
+            ntype: 'toolbar',
+            // Undo and redo are the Group's, and they read it WHERE IT LIVES. `getData` resolves to
+            // that leaf's own `core.Config`, so the formatter registers it and re-runs on change —
+            // no mirror to keep in step with `setHistoryDepth`, which publishes without a commit.
+            // A retired or unknown Group resolves to nothing and reads disabled, so the control
+            // fails closed on the same expression rather than through a separate teardown.
+            actions: [{
+                action     : 'undo',
+                bind       : {disabled: () => TransactionManager.getProvider(me.topologyGroupId)?.getData('canUndo') !== true},
+                handler    : () => TransactionManager.undo({groupId: me.topologyGroupId}),
+                iconCls    : 'fa fa-rotate-left',
+                showOnFocus: false,
+                text       : 'Undo'
+            }, {
+                action     : 'redo',
+                bind       : {disabled: () => TransactionManager.getProvider(me.topologyGroupId)?.getData('canRedo') !== true},
+                handler    : () => TransactionManager.redo({groupId: me.topologyGroupId}),
+                iconCls    : 'fa fa-rotate-right',
+                showOnFocus: false,
+                text       : 'Redo'
+            }],
+            cls : ['workstation-topologybar'],
+            flex: 'none',
+            // Exactly `WorkspaceController.authoredTopologyButtonCount` items: the controller
+            // replaces everything after them and must not be able to destroy these.
+            items : [
+                {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
+                {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'}
+            ],
+            layout   : {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'},
+            reference: 'topology-toolbar'
+        }
+    }
+
+    /**
      * @summary Creates all cold semantic owners before constructing their presentation.
      * @param {Object} config
      */
@@ -419,7 +471,7 @@ class Workspace extends DockWorkspace {
 
         me.appendFeedBatch(25);
 
-        me.add([{module: TourToolbar}, me.createStatusBar(), me.getController().createTopologyBar(), {
+        me.add([{module: TourToolbar}, me.createStatusBar(), me.createTopologyBar(), {
             module: Container,
             cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
             flex  : 1,
