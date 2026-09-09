@@ -28,10 +28,9 @@ import { test, expect } from '../../fixtures.mjs';
  *      `offsetLeft`/layout width — plus worker `containerWidth`/`availableWidth` against the
  *      container/button layout truth.
  *
- * Settlement is event/state-based only, with a POSITIVE motion-entry barrier: a MutationObserver
- * must first witness the dock-motion lifecycle class ENTER (guarding against asserting before
- * the deferred projection even starts), then release (class absent, zero fixed-stage residue,
- * transform-free grid). No fixed-delay sleeps, per the ticket's walls.
+ * Settlement awaits the committed projection, including instant FLIP landings whose worker-side
+ * class pulse need not reach the DOM. Handled projection failures remain explicit failures, and
+ * the settled surface must have no motion class, fixed-stage residue or grid transform.
  *
  * The race itself is pinned RACE-FREE by the first test: it freezes a "mid-motion" frame (a
  * static ancestor scale transform), triggers the measurement through the projection's own
@@ -353,7 +352,12 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
 
         const boot = await readMatrix(page);
 
-        /** One committed drag + positive-entry settlement + the keyed attribution matrix. */
+        /**
+         * @summary Awaits one committed projection before checking the keyed attribution matrix.
+         * @param {Number} deltaX
+         * @param {String} tag
+         * @returns {Promise<void>}
+         */
         async function dragAndVerify(deltaX, tag) {
             // resizable edge zones share the orientation class — only the SPLIT container's own
             // child is the resizeSplit affordance this journey commits through
@@ -363,19 +367,6 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
                   sy                       = box.y + box.height / 2,
                   before                   = await readMatrix(page),
                   {dockModel: modelBefore} = await app.getComponent(workspaceId, ['dockModel']);
-
-            // positive motion-entry barrier: witness the lifecycle ENTER, not just its absence later
-            await page.evaluate(() => {
-                const el = document.querySelector('.workstation-workspace');
-                globalThis.__motion16375?.observer.disconnect();
-                globalThis.__motion16375 = {
-                    seen    : el.classList.contains('neo-dashboard-dock-animating'),
-                    observer: new MutationObserver(() => {
-                        el.classList.contains('neo-dashboard-dock-animating') && (globalThis.__motion16375.seen = true)
-                    })
-                };
-                globalThis.__motion16375.observer.observe(el, {attributes: true, attributeFilter: ['class']})
-            });
 
             await page.mouse.move(sx, sy);
             await page.mouse.down();
@@ -400,21 +391,19 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
                 intervals: [50, 100]
             }).toBeGreaterThan(0.02);
 
-            // 2. the deferred projection applied the committed extent to live DOM
+            // 2. the observed commit's projection settles, including an instant FLIP landing.
+            await app.callMethod(workspaceId, 'refreshPromise.then');
+            expect(await app.getConsoleLogs('warn', 'Dock projection failed'),
+                `${tag}: a handled projection failure must not count as clean settlement`).toEqual([]);
+
+            // 3. the committed extent is reflected in live DOM after that settlement.
             await expect.poll(async () => (await readMatrix(page)).layoutWidth, {
                 message  : `${tag}: the projection applies the committed split to the grid layout box`,
                 timeout  : 10000,
                 intervals: [50, 100]
             }).toBeCloseTo(before.layoutWidth + deltaX, 0);
 
-            // 3. the motion lifecycle ENTERED (positive barrier) ...
-            await expect.poll(() => page.evaluate(() => globalThis.__motion16375.seen), {
-                message  : `${tag}: the committed resize enters the dock-motion lifecycle`,
-                timeout  : 10000,
-                intervals: [25, 50]
-            }).toBe(true);
-
-            // ... and fully released the presentation
+            // The completed projection must fully release the presentation.
             await expect(root, `${tag}: the dock motion lifecycle settles`)
                 .not.toHaveClass(/neo-dashboard-dock-animating/, {timeout: 10000});
             await expect(page.locator('.neo-dock-flip-fixed-stage'),
