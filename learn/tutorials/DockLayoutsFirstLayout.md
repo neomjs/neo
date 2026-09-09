@@ -152,19 +152,20 @@ The engine derives them from what you wrote, and the benefit is not that the alg
 benefit is that there is nothing to keep in sync.** You never invented `center-split-0`, so you can never
 misspell it, never leave it behind after a rename, and never have two nodes accidentally sharing one.
 
-You *can* name a node when you want to address it later:
+That is the whole rule, and the rule is that there is no rule to follow: **write your panes and your
+zones, and let the engine name the structure.**
 
-```javascript
-zones: {
-    center: {
-        id         : 'main-split',
-        orientation: 'horizontal',
-        children   : [{id: 'code-tabs', items: ['editor']}, {items: ['preview']}]
-    }
-}
-```
+It is worth being explicit about the thing you might otherwise reach for, because the reflex from other
+layout systems is to hand-author an identifier so you can find it again. Do not. Every Neo component id
+must be unique **across the whole application**, not just within one layout — so the moment a second copy
+of your workspace exists on the page, a name you chose by hand is a name you now have to make unique
+yourself, per instance, forever. A derived identity has never had that problem, which is the point of the
+section you have just read.
 
-Name the ones you will refer to; let the engine handle the rest. That is the whole rule.
+You do not need to address a structural node to build a layout, and this tutorial deliberately does not
+show you how. If you later find you genuinely do, that is a question about your application's identity
+strategy rather than about the dock, and it is worth answering deliberately instead of by adding a string
+to a config.
 
 ## What the engine does with your two configs
 
