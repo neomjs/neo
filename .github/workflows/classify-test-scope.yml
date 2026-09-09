@@ -167,11 +167,13 @@ jobs:
 
                 const depKindKeys = ['dependencies', 'devDependencies', 'overrides'],
                       // Derived from the e2e job's own launch chain rather than guessed: the
-                      // workflow step runs `bundle-browser-deps`, whose definition is
-                      // `bundle-parse5 && bundle-marked`, and `playwright.config.e2e.mjs`'s
+                      // workflow step runs `bundle-browser-deps`, whose definition delegates to one
+                      // `bundle-<name>` per shipped browser bundle, and `playwright.config.e2e.mjs`'s
                       // `webServer.command` runs `server-start`. Naming the children matters —
                       // `bundle-browser-deps` can keep its text while what it delegates to changes.
-                      e2eScriptKeys = ['bundle-browser-deps', 'bundle-marked', 'bundle-parse5', 'server-start'];
+                      // The children track `buildScripts/util/browserBundles.mjs`, which a unit arm
+                      // holds to this list because YAML cannot import it.
+                      e2eScriptKeys = ['bundle-browser-deps', 'bundle-marked', 'bundle-mermaid', 'bundle-parse5', 'server-start'];
 
                 // Fork PRs: the head SHA exists only in the fork repo, so the head content read
                 // must follow the fork's coordinates — the base half stays on the PR target repo.

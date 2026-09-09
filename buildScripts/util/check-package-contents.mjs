@@ -97,6 +97,10 @@ export const REQUIRED_ENTRIES = [
     {
         path: 'dist/parse5.mjs',
         why : 'src/functional/util/HtmlTemplateProcessor.mjs imports this bundle by relative path, and buildScripts/util/templateBuildProcessor.mjs imports it at module scope — so an installed engine needs it to RUN the dist/esm build, not merely to execute the tree that build emits. A consumer cannot rebuild it: parse5 and esbuild are both devDependencies.'
+    },
+    {
+        path: 'dist/mermaid.mjs',
+        why : 'main.addon.Mermaid imports this bundle by relative path, and a consumer cannot rebuild it: mermaid and esbuild are both devDependencies. It is also not interchangeable with the published package — the build substitutes the `define` identifier across mermaid\'s dependency graph, because vendored UMD wrappers inside it hand an ANONYMOUS factory to any global AMD loader, and main.addon.MonacoEditor installs one. Shipping the upstream file instead would fail to render every diagram on a page that also carries an editor. It is the largest required entry at ~3.3 MiB, which its producer prints on every build; main.addon.Mermaid sets useLazyLoading, so nothing fetches it until a page contains a diagram.'
     }
 ];
 

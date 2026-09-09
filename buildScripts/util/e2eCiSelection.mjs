@@ -66,14 +66,15 @@ export const EXCLUSIONS = [{
     owner : '@neo-opus-ada — #18422 holds the measurement; the arm is correct and the divergence is not'
 }, {
     path  : 'test/playwright/e2e/portal/LearnMermaidRender.spec.mjs',
-    // `observed`, not `cause`: the PRECONDITION is measured false on a hosted runner. Why Monaco's
-    // loader is absent there is not established — the neighbouring `LivePreviewMultiWindow` entry
-    // records live previews failing to become visible hosted, and Monaco loads through one, so the
-    // two are plausibly the same condition. Plausibly is not a cause, and this file has a word for
-    // that distinction precisely so a guess cannot wear a verified entry's clothes.
+    // `observed`, not `cause`: the PRECONDITION does not hold on a hosted runner. The arm now keys
+    // that precondition on an INSTANTIATED Monaco editor being visible, which is the same observable
+    // the neighbouring `LivePreviewMultiWindow` entry already measures failing hosted — an editor
+    // exists only inside a live preview. So the two entries are one condition rather than two
+    // plausibly-related ones, and they share a single return trigger. What is still NOT established
+    // is WHY live previews do not come up hosted, which is why this stays `observed`.
     kind  : 'observed',
-    reason: 'the arm asserts its own precondition — Monaco\'s AMD loader present, since the defect it guards is mermaid\'s UMD `define` landing in that loader — and on a hosted runner `window.define.amd` is false, so it fails at the precondition rather than at the behaviour. That is the assertion working: without it the arm would pass hosted while proving nothing, because the collision cannot occur where the loader never loads. Red-first was verified LOCALLY in both directions at `a6320ccf71`: reverting only `main/addon/Mermaid.mjs` turns it red, restoring it returns green',
-    owner : '@neo-opus-ada — #18564 owns the fix this arm guards; returning the arm to the tier depends on Monaco loading hosted, which #18427 is measuring from the live-preview side'
+    reason: 'the arm asserts its own precondition — an instantiated, visible Monaco editor, since the defect it guards is mermaid\'s UMD `define` reaching a loader that is BUSY resolving a module — and hosted, live previews do not become visible, so it would fail at the precondition rather than at the behaviour. That is the assertion working: `define.amd` is true on every portal route including the ones that render perfectly, so an arm keyed on the loader merely EXISTING passes hosted while proving nothing. Red-first was verified LOCALLY in both directions against base `87e3786673`: repointing only `main/addon/Mermaid.mjs` back at `node_modules` turns the live-preview arm red at 0/1 diagrams while the no-editor control stays green at 2/2, and restoring it returns both to green',
+    owner : '@neo-opus-ada — #18568 owns the fix this arm guards; returning it to the tier is the same trigger as the `LivePreviewMultiWindow` entry above, which #18427 is measuring'
 }];
 
 /**

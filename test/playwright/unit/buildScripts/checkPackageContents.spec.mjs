@@ -1,4 +1,6 @@
-import {test, expect} from '@playwright/test';
+import fs                from 'node:fs';
+import {test, expect}    from '@playwright/test';
+import {BROWSER_BUNDLES} from '../../../../buildScripts/util/browserBundles.mjs';
 
 /**
  * The check's value is entirely in WHICH packed paths it fires on, so the assertions are the two
@@ -14,6 +16,17 @@ import {test, expect} from '@playwright/test';
  * private state — so "flag everything under the prefix" and "flag nothing under the prefix" are both
  * wrong, and the boundary between them is exactly where the original `.npmignore` defect lived.
  */
+/**
+ * Every shipped bundle's packed path, minus the one an arm deliberately omits.
+ *
+ * Written as an exclusion rather than a literal list because the arms below assert "EXACTLY this
+ * one is missing" — so a bundle added to `REQUIRED_ENTRIES` and not to these fixtures reds four
+ * arms with a failure about parse5, which is the wrong thing to read while adding mermaid.
+ * @param {String} [omit] Bundle name to leave out of the packed set.
+ * @returns {String[]}
+ */
+const shippedExcept = omit => BROWSER_BUNDLES.filter(name => name !== omit).map(name => `dist/${name}.mjs`);
+
 test.describe('check-package-contents — fires on private state, not on the tracked carve-out', () => {
     let findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput;
 
@@ -162,13 +175,13 @@ test.describe('check-package-contents — a required entry cannot be silently dr
     test('FIRES: the parse5 bundle absent from the packed set', () => {
         // The exact regression `/dist` produced: a plausible-looking tarball with the producer script
         // present and the artifact it produces missing.
-        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'package.json', 'dist/marked.mjs'];
+        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'package.json', ...shippedExcept('parse5')];
 
         expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
     });
 
     test('PASSES: the same set once the artifact ships', () => {
-        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', 'dist/parse5.mjs', 'dist/marked.mjs'];
+        const packed = ['src/Neo.mjs', 'buildScripts/build/parse5.mjs', ...shippedExcept()];
 
         expect(findMissingEntries(packed)).toEqual([])
     });
@@ -177,9 +190,29 @@ test.describe('check-package-contents — a required entry cannot be silently dr
         // A prefix or suffix match would let `dist/esm/dist/parse5.mjs` — the copy the build emits
         // INTO the output tree — stand in for the published bundle at the root. They are different
         // files with different consumers, and only the root one is what an installed engine imports.
-        const packed = ['dist/esm/dist/parse5.mjs', 'vendor/dist/parse5.mjs', 'dist/parse5.mjs.map', 'dist/marked.mjs'];
+        const packed = ['dist/esm/dist/parse5.mjs', 'vendor/dist/parse5.mjs', 'dist/parse5.mjs.map', ...shippedExcept('parse5')];
 
         expect(findMissingEntries(packed).map(entry => entry.path)).toEqual(['dist/parse5.mjs'])
+    });
+
+    test('every shipped bundle has a required-entry row — the list cannot fall behind the build', () => {
+        // `build/esmodules.mjs` copies BROWSER_BUNDLES into the output tree, so the set is what the
+        // build BELIEVES it ships. This is the arm that makes the pack gate agree with it: a bundle
+        // added to the build and not here would pack, or not pack, with nothing observing either.
+        const covered = REQUIRED_ENTRIES.map(rule => rule.path);
+
+        expect(BROWSER_BUNDLES.map(name => `dist/${name}.mjs`).filter(entry => !covered.includes(entry))).toEqual([])
+    });
+
+    test('every shipped bundle is re-included in .npmignore — the one copy that cannot import', () => {
+        // `/dist/*` excludes the tree and a negation cannot re-include a file whose PARENT directory
+        // is excluded, so `!/dist/<name>.mjs` per file is the only shape that ships one. `.npmignore`
+        // is the sole gate on package contents and cannot import BROWSER_BUNDLES, which is precisely
+        // why the coupling is asserted here instead of trusted.
+        const ignore = fs.readFileSync(new URL('../../../../.npmignore', import.meta.url), 'utf8'),
+              lines  = ignore.split('\n').map(line => line.trim());
+
+        expect(BROWSER_BUNDLES.filter(name => !lines.includes(`!/dist/${name}.mjs`))).toEqual([])
     });
 
     test('every required entry carries a reason, because the failure message is the whole product', () => {
@@ -197,6 +230,6 @@ test.describe('check-package-contents — a required entry cannot be silently dr
 test('the marked producer cannot substitute for the shipped runtime bundle', async () => {
     const {findMissingEntries} = await import('../../../../buildScripts/util/check-package-contents.mjs');
 
-    expect(findMissingEntries(['dist/parse5.mjs', 'buildScripts/build/marked.mjs']).map(entry => entry.path))
+    expect(findMissingEntries([...shippedExcept('marked'), 'buildScripts/build/marked.mjs']).map(entry => entry.path))
         .toEqual(['dist/marked.mjs'])
 });

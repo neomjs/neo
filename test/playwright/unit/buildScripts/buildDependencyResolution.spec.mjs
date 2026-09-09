@@ -1,9 +1,10 @@
-import {spawnSync}     from 'node:child_process';
-import fs              from 'fs-extra';
-import os              from 'node:os';
-import path            from 'node:path';
-import {pathToFileURL} from 'node:url';
-import {test, expect}  from '@playwright/test';
+import {spawnSync}       from 'node:child_process';
+import fs                from 'fs-extra';
+import os                from 'node:os';
+import path              from 'node:path';
+import {pathToFileURL}   from 'node:url';
+import {test, expect}    from '@playwright/test';
+import {BROWSER_BUNDLES} from '../../../../buildScripts/util/browserBundles.mjs';
 
 const engineRoot = path.resolve(import.meta.dirname, '../../../..');
 
@@ -19,12 +20,15 @@ test.describe('build programs resolve dependencies from their own module', () =>
         fs.copySync(path.join(import.meta.dirname, 'fixtures/neoAppPackage.json'), path.join(workspace, 'package.json'));
         fs.outputJsonSync(path.join(installedEngine, 'package.json'), {name: 'neo.mjs', type: 'module'});
 
-        for (const name of ['chalk', 'commander', 'envinfo', 'fs-extra', 'inquirer', 'esbuild', 'parse5', 'marked']) {
+        // The bundles' own packages come from BROWSER_BUNDLES: a producer resolves its entry point
+        // from the consumer's cwd, so the package has to be reachable there or the build cannot run.
+        for (const name of ['chalk', 'commander', 'envinfo', 'fs-extra', 'inquirer', 'esbuild', ...BROWSER_BUNDLES]) {
             fs.ensureDirSync(path.join(root, 'node_modules'));
             fs.symlinkSync(path.join(engineRoot, 'node_modules', name), path.join(root, 'node_modules', name), 'junction')
         }
 
-        for (const file of ['webpack/buildThreads.mjs', 'util/sanitizer.mjs', 'build/parse5.mjs', 'build/marked.mjs']) {
+        for (const file of ['webpack/buildThreads.mjs', 'util/sanitizer.mjs',
+                ...BROWSER_BUNDLES.map(name => `build/${name}.mjs`)]) {
             fs.copySync(path.join(engineRoot, 'buildScripts', file), path.join(installedEngine, 'buildScripts', file))
         }
     });
@@ -128,8 +132,8 @@ test.describe('build programs resolve dependencies from their own module', () =>
         expect(result.calls[0].slice(-2)).toEqual(['--env', 'insideNeo=true'])
     });
 
-    test('both browser bundles are generated from an unrelated cwd and execute without node_modules', async () => {
-        for (const name of ['parse5', 'marked']) {
+    test('every browser bundle is generated from an unrelated cwd and executes without node_modules', async () => {
+        for (const name of BROWSER_BUNDLES) {
             const result = spawnSync(process.execPath, [path.join(installedEngine, `buildScripts/build/${name}.mjs`)], {
                 cwd: workspace, encoding: 'utf8'
             });
@@ -147,5 +151,31 @@ test.describe('build programs resolve dependencies from their own module', () =>
         expect(marked.marked.parse('**portable**')).toBe('<p><strong>portable</strong></p>\n');
         expect(parse5.parseFragment('<b>portable</b>').childNodes[0].tagName).toBe('b');
         expect(fs.readFileSync(path.join(output, 'marked.mjs'), 'utf8')).toContain('Permission is hereby granted')
+    })
+});
+
+test.describe('the shipped browser bundles stay reachable from the entry points CI runs', () => {
+    // These two arms exist because `package.json` and a workflow YAML cannot import
+    // `buildScripts/util/browserBundles.mjs`, and both are load-bearing in a way that fails LATE.
+    // `bundle-browser-deps` is what four workflows run before packing or serving, so a bundle
+    // missing from it is absent in CI only — the pack gate reds on a file the build never made, and
+    // the portal serves diagrams that cannot render, on a tier whose mermaid arm is excluded.
+    const packageJson = fs.readJsonSync(new URL('../../../../package.json', import.meta.url));
+
+    test('each one has a bundle-<name> script, and the aggregate delegates to every one of them', () => {
+        const aggregate = packageJson.scripts['bundle-browser-deps'];
+
+        expect(BROWSER_BUNDLES.filter(name => !packageJson.scripts[`bundle-${name}`])).toEqual([]);
+        expect(BROWSER_BUNDLES.filter(name => !aggregate.includes(`bundle-${name}`))).toEqual([])
+    });
+
+    test('the scope classifier names every delegated child, or an edit to one stops admitting the tier', () => {
+        // The classifier keys on script NAMES: `bundle-browser-deps` can keep its own text while
+        // what it delegates to changes, which is the case its comment calls out and this closes.
+        const workflow = fs.readFileSync(new URL('../../../../.github/workflows/classify-test-scope.yml', import.meta.url), 'utf8'),
+              keys     = workflow.match(/e2eScriptKeys\s*=\s*\[([^\]]*)\]/)?.[1] ?? '';
+
+        expect(keys, 'e2eScriptKeys must be findable — the arm is void if the shape moved').toBeTruthy();
+        expect(BROWSER_BUNDLES.filter(name => !keys.includes(`'bundle-${name}'`))).toEqual([])
     })
 });

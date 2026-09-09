@@ -33,18 +33,26 @@ class Mermaid extends Base {
             'render'
         ],
         /**
-         * The ESM build, imported as a module — NOT the UMD bundle.
+         * OUR build of mermaid, not the published one.
          *
-         * `mermaid.min.js` is UMD: it looks for `define.amd` first and registers anonymously when it
-         * finds one. `main.addon.MonacoEditor` installs Monaco's AMD loader on the same page, so in
-         * any app using both — the portal being the one that matters — mermaid's own `define` call
-         * lands in that loader and throws `Can only have one anonymous define call per script file`.
-         * The library then never attaches to `window` and every diagram fails with
-         * `mermaid is not defined`. An ESM import has no `define` to find.
-         * @member {String} mermaidPath=Neo.config.basePath+'node_modules/mermaid/dist/mermaid.esm.min.mjs'
+         * `main.addon.MonacoEditor` installs Monaco's AMD loader and the portal preloads that addon,
+         * so a global `define` is live on every route. Mermaid's published chunks carry vendored UMD
+         * wrappers — `fastdom` among them — which hand that loader an ANONYMOUS factory and get
+         * refused with `Can only have one anonymous define call per script file`.
+         *
+         * Switching the entry from the UMD bundle to the published ESM one removed the registration
+         * at LOAD time and left it at first RENDER, because the 30 KB entry lazily imports 206
+         * chunks and ten of them still register. `buildScripts/build/mermaid.mjs` rebuilds the
+         * package with esbuild, substituting the `define` identifier across the whole module graph,
+         * and refuses to emit an artifact that still carries one.
+         *
+         * Pointing at `dist/` rather than `node_modules/` is also what makes the library reachable
+         * in a deployed build, where `node_modules` is not part of the tree. Same shape as
+         * `util.HighlightJs#load` consuming `dist/highlight/`.
+         * @member {String} mermaidPath=Neo.config.basePath+'dist/mermaid.mjs'
          * @protected
          */
-        mermaidPath: Neo.config.basePath + 'node_modules/mermaid/dist/mermaid.esm.min.mjs',
+        mermaidPath: Neo.config.basePath + 'dist/mermaid.mjs',
         /**
          * Remote method access for other workers
          * @member {Object} remote
