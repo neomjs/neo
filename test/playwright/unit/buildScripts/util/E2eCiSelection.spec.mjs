@@ -1,4 +1,6 @@
 import {test, expect}                     from '@playwright/test';
+import fs                                 from 'node:fs';
+import os                                 from 'node:os';
 import path                               from 'node:path';
 import {EXCLUSIONS, populations, summary} from '../../../../../buildScripts/util/e2eCiSelection.mjs';
 
@@ -49,6 +51,67 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
 
         // Pins the relationship `assertSelectionFloor` also depends on, so the two cannot drift.
         expect(executed).toBe(brainFree - gpu - EXCLUSIONS.length);
+    });
+
+    /**
+     * Builds a minimal tree `populations()` can walk: every `RUN_PATHS` directory populated, plus the
+     * `workstation` directory the GPU count reads. Returns the root and a helper that adds one more
+     * engine-only spec anywhere beneath `e2e`.
+     * @returns {Object} `{root, addSpec}`
+     */
+    const makeSelectionTree = () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-populations-')),
+              e2e  = path.join(root, 'test/playwright/e2e'),
+              add  = relative => {
+                  const file = path.join(e2e, relative);
+
+                  fs.mkdirSync(path.dirname(file), {recursive: true});
+                  // The body must not name the Brain fixture. The selector greps file CONTENTS, so
+                  // a descriptive string saying which fixture is absent marks the file as needing
+                  // it — this fixture first read `no neuralLink fixture` and every spec in it was
+                  // deselected, giving an executed count of zero.
+                  fs.writeFileSync(file, 'engine only')
+              };
+
+        fs.mkdirSync(path.join(e2e, 'workstation'), {recursive: true});
+
+        add('colors/A.spec.mjs');
+        add('core/B.spec.mjs');
+        add('dashboard/C.spec.mjs');
+        add('grid/D.spec.mjs');
+        add('rendering/InputModalityMultiWindow.spec.mjs');
+        add('rendering/ViewTransitionReveal.spec.mjs');
+
+        return {root, addSpec: add}
+    };
+
+    test('a NEW exclusion class moves the published complement, on a controlled tree', () => {
+        // The discriminator that does not depend on the real tree's current contents. A spec placed
+        // outside `RUN_PATHS` is an exclusion by construction — the same shape as a future class
+        // nobody has invented yet — so this exercises the property directly rather than through
+        // whichever classes happen to exist today.
+        //
+        // A summing implementation would enumerate the classes it knows and miss this one, leaving
+        // the complement stale while the header moved. The subtraction cannot: both operands change
+        // together, and the reporter prose is untouched.
+        const {root, addSpec} = makeSelectionTree(),
+              stated          = text => Number(text.match(/while the (\d+) excluded files appear nowhere/)?.[1]),
+              before          = populations(root),
+              beforeStated    = stated(summary(root));
+
+        expect(before.executed, 'the fixture selects every RUN_PATHS spec').toBe(6);
+        expect(beforeStated,    'and reports their complement').toBe(before.total - before.executed);
+
+        addSpec('portal/Outside.spec.mjs');
+
+        const after = populations(root), afterStated = stated(summary(root));
+
+        expect(after.total - before.total,       'the new spec joins the total').toBe(1);
+        expect(after.executed,                   'and is NOT selected — it is outside RUN_PATHS').toBe(before.executed);
+        expect(afterStated - beforeStated,       'so the published complement must move with it').toBe(1);
+        expect(afterStated,                      'and still equal the header\'s complement').toBe(after.total - after.executed);
+
+        fs.rmSync(root, {recursive: true, force: true})
     });
 
     test('a class beyond the first two is what a named sum drops — discriminating only when one exists', () => {
