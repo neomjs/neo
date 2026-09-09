@@ -103,6 +103,7 @@ const PRIORITIES = new Map([
     ['guides/uibuildingblocks/Layouts'                , 0.8],
     ['guides/uibuildingblocks/DockLayouts'            , 0.8],
     ['guides/uibuildingblocks/DockLayoutsAdoption'    , 0.8],
+    ['guides/uibuildingblocks/DockLayoutsPanes'       , 0.8],
     ['guides/datahandling/Grids'                      , 0.8],
     ['guides/userinteraction/Forms'                   , 0.8],
 
