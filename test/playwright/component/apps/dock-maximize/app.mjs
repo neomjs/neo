@@ -474,6 +474,22 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
     settleJson = null
 
     /**
+     * How many {@link #refreshCount}-triggered refreshes have started and not yet settled.
+     * Distinguishes "no receipt was published" from "the refresh is stuck" — the two states a
+     * hanging settle probe cannot tell apart.
+     * @member {Number} refreshInFlight=0
+     */
+    refreshInFlight = 0
+
+    /**
+     * Whether the last {@link #settleProbeCount} bump gave up on {@link #refreshPromise} rather
+     * than observing it settle. Beside {@link #settleJson}, never inside it — that shape is
+     * asserted with `toEqual`.
+     * @member {Boolean} settleTimedOut=false
+     */
+    settleTimedOut = false
+
+    /**
      * Resolver for the held maximize clear.
      * @member {Function|null} maximizeClearRelease=null
      */
@@ -623,7 +639,20 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
             return
         }
 
-        await this.refreshPromise;
+        // A bare `await this.refreshPromise` makes the probe itself hang when the refresh does not
+        // settle, and the spec then reports `refreshSettledWithin2s=false` — a statement about THIS
+        // method stalling, not about the refresh. Racing a bounded timeout makes the snapshot always
+        // publish, and records WHY on `settleTimedOut` rather than leaving the caller to infer it
+        // from the probe's silence.
+        //
+        // The flags live beside `settleJson`, never inside it: its shape is asserted with `toEqual`
+        // by the re-projection arm, so a diagnostic key added there is a contract break.
+        this.settleTimedOut = false;
+
+        await Promise.race([
+            Promise.resolve(this.refreshPromise).then(() => {}, () => {}),
+            this.timeout(1500).then(() => {this.settleTimedOut = true})
+        ]);
 
         const plugin = this.getPlugin('dock-maximize');
 
@@ -728,8 +757,15 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
             return
         }
 
-        // Fire-and-forget: the continuity arm polls the DOM outcome.
-        this.refreshDockWorkspace()
+        // The receipt must be published: `afterSetSettleProbeCount` awaits `refreshPromise`,
+        // which only `projectDockZoneDocument` assigns — and this direct call bypasses it, so
+        // the probe used to await a stale-or-null promise and snapshot an unsettled surface.
+        // Publishing it does NOT change the arm's failure rate (measured 5/24 either way); it
+        // makes the probe observe the refresh it is meant to observe.
+        this.refreshInFlight++;
+
+        this.refreshPromise = this.refreshDockWorkspace()
+            .finally(() => {this.refreshInFlight--})
     }
 
     /**

@@ -112,9 +112,13 @@ const expectIdCleared = async page => {
                 refreshSettled = false
             }
 
-            const [nodeId, resizeObserved] = await readPlugin(page, ['maximizedNodeId', 'resizeObserved']);
+            const [nodeId, resizeObserved]   = await readPlugin(page, ['maximizedNodeId', 'resizeObserved']),
+                  [inFlight, settleTimedOut] = await readWorkspace(page, ['refreshInFlight', 'settleTimedOut']);
 
-            diagnosis = `maximizedNodeId=${JSON.stringify(nodeId)} resizeObserved=${resizeObserved} refreshSettledWithin2s=${refreshSettled}`
+            // `refreshSettledWithin2s` only reports whether the PROBE published, which it now
+            // always does — the settlement answer is `settleTimedOut`, and `inFlight` separates
+            // "no receipt was published" from "a refresh is still running".
+            diagnosis = `maximizedNodeId=${JSON.stringify(nodeId)} resizeObserved=${resizeObserved} refreshSettledWithin2s=${refreshSettled} settleTimedOut=${settleTimedOut} refreshInFlight=${inFlight}`
         } catch (readError) {
             diagnosis = `<unreadable: ${readError.message}>`
         }
