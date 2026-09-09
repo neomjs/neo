@@ -54,7 +54,19 @@ test.describe('examples/dashboard/dock — maximize keeps the perspective toolba
         await maximize.click();
 
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(1);
-        await page.waitForFunction(() => !document.querySelector('.neo-dock-maximized')?.style.transform);
+
+        // A cleared inline transform is not a settled FLIP, and reading geometry there is the
+        // whole failure mode this arm guards. While a maximize play exposed its committed rect
+        // before installing the inverse, the inline transform was empty for that entire window,
+        // so this resolved mid-exposure and measured the destination by accident. With the
+        // invert installed in time it resolves at RELEASE instead — the node still gliding — and
+        // the read lands one gap short. The running transition is the authority: it exists for
+        // exactly as long as the motion does.
+        await page.waitForFunction(() => {
+            const el = document.querySelector('.neo-dock-maximized');
+
+            return el && !el.style.transform && el.getAnimations().length === 0
+        }, undefined, {timeout: 15000});
 
         const geometry = await page.evaluate(readGeometry);
 
