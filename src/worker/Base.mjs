@@ -114,6 +114,20 @@ class Worker extends Base {
     }
 
     /**
+     * @summary Whether a mirrored error could reach a page at all, independent of any one call.
+     *
+     * Split out so {@link #interceptConsole} can decline BEFORE serializing: the string is discarded
+     * in dedicated mode and in every shipped environment, and five workers now pay for it where one
+     * used to. The latch stays inside {@link #forwardErrorToMainThread}, being per-call rather than
+     * per-configuration.
+     * @returns {Boolean}
+     * @protected
+     */
+    canMirrorErrors() {
+        return this.isSharedWorker && this.constructor.mirrorEnvironments.includes(Neo.config.environment)
+    }
+
+    /**
      * @summary Renders console arguments into one string, Errors as message plus stack.
      * @param {Array} args
      * @returns {String}
@@ -161,7 +175,7 @@ class Worker extends Base {
         // Re-entry is guarded rather than merely unlikely: a failed forward must never log, and the
         // send path is free to warn — an unrouted `main` destination warns about its own
         // deprecation, and that warning would arrive back through the interceptor that called us.
-        if (!me.isSharedWorker || me.isForwardingError || !me.constructor.mirrorEnvironments.includes(Neo.config.environment)) {
+        if (me.isForwardingError || !me.canMirrorErrors()) {
             return
         }
 
@@ -213,8 +227,11 @@ class Worker extends Base {
                 original.apply(console, args);
 
                 // Use the Client singleton if available (lazy check)
-                const client = Neo.ai?.Client,
-                      mirror = type === 'error';
+                const client  = Neo.ai?.Client,
+                      isError = type === 'error',
+                      // Not merely "is an error" — "will actually be mirrored", so a configuration
+                      // that can never use the string does not build it.
+                      mirror  = isError && me.canMirrorErrors();
 
                 // The mirror is deliberately independent of the client: an error must reach the
                 // main thread whether or not a Brain runtime is attached.
@@ -238,7 +255,7 @@ class Worker extends Base {
                             type,
                             message,
                             timestamp: Date.now(),
-                            stack    : mirror ? new Error().stack : undefined
+                            stack    : isError ? new Error().stack : undefined
                         };
 
                         if (client.isConnected) {

@@ -68,4 +68,35 @@ test.describe('SharedWorker error mirror — beyond the App worker', () => {
         expect(mirrored.some(line => line.startsWith('Data Worker: ')),
             `the mirrored line names the worker that raised it — got ${JSON.stringify(mirrored)}`).toBe(true)
     })
+
+    test('Main.log refuses an inherited console name by falling back, never by writing nothing', async ({page}) => {
+        // `typeof console[method] === 'function'` is satisfied by `constructor`, `toString`,
+        // `valueOf` and `hasOwnProperty` — inherited, callable, and writing nothing. A worker naming
+        // one would have produced no output and no error: the silent drop this whole channel exists
+        // to remove. Asserted here rather than in the unit tier, which cannot host `Main` — it
+        // registers `Neo.main.DomAccess` and collides under `unitTestMode`.
+        const seen = [];
+
+        page.on('console', message => message.text().startsWith('mainlog-') && seen.push(`${message.type()}:${message.text()}`));
+
+        await page.goto(APP);
+        await page.waitForFunction(() => globalThis.Neo?.Main?.log, null, {timeout: 30000});
+
+        await page.evaluate(() => {
+            Neo.Main.log({method: 'error',       value: 'mainlog-allowlisted'});
+            Neo.Main.log({method: 'toString',    value: 'mainlog-inherited'});
+            Neo.Main.log({method: 'constructor', value: 'mainlog-inherited2'});
+            Neo.Main.log({method: 'nope',        value: 'mainlog-unknown'})
+        });
+
+        await expect.poll(() => seen.length, {message: 'all four calls must produce a line', timeout: 5000}).toBe(4);
+
+        expect(seen, 'the allowlisted level dispatches to itself; everything else falls back to log')
+            .toEqual([
+                'error:mainlog-allowlisted',
+                'log:mainlog-inherited',
+                'log:mainlog-inherited2',
+                'log:mainlog-unknown'
+            ])
+    })
 });

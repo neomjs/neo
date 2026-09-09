@@ -27,6 +27,7 @@ const mirrorWith = ({environment, isSharedWorker = true, className = 'Neo.worker
               isSharedWorker,
               ports                   : [{windowId: 'window-1'}, {windowId: 'window-2'}],
               constructor             : {mirrorEnvironments: WorkerBase.mirrorEnvironments},
+              canMirrorErrors         : WorkerBase.prototype.canMirrorErrors,
               forwardErrorToMainThread: WorkerBase.prototype.forwardErrorToMainThread
           },
           originalMain = Neo.Main;
@@ -77,6 +78,7 @@ test.describe('Neo.worker.Base#forwardErrorToMainThread — the four gates', () 
         const host = {
             className               : 'Neo.worker.Data', isForwardingError: false, isSharedWorker: true,
             ports                   : [{windowId: 'w'}], constructor: {mirrorEnvironments: WorkerBase.mirrorEnvironments},
+            canMirrorErrors         : WorkerBase.prototype.canMirrorErrors,
             forwardErrorToMainThread: WorkerBase.prototype.forwardErrorToMainThread
         };
         const seen = [], originalMain = Neo.Main, originalEnv = Neo.config.environment;
@@ -98,6 +100,7 @@ test.describe('Neo.worker.Base#forwardErrorToMainThread — the four gates', () 
         const host = {
             className               : 'Neo.worker.Data', isForwardingError: true, isSharedWorker: true,
             ports                   : [{windowId: 'w'}], constructor: {mirrorEnvironments: WorkerBase.mirrorEnvironments},
+            canMirrorErrors         : WorkerBase.prototype.canMirrorErrors,
             forwardErrorToMainThread: WorkerBase.prototype.forwardErrorToMainThread
         };
         const seen = [], originalMain = Neo.Main, originalEnv = Neo.config.environment;
@@ -120,5 +123,27 @@ test.describe('Neo.worker.Base#forwardErrorToMainThread — the four gates', () 
             Neo.config.environment = originalEnv;
             originalMain === undefined ? delete Neo.Main : Neo.Main = originalMain
         }
+    })
+});
+
+/**
+ * @summary The two gates that changed after review, both of which failed toward silence.
+ */
+test.describe('Neo.worker.Base — the gates that must not fail silently', () => {
+    test('canMirrorErrors decides per configuration, and the latch stays per call', () => {
+        const host = (isSharedWorker, environment) => {
+            const original = Neo.config.environment;
+            Neo.config.environment = environment;
+            try {
+                return WorkerBase.prototype.canMirrorErrors.call({
+                    isSharedWorker, constructor: {mirrorEnvironments: WorkerBase.mirrorEnvironments}
+                })
+            } finally { Neo.config.environment = original }
+        };
+
+        expect(host(true,  'development'),      'shared + allowlisted mirrors').toBe(true);
+        expect(host(false, 'development'),      'dedicated never mirrors').toBe(false);
+        expect(host(true,  'dist/production'),  'shipped never mirrors').toBe(false);
+        expect(host(true,  'dist/esm'),         'including the one a denylist let through').toBe(false)
     })
 });
