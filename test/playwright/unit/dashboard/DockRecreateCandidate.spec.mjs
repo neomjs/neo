@@ -46,7 +46,7 @@ import '../../../../src/toolbar/Base.mjs';
 const buildWorkspace = (config = {}) => Neo.create(DockWorkspace, {
     appName  : 'DashboardDockRecreateCandidateTest',
     dockModel: {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {editor: {reference: 'editor', title: 'Editor'}},
         nodes : {root: {type: 'tabs', items: ['editor'], activeItemId: 'editor'}}
@@ -649,7 +649,7 @@ test.describe('dock recreate — a refresh after recreate resolves the candidate
         const
             workspace = buildWorkspace(),
             model     = {
-                schema: 'neo.dock.zone.v1',
+                schema: 'neo.dock.zone.v2',
                 root  : 'root-tabs',
                 items : {alpha: {reference: 'alpha', kind: 'panel', title: 'Alpha'}},
                 nodes : {'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'}}

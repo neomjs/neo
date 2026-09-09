@@ -103,7 +103,7 @@ class HeaderStateWorkspace extends DockWorkspace {
 HeaderStateWorkspace = Neo.setupClass(HeaderStateWorkspace);
 
 const createDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},

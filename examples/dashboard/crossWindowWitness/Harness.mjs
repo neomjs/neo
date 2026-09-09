@@ -84,12 +84,12 @@ class Harness extends Viewport {
             DockTabSortZone = (await import('../../../src/dashboard/dock/interaction/TabSortZone.mjs')).default;
 
         const sourceDoc = () => ({
-            schema: 'neo.dock.zone.v1', root: 'root',
+            schema: 'neo.dock.zone.v2', root: 'root',
             items : {strategy: {title: 'Strategy', kind: 'panel'}, terminal: {title: 'Terminal', kind: 'terminal'}},
             nodes : {root: {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}}, 'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'}, 'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
         });
         const targetDoc = () => ({
-            schema: 'neo.dock.zone.v1', root: 'root',
+            schema: 'neo.dock.zone.v2', root: 'root',
             items : {alpha: {title: 'Alpha', kind: 'panel'}},
             nodes : {root: {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}}, 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}}
         });

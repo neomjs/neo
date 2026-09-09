@@ -46,7 +46,7 @@ flowchart TD
     classDef inter fill:#2d1b4e,stroke:#9b59b6,stroke-width:1px,color:#eee
     classDef cross fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
 
-    Document["The committed document<br/>neo.dock.zone.v1 — persisted JSON tree<br/>owned by ONE workspace container"]:::doc
+    Document["The committed document<br/>neo.dock.zone.v2 — persisted JSON tree<br/>owned by ONE workspace container"]:::doc
     Model["Neo.dashboard.dock.model.Operations<br/>the pure semantic reducer"]:::doc
     Adapter["projection.LayoutAdapter.project()<br/>document → ordinary Neo configs"]:::proj
     Reconciler["projection.Reconciler<br/>hands LIVE components across projections"]:::proj
@@ -68,7 +68,7 @@ flowchart TD
     Vessels --> Descriptors
 ```
 
-Read the loop clockwise. The **document** is a serializable JSON tree (`neo.dock.zone.v1`): edge zones, nested
+Read the loop clockwise. The **document** is a serializable JSON tree (`neo.dock.zone.v2`): edge zones, nested
 splits, tabbed slots, an item catalog. The **model** is a pure executor — `applyOperation(descriptor)` in, new
 normalized document out, invariants guaranteed. The **adapter** projects the committed document into ordinary engine
 configs — `hbox`/`vbox` splits, tab containers, splitter affordances; it invents no layout engine of its own. The
@@ -221,7 +221,7 @@ greenfield cut ([ADR 0029 §2.9 amendment](../../agentos/decisions/0029-docking-
 pre-release history shipped no compatibility obligation, so the cut is total: readers fail closed on any
 other family, and no migration reader, alias, or dual parser exists.
 
-- **Persisted** — `neo.dock.zone.v1`, `neo.dock.layout.v1`, `neo.dock.layoutCollection.v1`,
+- **Persisted** — `neo.dock.zone.v2`, `neo.dock.layout.v1`, `neo.dock.layoutCollection.v1`,
   `neo.dock.topology.v1`, `neo.dock.topologyCollection.v1`. A layout always carries one Workspace and fixed
   `captureScope: 'window'`; a topology carries `{workspaceKey: WorkspaceDocument}` records plus relative hints.
 - **Embedded fingerprint evidence** — `neo.dock.shape.v1` for one Workspace and the key-sorted

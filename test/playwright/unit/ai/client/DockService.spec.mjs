@@ -11,7 +11,7 @@ import Persistence          from '../../../../../src/dashboard/dock/model/Persis
  */
 function doc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -34,7 +34,7 @@ function doc() {
  */
 function doc2() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},

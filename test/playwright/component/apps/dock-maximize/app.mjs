@@ -161,7 +161,7 @@ class ThrowingReloadProbe extends Component {
 ThrowingReloadProbe = Neo.setupClass(ThrowingReloadProbe);
 
 const fixtureDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         alpha: {title: 'Alpha',  kind: 'panel'},

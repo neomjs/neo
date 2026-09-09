@@ -43,7 +43,7 @@ import Operations    from '../../../../src/dashboard/dock/model/Operations.mjs';
 function bareWorkspace(items = {panel: {}}) {
     const workspace = Neo.create(DockWorkspace, {});
 
-    workspace.dockModel = {schema: 'neo.dock.zone.v1', root: 'root', items, nodes: {}};
+    workspace.dockModel = {schema: 'neo.dock.zone.v2', root: 'root', items, nodes: {}};
 
     return workspace
 }
@@ -196,7 +196,7 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
         Neo.setupClass(CommitPathWorkspace);
 
         const base = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {alpha: {title: 'Alpha'}, beta: {title: 'Beta'}},
             nodes : {root: {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'}}

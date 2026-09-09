@@ -40,7 +40,7 @@ test.describe('Neo.dashboard.dock.persistence.TopologyLibrary', () => {
      */
     const topology = (layoutId, suffix = layoutId) => {
         const document = id => ({
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {[id]: {reference: id, title: id}},
             nodes : {root: {type: 'tabs', items: [id], activeItemId: id}}

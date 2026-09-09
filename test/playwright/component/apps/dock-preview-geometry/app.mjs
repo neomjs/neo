@@ -17,7 +17,7 @@ import '../../../../../src/tab/Container.mjs';
  * the Workstation and Demo-A give their host: object permanence across every re-projection.
  */
 const fixtureDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         main : {reference: 'main',  title: 'Main',  kind: 'panel'},

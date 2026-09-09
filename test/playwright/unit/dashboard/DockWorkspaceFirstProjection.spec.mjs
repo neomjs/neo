@@ -25,7 +25,7 @@ import '../../../../src/manager/Instance.mjs';
 import '../../../../src/tab/Container.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root-split',
     items : {
         editor  : {reference: 'Editor',   kind: 'panel',    title: 'Editor'},

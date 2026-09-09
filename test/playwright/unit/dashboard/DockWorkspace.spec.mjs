@@ -25,7 +25,7 @@ import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreat
 import VdomHelper               from '../../../../src/vdom/Helper.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         editor  : {reference: 'Editor',   title: 'Editor',   kind: 'panel'},
@@ -41,7 +41,7 @@ const createDocument = () => ({
 });
 
 const createEmptyDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {},
     nodes : {
@@ -51,7 +51,7 @@ const createEmptyDocument = () => ({
 });
 
 const createEdgeDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         center   : {reference: 'Center',    title: 'Center',    kind: 'panel'},

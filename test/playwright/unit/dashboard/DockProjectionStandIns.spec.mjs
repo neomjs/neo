@@ -28,7 +28,7 @@ import '../../../../src/tab/Container.mjs';
  * before and after so instance permanence is asserted rather than assumed.
  */
 const createDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         editor  : {reference: 'Editor',   title: 'Editor',   kind: 'panel'},

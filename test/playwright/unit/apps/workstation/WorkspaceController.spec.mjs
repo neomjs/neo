@@ -22,7 +22,7 @@ const deferred = () => {
 test.describe('Workstation topology save and close coordination', () => {
     test('topology capture uses live placement instead of the previously stored offsets', () => {
         const document = {
-            schema: 'neo.dock.zone.v1', root: 'tabs',
+            schema: 'neo.dock.zone.v2', root: 'tabs',
             items : {a: {reference: 'a'}},
             nodes : {tabs: {type: 'tabs', items: ['a'], activeItemId: 'a'}}
         },
@@ -85,7 +85,7 @@ test.describe('Workstation topology save and close coordination', () => {
               group    = Transaction.get(root.groupId),
               started  = deferred(), acknowledgement = deferred(),
               document = {
-                  schema: 'neo.dock.zone.v1', root: 'tabs',
+                  schema: 'neo.dock.zone.v2', root: 'tabs',
                   items : {a: {reference: 'a', title: 'before'}},
                   nodes : {tabs: {type: 'tabs', items: ['a'], activeItemId: 'a'}}
               },

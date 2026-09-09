@@ -28,7 +28,7 @@ import '../../../../src/vdom/Helper.mjs';
  */
 function createDocument() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},

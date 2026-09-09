@@ -13,7 +13,7 @@ import DockLayoutAdapter from '../../../../src/dashboard/dock/projection/LayoutA
 import DockSplitter      from '../../../../src/dashboard/dock/interaction/DockSplitter.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         left : {reference: 'left', title: 'Left'},
@@ -63,7 +63,7 @@ const createParent = () => ({
 });
 
 const createEdgeDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         center: {reference: 'center', title: 'Center'},

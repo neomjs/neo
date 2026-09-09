@@ -14,7 +14,7 @@ import DockTopologyReconciler from '../../../../src/dashboard/dock/model/Topolog
 import Persistence            from '../../../../src/dashboard/dock/model/Persistence.mjs';
 
 const tabsDoc = ids => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'r',
     items : Object.fromEntries(ids.map(id => [id, {reference: id, title: id}])),
     nodes : {

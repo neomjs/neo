@@ -11,7 +11,7 @@ const {NeuralLink_DockService} = await loadNeuralLinkModules();
  *
  *   capture_perspective (stored through the holder's library) → list_perspectives
  *   → execute_dock_operation (disruption) → restore_perspective
- *   (exact baseline `neo.dock.zone.v1` document through the library's fail-closed load
+ *   (exact baseline `neo.dock.zone.v2` document through the library's fail-closed load
  *    plus the workspace's document-commit seam)
  *
  * All assertions read worker truth, never the DOM. The baseline is read live, so the spec

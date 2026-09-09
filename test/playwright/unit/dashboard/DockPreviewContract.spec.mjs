@@ -44,7 +44,7 @@ test.describe('Neo.dashboard.dock.model.PreviewContract', () => {
             const {default: Preview} = await import('./src/dashboard/dock/interaction/Preview.mjs');
             const {default: Operations} = await import('./src/dashboard/dock/model/Operations.mjs');
             const document = {
-                schema: 'neo.dock.zone.v1', root: 'root',
+                schema: 'neo.dock.zone.v2', root: 'root',
                 items: {
                     strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
                     inspector: {reference: 'inspector', title: 'Inspector', kind: 'panel'}

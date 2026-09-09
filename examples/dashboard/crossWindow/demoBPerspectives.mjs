@@ -25,7 +25,7 @@
  * @type {Object}
  */
 export const initialDocument = Object.freeze({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         workbench: {title: 'Workbench', kind: 'panel'},

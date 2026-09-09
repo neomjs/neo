@@ -23,7 +23,7 @@ import '../../../../src/tab/Container.mjs';
  */
 function createDocument() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'main-tabs',
         items : {
             alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},
@@ -217,7 +217,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
 
     test('threads committed lock truth to a railed reveal pane without suppressing reveal', () => {
         const document = {
-                  schema: 'neo.dock.zone.v1',
+                  schema: 'neo.dock.zone.v2',
                   root  : 'root',
                   items : {
                       railed: {
@@ -500,7 +500,7 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
      */
     test('the rail callback delivers both transitions to a delegating reveal pane', () => {
         const document = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {
                 alpha : {reference: 'alpha',  title: 'Alpha',  kind: 'panel'},

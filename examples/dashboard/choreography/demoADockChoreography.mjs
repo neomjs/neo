@@ -54,7 +54,7 @@
  * @type {Object}
  */
 export const initialDocument = Object.freeze({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         editor  : {title: 'Editor',   kind: 'panel'},

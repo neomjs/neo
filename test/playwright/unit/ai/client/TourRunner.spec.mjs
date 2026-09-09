@@ -20,7 +20,7 @@ import {
  */
 function doc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},

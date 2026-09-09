@@ -33,7 +33,7 @@ import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDo
 /** Primary-window fixture. */
 function primaryDoc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -49,7 +49,7 @@ function primaryDoc() {
 /** Item-disjoint second-window fixture — the reconciler validates disjointness across windows. */
 function vesselDoc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {terminal: {reference: 'terminal', title: 'Terminal', kind: 'terminal'}},
         nodes : {

@@ -31,7 +31,7 @@ class Authoring extends Base {
     }
 
     /**
-     * @summary Lowers a pane catalog and one nested root into `neo.dock.zone.v1`.
+     * @summary Lowers a pane catalog and one nested root into `neo.dock.zone.v2`.
      *
      * A string or array abbreviates tabs. Objects discriminate by `items`, `children`, or
      * edge names; an explicit `type` supports all three node types, including an empty edge.

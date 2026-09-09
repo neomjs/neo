@@ -76,7 +76,7 @@ class HostReloadFixtureWorkspace extends DockWorkspace {
 HostReloadFixtureWorkspace = Neo.setupClass(HostReloadFixtureWorkspace);
 
 const hostFixtureDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'host-root',
     items : {
         'host-a': {reference: 'HostA', title: 'HostA', kind: 'panel'},

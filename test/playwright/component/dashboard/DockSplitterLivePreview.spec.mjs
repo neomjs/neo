@@ -15,7 +15,7 @@ import {test, expect} from '@playwright/test';
 let containerId;
 
 const DOC = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'split-1',
     items : {
         alpha: {reference: 'alpha', title: 'Alpha'},
@@ -197,7 +197,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — live pair preview
         // reads as "snaps back on drop". The edge descriptor's minSize floor keeps the preview
         // out of the refusal domain: the band clamps at 1px and that frame COMMITS.
         const edgeDoc = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {
                 center: {reference: 'center', title: 'Center'},

@@ -17,7 +17,7 @@ import RevealStateMachine from '../../../../src/dashboard/dock/interaction/Revea
 import Panel              from '../../../../src/dashboard/Panel.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         editor  : {reference: 'editor', title: 'Editor'},

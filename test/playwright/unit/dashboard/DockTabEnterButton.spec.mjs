@@ -15,7 +15,7 @@ import Operations         from '../../../../src/dashboard/dock/model/Operations.
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 
 const createModel = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         strategy: {reference: 'Strategy', title: 'Strategy'},

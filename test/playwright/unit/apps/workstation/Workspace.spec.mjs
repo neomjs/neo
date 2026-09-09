@@ -2014,7 +2014,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             // A popup whose document is NOT shell-shaped still docks — at its own root, through the
             // inherited arrangement boundary — instead of refusing every root chip.
             popup.dockModel = {
-                schema: 'neo.dock.zone.v1', root: 'plain-tabs',
+                schema: 'neo.dock.zone.v2', root: 'plain-tabs',
                 items : {solo: {reference: 'solo', title: 'Solo', kind: 'pane'}},
                 nodes : {'plain-tabs': {type: 'tabs', items: ['solo'], activeItemId: 'solo'}}
             };

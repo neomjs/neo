@@ -14,7 +14,7 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
     let WorkspaceDocument, Persistence, PerspectiveLibrary, store;
 
     const doc = ids => ({
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'r',
         items : Object.fromEntries(ids.map(id => [id, {reference: id, title: id}])),
         nodes : {r: {type: 'tabs', items: [...ids], activeItemId: ids[0]}}

@@ -20,7 +20,7 @@ const EDGES = ['top', 'right', 'bottom', 'left', 'center'];
  * @type {Object}
  */
 const example = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         strategy : {reference: 'Strategy',  title: 'Strategy',  kind: 'panel'},

@@ -25,7 +25,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
     let Container, DockSplitter, LayoutAdapter, container, splitter;
 
     const DOC = () => ({
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'split-1',
         items : {
             alpha: {reference: 'alpha', title: 'Alpha'},

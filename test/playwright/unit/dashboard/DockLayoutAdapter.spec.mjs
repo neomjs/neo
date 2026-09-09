@@ -30,7 +30,7 @@ class MountableMenuList extends Neo.core.Base {
 MountableMenuList = Neo.setupClass(MountableMenuList);
 
 const createModel = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         strategy: {
@@ -86,7 +86,7 @@ const createModel = () => ({
 });
 
 const createEdgeZoneModel = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         strategy: {
@@ -151,7 +151,7 @@ const getProjectedChildren = splitConfig => splitConfig.items.filter(item => ite
  * @returns {Object}
  */
 const createTabsBandModel = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},

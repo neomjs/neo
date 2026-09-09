@@ -4,7 +4,7 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 const fixtureDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         alpha    : {reference: 'alpha',     title: 'Alpha',     kind: 'panel'},

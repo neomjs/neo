@@ -17,7 +17,7 @@ import '../../../../../src/tab/Container.mjs';
  * arrival can be read from inside the frame the drag was aimed at.
  */
 const fixtureDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         source: {reference: 'source', title: 'Source', kind: 'panel'},

@@ -25,7 +25,7 @@ class ContractPane extends Component {
 ContractPane = Neo.setupClass(ContractPane);
 
 const staticDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'static-root',
     items : {
         bare    : {reference: 'Bare',     title: 'Bare',     kind: 'panel'},

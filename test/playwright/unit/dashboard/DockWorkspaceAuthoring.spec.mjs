@@ -100,7 +100,7 @@ test.describe('Workspace initial pane declarations', () => {
             [{zones: {center: 'missing'}}, 'unknown pane "missing"'],
             [{panes: {editor: {id: 'shared-pane'}, second: {id: 'shared-pane'}}}, 'panes.second.id: already in use'],
             [{dockModel: {}}, 'dockModel:'],
-            [{dockModel: {schema: 'neo.dock.zone.v1', items: {}, nodes: null, root: 'root'}}, 'dockModel:']
+            [{dockModel: {schema: 'neo.dock.zone.v2', items: {}, nodes: null, root: 'root'}}, 'dockModel:']
         ]) {
             const id = Neo.getId('invalid-dock-authoring');
             try {

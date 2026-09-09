@@ -38,7 +38,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
      * @returns {Object}
      */
     const makeDocument = () => ({
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'split-main',
         items : {
             alpha: {reference: 'ref-alpha', title: 'Alpha', kind: 'pane'},
@@ -209,7 +209,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
               };
 
         rig.owner.dockModel = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : rig.owner.dockModel.items,
             nodes : {
@@ -257,7 +257,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
               };
 
         rig.owner.dockModel = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : rig.owner.dockModel.items,
             nodes : {
@@ -334,7 +334,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         // third left pane keeps either drag from emptying its source, since a node the drag empties
         // collapses away and would move the tree for a reason unrelated to corners.
         rig.owner.dockModel = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {
                 ...rig.owner.dockModel.items,
@@ -400,7 +400,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
               };
 
         rig.owner.dockModel = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'shell',
             items : {alpha: rig.owner.dockModel.items.alpha},
             nodes : {
@@ -458,7 +458,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
               };
 
         rig.owner.dockModel = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : rig.owner.dockModel.items,
             nodes : {

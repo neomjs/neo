@@ -227,7 +227,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 ยง2.3 โ€
 
         // a minimal dockZone.v1 doc: a vertical split of two single-tab zones
         const doc = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {a: {reference: 'A', title: 'A', kind: 'panel'}, b: {reference: 'B', title: 'B', kind: 'panel'}},
             nodes : {

@@ -4,7 +4,7 @@ import Viewport          from '../../../../../src/container/Viewport.mjs';
 import '../../../../../src/tab/Container.mjs';
 
 const bootstrapDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {},
     nodes : {
@@ -14,7 +14,7 @@ const bootstrapDocument = {
 };
 
 const realDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         strategy : {reference: 'Strategy',  title: 'Strategy',  kind: 'panel'},

@@ -24,10 +24,26 @@ class WorkspaceDocument extends Base {
 
     /**
      * The persisted dock-zone document schema this executor operates on.
-     * @member {String} SCHEMA='neo.dock.zone.v1'
+     *
+     * The tag moves whenever {@link #dockZoneItemKeys} or {@link #dockZoneDocumentKeys} changes,
+     * because the allowlist REJECTS rather than drops: a document written against an older field
+     * set cannot satisfy today's, so leaving the tag still declares a shape it can no longer meet.
+     * `neo.dock.topologyShape.v2` is the sibling precedent — enforced on read at
+     * `Persistence#validateTopology`. There is no migration reader by policy; the tag exists so the
+     * break is legible, not so it can be repaired.
+     * @member {String} SCHEMA='neo.dock.zone.v2'
      * @static
      */
-    static SCHEMA = 'neo.dock.zone.v1'
+    static SCHEMA = 'neo.dock.zone.v2'
+
+    /**
+     * Tags this build knows about and refuses. A document carrying one is OLD, which is a recognised
+     * outcome with a name; anything else unrecognised is malformed. Keeping the two apart is the
+     * whole point — see {@link #validate}.
+     * @member {Set<String>} RETIRED_SCHEMAS
+     * @static
+     */
+    static RETIRED_SCHEMAS = new Set(['neo.dock.zone.v1'])
 
     /**
      * Top-level fields allowed in a persisted dock-zone document.
@@ -366,6 +382,21 @@ class WorkspaceDocument extends Base {
     static findUnexpectedDockZoneKey(document, path='dockZone') {
         if (!WorkspaceDocument.isJsonRecord(document)) {
             return null
+        }
+
+        // A retired tag answers first and answers alone. Every field below was valid against the
+        // schema this document declares, so listing them as "unexpected" describes today's allowlist
+        // rather than the document, and buries the one fact a caller can act on.
+        //
+        // Reported, never null: `Persistence#validatePerspectiveRecord` reaches this scan WITHOUT a
+        // companion `validate()` call, so returning null here would let an older document through in
+        // silence on that one path. A recognised refusal keeps every entry point loud.
+        if (WorkspaceDocument.RETIRED_SCHEMAS.has(document.schema)) {
+            return {
+                key   : 'schema',
+                path  : `${path}.schema`,
+                reason: `retired schema ${document.schema}; this build reads ${WorkspaceDocument.SCHEMA}`
+            }
         }
 
         let unexpected = WorkspaceDocument.findUnexpectedKey(document, WorkspaceDocument.dockZoneDocumentKeys, path);
@@ -921,6 +952,15 @@ class WorkspaceDocument extends Base {
         let errors = [];
 
         if (!document || typeof document !== 'object') return ['document is not an object'];
+
+        // A retired tag is a RECOGNISED state, not a malformed one, and it returns ALONE. Carrying on
+        // would scan an older field set against today's allowlist and report every field that was
+        // valid when the document was written — noise that buries the single fact a caller can act
+        // on. There is no migration reader by policy; naming the version IS the outcome.
+        if (WorkspaceDocument.RETIRED_SCHEMAS.has(document.schema)) {
+            return [`document schema ${document.schema} is retired; this build reads ${WorkspaceDocument.SCHEMA}`]
+        }
+
         if (document.schema !== WorkspaceDocument.SCHEMA)   errors.push(`schema must be ${WorkspaceDocument.SCHEMA}`);
         if (!document.nodes || !document.nodes[document.root]) errors.push(`root node "${document.root}" is missing`);
 

@@ -9,7 +9,7 @@ import '../../../../../src/tab/Container.mjs';
  * each with a large labelled block so the slot visibly holds one or the other.
  */
 const fixtureDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         main : {reference: 'main',  title: 'Main',  kind: 'panel'},

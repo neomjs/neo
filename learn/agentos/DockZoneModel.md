@@ -52,7 +52,7 @@ The persisted document is a versioned JSON object:
 
 ```json
 {
-  "schema": "neo.dock.zone.v1",
+  "schema": "neo.dock.zone.v2",
   "root": "root",
   "items": {
     "strategy": {
@@ -116,6 +116,14 @@ The persisted document is a versioned JSON object:
 ### Item Records
 
 `items` is an id-keyed catalog. Item ids are stable workspace identity, not necessarily component instance ids.
+
+**The tag moves whenever this field set does.** The allowlist *rejects* unknown keys rather than
+dropping them, so a document written against an earlier field set can never satisfy a later one —
+leaving the tag would let it keep declaring a shape it no longer meets. `WorkspaceDocument.SCHEMA` is
+the current envelope and `RETIRED_SCHEMAS` names its predecessors, so an older document is refused as
+**old**, with its version named, instead of being reported as a list of unexpected fields that were
+perfectly valid when it was written. There is still no migration reader — the tag exists so the break
+is legible, not so it can be repaired.
 
 Catalog fields used by adapters (the wire also accepts minimal records):
 
@@ -455,7 +463,7 @@ A persisted layout is a small versioned wrapper around the normalized dock-zone 
   "layoutId": "operator-default",
   "title": "Operator Default",
   "dockZone": {
-    "schema": "neo.dock.zone.v1",
+    "schema": "neo.dock.zone.v2",
     "root": "root",
     "items": {},
     "nodes": {}
@@ -473,7 +481,7 @@ Required wrapper fields:
 - `schema`: saved-layout wrapper version. The inner dock-zone document keeps its own `schema`.
 - `layoutId`: stable user/workspace layout identity, distinct from dock item ids.
 - `title`: display label for layout pickers or recovery UIs.
-- `dockZone`: a normalized `neo.dock.zone.v1` model after semantic operations have run.
+- `dockZone`: a normalized `neo.dock.zone.v2` model after semantic operations have run.
 - `captureScope`: fixed to `window`. The layout schema never carries topology mode.
 - `windowFingerprint`: JSON-only shape evidence for this Workspace, or `null` when no fingerprint was captured.
 
@@ -491,8 +499,8 @@ Multi-workspace state has a separate keyed envelope:
   "layoutId": "operator-default",
   "title": "Operator Default",
   "workspaces": {
-    "main": {"schema": "neo.dock.zone.v1", "root": "root", "items": {}, "nodes": {}},
-    "popup:detail": {"schema": "neo.dock.zone.v1", "root": "root", "items": {}, "nodes": {}}
+    "main": {"schema": "neo.dock.zone.v2", "root": "root", "items": {}, "nodes": {}},
+    "popup:detail": {"schema": "neo.dock.zone.v2", "root": "root", "items": {}, "nodes": {}}
   },
   "placementHints": {
     "popup:detail": {

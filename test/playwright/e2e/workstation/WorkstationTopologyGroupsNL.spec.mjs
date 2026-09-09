@@ -134,7 +134,7 @@ const savedColdFixture = async (page, context, neuralLink, itemIds = ['feed']) =
           carrier     = await readCarrier(page),
           document    = (await app.getComponent(workspaceId, ['dockModel'])).dockModel,
           empty       = {
-              schema: 'neo.dock.zone.v1', root: 'details-root', items: {},
+              schema: 'neo.dock.zone.v2', root: 'details-root', items: {},
               nodes : {
                   'details-root': {type: 'edge-zone', zones: {center: {nodeId: 'details-tabs'}}},
                   'details-tabs': {type: 'tabs', items: [], activeItemId: null}

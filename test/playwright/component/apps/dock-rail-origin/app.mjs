@@ -9,7 +9,7 @@ import '../../../../../src/tab/Container.mjs';
  * measure from the inline start/end, top/bottom from the block start/end.
  */
 const fixtureDocument = {
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root',
     items : {
         main  : {reference: 'main',   title: 'Main',   kind: 'panel'},

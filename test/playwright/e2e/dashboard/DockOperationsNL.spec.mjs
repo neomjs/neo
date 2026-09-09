@@ -51,7 +51,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         const res = await app.getDockTopology(holderId);
         const doc = res?.document ?? res;
 
-        expect(doc?.schema, 'get_dock_topology must return a dockZone.v1 document').toBe('neo.dock.zone.v1');
+        expect(doc?.schema, 'get_dock_topology must return a dockZone.v1 document').toBe('neo.dock.zone.v2');
         return doc;
     };
 

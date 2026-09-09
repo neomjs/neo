@@ -20,7 +20,7 @@ import '../../../../src/tab/Container.mjs';
 import '../../../../src/toolbar/Base.mjs';
 
 const createRootTabsModel = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root-tabs',
     items : {
         alpha: {reference: 'alpha', kind: 'panel', title: 'Alpha'}
@@ -31,7 +31,7 @@ const createRootTabsModel = () => ({
 });
 
 const createSplitModel = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root-split',
     items : {
         alpha: {reference: 'alpha', kind: 'panel', title: 'Alpha'},
@@ -50,7 +50,7 @@ const createSplitModel = () => ({
 });
 
 const createEdgeModel = () => ({
-    schema: 'neo.dock.zone.v1',
+    schema: 'neo.dock.zone.v2',
     root  : 'root-edge',
     items : {
         center: {reference: 'center', kind: 'panel', title: 'Center'},

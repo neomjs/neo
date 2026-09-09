@@ -80,7 +80,7 @@ const createFourEdgeRailDocument = () => {
         nodes.root.zones[edge] = {nodeId: `${edge}-tabs`, extent: 0.2, resizable: true}
     }
 
-    return {schema: 'neo.dock.zone.v1', root: 'root', items, nodes}
+    return {schema: 'neo.dock.zone.v2', root: 'root', items, nodes}
 };
 
 test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {

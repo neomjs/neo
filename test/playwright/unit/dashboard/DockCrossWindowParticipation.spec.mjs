@@ -24,7 +24,7 @@ import PreviewContract from '../../../../src/dashboard/dock/model/PreviewContrac
 /** A fresh source-workspace document ('A') — `terminal` is the item every transfer moves. */
 function sourceDoc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -41,7 +41,7 @@ function sourceDoc() {
 /** A fresh target-workspace document ('B') with a disjoint catalog. */
 function targetDoc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
         nodes : {
@@ -1197,7 +1197,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
                 expect(participation.target.getNativeWindowDrag('native-popup-live'), 'a whole popup cannot lose its other pane').toBeNull();
 
                 workspace.dockModel = sourceDoc();
-                popup = {schema: 'neo.dock.zone.v1', root: null, nodes: {}, items: {}};
+                popup = {schema: 'neo.dock.zone.v2', root: null, nodes: {}, items: {}};
                 expect(participation.target.getNativeWindowDrag('native-popup-live'), 'an empty registered owner cannot borrow the main document').toBeNull()
             } finally {
                 participation?.destroy();

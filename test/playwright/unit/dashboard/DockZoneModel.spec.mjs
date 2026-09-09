@@ -33,7 +33,7 @@ import '../../../../src/manager/Instance.mjs';
  */
 function doc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             strategy : {reference: 'strategy',  title: 'Strategy',  kind: 'panel'},
@@ -52,7 +52,7 @@ function doc() {
 /** A second, item-disjoint workspace document for topology contract controls. */
 function popupDoc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'popup-tabs',
         items : {
             detail: {reference: 'detail', title: 'Detail', kind: 'panel'}
@@ -140,8 +140,71 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
 
         test('rejects a wrong schema', () => {
             const d = doc();
-            d.schema = 'neo.dock.zone.v2';
+            // Deliberately unrecognised — NOT the retired tag, which has its own recognised path
+            // below. A version this build has never heard of is malformed; an old one is old.
+            d.schema = 'neo.dock.zone.v99';
             expect(WorkspaceDocument.validate(d).length).toBeGreaterThan(0)
+        });
+
+        test('a RETIRED tag is recognised as old, and says so ALONE', () => {
+            const current = doc();
+
+            // Positive control first: without it, a validator that rejected everything would pass
+            // the negative arm and look correct.
+            expect(current.schema, 'the fixture is at the current tag').toBe(WorkspaceDocument.SCHEMA);
+            expect(WorkspaceDocument.validate(current)).toEqual([]);
+
+            // The retired document carries a field set that was valid when written. Reporting those
+            // fields describes today's allowlist, not the document — so the version answers alone.
+            const retired = doc();
+            retired.schema             = 'neo.dock.zone.v1';
+            retired.items.strategy.componentRef = 'strategy';
+
+            const errors = WorkspaceDocument.validate(retired);
+
+            expect(errors, 'exactly one error — the version, not a field list').toHaveLength(1);
+            expect(errors[0]).toContain('neo.dock.zone.v1');
+            expect(errors[0]).toContain('retired');
+            expect(errors.join(' '), 'the retired field must NOT be reported as unexpected')
+                .not.toContain('componentRef');
+        });
+
+        test('the retired tag reaches the field scan as a NAMED refusal, never as null', () => {
+            const retired = doc();
+            retired.schema = 'neo.dock.zone.v1';
+
+            // `Persistence#validatePerspectiveRecord` reaches this scan without a companion
+            // validate(), so a null here would let an older document through in silence on that
+            // one path. This arm is the reason the scan reports instead of short-circuiting.
+            const finding = WorkspaceDocument.findUnexpectedDockZoneKey(retired, 'savedLayout.dockZone');
+
+            expect(finding).not.toBeNull();
+            expect(finding.key).toBe('schema');
+            expect(finding.reason).toContain('retired schema neo.dock.zone.v1');
+
+            // …and a current document is still scanned normally, so the guard is not a blanket pass.
+            expect(WorkspaceDocument.findUnexpectedDockZoneKey(doc(), 'savedLayout.dockZone')).toBeNull()
+        });
+
+        test('the tag is coupled to the field set — changing one obliges a decision about the other', () => {
+            // AC-5's mechanical enforcement. The allowlist REJECTS rather than drops, so any change
+            // to these key sets makes every already-persisted document unreadable. Pinning the pair
+            // means a field edit reds here with this comment rather than shipping a silent break.
+            //
+            // If this fails: decide whether the change is compatible. It almost never is — move
+            // SCHEMA to the next version and add the previous one to RETIRED_SCHEMAS.
+            expect({
+                schema  : WorkspaceDocument.SCHEMA,
+                document: [...WorkspaceDocument.dockZoneDocumentKeys].sort(),
+                item    : [...WorkspaceDocument.dockZoneItemKeys].sort()
+            }).toEqual({
+                schema  : 'neo.dock.zone.v2',
+                document: ['items', 'nodes', 'root', 'schema'],
+                item    : [
+                    'autoHidden', 'blueprint', 'closable', 'kind', 'lockable', 'locked', 'metadata',
+                    'movable', 'pinnable', 'pinned', 'reference', 'title'
+                ]
+            })
         });
 
         test('rejects a missing root', () => {
@@ -2438,7 +2501,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         // `top` band holds `buried`. Two directional ancestors, deliberately different edges, so a
         // wrong answer cannot coincide with the right one.
         const nested = () => ({
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {
                 main  : {reference: 'main',   title: 'Main',   kind: 'panel'},
@@ -2588,7 +2651,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         // The canonical vessel document: an edge-zone ROOT (window chrome) whose center zone
         // holds the stack — so the transferable whole is the root's center child, never the root.
         const vessel = () => ({
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'popup-root',
             items : {
                 drill : {reference: 'drill',  title: 'Drill',  kind: 'panel'},
@@ -2618,7 +2681,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
 
             // a degenerate workspace whose root IS a tabs node has no projectable stack
             expect(WorkspaceDocument.resolveStackRoot({
-                schema: 'neo.dock.zone.v1',
+                schema: 'neo.dock.zone.v2',
                 root  : 'only-tabs',
                 items : {},
                 nodes : {'only-tabs': {type: 'tabs', items: [], activeItemId: null}}
@@ -2677,7 +2740,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         // A second workspace document with a distinct catalog, so a transfer into it never
         // collides on item id with the source doc()'s 'terminal'.
         const target = () => ({
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {
@@ -2772,7 +2835,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         });
 
         test('restoreTab transfer rebuilds an emptied landing slot without replacing the target document', () => {
-            const source = doc(), empty = {schema: 'neo.dock.zone.v1', root: 'root', items: {},
+            const source = doc(), empty = {schema: 'neo.dock.zone.v2', root: 'root', items: {},
                 nodes: {root: {type: 'edge-zone', zones: {}}}};
             const result = Operations.transferItem(source, empty, {itemId: 'terminal',
                 target: {operation: 'restoreTab', tabsNodeId: 'main-tabs', home: {parentId: 'root', slot: 'center'}}});
@@ -2922,7 +2985,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
     test.describe('transferNode (atomic two-document subtree transfer)', () => {
         // A second workspace with a distinct catalog + a `main-tabs` to attach into.
         const target = () => ({
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {

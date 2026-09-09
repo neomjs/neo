@@ -24,7 +24,7 @@ import Operations         from '../../../../src/dashboard/dock/model/Operations.
 /** A canonical split document: a horizontal split of a two-tab main zone and a single-tab side zone. */
 function doc() {
     return {
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'root',
         items : {
             strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -93,7 +93,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
         const captured = doc(); // main-tabs [strategy, swarm], side-tabs [terminal]
         // current EXCHANGES terminal ↔ strategy across the two zones — same counts (t2, t1), same shape.
         const current = {
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {
                 strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -121,7 +121,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
 
     test('unsolvable single-item swap cycle defers structurally (never crashes)', () => {
         const mk = (a, b) => ({
-            schema: 'neo.dock.zone.v1',
+            schema: 'neo.dock.zone.v2',
             root  : 'root',
             items : {alpha: {reference: 'a', title: 'A', kind: 'panel'}, beta: {reference: 'b', title: 'B', kind: 'panel'}},
             nodes : {
@@ -207,7 +207,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
             // live: swarm and terminal are SWAPPED between the two zones, so tab counts still match
             // (the fingerprint gate) and the restore has to move both before it can select swarm.
             const current = {
-                schema: 'neo.dock.zone.v1',
+                schema: 'neo.dock.zone.v2',
                 root  : 'root',
                 items : doc().items,
                 nodes : {

@@ -26,7 +26,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — live pair preview
     let Container, DockSplitter, container, splitter;
 
     const DOC = () => ({
-        schema: 'neo.dock.zone.v1',
+        schema: 'neo.dock.zone.v2',
         root  : 'split-1',
         items : {
             alpha: {reference: 'alpha', title: 'Alpha'},
