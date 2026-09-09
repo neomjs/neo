@@ -147,6 +147,117 @@ const maximizedRectMatchesHost = page => page.waitForFunction(() => {
         && a.top >= chrome.getBoundingClientRect().bottom - 0.5
 });
 
+/**
+ * @summary Resolves once a FLIP has actually landed: the inline transform is released AND no
+ * transition is still running on the node.
+ *
+ * `waitForFunction(() => !el.style.transform)` is NOT a settle condition. When a maximize play
+ * exposes its destination for a stretch of frames, the inline transform is empty for that whole
+ * exposure, so the check resolves instantly — mid-flash — and callers measure the committed
+ * geometry by accident. Once the invert installs in time, the same check resolves at RELEASE
+ * instead, with the node still gliding, and a geometry read there is simply wrong.
+ *
+ * Deliberately says nothing about WHERE the node lands: callers assert that themselves, so this
+ * wait cannot quietly subsume the assertion it is protecting.
+ * @param {Object} page
+ * @param {String} selector
+ * @returns {Promise<void>}
+ */
+const waitForFlipSettled = (page, selector) => page.waitForFunction(sel => {
+    const el = document.querySelector(sel);
+
+    // Rect stability is NOT sufficient on its own: an eased transition moves well under a pixel
+    // across its first frame, so "unchanged since last frame" reports settled at the START of the
+    // glide. The running transition is the authority — it exists for exactly as long as the
+    // motion does — and the cleared inline transform confirms the invert was released rather
+    // than never installed.
+    return el && !el.style.transform && el.getAnimations().length === 0
+}, selector, {timeout: 5000});
+
+/**
+ * @summary Starts a per-frame sampler on the tabs node, for witnessing a FLIP at frame resolution.
+ *
+ * The defect this exists for is invisible to every settled-state assertion and to
+ * `waitForFunction`: both sample asynchronously, long after the exposed frames are gone. It also
+ * cannot key on the marker class, which lands in the same mutation as the geometry — a sampler
+ * started from the marker never sees the frames before it. So the node is addressed by its stable
+ * pane id, and sampling starts BEFORE the gesture.
+ *
+ * `getBoundingClientRect()` is the right probe precisely because it includes transforms: an
+ * inverted node measures at its FIRST rect, an un-inverted one at its destination. That is the
+ * whole discriminator.
+ * @param {Object} page
+ * @returns {Promise<void>}
+ */
+const startFlipSampler = page => page.evaluate(() => {
+    window.__flipFrames = [];
+
+    let stop = false;
+
+    window.__flipStop = () => {stop = true};
+
+    const tick = () => {
+        const el = document.getElementById('dock-maximize-pane-alpha')?.closest('.neo-dashboard-dock-tabs');
+
+        if (el) {
+            const rect = el.getBoundingClientRect();
+
+            window.__flipFrames.push({
+                height   : Math.round(rect.height),
+                transform: getComputedStyle(el).transform,
+                width    : Math.round(rect.width)
+            })
+        }
+
+        stop || requestAnimationFrame(tick)
+    };
+
+    requestAnimationFrame(tick)
+});
+
+/**
+ * @summary Counts frames that painted the node at its destination before the glide began.
+ *
+ * Purely geometric, and deliberately so. The obvious rule — "at the destination while the
+ * transform is still identity" — is unusable on the restore path: a settled maximized node
+ * already carries a committed non-identity matrix, so "the first non-identity frame" is frame 0
+ * and the ordering clause it anchors selects nothing. That version reported a clean 0 on source
+ * measured to expose 16 frames, which is the exact failure AC-3 forbids.
+ *
+ * So the pivot is motion itself. A healthy FLIP walks `start → intermediate → … → destination`;
+ * an exposed one jumps `start → destination → start → intermediate → … → destination`. Anything
+ * sitting at the destination *before the first intermediate size* was therefore painted there
+ * without an inverse transform holding it back, whichever direction is under test and whatever
+ * residual transform the node started with.
+ *
+ * Start and destination come from the first and last sampled frames, so neither direction needs
+ * the host rect or the gap token, and restore's flow slot need not be predicted.
+ * @param {Object} page
+ * @returns {Promise<Object>} `{destination, flashes, frames, glideAt, start}`
+ */
+const readFlipFrames = async page => {
+    await page.evaluate(() => window.__flipStop());
+
+    return page.evaluate(() => {
+        const frames      = window.__flipFrames,
+              start       = frames[0],
+              destination = frames[frames.length - 1],
+              near        = (a, b) => Math.abs(a.width - b.width) < 2 && Math.abs(a.height - b.height) < 2,
+              // The first frame at neither end of the journey: proof the glide is under way.
+              glideAt     = frames.findIndex(frame => !near(frame, start) && !near(frame, destination));
+
+        return {
+            destination: `${destination.width}x${destination.height}`,
+            flashes    : frames.filter((frame, index) =>
+                (glideAt < 0 || index < glideAt) && near(frame, destination) && !near(start, destination)
+            ).length,
+            frames: frames.length,
+            glideAt,
+            start : `${start.width}x${start.height}`
+        }
+    })
+};
+
 /** The rendered maximize chrome: the shadow token applied, no residual band cap. */
 const readMaximizedChrome = page => page.evaluate(() => {
     const el = document.querySelector('.neo-dock-maximized'),
@@ -249,7 +360,12 @@ test.describe('dock maximize — presentation, never topology', () => {
         // Read the geometry once the presentation settled; the numbers name the failure when
         // the measurement authority is wrong (root ⇒ the pane starts at the root's gap inset,
         // above the chrome's bottom edge).
-        await page.waitForFunction(() => !document.querySelector('.neo-dock-maximized')?.style.transform);
+        //
+        // This waited on `!style.transform`, which is not settle: it is satisfied during a play's
+        // exposed frames, so the read landed on the committed rect only because the invert had not
+        // arrived yet — passing BECAUSE of the exposure. With the invert installed in time the same
+        // check resolves at release, mid-glide, and reads the flow slot instead.
+        await waitForFlipSettled(page, '.neo-dock-maximized');
 
         const geometry = await page.evaluate(() => {
             const rect = id => document.querySelector(id).getBoundingClientRect(),
@@ -722,19 +838,28 @@ test.describe('dock maximize — presentation, never topology', () => {
         // The restore glide: the workspace holds `neo-dock-maximize-restoring` (the paint-order
         // hold) for exactly the motion window — it must appear with the gesture and leave when
         // the play settles, leaving no inline rect values behind.
+        // The restore glide is a REAL inverted transform on the restoring node, not only the
+        // paint-order sentinel — witnessed from a per-frame log rather than by racing a poll
+        // against the motion window. Two `waitForFunction` round-trips could only catch that
+        // transform while an exposed window held it open for many frames; once the invert installs
+        // and releases promptly, a poll lands on either side of it at random. The sampler cannot
+        // miss it, and the assertion it feeds is strictly stronger than the poll it replaces.
+        await startFlipSampler(page);
         await actionButton(main, 'fa-window-minimize').click();
 
         await page.waitForFunction(() => document.querySelector('.neo-dock-maximize-restoring') !== null, undefined, {timeout: 3000});
-
-        // The restore glide is a REAL inverted transform on the restoring node, not only the
-        // paint-order sentinel.
-        await page.waitForFunction(() => {
-            const el = document.querySelector('.neo-dock-maximize-restoring');
-
-            return el && el.style.transform !== ''
-        }, undefined, {timeout: 3000});
-
         await expect(page.locator('.neo-dock-maximized')).toHaveCount(0);
+        await page.waitForFunction(() => document.querySelector('.neo-dock-maximize-restoring') === null, undefined, {timeout: 5000});
+
+        const restoreGlide = await page.evaluate(() => {
+            window.__flipStop();
+
+            return window.__flipFrames.some(frame =>
+                frame.transform && frame.transform !== 'none' && frame.transform !== 'matrix(1, 0, 0, 1, 0, 0)'
+            )
+        });
+
+        expect(restoreGlide, 'the restore rode a real inverted transform, not only the paint-order sentinel').toBe(true);
         await page.waitForFunction(() => document.querySelector('.neo-dock-maximize-restoring') === null);
 
         await page.waitForFunction(() => {
@@ -751,5 +876,100 @@ test.describe('dock maximize — presentation, never topology', () => {
 
             throw new Error(`restore left residual inline style: ${residual} · worker-side: ${worker}`)
         })
+    })
+
+    /**
+     * The double-take: the node paints its destination rect bare for a quarter of a second, snaps
+     * back, and only then animates — so the FLIP plays *after* a visible jump.
+     *
+     * `DockFlip.play`'s stage-A detach poll spins up to `maxFrames` waiting for the OUTGOING
+     * tree's markers to disconnect. A maximize keeps every marker node and its lineage, so that
+     * predicate never falsifies and the poll burns its whole budget with the committed geometry
+     * already painted and un-inverted. `hasLandedInPlace()` exists for exactly this case and its
+     * docblock names this symptom — but it is gated behind a consumer-declared `geometryOnly`,
+     * which the maximize play did not pass. Measured before that admission: **16 exposed frames
+     * in each direction**, ~250ms.
+     *
+     * These two arms are separate on purpose. The apply and clear paths reach the play through
+     * different code and the restore half was reported as milder, so a maximize-only witness
+     * would leave it asserted by assumption.
+     */
+    test('maximize installs its inverse transform before any frame paints the target rect (#18027)', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await startFlipSampler(page);
+        await actionButton(main, 'fa-window-maximize').click();
+
+        // Bracket the motion window by its own observable rather than a fixed sleep: the invert
+        // arrives, then releases. Both bounds are the contract the :697 arm already relies on.
+        await page.waitForFunction(() => {
+            const el = document.querySelector('.neo-dock-maximized');
+
+            return el && el.style.transform !== ''
+        }, undefined, {timeout: 3000});
+
+        await page.waitForFunction(() => {
+            const el = document.querySelector('.neo-dock-maximized');
+
+            return el && el.style.transform === ''
+        }, undefined, {timeout: 3000});
+
+        // Sample through to SETTLE, not merely to release. Clearing the inline transform starts
+        // the transition; the node is still at First and gliding. Reading the log there makes the
+        // last frame a mid-animation size, `readFlipFrames` infers that as the destination, and
+        // every pre-invert frame at First is convicted — 11 phantom flashes on correct source.
+        await maximizedRectMatchesHost(page);
+
+        const {flashes, frames, glideAt} = await readFlipFrames(page);
+
+        expect(frames, 'the sampler observed the transition').toBeGreaterThan(4);
+        expect(glideAt, 'the node glided through intermediate geometry — otherwise this arm proves nothing').toBeGreaterThan(-1);
+        expect(flashes, 'frames painting the maximized rect before the glide began').toBe(0)
+    })
+
+    test('restore installs its inverse transform before any frame paints the flow slot (#18027)', async ({page}) => {
+        const main = tabsNodeWith(page, 'Alpha');
+
+        await tabButton(main, 'Alpha').click();
+        await actionButton(main, 'fa-window-maximize').click();
+
+        // The setup must reach a genuinely SETTLED maximize, and the order of these two waits is
+        // the whole reason: on defective source the inline transform is `''` throughout the
+        // exposed frames, so a lone `=== ''` check passes instantly and the restore gesture fires
+        // into an in-flight FLIP. `clearPresentation` then serializes on `Maximize#play` and what
+        // this arm measures is a transition confounded by the previous one — which reported a
+        // clean 0 flashes on source that flashes 16. Wait for the invert to EXIST, then release.
+        await page.waitForFunction(() => {
+            const el = document.querySelector('.neo-dock-maximized');
+
+            return el && el.style.transform !== ''
+        }, undefined, {timeout: 3000});
+
+        await page.waitForFunction(() => {
+            const el = document.querySelector('.neo-dock-maximized');
+
+            return el && el.style.transform === ''
+        }, undefined, {timeout: 3000});
+
+        await maximizedRectMatchesHost(page);
+        await startFlipSampler(page);
+        await actionButton(main, 'fa-window-minimize').click();
+
+        await page.waitForFunction(() => {
+            const el = document.querySelector('.neo-dock-maximize-restoring');
+
+            return el && el.style.transform !== ''
+        }, undefined, {timeout: 3000});
+
+        await page.waitForFunction(() => document.querySelector('.neo-dock-maximize-restoring') === null, undefined, {timeout: 5000});
+
+        const {flashes, frames, glideAt} = await readFlipFrames(page);
+
+        expect(frames, 'the sampler observed the transition').toBeGreaterThan(4);
+        expect(glideAt, 'the node glided through intermediate geometry — otherwise this arm proves nothing').toBeGreaterThan(-1);
+        expect(flashes, 'frames painting the restored flow slot before the glide began').toBe(0);
+
+        await expectMaximizedCount(page, 0)
     })
 });
