@@ -55,7 +55,7 @@ const tuckInspector = async ({ app, holderId, page }) => {
 const createFourEdgeRailDocument = () => {
     const
         items = {
-            center: {reference: 'Center', title: 'Center', kind: 'panel'}
+            center: {reference: 'Center', title: 'Center'}
         },
         nodes = {
             root         : {type: 'edge-zone', zones: {center: {nodeId: 'center-tabs'}}},
@@ -69,7 +69,6 @@ const createFourEdgeRailDocument = () => {
             items[itemId] = {
                 autoHidden: true,
                 reference : `${edge}-${index + 1}`,
-                kind      : 'panel',
                 pinnable  : true,
                 pinned    : false,
                 title     : `${edge[0].toUpperCase()}${edge.slice(1)} perspectives ${index + 1}`

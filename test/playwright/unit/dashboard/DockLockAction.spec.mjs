@@ -26,8 +26,8 @@ function createDocument() {
         schema: 'neo.dock.zone.v1',
         root  : 'main-tabs',
         items : {
-            alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},
-            beta : {reference: 'beta',  title: 'Beta',  kind: 'panel'}
+            alpha: {reference: 'alpha', title: 'Alpha'},
+            beta : {reference: 'beta',  title: 'Beta'}
         },
         nodes: {
             'main-tabs': {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'}
@@ -223,7 +223,6 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
                       railed: {
                           reference : 'railed',
                           title     : 'Railed',
-                          kind      : 'panel',
                           autoHidden: true,
                           locked    : true
                       }
@@ -503,8 +502,8 @@ test.describe('Neo.dashboard.dock.Workspace lock action', () => {
             schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {
-                alpha : {reference: 'alpha',  title: 'Alpha',  kind: 'panel'},
-                reader: {reference: 'reader', title: 'Reader', kind: 'panel', autoHidden: true, locked: true}
+                alpha : {reference: 'alpha',  title: 'Alpha'},
+                reader: {reference: 'reader', title: 'Reader', autoHidden: true, locked: true}
             },
             nodes: {
                 root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'edge-tabs'}}},

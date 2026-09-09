@@ -391,9 +391,9 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   schema: 'neo.dock.zone.v1',
                   root  : 'root',
                   items : {
-                      inspector: {reference: 'Inspector', title: 'Inspector', kind: 'panel'},
-                      timeline : {reference: 'Timeline',  title: 'Timeline',  kind: 'panel'},
-                      console  : {reference: 'Console',   title: 'Console',   kind: 'terminal'}
+                      inspector: {reference: 'Inspector', title: 'Inspector'},
+                      timeline : {reference: 'Timeline',  title: 'Timeline'},
+                      console  : {reference: 'Console',   title: 'Console'}
                   },
                   nodes: {
                       root       : {type: 'edge-zone', zones: {right: {nodeId: 'side-tabs'}}},
@@ -406,7 +406,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   schema: 'neo.dock.zone.v1',
                   root  : 'popup-root',
                   items : {
-                      workbench: {reference: 'Workbench', title: 'Workbench', kind: 'panel'}
+                      workbench: {reference: 'Workbench', title: 'Workbench'}
                   },
                   nodes: {
                       'popup-root': {type: 'edge-zone', zones: {center: {nodeId: 'popup-tabs'}}},

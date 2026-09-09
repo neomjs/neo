@@ -71,8 +71,8 @@ test.describe.serial('Neo.examples.dashboard.choreography.DemoAWorkspace', () =>
      */
     test('panes resolve from the item id, never from the record label', () => {
         const
-            editorItem = {title: 'Editor', kind: 'panel'},
-            logsItem   = {title: 'Logs',   kind: 'panel'};
+            editorItem = {title: 'Editor'},
+            logsItem   = {title: 'Logs'};
 
         // The witness pane: keyed off the item id it is filed under.
         expect(workspace.resolvePane('editor', editorItem).module, 'the editor must resolve to the clock witness')

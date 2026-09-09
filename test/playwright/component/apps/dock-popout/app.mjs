@@ -8,15 +8,15 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        alpha : {reference: 'Alpha',  title: 'Alpha',  kind: 'panel'},
-        beta  : {reference: 'Beta',   title: 'Beta',   kind: 'panel'},
-        gamma : {reference: 'Gamma',  title: 'Gamma',  kind: 'panel'},
-        pinned: {reference: 'Pinned', title: 'Pinned', kind: 'panel'},
+        alpha : {reference: 'Alpha',  title: 'Alpha'},
+        beta  : {reference: 'Beta',   title: 'Beta'},
+        gamma : {reference: 'Gamma',  title: 'Gamma'},
+        pinned: {reference: 'Pinned', title: 'Pinned'},
         // The railed arm's subject: auto-hidden in the committed document, and it STAYS that way
         // across a detach. Detachment and auto-hide are orthogonal, not mutually exclusive — a
         // railed item that pops out keeps `autoHidden: true`, so its committed collapse state
         // survives the round trip and it rails again on reintegration.
-        railed: {reference: 'Railed', title: 'Railed', kind: 'panel', autoHidden: true}
+        railed: {reference: 'Railed', title: 'Railed', autoHidden: true}
     },
     nodes: {
         root        : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}, right: {nodeId: 'edge-tabs', extent: 0.25}}},

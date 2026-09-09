@@ -57,19 +57,15 @@ The persisted document is a versioned JSON object:
   "items": {
     "strategy": {
       "title": "Strategy",
-      "kind": "panel"
     },
     "swarm": {
       "title": "Swarm",
-      "kind": "panel"
     },
     "terminal": {
       "title": "Terminal",
-      "kind": "terminal"
     },
     "inspector": {
       "title": "Inspector",
-      "kind": "inspector"
     }
   },
   "nodes": {
@@ -130,7 +126,6 @@ Optional, and only when the item key is not the answer:
 
 Optional item fields:
 
-- `kind`: coarse category such as `panel`, `terminal`, `transcript`, `inspector`, or `tool`.
 - `blueprint`: a serializable Neo component config when the item is created from saved state rather than a live instance.
 - `closable`, `pinnable`, `movable`: UI policy hints. Defaults are adapter-defined.
 - `pinned`: semantic pin state. `true` means pinned open; `false` means auto-hide eligible when an adapter supports that affordance. Omitted preserves the adapter-defined default. `pinnable === false` means `setItemPinned` must reject pin-state changes.
@@ -176,7 +171,7 @@ descending a branch whose shape cannot be read safely and returns no partial doc
 Pane keys become item IDs, and lowering derives **no** lookup field from them: the key already is
 the identity, so a fabricated second name would be one more thing the consumer has to maintain. Wire
 `title` uses `header.text`, then the key. Nullish values use the default. Other defined fields from
-`WorkspaceDocument.dockZoneItemKeys`, including optional `kind`, policies, `metadata` and `blueprint`,
+`WorkspaceDocument.dockZoneItemKeys` — policies, `metadata` and `blueprint` —
 are copied after JSON/model validation. Ordinary runtime config such as `module`, listeners and
 stores stays outside the document. A function inside a catalog field instead fails with its pane
 path. Unplaced declarations remain in the catalog, so detachment and closure stay distinguishable.

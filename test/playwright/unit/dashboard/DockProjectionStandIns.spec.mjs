@@ -31,9 +31,9 @@ const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        editor  : {reference: 'Editor',   title: 'Editor',   kind: 'panel'},
-        preview : {reference: 'Preview',  title: 'Preview',  kind: 'panel'},
-        terminal: {reference: 'Terminal', title: 'Terminal', kind: 'terminal'}
+        editor  : {reference: 'Editor',   title: 'Editor'},
+        preview : {reference: 'Preview',  title: 'Preview'},
+        terminal: {reference: 'Terminal', title: 'Terminal'}
     },
     nodes: {
         root         : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}}},
@@ -162,7 +162,7 @@ test.describe('Neo.dashboard.dock.Workspace projection stand-ins (#18274)', () =
         expect(chrome(workspace)).toEqual(before);
 
         const withNotes = structuredClone(workspace.dockModel);
-        withNotes.items.notes = {reference: 'Notes', title: 'Notes', kind: 'panel'};
+        withNotes.items.notes = {reference: 'Notes', title: 'Notes'};
 
         const add = await commit(workspace, {operation: 'addTab', itemId: 'notes', tabsNodeId: 'side-tabs', index: 2}, withNotes);
         expect(add.standIns, 'a tab added to a retained node builds no stand-in').toEqual([]);

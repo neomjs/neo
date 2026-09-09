@@ -36,10 +36,10 @@ function doc() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            strategy : {reference: 'strategy',  title: 'Strategy',  kind: 'panel'},
-            swarm    : {reference: 'swarm',     title: 'Swarm',     kind: 'panel'},
-            terminal : {reference: 'terminal',  title: 'Terminal',  kind: 'terminal'},
-            inspector: {reference: 'inspector', title: 'Inspector', kind: 'inspector'}
+            strategy : {reference: 'strategy',  title: 'Strategy'},
+            swarm    : {reference: 'swarm',     title: 'Swarm'},
+            terminal : {reference: 'terminal',  title: 'Terminal'},
+            inspector: {reference: 'inspector', title: 'Inspector'}
         },
         nodes: {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}},
@@ -55,7 +55,7 @@ function popupDoc() {
         schema: 'neo.dock.zone.v1',
         root  : 'popup-tabs',
         items : {
-            detail: {reference: 'detail', title: 'Detail', kind: 'panel'}
+            detail: {reference: 'detail', title: 'Detail'}
         },
         nodes: {
             'popup-tabs': {type: 'tabs', items: ['detail'], activeItemId: 'detail'}
@@ -2441,9 +2441,9 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {
-                main  : {reference: 'main',   title: 'Main',   kind: 'panel'},
-                buried: {reference: 'buried', title: 'Buried', kind: 'panel'},
-                plain : {reference: 'plain',  title: 'Plain',  kind: 'panel'}
+                main  : {reference: 'main',   title: 'Main'},
+                buried: {reference: 'buried', title: 'Buried'},
+                plain : {reference: 'plain',  title: 'Plain'}
             },
             nodes: {
                 root         : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, left: {nodeId: 'inner'}}},
@@ -2591,8 +2591,8 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             schema: 'neo.dock.zone.v1',
             root  : 'popup-root',
             items : {
-                drill : {reference: 'drill',  title: 'Drill',  kind: 'panel'},
-                stream: {reference: 'stream', title: 'Stream', kind: 'panel'}
+                drill : {reference: 'drill',  title: 'Drill'},
+                stream: {reference: 'stream', title: 'Stream'}
             },
             nodes : {
                 'popup-root': {type: 'edge-zone', zones: {center: {nodeId: 'popup-tabs'}}},
@@ -2679,7 +2679,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         const target = () => ({
             schema: 'neo.dock.zone.v1',
             root  : 'root',
-            items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
+            items : {alpha: {reference: 'alpha', title: 'Alpha'}},
             nodes : {
                 root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
                 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
@@ -2708,7 +2708,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         });
 
         test('the item record travels verbatim — policy hints, metadata, and a railed autoHidden state intact', () => {
-            const record = {reference: 'terminal', title: 'Terminal', kind: 'terminal', closable: false, pinnable: true, movable: true, autoHidden: true, metadata: {pid: 42}};
+            const record = {reference: 'terminal', title: 'Terminal', closable: false, pinnable: true, movable: true, autoHidden: true, metadata: {pid: 42}};
             const source = doc();
 
             source.items.terminal = {...record};
@@ -2757,7 +2757,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         test('rejects a transfer when the target already holds the item id', () => {
             const tgt = target();
 
-            tgt.items.terminal = {reference: 'terminal', title: 'Terminal', kind: 'terminal'};
+            tgt.items.terminal = {reference: 'terminal', title: 'Terminal'};
 
             const {errors} = Operations.transferItem(doc(), tgt, {itemId: 'terminal', target: addTabTarget});
             expect(errors.join(' ')).toContain('already exists in the target')
@@ -2924,7 +2924,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         const target = () => ({
             schema: 'neo.dock.zone.v1',
             root  : 'root',
-            items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
+            items : {alpha: {reference: 'alpha', title: 'Alpha'}},
             nodes : {
                 root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
                 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
@@ -2952,8 +2952,8 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         test('a multi-node subtree travels whole — every member node and item re-homes verbatim', () => {
             const source = doc();
 
-            source.items.log   = {reference: 'log',   title: 'Log',   kind: 'panel'};
-            source.items.watch = {reference: 'watch', title: 'Watch', kind: 'panel'};
+            source.items.log   = {reference: 'log',   title: 'Log'};
+            source.items.watch = {reference: 'watch', title: 'Watch'};
             source.nodes['grp-a'] = {type: 'tabs', items: ['log'],   activeItemId: 'log'};
             source.nodes['grp-b'] = {type: 'tabs', items: ['watch'], activeItemId: 'watch'};
             source.nodes.grp      = {type: 'split', orientation: 'horizontal', children: ['grp-a', 'grp-b'], sizes: [0.5, 0.5]};
@@ -2999,7 +2999,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         test('rejects when a member item id already exists in the target', () => {
             const tgt = target();
 
-            tgt.items.terminal = {reference: 'terminal', title: 'T', kind: 'terminal'};
+            tgt.items.terminal = {reference: 'terminal', title: 'T'};
 
             const {errors} = Operations.transferNode(doc(), tgt, {nodeId: 'side-tabs', target: splitInto});
             expect(errors.join(' ')).toContain('item "terminal" already exists')

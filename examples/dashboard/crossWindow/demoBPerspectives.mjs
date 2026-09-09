@@ -28,10 +28,10 @@ export const initialDocument = Object.freeze({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        workbench: {title: 'Workbench', kind: 'panel'},
-        inspector: {title: 'Inspector', kind: 'panel'},
-        timeline : {title: 'Timeline',  kind: 'panel'},
-        console  : {title: 'Console',   kind: 'terminal'}
+        workbench: {title: 'Workbench'},
+        inspector: {title: 'Inspector'},
+        timeline : {title: 'Timeline'},
+        console  : {title: 'Console'}
     },
     nodes: {
         root            : {type: 'edge-zone', zones: {center: {nodeId: 'workbench-tabs'}, right: {nodeId: 'side-tabs'}}},

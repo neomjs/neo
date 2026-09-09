@@ -57,10 +57,10 @@ export const initialDocument = Object.freeze({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        editor  : {title: 'Editor',   kind: 'panel'},
-        logs    : {title: 'Logs',     kind: 'panel'},
-        preview : {title: 'Preview',  kind: 'panel'},
-        terminal: {title: 'Terminal', kind: 'terminal'}
+        editor  : {title: 'Editor'},
+        logs    : {title: 'Logs'},
+        preview : {title: 'Preview'},
+        terminal: {title: 'Terminal'}
     },
     nodes: {
         root         : {

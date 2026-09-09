@@ -47,6 +47,12 @@ class WorkspaceDocument extends Base {
      * allowlist and {@link #findUnexpectedKey} rejects anything outside it, so a document still
      * carrying the old name fails validation loudly instead of restoring into a field nothing owns.
      *
+     * `kind` is retired for the same reason and by the same rule. No engine code ever read it,
+     * and its values named nothing the dock instantiates — every pane carrying `kind: 'panel'`
+     * is a `component.Base`, not a `container.Panel`. It is not to be confused with
+     * `placement.kind` (`tab-*`, `split-*`, `edge-*`), a live drag-geometry field that shares
+     * only the name.
+     *
      * A consumer that wants a tag the engine does not own puts it in `metadata`, the sanctioned
      * opaque channel — not in a first-class field.
      * @member {Set<String>} dockZoneItemKeys
@@ -54,7 +60,7 @@ class WorkspaceDocument extends Base {
      * @static
      */
     static dockZoneItemKeys = new Set([
-        'reference', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned',
+        'reference', 'title', 'blueprint', 'closable', 'pinnable', 'pinned',
         'autoHidden', 'lockable', 'locked', 'movable', 'metadata'
     ])
 

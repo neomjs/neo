@@ -22,10 +22,10 @@ function doc() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            strategy : {reference: 'strategy',  title: 'Strategy',  kind: 'panel'},
-            swarm    : {reference: 'swarm',     title: 'Swarm',     kind: 'panel'},
-            terminal : {reference: 'terminal',  title: 'Terminal',  kind: 'terminal'},
-            inspector: {reference: 'inspector', title: 'Inspector', kind: 'inspector'}
+            strategy : {reference: 'strategy',  title: 'Strategy'},
+            swarm    : {reference: 'swarm',     title: 'Swarm'},
+            terminal : {reference: 'terminal',  title: 'Terminal'},
+            inspector: {reference: 'inspector', title: 'Inspector'}
         },
         nodes: {
             root        : {type: 'edge-zone', zones: {center: {nodeId: 'main-split'}}},

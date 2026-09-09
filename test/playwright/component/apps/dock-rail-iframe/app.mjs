@@ -20,11 +20,11 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        source: {reference: 'source', title: 'Source', kind: 'panel'},
-        plain : {reference: 'plain',  title: 'Plain',  kind: 'panel'},
-        cancel: {reference: 'cancel', title: 'Cancel', kind: 'panel'},
-        pinned: {reference: 'pinned', title: 'Pinned', kind: 'panel'},
-        railed: {reference: 'railed', title: 'Railed', kind: 'panel', autoHidden: true}
+        source: {reference: 'source', title: 'Source'},
+        plain : {reference: 'plain',  title: 'Plain'},
+        cancel: {reference: 'cancel', title: 'Cancel'},
+        pinned: {reference: 'pinned', title: 'Pinned'},
+        railed: {reference: 'railed', title: 'Railed', autoHidden: true}
     },
     nodes: {
         root         : {type: 'edge-zone', zones: {left: {nodeId: 'source-tabs', extent: 0.2}, center: {nodeId: 'root-split'}, right: {nodeId: 'edge-tabs', extent: 0.3}}},

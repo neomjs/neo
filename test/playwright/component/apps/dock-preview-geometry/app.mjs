@@ -20,8 +20,8 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        main : {reference: 'main',  title: 'Main',  kind: 'panel'},
-        aside: {reference: 'aside', title: 'Aside', kind: 'panel'}
+        main : {reference: 'main',  title: 'Main'},
+        aside: {reference: 'aside', title: 'Aside'}
     },
     nodes: {
         root        : {type: 'tabs', items: ['main', 'aside'], activeItemId: 'main'}

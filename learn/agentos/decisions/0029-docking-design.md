@@ -321,7 +321,7 @@ Moving an item between two workspace documents (window A's dock tree → window 
 Semantics, all mandatory:
 
 - **Atomic:** validate against both documents first; then remove from source (tree + catalog) and insert into target (catalog + placement descriptor) and normalize both; commit both documents or neither. A half-transferred item is a contract violation, not an error state.
-- **Identity-preserving:** the item record (id, `title`, `kind`, policy hints, `blueprint`, metadata, and a `reference` when the record names one) travels verbatim. The live component instance is **moved, never re-instantiated** — it exists once in the shared heap throughout (this is the §4 Prior-Art moat behavior; it must never regress to serialize-and-recreate).
+- **Identity-preserving:** the item record (id, `title`, policy hints, `blueprint`, metadata, and a `reference` when the record names one) travels verbatim. The live component instance is **moved, never re-instantiated** — it exists once in the shared heap throughout (this is the §4 Prior-Art moat behavior; it must never regress to serialize-and-recreate).
 - **Hint-layer transaction:** the currently landed transfer commits the document pair only and MUST NOT place topology-specific fields inside item records. The Group transaction updates its keyed relative placement hint atomically with the source and target Workspace documents. An adapter that cannot commit all three surfaces publishes the executor's finite documents unchanged.
 - **Pipeline-conforming:** a cross-window drop produces `transferItem` from the accepted `dockPreview` exactly as an in-window drop produces `moveItem`/`splitNode`/`addTab`.
 

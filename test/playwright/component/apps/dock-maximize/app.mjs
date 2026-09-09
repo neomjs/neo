@@ -164,14 +164,14 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        alpha: {title: 'Alpha',  kind: 'panel'},
-        beta : {title: 'Beta',   kind: 'panel'},
+        alpha: {title: 'Alpha'},
+        beta : {title: 'Beta'},
         // catalog-only: in no tabs node, so an addTab targeting it is a REAL add, never a move
-        delta : {title: 'Delta',  kind: 'panel'},
-        frame : {title: 'Frame',  kind: 'panel'},
-        gamma : {title: 'Gamma',  kind: 'panel'},
-        pinned: {title: 'Pinned', kind: 'panel'},
-        railed: {title: 'Railed', kind: 'panel', autoHidden: true}
+        delta : {title: 'Delta'},
+        frame : {title: 'Frame'},
+        gamma : {title: 'Gamma'},
+        pinned: {title: 'Pinned'},
+        railed: {title: 'Railed', autoHidden: true}
     },
     nodes: {
         root        : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}, right: {nodeId: 'edge-tabs', extent: 0.25}}},

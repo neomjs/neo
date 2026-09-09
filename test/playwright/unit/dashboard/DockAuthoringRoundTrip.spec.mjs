@@ -23,16 +23,16 @@ const example = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        strategy : {reference: 'Strategy',  title: 'Strategy',  kind: 'panel'},
-        swarm    : {reference: 'Swarm',     title: 'Swarm',     kind: 'panel'},
-        terminal : {reference: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
-        logs     : {reference: 'Logs',      title: 'Logs',      kind: 'panel'},
-        inspector: {reference: 'Inspector', title: 'Inspector', kind: 'panel'},
-        metrics  : {reference: 'Metrics',   title: 'Metrics',   kind: 'panel'},
-        timeline : {reference: 'Timeline',  title: 'Timeline',  kind: 'panel'},
-        agents   : {reference: 'Agents',    title: 'Agents',    kind: 'panel'},
-        alerts   : {reference: 'Alerts',    title: 'Alerts',    kind: 'panel'},
-        history  : {reference: 'History',   title: 'History',   kind: 'panel'}
+        strategy : {reference: 'Strategy',  title: 'Strategy'},
+        swarm    : {reference: 'Swarm',     title: 'Swarm'},
+        terminal : {reference: 'Terminal',  title: 'Terminal'},
+        logs     : {reference: 'Logs',      title: 'Logs'},
+        inspector: {reference: 'Inspector', title: 'Inspector'},
+        metrics  : {reference: 'Metrics',   title: 'Metrics'},
+        timeline : {reference: 'Timeline',  title: 'Timeline'},
+        agents   : {reference: 'Agents',    title: 'Agents'},
+        alerts   : {reference: 'Alerts',    title: 'Alerts'},
+        history  : {reference: 'History',   title: 'History'}
     },
     nodes: {
         root            : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}, right: {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}}},
@@ -137,7 +137,6 @@ function randomDocument(seed) {
         const id = `pane-${seed}-${itemIndex++}`, record = {}, autoHidden = random() < 0.25;
         if (random() < 0.7) record.reference = `reference-${id}`;
         if (random() < 0.7) record.title = `Pane ${id}`;
-        if (random() < 0.5) record.kind = 'panel';
         Object.assign(record, {autoHidden, pinned: !autoHidden && random() < 0.3,
             closable: random() < 0.8, pinnable: random() < 0.8, lockable: random() < 0.8,
             locked  : random() < 0.3, movable: random() < 0.8});
@@ -188,7 +187,7 @@ test.describe('Neo.dashboard.dock.model.Authoring round trips', () => {
         const document = {
             schema: WorkspaceDocument.SCHEMA, root: 'main',
             items : {
-                a: {reference: 'OtherFactory', title: 'Full pane', kind: 'panel', closable: false,
+                a: {reference: 'OtherFactory', title: 'Full pane', closable: false,
                     pinnable : true, pinned: true, autoHidden: false, lockable: true, locked: true, movable: false,
                     metadata : {label: 'catalog', values: [1, null, false]},
                     blueprint: {ntype: 'component', text: 'Recovery', data: {record: 7}}},

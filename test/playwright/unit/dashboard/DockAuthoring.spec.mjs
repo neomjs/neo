@@ -45,13 +45,13 @@ test('nested first-pane and delimiter collisions preserve every authored pane', 
 
 test('runtime pane config stays outside the wire while catalog policies round-trip', () => {
     const module             = () => {}, store = new Map([['live', true]]),
-          panes              = {a: {module, store, header: {text: 'A'}, kind: 'panel', locked: false, metadata: {label: 'safe'}, blueprint: {ntype: 'panel'}}},
+          panes              = {a: {module, store, header: {text: 'A'}, locked: false, metadata: {label: 'safe'}, blueprint: {ntype: 'panel'}}},
           {document, errors} = Authoring.fromZones(panes, 'a');
 
     expect(errors).toEqual([]);
     // No lookup key is derived from the pane key: `a` is already the item's identity, and a
     // fabricated one would be a second name for it that the consumer then has to maintain.
-    expect(document.items.a).toEqual({title: 'A', kind: 'panel', locked: false, metadata: {label: 'safe'}, blueprint: {ntype: 'panel'}});
+    expect(document.items.a).toEqual({title: 'A', locked: false, metadata: {label: 'safe'}, blueprint: {ntype: 'panel'}});
     expect(panes.a.module).toBe(module);
     expect(panes.a.store).toBe(store);
     document.items.a.metadata.label = 'changed';
