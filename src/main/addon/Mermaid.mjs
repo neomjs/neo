@@ -1,5 +1,4 @@
-import Base      from './Base.mjs';
-import DomAccess from '../DomAccess.mjs';
+import Base from './Base.mjs';
 
 /**
  * @summary Main Thread Addon for rendering Mermaid diagrams with dynamic theme support.
@@ -34,10 +33,18 @@ class Mermaid extends Base {
             'render'
         ],
         /**
-         * @member {String} mermaidPath=Neo.config.basePath+'node_modules/mermaid/dist/mermaid.min.js'
+         * The ESM build, imported as a module — NOT the UMD bundle.
+         *
+         * `mermaid.min.js` is UMD: it looks for `define.amd` first and registers anonymously when it
+         * finds one. `main.addon.MonacoEditor` installs Monaco's AMD loader on the same page, so in
+         * any app using both — the portal being the one that matters — mermaid's own `define` call
+         * lands in that loader and throws `Can only have one anonymous define call per script file`.
+         * The library then never attaches to `window` and every diagram fails with
+         * `mermaid is not defined`. An ESM import has no `define` to find.
+         * @member {String} mermaidPath=Neo.config.basePath+'node_modules/mermaid/dist/mermaid.esm.min.mjs'
          * @protected
          */
-        mermaidPath: Neo.config.basePath + 'node_modules/mermaid/dist/mermaid.min.js',
+        mermaidPath: Neo.config.basePath + 'node_modules/mermaid/dist/mermaid.esm.min.mjs',
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -55,15 +62,39 @@ class Mermaid extends Base {
     }
 
     /**
-     * Loads the Mermaid library if it is not already present.
-     * Initializes the library with `startOnLoad: false` to allow manual control over rendering.
+     * The imported library, held here rather than on `window`.
+     *
+     * A UMD bundle publishes itself as a global; a module export does not, and inventing the global
+     * back would re-create a name any other script on the page can collide with. Same shape as
+     * `util.HighlightJs#hljs`.
+     * @member {Object|null} mermaid=null
+     * @protected
+     */
+    mermaid = null
+
+    /**
+     * Imports the Mermaid library if it is not already loaded.
+     * Initializes it with `startOnLoad: false` to keep rendering under this addon's control.
      * @returns {Promise<void>}
      */
     async loadFiles() {
-        if (window.mermaid) return;
+        let me = this;
 
-        await DomAccess.loadScript(this.mermaidPath);
-        mermaid.initialize({startOnLoad: false})
+        if (me.mermaid) return;
+
+        // Resolved against the DOCUMENT, not against this module. `Neo.config.basePath` is written
+        // for `DomAccess.loadScript`, whose `<script src>` is document-relative; a dynamic import
+        // resolves against the importing module's own URL instead, so a bare `../../` from
+        // `src/main/addon/` lands on `/src/node_modules/...` and 404s. Depth-independent here, so
+        // moving this file cannot silently break the path.
+        //
+        // `webpackIgnore`, so the bundler leaves the specifier alone and it resolves at runtime —
+        // the same treatment `util.HighlightJs#load` gives its library.
+        const path   = new URL(me.mermaidPath, document.baseURI).href,
+              module = await import(/* webpackIgnore: true */ path);
+
+        me.mermaid = module.default;
+        me.mermaid.initialize({startOnLoad: false})
     }
 
     /**
@@ -92,7 +123,7 @@ class Mermaid extends Base {
                     element.textContent = data.code
                 }
 
-                mermaid.run({
+                this.mermaid.run({
                     nodes: [element]
                 })
             } catch (e) {
