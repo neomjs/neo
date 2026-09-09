@@ -293,6 +293,11 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
 
             const after = await readDocument();
 
+            // Live preview can match the commit before projection updates retained component configs.
+            await app.callMethod(workspaceId, 'refreshPromise.then');
+            expect(await app.getConsoleLogs('warn', 'Dock projection failed'),
+                `${edge}: committed projection settles without a handled failure`).toEqual([]);
+
             const settledConfig = (await findEdgeSplitter(edge))?.resizeConfig;
 
             await expect.poll(async () => Math.abs(
