@@ -843,8 +843,7 @@ class NativeGestureDriver extends GestureDriver {
                     }
                 }
 
-                // Terminal: release while detached → dockTearOutTerminal → the detachItem commit +
-                // adoption (the vessel owns the pane now).
+                // Terminal release transfers the pane into its full vessel Workspace.
                 await driver.trap(driver.simulateEvent(run, {events: [{
                     targetId: button.id, type: 'mouseup', windowId: button.windowId,
                     options : opt(outX, outY, outSX, outSY, 0)
@@ -854,24 +853,26 @@ class NativeGestureDriver extends GestureDriver {
 
                 committed && await driver.trap(Promise.resolve(me.refreshPromise));
 
-                let
-                    documentAfter  = WorkspaceDocument.clone(me.dockModel),
-                    absentFromTree = !Object.values(documentAfter.nodes).some(zoneNode => zoneNode.items?.includes(itemId)),
-                    keptInCatalog  = Boolean(documentAfter.items?.[itemId]);
+                const {sourceDocument, targetDocument, ...ownership} = driver.getTearOutCommitState(itemId),
+                      documentAfter                                  = WorkspaceDocument.clone(sourceDocument),
+                      targetDocumentAfter                            = targetDocument && WorkspaceDocument.clone(targetDocument),
+                      catalogPreserved                               = catalogBefore.every(id => Boolean(
+                          (id === itemId ? targetDocumentAfter : documentAfter)?.items[id]
+                      )),
+                      applied = committed && ownership.transferCommitted && catalogPreserved;
 
                 return {
-                    applied: committed && absentFromTree && keptInCatalog,
-                    errors : committed && absentFromTree && keptInCatalog ? [] : ['detachItem commit did not reach committed document truth'],
-                    proof  : {
+                    applied,
+                    errors: applied ? [] : ['tear-out ownership did not settle in the expected vessel'],
+                    proof : {
+                        ...ownership,
                         born              : true,
                         survivedProbe,
                         committed,
                         documentBefore,
                         documentAfter,
-                        detachCommitted   : absentFromTree && keptInCatalog,
-                        itemAbsentFromTree: absentFromTree,
-                        itemKeptInCatalog : keptInCatalog,
-                        catalogPreserved  : catalogBefore.every(id => Boolean(documentAfter.items?.[id])),
+                        targetDocumentAfter,
+                        catalogPreserved,
                         vesselWindowName  : `tearout-${itemId}`
                     }
                 }
@@ -928,8 +929,32 @@ class NativeGestureDriver extends GestureDriver {
     }
 
     /**
-     * @summary Gates on the committed detach reaching document truth: the item leaves every node's
-     * `items` (the vessel owns it) while the catalog entry stays.
+     * @summary Reads the committed ownership of a pane transferred into its expected vessel.
+     * Source release includes tree and catalog; target ownership includes catalog and placement.
+     * @param {String} itemId
+     * @returns {Object} Source/target documents, participant keys and transfer admission.
+     * @protected
+     */
+    getTearOutCommitState(itemId) {
+        const workspace         = this.workspace,
+              sourceWorkspaceId = workspace.constructor.MAIN_WORKSPACE_ID,
+              targetWorkspaceId = workspace.constructor.vesselWorkspaceId(itemId),
+              sourceDocument    = workspace.dockModel,
+              targetDocument    = workspace.getWorkspaceDocument(targetWorkspaceId),
+              sourceReleased    = !sourceDocument.items[itemId] &&
+                  !Object.values(sourceDocument.nodes).some(node => node.items?.includes(itemId)),
+              vesselOwns        = Boolean(targetDocument?.items[itemId]) &&
+                  Object.values(targetDocument.nodes).some(node => node.items?.includes(itemId));
+
+        return {
+            sourceDocument, sourceReleased, sourceWorkspaceId,
+            targetDocument, targetWorkspaceId, vesselOwns,
+            transferCommitted: sourceReleased && vesselOwns
+        }
+    }
+
+    /**
+     * @summary Waits for source release and committed ownership in the expected vessel Workspace.
      * @param {String} itemId
      * @param {Object} [options={}]
      * @param {Number} [options.attempts=180]
@@ -938,15 +963,7 @@ class NativeGestureDriver extends GestureDriver {
      * @protected
      */
     async waitForTearOutCommit(itemId, {attempts=180, delay=16}={}) {
-        let me       = this.workspace, driver = this,
-            detached = () => {
-                let document = me.dockModel;
-
-                return !Object.values(document.nodes).some(zoneNode => zoneNode.items?.includes(itemId))
-                    && Boolean(document.items?.[itemId])
-            };
-
-        return driver.waitFor(detached, {attempts, delay})
+        return this.waitFor(() => this.getTearOutCommitState(itemId).transferCommitted, {attempts, delay})
     }
 }
 

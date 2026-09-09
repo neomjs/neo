@@ -1546,6 +1546,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }
 
         const
+            documentBefore  = await readDocument(app, wsId),
             heartbeatBefore = await readHeartbeat(app, wsId),
             paneIdBefore    = (await app.callMethod(wsId, 'getPaneIdentity', ['metrics'])),
             popupPromise    = page.waitForEvent('popup', {timeout: 90000});
@@ -1562,7 +1563,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(result.errors).toEqual([]);
         expect(result.proof.born,  'the vessel must be born MID-GESTURE (before pointer-up)').toBe(true);
         expect(result.proof.survivedProbe, 'post-birth outward moves must not reap the vessel').toBe(true);
-        expect(result.applied, 'the detached release must commit detachItem').toBe(true);
+        expect(result.applied, 'the detached release must transfer into its vessel Workspace').toBe(true);
+        expect(result.proof).toMatchObject({
+            sourceReleased   : true, vesselOwns: true, transferCommitted: true, catalogPreserved: true,
+            targetWorkspaceId: 'workstation-vessel:metrics'
+        });
 
         // The popup is a REAL OS window in Playwright's window set — and it stays alive: it owns
         // the pane now.
@@ -1613,11 +1618,17 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }
 
         // Third-party truth: the committed document read fresh from the worker.
-        const documentAfter = await readDocument(app, wsId);
+        const documentAfter               = await readDocument(app, wsId),
+              vesselDocument              = await app.callMethod(wsId, 'getWorkspaceDocument', ['workstation-vessel:metrics']),
+              {metrics, ...sourceCatalog} = documentBefore.items;
 
         expect(Object.values(documentAfter.nodes).some(node => node.items?.includes('metrics')),
             'the torn item must be ABSENT from every node').toBe(false);
-        expect(documentAfter.items.metrics, 'the torn item must stay in the catalog').toBeTruthy();
+        expect(documentAfter.items, 'the source releases only the transferred catalog record').toEqual(sourceCatalog);
+        expect(vesselDocument, 'the expected vessel is a registered participant').toBeTruthy();
+        expect(vesselDocument.items.metrics, 'the vessel owns the unchanged catalog record').toEqual(metrics);
+        expect(Object.values(vesselDocument.nodes).some(node => node.items?.includes('metrics')),
+            'the transferred record is placed in the vessel tree').toBe(true);
         expect(documentAfter.nodes['right-top-tabs'].items, 'the sibling tab keeps the node alive')
             .toEqual(['audit']);
 
@@ -2814,11 +2825,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(targetPopup.isClosed(), 'the first committed vessel must stay physically open').toBe(false);
 
             beatLog.push({
-                beat            : 'tear-out',
-                bornMidGesture  : true,
-                detachCommitted : ownerResult.proof.detachCommitted,
-                ownerWorkspaceId: 'workstation-vessel:metrics',
-                sourceItems     : ownerResult.proof.documentAfter.nodes['right-top-tabs'].items
+                beat             : 'tear-out',
+                bornMidGesture   : true,
+                transferCommitted: ownerResult.proof.transferCommitted,
+                ownerWorkspaceId : 'workstation-vessel:metrics',
+                sourceItems      : ownerResult.proof.documentAfter.nodes['right-top-tabs'].items
             });
 
             expect(

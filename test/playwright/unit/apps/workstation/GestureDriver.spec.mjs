@@ -165,3 +165,53 @@ test('a successful release creates no cancellation input and leaves borrowed wor
     expect(service.isDestroyed).toBe(true);
     expect(workspace.isDestroyed).toBe(false)
 });
+
+test.describe('tear-out commit ownership', () => {
+    const cases = [
+        {name: 'accepts a record placed in the expected vessel', expected: true, mutate() {}},
+        {name: 'rejects a source-only detach', expected: false, mutate({source, documents, targetId}) {
+            source.items.metrics = {};
+            delete documents[targetId]
+        }},
+        {name: 'rejects an unregistered vessel', expected: false, mutate({documents, targetId}) {
+            delete documents[targetId]
+        }},
+        {name: 'rejects a lost record', expected: false, mutate({target}) {
+            delete target.items.metrics;
+            target.nodes.target.items = []
+        }},
+        {name: 'rejects ownership in a different vessel', expected: false, mutate({documents, targetId, target}) {
+            documents[Workspace.vesselWorkspaceId('audit')] = target;
+            delete documents[targetId]
+        }},
+        {name: 'rejects duplicated source and vessel catalogs', expected: false, mutate({source}) {
+            source.items.metrics = {}
+        }},
+        {name: 'rejects a source that still places the item', expected: false, mutate({source}) {
+            source.nodes.source.items.push('metrics')
+        }},
+        {name: 'rejects an unplaced vessel record', expected: false, mutate({target}) {
+            target.nodes.target.items = []
+        }}
+    ];
+
+    for (const {name, expected, mutate} of cases) {
+        test(name, async () => {
+            const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+            const source                         = {items: {audit: {}}, nodes: {source: {type: 'tabs', items: ['audit']}}},
+                  target = {items: {metrics: {}}, nodes: {target: {type: 'tabs', items: ['metrics']}}},
+                  targetId = Workspace.vesselWorkspaceId('metrics'),
+                  documents = {[Workspace.MAIN_WORKSPACE_ID]: source, [targetId]: target},
+                  workspace = {constructor: Workspace, dockModel: source, isDestroyed: false,
+                      getWorkspaceDocument: key => documents[key] ?? null},
+                  driver = Neo.create(NativeGestureDriver, {workspace});
+
+            mutate({source, target, targetId, documents});
+            try {
+                await expect(driver.waitForTearOutCommit('metrics', {attempts: 0})).resolves.toBe(expected)
+            } finally {
+                driver.destroy()
+            }
+        })
+    }
+});
