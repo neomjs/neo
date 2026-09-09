@@ -828,7 +828,59 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         })
     });
 
-    test('the holder contract: a config-assigned document is readable before any operation', () => {
+    test('projectDockZoneDocument SERIALIZES: a second projection cannot enter while the first is in flight', async () => {
+    // The invariant every direct caller of `refreshDockWorkspace` leans on, and nothing asserted it.
+    //
+    // `projectDockZoneDocument` chains each pass onto the settled tail of `refreshPromise`, so two
+    // projections issued in one tick run one after the other. A caller that instead assigns
+    // `refreshPromise = this.refreshDockWorkspace()` starts a SECOND pass while the first is still
+    // in flight, and both project a shell — which surfaces as a duplicate header-only shell: tab
+    // headers and close buttons, no panes. A component fixture did exactly that; fixing it removed
+    // the only thing that had ever noticed, so the invariant it now relies on is pinned here.
+    //
+    // ⚠️ The first pass is HELD open on purpose. The obvious version of this arm — fire two real
+    // projections and count overlap — passes with the chaining deleted, because a real refresh
+    // settles inside one macrotask and the second never had the chance to overlap. It witnessed
+    // nothing. Holding the first pass is what makes an unserialized second observable.
+    const workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+    let releaseFirst, entered = [];
+
+    const held = new Promise(resolve => {releaseFirst = resolve});
+
+    workspace.refreshDockWorkspace = async function(...args) {
+        const index = entered.length;
+
+        entered.push(index);
+
+        index === 0 && await held;
+
+        return undefined
+    };
+
+    try {
+        const first  = workspace.projectDockZoneDocument(createDocument()),
+              second = workspace.projectDockZoneDocument(createDocument());
+
+        // Cross two macrotask boundaries with the SAME primitive the chain deferred behind, rather
+        // than a wall-clock constant: the unserialized path waits on one `timeout(0)` before it
+        // enters, so two are enough for it to have entered, and a serialized one still has not.
+        await workspace.timeout(0);
+        await workspace.timeout(0);
+
+        expect(entered.length, 'the second projection must NOT have entered while the first is held').toBe(1);
+
+        releaseFirst();
+        await Promise.all([first, second]);
+
+        expect(entered.length, 'and it runs once the first settles — serialized, not dropped').toBe(2)
+    } finally {
+        releaseFirst();
+        workspace.destroy()
+    }
+});
+
+test('the holder contract: a config-assigned document is readable before any operation', () => {
         const document = createDocument();
 
         workspace = Neo.create(PlainWorkspace, {dockModel: document});
