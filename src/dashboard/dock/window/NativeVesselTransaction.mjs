@@ -201,10 +201,19 @@ class NativeVesselTransaction extends Base {
                 descriptor.publishReceipt('park', receipt);
                 descriptor.publishReceipt('restore', null);
 
+                // The cover precondition falls out of the same obligation, rather than being a
+                // second policy: a park hides the source BEHIND the target, so a source that does
+                // not fit must be shrunk first — and only a transaction that owes a geometry
+                // restore may shrink it, because only that transaction has promised to give the
+                // extent back. One consumer resizes and one refuses; both are this rule, read
+                // through their own declared obligation.
+                receipt.fits = Boolean(sourceRect && targetRect &&
+                    sourceRect.width <= targetRect.width && sourceRect.height <= targetRect.height);
+
                 if (
                     !admissions.sourcePos.granted || (owesResize && !admissions.sourceResize.granted) ||
                     !admissions.targetFocus.granted || !authority.entryNameMatches ||
-                    !sourceRect || !targetRect
+                    !sourceRect || !targetRect || (!receipt.fits && !owesResize)
                 ) {
                     receipt.reason = 'native route or live cover geometry refused';
                     return false

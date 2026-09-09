@@ -274,6 +274,52 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         expect(platform.calls).toContain('resume:40,60')
     });
 
+    test('a source too large to hide behind the target refuses when nothing may shrink it', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+        // Bigger than the 800x600 target: it cannot be covered as-is.
+        // `manager.Base#register` refuses an id it already holds rather than replacing it, so the
+        // oversized source has to displace the fixture's window instead of shadowing it.
+        WindowManager.unregister('win-source');
+        WindowManager.register({
+            id         : 'win-source', innerRect: new Rectangle(0, 0, 1200, 900),
+            nativeRoute: ROUTE, outerRect: new Rectangle(0, 0, 1200, 900)
+        });
+
+        const admitted = await NativeVesselTransaction
+            .effectsFor(descriptorFor({geometry: null, receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(admitted, 'no extent obligation ⇒ no licence to shrink ⇒ refuse').toBe(false);
+        expect(receipts.park.fits).toBe(false);
+        expect(platform.calls, 'refused before any platform effect').toEqual([])
+    });
+
+    test('the same oversized source is ADMITTED when the transaction owes an extent restore', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+        // `manager.Base#register` refuses an id it already holds rather than replacing it, so the
+        // oversized source has to displace the fixture's window instead of shadowing it.
+        WindowManager.unregister('win-source');
+        WindowManager.register({
+            id         : 'win-source', innerRect: new Rectangle(0, 0, 1200, 900),
+            nativeRoute: ROUTE, outerRect: new Rectangle(0, 0, 1200, 900)
+        });
+
+        const admitted = await NativeVesselTransaction
+            .effectsFor(descriptorFor({geometry: {height: 900, width: 1200}, receipts}))
+            .parkVessel({itemId: 'item-1', windowName: 'vessel-1'});
+
+        expect(admitted, 'the promise to restore the extent is what licences the shrink').toBe(true);
+        expect(receipts.park.fits).toBe(false);
+        expect(platform.calls.filter(call => !call.includes(':')))
+            .toEqual(['focus', 'resize', 'park', 'focus'])
+    });
+
     test('a windowName mismatch refuses the re-show even with every route granted', async () => {
         const receipts = {};
 
