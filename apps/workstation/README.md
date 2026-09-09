@@ -29,11 +29,18 @@ Pane, store, component, and relevant DOM identities remain stable while the layo
 The data-only screenplay lives in `apps/workstation/tour/denseWorkstation.mjs`; the mounted
 whitebox journey is the runtime and visual falsifier.
 
-For programmatic playback, resolve the optional owner with
-`await workspace.getController().getTourController()`, then call its `startTour()`,
-`runTourSpec()` or `getTourReceipt()`. `cancelTour()` retires that playback controller and waits
-for its started cue work; a later Start creates a fresh controller. The workspace and its stores
+Playback is owned by `WorkspaceController`, which activates the optional runner on first use:
+`getTourController()` resolves it, and `startTour()`, `runTourSpec()`, `getTourReceipt()` and
+`cancelTour()` live on the runner it returns. `cancelTour()` retires that playback controller and
+waits for its started cue work; a later Start creates a fresh one. The workspace and its stores
 remain owned by the ordinary application.
+
+Those are reachable from code running inside the app realm, and **not** from an agent: the Neural
+Link addresses components — `app.callMethod` takes a component id and a method name, with no way
+to express a controller hop — and the workspace deliberately publishes no tour entry point. Driving
+the tour from outside means the **Start dense tour** button or the declarative `onStartTour`
+handler. If a programmatic entry point is ever wanted, it belongs on the component for the same
+reason `saveTopology` does.
 
 ## Save and reopen a workspace
 
