@@ -474,6 +474,16 @@ class Maximize extends Plugin {
         MotionSignal.enter(owner);
 
         try {
+            // `geometryOnly` is a CONSUMER DECLARATION that no topology swap can be pending — the
+            // addon does not re-detect one. Against a swap still in flight all three landed-in-place
+            // checks pass (the outgoing markers are still the exact set, their lineage is unchanged,
+            // and this transition's own geometry write supplies the movement), so the promise has to
+            // be kept here rather than verified there.
+            //
+            // It holds on this path by construction, twice over: the gesture path awaits the owner's
+            // refreshPromise before applying, and every route that can run WHILE a swap is pending —
+            // the refresh-owned reapply, operation-driven clears, fail-safes — lands with
+            // `animate: false` and never reaches this call at all.
             played = flip.play({geometryOnly: true, hostId: host.id, markerPrefix: me.markerPrefix, windowId: host.windowId})
         } catch (error) {
             played = Promise.reject(error)
