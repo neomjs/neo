@@ -183,24 +183,29 @@ of the guide series this page fronts. Once you extend the class, the adoption su
 1. **Extend `Neo.dashboard.dock.Workspace`.** The engine class owns the committed `dockModel`, the pure reducer
    (`applyDockZoneOperation` — `Operations.applyOperation` over the current document), the deferred, promise-chained
    re-projection (`onDockZoneDocumentChange` → `projection.LayoutAdapter` → `projection.Reconciler`, bracketed by FLIP
-   motion) and the in-window cross-zone drop path. Your subclass overrides `resolvePane(itemId, item)` and, when it has
-   them, the handful of hooks for owner-preserved panes, chrome that syncs on every re-projection, and extra projection
-   options. `examples/dashboard/dock/MainContainer.mjs` is the minimal consumer.
-2. **Seed the document, mount the first shell.** The class owns the loop, not your boot state. Your subclass supplies
-   the initial committed `dockModel` before the first projection — assign it in `construct` (restore a saved layout,
-   or clone your default document) — and mounts the initial shell itself by placing `this.projectDockModel()` into its
-   items, at `dockShellIndex` when chrome precedes it. Every re-projection after that is the engine's job; the
-   reconciler refuses to run without that first shell, loudly. Two prerequisites travel with this step: keep a real
-   `Neo.container.Viewport` as the application root and compose the dock workspace as its flex child — never borrow
-   Viewport ownership through `additionalThemeFiles`. `DockWorkspace` already carries `'Neo.dashboard.Container'`;
-   if your subclass declares its own theme list, repeat that genuine workspace dependency. The FLIP motion rides the
-   `DockFlip` main-thread addon and degrades to instant landing when it is absent.
-3. **Register your panes.** Each item's key is the stable identity your resolver maps to a live instance (or a
-   serializable `blueprint` for creation-from-saved-state). `pinnable` and `movable` are enforced at the operation
-   layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI code. `closable` is a
-   declared forward contract whose close-routing enforcement has not landed yet; the
+   motion) and the in-window cross-zone drop path. `examples/dashboard/dock/MainContainer.mjs` is the minimal consumer.
+2. **Declare `panes` and `zones`.** Two plain static configs, and they are the whole boot surface: `panes` is a keyed
+   catalog of ordinary component configurations, `zones` is where those keys begin. The class lowers them into the
+   committed document and mounts the first shell itself — you write no constructor, no node-id table, no mount call.
+   Two prerequisites still travel with this step: keep a real `Neo.container.Viewport` as the application root with the
+   workspace as its flex child, and if your subclass declares its own `additionalThemeFiles`, repeat the genuine
+   `'Neo.dashboard.Container'` dependency. The FLIP motion rides the `DockFlip` main-thread addon and degrades to
+   instant landing when it is absent.
+3. **The pane key is your reference.** A key is the item's identity in the document *and* the `reference` the engine
+   stamps onto the projected pane — so `getReference('editor')`, a view controller, and `data-ref="editor"` in the DOM
+   all reach the same live component, and you maintain no second name for it. A pane declaration is an ordinary
+   component config: a registered `module`, an `ntype`, or a lazy `module: () => import(…)` that loads on first
+   activation. `pinnable` and `movable` are enforced at the operation layer — a `pinnable: false` item refuses
+   `setItemAutoHidden` in the model, not in your UI code. `closable` is a declared forward contract whose close-routing
+   enforcement has not landed yet; the
    [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) keeps that split
    explicit.
+
+   **The advanced paths remain, demoted rather than removed.** A consumer that already owns a valid document supplies
+   it as `dockModel` and it takes precedence over `zones`. `resolvePane(itemId, item)` is still the extension point for
+   application-owned instances or custom configs, and `dockShellIndex` / `dockProjectionConfig` / `dockHostReference`
+   place the shell when persistent chrome shares the root. None of them is the starting path any more, and reaching for
+   one before you have tried the declarations is how consumers used to end up re-implementing the host loop.
 4. **Give vessels a render target.** Tear-out windows load a viewport that is deliberately empty — a render target
    that joins the SharedWorker session; detached panes arrive at runtime. The canonical example is the cross-window
    demo's `?popout` boot branch (`examples/dashboard/crossWindow/Viewport.mjs`), whose own JSDoc says it all: "This
