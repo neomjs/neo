@@ -41,6 +41,8 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
+    // Named individually because its only sibling, `LearnLinkRoutingNL.spec.mjs`, is an EXCLUSION.
+    'test/playwright/e2e/portal/LearnMermaidRender.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs'
 ];
