@@ -87,16 +87,30 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
         expect(matcher.test('/repo/e2e/aab/Dock1.spec.mjs')).toBe(false)
     });
 
-    test('the notice names both counts, the survivors and the variable that restores them', () => {
+    test('the notice names its own exclusion and states NO coverage figure', () => {
         const notice = excludedSpecNotice({ignore: new Array(78), total: 95});
 
         expect(notice).toContain('NEO_AGENTOS_RUNTIME_ROOT');
         expect(notice).toContain('78 of 95');
-        // The survivor count is the number a reader is about to mistake for the whole tier.
-        expect(notice).toContain('covers 17');
         // "not skipped" is load-bearing prose, not decoration: `Skipped: 0` is what the summary will
         // say a few lines below, and this sentence is the only thing that contradicts it.
-        expect(notice).toContain('not skipped')
+        expect(notice).toContain('not skipped');
+
+        // The contract: this module sees only its own exclusion class, so it publishes its own
+        // subtrahend and never a residual. Any survivor arithmetic here would be computed on
+        // incomplete information — the pattern assertion is what stops it returning under different
+        // wording rather than as the literal word it used to use.
+        expect(notice, 'no survivor arithmetic may appear').not.toMatch(/covers?\s+\d+/);
+        expect(notice).toContain('no coverage figure is stated here');
+
+        // Restoring the variable makes the excluded files ELIGIBLE, not selected: the downstream
+        // classes still apply. Promising a count here would be the same overreach one layer along.
+        expect(notice, 'eligibility, not a selection promise').toContain('eligible again');
+        expect(notice, 'and no claim about selecting the whole tree').not.toMatch(/select all \d+/);
+
+        // Nothing here may point a reader at a CI-only artifact: this notice prints on a developer's
+        // machine as readily as on a runner.
+        expect(notice, 'no CI-only referent').not.toMatch(/job('s)? (coverage )?summary/i)
     });
 
     test('nothing excluded means nothing announced — no exclusion-of-zero notice', () => {

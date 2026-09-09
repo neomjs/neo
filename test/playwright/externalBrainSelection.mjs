@@ -69,8 +69,16 @@ export function excludedSpecNotice({ignore, total}) {
         return null
     }
 
+    // States this module's own exclusion class and no coverage figure. It sees only the Brain-gated
+    // specs; other classes are applied downstream, so any residual computed here would be arithmetic
+    // on incomplete information. A module that cannot see every class publishes its own subtrahend
+    // and never the remainder.
+    //
+    // Restoring the variable makes these files ELIGIBLE, which is not the same as selected — the
+    // later classes still apply — so the wording promises eligibility rather than a count.
     return `e2e: NEO_AGENTOS_RUNTIME_ROOT is unset — ${ignore.length} of ${total} spec files are ` +
-        `EXCLUDED from selection, not skipped, so nothing below this line reports them. This run ` +
-        `covers ${total - ignore.length}. Set NEO_AGENTOS_RUNTIME_ROOT to an absolute ` +
-        `neo-agent-brain checkout root to select all ${total}.`
+        `EXCLUDED from selection, not skipped, so nothing below this line reports them. This counts ` +
+        `the Brain-gated class only; further exclusions are applied downstream, so no coverage ` +
+        `figure is stated here. Set NEO_AGENTOS_RUNTIME_ROOT to an absolute neo-agent-brain ` +
+        `checkout root to make these ${ignore.length} eligible again.`
 }
