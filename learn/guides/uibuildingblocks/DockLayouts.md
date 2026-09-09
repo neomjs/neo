@@ -84,7 +84,7 @@ Two consequences of the single path are worth internalizing before you write any
 - **Panes are layout-blind.** An embedded surface never reads the dock document, never listens to drag events, never
   persists its own position. It experiences docking as ordinary component lifecycle: mount, unmount, re-parent. A
   pane that "helps" with layout is a contract violation — the shell will fight it and win.
-- **Layout is pane-blind.** The shell knows items only as catalog records with a `componentRef`, a title, and policy
+- **Layout is pane-blind.** The shell knows items only as catalog records with an id, a title, and policy
   hints (`closable`, `pinnable`, `movable`). Your product surface adds zero cases to the docking code.
 
 ## One gesture, as it actually runs
@@ -195,7 +195,7 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    Viewport ownership through `additionalThemeFiles`. `DockWorkspace` already carries `'Neo.dashboard.Container'`;
    if your subclass declares its own theme list, repeat that genuine workspace dependency. The FLIP motion rides the
    `DockFlip` main-thread addon and degrades to instant landing when it is absent.
-3. **Register your panes.** Each item carries a stable `componentRef` your resolver maps to a live instance (or a
+3. **Register your panes.** Each item's key is the stable identity your resolver maps to a live instance (or a
    serializable `blueprint` for creation-from-saved-state). `pinnable` and `movable` are enforced at the operation
    layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI code. `closable` is a
    declared forward contract whose close-routing enforcement has not landed yet; the

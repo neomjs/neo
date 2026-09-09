@@ -146,8 +146,11 @@ loads when its rail is revealed.
 
 Two keys may use the same component class with different text, bindings or other config. They get
 separate component identities and keep their own state through tab moves and rail transitions.
-The pane key is its dock item identity and default persisted `componentRef`; `header.text` supplies
-its catalog title. Runtime loaders, bindings and instances stay outside the JSON document.
+The pane key is its dock item identity, and the projection lowers it onto the pane's `reference`, so
+`getReference()`, a view controller and `data-ref` in the DOM all find your pane by the key you wrote.
+Nothing is persisted for that — name a `reference` on the record only if you want a different one.
+`header.text` supplies the catalog title. Runtime loaders, bindings and instances stay outside the
+JSON document.
 
 Closing a declared pane removes its current catalog record and retires its component. The initial
 declaration survives, so a control can reopen it without rebuilding the catalog:
@@ -182,7 +185,7 @@ honest way to teach them is by what the model actually refuses:
 
 ```javascript readonly
 items: {
-    console: {componentRef: 'Console', title: 'Console', closable: false, pinnable: false, movable: false}
+    console: {title: 'Console', closable: false, pinnable: false, movable: false}
 }
 ```
 
