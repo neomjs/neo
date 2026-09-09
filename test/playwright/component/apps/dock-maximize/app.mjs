@@ -474,9 +474,13 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
     settleJson = null
 
     /**
-     * How many {@link #refreshCount}-triggered refreshes have started and not yet settled.
+     * How many {@link #refreshCount}-triggered refreshes are QUEUED or running and not yet settled.
      * Distinguishes "no receipt was published" from "the refresh is stuck" — the two states a
      * hanging settle probe cannot tell apart.
+     *
+     * Queued counts, not only started: the trigger chains onto the settled tail, so a refresh can
+     * be published and waiting. Reporting 0 for that window would tell the probe no receipt exists
+     * when one does, which is the confusion this counter was added to end.
      * @member {Number} refreshInFlight=0
      */
     refreshInFlight = 0
@@ -764,7 +768,14 @@ class MaximizeFixtureWorkspace extends DockWorkspace {
         // makes the probe observe the refresh it is meant to observe.
         this.refreshInFlight++;
 
-        this.refreshPromise = this.refreshDockWorkspace()
+        // Chained onto the settled tail, exactly as `projectDockZoneDocument` does. Assigning
+        // `refreshPromise = this.refreshDockWorkspace()` called it IMMEDIATELY and discarded any
+        // in-flight tail, so this trigger could start a second pass while a commit-driven one was
+        // still pending — and each pass projected its own shell. The duplicate header-only shell
+        // that produced is what the arms were failing on; production cannot reach it, because every
+        // production projection goes through that chain. The fixture was manufacturing concurrency.
+        this.refreshPromise = (this.refreshPromise?.catch(() => {}) || Promise.resolve())
+            .then(() => this.refreshDockWorkspace())
             .finally(() => {this.refreshInFlight--})
     }
 
