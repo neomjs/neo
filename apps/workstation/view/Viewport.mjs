@@ -56,7 +56,7 @@ class Viewport extends BaseViewport {
             const participant = binding && Transaction.getParticipant(binding.groupId, binding.workspaceKey);
             const workspace = participant?.componentId && Neo.getComponent(participant.componentId);
             if (workspace?.rootWorkspace) {
-                await workspace.rootWorkspace.getController().mountTopologyWorkspace(binding.workspaceKey, me)
+                await workspace.rootWorkspace.mountTopologyWorkspace(binding.workspaceKey, me)
             }
             return
         }
@@ -67,7 +67,7 @@ class Viewport extends BaseViewport {
                   workspace = owner?.componentId && Neo.getComponent(owner.componentId),
                   root = workspace?.rootWorkspace ?? workspace;
             if (root && binding.workspaceKey === params.get('workspace')) {
-                await root.getController().mountTopologyWorkspace(binding.workspaceKey, me)
+                await root.mountTopologyWorkspace(binding.workspaceKey, me)
             } else {
                 me.add({ntype: 'component', html: 'This saved window is waiting for its original workspace.'})
             }
@@ -148,7 +148,7 @@ class Viewport extends BaseViewport {
                 return
             }
 
-            workspace.getController().attachTopologyLibrary();
+            workspace.attachTopologyLibrary();
             me.add(workspace);
             if (!selection.topology) await workspace.saveTopology()
         } catch (error) {

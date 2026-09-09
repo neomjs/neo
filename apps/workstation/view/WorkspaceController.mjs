@@ -90,7 +90,10 @@ class WorkspaceController extends Controller {
 
     /**
      * @summary Lets the Group library own the reconnect lease and durable disposal of this root.
+     * Reached through {@link Workstation.view.Workspace#attachTopologyLibrary} — the component is
+     * the surface another component addresses.
      * @returns {Boolean}
+     * @protected
      */
     attachTopologyLibrary() {
         return this.component.topologyLibrary.attachGroup({
@@ -178,9 +181,12 @@ class WorkspaceController extends Controller {
 
     /**
      * @summary Presents an already hydrated participant without changing its document or history.
+     * Reached through {@link Workstation.view.Workspace#mountTopologyWorkspace} — the component is
+     * the surface another component addresses.
      * @param {String} workspaceKey
      * @param {Neo.container.Base} target A user-activated window or the root's inline fallback.
      * @returns {Promise<Boolean>}
+     * @protected
      */
     async mountTopologyWorkspace(workspaceKey, target) {
         const state = this.component.getPopupState(workspaceKey);

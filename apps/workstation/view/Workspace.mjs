@@ -828,6 +828,30 @@ class Workspace extends DockWorkspace {
     }
 
     /**
+     * @summary Presents an already hydrated participant in a render target, through the root controller.
+     *
+     * A component's own public surface, not a convenience: `Neo.manager.Transaction` resolves a
+     * Group participant to a **component** id, and the Neural Link addresses components too, so a
+     * caller that has resolved this workspace has resolved the thing it should be talking to. The
+     * orchestration stays on the controller, which owns Group participants and render targets.
+     * @param {String} workspaceKey
+     * @param {Neo.container.Base} target A user-activated window or the root's inline fallback.
+     * @returns {Promise<Boolean>}
+     */
+    mountTopologyWorkspace(workspaceKey, target) {
+        return this.getController().mountTopologyWorkspace(workspaceKey, target)
+    }
+
+    /**
+     * @summary Hands this root's reconnect lease and durable disposal to the Group library, through
+     * the root controller.
+     * @returns {Boolean}
+     */
+    attachTopologyLibrary() {
+        return this.getController().attachTopologyLibrary()
+    }
+
+    /**
      * A headless instance joins its Group when a real render target arrives (see
      * {@link #registerMainWorkspace}); the engine's geometry binding runs on the same signal.
      * @param {String|null} value

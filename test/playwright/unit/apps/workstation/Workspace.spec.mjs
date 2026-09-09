@@ -3314,3 +3314,43 @@ test.describe('Workstation topology bar — the view declares it, the controller
         }
     })
 });
+
+/**
+ * @summary The three operations a caller outside this component reaches it through.
+ *
+ * `Neo.manager.Transaction` resolves a Group participant to a **component** id and the Neural Link
+ * addresses components, so anything another component or an agent must reach has to live here.
+ * The controller keeps the orchestration; these three carry arguments and nothing else. They are
+ * asserted together because the value is that they are one pattern — three shapes doing the same
+ * job differently is the state this replaced.
+ */
+test.describe('Workstation.view.Workspace — the component IS the surface (#18562)', () => {
+    test('each entry point delegates to the controller with its arguments unchanged', async () => {
+        const calls      = [],
+              target     = {id: 'render-target', windowId: 'window-7'},
+              controller = {
+                  attachTopologyLibrary : (...args) => {calls.push(['attachTopologyLibrary', args]); return true},
+                  mountTopologyWorkspace: async (...args) => {calls.push(['mountTopologyWorkspace', args]); return true},
+                  saveTopology          : async (...args) => {calls.push(['saveTopology', args]); return {persisted: true}}
+              },
+              host       = {getController: () => controller};
+
+        await Workspace.prototype.saveTopology.call(host, 'layout-b');
+        // `target` is the argument an accidental signature change drops in silence: the controller
+        // returns false on a missing target rather than throwing, so the caller would see a refusal
+        // and no error at all.
+        await Workspace.prototype.mountTopologyWorkspace.call(host, 'vessel-metrics', target);
+        Workspace.prototype.attachTopologyLibrary.call(host);
+
+        expect(calls).toEqual([
+            ['saveTopology',           ['layout-b']],
+            ['mountTopologyWorkspace', ['vessel-metrics', target]],
+            ['attachTopologyLibrary',  []]
+        ]);
+
+        // Each returns what its controller returned — a delegation that swallowed the result would
+        // turn the mount refusal above into an undefined nobody branches on.
+        expect(await Workspace.prototype.mountTopologyWorkspace.call(host, 'vessel-metrics', target)).toBe(true);
+        expect(Workspace.prototype.attachTopologyLibrary.call(host)).toBe(true)
+    })
+});
