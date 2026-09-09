@@ -128,7 +128,18 @@ class Main extends core.Base {
          * @protected
          */
         remote: {
-            app: [
+            // Four narrow keys beside the full `app` list, each exposing `log` and nothing else, so
+            // an error raised in any SharedWorker can reach a console a page can read. The manifest
+            // key IS the target worker id (`core.Base#promiseRemotes`), and that fan-out is already
+            // existence-guarded by `origin.hasWorker(worker)` — `useCanvasWorker`, `useTaskWorker`
+            // and `useVdomWorker` are defaults-off, so most apps run two of the five and a key for
+            // an absent worker is inert. A conditional manifest would add a second existence check
+            // behind the one that works.
+            canvas: ['log'],
+            data  : ['log'],
+            task  : ['log'],
+            vdom  : ['log'],
+            app   : [
                 'alert',
                 'brainHealth',
                 'editRoute',
@@ -436,7 +447,13 @@ class Main extends core.Base {
      * @returns {Boolean}
      */
     log(data) {
-        console[data.method || 'log'](data.value);
+        // `method` is validated rather than trusted, because this is now reachable from every
+        // worker rather than only from `app`: an unknown name would be `console[undefined]`, a
+        // TypeError raised on the main thread by the channel that exists to report faults without
+        // becoming one. The worker side of this path guards carefully; this is the other side.
+        const {method} = data;
+
+        console[typeof console[method] === 'function' ? method : 'log'](data.value);
         return true
     }
 

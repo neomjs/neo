@@ -58,33 +58,6 @@ class App extends Base {
     }
 
     /**
-     * Environments {@link #forwardErrorToMainThread} may write into.
-     *
-     * An ALLOWLIST, deliberately. The first version excluded `dist/production` alone and left
-     * `dist/esm` mirroring — a real value a shipped build sets (`esmDistTransforms.mjs`), which
-     * {@link #afterSetCountLoadingThemeFiles}'s sibling branch in this same file already knows
-     * about. A denylist of shipped environments fails in the shipped direction and does it
-     * silently; an allowlist means a new environment gets no mirror until someone decides it
-     * should, which is the right default for something that writes into a user's console.
-     *
-     * Deliberately NOT coupled to `Neo.config.enableLogsInProduction`, which is `util.Logger`'s
-     * escape hatch for an application's own logging. This is a diagnostic for a condition the
-     * reader did not ask about; turning it on in production is a separate decision from turning
-     * application logs back on, and conflating them would grant it by accident.
-     * @member {String[]} mirrorEnvironments=['development','dist/development']
-     * @static
-     * @protected
-     */
-    static mirrorEnvironments = ['development', 'dist/development']
-
-    /**
-     * Re-entrancy latch for {@link #forwardErrorToMainThread}: the mirror runs inside the console
-     * interceptor, so anything the send path logs would arrive back through it.
-     * @member {Boolean} isForwardingError=false
-     * @protected
-     */
-    isForwardingError = false
-    /**
      * @member {Object} rpcStreamCallbacks={}
      * @protected
      */
@@ -122,8 +95,6 @@ class App extends Base {
         // convenience shortcuts
         Neo.applyDeltas    = me.applyDeltas   .bind(me);
         Neo.setCssVariable = me.setCssVariable.bind(me);
-
-        me.interceptConsole()
     }
 
     /**
@@ -413,164 +384,6 @@ class App extends Base {
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )
-    }
-
-    /**
-     * @summary Renders console arguments into one string, Errors as message plus stack.
-     * @param {Array} args
-     * @returns {String}
-     * @protected
-     */
-    serializeConsoleArgs(args) {
-        return args.map(arg => {
-            if (arg instanceof Error) {
-                return arg.message + '\n' + arg.stack
-            }
-            if (typeof arg === 'object') {
-                try {
-                    return JSON.stringify(arg)
-                } catch (e) {
-                    return String(arg)
-                }
-            }
-            return String(arg)
-        }).join(' ')
-    }
-
-    /**
-     * @summary Mirrors an App-Worker error into every connected window's console.
-     *
-     * The worker's own `console.error` writes to the SharedWorker's inspector context, which no
-     * page can read — and therefore neither can anything driving a browser. Until now the only
-     * other sink was the Neural Link, which needs a Brain checkout, so an error was invisible to
-     * a developer who did not go looking for it and to any test that could not load Brain code.
-     * This gives it one path that costs neither. `Neo.Main.log` already carried this shape on the
-     * Main remote manifest and had no caller.
-     *
-     * Errors only, and never in production: a diagnostic mirror, not a logging transport.
-     * @param {String} message
-     * @protected
-     */
-    forwardErrorToMainThread(message) {
-        let me = this;
-
-        // SharedWorker ONLY, because a dedicated worker needs no help: the browser already forwards
-        // its console output to the owner document, so mirroring there would double every error.
-        // Measured rather than assumed — a Blob worker calling `console.error` reaches
-        // `page.on('console')` with no forwarding at all. A SharedWorker instead gets its own
-        // inspector context that no page can read, which is the entire gap this closes.
-        //
-        // Re-entry is guarded rather than merely unlikely: a failed forward must never log, and the
-        // send path is free to warn — an unrouted `main` destination warns about its own
-        // deprecation, and that warning would arrive back through the interceptor that called us.
-        if (!me.isSharedWorker || me.isForwardingError || !me.constructor.mirrorEnvironments.includes(Neo.config.environment)) {
-            return
-        }
-
-        me.isForwardingError = true;
-
-        try {
-            const value = 'App Worker: ' + message;
-
-            // Addressed per window, so the deprecated unrouted `main` destination is never used.
-            // A window that closed between the error and this call rejects with NEO_DEAD_PORT,
-            // which is ordinary teardown; swallowed, never reported.
-            me.ports.forEach(({windowId}) => {
-                windowId && Neo.Main?.log?.({method: 'error', value, windowId})?.catch?.(Neo.emptyFn)
-            })
-        } catch (err) {
-            // A diagnostic mirror must not become a fault of its own.
-        } finally {
-            me.isForwardingError = false
-        }
-    }
-
-    /**
-     * Intercepts console logs and errors, forwarding them to the Neural Link and mirroring
-     * errors onto the main thread ({@link #forwardErrorToMainThread}).
-     */
-    interceptConsole() {
-        let me = this;
-
-        const types = ['log', 'warn', 'error', 'info'];
-
-        types.forEach(type => {
-            const original = console[type];
-
-            console[type] = (...args) => {
-                original.apply(console, args);
-
-                // Use the Client singleton if available (lazy check)
-                const client = Neo.ai?.Client,
-                      mirror = type === 'error';
-
-                // The mirror is deliberately independent of the client: an error must reach the
-                // main thread whether or not a Brain runtime is attached.
-                if (!client && !mirror) {
-                    return
-                }
-
-                let message;
-
-                try {
-                    message = me.serializeConsoleArgs(args)
-                } catch (err) {
-                    return
-                }
-
-                mirror && me.forwardErrorToMainThread(message);
-
-                if (client) {
-                    try {
-                        const logEntry = {
-                            type,
-                            message,
-                            timestamp: Date.now(),
-                            stack    : mirror ? new Error().stack : undefined
-                        };
-
-                        if (client.isConnected) {
-                            client.sendNotification('console_log', logEntry)
-                        } else {
-                            // Direct push to Client instance array
-                            client.logs.push(logEntry)
-                        }
-                    } catch (err) {
-                        // Prevent infinite loop if logging fails
-                    }
-                }
-            }
-        });
-
-        // Intercept unhandled errors
-        const originalOnError = globalThis.onerror;
-
-        globalThis.onerror = (msg, url, lineNo, columnNo, error) => {
-            const client = Neo.ai?.Client;
-
-            me.forwardErrorToMainThread(error?.stack || msg);
-
-            if (client) {
-                const logEntry = {
-                    type     : 'error',
-                    message  : msg,
-                    timestamp: Date.now(),
-                    stack    : error?.stack
-                };
-
-                if (client.isConnected) {
-                    client.sendNotification('console_log', logEntry)
-                } else {
-                    client.logs.push(logEntry)
-                }
-            }
-
-            if (originalOnError) {
-                return originalOnError(msg, url, lineNo, columnNo, error)
-            }
-
-            return false
-        }
     }
 
     /**
