@@ -41,38 +41,6 @@ const resolveSplitSplitterId = page => page.evaluate(() =>
     document.querySelector('.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal')?.id);
 
 /**
- * Arms a MutationObserver that flips a page-global flag the moment the workspace enters the
- * shared dock-motion lifecycle — the positive barrier that absence-of-residue checks can
- * never provide (zero `.neo-dashboard-dock-animating` is the natural state BEFORE the
- * deferred projection starts; only a seen-entry proves the gates run after it).
- * @param {import('@playwright/test').Page} page
- */
-const armSplitterMotionWitness = page => page.evaluate(() => {
-    const root = document.querySelector('.workstation-workspace');
-
-    globalThis.__gridRepaintSplitterMotion?.observer?.disconnect();
-    globalThis.__gridRepaintSplitterMotion = {
-        observer: new MutationObserver(() => {
-            root.classList.contains('neo-dashboard-dock-animating')
-                && (globalThis.__gridRepaintSplitterMotion.seen = true)
-        }),
-        seen: root.classList.contains('neo-dashboard-dock-animating')
-    };
-    globalThis.__gridRepaintSplitterMotion.observer.observe(root, {
-        attributeFilter: ['class'],
-        attributes     : true
-    })
-});
-
-/**
- * Retires the armed motion witness.
- * @param {import('@playwright/test').Page} page
- */
-const disarmSplitterMotionWitness = page => page.evaluate(() => {
-    globalThis.__gridRepaintSplitterMotion?.observer?.disconnect()
-});
-
-/**
  * @summary Whitebox E2E witness for the grid-freeze-after-splitter hypothesis.
  *
  * Separates three truths that green backend receipts alone conflate:
@@ -81,7 +49,7 @@ const disarmSplitterMotionWitness = page => page.evaluate(() => {
  *   (3) the exact visible row/cell repaints the new value (DOM truth).
  *
  * Protocol: pre-drag rendered-cell control → a real pointer drag on the projected
- * horizontal DockSplitter (await the committed resizeSplit document + motion settlement)
+ * horizontal DockSplitter (await the committed resizeSplit document + projection settlement)
  * → the same rendered-cell control again. A green pre-drag control with a red post-drag
  * control reproduces the freeze; both green closes the hypothesis with a falsifying receipt.
  *
@@ -265,7 +233,6 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                   geometryBefore = await readHorizontalSplitGeometry(page),
                   direction      = cycle % 2 === 0 ? -90 : 90;
 
-            await armSplitterMotionWitness(page);
             await dragSplitter(direction);
 
             // Settlement off the committed document — never a fixed delay
@@ -274,8 +241,13 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                 {message: `cycle ${cycle}: the resizeSplit document must commit with new sizes`, timeout: 8000, intervals: [100]}
             ).not.toBe(JSON.stringify(sizesBefore));
 
-            // Positive projection barrier 1: the deferred projection must apply the committed
-            // split to LIVE DOM extents — a document commit alone says nothing about projection
+            // The observed commit has scheduled its projection. Await that owner even when FLIP
+            // lands instantly and its worker-side class pulse never reaches the DOM.
+            await app.callMethod(wsId, 'refreshPromise.then');
+            expect(await app.getConsoleLogs('warn', 'Dock projection failed'),
+                `cycle ${cycle}: a handled projection failure must not count as clean settlement`).toEqual([]);
+
+            // Live preview alone can change these extents; check them after projection settlement.
             await expect.poll(
                 async () => {
                     const geometry = await readHorizontalSplitGeometry(page);
@@ -284,14 +256,7 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                 {message: `cycle ${cycle}: the deferred projection must apply the committed split to live DOM extents`, timeout: 8000, intervals: [100]}
             ).toBeGreaterThan(20);
 
-            // Positive projection barrier 2: the shared dock-motion lifecycle must have been
-            // ENTERED — only then do the residue gates run after, not before, projection
-            await expect.poll(
-                async () => page.evaluate(() => globalThis.__gridRepaintSplitterMotion.seen),
-                {message: `cycle ${cycle}: the committed resize must enter the dock-motion lifecycle`, timeout: 8000, intervals: [50]}
-            ).toBe(true);
-
-            // Residue gates — meaningful only behind both positive barriers
+            // Residue gates follow the completed projection, not an unrelated header pulse.
             await expect.poll(
                 async () => page.locator('.neo-dashboard-dock-animating').count(),
                 {message: `cycle ${cycle}: projection animation must settle`, timeout: 8000, intervals: [100]}
@@ -300,8 +265,6 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                 async () => page.locator('.neo-dock-flip-fixed-stage').count(),
                 {message: `cycle ${cycle}: the FLIP staging frame must be fully retired`, timeout: 8000, intervals: [100]}
             ).toBe(0);
-
-            await disarmSplitterMotionWitness(page);
 
             // live identities after cycle 1 only — later cycles re-prove the repaint discriminant
             if (cycle === 1) {
@@ -460,8 +423,6 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
         const sizesBefore    = (await app.getDockTopology(wsId)).document.nodes['split-main'].sizes,
               geometryBefore = await readHorizontalSplitGeometry(page);
 
-        await armSplitterMotionWitness(page);
-
         await app.simulateEvent([{
             options : {bubbles: true, button: 0, clientX: cx, clientY: cy},
             targetId: splitterDomId2, type: 'mousedown', windowId: windowId2
@@ -488,8 +449,12 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
             {message: 'the resizeSplit document must commit with new sizes', timeout: 8000, intervals: [100]}
         ).not.toBe(JSON.stringify(sizesBefore));
 
-        // Positive projection barrier 1: the deferred projection must apply the committed
-        // split to LIVE DOM extents — a document commit alone says nothing about projection
+        // Await the new projection, then reject a handled failure that scheduled recovery.
+        await app.callMethod(wsId, 'refreshPromise.then');
+        expect(await app.getConsoleLogs('warn', 'Dock projection failed'),
+            'a handled projection failure must not count as clean settlement').toEqual([]);
+
+        // Live preview alone can change these extents; check them after projection settlement.
         await expect.poll(
             async () => {
                 const geometry = await readHorizontalSplitGeometry(page);
@@ -498,14 +463,7 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
             {message: 'the deferred projection must apply the committed split to live DOM extents', timeout: 8000, intervals: [100]}
         ).toBeGreaterThan(20);
 
-        // Positive projection barrier 2: the shared dock-motion lifecycle must have been
-        // ENTERED — only then do the residue gates run after, not before, projection
-        await expect.poll(
-            async () => page.evaluate(() => globalThis.__gridRepaintSplitterMotion.seen),
-            {message: 'the committed resize must enter the dock-motion lifecycle', timeout: 8000, intervals: [50]}
-        ).toBe(true);
-
-        // Residue gates — meaningful only behind both positive barriers
+        // Residue gates follow the completed projection.
         await expect.poll(
             async () => page.locator('.neo-dashboard-dock-animating').count(),
             {message: 'projection animation must settle', timeout: 8000, intervals: [100]}
@@ -514,8 +472,6 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
             async () => page.locator('.neo-dock-flip-fixed-stage').count(),
             {message: 'the FLIP staging frame must be fully retired', timeout: 8000, intervals: [100]}
         ).toBe(0);
-
-        await disarmSplitterMotionWitness(page);
 
         // Same-run identity reassert: pane, store, and row-record must be the SAME instances
         // the pre-drag controls bound — projection must not have swapped them
