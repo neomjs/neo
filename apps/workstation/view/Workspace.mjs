@@ -1875,18 +1875,10 @@ class Workspace extends DockWorkspace {
             targetFocus  = WindowManager.resolveNativeRoute({...targetArgs, capability: 'focus'});
 
         me.lastVesselParkReceipt = {
-            authority: {
-                entryNameMatches     : entry?.windowName === windowName,
-                sourceHasHandle      : sourcePos.hasHandle,
-                sourceOwnerMatches   : sourcePos.ownerMatches,
-                sourcePositionCapable: sourcePos.capable,
-                sourceResizeCapable  : sourceResize.capable,
-                sourceTargetMatches  : sourcePos.targetMatches,
-                targetFocusCapable   : targetFocus.capable,
-                targetHasHandle      : targetFocus.hasHandle,
-                targetOwnerMatches   : targetFocus.ownerMatches,
-                targetTargetMatches  : targetFocus.targetMatches
-            },
+            // One definition of the authority block, shared with the other consumer and with the
+            // default transaction. A hand-written copy here is how the two receipts drifted: nine
+            // of ten keys agreed and the tenth was silently absent from the sibling.
+            authority  : NativeVesselTransaction.describeAuthority({sourcePos, sourceResize, targetFocus}, entry?.windowName === windowName),
             needsResize,
             parkSize,
             sourceInner: sourceRect && {
