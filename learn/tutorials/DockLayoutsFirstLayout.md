@@ -152,20 +152,16 @@ The engine derives them from what you wrote, and the benefit is not that the alg
 benefit is that there is nothing to keep in sync.** You never invented `center-split-0`, so you can never
 misspell it, never leave it behind after a rename, and never have two nodes accidentally sharing one.
 
-That is the whole rule, and the rule is that there is no rule to follow: **write your panes and your
-zones, and let the engine name the structure.**
+That is the whole rule: **write your panes and your zones, and let the engine name the structure.**
 
-It is worth being explicit about the thing you might otherwise reach for, because the reflex from other
-layout systems is to hand-author an identifier so you can find it again. Do not. Every Neo component id
-must be unique **across the whole application**, not just within one layout — so the moment a second copy
-of your workspace exists on the page, a name you chose by hand is a name you now have to make unique
-yourself, per instance, forever. A derived identity has never had that problem, which is the point of the
-section you have just read.
+Most layout systems make you invent a name so you can find a node again, so the reflex to hand-author one
+is worth naming. You do not need it here, and this is what the paragraph above is for: a name you never
+wrote is a name that cannot drift out of sync with anything.
 
-You do not need to address a structural node to build a layout, and this tutorial deliberately does not
-show you how. If you later find you genuinely do, that is a question about your application's identity
-strategy rather than about the dock, and it is worth answering deliberately instead of by adding a string
-to a config.
+**You do not need to address a structural node to build a layout, and this tutorial deliberately does not
+show you how.** If you later find that you genuinely do, that is a question about your application's
+identity strategy rather than about the dock, and it is worth answering deliberately instead of by adding
+a string to a config.
 
 ## What the engine does with your two configs
 
