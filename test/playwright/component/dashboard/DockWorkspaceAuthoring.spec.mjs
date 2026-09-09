@@ -41,6 +41,22 @@ test.beforeEach(async ({page}) => {
 });
 
 test.describe('declarative Workspace renders and owns ordinary panes', () => {
+    test('a declared pane answers the engine lookup by its key, and reaches the DOM as data-ref', async ({page}) => {
+        // The pane key is the lookup identity, so the engine's own vocabulary reaches into a dock:
+        // component.Base#afterSetReference lands it on the vdom root, which is the only observable
+        // that distinguishes "the projection stamped a reference" from "it set a config nobody reads".
+        await expect(page.locator('.dock-authoring-pane[data-ref="alpha"]')).toBeVisible();
+        await expect(page.locator('[data-ref="beta"]')).toBeAttached();
+
+        // The negative half: `summary` is declared with an ntype rather than a module, so this fails
+        // if the stamp only reaches module-declared panes.
+        await expect(page.locator('[data-ref="summary"]')).toBeAttached();
+
+        // And nothing is stamped for a key that does not exist — the attribute tracks the catalog,
+        // not every projected node.
+        await expect(page.locator('[data-ref="ghost"]')).toHaveCount(0)
+    });
+
     test('config-only consumer renders tabs, split and rail with independent same-class bindings', async ({page}) => {
         const first         = await drive(page),
               {alpha, beta} = first.panes;
