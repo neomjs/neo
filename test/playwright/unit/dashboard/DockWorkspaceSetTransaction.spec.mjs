@@ -25,7 +25,7 @@ function document(key, title = 'before') {
     return {
         schema: WorkspaceDocument.SCHEMA,
         root  : 'root',
-        items : {[key]: {componentRef: key, title, kind: 'panel'}},
+        items : {[key]: {reference: key, title, kind: 'panel'}},
         nodes : {root: {type: 'tabs', items: [key], activeItemId: key}}
     }
 }
@@ -69,7 +69,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
 
     test('addItem creates and places through a registered Group, preserving a queued lock and history', async () => {
         const main       = holder('main'),
-              descriptor = {operation: 'addItem', itemId: 'created', item: {componentRef: 'created', title: 'Created'},
+              descriptor = {operation: 'addItem', itemId: 'created', item: {reference: 'created', title: 'Created'},
                   target: {operation: 'addTab', tabsNodeId: 'root'}},
               direct     = Operations.applyOperation(main.document, descriptor);
 
@@ -96,7 +96,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
 
     test('addItem creates an unplaced record and refuses a queued duplicate without another history entry', async () => {
         const main  = holder('main'),
-              first = {operation: 'addItem', itemId: 'created', item: {componentRef: 'created', title: 'First'}};
+              first = {operation: 'addItem', itemId: 'created', item: {reference: 'created', title: 'First'}};
         const results = await Promise.allSettled([
             set.commit('main', [first]),
             set.commit('main', [{...first, item: {...first.item, title: 'Duplicate'}}])
@@ -113,7 +113,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
     test('addItem invalid placement and the old out-of-band seed path leave Group truth untouched', async () => {
         const main   = holder('main'), original = main.document,
               seeded = WorkspaceDocument.clone(original);
-        seeded.items.created = {componentRef: 'created'};
+        seeded.items.created = {reference: 'created'};
         const placement = {operation: 'addTab', itemId: 'created', tabsNodeId: 'root'};
         expect(Operations.applyOperation(seeded, placement).errors).toEqual([]);
         await expect(set.commit('main', [placement])).rejects.toThrow('unknown item "created"');
@@ -309,7 +309,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
         test(`${kind} participant preserves maximize when a Group commit activates a local tab`, async () => {
             const key     = kind === 'main' ? WorkstationWorkspace.MAIN_WORKSPACE_ID : 'popup',
                   initial = document(key);
-            initial.items.second = {componentRef: 'second', title: 'Second'};
+            initial.items.second = {reference: 'second', title: 'Second'};
             initial.nodes.root.items.push('second');
 
             const owner = Neo.create(kind === 'main' ? DockWorkspace : PopupWorkspace, {
@@ -346,7 +346,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
 
     test('a full popup Workspace commits a human tab activation to its Group document', async () => {
         const initial = document('popup');
-        initial.items.second = {componentRef: 'second', title: 'Second', kind: 'panel'};
+        initial.items.second = {reference: 'second', title: 'Second', kind: 'panel'};
         initial.nodes.root.items.push('second');
         const popup = Neo.create(PopupWorkspace, {
             dockModel      : initial, rootWorkspace: {resolvePane: () => ({ntype: 'component'})},

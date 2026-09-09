@@ -71,16 +71,16 @@ class MainContainer extends DockWorkspace {
          * @member {Object} panes
          */
         panes: {
-            strategy : {module: ReloadablePane, cls: ['neo-example-dock-pane'], header: {text: 'Strategy'}, componentRef: 'Strategy', kind: 'panel'},
-            swarm    : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Swarm'}, componentRef: 'Swarm', kind: 'panel', text: 'Swarm'},
-            terminal : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Terminal'}, componentRef: 'Terminal', kind: 'terminal', text: 'Terminal'},
-            logs     : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Logs'}, componentRef: 'Logs', kind: 'panel', text: 'Logs'},
-            inspector: {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Inspector'}, componentRef: 'Inspector', kind: 'panel', text: 'Inspector'},
-            metrics  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Metrics'}, componentRef: 'Metrics', kind: 'panel', text: 'Metrics'},
-            timeline : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Timeline'}, componentRef: 'Timeline', kind: 'panel', text: 'Timeline'},
-            agents   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Agents'}, componentRef: 'Agents', kind: 'panel', text: 'Agents'},
-            alerts   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Alerts'}, componentRef: 'Alerts', kind: 'panel', text: 'Alerts'},
-            history  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'History'}, componentRef: 'History', kind: 'panel', text: 'History'}
+            strategy : {module: ReloadablePane, cls: ['neo-example-dock-pane'], header: {text: 'Strategy'}, kind: 'panel'},
+            swarm    : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Swarm'}, kind: 'panel', text: 'Swarm'},
+            terminal : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Terminal'}, kind: 'terminal', text: 'Terminal'},
+            logs     : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Logs'}, kind: 'panel', text: 'Logs'},
+            inspector: {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Inspector'}, kind: 'panel', text: 'Inspector'},
+            metrics  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Metrics'}, kind: 'panel', text: 'Metrics'},
+            timeline : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Timeline'}, kind: 'panel', text: 'Timeline'},
+            agents   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Agents'}, kind: 'panel', text: 'Agents'},
+            alerts   : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'Alerts'}, kind: 'panel', text: 'Alerts'},
+            history  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'History'}, kind: 'panel', text: 'History'}
         },
         /**
          * Nested placement: center tabs beside a vertical split, with an inspector edge band.

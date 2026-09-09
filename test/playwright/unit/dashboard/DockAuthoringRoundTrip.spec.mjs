@@ -23,16 +23,16 @@ const example = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        strategy : {componentRef: 'Strategy',  title: 'Strategy',  kind: 'panel'},
-        swarm    : {componentRef: 'Swarm',     title: 'Swarm',     kind: 'panel'},
-        terminal : {componentRef: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
-        logs     : {componentRef: 'Logs',      title: 'Logs',      kind: 'panel'},
-        inspector: {componentRef: 'Inspector', title: 'Inspector', kind: 'panel'},
-        metrics  : {componentRef: 'Metrics',   title: 'Metrics',   kind: 'panel'},
-        timeline : {componentRef: 'Timeline',  title: 'Timeline',  kind: 'panel'},
-        agents   : {componentRef: 'Agents',    title: 'Agents',    kind: 'panel'},
-        alerts   : {componentRef: 'Alerts',    title: 'Alerts',    kind: 'panel'},
-        history  : {componentRef: 'History',   title: 'History',   kind: 'panel'}
+        strategy : {reference: 'Strategy',  title: 'Strategy',  kind: 'panel'},
+        swarm    : {reference: 'Swarm',     title: 'Swarm',     kind: 'panel'},
+        terminal : {reference: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
+        logs     : {reference: 'Logs',      title: 'Logs',      kind: 'panel'},
+        inspector: {reference: 'Inspector', title: 'Inspector', kind: 'panel'},
+        metrics  : {reference: 'Metrics',   title: 'Metrics',   kind: 'panel'},
+        timeline : {reference: 'Timeline',  title: 'Timeline',  kind: 'panel'},
+        agents   : {reference: 'Agents',    title: 'Agents',    kind: 'panel'},
+        alerts   : {reference: 'Alerts',    title: 'Alerts',    kind: 'panel'},
+        history  : {reference: 'History',   title: 'History',   kind: 'panel'}
     },
     nodes: {
         root            : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}, right: {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}}},
@@ -54,7 +54,9 @@ function expectedDocument(document) {
     const result = WorkspaceDocument.normalizeTree(document);
 
     for (const [key, item] of Object.entries(result.items)) {
-        result.items[key] = {...item, componentRef: item.componentRef ?? key, title: item.title ?? key}
+        // `title` is the only defaulted catalog field: lowering derives no lookup key from the
+        // pane key, so `reference` and the retired `reference` survive only when authored.
+        result.items[key] = {...item, title: item.title ?? key}
     }
 
     return result
@@ -133,7 +135,7 @@ function randomDocument(seed) {
 
     const item = () => {
         const id = `pane-${seed}-${itemIndex++}`, record = {}, autoHidden = random() < 0.25;
-        if (random() < 0.7) record.componentRef = `component-${id}`;
+        if (random() < 0.7) record.reference = `reference-${id}`;
         if (random() < 0.7) record.title = `Pane ${id}`;
         if (random() < 0.5) record.kind = 'panel';
         Object.assign(record, {autoHidden, pinned: !autoHidden && random() < 0.3,
@@ -186,7 +188,7 @@ test.describe('Neo.dashboard.dock.model.Authoring round trips', () => {
         const document = {
             schema: WorkspaceDocument.SCHEMA, root: 'main',
             items : {
-                a: {componentRef: 'OtherFactory', title: 'Full pane', kind: 'panel', closable: false,
+                a: {reference: 'OtherFactory', title: 'Full pane', kind: 'panel', closable: false,
                     pinnable : true, pinned: true, autoHidden: false, lockable: true, locked: true, movable: false,
                     metadata : {label: 'catalog', values: [1, null, false]},
                     blueprint: {ntype: 'component', text: 'Recovery', data: {record: 7}}},
@@ -245,7 +247,7 @@ test.describe('Neo.dashboard.dock.model.Authoring round trips', () => {
             catalogOnly += Object.keys(document.items).filter(id => !placed.has(id)).length;
             for (const item of Object.values(document.items)) {
                 if (item.autoHidden) autoHidden++;
-                if (item.title === undefined || item.componentRef === undefined) missingFields++;
+                if (item.title === undefined) missingFields++;
                 if (item.blueprint) blueprints++
             }
             assertRoundTrip(document, `seed ${seed}`)

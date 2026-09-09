@@ -23,7 +23,7 @@ const createRootTabsModel = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root-tabs',
     items : {
-        alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'}
+        alpha: {reference: 'alpha', kind: 'panel', title: 'Alpha'}
     },
     nodes: {
         'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'}
@@ -34,8 +34,8 @@ const createSplitModel = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root-split',
     items : {
-        alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'},
-        beta : {componentRef: 'beta',  kind: 'panel', title: 'Beta'}
+        alpha: {reference: 'alpha', kind: 'panel', title: 'Alpha'},
+        beta : {reference: 'beta',  kind: 'panel', title: 'Beta'}
     },
     nodes: {
         'alpha-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'},
@@ -53,8 +53,8 @@ const createEdgeModel = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root-edge',
     items : {
-        center: {componentRef: 'center', kind: 'panel', title: 'Center'},
-        left  : {componentRef: 'left',   kind: 'panel', title: 'Left'}
+        center: {reference: 'center', kind: 'panel', title: 'Center'},
+        left  : {reference: 'left',   kind: 'panel', title: 'Left'}
     },
     nodes: {
         'center-tabs': {activeItemId: 'center', items: ['center'], type: 'tabs'},
@@ -72,7 +72,7 @@ const createEdgeModel = () => ({
 const createThreeChildSplitModel = () => {
     const model = createSplitModel();
 
-    model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+    model.items.gamma = {reference: 'gamma', kind: 'panel', title: 'Gamma'};
     model.nodes['gamma-tabs'] = {activeItemId: 'gamma', items: ['gamma'], type: 'tabs'};
     model.nodes['root-split'].children.push('gamma-tabs');
     model.nodes['root-split'].sizes = [0.4, 0.35, 0.25];
@@ -86,7 +86,7 @@ const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemId
             .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
         host = Neo.create(Container, {
             items: [DockLayoutAdapter.project(model, {
-                resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
             })]
         }),
         oldShell     = host.items[0],
@@ -96,7 +96,7 @@ const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemId
     mutate(nextModel);
 
     const nextConfig = DockLayoutAdapter.project(nextModel, {
-        resolveComponentRef(_componentRef, item, itemId) {
+        resolveComponentRef(_reference, item, itemId) {
             const placeholder = Neo.create(Component, {
                 header: {text: item.title},
                 hidden: true
@@ -271,7 +271,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         try {
             const nextConfig = DockLayoutAdapter.project(model, {
-                    resolveComponentRef(componentRef, item, itemId) {
+                    resolveComponentRef(reference, item, itemId) {
                         const placeholder = Neo.create(Component, {
                             header: {text: item.title},
                             hidden: true
@@ -311,7 +311,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             },
             host = Neo.create(Container, {
                 items: [DockLayoutAdapter.project(model, {
-                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
                 })]
             }),
             tab          = host.items[0],
@@ -324,12 +324,12 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         const action = tab.getAction('pin'),
               spacer = bar.getActionSpacer();
 
-        next.items.beta = {componentRef: 'beta', kind: 'panel', title: 'Beta'};
+        next.items.beta = {reference: 'beta', kind: 'panel', title: 'Beta'};
         next.nodes['root-tabs'].items.push('beta');
 
         try {
             const nextConfig = DockLayoutAdapter.project(next, {
-                resolveComponentRef(_componentRef, item, itemId) {
+                resolveComponentRef(_reference, item, itemId) {
                     const placeholder = Neo.create(Component, {
                         header: {text: item.title},
                         hidden: true
@@ -375,7 +375,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             nextModel    = structuredClone(model),
             placeholders = new Map();
 
-        nextModel.items.beta = {componentRef: 'beta', kind: 'panel', title: 'Beta'};
+        nextModel.items.beta = {reference: 'beta', kind: 'panel', title: 'Beta'};
         nextModel.nodes['root-tabs'].items.push('beta');
 
         const resolverCalls = [];
@@ -383,7 +383,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         try {
             const nextConfig = DockLayoutAdapter.project(nextModel, {
-                resolveComponentRef(_componentRef, item, itemId) {
+                resolveComponentRef(_reference, item, itemId) {
                     const placeholder = Neo.create(Component, {
                         header: {text: item.title},
                         hidden: true
@@ -445,7 +445,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             },
             host = Neo.create(Container, {
                 items: [DockLayoutAdapter.project(model, {
-                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
                 })]
             }),
             oldShell     = host.items[0],
@@ -459,7 +459,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         try {
             const nextConfig = DockLayoutAdapter.project(nextModel, {
-                resolveComponentRef(_componentRef, item, itemId) {
+                resolveComponentRef(_reference, item, itemId) {
                     const placeholder = Neo.create(Component, {
                         header: {text: item.title},
                         hidden: true
@@ -571,7 +571,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
     test('reconciles an explicit same-topology item detachment without replacing the shell', async () => {
         const model = createSplitModel();
 
-        model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+        model.items.gamma = {reference: 'gamma', kind: 'panel', title: 'Gamma'};
         model.nodes['alpha-tabs'].items.push('gamma');
 
         const receipt = await reconcileModel(model, nextModel => {
@@ -665,7 +665,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             // node — the same shape the same-topology arrival arm below uses. Introducing the item
             // only in `nextModel` would leave `resolveItem` with nothing to hand back, and the arm
             // would die on pane resolution instead of testing the size clause.
-            model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+            model.items.gamma = {reference: 'gamma', kind: 'panel', title: 'Gamma'};
 
             const receipt = await reconcileModel(model, nextModel => {
                 nextModel.nodes['gamma-tabs'] = {activeItemId: 'gamma', items: ['gamma'], type: 'tabs'};
@@ -686,7 +686,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             // which would silently retire the fast path rather than protect it.
             const model = createSplitModel();
 
-            model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+            model.items.gamma = {reference: 'gamma', kind: 'panel', title: 'Gamma'};
             model.nodes['alpha-tabs'].items.push('gamma');
 
             // `gamma` leaves the node but `alpha` holds it open, so the structural tree is identical
@@ -802,7 +802,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         // node's item set grows. The catalog entry without a node placement models exactly that.
         const model = createSplitModel();
 
-        model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+        model.items.gamma = {reference: 'gamma', kind: 'panel', title: 'Gamma'};
 
         const receipt = await reconcileModel(model, nextModel => {
             nextModel.nodes['alpha-tabs'].items.push('gamma')
@@ -892,7 +892,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
     test('retires a pane and button that are absent from every projected tab exactly once', async () => {
         const
             model = createRootTabsModel(),
-            beta  = {componentRef: 'beta', kind: 'panel', title: 'Beta'};
+            beta  = {reference: 'beta', kind: 'panel', title: 'Beta'};
 
         model.items.beta = beta;
         model.nodes['root-tabs'].items.push('beta');
@@ -904,7 +904,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             },
             host = Neo.create(Container, {
                 items: [DockLayoutAdapter.project(model, {
-                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
                 })]
             }),
             tab             = host.items[0],
@@ -931,7 +931,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
 
         try {
             const nextConfig = DockLayoutAdapter.project(nextModel, {
-                resolveComponentRef(_componentRef, item, itemId) {
+                resolveComponentRef(_reference, item, itemId) {
                     const placeholder = Neo.create(Component, {
                         header: {text: item.title},
                         hidden: true
@@ -963,8 +963,8 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
     test('parks an absent middle pane without shifting sibling chrome and re-adopts the same instance', async () => {
         const model = createRootTabsModel();
 
-        model.items.beta  = {componentRef: 'beta',  kind: 'panel', title: 'Beta'};
-        model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+        model.items.beta  = {reference: 'beta',  kind: 'panel', title: 'Beta'};
+        model.items.gamma = {reference: 'gamma', kind: 'panel', title: 'Gamma'};
         model.nodes['root-tabs'].items = ['alpha', 'beta', 'gamma'];
 
         const
@@ -975,7 +975,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             },
             host = Neo.create(Container, {
                 items: [DockLayoutAdapter.project(model, {
-                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
                 })]
             }),
             tab               = host.items[0],
@@ -993,7 +993,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         nextModel.nodes['root-tabs'].items = ['alpha', 'gamma'];
 
         const project = (document, placeholders) => DockLayoutAdapter.project(document, {
-            resolveComponentRef(_componentRef, item, itemId) {
+            resolveComponentRef(_reference, item, itemId) {
                 const placeholder = Neo.create(Component, {
                     header: {text: item.title},
                     hidden: true
@@ -1071,7 +1071,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                 .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
             host  = Neo.create(Container, {
                 items: [DockLayoutAdapter.project(model, {
-                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
                 })]
             }),
             oldShell     = host.items[0],
@@ -1084,7 +1084,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         nextModel.nodes['root-split'].children.reverse();
 
         const nextConfig = DockLayoutAdapter.project(nextModel, {
-            resolveComponentRef(_componentRef, item, itemId) {
+            resolveComponentRef(_reference, item, itemId) {
                 const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
 
                 placeholders.set(itemId, placeholder);
@@ -1167,7 +1167,7 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         try {
             const placeholders = new Map(),
                   nextConfig   = DockLayoutAdapter.project(structuredClone(model), {
-                      resolveComponentRef(_componentRef, item, itemId) {
+                      resolveComponentRef(_reference, item, itemId) {
                           const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
 
                           placeholders.set(itemId, placeholder);

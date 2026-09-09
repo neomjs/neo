@@ -27,8 +27,8 @@ function sourceDoc() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
-            terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
+            strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
+            terminal: {reference: 'terminal', title: 'Terminal', kind: 'terminal'}
         },
         nodes: {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}},
@@ -43,7 +43,7 @@ function targetDoc() {
     return {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
-        items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
+        items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
         nodes : {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
             'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
@@ -262,7 +262,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         expect(sourceDocument.items.terminal).toBeUndefined();
         expect(sourceDocument.nodes['side-tabs']).toBeUndefined();
         expect(targetDocument.nodes['main-tabs'].items).toContain('terminal');
-        expect(targetDocument.items.terminal).toMatchObject({componentRef: 'terminal', title: 'Terminal', kind: 'terminal'});
+        expect(targetDocument.items.terminal).toMatchObject({reference: 'terminal', title: 'Terminal', kind: 'terminal'});
 
         participation.destroy()
     });
@@ -423,7 +423,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         const collisionTarget = () => {
             const doc = targetDoc();
 
-            doc.items.terminal = {componentRef: 'terminal-b', title: 'Terminal B', kind: 'terminal'};
+            doc.items.terminal = {reference: 'terminal-b', title: 'Terminal B', kind: 'terminal'};
             doc.nodes['main-tabs'].items.push('terminal');
 
             return doc

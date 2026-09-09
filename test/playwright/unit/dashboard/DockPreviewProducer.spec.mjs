@@ -229,7 +229,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 ยง2.3 โ€
         const doc = {
             schema: 'neo.dock.zone.v1',
             root  : 'root',
-            items : {a: {componentRef: 'A', title: 'A', kind: 'panel'}, b: {componentRef: 'B', title: 'B', kind: 'panel'}},
+            items : {a: {reference: 'A', title: 'A', kind: 'panel'}, b: {reference: 'B', title: 'B', kind: 'panel'}},
             nodes : {
                 root    : {type: 'split', orientation: 'vertical', children: ['a-tabs', 'b-tabs'], sizes: [0.5, 0.5]},
                 'a-tabs': {type: 'tabs', items: ['a'], activeItemId: 'a'},

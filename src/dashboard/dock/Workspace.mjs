@@ -982,7 +982,7 @@ class Workspace extends Container {
                 && !component?.ntype?.endsWith('button')
                 && !cls.includes('neo-dashboard-dock-rail-tab')
                 && !cls.includes('neo-dashboard-dock-placeholder')
-                && component?.data?.missingComponentRef !== true
+                && component?.data?.missingReference !== true
         }) || null
     }
 
@@ -1216,14 +1216,14 @@ class Workspace extends Container {
      * only to change the placeholder's shape; its header text rides {@link #getPaneHeaderText}.
      * @param {String} itemId
      * @param {Object} item The persisted item record.
-     * @param {String} componentRef
+     * @param {String} reference
      * @returns {Neo.component.Base}
      * @protected
      */
-    createProjectionPlaceholder(itemId, item, componentRef) {
+    createProjectionPlaceholder(itemId, item, reference) {
         return Neo.create({
             module: Component,
-            header: {text: this.getPaneHeaderText(itemId, item, componentRef)},
+            header: {text: this.getPaneHeaderText(itemId, item, reference)},
             hidden: true
         })
     }
@@ -2129,11 +2129,11 @@ class Workspace extends Container {
      * Header text for a projected pane's placeholder and default resolution.
      * @param {String} itemId
      * @param {Object} item The persisted item record.
-     * @param {String} componentRef
+     * @param {String} reference
      * @returns {String}
      */
-    getPaneHeaderText(itemId, item, componentRef) {
-        return item?.title ?? componentRef ?? itemId
+    getPaneHeaderText(itemId, item, reference) {
+        return item?.title ?? reference ?? itemId
     }
 
     /**
@@ -2472,8 +2472,8 @@ class Workspace extends Container {
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 // A resolved pane's contract is header truth too: the policy publishes what it can
                 // serve as it is resolved, and the reload action's binding reads it.
-                resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.publishPaneContract(itemId, me.resolveProjectedPane(itemId, item))),
-                resolveRevealComponentRef: (componentRef, item, itemId) => me.decorateFlipMarker(me.resolveRevealPane(itemId, item), itemId),
+                resolveComponentRef      : itemResolver || ((reference, item, itemId) => me.publishPaneContract(itemId, me.resolveProjectedPane(itemId, item))),
+                resolveRevealComponentRef: (reference, item, itemId) => me.decorateFlipMarker(me.resolveRevealPane(itemId, item), itemId),
                 ...(me.paneDeclarations && {retainRevealPane: me.retainDeclaredPane.bind(me)}),
                 // Header state is data the projected chrome binds to, resolved against this
                 // workspace's provider through the tree: the engine actions carry the policy's
@@ -2578,12 +2578,12 @@ class Workspace extends Container {
         const
             currentShell       = host.items?.[me.dockShellIndex],
             retainedTabNodeIds = new Set(currentShell ? Reconciler.collectProjectedTabs(currentShell).keys() : []),
-            nextConfig         = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId, nodeId) => {
+            nextConfig         = me.projectDockModel(tabInsertDescriptor, (reference, item, itemId, nodeId) => {
                 if (retainedTabNodeIds.has(nodeId)) {
                     return null
                 }
 
-                const placeholder = me.createProjectionPlaceholder(itemId, item, componentRef);
+                const placeholder = me.createProjectionPlaceholder(itemId, item, reference);
 
                 placeholders.set(itemId, placeholder);
 
@@ -2748,7 +2748,7 @@ class Workspace extends Container {
      * Container/Card creation. Other items keep the escaped-title placeholder fallback. Override
      * for custom application resolution; its instance lifetime remains the application's own.
      * @param {String} itemId The stable workspace identity from the item catalog.
-     * @param {Object} item The persisted item record (`componentRef`, `title`, `kind`, policy hints).
+     * @param {Object} item The persisted item record (`reference`, `title`, `kind`, policy hints).
      * @returns {Object|Neo.component.Base}
      */
     resolvePane(itemId, item) {
@@ -2761,7 +2761,7 @@ class Workspace extends Container {
         return {
             cls  : ['neo-dock-workspace-placeholder'],
             ntype: 'component',
-            text : this.getPaneHeaderText(itemId, item, item?.componentRef)
+            text : this.getPaneHeaderText(itemId, item, item?.reference)
         }
     }
 

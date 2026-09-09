@@ -308,23 +308,22 @@ class DemoAWorkspace extends DockWorkspace {
      * (the demo's continuity proof); the other panes stay labeled placeholders with the stable cls
      * hook the SCSS skin targets.
      *
-     * Keyed on the item id rather than the component ref: the id is the stable workspace identity
-     * the committed document and the FLIP correlation both use, and it is what the base class hands
-     * every resolver. The per-item marker class is stamped by {@link #flipMarkerPrefix}, never here.
+     * Keyed on the item id: it is the stable workspace identity the committed document and the FLIP
+     * correlation both use, and it is what the base class hands every resolver. The label comes from
+     * the record's own `title`. The per-item marker class is stamped by {@link #flipMarkerPrefix},
+     * never here.
      * @param {String} itemId The stable workspace identity from the item catalog.
      * @param {Object} item The persisted item record.
      * @returns {Object}
      */
     resolvePane(itemId, item) {
-        const componentRef = item?.componentRef ?? itemId;
-
-        if (componentRef === 'Editor') {
+        if (itemId === 'editor') {
             return {cls: ['agentos-dockdemo-clock-pane'], module: ClockPane}
         }
 
         return {
             cls  : ['agentos-dockdemo-pane'],
-            html : componentRef,
+            html : item?.title ?? itemId,
             ntype: 'component',
             style: {alignItems: 'center', display: 'flex', fontSize: '18px', justifyContent: 'center'}
         }

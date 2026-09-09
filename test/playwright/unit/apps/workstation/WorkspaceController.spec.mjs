@@ -23,7 +23,7 @@ test.describe('Workstation topology save and close coordination', () => {
     test('topology capture uses live placement instead of the previously stored offsets', () => {
         const document = {
             schema: 'neo.dock.zone.v1', root: 'tabs',
-            items : {a: {componentRef: 'a'}},
+            items : {a: {reference: 'a'}},
             nodes : {tabs: {type: 'tabs', items: ['a'], activeItemId: 'a'}}
         },
               fallbackTarget = {workspaceKey: 'main', nodeId: 'tabs'},
@@ -31,7 +31,7 @@ test.describe('Workstation topology save and close coordination', () => {
               live = {details: {dx: 450, dy: 80, fallbackTarget}},
               component = {
                   getDockTopologyWorkspaces: () => ({main: document, details: {
-                      ...document, items: {b: {componentRef: 'b'}}, nodes: {tabs: {type: 'tabs', items: ['b'], activeItemId: 'b'}}
+                      ...document, items: {b: {reference: 'b'}}, nodes: {tabs: {type: 'tabs', items: ['b'], activeItemId: 'b'}}
                   }}),
                   getPlacementHints : () => live,
                   topologyCollection: {activeLayoutId: 'saved', topologies: {saved: {title: 'Saved', placementHints: stored}}}
@@ -86,7 +86,7 @@ test.describe('Workstation topology save and close coordination', () => {
               started  = deferred(), acknowledgement = deferred(),
               document = {
                   schema: 'neo.dock.zone.v1', root: 'tabs',
-                  items : {a: {componentRef: 'a', title: 'before'}},
+                  items : {a: {reference: 'a', title: 'before'}},
                   nodes : {tabs: {type: 'tabs', items: ['a'], activeItemId: 'a'}}
               },
               library = Neo.create(TopologyLibrary, {persistenceAdapter: {

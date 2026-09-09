@@ -48,7 +48,7 @@ const buildWorkspace = (config = {}) => Neo.create(DockWorkspace, {
     dockModel: {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
-        items : {editor: {componentRef: 'editor', title: 'Editor'}},
+        items : {editor: {reference: 'editor', title: 'Editor'}},
         nodes : {root: {type: 'tabs', items: ['editor'], activeItemId: 'editor'}}
     },
     ...config
@@ -206,7 +206,7 @@ test.describe('dock recreate — Phase 1 validates a candidate before anything i
         workspace.resolveFreshPane = (itemId, item) => { seenItem = item; return null };
 
         workspace.prepareRecreateCandidate('editor', livePane);
-        expect(seenItem, 'a known id resolves its catalog record').toMatchObject({componentRef: 'editor'});
+        expect(seenItem, 'a known id resolves its catalog record').toMatchObject({reference: 'editor'});
 
         workspace.prepareRecreateCandidate('no-such-item', livePane);
         expect(seenItem, 'an unknown id resolves null rather than throwing').toBeNull()
@@ -651,7 +651,7 @@ test.describe('dock recreate — a refresh after recreate resolves the candidate
             model     = {
                 schema: 'neo.dock.zone.v1',
                 root  : 'root-tabs',
-                items : {alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'}},
+                items : {alpha: {reference: 'alpha', kind: 'panel', title: 'Alpha'}},
                 nodes : {'root-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'}}
             },
             pane = Neo.create(Component, {header: {text: 'Alpha'}}),
@@ -679,7 +679,7 @@ test.describe('dock recreate — a refresh after recreate resolves the candidate
 
             const placeholders = new Map(),
                   nextConfig   = DockLayoutAdapter.project(model, {
-                      resolveComponentRef(componentRef, item, itemId) {
+                      resolveComponentRef(reference, item, itemId) {
                           const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
 
                           placeholders.set(itemId, placeholder);
@@ -738,7 +738,7 @@ test.describe('Workstation cache adoption', () => {
 
         const
             itemId    = 'security',
-            item      = {componentRef: itemId, title: 'Security'},
+            item      = {reference: itemId, title: 'Security'},
             container = Neo.create(Container, {
                 appName: 'DashboardDockRecreateCandidateTest',
                 items  : [{module: Component, id: 'workstation-recreate-live'}]

@@ -42,7 +42,7 @@ test.describe('Neo.dashboard.dock.persistence.TopologyLibrary', () => {
         const document = id => ({
             schema: 'neo.dock.zone.v1',
             root  : 'root',
-            items : {[id]: {componentRef: id, title: id}},
+            items : {[id]: {reference: id, title: id}},
             nodes : {root: {type: 'tabs', items: [id], activeItemId: id}}
         });
         const result = Persistence.captureTopologyPerspective({

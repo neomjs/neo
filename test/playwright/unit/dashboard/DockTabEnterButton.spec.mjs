@@ -18,9 +18,9 @@ const createModel = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        strategy: {componentRef: 'Strategy', title: 'Strategy'},
-        swarm   : {componentRef: 'Swarm', title: 'Swarm'},
-        terminal: {componentRef: 'Terminal', title: 'Terminal'}
+        strategy: {reference: 'Strategy', title: 'Strategy'},
+        swarm   : {reference: 'Swarm', title: 'Swarm'},
+        terminal: {reference: 'Terminal', title: 'Terminal'}
     },
     nodes: {
         root: {

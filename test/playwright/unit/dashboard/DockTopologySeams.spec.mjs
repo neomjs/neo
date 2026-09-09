@@ -36,8 +36,8 @@ function primaryDoc() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
-            swarm   : {componentRef: 'swarm',    title: 'Swarm',    kind: 'panel'}
+            strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
+            swarm   : {reference: 'swarm',    title: 'Swarm',    kind: 'panel'}
         },
         nodes: {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
@@ -51,7 +51,7 @@ function vesselDoc() {
     return {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
-        items : {terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}},
+        items : {terminal: {reference: 'terminal', title: 'Terminal', kind: 'terminal'}},
         nodes : {
             root         : {type: 'edge-zone', zones: {center: {nodeId: 'vessel-tabs'}}},
             'vessel-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}

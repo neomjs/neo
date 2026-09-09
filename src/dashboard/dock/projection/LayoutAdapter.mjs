@@ -52,9 +52,8 @@ class LayoutAdapter extends Base {
         return {
             cls : ['neo-dashboard-dock-placeholder'],
             data: {
-                componentRef       : item?.componentRef || null,
-                dockItemId         : itemId,
-                missingComponentRef: true
+                dockItemId      : itemId,
+                missingReference: true
             },
             dockItemId: itemId,
             header    : {text: title, dockItemId: itemId},
@@ -104,11 +103,15 @@ class LayoutAdapter extends Base {
         let config = {...component},
             data   = {...(config.data || {})};
 
-        data.componentRef = item?.componentRef || null;
-        data.dockItemId   = itemId;
+        data.dockItemId = itemId;
 
         config.data       = data;
         config.dockItemId = itemId;
+        // The item key IS the lookup identity, so the pane resolves through the engine's own
+        // vocabulary: getReference() and the view-controller path find it, and component.Base
+        // lands it in the DOM as data-ref. This is a DEFAULT, never an override — a resolver that
+        // named its own reference owns that name, which is the point of the config existing.
+        config.reference ??= item?.reference || itemId;
         // The stamp must reach the HEADER too: tab.Container builds each header button from this
         // object, so the button instance then carries the identity structurally — the keyboard
         // focus path never has to map header position back into document order. (Live panes skip
@@ -456,7 +459,7 @@ class LayoutAdapter extends Base {
      *     another owning lifecycle has already retired the same source vessel.
      * @param {Function} [options.resolveVesselConversionSourceRect] Synchronous owner resolver for
      *     the exact dragged vessel's live global inner rect; threaded through a clone-safe listener.
-     * @param {Function} [options.resolveComponentRef] `(componentRef, item, itemId, nodeId) => config
+     * @param {Function} [options.resolveComponentRef] `(reference, item, itemId, nodeId) => config
      *     | instance | null`; a `null` answer falls through to the item's persisted `blueprint` when
      *     present, otherwise to a recoverable placeholder config — neither constructs an instance.
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
@@ -952,7 +955,7 @@ class LayoutAdapter extends Base {
             return this.createPlaceholder(itemId, null)
         }
 
-        component = context.resolveComponentRef(item.componentRef, item, itemId, nodeId);
+        component = context.resolveComponentRef(item.reference, item, itemId, nodeId);
 
         if (!component && item.blueprint) {
             component = this.cloneConfig(item.blueprint)

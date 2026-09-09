@@ -20,8 +20,8 @@ const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        editor  : {componentRef: 'editor', title: 'Editor'},
-        terminal: {autoHidden: true, componentRef: 'terminal', title: 'Terminal'}
+        editor  : {reference: 'editor', title: 'Editor'},
+        terminal: {autoHidden: true, reference: 'terminal', title: 'Terminal'}
     },
     nodes: {
         root: {
@@ -488,7 +488,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
             edge               : 'right',
             id                 : 'dock-rail-release',
             railItems          : createRailItems(),
-            resolveComponentRef: componentRef => ({ntype: 'component', id: 'dock-rail-release-pane', html: componentRef})
+            resolveComponentRef: reference => ({ntype: 'component', id: 'dock-rail-release-pane', html: reference})
         });
 
         rail.onTabClick({component: rail.items[0]});
@@ -552,7 +552,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
             edge               : 'right',
             id                 : 'dock-rail-composed-overlay',
             railItems          : createRailItems(),
-            resolveComponentRef: componentRef => ({ntype: 'component', html: componentRef})
+            resolveComponentRef: reference => ({ntype: 'component', html: reference})
         });
 
         // Composed from construct: the overlay child exists idle-hidden before any reveal —
@@ -670,7 +670,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         expect(pane.ntype).toBe('dashboard-panel');
         expect(pane.header).toMatchObject({dockItemId: 'terminal', text: 'Terminal'});
         // the `data` getter is the state-provider shortcut; the adapter's payload rides the raw config
-        expect(pane._data?.missingComponentRef).toBe(true);
+        expect(pane._data?.missingReference).toBe(true);
     });
 
     test('a lazy module config materializes on reveal — the rail loads it as a card layout loads its active tab', async () => {

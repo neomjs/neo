@@ -35,10 +35,10 @@ function collectRails(config, rails = []) {
 
 /**
  * @summary Minimal pane resolver for projection-boundary assertions.
- * @param {String} componentRef
+ * @param {String} reference
  * @returns {Object}
  */
-const stubPane = componentRef => ({html: componentRef, ntype: 'component'});
+const stubPane = reference => ({html: reference, ntype: 'component'});
 
 /**
  * @summary Verifies the Demo-A screenplay as reviewed content: it validates fail-closed

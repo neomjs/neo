@@ -12,9 +12,9 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        main : {componentRef: 'main',  title: 'Main',  kind: 'panel'},
-        alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel', autoHidden: true},
-        beta : {componentRef: 'beta',  title: 'Beta',  kind: 'panel', autoHidden: true}
+        main : {reference: 'main',  title: 'Main',  kind: 'panel'},
+        alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel', autoHidden: true},
+        beta : {reference: 'beta',  title: 'Beta',  kind: 'panel', autoHidden: true}
     },
     nodes: {
         root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'edge-tabs', extent: 0.3}}},

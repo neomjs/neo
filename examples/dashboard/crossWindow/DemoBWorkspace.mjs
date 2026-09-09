@@ -3762,9 +3762,9 @@ class DemoBWorkspace extends Container {
             onDockVesselConversionRetired : data => me.vesselParkHandlers.onVesselRetired(data),
             onDockZoneDocumentChange      : (nextDocument, descriptor) => me.onWorkspaceDocumentChange(workspaceId, nextDocument, {descriptor}),
             resolveComponentRef           : resolveComponentRef
-                || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
+                || ((reference, item, itemId) => me.resolvePane(itemId, item)),
             resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data),
-            resolveRevealComponentRef        : (componentRef, item, itemId) => me.resolvePane(itemId, item),
+            resolveRevealComponentRef        : (reference, item, itemId) => me.resolvePane(itemId, item),
             workspaceId,
             ...(tearOut ? me.tearOutHandlers : null),
             onDockTearOutExit: tearOut ? data => me.onDockTearOutExit(data) : undefined
@@ -4331,7 +4331,7 @@ class DemoBWorkspace extends Container {
                 await flip?.captureFirst({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
             } catch (e) {/* instant landing */}
 
-            const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
+            const nextConfig = me.projectDockModel((reference, item, itemId) => {
                 const placeholder = Neo.create({
                     module: Component,
                     header: {text: item?.title ?? itemId},

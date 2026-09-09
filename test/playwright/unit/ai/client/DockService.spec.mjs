@@ -14,9 +14,9 @@ function doc() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
-            swarm   : {componentRef: 'swarm',    title: 'Swarm',    kind: 'panel'},
-            terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
+            strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
+            swarm   : {reference: 'swarm',    title: 'Swarm',    kind: 'panel'},
+            terminal: {reference: 'terminal', title: 'Terminal', kind: 'terminal'}
         },
         nodes: {
             root        : {type: 'edge-zone', zones: {center: {nodeId: 'main-split'}}},
@@ -37,8 +37,8 @@ function doc2() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'},
-            beta : {componentRef: 'beta',  title: 'Beta',  kind: 'panel'}
+            alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},
+            beta : {reference: 'beta',  title: 'Beta',  kind: 'panel'}
         },
         nodes: {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'only-tabs'}}},

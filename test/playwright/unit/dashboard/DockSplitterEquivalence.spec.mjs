@@ -28,8 +28,8 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         schema: 'neo.dock.zone.v1',
         root  : 'split-1',
         items : {
-            alpha: {componentRef: 'alpha', title: 'Alpha'},
-            beta : {componentRef: 'beta',  title: 'Beta'}
+            alpha: {reference: 'alpha', title: 'Alpha'},
+            beta : {reference: 'beta',  title: 'Beta'}
         },
         nodes: {
             'split-1': {type: 'split', orientation: 'horizontal', children: ['zone-a', 'zone-b'], sizes: [0.5, 0.5]},

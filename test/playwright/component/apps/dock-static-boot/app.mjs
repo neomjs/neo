@@ -28,8 +28,8 @@ const staticDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'static-root',
     items : {
-        bare    : {componentRef: 'Bare',     title: 'Bare',     kind: 'panel'},
-        contract: {componentRef: 'Contract', title: 'Contract', kind: 'panel'}
+        bare    : {reference: 'Bare',     title: 'Bare',     kind: 'panel'},
+        contract: {reference: 'Contract', title: 'Contract', kind: 'panel'}
     },
     nodes: {
         // `contract` is ACTIVE at boot on purpose. The projection hardcodes reload to

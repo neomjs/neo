@@ -27,9 +27,9 @@ function doc() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
-            swarm   : {componentRef: 'swarm',    title: 'Swarm',    kind: 'panel'},
-            terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
+            strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
+            swarm   : {reference: 'swarm',    title: 'Swarm',    kind: 'panel'},
+            terminal: {reference: 'terminal', title: 'Terminal', kind: 'terminal'}
         },
         nodes: {
             root       : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
@@ -96,9 +96,9 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
             schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {
-                strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
-                swarm   : {componentRef: 'swarm',    title: 'Swarm',    kind: 'panel'},
-                terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
+                strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
+                swarm   : {reference: 'swarm',    title: 'Swarm',    kind: 'panel'},
+                terminal: {reference: 'terminal', title: 'Terminal', kind: 'terminal'}
             },
             nodes: {
                 root       : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
@@ -123,7 +123,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
         const mk = (a, b) => ({
             schema: 'neo.dock.zone.v1',
             root  : 'root',
-            items : {alpha: {componentRef: 'a', title: 'A', kind: 'panel'}, beta: {componentRef: 'b', title: 'B', kind: 'panel'}},
+            items : {alpha: {reference: 'a', title: 'A', kind: 'panel'}, beta: {reference: 'b', title: 'B', kind: 'panel'}},
             nodes : {
                 root: {type: 'split', orientation: 'horizontal', children: ['n1', 'n2'], sizes: [0.5, 0.5]},
                 n1  : {type: 'tabs', items: [a], activeItemId: a},

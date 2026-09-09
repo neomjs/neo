@@ -106,9 +106,9 @@ const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'},
-        beta : {componentRef: 'beta',  title: 'Beta',  kind: 'panel', closable: false},
-        side : {componentRef: 'side',  title: 'Side',  kind: 'panel'}
+        alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},
+        beta : {reference: 'beta',  title: 'Beta',  kind: 'panel', closable: false},
+        side : {reference: 'side',  title: 'Side',  kind: 'panel'}
     },
     nodes: {
         root: {

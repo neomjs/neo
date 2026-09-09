@@ -24,10 +24,10 @@ function createDocument() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            alpha : {componentRef: 'alpha',  title: 'Alpha',  kind: 'panel'},
-            beta  : {componentRef: 'beta',   title: 'Beta',   kind: 'panel'},
-            pinned: {componentRef: 'pinned', title: 'Pinned', kind: 'panel'},
-            railed: {componentRef: 'railed', title: 'Railed', kind: 'panel', autoHidden: true}
+            alpha : {reference: 'alpha',  title: 'Alpha',  kind: 'panel'},
+            beta  : {reference: 'beta',   title: 'Beta',   kind: 'panel'},
+            pinned: {reference: 'pinned', title: 'Pinned', kind: 'panel'},
+            railed: {reference: 'railed', title: 'Railed', kind: 'panel', autoHidden: true}
         },
         nodes: {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'edge-tabs', extent: 0.25}}},

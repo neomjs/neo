@@ -31,9 +31,9 @@ const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        editor  : {componentRef: 'Editor',   title: 'Editor',   kind: 'panel'},
-        preview : {componentRef: 'Preview',  title: 'Preview',  kind: 'panel'},
-        terminal: {componentRef: 'Terminal', title: 'Terminal', kind: 'terminal'}
+        editor  : {reference: 'Editor',   title: 'Editor',   kind: 'panel'},
+        preview : {reference: 'Preview',  title: 'Preview',  kind: 'panel'},
+        terminal: {reference: 'Terminal', title: 'Terminal', kind: 'terminal'}
     },
     nodes: {
         root         : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}}},
@@ -61,12 +61,12 @@ class StandInWorkspace extends DockWorkspace {
      * Records every stand-in the refresh asks for, then builds it like the engine does.
      * @param {String} itemId
      * @param {Object} item
-     * @param {String} componentRef
+     * @param {String} reference
      * @returns {Neo.component.Base}
      */
-    createProjectionPlaceholder(itemId, item, componentRef) {
+    createProjectionPlaceholder(itemId, item, reference) {
         standIns.push(itemId);
-        return super.createProjectionPlaceholder(itemId, item, componentRef)
+        return super.createProjectionPlaceholder(itemId, item, reference)
     }
 }
 
@@ -162,7 +162,7 @@ test.describe('Neo.dashboard.dock.Workspace projection stand-ins (#18274)', () =
         expect(chrome(workspace)).toEqual(before);
 
         const withNotes = structuredClone(workspace.dockModel);
-        withNotes.items.notes = {componentRef: 'Notes', title: 'Notes', kind: 'panel'};
+        withNotes.items.notes = {reference: 'Notes', title: 'Notes', kind: 'panel'};
 
         const add = await commit(workspace, {operation: 'addTab', itemId: 'notes', tabsNodeId: 'side-tabs', index: 2}, withNotes);
         expect(add.standIns, 'a tab added to a retained node builds no stand-in').toEqual([]);

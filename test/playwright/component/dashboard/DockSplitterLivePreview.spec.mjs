@@ -18,8 +18,8 @@ const DOC = {
     schema: 'neo.dock.zone.v1',
     root  : 'split-1',
     items : {
-        alpha: {componentRef: 'alpha', title: 'Alpha'},
-        beta : {componentRef: 'beta',  title: 'Beta'}
+        alpha: {reference: 'alpha', title: 'Alpha'},
+        beta : {reference: 'beta',  title: 'Beta'}
     },
     nodes: {
         'split-1': {type: 'split', orientation: 'horizontal', children: ['zone-a', 'zone-b'], sizes: [0.5, 0.5]},
@@ -200,8 +200,8 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — live pair preview
             schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {
-                center: {componentRef: 'center', title: 'Center'},
-                left  : {componentRef: 'left',   title: 'Left'}
+                center: {reference: 'center', title: 'Center'},
+                left  : {reference: 'left',   title: 'Left'}
             },
             nodes: {
                 root: {

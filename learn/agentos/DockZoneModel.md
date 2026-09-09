@@ -56,22 +56,18 @@ The persisted document is a versioned JSON object:
   "root": "root",
   "items": {
     "strategy": {
-      "componentRef": "strategy",
       "title": "Strategy",
       "kind": "panel"
     },
     "swarm": {
-      "componentRef": "swarm",
       "title": "Swarm",
       "kind": "panel"
     },
     "terminal": {
-      "componentRef": "terminal",
       "title": "Terminal",
       "kind": "terminal"
     },
     "inspector": {
-      "componentRef": "inspector",
       "title": "Inspector",
       "kind": "inspector"
     }
@@ -123,8 +119,14 @@ The persisted document is a versioned JSON object:
 
 Catalog fields used by adapters (the wire also accepts minimal records):
 
-- `componentRef`: stable reference used by the rendering adapter to locate or create the component.
 - `title`: display label for tab headers and persistence UIs.
+
+Optional, and only when the item key is not the answer:
+
+- `reference`: the component-lookup key, spelled as the engine spells it everywhere else
+  (`component.Base#reference_`). The projection defaults it to the **item id**, so a record names one
+  only to override that — an advanced resolver keyed on names of its own choosing. A projected pane
+  carries it into the DOM as `data-ref` and answers `getReference()` and the view-controller path.
 
 Optional item fields:
 
@@ -171,8 +173,9 @@ authored path, such as `zones.center.children[1].items[0]`.
 Validation collects independent errors across catalog entries and sibling nodes in one call. It stops
 descending a branch whose shape cannot be read safely and returns no partial document.
 
-Pane keys become item IDs. `componentRef` defaults to the key; wire `title` uses `header.text`, then
-the key. Nullish values use the default. Other defined fields from
+Pane keys become item IDs, and lowering derives **no** lookup field from them: the key already is
+the identity, so a fabricated second name would be one more thing the consumer has to maintain. Wire
+`title` uses `header.text`, then the key. Nullish values use the default. Other defined fields from
 `WorkspaceDocument.dockZoneItemKeys`, including optional `kind`, policies, `metadata` and `blueprint`,
 are copied after JSON/model validation. Ordinary runtime config such as `module`, listeners and
 stores stays outside the document. A function inside a catalog field instead fails with its pane
@@ -200,7 +203,7 @@ fail with a document path even though the older wire validator admits those malf
 Lowering the retained-ID export equals the original after `normalizeTree` and the documented
 catalog defaults. Lowering an IDs-dropped export preserves that same catalog and ordered structure,
 with generated IDs. This is equality after defaults, not byte equality with a minimal record that
-omitted `title` or `componentRef`. Complete-field controls retain their values.
+omitted `title`. Complete-field controls retain their values.
 
 The model specs exercise the standalone dock example, Demo A, Demo B and Workstation documents,
 named collision and catalog-loss controls, and 400 deterministic generated trees. The generated
@@ -209,9 +212,9 @@ and unplaced items; it is not a proof over every possible input.
 
 ### Stale Component References
 
-`componentRef` is a stable lookup key, not a guarantee that a live component instance or constructable blueprint still exists.
+An item id — or the `reference` a record names instead — is a stable lookup key, not a guarantee that a live component instance or constructable blueprint still exists.
 
-When a rendering adapter cannot resolve `componentRef` to a live component, and cannot instantiate from `item.blueprint`, restore behavior is adapter-defined until a concrete renderer or persistence slice owns a stricter policy. The adapter must still fail non-silently: preserve the item record and its semantic placement long enough for validation, explicit user recovery, or an intentional close/remove operation.
+When a rendering adapter cannot resolve that key to a live component, and cannot instantiate from `item.blueprint`, restore behavior is adapter-defined until a concrete renderer or persistence slice owns a stricter policy. The adapter must still fail non-silently: preserve the item record and its semantic placement long enough for validation, explicit user recovery, or an intentional close/remove operation.
 
 Allowed fallback shapes include a validation error tied to the item id or a recoverable placeholder pane. The adapter must not silently drop the item, synthesize live runtime references into persisted state, or rewrite the dock tree in a way that corrupts the saved layout. A future adapter may narrow this policy, but it must cite or update this contract rather than inventing incompatible restore semantics.
 
@@ -319,13 +322,13 @@ the Group path; `addTab` correctly refuses unknown ids. `applyDocument` remains 
 replacement, including changes made since its candidate was prepared.
 
 ```javascript
-{operation: 'addItem', itemId: 'inspector', item: {componentRef: 'inspector', title: 'Inspector'},
+{operation: 'addItem', itemId: 'inspector', item: {title: 'Inspector'},
  target: {operation: 'addTab', tabsNodeId: 'main-tabs'}}
 ```
 
 Omit `target` to create an unplaced catalog record. The outer `itemId` controls placement; a nested
 target cannot substitute another id. `item` uses the existing JSON-only item schema, including
-optional `metadata` and `blueprint`; consumers resolve `componentRef` and construct components.
+optional `metadata` and `blueprint`; consumers resolve the item id and construct components.
 Module factories and live component instances do not belong in the record.
 
 Every operation must maintain:
@@ -436,7 +439,7 @@ The contract is deliberately JSON-first. `projection.LayoutAdapter` projects the
 - `tabs.items` -> tab header order plus card children
 - `activeItemId` -> active card index derived from `items.indexOf(activeItemId)`; user activation emits `setActiveItem` before a later projection can overwrite it
 
-The adapter must treat `componentRef` as the stable bridge between persisted layout and live component ownership. When no live component exists, the adapter may instantiate from `item.blueprint`; when a live component exists, it should move/re-parent the instance without destroying it, matching the existing dashboard and multi-window precedent.
+The adapter must treat the item id — or a `reference` the record names instead — as the stable bridge between persisted layout and live component ownership. When no live component exists, the adapter may instantiate from `item.blueprint`; when a live component exists, it should move/re-parent the instance without destroying it, matching the existing dashboard and multi-window precedent.
 
 If neither a live component nor a valid `item.blueprint` exists, the adapter must follow the stale-component-reference policy above instead of silently dropping the item.
 
@@ -524,7 +527,7 @@ Persistence consumes only committed dock-zone state. It must not serialize `dock
 
 Restore validates the complete wrapper/collection before replacing active truth. For topologies this includes every keyed Workspace document, placement hint, cross-workspace item uniqueness, and the freshly recomputed aggregate fingerprint. Unsupported or positional inputs fail closed: keep the last-good active state and surface validation or recovery state to the caller.
 
-Component recovery remains the adapter's responsibility. A restored item with an unresolved `componentRef` follows the stale component reference policy above: preserve the item record and semantic placement long enough for validation, explicit recovery, placeholder rendering, or intentional removal. Persistence must not silently drop the item or rewrite the dock tree to hide the missing component.
+Component recovery remains the adapter's responsibility. A restored item whose lookup key resolves to nothing follows the stale component reference policy above: preserve the item record and semantic placement long enough for validation, explicit recovery, placeholder rendering, or intentional removal. Persistence must not silently drop the item or rewrite the dock tree to hide the missing component.
 
 Reusable layout/topology envelope validation and restore live in `model.Persistence`; single-workspace named layouts
 live in `persistence.PerspectiveLibrary`. The Group-level topology library remains a separate lazy owner. Only storage
@@ -552,7 +555,7 @@ The adapter input is the persisted model plus a runtime component resolver:
 |---|---|---|
 | `model.nodes` / `model.root` | persisted dock-zone document | Structural tree authority. |
 | `model.items` | persisted dock-zone item catalog | Stable item identity, titles, policy hints, and optional blueprints. |
-| `componentRef` resolver | harness/dashboard runtime | Finds an existing live component or returns null so the adapter can instantiate from `blueprint`. |
+| pane resolver | harness/dashboard runtime | Finds an existing live component or returns null so the adapter can instantiate from `blueprint`. |
 | `operation` result | drag/drop or command surface | Already-committed semantic model mutation; not raw hover/preview state. |
 
 The adapter must not read `DOMRect`, `windowId`, pointer coordinates, preview placement, or drag-zone internals while projecting committed layout. Those surfaces belong to drag integration and post-drop mutation.
@@ -581,7 +584,7 @@ rejection restore presentation and commit nothing.
 | `items` | tab/card item configs in listed order | Item order maps to tab button order and card order. |
 | `activeItemId` | `activeIndex` derived from `items.indexOf(activeItemId)` | Invalid or missing active item falls back to index `0` when items exist, otherwise `null`. |
 | item `title` | child `header.text` or equivalent header config | The title is display text, not identity. |
-| item `componentRef` | existing component move or blueprint instantiation | Runtime refs stay outside serialized state. |
+| item id, or an item's own `reference` | existing component move or blueprint instantiation | Runtime instances stay outside serialized state. |
 
 The adapter preserves the `Neo.tab.Container` contract: tab headers and card children stay index-aligned, and active
 state is index-based at render time even though the persisted dock model is id-based. Every projected tab strip reports
@@ -589,14 +592,15 @@ user activation through `setActiveItem`, independently of whether close-action c
 
 ### Component Identity Handoff
 
-`componentRef` is the bridge between saved layout and live ownership:
+The item id is the bridge between saved layout and live ownership, and a record names its own
+`reference` only when it wants a different one:
 
-1. Resolve `componentRef` against the harness/dashboard registry.
+1. Resolve that key against the harness/dashboard registry.
 2. If a live component exists, move or re-parent that instance into the projected structure without destroying it.
 3. If no live component exists and `item.blueprint` exists, instantiate from the blueprint.
 4. If neither exists, render a recoverable placeholder, validation error, or other policy-owned fail-safe state, then leave the persisted item record intact for recovery.
 
-This aligns the adapter with stale `componentRef` restore behavior: runtime component references are recoverable state, not a reason to corrupt the persisted dock tree.
+This aligns the adapter with the stale-reference restore behavior above: runtime component references are recoverable state, not a reason to corrupt the persisted dock tree.
 
 Repeated projections add one ownership rule: the adapter remains pure and stateless, while `projection.Reconciler` keys surviving tab containers by `dockNodeId` and moves each pane/header-button pair before moving its retained tab-container ancestor. The reconciler commits those descendant and ancestor handoffs separately; app-local code owns only its pane resolver, animation, and app-specific menu readiness. Workstation and Dock Demo B exercise the same transaction with different pane policies, keeping the projection contract reusable without making `projection.LayoutAdapter` stateful.
 
