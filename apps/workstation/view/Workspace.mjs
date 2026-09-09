@@ -2003,7 +2003,7 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Re-shows the same exact parked generation at the logical pointer-owned origin. During a
+     * @summary Re-shows the same exact parked generation at the supplied content origin. During a
      * live gesture the DragDrop addon also resumes physical pointer-follow; at a native drag
      * terminal that addon has already reset its session, so a strict refusal falls through to
      * the same exact Main route for the final restore; semantic-name routing is never used.
@@ -2111,8 +2111,8 @@ class Workspace extends DockWorkspace {
                 nativeHandleKey: route.nativeHandleKey,
                 targetWindowId : route.targetWindowId,
                 windowId       : me.windowId,
-                x              : rect.x,
-                y              : rect.y
+                x              : frame.x,
+                y              : frame.y
             }) === true;
 
             me.lastVesselRestoreReceipt.moved = moved;
