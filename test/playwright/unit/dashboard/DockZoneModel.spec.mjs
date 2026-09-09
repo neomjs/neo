@@ -36,10 +36,10 @@ function doc() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            strategy : {componentRef: 'strategy',  title: 'Strategy',  kind: 'panel'},
-            swarm    : {componentRef: 'swarm',     title: 'Swarm',     kind: 'panel'},
-            terminal : {componentRef: 'terminal',  title: 'Terminal',  kind: 'terminal'},
-            inspector: {componentRef: 'inspector', title: 'Inspector', kind: 'inspector'}
+            strategy : {reference: 'strategy',  title: 'Strategy',  kind: 'panel'},
+            swarm    : {reference: 'swarm',     title: 'Swarm',     kind: 'panel'},
+            terminal : {reference: 'terminal',  title: 'Terminal',  kind: 'terminal'},
+            inspector: {reference: 'inspector', title: 'Inspector', kind: 'inspector'}
         },
         nodes: {
             root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}},
@@ -55,7 +55,7 @@ function popupDoc() {
         schema: 'neo.dock.zone.v1',
         root  : 'popup-tabs',
         items : {
-            detail: {componentRef: 'detail', title: 'Detail', kind: 'panel'}
+            detail: {reference: 'detail', title: 'Detail', kind: 'panel'}
         },
         nodes: {
             'popup-tabs': {type: 'tabs', items: ['detail'], activeItemId: 'detail'}
@@ -1316,7 +1316,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
     test.describe('addItem', () => {
         test('creates a JSON catalog record without placement or caller-owned aliases', () => {
             const input = doc(), before = structuredClone(input),
-                  item  = {componentRef: 'created', title: 'Created', metadata: {source: 'menu'},
+                  item  = {reference: 'created', title: 'Created', metadata: {source: 'menu'},
                       blueprint: {ntype: 'panel'}, closable: false},
                   result = Operations.applyOperation(input, {operation: 'addItem', itemId: 'created', item});
 
@@ -1336,11 +1336,11 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             ]) {
                 const input  = doc(), before = structuredClone(input),
                       result = Operations.applyOperation(input, {operation: 'addItem', itemId: 'created',
-                          item: {componentRef: 'created'}, target}),
+                          item: {reference: 'created'}, target}),
                       containing = WorkspaceDocument.findContainingTabsId(result.document, 'created');
 
                 expect(result.errors).toEqual([]);
-                expect(result.document.items.created).toEqual({componentRef: 'created'});
+                expect(result.document.items.created).toEqual({reference: 'created'});
                 expect(result.document.nodes[containing].activeItemId).toBe('created');
                 expect(WorkspaceDocument.validate(result.document)).toEqual([]);
                 expect(input).toEqual(before);
@@ -1370,7 +1370,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             for (const overrides of cases) {
                 const input  = doc(), before = structuredClone(input),
                       result = Operations.applyOperation(input, {operation: 'addItem', itemId: 'created',
-                          item: {componentRef: 'created'}, ...overrides});
+                          item: {reference: 'created'}, ...overrides});
                 expect(result.errors.length, JSON.stringify(overrides, (key, value) => value === cyclic ? '[cycle]' : value)).toBeGreaterThan(0);
                 expect(result.document).toBe(input);
                 expect(input).toEqual(before)
@@ -1657,7 +1657,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
 
                           Array.isArray(config.items) && config.items.forEach(walk)
                       })(LayoutAdapter.project(d, {
-                          resolveComponentRef: componentRef => ({ntype: 'component', reference: componentRef})
+                          resolveComponentRef: reference => ({ntype: 'component', reference: reference})
                       }));
 
                       return found
@@ -2441,9 +2441,9 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {
-                main  : {componentRef: 'main',   title: 'Main',   kind: 'panel'},
-                buried: {componentRef: 'buried', title: 'Buried', kind: 'panel'},
-                plain : {componentRef: 'plain',  title: 'Plain',  kind: 'panel'}
+                main  : {reference: 'main',   title: 'Main',   kind: 'panel'},
+                buried: {reference: 'buried', title: 'Buried', kind: 'panel'},
+                plain : {reference: 'plain',  title: 'Plain',  kind: 'panel'}
             },
             nodes: {
                 root         : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, left: {nodeId: 'inner'}}},
@@ -2524,7 +2524,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             d.items.main.autoHidden   = true;
 
             const projected = LayoutAdapter.project(d, {
-                      resolveComponentRef: componentRef => ({ntype: 'component', reference: componentRef})
+                      resolveComponentRef: reference => ({ntype: 'component', reference: reference})
                   }),
                   rails   = [],
                   tabFlow = [];
@@ -2591,8 +2591,8 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             schema: 'neo.dock.zone.v1',
             root  : 'popup-root',
             items : {
-                drill : {componentRef: 'drill',  title: 'Drill',  kind: 'panel'},
-                stream: {componentRef: 'stream', title: 'Stream', kind: 'panel'}
+                drill : {reference: 'drill',  title: 'Drill',  kind: 'panel'},
+                stream: {reference: 'stream', title: 'Stream', kind: 'panel'}
             },
             nodes : {
                 'popup-root': {type: 'edge-zone', zones: {center: {nodeId: 'popup-tabs'}}},
@@ -2679,7 +2679,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         const target = () => ({
             schema: 'neo.dock.zone.v1',
             root  : 'root',
-            items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
+            items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {
                 root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
                 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
@@ -2708,7 +2708,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         });
 
         test('the item record travels verbatim — policy hints, metadata, and a railed autoHidden state intact', () => {
-            const record = {componentRef: 'terminal', title: 'Terminal', kind: 'terminal', closable: false, pinnable: true, movable: true, autoHidden: true, metadata: {pid: 42}};
+            const record = {reference: 'terminal', title: 'Terminal', kind: 'terminal', closable: false, pinnable: true, movable: true, autoHidden: true, metadata: {pid: 42}};
             const source = doc();
 
             source.items.terminal = {...record};
@@ -2757,7 +2757,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         test('rejects a transfer when the target already holds the item id', () => {
             const tgt = target();
 
-            tgt.items.terminal = {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'};
+            tgt.items.terminal = {reference: 'terminal', title: 'Terminal', kind: 'terminal'};
 
             const {errors} = Operations.transferItem(doc(), tgt, {itemId: 'terminal', target: addTabTarget});
             expect(errors.join(' ')).toContain('already exists in the target')
@@ -2924,7 +2924,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         const target = () => ({
             schema: 'neo.dock.zone.v1',
             root  : 'root',
-            items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
+            items : {alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {
                 root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
                 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
@@ -2952,8 +2952,8 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         test('a multi-node subtree travels whole — every member node and item re-homes verbatim', () => {
             const source = doc();
 
-            source.items.log   = {componentRef: 'log',   title: 'Log',   kind: 'panel'};
-            source.items.watch = {componentRef: 'watch', title: 'Watch', kind: 'panel'};
+            source.items.log   = {reference: 'log',   title: 'Log',   kind: 'panel'};
+            source.items.watch = {reference: 'watch', title: 'Watch', kind: 'panel'};
             source.nodes['grp-a'] = {type: 'tabs', items: ['log'],   activeItemId: 'log'};
             source.nodes['grp-b'] = {type: 'tabs', items: ['watch'], activeItemId: 'watch'};
             source.nodes.grp      = {type: 'split', orientation: 'horizontal', children: ['grp-a', 'grp-b'], sizes: [0.5, 0.5]};
@@ -2999,7 +2999,7 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         test('rejects when a member item id already exists in the target', () => {
             const tgt = target();
 
-            tgt.items.terminal = {componentRef: 'terminal', title: 'T', kind: 'terminal'};
+            tgt.items.terminal = {reference: 'terminal', title: 'T', kind: 'terminal'};
 
             const {errors} = Operations.transferNode(doc(), tgt, {nodeId: 'side-tabs', target: splitInto});
             expect(errors.join(' ')).toContain('item "terminal" already exists')

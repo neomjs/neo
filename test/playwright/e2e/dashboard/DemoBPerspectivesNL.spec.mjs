@@ -275,9 +275,9 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
             expect(detached?.schema).toBe('neo.dock.topology.v1');
             expect(Object.keys(detached.workspaces)).toEqual(['demo-b-main', 'demo-b-popup']);
             expect(detached.workspaces['demo-b-popup'].items.workbench).toEqual({
-                componentRef: 'Workbench',
-                kind        : 'panel',
-                title       : 'Workbench'
+                reference: 'Workbench',
+                kind     : 'panel',
+                title    : 'Workbench'
             });
             expect(detached.workspaces['demo-b-popup'].nodes['popup-tabs'].items).toEqual(['workbench']);
             expect(state.restoreReport.noWindowSpawned).toBe(true);

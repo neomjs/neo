@@ -79,8 +79,8 @@ const hostFixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'host-root',
     items : {
-        'host-a': {componentRef: 'HostA', title: 'HostA', kind: 'panel'},
-        'host-b': {componentRef: 'HostB', title: 'HostB', kind: 'panel'}
+        'host-a': {reference: 'HostA', title: 'HostA', kind: 'panel'},
+        'host-b': {reference: 'HostB', title: 'HostB', kind: 'panel'}
     },
     nodes: {
         'host-root': {type: 'tabs', items: ['host-a', 'host-b'], activeItemId: 'host-a'}

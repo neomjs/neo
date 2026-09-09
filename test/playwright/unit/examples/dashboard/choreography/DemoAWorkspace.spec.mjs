@@ -62,30 +62,32 @@ test.describe.serial('Neo.examples.dashboard.choreography.DemoAWorkspace', () =>
     });
 
     /**
-     * The engine base class hands every resolver `(itemId, item)`; this workspace once took a bare
-     * `componentRef`. Both spellings are one-argument-compatible at the call site, so a host that
-     * kept the old signature after adopting the base class reads an ITEM ID as a COMPONENT REF and
-     * nothing throws — the panes simply resolve to the wrong thing.
-     *
-     * These arms discriminate because the two values differ in this screenplay: item ids are the
-     * lower-cased refs (`editor` for `Editor`). Under the old signature the editor comparison fails
-     * against the id and the clock witness silently degrades to a generic pane, which is why the
-     * assertion is on the resolved MODULE rather than on the call succeeding.
+     * The engine base class hands every resolver `(itemId, item)`, and the item id is the stable
+     * workspace identity the committed document and the FLIP correlation both use. The catalog no
+     * longer carries a second name to key off, so these arms pin the two ways resolution
+     * could still go wrong: keying off the record's LABEL, or letting a non-editor id reach the
+     * clock witness. Both fail silently — the pane resolves to something, just the wrong thing —
+     * which is why every assertion is on the resolved MODULE rather than on the call succeeding.
      */
-    test('panes resolve from the item record, not from the id read as a component ref', () => {
+    test('panes resolve from the item id, never from the record label', () => {
         const
-            editorItem = {componentRef: 'Editor', title: 'Editor', kind: 'panel'},
-            logsItem   = {componentRef: 'Logs',   title: 'Logs',   kind: 'panel'};
+            editorItem = {title: 'Editor', kind: 'panel'},
+            logsItem   = {title: 'Logs',   kind: 'panel'};
 
-        // The witness pane: keyed off `item.componentRef`, never off the id it is filed under.
+        // The witness pane: keyed off the item id it is filed under.
         expect(workspace.resolvePane('editor', editorItem).module, 'the editor must resolve to the clock witness')
             .toBe(ClockPane);
 
-        // The negative half — an id whose ref is absent must NOT masquerade as the editor.
-        expect(workspace.resolvePane('editor', {componentRef: 'Logs'}).module, 'resolution follows the ref, not the id')
+        // The negative half — another id must NOT masquerade as the editor.
+        expect(workspace.resolvePane('logs', logsItem).module, 'resolution follows the id')
             .toBeUndefined();
 
-        // Plain panes render the ref's own casing; reading arg0 would render the lower-cased id.
+        // The discriminating arm: a record LABELLED 'Editor' filed under another id is still not
+        // the editor. Keying off `item.title` would pass every arm above and fail this one.
+        expect(workspace.resolvePane('logs', {title: 'Editor'}).module, 'the label is not the identity')
+            .toBeUndefined();
+
+        // Plain panes render their own label, not the id.
         expect(workspace.resolvePane('logs', logsItem).html).toBe('Logs')
     });
 
@@ -93,7 +95,7 @@ test.describe.serial('Neo.examples.dashboard.choreography.DemoAWorkspace', () =>
         // `resolveProjectedPane` is the resolution the projection actually consumes. The marker is
         // the demo's own prefix, so the pane classes survive the migration byte-identical — and it
         // is now derived from the stable identity rather than hand-written per pane.
-        const projected = workspace.resolveProjectedPane('editor', {componentRef: 'Editor'});
+        const projected = workspace.resolveProjectedPane('editor', {title: 'Editor'});
 
         expect(projected.cls).toContain('agentos-dockdemo-pane-editor');
         expect(projected.cls).toContain('agentos-dockdemo-clock-pane')

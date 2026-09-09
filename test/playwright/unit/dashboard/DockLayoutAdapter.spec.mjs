@@ -34,24 +34,24 @@ const createModel = () => ({
     root  : 'root',
     items : {
         strategy: {
-            componentRef: 'strategy',
-            title       : 'Strategy',
-            kind        : 'panel'
+            reference: 'strategy',
+            title    : 'Strategy',
+            kind     : 'panel'
         },
         swarm: {
-            componentRef: 'swarm',
-            title       : 'Swarm',
-            kind        : 'panel'
+            reference: 'swarm',
+            title    : 'Swarm',
+            kind     : 'panel'
         },
         terminal: {
-            componentRef: 'terminal',
-            title       : 'Terminal',
-            kind        : 'terminal'
+            reference: 'terminal',
+            title    : 'Terminal',
+            kind     : 'terminal'
         },
         missing: {
-            componentRef: 'missing',
-            title       : 'Missing',
-            kind        : 'panel'
+            reference: 'missing',
+            title    : 'Missing',
+            kind     : 'panel'
         }
     },
     nodes: {
@@ -90,24 +90,24 @@ const createEdgeZoneModel = () => ({
     root  : 'root',
     items : {
         strategy: {
-            componentRef: 'strategy',
-            title       : 'Strategy',
-            kind        : 'panel'
+            reference: 'strategy',
+            title    : 'Strategy',
+            kind     : 'panel'
         },
         swarm: {
-            componentRef: 'swarm',
-            title       : 'Swarm',
-            kind        : 'panel'
+            reference: 'swarm',
+            title    : 'Swarm',
+            kind     : 'panel'
         },
         terminal: {
-            componentRef: 'terminal',
-            title       : 'Terminal',
-            kind        : 'terminal'
+            reference: 'terminal',
+            title    : 'Terminal',
+            kind     : 'terminal'
         },
         inspector: {
-            componentRef: 'inspector',
-            title       : 'Inspector',
-            kind        : 'inspector'
+            reference: 'inspector',
+            title    : 'Inspector',
+            kind     : 'inspector'
         }
     },
     nodes: {
@@ -154,9 +154,9 @@ const createTabsBandModel = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
-        detail  : {componentRef: 'detail',   title: 'Detail',   kind: 'inspector', autoHidden: true},
-        operator: {componentRef: 'operator', title: 'Operator', kind: 'tool',      autoHidden: true}
+        strategy: {reference: 'strategy', title: 'Strategy', kind: 'panel'},
+        detail  : {reference: 'detail',   title: 'Detail',   kind: 'inspector', autoHidden: true},
+        operator: {reference: 'operator', title: 'Operator', kind: 'tool',      autoHidden: true}
     },
     nodes: {
         root       : {
@@ -196,9 +196,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('projects split nodes to existing hbox and vbox layout primitives', () => {
         let model  = createModel(),
             result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => componentRef === 'missing' ? null : {
+                resolveComponentRef: reference => reference === 'missing' ? null : {
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 }
             }),
             rootChildren = getProjectedChildren(result),
@@ -216,7 +216,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('projects the stable default Dock action rail and keeps capability in action state', () => {
         const
             model       = createModel(),
-            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
             hidden      = getProjectedChildren(DockLayoutAdapter.project(model, {
                 enableDockMaximizeAction: true,
                 resolveComponentRef     : resolvePane
@@ -259,7 +259,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('the maximize toggle is opt-in: a workspace maximize plugin contributes it, nothing else does', () => {
         const
             model       = createModel(),
-            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
             absent      = getProjectedChildren(DockLayoutAdapter.project(model, {
                 resolveComponentRef: resolvePane
             }))[0],
@@ -282,7 +282,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             projected     = DockLayoutAdapter.project(model, {
                 onDockActiveIndexChange: data => activeChanges.push(data),
                 onDockHeaderAction     : data => intents.push(data),
-                resolveComponentRef    : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef    : reference => ({ntype: 'dashboard-panel', reference})
             }),
             main          = getProjectedChildren(projected)[0],
             tabContainer  = {id: 'live-tabs'};
@@ -303,7 +303,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             model       = createModel(),
             intents     = [],
             seenNodeIds = [],
-            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
             projected   = DockLayoutAdapter.project(model, {
                 enableDockMaximizeAction: true,
                 onDockHeaderAction      : data => intents.push(data),
@@ -329,7 +329,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('reserves every default action name and keeps lock reservation opt-in', () => {
         const
             model       = createModel(),
-            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
             project     = (actions, extra={}) => () => DockLayoutAdapter.project(model, {
                 enableDockMaximizeAction: true,
                 resolveComponentRef     : resolvePane,
@@ -376,7 +376,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.inspector.pinnable = false;
 
         const
-            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
             result      = DockLayoutAdapter.project(model, {
                 dockPopOutActionAvailable: true,
                 enableDockMaximizeAction : true,
@@ -426,7 +426,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         const
             model       = createModel(),
             intents     = [],
-            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
             projected   = DockLayoutAdapter.project(model, {
                 dockMaximizeIconCls     : 'fa fa-expand',
                 enableDockMaximizeAction: true,
@@ -449,7 +449,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('keeps lock opt-in ahead of the stable default rail', () => {
         const
             model       = createModel(),
-            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolvePane = reference => ({ntype: 'dashboard-panel', reference}),
             enabled     = DockLayoutAdapter.project(model, {
                 enableDockLockAction    : true,
                 enableDockMaximizeAction: true,
@@ -467,9 +467,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {
         let result = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 })
             }),
             rootChildren = getProjectedChildren(result),
@@ -486,9 +486,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('projects resize splitter affordances between adjacent split children', () => {
         let result = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 })
             }),
             rootSplitter = getProjectedSplitters(result)[0],
@@ -536,9 +536,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('creates resizeSplit operation descriptors from splitter affordance metadata', () => {
         let model  = createModel(),
             result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 })
             }),
             sizes    = [3, 1],
@@ -564,9 +564,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('projects tab nodes to tab.Container-compatible configs', () => {
         let result = DockLayoutAdapter.project(createModel(), {
-            resolveComponentRef: componentRef => ({
+            resolveComponentRef: reference => ({
                 ntype    : 'dashboard-panel',
-                reference: componentRef
+                reference
             })
         });
 
@@ -578,9 +578,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('the dockItemId stamp reaches header CONFIGS and live header BUTTONS, order-agnostic (#15517)', () => {
         let result = DockLayoutAdapter.project(createModel(), {
-            resolveComponentRef: componentRef => componentRef === 'missing' ? null : ({
+            resolveComponentRef: reference => reference === 'missing' ? null : ({
                 ntype    : 'dashboard-panel',
-                reference: componentRef
+                reference
             })
         });
 
@@ -622,9 +622,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         let model    = createModel(),
             snapshot = JSON.parse(JSON.stringify(model)),
             result   = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 }),
                 tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs'}
             }),
@@ -641,7 +641,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(model).toEqual(snapshot);
 
         const unrelated = DockLayoutAdapter.project(model, {
-            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference}),
             tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'terminal-tabs'}
         });
 
@@ -650,7 +650,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('an absent-item resolver can reuse the adapter-owned metadata and addTab decoration', () => {
         const
-            item   = {componentRef: 'Swarm', kind: 'panel', title: 'Swarm'},
+            item   = {reference: 'Swarm', kind: 'panel', title: 'Swarm'},
             config = DockLayoutAdapter.decorateProjectedItem(
                 {ntype: 'component'},
                 'swarm',
@@ -663,9 +663,14 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         expect(config.dockItemId).toBe('swarm');
         expect(config.data).toEqual({dockItemId: 'swarm'});
-        // The projected pane resolves through the engine's own lookup, defaulted to its dock
-        // identity, which is what puts data-ref on the pane root.
-        expect(config.reference).toBe('swarm');
+        // The projected pane resolves through the engine's own lookup — this is what puts data-ref
+        // on the pane root. A record that NAMES a reference keeps it; the two arms discriminate,
+        // because a default that silently overwrote the authored name would pass the second alone.
+        expect(config.reference, 'an authored reference wins').toBe('Swarm');
+        expect(
+            DockLayoutAdapter.decorateProjectedItem({ntype: 'component'}, 'swarm', {title: 'Swarm'}, {}).reference,
+            'a record without one defaults to its dock identity'
+        ).toBe('swarm');
         expect(config.header.text).toBe('Swarm');
         expect(config.header.module).toBe(DockTabEnterButton);
         expect(config.header.cls).toEqual([
@@ -676,7 +681,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('a retained live pane gets one insertion header and restores its original header afterward', () => {
         const pane           = Neo.create(Component, {header: {text: 'Swarm', cls: ['stable-header']}}),
-              item           = {componentRef: 'Swarm', kind: 'panel', title: 'Swarm'},
+              item           = {reference: 'Swarm', kind: 'panel', title: 'Swarm'},
               originalHeader = pane.header,
               options        = {
                   nodeId             : 'main-tabs',
@@ -702,7 +707,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     });
 
     test('a live pane without an own header regains that absence after insertion decoration', () => {
-        const pane = Neo.create(Component, {}), item = {componentRef: 'bare', title: 'Bare'};
+        const pane = Neo.create(Component, {}), item = {reference: 'bare', title: 'Bare'};
 
         try {
             expect(Object.hasOwn(pane, 'header')).toBe(false);
@@ -719,9 +724,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('projects the documented edge-zone root model through the dashboard adapter', () => {
         let result = DockLayoutAdapter.project(createEdgeZoneModel(), {
-                resolveComponentRef: componentRef => ({
+                resolveComponentRef: reference => ({
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 })
             }),
             row    = result.items[0],
@@ -762,7 +767,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.nodes.root.zones.right.resizable = false;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row = result.items[0];
 
@@ -773,8 +778,8 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         let model = createEdgeZoneModel();
 
         Object.assign(model.items, {
-            navigator: {componentRef: 'navigator', title: 'Navigator', kind: 'panel'},
-            feed     : {componentRef: 'feed',      title: 'Feed',      kind: 'panel'}
+            navigator: {reference: 'navigator', title: 'Navigator', kind: 'panel'},
+            feed     : {reference: 'feed',      title: 'Feed',      kind: 'panel'}
         });
         Object.assign(model.nodes, {
             'left-tabs'  : {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'},
@@ -786,7 +791,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         });
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row       = result.items.find(item => item.dockNodeType === 'edge-zone-row'),
             splitters = [...row.items, ...result.items].filter(item => item.data?.operation === 'resizeEdgeZone');
@@ -804,18 +809,19 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         let model    = createModel(),
             snapshot = JSON.parse(JSON.stringify(model)),
             result   = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => componentRef === 'missing' ? null : {
+                resolveComponentRef: reference => reference === 'missing' ? null : {
                     ntype    : 'dashboard-panel',
-                    reference: componentRef
+                    reference
                 }
             }),
             placeholder = getProjectedChildren(getProjectedChildren(result)[1])[1].items[0];
 
         expect(placeholder.ntype).toBe('dashboard-panel');
+        // A placeholder carries only what a consumer can act on: the identity and the fact that
+        // resolution failed. It stamps no lookup key — the recoverable record still holds it.
         expect(placeholder.data).toEqual({
-            componentRef       : 'missing',
-            dockItemId         : 'missing',
-            missingComponentRef: true
+            dockItemId      : 'missing',
+            missingReference: true
         });
         expect(placeholder.header.text).toBe('Missing');
         expect(model).toEqual(snapshot);
@@ -835,9 +841,8 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         expect(placeholder.ntype).toBe('dashboard-panel');
         expect(placeholder.data).toEqual({
-            componentRef       : null,
-            dockItemId         : 'unknown',
-            missingComponentRef: true
+            dockItemId      : 'unknown',
+            missingReference: true
         });
         expect(placeholder.header.text).toBe('unknown')
     });
@@ -848,9 +853,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.nodes.root.sizes = [0, Number.NaN];
 
         let result = DockLayoutAdapter.project(model, {
-            resolveComponentRef: componentRef => ({
+            resolveComponentRef: reference => ({
                 ntype    : 'dashboard-panel',
-                reference: componentRef
+                reference
             })
         });
 
@@ -895,7 +900,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.terminal.autoHidden = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row  = result.items[0],
             rail = row.items.find(item => item.dockNodeType === 'edge-rail'),
@@ -915,7 +920,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         // reconciler key a retained rail across projections; the same document projects it twice alike.
         expect(rail.dockNodeId).toBe('root:edge-rail:right');
         expect(DockLayoutAdapter.project(model, {
-            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
         }).items[0].items.find(item => item.dockNodeType === 'edge-rail').dockNodeId).toBe(rail.dockNodeId);
 
         // ...and its now-empty tabs node is gone from the live split, not rendered as dead chrome.
@@ -933,7 +938,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.terminal.pinned = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row = result.items[0];
 
@@ -946,7 +951,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.strategy.autoHidden = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row    = result.items[0],
             center = row.items[0];
@@ -959,7 +964,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('an edge band whose every item is railed projects rail-only — no empty in-flow band box', () => {
         let model  = createTabsBandModel(),
             result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row  = result.items[0],
             band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
@@ -984,7 +989,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.operator.autoHidden = false;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row  = result.items[0],
             band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
@@ -1005,7 +1010,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.terminal.autoHidden = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row  = result.items[0],
             band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
@@ -1030,7 +1035,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         before = JSON.stringify(model);
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             row  = result.items[0],
             band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
@@ -1047,8 +1052,8 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         let applyDockZoneOperation    = () => null,
             model                     = createEdgeZoneModel(),
             onDockZoneDocumentChange  = () => null,
-            resolveComponentRef       = componentRef => ({hidden: true, ntype: 'component', reference: componentRef}),
-            resolveRevealComponentRef = componentRef => ({html: componentRef, ntype: 'component'});
+            resolveComponentRef       = reference => ({hidden: true, ntype: 'component', reference}),
+            resolveRevealComponentRef = reference => ({html: reference, ntype: 'component'});
 
         model.items.terminal.autoHidden = true;
 
@@ -1096,7 +1101,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('projects one rail per edge with correct membership (multi-edge grouping)', () => {
         let model = createEdgeZoneModel();
 
-        model.items.navigator    = {componentRef: 'navigator', title: 'Navigator', kind: 'panel'};
+        model.items.navigator    = {reference: 'navigator', title: 'Navigator', kind: 'panel'};
         model.nodes['left-tabs'] = {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'};
         model.nodes.root.zones.left = {nodeId: 'left-tabs', extent: 0.2, resizable: true};
 
@@ -1104,7 +1109,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.terminal.autoHidden  = true;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             rails = result.items[0].items.filter(item => item.dockNodeType === 'edge-rail');
 
@@ -1115,7 +1120,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('re-projects consistently across rapid autoHidden toggles through the executor', () => {
         let model    = createEdgeZoneModel(),
-            options  = {resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})},
+            options  = {resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})},
             findRail = result => result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
 
         let hidden = Operations.applyOperation(model, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
@@ -1140,7 +1145,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         model.items.terminal.pinnable   = false;
 
         let result = DockLayoutAdapter.project(model, {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             rail = result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
 
@@ -1151,7 +1156,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
     test('projectTabsNode injects the tab-native overflow plugin into the projected header toolbar', () => {
         let result = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             mainTabs = result.items[0],
             plugins  = mainTabs.headerToolbar?.plugins;
@@ -1171,7 +1176,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         const
             MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
             result       = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             listeners    = result.items[0].headerToolbar.listeners,
             makeToolbar  = id => ({id, isDestroyed: false, isDestroying: false, cls: [], addCls(cls) { this.cls.push(cls) }, removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) }}),
@@ -1224,7 +1229,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         const
             MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
             result       = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             listeners    = result.items[0].headerToolbar.listeners,
             makeToolbar  = id => ({id, isDestroyed: false, isDestroying: false, cls: [], addCls(cls) { this.cls.push(cls) }, removeCls(cls) { this.cls = this.cls.filter(c => c !== cls) }}),
@@ -1274,7 +1279,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         const
             MotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default,
             result       = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             }),
             listeners    = result.items[0].headerToolbar.listeners,
             failSafeMs   = MotionSignal.FAIL_SAFE_MS,
@@ -1376,7 +1381,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         test('a workspace boundary enables ordinary cross-zone motion without arming tear-out', () => {
             const result = DockLayoutAdapter.project(createModel(), {
                 dockWorkspaceBoundaryContainerId: 'dock-workspace-root',
-                resolveComponentRef             : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef             : reference => ({ntype: 'dashboard-panel', reference})
             });
             const config = result.items[0].headerToolbar.sortZoneConfig;
 
@@ -1391,7 +1396,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             const result = DockLayoutAdapter.project(createModel(), {
                 dockTearOutBoundaryContainerId  : 'tear-out-root',
                 dockWorkspaceBoundaryContainerId: 'dock-workspace-root',
-                resolveComponentRef             : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef             : reference => ({ntype: 'dashboard-panel', reference})
             });
 
             expect(result.items[0].headerToolbar.sortZoneConfig.boundaryContainerId).toBe('tear-out-root')
@@ -1407,7 +1412,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                 onDockTearOutEntry            : data => captured.entry.push(data),
                 onDockTearOutExit             : data => captured.exit.push(data),
                 onDockTearOutTerminal         : data => captured.terminal.push(data),
-                resolveComponentRef           : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef           : reference => ({ntype: 'dashboard-panel', reference})
             });
 
             const mainTabs = result.items[0];
@@ -1434,7 +1439,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         test('absent opt-in keeps the dock fully in-window: the flag projects false (the unchanged default)', () => {
             const result = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             });
 
             const config = result.items[0].headerToolbar.sortZoneConfig;
@@ -1449,7 +1454,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             const liveRect = {height: 240, width: 320, x: 40, y: 60};
             const result   = DockLayoutAdapter.project(createModel(), {
                 enableVesselConversion            : true,
-                resolveComponentRef               : componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+                resolveComponentRef               : reference => ({ntype: 'dashboard-panel', reference}),
                 resolveVesselConversionSourceRect : () => liveRect,
                 vesselConversionConvertThreshold  : 0.62,
                 vesselConversionPointerExitGraceMs: 40,
@@ -1492,7 +1497,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                           calls.push(['terminal', data.outcome]);
                           return pending
                       },
-                      resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                      resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
                   }),
                   listeners = result.items[0].listeners,
                   convertIn = {admission: false, itemId: 'swarm'},
@@ -1517,7 +1522,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         test('the default is fail-closed and does not mint placeholder calibration into the projection', () => {
             const result = DockLayoutAdapter.project(createModel(), {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             });
             const config = result.items[0].headerToolbar.sortZoneConfig;
 
@@ -1551,7 +1556,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test.describe('whole-stack projection threading — one model-derived grip', () => {
         test('a live pane gets a reversible runtime header overlay with its original restored exactly', () => {
             const pane    = Neo.create(Component, {header: {text: 'Live pane'}}),
-                item      = {componentRef: 'live', kind: 'panel', title: 'Live pane'},
+                item      = {reference: 'live', kind: 'panel', title: 'Live pane'},
                 decorated = DockLayoutAdapter.decorateProjectedItem(pane, 'live', item, {stackHandle: true}),
                 grip      = decorated.header.text[1];
 
@@ -1574,7 +1579,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             const result    = DockLayoutAdapter.project(model, {
                 enableStackDrag        : true,
                 onDockStackDragTerminal: data => terminals.push(data),
-                resolveComponentRef    : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef    : reference => ({ntype: 'dashboard-panel', reference})
             });
             const mainTabs = result.items[0].items.find(item => item.dockNodeId === 'main-tabs');
             const side     = result.items[0].items.find(item => item.dockNodeId === 'side-split');
@@ -1599,7 +1604,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         test('without the opt-in every projected header and sort zone stays item-only', () => {
             const result = DockLayoutAdapter.project(createEdgeZoneModel(), {
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef: reference => ({ntype: 'dashboard-panel', reference})
             });
             const mainTabs = result.items[0].items[0];
 

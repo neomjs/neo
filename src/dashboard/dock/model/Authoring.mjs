@@ -11,7 +11,7 @@ import WorkspaceDocument from './WorkspaceDocument.mjs';
  * Both APIs fail closed, leave inputs untouched and apply WorkspaceDocument.normalizeTree.
  * Independent validation failures accumulate; malformed branches stop before unsafe traversal.
  * Round trips compare after normalization and catalog defaults, not byte-for-byte with an
- * input that omitted title/componentRef. No component construction or host lifecycle lives here.
+ * input that omitted a title. No component construction or host lifecycle lives here.
  */
 class Authoring extends Base {
     /**

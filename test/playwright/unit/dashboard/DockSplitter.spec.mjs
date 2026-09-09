@@ -16,8 +16,8 @@ const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        left : {componentRef: 'left', title: 'Left'},
-        right: {componentRef: 'right', title: 'Right'}
+        left : {reference: 'left', title: 'Left'},
+        right: {reference: 'right', title: 'Right'}
     },
     nodes: {
         root: {
@@ -66,8 +66,8 @@ const createEdgeDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        center: {componentRef: 'center', title: 'Center'},
-        left  : {componentRef: 'left', title: 'Left'}
+        center: {reference: 'center', title: 'Center'},
+        left  : {reference: 'left', title: 'Left'}
     },
     nodes: {
         root: {

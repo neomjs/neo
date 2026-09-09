@@ -31,9 +31,9 @@ function createDocument() {
         schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
-            alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'},
-            beta : {componentRef: 'beta',  title: 'Beta',  kind: 'panel'},
-            gamma: {componentRef: 'gamma', title: 'Gamma', kind: 'panel'}
+            alpha: {reference: 'alpha', title: 'Alpha', kind: 'panel'},
+            beta : {reference: 'beta',  title: 'Beta',  kind: 'panel'},
+            gamma: {reference: 'gamma', title: 'Gamma', kind: 'panel'}
         },
         nodes: {
             root       : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
@@ -236,7 +236,7 @@ test.describe('dock maximize as a declinable plugin', () => {
             create();
 
             const plugin     = workspace.getPlugin('dock-maximize'),
-                  descriptor = {operation: 'addItem', itemId: 'created', item: {componentRef: 'created'},
+                  descriptor = {operation: 'addItem', itemId: 'created', item: {reference: 'created'},
                       ...(target === undefined ? {} : {target})},
                   result = workspace.applyDockZoneOperation(descriptor);
 
@@ -253,12 +253,12 @@ test.describe('dock maximize as a declinable plugin', () => {
 
     for (const [name, operations, expected] of [
         ['local add and reorder', [
-            {operation: 'addItem', itemId: 'created', item: {componentRef: 'created'}},
+            {operation: 'addItem', itemId: 'created', item: {reference: 'created'}},
             {operation: 'addTab', itemId: 'created', tabsNodeId: 'main-tabs'},
             {operation: 'moveItem', itemId: 'beta', targetNodeId: 'main-tabs', index: 0}
         ], 'main-tabs'],
         ['ordered creation and removal', [
-            {operation: 'addItem', itemId: 'created', item: {componentRef: 'created'}, target: {operation: 'addTab', tabsNodeId: 'main-tabs'}},
+            {operation: 'addItem', itemId: 'created', item: {reference: 'created'}, target: {operation: 'addTab', tabsNodeId: 'main-tabs'}},
             {operation: 'closeItem', itemId: 'created'}
         ], 'main-tabs'],
         ['cross-node move into the maximized pane', [{operation: 'moveItem', itemId: 'gamma', targetNodeId: 'main-tabs'}], null],

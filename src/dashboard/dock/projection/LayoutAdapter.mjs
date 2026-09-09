@@ -52,9 +52,8 @@ class LayoutAdapter extends Base {
         return {
             cls : ['neo-dashboard-dock-placeholder'],
             data: {
-                componentRef       : item?.componentRef || null,
-                dockItemId         : itemId,
-                missingComponentRef: true
+                dockItemId      : itemId,
+                missingReference: true
             },
             dockItemId: itemId,
             header    : {text: title, dockItemId: itemId},
@@ -460,7 +459,7 @@ class LayoutAdapter extends Base {
      *     another owning lifecycle has already retired the same source vessel.
      * @param {Function} [options.resolveVesselConversionSourceRect] Synchronous owner resolver for
      *     the exact dragged vessel's live global inner rect; threaded through a clone-safe listener.
-     * @param {Function} [options.resolveComponentRef] `(componentRef, item, itemId, nodeId) => config
+     * @param {Function} [options.resolveComponentRef] `(reference, item, itemId, nodeId) => config
      *     | instance | null`; a `null` answer falls through to the item's persisted `blueprint` when
      *     present, otherwise to a recoverable placeholder config — neither constructs an instance.
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
@@ -956,7 +955,7 @@ class LayoutAdapter extends Base {
             return this.createPlaceholder(itemId, null)
         }
 
-        component = context.resolveComponentRef(item.componentRef, item, itemId, nodeId);
+        component = context.resolveComponentRef(item.reference, item, itemId, nodeId);
 
         if (!component && item.blueprint) {
             component = this.cloneConfig(item.blueprint)

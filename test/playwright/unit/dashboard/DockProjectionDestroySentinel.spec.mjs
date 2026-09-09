@@ -27,9 +27,9 @@ const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
     root  : 'root-split',
     items : {
-        editor  : {componentRef: 'Editor',   kind: 'panel',    title: 'Editor'},
-        preview : {componentRef: 'Preview',  kind: 'panel',    title: 'Preview'},
-        terminal: {componentRef: 'Terminal', kind: 'terminal', title: 'Terminal'}
+        editor  : {reference: 'Editor',   kind: 'panel',    title: 'Editor'},
+        preview : {reference: 'Preview',  kind: 'panel',    title: 'Preview'},
+        terminal: {reference: 'Terminal', kind: 'terminal', title: 'Terminal'}
     },
     nodes: {
         'editor-tabs': {activeItemId: 'editor', items: ['editor'], type: 'tabs'},

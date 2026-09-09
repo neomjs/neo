@@ -6,9 +6,9 @@ const fixtureDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        alpha : {componentRef: 'Alpha',  title: 'Alpha',  kind: 'panel'},
-        pinned: {componentRef: 'Pinned', title: 'Pinned', kind: 'panel'},
-        lazy  : {componentRef: 'Lazy',   title: 'Lazy',   kind: 'panel', autoHidden: true}
+        alpha : {reference: 'Alpha',  title: 'Alpha',  kind: 'panel'},
+        pinned: {reference: 'Pinned', title: 'Pinned', kind: 'panel'},
+        lazy  : {reference: 'Lazy',   title: 'Lazy',   kind: 'panel', autoHidden: true}
     },
     nodes: {
         root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'edge-tabs', extent: 0.3}}},

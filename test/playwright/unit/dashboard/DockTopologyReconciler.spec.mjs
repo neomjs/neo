@@ -16,7 +16,7 @@ import Persistence            from '../../../../src/dashboard/dock/model/Persist
 const tabsDoc = ids => ({
     schema: 'neo.dock.zone.v1',
     root  : 'r',
-    items : Object.fromEntries(ids.map(id => [id, {componentRef: id, title: id}])),
+    items : Object.fromEntries(ids.map(id => [id, {reference: id, title: id}])),
     nodes : {
         r: {type: 'tabs', items: [...ids], activeItemId: ids[0]}
     }

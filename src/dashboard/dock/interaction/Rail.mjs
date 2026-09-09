@@ -111,7 +111,7 @@ class Rail extends Container {
          */
         railItems_: null,
         /**
-         * Resolves a model `componentRef` to the component config the reveal overlay's pane slot
+         * Resolves a model `reference` to the component config the reveal overlay's pane slot
          * materializes — the same resolution seam the adapter uses for in-flow panes, threaded from
          * projection context. Without it, reveals render header-only.
          * @member {Function|null} resolveComponentRef=null
@@ -1014,7 +1014,7 @@ class Rail extends Container {
 
     /**
      * Materializes the revealed item's pane into the overlay's slot through the adapter's durable
-     * reveal resolver, with the `componentRef` read from the committed document (the rail's copy
+     * reveal resolver, with the `reference` read from the committed document (the rail's copy
      * re-projects on every change). This resolver must outlive any transaction-only in-flow staging
      * resolver because the user can reveal the rail long after projection reconciliation settles.
      *

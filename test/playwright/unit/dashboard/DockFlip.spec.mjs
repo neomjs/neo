@@ -89,8 +89,8 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 schema: 'neo.dock.zone.v1',
                 root  : 'root-tabs',
                 items : {
-                    'alpha pane': {componentRef: 'shared-ref', title: 'Alpha'},
-                    'beta/pane' : {componentRef: 'shared-ref', title: 'Beta'}
+                    'alpha pane': {reference: 'shared-ref', title: 'Alpha'},
+                    'beta/pane' : {reference: 'shared-ref', title: 'Beta'}
                 },
                 nodes: {
                     'root-tabs': {

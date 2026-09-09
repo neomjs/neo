@@ -17,11 +17,11 @@ const realDocument = {
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        strategy : {componentRef: 'Strategy',  title: 'Strategy',  kind: 'panel'},
-        terminal : {componentRef: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
-        logs     : {componentRef: 'Logs',      title: 'Logs',      kind: 'panel'},
-        inspector: {componentRef: 'Inspector', title: 'Inspector', kind: 'panel'},
-        metrics  : {componentRef: 'Metrics',   title: 'Metrics',   kind: 'panel'}
+        strategy : {reference: 'Strategy',  title: 'Strategy',  kind: 'panel'},
+        terminal : {reference: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
+        logs     : {reference: 'Logs',      title: 'Logs',      kind: 'panel'},
+        inspector: {reference: 'Inspector', title: 'Inspector', kind: 'panel'},
+        metrics  : {reference: 'Metrics',   title: 'Metrics',   kind: 'panel'}
     },
     nodes: {
         root            : {

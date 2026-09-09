@@ -42,18 +42,19 @@ class WorkspaceDocument extends Base {
      *
      * `reference` is the component-lookup key, spelled as the engine spells it everywhere else
      * (`component.Base#reference_`), so a projected pane resolves through `getReference()` and the
-     * view-controller path and carries `data-ref` on its root.
+     * view-controller path and carries `data-ref` on its root. It replaces the retired
+     * `componentRef`, which is absent by intent rather than by oversight: this Set is a strict
+     * allowlist and {@link #findUnexpectedKey} rejects anything outside it, so a document still
+     * carrying the old name fails validation loudly instead of restoring into a field nothing owns.
      *
-     * `componentRef` is its retired predecessor, retained here **read-only**: this Set is a strict
-     * allowlist and {@link #findUnexpectedKey} rejects anything outside it, so dropping the name
-     * would make every already-persisted layout carrying it fail validation and refuse to restore.
-     * Nothing reads it and nothing writes it any more — it costs one entry and no logic.
+     * A consumer that wants a tag the engine does not own puts it in `metadata`, the sanctioned
+     * opaque channel — not in a first-class field.
      * @member {Set<String>} dockZoneItemKeys
      * @protected
      * @static
      */
     static dockZoneItemKeys = new Set([
-        'reference', 'componentRef', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned',
+        'reference', 'title', 'kind', 'blueprint', 'closable', 'pinnable', 'pinned',
         'autoHidden', 'lockable', 'locked', 'movable', 'metadata'
     ])
 
