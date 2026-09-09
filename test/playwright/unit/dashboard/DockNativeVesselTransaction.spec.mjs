@@ -320,6 +320,41 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
             .toEqual(['focus', 'resize', 'park', 'focus'])
     });
 
+    test('a terminal restore ending a DRAG asks its owner before the route', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        const admitted = await NativeVesselTransaction
+            .effectsFor({...descriptorFor({receipts}), terminalRestoreOwner: 'drag'})
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, terminal: true, windowName: 'vessel-1'});
+
+        expect(admitted).toBe(true);
+        expect(receipts.restore.addonRestored, 'the drag owner performed it').toBe(true);
+        expect(platform.calls.filter(call => !call.includes(':')))
+            .toEqual(['resume']);
+        expect(platform.calls, 'the route was never addressed directly').not.toContain('moveTo')
+    });
+
+    test('a terminal restore ending a CONVERSION addresses the route directly', async () => {
+        const receipts = {};
+
+        restore  = stubRoutes({focus: true, position: true, resize: true});
+        platform = installPlatform();
+
+        // The default: no drag exists to hand back to, so asking one would succeed against a
+        // stale effect. Both consumers are real and they differ here, so it is declared.
+        const admitted = await NativeVesselTransaction
+            .effectsFor(descriptorFor({receipts}))
+            .reshowVessel({itemId: 'item-1', rect: {x: 10, y: 20}, terminal: true, windowName: 'vessel-1'});
+
+        expect(admitted).toBe(true);
+        expect(receipts.restore.addonRestored, 'no drag owner was consulted').toBeUndefined();
+        expect(platform.calls).toContain('moveTo');
+        expect(platform.calls, 'and the drag was never resumed').not.toContain('resume')
+    });
+
     test('a windowName mismatch refuses the re-show even with every route granted', async () => {
         const receipts = {};
 

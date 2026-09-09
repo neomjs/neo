@@ -137,6 +137,10 @@ class NativeVesselTransaction extends Base {
      * @param {Function} descriptor.targetWindowId Returns the conversion target's `windowId`.
      * @param {Function} [descriptor.restoreGeometry] `itemId => geometry|null`. Absent or returning
      * `null` declares a position-only transaction, which is NOT gated on `resize`.
+     * @param {String} [descriptor.terminalRestoreOwner='route'] Who performs a TERMINAL restore —
+     * `'drag'` asks the addon that may still own the gesture before addressing the route, `'route'`
+     * addresses the route directly. A restore ending a drag wants `'drag'`; one ending a conversion
+     * has no drag to hand back to and wants `'route'`.
      * @param {String} [descriptor.rectPlane='inner'] Which published rect the cover metric and the
      * park origin speak — `'inner'` or `'outer'`. A child window may legitimately omit `outerRect`,
      * so a consumer whose admission does not depend on the frame stays on the inner plane rather
@@ -314,6 +318,10 @@ class NativeVesselTransaction extends Base {
                     frame,
                     geometry,
                     owesResize,
+                    // Both are recorded because they answer different questions: `rect` is what the
+                    // caller asked for in content space, `frame` is what the platform was handed.
+                    // A receipt carrying only one cannot show that the chrome conversion happened.
+                    rect     : snapshot(rect),
                     terminal
                 };
 
@@ -335,16 +343,46 @@ class NativeVesselTransaction extends Base {
                         targetWindowId : route.targetWindowId,
                         windowId       : descriptor.ownerWindowId()
                     },
+                    // The addon owns a NAMED drag and needs the name to find it; `Neo.Main`'s
+                    // window calls address the route alone. Sending the name to both worked and
+                    // was still wrong: it put a field the platform ignores into an exactly-asserted
+                    // payload, so the witness could no longer describe the call it was pinning.
                     data   = {...handle, windowName, x: frame.x, y: frame.y},
+                    origin = {...handle, x: frame.x, y: frame.y},
                     resize = extent => Neo.Main.windowNativeResizeTo({...handle, ...extent});
 
                 try {
-                    // A non-terminal re-show hands the window back to the live drag, which owns the
-                    // move itself. Only a terminal restore drives the platform directly, and only
-                    // it has an extent to give back.
+                    // A non-terminal re-show always goes through the addon: the drag is live by
+                    // definition, it holds the gesture's state, and a direct route mutation
+                    // alongside it would be a second writer.
                     if (!terminal) {
                         receipt.admitted = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
                         return receipt.admitted
+                    }
+
+                    // At TERMINAL time the two consumers legitimately differ, because they differ
+                    // on whether a drag still exists. A restore that ends a drag asks its owner
+                    // first and only then addresses the route; a restore that ends a CONVERSION has
+                    // no drag to hand back to and addresses the route directly. Declared, not
+                    // guessed — asking a nonexistent owner would silently succeed against a stale
+                    // effect, and skipping a live one would make this a second writer.
+                    if (descriptor.terminalRestoreOwner === 'drag') {
+                        receipt.addonRestored = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
+
+                        if (receipt.addonRestored) {
+                            receipt.admitted = true;
+                            return true
+                        }
+                    }
+
+                    // A matching predecessor effect still owns exact recovery. Never race it with a
+                    // direct route mutation, and never let a position-only success stand in for an
+                    // extent restore the recovery is still responsible for.
+                    receipt.recoveryPending = await Neo.main.addon.DragDrop.hasWindowDragOrphanRecovery?.(data) === true;
+
+                    if (receipt.recoveryPending) {
+                        receipt.refusedAt = 'recovery-pending';
+                        return false
                     }
 
                     // Extent before position: a window restored to its old size at the park origin
@@ -361,7 +399,7 @@ class NativeVesselTransaction extends Base {
                         }
                     }
 
-                    receipt.moved = await Neo.Main.windowNativeMoveTo(data) === true;
+                    receipt.moved = await Neo.Main.windowNativeMoveTo(origin) === true;
 
                     if (!receipt.moved) {
                         // Compensating a failed move means undoing the extent too, in the same
@@ -372,7 +410,7 @@ class NativeVesselTransaction extends Base {
 
                             if (receipt.compensationResized) {
                                 receipt.compensationMoved = await Neo.Main.windowNativeMoveTo({
-                                    ...handle, windowName, x: geometry.park.x, y: geometry.park.y
+                                    ...handle, x: geometry.park.x, y: geometry.park.y
                                 }) === true
                             }
                         }
