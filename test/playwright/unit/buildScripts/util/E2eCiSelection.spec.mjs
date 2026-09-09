@@ -1,8 +1,8 @@
-import {test, expect}                     from '@playwright/test';
-import fs                                 from 'node:fs';
-import os                                 from 'node:os';
-import path                               from 'node:path';
-import {EXCLUSIONS, populations, summary} from '../../../../../buildScripts/util/e2eCiSelection.mjs';
+import {test, expect}                                from '@playwright/test';
+import fs                                            from 'node:fs';
+import os                                            from 'node:os';
+import path                                          from 'node:path';
+import {EXCLUSIONS, populations, RUN_PATHS, summary} from '../../../../../buildScripts/util/e2eCiSelection.mjs';
 
 /**
  * The e2e tier's coverage summary is an honesty guard: `testIgnore` DESELECTS the Brain-dependent
@@ -99,7 +99,11 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
               before          = populations(root),
               beforeStated    = stated(summary(root));
 
-        expect(before.executed, 'the fixture selects every RUN_PATHS spec').toBe(6);
+        // One spec per `RUN_PATHS` entry, derived rather than a literal so the fixture does not have
+        // to be hand-updated alongside it. It is a PRECONDITION for the complement arithmetic below,
+        // not a guard on `RUN_PATHS` itself: `assertSelectionFloor` owns that, against the real tree,
+        // and is what catches an entry added without a spec — this arm's tree is synthetic.
+        expect(before.executed, 'the fixture selects every RUN_PATHS spec').toBe(RUN_PATHS.length);
         expect(beforeStated,    'and reports their complement').toBe(before.total - before.executed);
 
         addSpec('portal/Outside.spec.mjs');
