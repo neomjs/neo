@@ -58,6 +58,26 @@ class App extends Base {
     }
 
     /**
+     * Environments {@link #forwardErrorToMainThread} may write into.
+     *
+     * An ALLOWLIST, deliberately. The first version excluded `dist/production` alone and left
+     * `dist/esm` mirroring — a real value a shipped build sets (`esmDistTransforms.mjs`), which
+     * {@link #afterSetCountLoadingThemeFiles}'s sibling branch in this same file already knows
+     * about. A denylist of shipped environments fails in the shipped direction and does it
+     * silently; an allowlist means a new environment gets no mirror until someone decides it
+     * should, which is the right default for something that writes into a user's console.
+     *
+     * Deliberately NOT coupled to `Neo.config.enableLogsInProduction`, which is `util.Logger`'s
+     * escape hatch for an application's own logging. This is a diagnostic for a condition the
+     * reader did not ask about; turning it on in production is a separate decision from turning
+     * application logs back on, and conflating them would grant it by accident.
+     * @member {String[]} mirrorEnvironments=['development','dist/development']
+     * @static
+     * @protected
+     */
+    static mirrorEnvironments = ['development', 'dist/development']
+
+    /**
      * Re-entrancy latch for {@link #forwardErrorToMainThread}: the mirror runs inside the console
      * interceptor, so anything the send path logs would arrive back through it.
      * @member {Boolean} isForwardingError=false
@@ -434,10 +454,16 @@ class App extends Base {
     forwardErrorToMainThread(message) {
         let me = this;
 
-        // A failed forward must never log, or the interceptor that called us re-enters. Re-entry is
-        // guarded rather than merely unlikely, because the send path is free to warn: an unrouted
-        // `main` destination warns about its own deprecation, and that warning would arrive here.
-        if (me.isForwardingError || Neo.config.environment === 'dist/production') {
+        // SharedWorker ONLY, because a dedicated worker needs no help: the browser already forwards
+        // its console output to the owner document, so mirroring there would double every error.
+        // Measured rather than assumed — a Blob worker calling `console.error` reaches
+        // `page.on('console')` with no forwarding at all. A SharedWorker instead gets its own
+        // inspector context that no page can read, which is the entire gap this closes.
+        //
+        // Re-entry is guarded rather than merely unlikely: a failed forward must never log, and the
+        // send path is free to warn — an unrouted `main` destination warns about its own
+        // deprecation, and that warning would arrive back through the interceptor that called us.
+        if (!me.isSharedWorker || me.isForwardingError || !me.constructor.mirrorEnvironments.includes(Neo.config.environment)) {
             return
         }
 
@@ -449,13 +475,9 @@ class App extends Base {
             // Addressed per window, so the deprecated unrouted `main` destination is never used.
             // A window that closed between the error and this call rejects with NEO_DEAD_PORT,
             // which is ordinary teardown; swallowed, never reported.
-            if (me.isSharedWorker) {
-                me.ports.forEach(({windowId}) => {
-                    windowId && Neo.Main?.log?.({method: 'error', value, windowId})?.catch?.(Neo.emptyFn)
-                })
-            } else {
-                Neo.Main?.log?.({method: 'error', value})?.catch?.(Neo.emptyFn)
-            }
+            me.ports.forEach(({windowId}) => {
+                windowId && Neo.Main?.log?.({method: 'error', value, windowId})?.catch?.(Neo.emptyFn)
+            })
         } catch (err) {
             // A diagnostic mirror must not become a fault of its own.
         } finally {
