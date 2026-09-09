@@ -23,14 +23,15 @@ test('normal construction stays driver-free; explicit calls reach one registered
     const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           service   = Neo.create(InstanceService);
     try {
-        expect(workspace.gestureDriver).toBeNull();
-        expect(workspace.gestureDriverPromise).toBeNull();
+        expect(workspace.getController().getReference('tour-bar').controller).toBeFalsy();
+        expect(workspace.gestureDriver).toBeUndefined();
         expect(workspace.executeTearOutStep).toBeUndefined();
-        const [first, second] = await Promise.all([workspace.getGestureDriver(), workspace.getGestureDriver()]);
+        const controller      = await workspace.getController().getTourController();
+        const [first, second] = await Promise.all([controller.getGestureDriver(), controller.getGestureDriver()]);
         expect(first).toBe(second);
         expect(first.workspace).toBe(workspace);
         expect(Neo.get(first.id)).toBe(first);
-        const receipt = await service.callMethod({id: workspace.id, method: 'gestureDriver.executeTearOutStep', args: [{}]});
+        const receipt = await service.callMethod({id: controller.id, method: 'gestureDriver.executeTearOutStep', args: [{}]});
         expect(receipt.result.applied).toBe(false);
         expect(receipt.result.errors.length).toBeGreaterThan(0);
         workspace.destroy();
@@ -43,7 +44,7 @@ test('normal construction stays driver-free; explicit calls reach one registered
 
 test('root destruction during the lazy import cannot create an orphan driver', async () => {
     const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
-          pending   = workspace.getGestureDriver();
+          pending   = workspace.getController().getTourController();
     workspace.destroy();
     await expect(pending).rejects.toBe(Neo.isDestroyed)
 });

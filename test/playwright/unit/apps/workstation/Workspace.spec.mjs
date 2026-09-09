@@ -20,6 +20,8 @@ import ScalePane          from '../../../../../apps/workstation/view/ScalePane.m
 import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
 import PopupWorkspace     from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
 import GestureDriver      from '../../../../../apps/workstation/tour/GestureDriver.mjs';
+import TourController     from '../../../../../apps/workstation/view/TourController.mjs';
+import DockService        from '../../../../../src/ai/client/DockService.mjs';
 
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
@@ -305,7 +307,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             };
 
             let   settled = false;
-            const driver  = await workspace.getGestureDriver(),
+            const driver  = (await workspace.getController().getTourController()).getGestureDriver(),
                   retirement = driver.retireFilmCursorDot(cursorDot)
                 .then(value => {
                     settled = true;
@@ -349,7 +351,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             const results = [];
 
             for (let boundary = 0; boundary < 6; boundary++) {
-                results.push(await (await workspace.getGestureDriver()).retireFilmCursorDot(null))
+                results.push(await ((await workspace.getController().getTourController()).getGestureDriver()).retireFilmCursorDot(null))
             }
 
             expect(results).toEqual([false, false, false, false, false, false]);
@@ -396,7 +398,12 @@ test.describe.serial('Workstation.view.Workspace', () => {
             }
         };
 
-        const receipt = await Workspace.prototype.startTour.call(host);
+        host.workspace = host;
+        host.constructor = Workspace;
+        host.getTourRunner = () => host.tourRunner;
+        host.setState = () => {};
+        host.trap = promise => promise;
+        const receipt = await TourController.prototype.runVisibleTour.call(host);
 
         expect(receipt).toBe(host.lastTourReceipt);
         expect(receipt.completed).toBe(false);
@@ -2424,7 +2431,7 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
     test('an un-applied, error-free, non-cancel receipt fails the settlement and retains its forensics', async () => {
         const host = createCueHost({applied: false, errors: []});
 
-        Workspace.prototype.onTourBeat.call(host, beat);
+        TourController.prototype.onTourBeat.call(host, beat);
         await host.cueSettlements.get('0:0');
 
         expect(host.cueErrors).toEqual(['cross-zone-showcase: terminal effect did not apply']);
@@ -2436,7 +2443,7 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
     test('a receipt carrying errors fails the settlement with those errors', async () => {
         const host = createCueHost({applied: true, errors: ['zone unreachable', 'no candidate']});
 
-        Workspace.prototype.onTourBeat.call(host, beat);
+        TourController.prototype.onTourBeat.call(host, beat);
         await host.cueSettlements.get('0:0');
 
         expect(host.cueErrors).toEqual(['cross-zone-showcase: zone unreachable; no candidate']);
@@ -2446,7 +2453,7 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
     test('a cancel terminal settles legitimately un-applied', async () => {
         const host = createCueHost({applied: false, cancelled: true, errors: []});
 
-        Workspace.prototype.onTourBeat.call(host, beat);
+        TourController.prototype.onTourBeat.call(host, beat);
         await host.cueSettlements.get('0:0');
 
         expect(host.cueErrors).toEqual([]);
@@ -2456,13 +2463,32 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
     test('a healthy applied receipt settles clean', async () => {
         const host = createCueHost({applied: true, beatLog: [], errors: []});
 
-        Workspace.prototype.onTourBeat.call(host, beat);
+        TourController.prototype.onTourBeat.call(host, beat);
         await host.cueSettlements.get('0:0');
 
         expect(host.cueErrors).toEqual([]);
         expect(host.cueReceipts).toHaveLength(1)
     });
 });
+
+/**
+ * @summary Runs the actual playback owner's probe against a borrowed workspace service fixture.
+ * @param {Object} workspace
+ * @param {...*} args
+ * @returns {Promise<Object>}
+ */
+async function runTourProbe(workspace, ...args) {
+    const service = Neo.create(DockService);
+    workspace.dockService = service;
+    try {
+        return await TourController.prototype.runSpecTour.call({
+            workspace, specRunners: new Set(), trap: promise => promise
+        }, ...args)
+    } finally {
+        expect(Neo.get(service.id), 'the playback probe must retain its borrowed service').toBe(service);
+        service.destroy()
+    }
+}
 
 test.describe('replay probe transaction (prototype-call)', () => {
     test('a rejecting entry projection still restores the displaced document under restoreDocument', async () => {
@@ -2484,7 +2510,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
             };
 
         await expect(
-            Workspace.prototype.runTourSpec.call(host, null, {restoreDocument: true}),
+            runTourProbe(host, null, {restoreDocument: true}),
             'the transaction error propagates'
         ).rejects.toThrow('entry projection rejected');
 
@@ -2518,7 +2544,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
             };
 
         await expect(
-            Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true}),
+            runTourProbe(host, script, {restoreDocument: true}),
             'a probe may not report success over an un-projected surface'
         ).rejects.toThrow('restore projection rejected');
 
@@ -2556,7 +2582,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
                 }]
             };
 
-        const result = await Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true});
+        const result = await runTourProbe(host, script, {restoreDocument: true});
 
         expect(result.completed, 'the structured failure reaches the caller').toBe(false);
         expect(
@@ -2598,7 +2624,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
                 scenes: [{id: 's1', title: 'pause', steps: [{type: 'pause', ms: 1}]}]
             };
 
-        await Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true});
+        await runTourProbe(host, script, {restoreDocument: true});
 
         // Entry declares admission to the validated in-place path (reconcileStableTopology
         // null-falls-back to the staged transaction on any topology delta — the fallback
@@ -2630,7 +2656,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
             };
 
         await expect(
-            Workspace.prototype.runTourSpec.call(host, null)
+            runTourProbe(host, null)
         ).rejects.toThrow('entry projection rejected');
 
         expect(host.dockModel, 'the driver contract keeps the baseline (no silent restore)')

@@ -1,3 +1,4 @@
+import {callWorkstationTour}                         from '../utils/workstationTour.mjs';
 import {test, expect}                                from '../../fixtures.mjs';
 import {workstationTourScript}                       from '../../../../apps/workstation/tour/denseWorkstation.mjs';
 import {placeNativeWindow, resolveFilmDisplayBounds} from '../utils/filmStage.mjs';
@@ -1824,13 +1825,13 @@ test.describe('Workstation — dense living-data composition', () => {
         }, beforeIdentity);
 
         await page.click('.workstation-tour-play');
-        await expect.poll(async () => Boolean(await app.callMethod(workspaceId, 'getTourReceipt')), {
+        await expect.poll(async () => Boolean(await callWorkstationTour(app, workspaceId, 'getTourReceipt')), {
             message  : 'the native tour button settles document and surface tiers',
             timeout  : 30000,
             intervals: [100, 250]
         }).toBe(true);
 
-        const tourReceipt        = await app.callMethod(workspaceId, 'getTourReceipt'),
+        const tourReceipt        = await callWorkstationTour(app, workspaceId, 'getTourReceipt'),
               canvasFailureState = tourReceipt.completed ? [] : await readScaleSparklines(app, page),
               monitor            = await page.evaluate(async () => {
                   globalThis.__workstationMonitor.done = true;
@@ -1995,8 +1996,8 @@ test.describe('Workstation — dense living-data composition', () => {
 
         // Two fresh document-tier spec runs remain byte-identical; the real-button receipt above
         // is the separate authority for asynchronous surface cues.
-        const run1 = await app.callMethod(workspaceId, 'runTourSpec', [null, {restoreDocument: true}]),
-              run2 = await app.callMethod(workspaceId, 'runTourSpec', [null, {restoreDocument: true}]);
+        const run1 = await callWorkstationTour(app, workspaceId, 'runTourSpec', [null, {restoreDocument: true}]),
+              run2 = await callWorkstationTour(app, workspaceId, 'runTourSpec', [null, {restoreDocument: true}]);
 
         expect(run1.completed, `run 1 errors: ${JSON.stringify(run1.errors)}`).toBe(true);
         expect(run1.errors).toEqual([]);
@@ -2044,7 +2045,7 @@ test.describe('Workstation — dense living-data composition', () => {
 
         const
             postTourDocument = (await app.getDockTopology(workspaceId)).document,
-            postTourReceipt  = await app.callMethod(workspaceId, 'getTourReceipt', []),
+            postTourReceipt  = await callWorkstationTour(app, workspaceId, 'getTourReceipt', []),
             crossZoneCue     = postTourReceipt?.cueReceipts
                 ?.find(entry => entry.cue?.type === 'cross-zone-showcase')?.receipt;
 

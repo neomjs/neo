@@ -1,11 +1,12 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}        from '../../fixtures.mjs';
+import {callWorkstationTour} from '../utils/workstationTour.mjs';
 
 /**
  * @summary Whitebox E2E witness for the dense tour's audit cross-zone cue, invoked standalone.
  *
  * The tour runner fires surface cues without consuming their results, so a cue whose terminal
  * commit produces no document mutation still lets the tour report every cue as settled. This
- * spec invokes the exact tour cue directly on the Workspace and binds the executor's own
+ * spec invokes the exact tour cue on its playback controller and binds the executor's own
  * return contract — `applied`, empty `errors`, the two-dwell beat log, and the committed
  * document — so a silent commit no-op fails loudly with the executor's full forensic payload
  * in the assertion message.
@@ -52,7 +53,7 @@ test.describe('Workstation — the audit cross-zone cue commits what it previews
 
         // The exact cue the dense tour fires (apps/workstation/tour/denseWorkstation.mjs),
         // invoked through the same entry the tour runner uses.
-        const result = await app.callMethod(wsId, 'executeCue', [{
+        const result = await callWorkstationTour(app, wsId, 'executeCue', [{
             type        : 'cross-zone-showcase',
             itemId      : 'audit',
             sourceNodeId: 'right-top-tabs',

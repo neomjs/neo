@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}        from '../../fixtures.mjs';
+import {callWorkstationTour} from '../utils/workstationTour.mjs';
 
 /**
  * @summary Whitebox E2E witness: docking one tab to a grid's edge must not restyle every OTHER
@@ -93,7 +94,7 @@ test.describe('Workstation — docking a tab to a grid edge leaves every other h
         // The cue executor requires two distinct foreign zones AND two distinct placement kinds, so
         // the first dwell is a pass-through over another node; the LAST dwell is what the terminal
         // commits, and that one is the reported drop.
-        const result = await app.callMethod(wsId, 'executeCue', [{
+        const result = await callWorkstationTour(app, wsId, 'executeCue', [{
             type        : 'cross-zone-showcase',
             itemId      : 'alerts',
             sourceNodeId: 'heavy-tabs',

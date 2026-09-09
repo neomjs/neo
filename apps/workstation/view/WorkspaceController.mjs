@@ -3,7 +3,7 @@ import Persistence        from '../../../src/dashboard/dock/model/Persistence.mj
 import TransactionManager from '../../../src/manager/Transaction.mjs';
 
 /**
- * @summary Workstation's durable topology selection and user-activated render targets.
+ * @summary Workstation actions, durable topology and optional tour-controller activation.
  * @class Workstation.view.WorkspaceController
  * @extends Neo.controller.Component
  */
@@ -11,6 +11,38 @@ class WorkspaceController extends Controller {
     static config = {
         /** @member {String} className='Workstation.view.WorkspaceController' */
         className: 'Workstation.view.WorkspaceController'
+    }
+
+    /** @member {Promise|null} tourControllerPromise=null */
+    tourControllerPromise = null
+
+    /**
+     * @summary Installs the optional playback controller on its real toolbar at first activation.
+     * @returns {Promise<Workstation.view.TourController>}
+     */
+    async getTourController() {
+        const me = this, bar = me.getReference('tour-bar');
+        if (me.isDestroyed || !bar || bar.isDestroyed) throw Neo.isDestroyed;
+        if (bar.controller && !bar.controller.isDestroyed) return bar.controller;
+        return me.tourControllerPromise ??= (async () => {
+            await me.trap(Promise.resolve(bar.controller?.settledPromise));
+            const {default: TourController} = await me.trap(import('./TourController.mjs'));
+            if (bar.isDestroyed) throw Neo.isDestroyed;
+            bar.controller = {module: TourController, workspace: me.component};
+            return bar.controller
+        })().finally(() => {
+            if (!me.isDestroyed) me.tourControllerPromise = null
+        })
+    }
+
+    /** @summary Routes the declarative start action to the activated playback controller. @returns {Promise<Object>} */
+    async onStartTour() {
+        return (await this.getTourController()).startTour()
+    }
+
+    /** @summary Keeps the ordinary theme action independent of playback activation. @param {Object} data @returns {Promise<String>} */
+    onToggleWorkspaceTheme(data) {
+        return this.component.toggleWorkspaceTheme(data)
     }
 
     /**

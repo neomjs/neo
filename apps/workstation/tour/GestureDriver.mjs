@@ -25,6 +25,14 @@ class GestureDriver extends Base {
     /** @member {Neo.ai.client.InteractionService|null} interactionService=null */
     interactionService = null
 
+    /** @member {Promise|null} #settledPromise=null Retained cleanup boundary after destruction. */
+    #settledPromise = null
+
+    /** @summary Resolves after all started gestures finish their input and cursor cleanup. @returns {Promise} */
+    get settledPromise() {
+        return this.#settledPromise ?? Promise.all([...this.activeRuns].map(run => run.settled))
+    }
+
     /** @summary Creates the optional input service with its driver. @param {Object} config */
     construct(config) {
         super.construct(config);
@@ -40,6 +48,7 @@ class GestureDriver extends Base {
         if (this.isDestroyed || this.workspace.isDestroyed) throw Neo.isDestroyed;
         const runs = this.activeRuns,
               run  = {workspace: this.workspace, service: this.interactionService, pending: null, pointer: null};
+        run.settled = new Promise(resolve => {run.resolveSettlement = resolve});
         runs.add(run);
         try {
             return await execute(run)
@@ -58,7 +67,11 @@ class GestureDriver extends Base {
                 }
             } finally {
                 runs.delete(run);
-                this.isDestroyed && !runs.size && run.service.destroy()
+                try {
+                    this.isDestroyed && !runs.size && run.service.destroy()
+                } finally {
+                    run.resolveSettlement()
+                }
             }
         }
     }
@@ -89,6 +102,7 @@ class GestureDriver extends Base {
     destroy() {
         if (this.isDestroyed) return;
         const runs = this.activeRuns, service = this.interactionService;
+        this.#settledPromise = this.settledPromise;
         super.destroy();
         !runs.size && service.destroy()
     }

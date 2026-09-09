@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {getWorkstationTour} from '../utils/workstationTour.mjs';
+import {test, expect}       from '../../fixtures.mjs';
 
 /**
  * Whitebox-e2e: the dense tour and the Sparkline offscreen pipeline survive rendering starvation.
@@ -125,11 +126,12 @@ test.describe('Workstation rendering starvation: sparkline registration + dense 
         // TOUR LEG: the full dense tour settles with a complete receipt. The RPC is fired
         // without awaiting so no bridge timeout can shadow the app-side truth; the receipt
         // poll is the settle gate.
-        const tourRpc = app.callMethod(workspaceId, 'startTour').catch(error => ({rpcError: String(error)}));
+        const tourControllerId = await getWorkstationTour(app, workspaceId),
+              tourRpc          = app.callMethod(tourControllerId, 'startTour').catch(error => ({rpcError: String(error)}));
 
         await expect.poll(async () => {
             try {
-                const state = await app.getComponent(workspaceId, ['lastTourReceipt']);
+                const state = await app.getComponent(tourControllerId, ['lastTourReceipt']);
                 return !!state?.lastTourReceipt
             } catch {
                 return false
@@ -138,7 +140,7 @@ test.describe('Workstation rendering starvation: sparkline registration + dense 
 
         await tourRpc;
 
-        const {lastTourReceipt} = await app.getComponent(workspaceId, ['lastTourReceipt']);
+        const {lastTourReceipt} = await app.getComponent(tourControllerId, ['lastTourReceipt']);
 
         expect(lastTourReceipt.errors, 'the starved tour reports zero errors').toEqual([]);
         expect(lastTourReceipt.completed, 'the starved tour completes').toBe(true);

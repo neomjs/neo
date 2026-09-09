@@ -20,15 +20,15 @@ import WorkspaceController      from './WorkspaceController.mjs';
 import Operations               from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../src/dashboard/dock/model/Persistence.mjs';
 import StateProvider            from '../../../src/state/Provider.mjs';
-import TourRunner               from '../../../src/ai/client/TourRunner.mjs';
+import TourToolbar              from './TourToolbar.mjs';
 import TransactionManager       from '../../../src/manager/Transaction.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
 }                                                from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
-import WorkspaceSet                             from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
-import VesselPark                               from '../../../src/dashboard/dock/window/VesselPark.mjs';
-import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
+import WorkspaceSet                        from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import VesselPark                          from '../../../src/dashboard/dock/window/VesselPark.mjs';
+import {initialTourState, initialDocument} from '../tour/denseWorkstation.mjs';
 import '../../../src/button/Base.mjs';
 import '../../../src/tab/Container.mjs';
 import '../../../src/toolbar/Base.mjs';
@@ -194,6 +194,7 @@ class Workspace extends DockWorkspace {
          */
         stateProvider: {
             module: StateProvider,
+            data  : {tour: initialTourState},
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
@@ -233,20 +234,15 @@ class Workspace extends DockWorkspace {
      * @member {Object|null} initialTopology=null
      */
     initialTopology = null
-    /**
-     * @member {Neo.ai.client.TourRunner|null} tourRunner=null
-     */
-    tourRunner = null
+
     /**
      * The shared drag-affordance gesture controller (producer lifecycle, memoized geometry,
      * release-truth drop, generation guards) — composed at construct, destroyed with the view.
      * @member {Neo.dashboard.dock.interaction.DragAffordances|null} dragAffordances=null
      */
     dragAffordances = null
-    /** @member {Workstation.tour.NativeGestureDriver|null} gestureDriver=null */
-    gestureDriver = null
-    /** @member {Promise|null} gestureDriverPromise=null */
-    gestureDriverPromise = null
+
+
     /**
      * @member {Object} paneCache={}
      * @protected
@@ -345,46 +341,7 @@ class Workspace extends DockWorkspace {
      * @member {Number} feedSequence=0
      */
     feedSequence = 0
-    /**
-     * Serialized surface-cue chain for the current visible tour.
-     * @member {Promise} cuePromise
-     * @protected
-     */
-    cuePromise = Promise.resolve()
-    /**
-     * Hosting-surface cue promises indexed by the runner's scene/step identity. The injected
-     * `TourRunner.stepSettlement` callback awaits an entry before `stepSettled`; that event then
-     * consumes it for the independent progress-paint chain. The map never becomes runner state.
-     * @member {Map<String,Promise>} cueSettlements
-     * @protected
-     */
-    cueSettlements = new Map()
-    /**
-     * Serialized, paint-confirmed tour progress. `TourRunner.stepSettled` arrives after this
-     * host's cue/refresh barrier, but events are observational and the next beat can start as soon
-     * as the listener returns. This local chain therefore re-awaits the keyed settlement before
-     * painting each pip in order; it never becomes part of runner execution.
-     * @member {Promise} progressPromise
-     * @protected
-     */
-    progressPromise = Promise.resolve()
-    /**
-     * Fail-closed surface-cue errors for the current visible tour.
-     * @member {String[]} cueErrors
-     * @protected
-     */
-    cueErrors = []
-    /**
-     * Ordered observable receipts returned by the screenplay's surface cues.
-     * @member {Object[]} cueReceipts
-     * @protected
-     */
-    cueReceipts = []
-    /**
-     * The most recent fully settled visible-tour result.
-     * @member {Object|null} lastTourReceipt=null
-     */
-    lastTourReceipt = null
+
     /**
      * Most recent exact-handle park admission receipt.
      *
@@ -448,26 +405,9 @@ class Workspace extends DockWorkspace {
 
         me.registerMainWorkspace();
 
-        me.tourRunner  = Neo.create(TourRunner, {
-            componentId   : me.id,
-            dockService   : me.dockService,
-            mode          : 'demo',
-            script        : workstationTourScript,
-            stepSettlement: data => me.settleTourStep(data)
-        });
-
-        me.tourRunner.on({
-            beat       : me.onTourBeat,
-            complete   : me.onTourComplete,
-            error      : me.onTourError,
-            scene      : me.onTourScene,
-            stepSettled: me.onTourStepSettled,
-            scope      : me
-        });
-
         me.appendFeedBatch(25);
 
-        me.add([me.createTourBar(), me.createStatusBar(), me.getController().createTopologyBar(), {
+        me.add([{module: TourToolbar}, me.createStatusBar(), me.getController().createTopologyBar(), {
             module: Container,
             cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
             flex  : 1,
@@ -556,6 +496,7 @@ class Workspace extends DockWorkspace {
         // re-apply the active language now that the host is live (both orders converge).
         me.previewLanguage && me.afterSetPreviewLanguage(me.previewLanguage, null);
 
+        me.syncThemeToggle(me.theme);
         me.updateStatusBar();
         me.#feedIntervalId = setInterval(
             () => me.appendFeedBatch(Workspace.FEED_BATCH_SIZE),
@@ -633,81 +574,6 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @returns {Object} Tour toolbar config.
-     */
-    createTourBar() {
-        let me      = this,
-            isLight = me.theme === 'neo-theme-neo-light';
-
-        return {
-            cls   : ['workstation-tourbar'],
-            flex  : 'none',
-            layout: {ntype: 'hbox', align: 'center'},
-            ntype : 'toolbar',
-            // The boot containment chain asserts tourbar→statusbar→dock-host adjacency
-            // via component-id rects — the bar needs a stable reference to be one of them.
-            reference: 'tour-bar',
-            items    : [{
-                cls      : ['workstation-tour-play'],
-                handler  : () => me.startTour(),
-                iconCls  : 'fa fa-play',
-                ntype    : 'button',
-                reference: 'tour-play',
-                text     : 'Start dense tour'
-            }, {
-                module: Container,
-                cls   : ['workstation-tour-story'],
-                flex  : 1,
-                items : [{
-                    cls      : ['workstation-tour-caption'],
-                    flex     : 'none',
-                    html     : `${workstationTourScript.title} — twenty panes, 100k rows, a 10/sec feed, real overflow, and two themes.`,
-                    ntype    : 'component',
-                    reference: 'tour-caption'
-                }, {
-                    cls      : ['workstation-tour-pips'],
-                    flex     : 'none',
-                    ntype    : 'component',
-                    reference: 'tour-pips',
-                    vdom     : {cn: Workspace.totalBeats().map(() => ({cls: ['workstation-pip']}))}
-                }],
-                layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}
-            }, {
-                cls      : ['workstation-theme-button'],
-                handler  : data => me.toggleWorkspaceTheme(data),
-                iconCls  : isLight ? 'fa fa-moon' : 'fa fa-sun',
-                ntype    : 'button',
-                reference: 'theme-toggle',
-                text     : isLight ? 'Dark mode' : 'Light mode'
-            }]
-        }
-    }
-
-    /**
-     * Executes a surface cue for the visual take. Spec-mode correctness waits on explicit
-     * E2E oracles because TourRunner intentionally does not await event listeners.
-     * @param {Object} cue
-     * @returns {Promise<*>}
-     */
-    async executeCue(cue) {
-        switch (cue.type) {
-            case 'overflow':
-                return this.navigateOverflowMenu(cue.itemId)
-            case 'scroll':
-                return this.scrollScaleGrid(cue.index)
-            case 'canvas-update':
-                await this.refreshPromise;
-                return this.pulseScaleSparkline()
-            case 'cross-zone-showcase':
-                return (await this.getGestureDriver()).executeCrossZoneShowcaseStep(cue, cue.options)
-            case 'theme':
-                return this.setWorkspaceTheme(cue.theme)
-            default:
-                return false
-        }
-    }
-
-    /**
      * The current projection shell's instance id — the discriminator between the reconciler's
      * stable-topology fast path (shell retained) and the staged full path (shell replaced).
      * Pane instances AND their DOM survive either path; only the shell identity flips.
@@ -738,156 +604,6 @@ class Workspace extends DockWorkspace {
         }
 
         return item ? me.resolvePane(itemId, item).id : null
-    }
-
-    /**
-     * Returns the last fully settled visible-tour receipt.
-     * @returns {Object|null}
-     */
-    getTourReceipt() {
-        return this.lastTourReceipt
-    }
-
-    /**
-     * Opens the real overflow control, briefly shows its menu, then invokes the first menu
-     * item's ordinary activeIndex handler. The E2E clicks this same surface as a human.
-     * @param {String} itemId Narrated target id (used for the caption/evidence contract).
-     * @returns {Promise<Boolean>}
-     */
-    async navigateOverflowMenu(itemId) {
-        // The reducer schedules projection asynchronously. Resolve the consumer only after that transaction,
-        // otherwise `down()` can capture the retiring source toolbar and wait on its deliberately hidden control.
-        await this.refreshPromise;
-
-        let tabs   = this.down({dockNodeId: 'heavy-tabs'}),
-            plugin = tabs?.getTabBar()?.getPlugin('tab-overflow'),
-            control;
-
-        // The hidden staging transaction already captured natural widths. This consumer boundary only
-        // refreshes the visible extent so the cue never turns a stable cache into a second measurement pass.
-        await plugin?.project(false);
-        control = await this.waitForOverflowMenu(plugin);
-
-        if (!control) return false;
-
-        await control.toggleMenu();
-        await this.timeout(700);
-
-        const
-            menuItems = control.menuList?.items || [],
-            item      = menuItems.find(entry => entry.text === this.dockModel.items[itemId]?.title);
-
-        item?.handler?.();
-        control.menuList && (control.menuList.hidden = true);
-
-        return item ? {activatedItemId: itemId, menuItemCount: menuItems.length} : false
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTourBeat(data) {
-        let me            = this,
-            cueSettlement = Promise.resolve();
-
-        data.caption && me.setTourCaption(data.caption);
-
-        if (data.cue) {
-            const cue = data.cue;
-
-            me.cuePromise = me.cuePromise.then(async () => {
-                const receipt = await me.executeCue(cue);
-
-                if (!receipt) {
-                    throw new Error(`${cue.type} returned no observable receipt`)
-                }
-
-                me.cueReceipts.push({cue: {...cue}, receipt});
-
-                // Settlement is the cue's EFFECT, not its promise: executors report `errors`
-                // and `applied` (a cancel terminal settles legitimately un-applied). The
-                // receipt stays pushed either way, so a failure carries its own forensics.
-                if (receipt.errors?.length) {
-                    throw new Error(receipt.errors.join('; '))
-                }
-
-                if (receipt.applied === false && !receipt.cancelled) {
-                    throw new Error('terminal effect did not apply')
-                }
-
-                return receipt
-            }).catch(error => {
-                const message = `${cue.type}: ${error.message}`;
-
-                me.cueErrors.push(message);
-                me.setTourCaption(`Surface cue failed: ${message}`);
-
-                return false
-            });
-            cueSettlement = me.cuePromise
-        }
-
-        me.cueSettlements.set(`${data.sceneIndex}:${data.stepIndex}`, cueSettlement)
-    }
-
-    /**
-     * Settles the hosting surface for one runner step before the next screenplay beat may begin.
-     * @summary Prevents a following document operation from re-projecting the dock while the
-     * current surface cue still owns a live gesture, dwell, or paint boundary.
-     * @param {Object} data `TourRunner` settlement payload.
-     * @returns {Promise<void>}
-     */
-    async settleTourStep(data) {
-        let me            = this,
-            key           = `${data.sceneIndex}:${data.stepIndex}`,
-            cueSettlement = me.cueSettlements.get(key) || Promise.resolve();
-
-        await cueSettlement;
-        await me.refreshPromise
-    }
-
-    /**
-     * Projects one successful runner step after the injected host barrier has settled its cue and
-     * dock refresh. The listener remains observational: it serializes the independent pip paint
-     * without making event delivery an execution boundary for `TourRunner`.
-     * @param {Object} data `TourRunner.stepSettled` payload.
-     */
-    onTourStepSettled(data) {
-        let me            = this,
-            key           = `${data.sceneIndex}:${data.stepIndex}`,
-            cueSettlement = me.cueSettlements.get(key) || Promise.resolve();
-
-        me.cueSettlements.delete(key);
-        me.progressPromise = me.progressPromise.then(async () => {
-            await cueSettlement;
-            await me.refreshPromise;
-            await me.setPipProgress(data.completedCount);
-            // Adjacent document operations can settle within one browser frame. Keep each
-            // evidenced state visible long enough to read instead of letting VDOM paints coalesce.
-            await me.timeout(90)
-        })
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTourComplete(data) {
-        this.setTourCaption(`WorkspaceDocument playback complete — settling ${data.log.length} deterministic beats and surface cues.`)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTourError(data) {
-        this.cueSettlements.clear();
-        this.setTourCaption(`Tour stopped: ${data.errors[0] || 'unknown reason'}`)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTourScene(data) {
-        this.setTourCaption(`${data.title}${data.caption ? ' — ' + data.caption : ''}`)
     }
 
     /**
@@ -1728,154 +1444,6 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * Replays one script's document tier from a fresh document in spec mode. Runtime-only
-     * cues remain the visible tour's responsibility and are verified through its receipt.
-     * By default the replay result stays live (the driver contract journey specs and the film
-     * pipeline continue from); `restoreDocument: true` turns the replay into a pure probe that
-     * restores the displaced live document afterwards.
-     * @param {Object} [script=workstationTourScript] `null` also resolves to the default script.
-     * @param {Object} [opts]
-     * @param {Boolean} [opts.restoreDocument=false] Restore the pre-replay live document after the run.
-     * @returns {Promise<Object>}
-     */
-    async runTourSpec(script=workstationTourScript, {restoreDocument=false}={}) {
-        let me           = this,
-            dockService  = Neo.create(DockService, {}),
-            liveDocument = me.dockModel,
-            runner;
-
-        // Transport callers can only deliver `null` for "use the default script".
-        script ??= workstationTourScript;
-
-        runner = Neo.create(TourRunner, {
-            componentId: me.id,
-            dockService,
-            mode       : 'spec',
-            script
-        });
-
-        // Two consumer contracts share this front door. As a DRIVER (default), the replay's
-        // resulting document stays live — the film pipeline and journey specs continue from it.
-        // As a PROBE (`restoreDocument: true`), the displaced live document is restored after
-        // the replay, so a replay can never edit the surface it measures. The transaction owns
-        // the baseline swap too: a rejecting entry projection must still destroy the runner and
-        // service, and must still restore the probe's displaced document.
-        //
-        // The ENTRY projection REQUESTS `geometryOnly` — a validated in-place ADMISSION, not a
-        // skip, and not a claim about the outcome. What reaches `DockFlip.play` is the reconciler's
-        // reported `landedInPlace`, so a reset across a diverged layout can no longer declare
-        // stable topology over a swap that already happened:
-        // `DockProjectionReconciler.reconcileProjection` (:314) attempts
-        // `reconcileStableTopology` (:130), which returns null on ANY node/type/ancestry/order/
-        // orientation delta and falls back to the full staged transaction. The workspace boots
-        // from the same `initialDocument` the entry re-stages, so the proven-stable in-place
-        // path applies and the staged shell swap — whose intermediate state presents a cleared
-        // workspace body on camera (one compositor frame, measured at capture minFrameIndex
-        // 7/59, minEntropy 0.41 vs baseline 5.30) — never runs on the same-topology path. A
-        // genuinely changed topology still takes the staged path unchanged (the residual blank
-        // for that branch is documented on the ticket; present-no-intermediate-state is the
-        // deferred stronger shape). The RESTORE projection stays full deliberately: at
-        // probe-restore time the shell typically diverges from the displaced document, so
-        // admission would validate-and-fall-back with no gain.
-        let completed = false,
-            out       = null;
-
-        try {
-            me.dockModel = WorkspaceDocument.clone(initialDocument);
-            await me.refreshDockWorkspace(null, me.dockModel, {geometryOnly: true});
-
-            // The entry projection is finished and the replay has not begun. Published because a
-            // frame-capturing consumer cannot otherwise tell the two apart: both happen inside one
-            // `runTourSpec` call, so an oracle measuring the whole call attributes an entry-time
-            // frame to the replay step it names. A wall-clock stamp rather than a marker element or
-            // an event, so the consumer bands frames it has ALREADY collected instead of racing a
-            // poll against frame arrival — the boundary is read after the fact, never observed live.
-            const entryCompletedAt = Date.now(),
-                  result           = await runner.start();
-
-            await me.refreshPromise;
-
-            out = {...result, document: WorkspaceDocument.clone(me.dockModel), phases: {entryCompletedAt}};
-
-            // A structured runner failure is a primary outcome the caller must receive intact —
-            // only a genuinely clean replay may let a restore failure replace the return.
-            completed = result?.completed === true && !result?.errors?.length;
-
-            return out
-        } finally {
-            runner.destroy();
-            dockService.destroy();
-
-            if (restoreDocument && !me.isDestroyed) {
-                me.dockModel = liveDocument;
-
-                // The document assignment IS the restore. Restore-projection failure precedence:
-                // a clean replay propagates it (a probe may not report success over an
-                // un-projected surface); a structured primary keeps its result and RECORDS the
-                // restore failure as a namespaced entry in the returned errors; a thrown primary
-                // owns the return channel and the restore failure stays suppressed.
-                completed
-                    ? await me.refreshDockWorkspace()
-                    : await me.refreshDockWorkspace().catch(error => {
-                        out?.errors?.push(`restore projection failed: ${error.message}`)
-                    })
-            }
-        }
-    }
-
-    /**
-     * Scrolls the scale grid through one View-owned VDOM update.
-     *
-     * The View is the closest common parent of the native scrollport and every pooled body.
-     * Retargeting its VNode `scrollTop` together with `syncBodies()` therefore lets one delta
-     * move the viewport and recycle the fixed rows atomically, without a transient blank frame.
-     *
-     * @param {Number} index
-     * @returns {Promise<Boolean>}
-     */
-    async scrollScaleGrid(index=50000) {
-        let pane = this.paneCache.scale,
-            target;
-
-        if (!pane?.view?.id) return false;
-
-        target = Math.max(0, Math.min(index, pane.store.count - 1)) * pane.rowHeight;
-        pane.view.vdom.scrollTop = target;
-        pane.view.syncBodies(target);
-        await pane.view.promiseUpdate();
-
-        return Math.abs(pane.view.scrollTop - target) <= pane.rowHeight
-    }
-
-    /**
-     * @param {Number} count
-     */
-    async setPipProgress(count) {
-        const pips = this.getReference('tour-pips');
-
-        if (!pips) return;
-
-        let {vdom} = pips;
-
-        vdom.cn.forEach((pip, index) => {
-            pip.cls = index < count
-                ? ['workstation-pip', 'workstation-pip-done']
-                : ['workstation-pip']
-        });
-        pips.update();
-        await pips.promiseUpdate()
-    }
-
-    /**
-     * @param {String} text
-     */
-    setTourCaption(text) {
-        const caption = this.getReference('tour-caption');
-
-        caption && (caption.html = text)
-    }
-
-    /**
      * Applies the theme to every render target of this app, not only to the workspace.
      *
      * A theme in Neo is a CSS class an ancestor carries, and `afterSetTheme` writes it onto the
@@ -1964,99 +1532,6 @@ class Workspace extends DockWorkspace {
         return me.setWorkspaceTheme(me.theme === 'neo-theme-neo-light'
             ? 'neo-theme-neo-dark'
             : 'neo-theme-neo-light')
-    }
-
-    /**
-     * Runs the screenplay from a fresh document on every replay.
-     * @returns {Promise<Object>|undefined}
-     */
-    async startTour() {
-        let me = this;
-
-        if (me.tourRunner.running) {
-            me.setTourCaption('Tour already running — the live stores continue underneath it.');
-            return
-        }
-
-        me.cueErrors       = [];
-        me.cuePromise      = Promise.resolve();
-        me.cueReceipts     = [];
-        me.cueSettlements.clear();
-        me.lastTourReceipt = null;
-        me.progressPromise = Promise.resolve();
-        me.dockModel       = WorkspaceDocument.clone(initialDocument);
-        await me.setPipProgress(0);
-
-        await me.refreshDockWorkspace(null, me.dockModel, {geometryOnly: true});
-
-        const
-            feedStore      = me.getStateProvider().getStore('feed'),
-            feedStartCount = feedStore.count,
-            feedStartBatch = me.feedBatchCount,
-            startedAt      = Date.now(),
-            runnerResult   = await me.tourRunner.start();
-
-        const
-            errors      = [...runnerResult.errors, ...me.cueErrors],
-            appendError = (label, result) => {
-                if (result.status === 'rejected') {
-                    const
-                        detail          = result.reason?.message || String(result.reason),
-                        alreadyRecorded = errors.some(error => error === detail || error.endsWith(`: ${detail}`));
-
-                    alreadyRecorded || errors.push(`${label} failed: ${detail}`)
-                }
-            },
-            settlements = await Promise.allSettled([
-                me.cuePromise,
-                me.refreshPromise,
-                me.progressPromise
-            ]);
-
-        ['surface cue settlement', 'dock refresh settlement', 'progress settlement']
-            .forEach((label, index) => appendError(label, settlements[index]));
-
-        const [finalProgress] = await Promise.allSettled([
-            me.setPipProgress(Workspace.totalBeats().length)
-        ]);
-
-        appendError('final progress paint', finalProgress);
-
-        const
-            elapsedMs    = Date.now() - startedAt,
-            feedEndCount = feedStore.count,
-            receipt      = {
-                completed  : runnerResult.completed && errors.length === 0,
-                cueReceipts: me.cueReceipts.map(entry => ({cue: {...entry.cue}, receipt: entry.receipt})),
-                document   : WorkspaceDocument.clone(me.dockModel),
-                elapsedMs,
-                errors,
-                feed       : {
-                    batches       : me.feedBatchCount - feedStartBatch,
-                    configuredRate: Workspace.FEED_BATCH_SIZE * 1000 / Workspace.FEED_INTERVAL_MS,
-                    endCount      : feedEndCount,
-                    growth        : feedEndCount - feedStartCount,
-                    maxRecords    : feedStore.maxRecords,
-                    produced      : (me.feedBatchCount - feedStartBatch) * Workspace.FEED_BATCH_SIZE,
-                    startCount    : feedStartCount
-                },
-                log       : runnerResult.log
-            };
-
-        me.lastTourReceipt = receipt;
-        me.setTourCaption(receipt.completed
-            ? `Tour complete — ${receipt.log.length} deterministic beats and ${receipt.cueReceipts.length} surface cues settled.`
-            : `Tour stopped — ${errors[0]}`);
-
-        return receipt
-    }
-
-    /**
-     * @returns {Object[]} Flattened screenplay steps.
-     * @static
-     */
-    static totalBeats() {
-        return workstationTourScript.scenes.flatMap(scene => scene.steps)
     }
 
     /**
@@ -2991,24 +2466,10 @@ class Workspace extends DockWorkspace {
         return snapshot
     }
 
-    /**
-     * @summary Loads and creates scripted gestures only when a demo or explicit caller needs them.
-     * @returns {Promise<Workstation.tour.NativeGestureDriver>}
-     */
-    async getGestureDriver() {
-        const me = this;
-        if (me.isDestroyed) throw Neo.isDestroyed;
-        return me.gestureDriverPromise ??= (async () => {
-            const {default: Driver} = await me.trap(import('../tour/NativeGestureDriver.mjs'));
-            return me.gestureDriver = Neo.create(Driver, {workspace: me})
-        })()
-    }
-
-    /** @summary Tears down the workspace and its optional gesture driver. @param {...*} args */
+    /** @summary Tears down the workspace's view tree and owned docking resources. @param {...*} args */
     destroy(...args) {
         let me = this;
 
-        me.gestureDriver?.destroy();
 
         if (me.#feedIntervalId !== null) {
             clearInterval(me.#feedIntervalId);
@@ -3018,7 +2479,6 @@ class Workspace extends DockWorkspace {
         me.crossWindowParticipations.forEach(participation => participation?.destroy());
         me.crossWindowParticipations.clear();
         me.getPopupStates().forEach(state => state.host?.destroy());
-        me.tourRunner?.destroy();
         me.dockService?.destroy();
         me.perspectiveStore?.destroy();
         me.workspaceSet?.destroy();
@@ -3028,7 +2488,6 @@ class Workspace extends DockWorkspace {
         me.nativeVesselParkHandlers?.destroy();
         me.vesselProxyEmbodiment?.destroy();
         me.tearOutEmbodiment?.destroy();
-        me.cueSettlements.clear();
 
         Object.values(me.paneCache).forEach(pane => {
             pane?.isDestroyed || pane?.destroy?.()

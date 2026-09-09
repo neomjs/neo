@@ -1,3 +1,4 @@
+import {callWorkstationTour}                                        from '../utils/workstationTour.mjs';
 import {callWorkstationGesture}                                     from '../utils/workstationGesture.mjs';
 import {execFile}                                                   from 'node:child_process';
 import {createHash}                                                 from 'node:crypto';
@@ -1197,7 +1198,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             // workspace's own spec-mode front door: fresh document, reducer op, runner-owned
             // deterministic log — the same contract the film's recording pipeline replays. ──
             const runSpec = () =>
-                app.callMethod(wsId, 'runTourSpec', [{
+                callWorkstationTour(app, wsId, 'runTourSpec', [{
                     schema: 'neo.tour.script.v1',
                     id    : 'five-beat-scene1',
                     title : 'scene 1 — the room answers',
@@ -2746,7 +2747,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
             controlReceipt && controlReceipts.push(controlReceipt);
 
-            const roomSpec = await app.callMethod(wsId, 'runTourSpec', [{
+            const roomSpec = await callWorkstationTour(app, wsId, 'runTourSpec', [{
                 schema: 'neo.tour.script.v1',
                 id    : 'five-beat-signature-room',
                 title : 'scene 5 — the room is alive',
