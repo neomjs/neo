@@ -9,6 +9,9 @@ const FIXTURE_URL = 'test/playwright/component/apps/monaco-editor/index.html';
 const EDITOR_ID   = 'monaco-test-editor';
 const HOST_ID     = 'monaco-test-viewport';
 
+/** Mirrors `component.wrapper.MonacoEditor#editorThemes`; the browser is the only importer of the class. */
+const EDITOR_THEMES = ['hc-black', 'hc-light', 'vs', 'vs-dark'];
+
 /**
  * @summary Reads the App Worker's native component observation surface.
  * @param {import('@playwright/test').Page} page
@@ -222,6 +225,83 @@ test.describe('Monaco wrapper against the installed browser distribution', () =>
         expect(await page.evaluate(id => ({
             value: Neo.main.addon.MonacoEditor.map[id].getValue(), models: monaco.editor.getModels().length
         }), EDITOR_ID)).toEqual({value: 'const replacement = 2;', models: 1})
+    });
+
+    test('theme awareness resolves through the component chain, not the null theme config (#18569)', async ({page}) => {
+        // Asserted on the RENDERED node throughout. `editorTheme` was already the value the reader
+        // never sees: the defect produced a light editor in a dark app, and a config assertion is
+        // exactly what would have stayed green — `monaco.editor.setTheme` is global to the page, so
+        // a correct config that never reaches creation looks identical from the worker side.
+        // The rendered theme as a CLASS TOKEN, never a substring: `'vs-dark'.includes('vs')` is
+        // true, so a `toContain('vs')` poll is satisfied by the dark state it is waiting to leave
+        // and returns on its first evaluation. Exact token equality is what makes the poll wait.
+        const themeToken = async () => {
+            const cls = await page.locator(`#${EDITOR_ID} .monaco-editor`).getAttribute('class');
+
+            return cls?.split(/\s+/).find(token => EDITOR_THEMES.includes(token)) ?? null
+        };
+
+        const setConfigs = async data => {
+            const reply = await page.evaluate(config => Neo.worker.App.setConfigs(config), data);
+
+            expect(reply?.data ?? reply).toMatchObject({success: true})
+        };
+
+        await page.goto(FIXTURE_URL, {waitUntil: 'domcontentloaded'});
+        await expectEditor(page);
+        await destroyEditor(page);
+
+        // The host carries the theme; the editor is created underneath it and declares none of its
+        // own. That is the whole shape of the defect — `container.Base#afterSetTheme` stamps live
+        // items on a CHANGE and leaves construction to `createItem`, so an inheriting child's
+        // `theme` config is null at exactly the moment `getInitialOptions` reads it.
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-neo-dark'});
+
+        const reply = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), {
+            id               : EDITOR_ID,
+            language         : 'javascript',
+            ntype            : 'test-monaco-editor',
+            parentId         : HOST_ID,
+            testGeneration   : 'themed',
+            useThemeAwareness: true,
+            value            : 'const themed = 1;'
+        });
+
+        expect(reply?.data ?? reply).toMatchObject({success: true, id: EDITOR_ID});
+        await expectEditor(page);
+
+        // Correct AT CREATION, not corrected afterwards: nothing delays the create call any more,
+        // so a fix which only fires on a later theme change would leave the first paint light —
+        // and this assertion is what refuses that.
+        expect(await themeToken(), 'a dark host creates a dark editor').toBe('vs-dark');
+        expect((await readConfigs(page, EDITOR_ID, ['theme']))[0], 'and it inherits rather than declaring').toBeNull();
+
+        // Both directions, on the same instance: a component hardcoded to `vs-dark` passes the
+        // assertion above and fails here, which is the mirror of the bug being fixed.
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-neo-light'});
+        await expect.poll(themeToken, {message: 'a live theme change repaints the editor'}).toBe('vs');
+
+        // `neo-theme-cyberpunk` is dark — `--neo-background-color: #0d1117` — and says so nowhere in
+        // its name. A substring test on the theme name hands it a LIGHT editor, which is the reported
+        // symptom reproduced under a different theme by the code that fixes it. `themeMap` is what
+        // makes the answer declared rather than guessed.
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-cyberpunk'});
+        await expect.poll(themeToken, {message: 'a dark theme that is not named dark still reads dark'}).toBe('vs-dark');
+
+        // The opt-out still opts out: awareness off pins the declared theme against a dark host.
+        await setConfigs({id: EDITOR_ID, editorTheme: 'vs', useThemeAwareness: false});
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-neo-dark'});
+        await expect.poll(themeToken, {message: 'useThemeAwareness:false ignores the host theme'}).toBe('vs');
+
+        // An UNMAPPED theme falls back to the declared `editorTheme` rather than guessing, which is
+        // what keeps `hc-black` and `hc-light` reachable — two of the four enum values a two-way
+        // dark/light inference could never express.
+        // Order matters and says something: turning awareness on under a MAPPED host re-resolves
+        // `editorTheme` immediately, which is the contract — awareness means the theme decides. So
+        // the host goes unmapped first, and only then is `hc-black` declared.
+        await setConfigs({id: HOST_ID, theme: 'neo-theme-unmapped-by-design'});
+        await setConfigs({id: EDITOR_ID, editorTheme: 'hc-black', useThemeAwareness: true});
+        await expect.poll(themeToken, {message: 'an unmapped theme leaves the declared editorTheme standing'}).toBe('hc-black')
     });
 
     test('the actual Portal boot completes Monaco addon initialization even when home paints first', async ({page}) => {
