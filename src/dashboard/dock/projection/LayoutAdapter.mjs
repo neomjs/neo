@@ -1231,9 +1231,13 @@ class LayoutAdapter extends Base {
             // maximization is runtime view state (`plugin.Maximize#maximizedNodeId`), never
             // persisted topology, so a projection cannot answer it and a boot config that claimed
             // to would be inventing one. The plugin writes the flag; the mapping is already here.
+            //
+            // `bind` carries the consumer veto and nothing else: this action has no per-item policy
+            // to compute, so its formatter is `dockActionPolicy.maximize` alone.
             ...(context.enableDockMaximizeAction ? [{
                 action            : 'maximize',
                 actionLabel       : 'maximize',
+                bind              : bindings.maximize,
                 iconCls           : context.dockMaximizeIconCls,
                 ntype             : 'toolbar-action-button',
                 pressedActionLabel: 'restore',
