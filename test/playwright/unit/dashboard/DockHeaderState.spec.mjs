@@ -603,6 +603,11 @@ test.describe('Neo.dashboard.dock.Workspace — the consumer\'s header-action ve
 
         // Worse than inert, and the reason the declared path is the contract: the veto is not
         // rejected, it is LATENT. Any later change to a leaf the formula does depend on applies it.
+        //
+        // The RETURN to index 0 is load-bearing and the arm is theatre without it: beta declares
+        // `closable: false`, so a `close.hidden` of true there proves nothing — the per-item policy
+        // produces it whether or not the veto works. Alpha IS closable, so only a working veto can
+        // hide close on it.
         await center.set({activeIndex: 1});
         await center.set({activeIndex: 0});
         expect(close.hidden, 'an unrelated re-evaluation now applies a veto set two steps ago').toBe(true)

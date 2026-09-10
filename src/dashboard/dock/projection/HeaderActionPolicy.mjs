@@ -206,6 +206,12 @@ class HeaderActionPolicy extends Base {
      * MERGES: present keys update and omitted keys persist, so `{close: true}` meant as "close
      * allowed, everything else default" keeps every other veto the consumer believed it had just
      * dropped. `setData('dockActionPolicy.<action>', null)` is the way to lift one.
+     *
+     * `dockActionPolicy.<action>` is a BOOLEAN and must stay one. The policy is workspace-wide; a
+     * future per-node policy belongs on a sibling path (`dockActionPolicy.nodes.<nodeId>.<action>`,
+     * node-specific winning over workspace-wide over per-item), because widening this key into a
+     * record keyed by node id would turn every existing consumer's boolean read into a
+     * type-ambiguous one — an additive extension either way, or a migration if the type moves.
      * @param {String} nodeId The tabs node
      * @returns {Object} `{close, lock, maximize, pin, 'pop-out', reload}` → `{configKey: formatter}`
      */
