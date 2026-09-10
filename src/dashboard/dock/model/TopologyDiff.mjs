@@ -16,12 +16,22 @@ import WorkspaceDocument from './WorkspaceDocument.mjs';
  * - `adds`         — an item entered the tree (catalog-only items are NOT topology adds)
  * - `removes`      — an item left the tree
  * - `resizes`      — a split present in both documents changed its size fractions beyond epsilon
+ * - `edgeResizes`  — an edge-zone descriptor present in both documents changed its `extent`
+ *                    beyond epsilon. The other half of `resizes`: `Operations` classes
+ *                    `resizeSplit` and `resizeEdgeZone` identically as `geometry`, so reporting
+ *                    one and not the other let a rail drag restore as a no-op
  * - `tabReorders`  — an item kept its container but changed its tab index. Index truth is
  *                    reported verbatim: a shift induced by a sibling's departure IS a reorder
  *                    here — assertion consumers filter by `itemId` when they need
  *                    action-attribution rather than positional truth
+ * - `activeItemChanges` — a tabs node present in both documents changed its `activeItemId`
  * - `autoHideFlips`— an item's `autoHidden` flag toggled
  * - `unchanged`    — items present in both trees with none of the above
+ *
+ * This list is the complete return shape and is a maintenance obligation: it stood at seven while
+ * the code returned eight for the whole life of `activeItemChanges`, and a reader who built a
+ * category list from this prose under-reported exactly where it had drifted. Derive categories
+ * from the returned object, never from a comment.
  *
  * The output is JSON-first and snapshot-stable: every category array is sorted by its primary
  * key and the walk order is deterministic, so identical inputs produce byte-identical results.
@@ -96,13 +106,16 @@ class TopologyDiff extends Base {
      * @param {Object} before The earlier committed document
      * @param {Object} after The later committed document
      * @param {Object} [options]
-     * @param {Number} [options.sizeEpsilon=TopologyDiff.SIZE_EPSILON] Resize tolerance on size fractions
-     * @returns {{moves: Object[], adds: Object[], removes: Object[], resizes: Object[], tabReorders: Object[], autoHideFlips: Object[], activeItemChanges: Object[], unchanged: String[], errors: String[]}}
+     * @param {Number} [options.sizeEpsilon=TopologyDiff.SIZE_EPSILON] Tolerance on both size fractions
+     * and edge-zone extents. One knob for both: they are the same quantity — a fraction in the open
+     * interval `(0, 1)` validated by the same document contract — so a second tolerance would be a
+     * surface consumers must reason about with no question behind it.
+     * @returns {{moves: Object[], adds: Object[], removes: Object[], resizes: Object[], edgeResizes: Object[], tabReorders: Object[], autoHideFlips: Object[], activeItemChanges: Object[], unchanged: String[], errors: String[]}}
      * @static
      */
     static diffDockDocuments(before, after, {sizeEpsilon = TopologyDiff.SIZE_EPSILON} = {}) {
         const
-            empty  = () => ({moves: [], adds: [], removes: [], resizes: [], tabReorders: [], autoHideFlips: [], activeItemChanges: [], unchanged: [], errors: []}),
+            empty  = () => ({moves: [], adds: [], removes: [], resizes: [], edgeResizes: [], tabReorders: [], autoHideFlips: [], activeItemChanges: [], unchanged: [], errors: []}),
             result = empty(),
             errors = [];
 
@@ -175,6 +188,39 @@ class TopologyDiff extends Base {
                 if (fromActive !== toActive && toActive != null && (afterNode.items || []).includes(toActive)) {
                     result.activeItemChanges.push({nodeId, from: fromActive, to: toActive})
                 }
+
+                return
+            }
+
+            // An edge zone's size lives on the DESCRIPTOR, not on the node it points at, which is
+            // why the split branch below cannot reach it: `dockZoneDescriptorKeys` owns `extent`
+            // and the node owns only `zones`. Walked in `dockZoneEdgeKeys` order rather than the
+            // record's own key order, so the output stays snapshot-stable like every other
+            // category. `center` is walked too: nothing in the operation vocabulary can resize it,
+            // but a hand-authored document can carry the field, and this differ reports document
+            // truth — the planner is what filters to executable steps.
+            if (beforeNode?.type === 'edge-zone' && afterNode?.type === 'edge-zone') {
+                const
+                    beforeZones = WorkspaceDocument.isJsonRecord(beforeNode.zones) ? beforeNode.zones : {},
+                    afterZones  = WorkspaceDocument.isJsonRecord(afterNode.zones)  ? afterNode.zones  : {};
+
+                [...WorkspaceDocument.dockZoneEdgeKeys].forEach(edge => {
+                    const
+                        from = beforeZones[edge]?.extent,
+                        to   = afterZones[edge]?.extent;
+
+                    // Absence is not a change to zero. A slot that carries no extent on either side
+                    // takes the projection's default on both, so it has not moved; a slot that has
+                    // one on only one side has no comparable pair, and inventing the default here
+                    // would report a resize the user never performed. `resizable` is deliberately
+                    // NOT compared: it is a policy flag, and a geometry category that moved on it
+                    // would make the planner emit a resize for a permission change.
+                    if (!Number.isFinite(from) || !Number.isFinite(to)) return;
+
+                    if (Math.abs(from - to) > sizeEpsilon) {
+                        result.edgeResizes.push({nodeId, edge, from, to})
+                    }
+                });
 
                 return
             }

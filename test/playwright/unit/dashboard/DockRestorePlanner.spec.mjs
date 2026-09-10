@@ -271,3 +271,168 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
         })
     })
 });
+
+/**
+ * A rail-bearing document. The fixture above roots at a `split`, so no arm here plans across an
+ * edge zone carrying extents; these do, which is the only way to exercise the rail-restore path.
+ * @returns {Object}
+ */
+function railDoc({autoHidden = false, extent = 0.11, resizable = true} = {}) {
+    return {
+        schema: 'neo.dock.zone.v1',
+        root  : 'root',
+        items : {
+            strategy: {reference: 'strategy', title: 'Strategy'},
+            queues  : {reference: 'queues',   title: 'Queues', autoHidden}
+        },
+        nodes: {
+            root       : {
+                type : 'edge-zone',
+                zones: {
+                    center: {nodeId: 'main-tabs'},
+                    left  : {nodeId: 'left-tabs', extent, resizable}
+                }
+            },
+            'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
+            'left-tabs': {type: 'tabs', items: ['queues'],   activeItemId: 'queues'}
+        }
+    }
+}
+
+/**
+ * @summary Asserts a vetoed rail step against a plan that is NOT empty.
+ *
+ * `expect(plan).toEqual([])` cannot tell "the rail was filtered" from "the planner emitted nothing
+ * for an unrelated reason" — every veto arm passes on a planner that has stopped working. So each
+ * one here carries a second, unrelated pending change (an auto-hide flip, which the planner orders
+ * after `edgeResizes`) and asserts the plan is exactly that one step: the rail absent, the valid
+ * step present and applied. That distinguishes a filter from a no-op, which an empty plan cannot.
+ * @param {Object} current
+ * @param {Object} captured
+ * @returns {Object} the restore receipt, for further per-case assertions
+ */
+function expectRailVetoedButPlanStillRuns(current, captured) {
+    const receipt = DockRestorePlanner.restoreToward(current, captured);
+
+    expect(receipt.deferred).toBe(false);
+    expect(receipt.errors, 'a vetoed rail must never surface as a restore error').toEqual([]);
+    expect(receipt.plan, 'exactly the unrelated valid step — no resizeEdgeZone, and NOT an empty plan')
+        .toEqual([{operation: 'setItemAutoHidden', itemId: 'queues', autoHidden: false}]);
+    expect(receipt.applied, 'the valid step still ran').toBe(1);
+    expect(receipt.document.items.queues.autoHidden).toBe(false);
+
+    return receipt
+}
+
+test.describe('DockRestorePlanner — edge-zone extents (#18579)', () => {
+    test('a rail drag plans a step and the round trip returns the captured width', () => {
+        const captured = railDoc(),
+              dragged  = Operations.applyOperation(railDoc(), {
+                  operation: 'resizeEdgeZone', edgeZoneId: 'root', edge: 'left', extent: 0.4
+              });
+
+        expect(dragged.errors, 'the drag itself must commit through the executor').toEqual([]);
+        expect(dragged.document.nodes.root.zones.left.extent).toBe(0.4);
+
+        const {deferred, reason, errors, plan, applied, document: restored} =
+            DockRestorePlanner.restoreToward(dragged.document, captured);
+
+        // The defect this arm exists for was not a wrong answer — it was `deferred: false,
+        // errors: [], plan: []`. Success with nothing to do, on two documents that differ. A
+        // consumer folding that plan concludes the layout is already restored, so asserting the
+        // restored extent ALONE would still pass on a planner that silently gave up: these three
+        // pin that the emptiness is gone, not just that the value happens to be right.
+        expect(deferred).toBe(false);
+        expect(reason).toBe(null);
+        expect(errors).toEqual([]);
+        expect(plan).toEqual([{operation: 'resizeEdgeZone', edgeZoneId: 'root', edge: 'left', extent: 0.11}]);
+        expect(applied).toBe(1);
+
+        expect(restored.nodes.root.zones.left.extent, 'the rail is back where it was captured').toBe(0.11);
+        expect(DockTopologyDiff.diffDockDocuments(restored, captured).edgeResizes).toEqual([])
+    });
+
+    test('a zone the app has since fixed is reported but never planned', () => {
+        const captured = railDoc({autoHidden: false}),
+              current  = railDoc({autoHidden: true, extent: 0.4, resizable: false});
+
+        // The differ still reports it — document truth does not depend on permission.
+        expect(DockTopologyDiff.diffDockDocuments(current, captured).edgeResizes)
+            .toEqual([{nodeId: 'root', edge: 'left', from: 0.4, to: 0.11}]);
+
+        // `Operations.resizeEdgeZone` refuses a non-resizable descriptor, and application is
+        // fail-closed on the FIRST error — so an unfiltered emit here would not merely skip the
+        // rail, it would abort every step after it. Restore never starts throwing over a boundary
+        // the app has made fixed.
+        const {document: restored} = expectRailVetoedButPlanStillRuns(current, captured);
+
+        expect(restored.nodes.root.zones.left.extent, 'and the live width is left alone').toBe(0.4)
+    });
+
+    test('the reverse polarity: a zone the app has since FREED restores its width, not its permission', () => {
+        const captured = railDoc({resizable: false}),
+              current  = railDoc({extent: 0.4, resizable: true});
+
+        const {deferred, errors, plan, applied, document: restored} =
+            DockRestorePlanner.restoreToward(current, captured);
+
+        // The mirror of the arm above, and the one a filter reading the CAPTURED descriptor would
+        // get wrong while still passing that one. The executor validates the descriptor it is
+        // handed — the live one — so this step is acceptable and must be planned.
+        expect(deferred).toBe(false);
+        expect(errors).toEqual([]);
+        expect(plan).toEqual([{operation: 'resizeEdgeZone', edgeZoneId: 'root', edge: 'left', extent: 0.11}]);
+        expect(applied).toBe(1);
+
+        // Geometry restores; policy does not. Returning `resizable: false` here would let a capture
+        // re-fix a boundary the app deliberately freed, which is app state rather than user state —
+        // the same line the differ draws by refusing to treat `resizable` as a geometry change.
+        expect(restored.nodes.root.zones.left.extent).toBe(0.11);
+        expect(restored.nodes.root.zones.left.resizable, 'the live permission survives the restore').toBe(true)
+    });
+
+    test('an out-of-contract captured extent is vetoed, so one illegal value cannot abort the restore', () => {
+        const captured = railDoc({autoHidden: false}),
+              current  = railDoc({autoHidden: true, extent: 0.4});
+
+        // `1.5` is contract-illegal: `extent` is a finite number in the OPEN interval (0, 1). The
+        // shape gate does not catch it — it validates descriptor resolvability, not the value — and
+        // the differ's own bound is `Number.isFinite`, so it is reported truthfully. The executor
+        // refuses it, and because application is fail-closed on the FIRST error an emitted step
+        // here strands every later one: the auto-hide flip below never runs.
+        captured.nodes.root.zones.left.extent = 1.5;
+
+        expect(WorkspaceDocument.computeShapeFingerprint(captured).errors,
+            'the shape gate admits it, which is why the planner has to be the one to refuse').toEqual([]);
+        expect(DockTopologyDiff.diffDockDocuments(current, captured).edgeResizes,
+            'and the differ reports it, because document truth is not contract validity')
+            .toEqual([{nodeId: 'root', edge: 'left', from: 0.4, to: 1.5}]);
+
+        const {document: restored} = expectRailVetoedButPlanStillRuns(current, captured);
+
+        expect(restored.nodes.root.zones.left.extent, 'the live width is untouched by an illegal capture').toBe(0.4)
+    });
+
+    test('center is never planned: the executor refuses it, so the planner must not offer it', () => {
+        const captured = railDoc({autoHidden: false}),
+              current  = railDoc({autoHidden: true});
+
+        current.nodes.root.zones.center.extent  = 0.9;
+        captured.nodes.root.zones.center.extent = 0.5;
+        // resizable on center is meaningless to the executor; set it to prove the edge test, not the
+        // permission test, is what excludes center.
+        current.nodes.root.zones.center.resizable = true;
+
+        expect(DockTopologyDiff.diffDockDocuments(current, captured).edgeResizes,
+            'the differ reports document truth').toEqual([{nodeId: 'root', edge: 'center', from: 0.9, to: 0.5}]);
+
+        expectRailVetoedButPlanStillRuns(current, captured)
+    });
+
+    test('an unchanged rail plans nothing: restore plans stay minimal', () => {
+        const {plan, errors} = DockRestorePlanner.restoreToward(railDoc(), railDoc());
+
+        expect(errors).toEqual([]);
+        expect(plan, 'a no-op step is a spurious commit').toEqual([])
+    })
+});

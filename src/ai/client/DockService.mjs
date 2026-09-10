@@ -234,7 +234,9 @@ class DockService extends Service {
      * @param {Object} params
      * @param {String} params.componentId     The dock workspace / holder component id
      * @param {Object} params.beforeDocument  The earlier dockZone.v1 document to compare against
-     * @param {Number} [params.sizeEpsilon]   Optional resize tolerance on split size fractions
+     * @param {Number} [params.sizeEpsilon]   Optional tolerance on both split size fractions and
+     * edge-zone extents — one knob for both, since they are the same quantity under the same
+     * document contract. Tightening it for splits tightens it for rails.
      * @returns {Object} The {@link Neo.dashboard.dock.model.TopologyDiff#diffDockDocuments} result
      */
     async diffDockTopology({componentId, beforeDocument, sizeEpsilon}) {
