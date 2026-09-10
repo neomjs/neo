@@ -115,12 +115,10 @@ class Sparkline extends Canvas {
 
         let me = this;
 
-        if (me.offscreenRegistered && value) {
-            let theme = value.includes('dark') ? 'dark' : 'light';
-
+        if (me.offscreenRegistered) {
             me.renderer?.updateConfig({
                 canvasId: me.id,
-                theme
+                theme   : me.resolveColorScheme()
             })
         }
     }
@@ -187,7 +185,7 @@ class Sparkline extends Canvas {
             await me.renderer?.register({
                 canvasId        : me.id,
                 devicePixelRatio: Neo.config.devicePixelRatio,
-                theme           : me.theme?.includes('dark') ? 'dark' : 'light',
+                theme           : me.resolveColorScheme(),
                 usePulse        : me.usePulse,
                 useTransition   : me.useTransition,
                 windowId        : me.windowId
