@@ -39,9 +39,13 @@ class RestorePlanner extends Base {
      *
      * Fingerprint gate first: a shape mismatch returns a structured deferral (the cross-topology leaf owns
      * that path) with an empty plan — never a silent partial. Otherwise it maps each diff category to its
-     * operation in a deterministic order (moves → tab reorders ascending target index → resizes → auto-hide
-     * flips; `adds` lead when present). `removes` are NOT destroyed — restore never deletes — they surface as
-     * a `surplus` list the cross-topology dual consumes.
+     * operation in a deterministic order (moves → tab reorders ascending target index → active items →
+     * split resizes → edge-zone resizes → auto-hide flips; `adds` lead when present). `removes` are NOT
+     * destroyed — restore never deletes — they surface as a `surplus` list the cross-topology dual consumes.
+     *
+     * Not every reported change becomes a step: `edgeResizes` is filtered to what the executor accepts,
+     * so a zone the app has since made non-resizable is reported by the differ and skipped here rather
+     * than planned into a step that would fail the whole application.
      * @param {Object} current  The live committed document.
      * @param {Object} captured The captured layout document to restore toward.
      * @returns {{deferred: Boolean, reason: (String|null), plan: Object[], surplus: Object[], errors: String[]}}
@@ -106,7 +110,7 @@ class RestorePlanner extends Base {
 
         let plan = [];
 
-        // adds → moves (collapse-safe order) → tabReorders (ascending captured index) → activeItems → resizes → autoHideFlips.
+        // adds → moves (collapse-safe order) → tabReorders (ascending captured index) → activeItems → resizes → edgeResizes → autoHideFlips.
         diff.adds.forEach(({itemId, to}) =>
             plan.push({operation: 'addTab', itemId, tabsNodeId: to.nodeId, index: to.index}));
 
@@ -124,6 +128,18 @@ class RestorePlanner extends Base {
 
         diff.resizes.forEach(({nodeId, toSizes}) =>
             plan.push({operation: 'resizeSplit', splitNodeId: nodeId, sizes: [...toSizes]}));
+
+        // Only the steps the executor will accept. `Operations.resizeEdgeZone` refuses `center` and
+        // refuses any descriptor whose `resizable` is not exactly `true` — and the descriptor it
+        // validates is the LIVE one, so the permission is read off `current`, never off the capture.
+        // Same discipline the active-item emit above takes: the diff reports document truth, the
+        // planner emits only what can run, because a restore must not start failing over a boundary
+        // the app has since made fixed.
+        diff.edgeResizes.forEach(({nodeId, edge, to}) => {
+            if (edge !== 'center' && current.nodes?.[nodeId]?.zones?.[edge]?.resizable === true) {
+                plan.push({operation: 'resizeEdgeZone', edgeZoneId: nodeId, edge, extent: to})
+            }
+        });
 
         diff.autoHideFlips.forEach(({itemId, to}) =>
             plan.push({operation: 'setItemAutoHidden', itemId, autoHidden: to}));

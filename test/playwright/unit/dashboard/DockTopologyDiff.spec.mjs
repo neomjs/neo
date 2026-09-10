@@ -260,3 +260,133 @@ test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
         expect(gate.fingerprint?.shape).toBe('e{}')
     });
 });
+
+/**
+ * A rail-bearing document: the root edge zone carries three resizable edges with extents, plus a
+ * fixed `center`. Separate from `doc()` because that fixture's only zone is the non-resizable
+ * center — the shape this category exists for was absent from the spec's whole fixture surface,
+ * which is one reason the omission survived.
+ * @returns {Object}
+ */
+function railDoc() {
+    return {
+        schema: 'neo.dock.zone.v1',
+        root  : 'root',
+        items : {
+            strategy: {reference: 'strategy', title: 'Strategy'},
+            queues  : {reference: 'queues',   title: 'Queues'},
+            feed    : {reference: 'feed',     title: 'Feed'}
+        },
+        nodes: {
+            root         : {
+                type : 'edge-zone',
+                zones: {
+                    center: {nodeId: 'main-tabs'},
+                    left  : {nodeId: 'left-tabs',   extent: 0.11, resizable: true},
+                    bottom: {nodeId: 'bottom-tabs', extent: 0.17, resizable: true}
+                }
+            },
+            'main-tabs'  : {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
+            'left-tabs'  : {type: 'tabs', items: ['queues'],   activeItemId: 'queues'},
+            'bottom-tabs': {type: 'tabs', items: ['feed'],     activeItemId: 'feed'}
+        }
+    }
+}
+
+test.describe('TopologyDiff — edge-zone extents (#18579)', () => {
+    test('a rail drag is a reported change; the shape gate the differ runs on cannot see it', () => {
+        const before = railDoc(),
+              after  = railDoc();
+
+        after.nodes.root.zones.left.extent = 0.4;
+
+        const result = DockTopologyDiff.diffDockDocuments(before, after);
+
+        expect(result.errors).toEqual([]);
+        expect(result.edgeResizes).toEqual([{nodeId: 'root', edge: 'left', from: 0.11, to: 0.4}]);
+
+        // The two documents are structurally identical, so the shape fingerprint — which
+        // `planRestore` uses as its comparability gate — reads them as the same layout. That is the
+        // fingerprint's documented contract, and it is exactly why this category has to exist: the
+        // differ is the only instrument that can see the drag.
+        expect(WorkspaceDocument.computeShapeFingerprint(before).fingerprint.shape)
+            .toBe(WorkspaceDocument.computeShapeFingerprint(after).fingerprint.shape);
+
+        // and nothing else moved
+        expect(result.resizes).toEqual([]);
+        expect(result.moves).toEqual([]);
+        expect(result.tabReorders).toEqual([]);
+        expect(result.activeItemChanges).toEqual([])
+    });
+
+    test('extent epsilon: sub-epsilon drift is no change, and one tolerance governs both resize kinds', () => {
+        const before  = railDoc(),
+              drifted = railDoc();
+
+        drifted.nodes.root.zones.left.extent = 0.1105; // 0.0005 — inside the 0.001 default
+
+        expect(DockTopologyDiff.diffDockDocuments(before, drifted).edgeResizes,
+            'sub-epsilon drift must not plan a restore step').toEqual([]);
+
+        // Same knob, both categories: a caller tightening it for splits tightens it for rails, which
+        // is the property that lets `sizeEpsilon` stay one parameter.
+        expect(DockTopologyDiff.diffDockDocuments(before, drifted, {sizeEpsilon: 0.0001}).edgeResizes)
+            .toEqual([{nodeId: 'root', edge: 'left', from: 0.11, to: 0.1105}])
+    });
+
+    test('an absent extent is not a change to zero, on either side', () => {
+        const before = railDoc(),
+              after  = railDoc();
+
+        delete after.nodes.root.zones.left.extent;
+
+        expect(DockTopologyDiff.diffDockDocuments(before, after).edgeResizes,
+            'a slot that loses its extent takes the projection default; it did not resize').toEqual([]);
+        expect(DockTopologyDiff.diffDockDocuments(after, before).edgeResizes,
+            'and the same holds in the other direction').toEqual([]);
+
+        // `center` carries no extent on either side and must stay silent rather than compare 0 to 0.
+        expect(DockTopologyDiff.diffDockDocuments(railDoc(), railDoc()).edgeResizes).toEqual([])
+    });
+
+    test('resizable is a policy flag, not geometry: flipping it alone reports nothing', () => {
+        const before = railDoc(),
+              after  = railDoc();
+
+        after.nodes.root.zones.left.resizable = false;
+
+        const result = DockTopologyDiff.diffDockDocuments(before, after);
+
+        expect(result.errors).toEqual([]);
+        expect(result.edgeResizes,
+            'a permission change must not become a resize step the planner would then emit').toEqual([])
+    });
+
+    test('multiple rails report in dockZoneEdgeKeys order, and two runs are byte-identical', () => {
+        const before = railDoc(),
+              after  = railDoc();
+
+        after.nodes.root.zones.left.extent   = 0.4;
+        after.nodes.root.zones.bottom.extent = 0.3;
+
+        const one = DockTopologyDiff.diffDockDocuments(before, after),
+              two = DockTopologyDiff.diffDockDocuments(before, after);
+
+        // `dockZoneEdgeKeys` is top → right → bottom → left → center, so bottom precedes left
+        // regardless of the order the zones record happens to enumerate.
+        expect(one.edgeResizes.map(entry => entry.edge)).toEqual(['bottom', 'left']);
+        expect(JSON.stringify(one)).toBe(JSON.stringify(two))
+    });
+
+    test('the returned category set is pinned, because the class docblock drifted from it once', () => {
+        // `activeItemChanges` was added to the return shape and never to the class comment, so for
+        // its whole life the prose said seven and the code returned eight. A reader building a
+        // category list from that comment under-reports precisely where it has drifted — which is
+        // how the edge-zone omission stayed invisible to its own readers. This arm reds on the next
+        // addition, and the docblock note beside the list says what to do about it.
+        expect(Object.keys(DockTopologyDiff.diffDockDocuments(doc(), doc())).sort()).toEqual([
+            'activeItemChanges', 'adds', 'autoHideFlips', 'edgeResizes', 'errors',
+            'moves', 'removes', 'resizes', 'tabReorders', 'unchanged'
+        ])
+    });
+});
