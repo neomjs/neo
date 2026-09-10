@@ -111,6 +111,21 @@ test.describe('Neo.component.wrapper.Mermaid#resolveTheme', () => {
 
         expect(mermaid.getTheme(), 'the scope is dark').toBe('neo-theme-neo-dark');
         expect(mermaid.resolveTheme(), 'and the explicit value still wins').toBe('forest')
+    });
+
+    // The override is guarded by `||`, not `??`, and the empty string is the one value where those
+    // two disagree — so the choice is pinned here rather than left to whoever edits the line next.
+    // `??` would let `''` win and emit `theme: ` into the front matter, which is not a mermaid theme
+    // and renders nothing; falling through yields a diagram. The sibling resolvers use `??`, but on
+    // their FALLBACK rather than an override — neither declares a value-override config, and on the
+    // fallback the two operators cannot be told apart, because every map value is a non-empty string.
+    test('an empty mermaidTheme is not an override, and falls through to the resolved theme', () => {
+        instance = Neo.create(ThemedScope, {
+            appName,
+            items: [{module: Mermaid, mermaidTheme: '', reference: 'mermaid'}]
+        });
+
+        expect(instance.getReference('mermaid').resolveTheme()).toBe('dark')
     })
 });
 
