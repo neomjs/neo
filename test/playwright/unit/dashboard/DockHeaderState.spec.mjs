@@ -123,9 +123,14 @@ const createDocument = () => ({
     }
 });
 
-const ENGINE_KEYS = ['close.hidden', 'lock.hidden', 'lock.pressed', 'pin.hidden', 'pop-out.hidden', 'reload.disabled', 'reload.hidden'],
-      // The engine actions' seven formatters plus the node container's own lock binding.
-      NODE_KEYS   = [...ENGINE_KEYS, 'dockLockedItemIds'];
+const ENGINE_KEYS = ['close.hidden', 'lock.hidden', 'lock.pressed', 'maximize.hidden', 'pin.hidden', 'pop-out.hidden', 'reload.disabled', 'reload.hidden'],
+      // The engine actions' eight formatters plus the node container's own lock binding. `maximize`
+      // carries only the consumer veto: the plugin owns the toggle's own state.
+      NODE_KEYS   = [...ENGINE_KEYS, 'dockLockedItemIds'],
+      // The formatters that read the presented item. `maximize.hidden` is deliberately absent: it
+      // reads `dockActionPolicy.maximize` and nothing else, so an activation cannot re-run it —
+      // which is the dependency precision the counting instrument exists to prove.
+      ACTIVE_ITEM_KEYS = ENGINE_KEYS.filter(key => key !== 'maximize.hidden');
 
 const commit = (workspace, descriptor) => {
     const result = workspace.applyDockZoneOperation(descriptor);
@@ -160,7 +165,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
 
         const expected = ['center-tabs', 'side-tabs'].flatMap(nodeId => NODE_KEYS.map(key => `${nodeId}:${key}`)).sort();
 
-        expect(evaluationsOf(workspace), 'eight formatters per node, each run once on creation').toEqual(expected);
+        expect(evaluationsOf(workspace), 'nine formatters per node, each run once on creation').toEqual(expected);
 
         const tabs   = Reconciler.collectProjectedTabs(workspace.items[0]),
               center = tabs.get('center-tabs');
@@ -225,7 +230,7 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         await center.set({activeIndex: 1});
 
         expect(evaluationsOf(workspace), 'every formatter of the switched header reads its active item')
-            .toEqual(ENGINE_KEYS.map(key => `center-tabs:${key}`).sort());
+            .toEqual(ACTIVE_ITEM_KEYS.map(key => `center-tabs:${key}`).sort());
         expect(close.hidden, 'beta is not closable').toBe(true);
         expect(reload.hidden, 'beta has no contract, but the engine recreate default serves it').toBe(false);
 
@@ -472,5 +477,139 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
         expect(Object.hasOwn(pane.vdom, 'inert'), 'exact restore: the pane never owned inert').toBe(false);
         expect(pane.cls).not.toContain('neo-dock-pane-locked');
         expect(button.wrapperCls, 'unlock restores the drag token').toContain('neo-draggable')
+    })
+});
+
+const ACTIONS = ['close', 'lock', 'maximize', 'pin', 'pop-out', 'reload'];
+
+/**
+ * The consumer's veto. `dockActionPolicy.<action> === false` hides an engine action the
+ * engine would otherwise show, and changes NOTHING else: the name stays reserved and the intent
+ * still routes to the engine. The app declares the namespace on its OWN provider and the engine
+ * reads it through the ordinary hierarchy, so no engine config carries consumer policy.
+ *
+ * Before this, a consumer had two choices and the one it wanted was neither: accept the engine's
+ * per-item policy, or set `enableDock*Action: false` — which frees the action's NAME for a host
+ * and stops `onDockHeaderAction` routing the intent, so changing one boolean meant re-implementing
+ * the action's whole behaviour.
+ */
+test.describe('Neo.dashboard.dock.Workspace — the consumer\'s header-action veto (#18574)', () => {
+    let host, workspace;
+
+    /** The app's provider above the workspace's own, exactly where a consumer would declare policy. */
+    const hostWith = dockActionPolicy => {
+        host = Neo.create(Container, {
+            appName      : 'NeoDashboardDockHeaderStateTest',
+            stateProvider: {data: {dockActionPolicy}},
+            items        : [{module: HeaderStateWorkspace, dockModel: createDocument()}]
+        });
+
+        workspace = host.items[0];
+
+        return Reconciler.collectProjectedTabs(workspace.items[0]).get('center-tabs')
+    };
+
+    test.afterEach(() => {
+        host?.destroy();
+        host = workspace = null
+    });
+
+    test('a declared veto hides the engine action at first paint, with no commit and no re-projection', () => {
+        const center = hostWith({close: false});
+
+        expect(center.getAction('close').hidden, 'the veto hid close on the first run of its formatter').toBe(true);
+        expect(center.getAction('reload').hidden, 'an un-vetoed action is untouched').toBe(false);
+        expect(center.getAction('lock').hidden, 'so is lock').toBe(false);
+
+        // Ownership is unchanged — the whole point of not making the gate reactive. A vetoed action
+        // is hidden, not disowned: the engine still reserves the name and still routes the intent.
+        expect(workspace.enableDockCloseAction, 'the gate was never touched').toBe(true);
+        expect(workspace.onDockHeaderAction({action: 'close', dockNodeId: 'center-tabs', tabContainer: center})?.errors,
+            'the engine still owns the close intent while hiding the control').toEqual([])
+    });
+
+    test('the veto is a live datum: both directions land, and only the vetoed action moves', async () => {
+        const center   = hostWith({close: false, reload: true}),
+              close    = center.getAction('close'),
+              reload   = center.getAction('reload'),
+              provider = host.stateProvider;
+
+        expect(close.hidden, 'starts vetoed').toBe(true);
+
+        provider.setData('dockActionPolicy.close', true);
+        expect(close.hidden, 'lifting the veto restores the action').toBe(false);
+        expect(reload.hidden, 'and reaches no other action').toBe(false);
+
+        // Both halves visited: an arm that only turns policy off is testing its beforeEach.
+        provider.setData('dockActionPolicy.close', false);
+        expect(close.hidden, 'and it hides again').toBe(true);
+
+        // The per-item policy still owns its own axis underneath the veto.
+        provider.setData('dockActionPolicy.close', null);
+        expect(close.hidden, 'a null veto is not a veto — alpha is closable').toBe(false);
+
+        await center.set({activeIndex: 1});
+        expect(close.hidden, 'beta declares closable:false, which the veto never touched').toBe(true)
+    });
+
+    test('every engine action accepts the veto, and none of them hides without one', () => {
+        const parent = Neo.create(Provider, {data: {dockActionPolicy: Object.fromEntries(ACTIONS.map(action => [action, false]))}}),
+              // Seeded so that NO other leg of any formula can hide the action: an enumeration arm
+              // whose actions are hidden by a missing active item would pass with the veto deleted.
+              child  = Neo.create(Provider, {
+                  parent,
+                  data: {
+                      dock: {
+                          items           : {alpha: {closable: true, lockable: true, pinnable: true, edge: 'right', reloadable: true}},
+                          nodes           : {n: {activeItemId: 'alpha'}},
+                          popOutAvailable : true,
+                          recreateFallback: true
+                      }
+                  }
+              }),
+              policy = Neo.create(HeaderActionPolicy, {workspace: {stateProvider: child}});
+
+        try {
+            const bindings = policy.createActionBindings('n'),
+                  hiddenOf = () => ACTIONS.filter(action => bindings[action].hidden.call(child));
+
+            expect(Object.keys(bindings).sort(), 'all six actions carry a formatter').toEqual([...ACTIONS].sort());
+            expect(hiddenOf(), 'each one hides under its own veto').toEqual(ACTIONS);
+
+            // The control that makes the assertion above mean something. Lifted per LEAF, because
+            // assigning the namespace object MERGES rather than replaces: present keys update and
+            // omitted keys persist, so `{close: true}` leaves every other veto standing. Measured
+            // on both shapes — `{}` changes nothing, `{close: true}` updates close alone.
+            ACTIONS.forEach(action => parent.setData(`dockActionPolicy.${action}`, null));
+            expect(hiddenOf(), 'and with every veto lifted, not one of them hides').toEqual([])
+        } finally {
+            policy.destroy();
+            child.destroy();
+            parent.destroy()
+        }
+    });
+
+    test('⚠️ a veto published AFTER the first run does not land, and lands silently on the next unrelated re-evaluation', async () => {
+        // The documented limitation, asserted rather than described. An Effect reading an ABSENT key
+        // touches no Config and so registers no dependency on it, and `setConfigValue` re-runs only
+        // the OWNER provider's bindings when a new key appears, so the veto is latent, not rejected.
+        const center = hostWith({}),
+              close  = center.getAction('close');
+
+        expect(close.hidden, 'alpha is closable and nothing is vetoed').toBe(false);
+
+        host.stateProvider.setData('dockActionPolicy.close', false);
+        expect(close.hidden, 'the late key is invisible to a formatter that never depended on it').toBe(false);
+
+        // Worse than inert, and the reason the declared path is the contract: the veto is not
+        // rejected, it is LATENT. Any later change to a leaf the formula does depend on applies it.
+        //
+        // The RETURN to index 0 is load-bearing and the arm is theatre without it: beta declares
+        // `closable: false`, so a `close.hidden` of true there proves nothing — the per-item policy
+        // produces it whether or not the veto works. Alpha IS closable, so only a working veto can
+        // hide close on it.
+        await center.set({activeIndex: 1});
+        await center.set({activeIndex: 0});
+        expect(close.hidden, 'an unrelated re-evaluation now applies a veto set two steps ago').toBe(true)
     })
 });

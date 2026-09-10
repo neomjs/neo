@@ -179,26 +179,62 @@ class HeaderActionPolicy extends Base {
      * — no `dockReload()` contract and no recreate fallback — and disables while the item has a
      * flight. Each is the expression its projection constant and its former sync computed, in one
      * place.
+     *
+     * **The consumer's veto rides the same formulas, from a namespace this class never writes.**
+     * `dockActionPolicy.<action> === false` hides an engine action that the engine would otherwise
+     * show, and nothing else about it changes: the engine keeps the action's NAME and its behaviour.
+     * That separation is the point — `enableDock*Action` decides who OWNS an action (opting out
+     * frees the name for a host and stops `Workspace#onDockHeaderAction` routing the intent), which
+     * has to stay construction-time, while availability is runtime policy and belongs here. Without
+     * this read a consumer had one choice: accept the engine's per-item policy, or re-implement the
+     * action's whole behaviour to change one boolean.
+     *
+     * Reached through the hierarchy, not published here: `getData` resolves a key through
+     * {@link Neo.state.Provider#getOwnerOfDataProperty}, so an app declaring `dockActionPolicy` on
+     * its OWN provider reaches every workspace beneath it, and an unowned key reads `undefined`
+     * with the engine's policy left in charge. The `dock` namespace could not serve this —
+     * {@link #publishDocument} rewrites it from the committed document on every commit, so a
+     * consumer write there would survive until the next commit and then vanish.
+     *
+     * ⚠️ The key must be DECLARED, not assigned later. An `Effect` reading an absent key touches no
+     * `Config` and so registers no dependency on it, and `state.Provider#setConfigValue` re-runs
+     * only the owner provider's bindings when a new key appears. A late key is therefore latent
+     * rather than rejected: it applies at the next evaluation some other leaf triggers. The same
+     * hazard is why {@link #publishDocument} seeds the leaves a formatter reads before its first run.
+     *
+     * ⚠️ Clear a veto per LEAF, never by re-assigning the namespace object. Writing a partial object
+     * MERGES: present keys update and omitted keys persist, so `{close: true}` meant as "close
+     * allowed, everything else default" keeps every other veto the consumer believed it had just
+     * dropped. `setData('dockActionPolicy.<action>', null)` is the way to lift one.
+     *
+     * `dockActionPolicy.<action>` is a BOOLEAN and must stay one. The policy is workspace-wide; a
+     * future per-node policy belongs on a sibling path (`dockActionPolicy.nodes.<nodeId>.<action>`,
+     * node-specific winning over workspace-wide over per-item), because widening this key into a
+     * record keyed by node id would turn every existing consumer's boolean read into a
+     * type-ambiguous one — an additive extension either way, or a migration if the type moves.
      * @param {String} nodeId The tabs node
-     * @returns {Object} `{close, lock, pin, 'pop-out', reload}` → `{configKey: formatter}`
+     * @returns {Object} `{close, lock, maximize, pin, 'pop-out', reload}` → `{configKey: formatter}`
      */
     createActionBindings(nodeId) {
         const active = provider => provider.getData(`dock.nodes.${nodeId}.activeItemId`) || null,
-              field  = (provider, itemId, key) => provider.getData(`dock.items.${itemId}.${key}`);
+              field  = (provider, itemId, key) => provider.getData(`dock.items.${itemId}.${key}`),
+              // Strict `=== false`: absent, null and every other value leave the engine's own policy
+              // deciding, so a consumer publishing nothing sees byte-identical headers.
+              vetoed = (provider, action) => provider.getData(`dockActionPolicy.${action}`) === false;
 
         return {
             close: {
                 hidden() {
                     const itemId = active(this);
 
-                    return !itemId || field(this, itemId, 'closable') === false || field(this, itemId, 'locked') === true
+                    return vetoed(this, 'close') || !itemId || field(this, itemId, 'closable') === false || field(this, itemId, 'locked') === true
                 }
             },
             lock: {
                 hidden() {
                     const itemId = active(this);
 
-                    return !itemId || field(this, itemId, 'lockable') === false
+                    return vetoed(this, 'lock') || !itemId || field(this, itemId, 'lockable') === false
                 },
                 pressed() {
                     const itemId = active(this);
@@ -206,16 +242,24 @@ class HeaderActionPolicy extends Base {
                     return !!itemId && field(this, itemId, 'locked') === true
                 }
             },
+            // Visibility only. The plugin owns maximization itself (`plugin.Maximize#maximizedNodeId`),
+            // which is why this action projects no `pressed` formula and no active-item gate: every
+            // docked node can maximize, so the veto is the only thing that can hide it.
+            maximize: {
+                hidden() {
+                    return vetoed(this, 'maximize')
+                }
+            },
             pin: {
                 hidden() {
                     const itemId = active(this);
 
-                    return !itemId || field(this, itemId, 'pinnable') === false || !field(this, itemId, 'edge')
+                    return vetoed(this, 'pin') || !itemId || field(this, itemId, 'pinnable') === false || !field(this, itemId, 'edge')
                 }
             },
             'pop-out': {
                 hidden() {
-                    return !active(this) || this.getData('dock.popOutAvailable') !== true
+                    return vetoed(this, 'pop-out') || !active(this) || this.getData('dock.popOutAvailable') !== true
                 }
             },
             reload: {
@@ -227,7 +271,7 @@ class HeaderActionPolicy extends Base {
                 hidden() {
                     const itemId = active(this);
 
-                    return !itemId || (field(this, itemId, 'reloadable') !== true && this.getData('dock.recreateFallback') !== true)
+                    return vetoed(this, 'reload') || !itemId || (field(this, itemId, 'reloadable') !== true && this.getData('dock.recreateFallback') !== true)
                 }
             }
         }
