@@ -458,8 +458,21 @@ class Manager extends Base {
      * @param {Object} e
      */
     onWorkerError(e) {
-        // starting a worker from a JS module will show JS errors in a correct way
-        !useMjsFiles && console.log('Worker Error:', e)
+        // The `!useMjsFiles` deferral is true for a DEDICATED module worker, whose errors the browser
+        // surfaces on its own, and false for a SharedWorker, whose output goes to an inspector context
+        // no page can read. The comment predates that distinction: it was written in 2019 to explain
+        // the CLASSIC branch of `new Worker(...)`, and the commit that dropped that branch renamed
+        // `hasJsModules` to `useMjsFiles` inside the guard in the same diff — the guard outlived what
+        // it was guarding by one hunk.
+        //
+        // `error` level, not `log`: this is the ONLY signal for a SharedWorker that fails to load or
+        // parse. `Neo.worker.Base#forwardErrorToMainThread` cannot cover it — a worker that never ran
+        // cannot mirror its own failure.
+        if (NeoConfig.useSharedWorkers) {
+            console.error('Worker Error:', e)
+        } else {
+            !useMjsFiles && console.log('Worker Error:', e)
+        }
     }
 
     /**

@@ -27,6 +27,33 @@ class Worker extends Base {
     }
 
     /**
+     * Environments {@link #forwardErrorToMainThread} may write into.
+     *
+     * An ALLOWLIST, deliberately. The first version excluded `dist/production` alone and left
+     * `dist/esm` mirroring — a real value a shipped build sets (`esmDistTransforms.mjs`), which
+     * {@link #afterSetCountLoadingThemeFiles}'s sibling branch in this same file already knows
+     * about. A denylist of shipped environments fails in the shipped direction and does it
+     * silently; an allowlist means a new environment gets no mirror until someone decides it
+     * should, which is the right default for something that writes into a user's console.
+     *
+     * Deliberately NOT coupled to `Neo.config.enableLogsInProduction`, which is `util.Logger`'s
+     * escape hatch for an application's own logging. This is a diagnostic for a condition the
+     * reader did not ask about; turning it on in production is a separate decision from turning
+     * application logs back on, and conflating them would grant it by accident.
+     * @member {String[]} mirrorEnvironments=['development','dist/development']
+     * @static
+     * @protected
+     */
+    static mirrorEnvironments = ['development', 'dist/development']
+
+    /**
+     * Re-entrancy latch for {@link #forwardErrorToMainThread}: the mirror runs inside the console
+     * interceptor, so anything the send path logs would arrive back through it.
+     * @member {Boolean} isForwardingError=false
+     * @protected
+     */
+    isForwardingError = false
+    /**
      * @member {Object|null} channelPorts=null
      * @protected
      */
@@ -78,7 +105,201 @@ class Worker extends Base {
 
         Neo.currentWorker   = me;
         Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
-        Neo.workerId        = me.workerId
+        Neo.workerId        = me.workerId;
+
+        // Every worker, not only App: the inspector-context gap belongs to SharedWorkers as a class.
+        // `forwardErrorToMainThread` declines in dedicated mode, so a non-shared worker installs the
+        // interceptor and mirrors nothing.
+        me.interceptConsole()
+    }
+
+    /**
+     * @summary Whether a mirrored error could reach a page at all, independent of any one call.
+     *
+     * Split out so {@link #interceptConsole} can decline BEFORE serializing: the string is discarded
+     * in dedicated mode and in every shipped environment, and five workers now pay for it where one
+     * used to. The latch stays inside {@link #forwardErrorToMainThread}, being per-call rather than
+     * per-configuration.
+     * @returns {Boolean}
+     * @protected
+     */
+    canMirrorErrors() {
+        return this.isSharedWorker && this.constructor.mirrorEnvironments.includes(Neo.config.environment)
+    }
+
+    /**
+     * @summary Renders console arguments into one string, Errors as message plus stack.
+     * @param {Array} args
+     * @returns {String}
+     * @protected
+     */
+    serializeConsoleArgs(args) {
+        return args.map(arg => {
+            if (arg instanceof Error) {
+                return arg.message + '\n' + arg.stack
+            }
+            if (typeof arg === 'object') {
+                try {
+                    return JSON.stringify(arg)
+                } catch (e) {
+                    return String(arg)
+                }
+            }
+            return String(arg)
+        }).join(' ')
+    }
+
+    /**
+     * @summary Mirrors a SharedWorker error into every connected window's console.
+     *
+     * A SharedWorker's own `console.error` writes to its inspector context, which no page can
+     * read — and therefore neither can anything driving a browser. This lives on `worker.Base`
+     * rather than on `worker.App` because that is a property of every SharedWorker, and
+     * `worker/Manager.mjs` makes all five shared through one `createWorker` path: before the hoist
+     * `interceptConsole` existed in exactly one file, so an error raised in Data, VDom, Canvas or
+     * Task reached neither the page nor the Neural Link — uninstrumented, not merely un-mirrored.
+     *
+     * Errors only, and never in production: a diagnostic mirror, not a logging transport.
+     * @param {String} message
+     * @protected
+     */
+    forwardErrorToMainThread(message) {
+        let me = this;
+
+        // SharedWorker ONLY, because a dedicated worker needs no help: the browser already forwards
+        // its console output to the owner document, so mirroring there would double every error.
+        // Measured rather than assumed — a Blob worker calling `console.error` reaches
+        // `page.on('console')` with no forwarding at all. A SharedWorker instead gets its own
+        // inspector context that no page can read, which is the entire gap this closes.
+        //
+        // Re-entry is guarded rather than merely unlikely: a failed forward must never log, and the
+        // send path is free to warn — an unrouted `main` destination warns about its own
+        // deprecation, and that warning would arrive back through the interceptor that called us.
+        if (me.isForwardingError || !me.canMirrorErrors()) {
+            return
+        }
+
+        me.isForwardingError = true;
+
+        try {
+            // Derived from the class name rather than from a table: `Neo.worker.VDom` yields `VDom`,
+            // which no capitalisation of the lowercase `workerId` would produce. Four workers
+            // sharing one prefix would make a mirrored line unattributable.
+            //
+            // Idempotent, because some workers already name themselves inside their own message
+            // text (`Data.mjs:237`, `Canvas.mjs:92`). Prefixing unconditionally would render those
+            // as "Data Worker: Data Worker: …"; rewriting those four call sites is not this change.
+            const prefix = me.className.split('.').pop() + ' Worker: ',
+                  value  = message.startsWith(prefix) ? message : prefix + message;
+
+            // Addressed per window, so the deprecated unrouted `main` destination is never used.
+            // A window that closed between the error and this call rejects with NEO_DEAD_PORT,
+            // which is ordinary teardown; swallowed, never reported.
+            me.ports.forEach(({windowId}) => {
+                windowId && Neo.Main?.log?.({method: 'error', value, windowId})?.catch?.(Neo.emptyFn)
+            })
+        } catch (err) {
+            // A diagnostic mirror must not become a fault of its own.
+        } finally {
+            me.isForwardingError = false
+        }
+    }
+
+    /**
+     * Intercepts console output, mirroring errors onto the main thread
+     * ({@link #forwardErrorToMainThread}) and forwarding everything to the Neural Link when one is
+     * attached.
+     *
+     * The `Neo.ai?.Client` lookup stays a lazy check rather than becoming an App-worker branch: only
+     * the App worker constructs a client today, so it is App-only in effect — but making it
+     * structurally App-only would reintroduce the coupling this path exists to remove, where an
+     * error could not be observed at all without a Brain runtime.
+     */
+    interceptConsole() {
+        let me = this;
+
+        const types = ['log', 'warn', 'error', 'info'];
+
+        types.forEach(type => {
+            const original = console[type];
+
+            console[type] = (...args) => {
+                original.apply(console, args);
+
+                // Use the Client singleton if available (lazy check)
+                const client  = Neo.ai?.Client,
+                      isError = type === 'error',
+                      // Not merely "is an error" — "will actually be mirrored", so a configuration
+                      // that can never use the string does not build it.
+                      mirror  = isError && me.canMirrorErrors();
+
+                // The mirror is deliberately independent of the client: an error must reach the
+                // main thread whether or not a Brain runtime is attached.
+                if (!client && !mirror) {
+                    return
+                }
+
+                let message;
+
+                try {
+                    message = me.serializeConsoleArgs(args)
+                } catch (err) {
+                    return
+                }
+
+                mirror && me.forwardErrorToMainThread(message);
+
+                if (client) {
+                    try {
+                        const logEntry = {
+                            type,
+                            message,
+                            timestamp: Date.now(),
+                            stack    : isError ? new Error().stack : undefined
+                        };
+
+                        if (client.isConnected) {
+                            client.sendNotification('console_log', logEntry)
+                        } else {
+                            // Direct push to Client instance array
+                            client.logs.push(logEntry)
+                        }
+                    } catch (err) {
+                        // Prevent infinite loop if logging fails
+                    }
+                }
+            }
+        });
+
+        // Intercept unhandled errors
+        const originalOnError = globalThis.onerror;
+
+        globalThis.onerror = (msg, url, lineNo, columnNo, error) => {
+            const client = Neo.ai?.Client;
+
+            me.forwardErrorToMainThread(error?.stack || msg);
+
+            if (client) {
+                const logEntry = {
+                    type     : 'error',
+                    message  : msg,
+                    timestamp: Date.now(),
+                    stack    : error?.stack
+                };
+
+                if (client.isConnected) {
+                    client.sendNotification('console_log', logEntry)
+                } else {
+                    client.logs.push(logEntry)
+                }
+            }
+
+            if (originalOnError) {
+                return originalOnError(msg, url, lineNo, columnNo, error)
+            }
+
+            return false
+        }
     }
 
     /**

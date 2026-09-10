@@ -128,7 +128,18 @@ class Main extends core.Base {
          * @protected
          */
         remote: {
-            app: [
+            // Four narrow keys beside the full `app` list, each exposing `log` and nothing else, so
+            // an error raised in any SharedWorker can reach a console a page can read. The manifest
+            // key IS the target worker id (`core.Base#promiseRemotes`), and that fan-out is already
+            // existence-guarded by `origin.hasWorker(worker)` — `useCanvasWorker`, `useTaskWorker`
+            // and `useVdomWorker` are defaults-off, so most apps run two of the five and a key for
+            // an absent worker is inert. A conditional manifest would add a second existence check
+            // behind the one that works.
+            canvas: ['log'],
+            data  : ['log'],
+            task  : ['log'],
+            vdom  : ['log'],
+            app   : [
                 'alert',
                 'brainHealth',
                 'editRoute',
@@ -348,6 +359,14 @@ class Main extends core.Base {
     }
 
     /**
+     * Console levels {@link #log} may dispatch to. Anything else falls back to `log`.
+     * @member {String[]} consoleMethods=['log','warn','error','info']
+     * @static
+     * @protected
+     */
+    static consoleMethods = ['log', 'warn', 'error', 'info']
+
+    /**
      * @summary Writes the identity the App Worker bound this window to, so the next page load presents it again
      * (the worker manager reads it into every worker registration). `Neo.manager.Transaction` asks for
      * this after it minted, cold-created or forked a Group for the window; a plain bind or rebind writes
@@ -436,7 +455,14 @@ class Main extends core.Base {
      * @returns {Boolean}
      */
     log(data) {
-        console[data.method || 'log'](data.value);
+        // An ALLOWLIST, not a `typeof` probe. `typeof console[method] === 'function'` is satisfied by
+        // `constructor`, `toString`, `valueOf` and `hasOwnProperty` — all inherited, all callable, and
+        // all writing nothing. That turns a loud main-thread TypeError into a SILENT DROP, which is
+        // the failure this channel exists to remove rather than reproduce. Validated because the
+        // method is reachable from every worker now, not only from `app`.
+        const {method} = data;
+
+        console[Main.consoleMethods.includes(method) ? method : 'log'](data.value);
         return true
     }
 
