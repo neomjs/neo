@@ -3285,8 +3285,11 @@ test.describe('Workstation topology bar — the view declares it, the controller
 
             await command('undo');
 
-            // The state that tells the two formulas apart: swapped, mirrored and off-by-one counts
-            // all read alike here, and no constant survives 2 → 1 on the same control.
+            // Off-by-one is what this state catches: `cursor` is 0 here, so a formula reading it
+            // raw reports null where the count is 1. Swapped and mirrored formulas are NOT caught
+            // here — all three read `['1', '1']` — they are caught by the asymmetric states above
+            // and below, where one direction has a count and the other has none. The mutation
+            // receipt says so: mirroring redo onto undo reds at "two steps behind the cursor".
             expect(read(), 'one step each way')
                 .toEqual([['1', false, false], ['1', false, false]]);
 
