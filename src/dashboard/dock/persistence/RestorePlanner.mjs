@@ -129,14 +129,30 @@ class RestorePlanner extends Base {
         diff.resizes.forEach(({nodeId, toSizes}) =>
             plan.push({operation: 'resizeSplit', splitNodeId: nodeId, sizes: [...toSizes]}));
 
-        // Only the steps the executor will accept. `Operations.resizeEdgeZone` refuses `center` and
-        // refuses any descriptor whose `resizable` is not exactly `true` — and the descriptor it
-        // validates is the LIVE one, so the permission is read off `current`, never off the capture.
-        // Same discipline the active-item emit above takes: the diff reports document truth, the
-        // planner emits only what can run, because a restore must not start failing over a boundary
-        // the app has since made fixed.
+        // Only the steps the executor will accept. `Operations.resizeEdgeZone` has four refusals;
+        // the shape gate upstream already rejects one of them (an unresolvable descriptor fails
+        // `computeShapeFingerprint`, so no plan is built at all), and the three below are this
+        // filter's scope: a non-edge `center`, a descriptor that is not exactly `resizable`, and an
+        // `extent` outside the open interval `(0, 1)`. The permission and the edge are read off the
+        // LIVE document because that is the descriptor the executor validates — reading the
+        // capture's would emit a step the executor then rejects, and suppress one it would accept.
+        //
+        // Missing ANY of the three is not "the rail does not move". `applyRestorePlan` is
+        // fail-closed on the first error, so one unusable step strands every later one — a valid
+        // auto-hide flip queued behind an illegal rail simply never runs. The `(0, 1)` clause
+        // matters because nothing in the persistence tier calls `WorkspaceDocument.validate`: a
+        // capture is trusted on shape and never on contract, so a contract-illegal value from
+        // another writer (hand-authored, an older schema, edited storage) reaches here intact.
+        //
+        // This predicate deliberately mirrors the executor's rather than sharing it. Keeping the
+        // planner a PURE fold — no executor round-trip to decide what to plan — is worth the
+        // duplication, but the duplication is real and unlinked: a fifth refusal added to
+        // `Operations.resizeEdgeZone` will not surface here, and the arms in
+        // `DockRestorePlanner.spec.mjs` are what would catch it.
         diff.edgeResizes.forEach(({nodeId, edge, to}) => {
-            if (edge !== 'center' && current.nodes?.[nodeId]?.zones?.[edge]?.resizable === true) {
+            if (edge !== 'center' && to > 0 && to < 1 &&
+                current.nodes?.[nodeId]?.zones?.[edge]?.resizable === true
+            ) {
                 plan.push({operation: 'resizeEdgeZone', edgeZoneId: nodeId, edge, extent: to})
             }
         });
