@@ -76,11 +76,12 @@ test.describe('Neo.component.Canvas#resolveColorScheme', () => {
 
         expect(canvas.resolveColorScheme(), 'the scope decides').toBe('dark');
 
-        // Then the defect's own shape, induced rather than observed: `container.Base#afterSetTheme`
-        // stamps live items on a CHANGE and leaves construction to `createItem`, so on the paths
-        // where the config never lands it stays empty while the chain still knows the answer. This
-        // arm pins that the resolver reads the chain and not the config — it does not claim to
-        // reproduce which production path leaves it empty.
+        // Then the defect's own shape. `container.Base#afterSetTheme` stamps live items on a CHANGE
+        // and leaves construction to `createItem`, so on the paths where the config never lands it
+        // stays empty while the chain still knows the answer. That state is observed, not just
+        // constructed: three live editors inside the portal's themed viewport measured `theme: null`
+        // with `getTheme()` returning `'neo-theme-neo-dark'`, through a markdown → tab → wrapper
+        // chain. Emptied explicitly here because this tier has no such chain to build.
         canvas.theme = null;
 
         expect(canvas.theme, 'the config a canvas used to read is empty').toBeNull();
@@ -145,6 +146,13 @@ test.describe('a canvas hands the resolved scheme to its renderer', () => {
         });
 
         const sparkline = instance.getReference('sparkline');
+
+        // Empty the config FIRST, or this arm cannot fail on the resolution axis: `createItem`
+        // populates an inherited theme on this path, so a resolver reading the config would answer
+        // correctly here and the arm would witness only the mapping. The shape below is the one
+        // measured in production — three live editors inside the portal's themed viewport, each
+        // `theme: null` while `getTheme()` returned the dark theme.
+        sparkline.theme = null;
 
         // Registration is where the component last controls the value. The rendered pixel is not
         // reachable from here — `main/DomAccess.mjs` transfers the canvas with
