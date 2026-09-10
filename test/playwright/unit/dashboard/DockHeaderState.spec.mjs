@@ -577,9 +577,9 @@ test.describe('Neo.dashboard.dock.Workspace — the consumer\'s header-action ve
             expect(hiddenOf(), 'each one hides under its own veto').toEqual(ACTIONS);
 
             // The control that makes the assertion above mean something. Lifted per LEAF, because
-            // re-assigning the parent object (`setData('dockActionPolicy', {})`) does NOT clear the
-            // leaf paths already stored for it — measured here, and a consumer replacing its whole
-            // policy object would keep every earlier veto.
+            // assigning the namespace object MERGES rather than replaces: present keys update and
+            // omitted keys persist, so `{close: true}` leaves every other veto standing. Measured
+            // on both shapes — `{}` changes nothing, `{close: true}` updates close alone.
             ACTIONS.forEach(action => parent.setData(`dockActionPolicy.${action}`, null));
             expect(hiddenOf(), 'and with every veto lifted, not one of them hides').toEqual([])
         } finally {

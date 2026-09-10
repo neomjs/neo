@@ -201,6 +201,11 @@ class HeaderActionPolicy extends Base {
      * only the owner provider's bindings when a new key appears. A late key is therefore latent
      * rather than rejected: it applies at the next evaluation some other leaf triggers. The same
      * hazard is why {@link #publishDocument} seeds the leaves a formatter reads before its first run.
+     *
+     * ⚠️ Clear a veto per LEAF, never by re-assigning the namespace object. Writing a partial object
+     * MERGES: present keys update and omitted keys persist, so `{close: true}` meant as "close
+     * allowed, everything else default" keeps every other veto the consumer believed it had just
+     * dropped. `setData('dockActionPolicy.<action>', null)` is the way to lift one.
      * @param {String} nodeId The tabs node
      * @returns {Object} `{close, lock, maximize, pin, 'pop-out', reload}` → `{configKey: formatter}`
      */
