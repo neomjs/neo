@@ -146,6 +146,10 @@ class RestorePlanner extends Base {
         //     accepts `pinnable: false` beside `autoHidden: true` (it checks the type only), while
         //     `normalizeSplitSizes` and `setItemAutoHidden` refuse both.
         //
+        // So NEITHER the shape gate nor `validate` predicts what the executor takes, and a
+        // validate-on-load boundary would leave the second reason untouched. The reducers' own
+        // predicates are the only honest source, which is what these filters mirror.
+        //
         // These predicates deliberately MIRROR the executor's rather than sharing them: keeping
         // `planRestore` a pure fold — no executor round-trip to decide what to plan — is worth the
         // duplication. But the duplication is real and unlinked. A refusal added to any of the three
