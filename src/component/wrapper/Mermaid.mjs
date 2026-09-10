@@ -129,9 +129,7 @@ class Mermaid extends Component {
         if (me.mounted && me.value) {
             await me.ready();
 
-            const
-                theme = me.mermaidTheme || me.themeMap[me.theme] || 'default',
-                code  = `---\nconfig:\n  theme: ${theme}\n---\n${me.value}`;
+            const code = `---\nconfig:\n  theme: ${me.resolveTheme()}\n---\n${me.value}`;
 
             await me.addon.render({
                 code,
@@ -139,6 +137,22 @@ class Mermaid extends Component {
                 windowId: me.windowId
             })
         }
+    }
+
+    /**
+     * @summary Maps this component's resolved theme onto one of mermaid's own theme names.
+     *
+     * Resolution goes through {@link Neo.component.Base#getTheme}, never the `theme` config, which is
+     * `null` for precisely the components that inherit a theme — reading it rendered mermaid's light
+     * `'default'` in a dark app on every path except a toggle. Shape:
+     * {@link Neo.component.wrapper.MonacoEditor#resolveEditorTheme}.
+     * @returns {String}
+     * @protected
+     */
+    resolveTheme() {
+        let me = this;
+
+        return me.mermaidTheme || me.themeMap[me.getTheme()] || 'default'
     }
 }
 
