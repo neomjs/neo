@@ -147,6 +147,7 @@ class Mermaid extends Component {
      * `'default'` in a dark app on every path except a toggle. Shape:
      * {@link Neo.component.wrapper.MonacoEditor#resolveEditorTheme}.
      * @returns {String}
+     * @protected
      */
     resolveTheme() {
         let me = this;
