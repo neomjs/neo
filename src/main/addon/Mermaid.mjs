@@ -131,7 +131,13 @@ class Mermaid extends Base {
                     element.textContent = data.code
                 }
 
-                this.mermaid.run({
+                // AWAITED, and that is the whole point. `mermaid.run` is `(options?) => Promise<void>`
+                // and it REJECTS on a parse error — measured: `Parse error on line 2 … Expecting
+                // 'SEMI', 'NEWLINE'`. Un-awaited inside this `try`, the rejection was unhandled, so
+                // the `catch` below could not fire, the error message never reached the page, and
+                // this `async` method resolved before rendering had finished. The guarantee was
+                // written in code that could not execute.
+                await this.mermaid.run({
                     nodes: [element]
                 })
             } catch (e) {
