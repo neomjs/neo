@@ -44,6 +44,25 @@ import {test, expect} from '@playwright/test';
  */
 const MONACO_EDITOR = '.neo-monaco-editor';
 
+/**
+ * A diagram that actually RENDERED — not mermaid's own error graphic.
+ *
+ * ⚠️ A plain `.neo-mermaid svg` count cannot tell the two apart, and the previous version of this
+ * arm used one. Measured against `dist/mermaid.mjs` in a browser: a fence with a syntax error makes
+ * `mermaid.run()` reject AND still emits one svg, so counting svgs reports a broken fence as a
+ * rendered one. The arm was not useless — the collision it was built for emitted ZERO svgs, so it
+ * discriminated that — but it could not distinguish a correct render from an error graphic, which
+ * is half of what it claims.
+ *
+ *   good fence  ->  aria-roledescription="flowchart-v2"  class="flowchart"
+ *   bad fence   ->  aria-roledescription="error"         class=null
+ *
+ * `aria-roledescription` is the discriminator because mermaid sets it deliberately. Searching the
+ * text for "error" does NOT work: it matches both, since the svg carries embedded CSS that contains
+ * the word. That false discriminator is what measuring instead of guessing caught.
+ */
+const RENDERED_DIAGRAM = '.neo-mermaid svg:not([aria-roledescription="error"])';
+
 const ROUTES = [{
     editors: true,
     name   : 'a live-preview route — Monaco BUSY, the state the collision needs',
@@ -87,10 +106,84 @@ test.describe('learn guide mermaid rendering', () => {
 
             // Rendering is async and staggered — poll for the settled count rather than sampling it,
             // or a mid-render read reports a partial failure that is not one.
-            await expect.poll(() => page.locator('.neo-mermaid svg').count(), {
+            await expect.poll(() => page.locator(RENDERED_DIAGRAM).count(), {
                 message: `every mermaid fence in ${route.source} must reach the reader as an SVG`,
                 timeout: 30000
             }).toBe(expected)
         })
     }
+});
+
+/**
+ * @summary AC-2's second control: a fence the author got WRONG must fail the check.
+ *
+ * The route arms above assert that every authored fence renders. On their own they cannot separate
+ * "the renderer works" from "the renderer renders nothing" — the condition that shipped once
+ * already — so this drives a deliberate syntax error through the same addon and asserts the check
+ * reports it as unrendered. Without it, `RENDERED_DIAGRAM` is an untested predicate.
+ *
+ * It also covers the author-facing half: `main.addon.Mermaid#render` awaits `mermaid.run`, so a
+ * parse failure reaches its `catch` and the message reaches the page. Un-awaited it did not, and the
+ * `Mermaid Error` div was unreachable code.
+ */
+test.describe('mermaid render verification — both controls', () => {
+    test('a correct fence counts as rendered and a syntax error does NOT', async ({page}) => {
+        // The control route, so the addon has really loaded through its own lazy path rather than
+        // being poked before `loadFiles` ran — `this.mermaid` would be null and BOTH cases would
+        // fail identically, which is a control that cannot fail.
+        await page.goto(ROUTES[1].url);
+        await expect(page.locator('.neo-app-content-component').locator('h1')).toBeVisible();
+        await expect.poll(() => page.locator(RENDERED_DIAGRAM).count()).toBeGreaterThan(0);
+
+        // `RENDERED_DIAGRAM` is passed IN rather than restated. Hardcoding the selector here made
+        // the arm independent of the constant it exists to witness: mutating the constant left this
+        // green, which is the duplicate-predicate trap with the third copy in the test oracle.
+        const outcome = await page.evaluate(async selector => {
+            const addon = Neo.main.addon.Mermaid,
+                  make  = id => {
+                      const el = document.createElement('div');
+
+                      el.className = 'neo-mermaid';
+                      el.id        = id;
+                      document.body.appendChild(el);
+                      return el
+                  },
+                  count = (id, css) => document.getElementById(id).querySelectorAll(css).length;
+
+            make('probe-good');
+            make('probe-bad');
+
+            const raw = make('probe-raw');
+
+            await addon.render({id: 'probe-good', code: 'graph TD;\n  A-->B;'});
+            await addon.render({id: 'probe-bad',  code: 'graph TD;\n  A--@@>>B[[[unclosed'});
+
+            // Straight through the library, BYPASSING the addon's catch, so mermaid's own error
+            // graphic survives in the DOM. That graphic is the only thing that can witness the
+            // selector: once the addon reports the failure as text there is no svg left to exclude.
+            raw.textContent = 'graph TD;\n  A--@@>>B[[[unclosed';
+
+            try {
+                await addon.mermaid.run({nodes: [raw]})
+            } catch (error) {
+                // Expected: the parse error. The DOM it left behind is the measurement.
+            }
+
+            return {
+                good        : count('probe-good', selector),
+                bad         : count('probe-bad',  selector),
+                badReport   : document.getElementById('probe-bad').textContent.includes('Mermaid Error'),
+                rawAnySvg   : count('probe-raw', 'svg'),
+                rawRendered : count('probe-raw', selector)
+            }
+        }, RENDERED_DIAGRAM.replace('.neo-mermaid ', ''));
+
+        expect(outcome.good, 'a correct fence renders').toBe(1);
+        expect(outcome.bad,  'and a syntax error is NOT counted as rendered — the control the route arms lack').toBe(0);
+        expect(outcome.badReport, 'and the author is told why, at the point of authoring').toBe(true);
+
+        // The selector itself, witnessed: mermaid's error graphic IS an svg and must not count.
+        expect(outcome.rawAnySvg,  'mermaid emits an svg even for a parse error').toBe(1);
+        expect(outcome.rawRendered, 'and the selector excludes it — a plain svg count cannot').toBe(0)
+    })
 });
