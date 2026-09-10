@@ -436,3 +436,142 @@ test.describe('DockRestorePlanner — edge-zone extents (#18579)', () => {
         expect(plan, 'a no-op step is a spurious commit').toEqual([])
     })
 });
+
+/**
+ * A split-rooted document whose side pane can carry the flags and whose split can carry the sizes
+ * these arms need. Separate from `doc()` because that fixture pins sizes and declares no item flags,
+ * and the whole point here is a capture whose VALUES the document contract accepts.
+ * @param {Object} [config]
+ * @returns {Object}
+ */
+function flagDoc({sizes = [0.6, 0.4], autoHidden = false, pinnable, activeItemId = 'strategy'} = {}) {
+    const terminal = {reference: 'terminal', title: 'Terminal', autoHidden};
+
+    if (pinnable !== undefined) { terminal.pinnable = pinnable }
+
+    return {
+        schema: 'neo.dock.zone.v1',
+        root  : 'root',
+        items : {
+            strategy: {reference: 'strategy', title: 'Strategy'},
+            swarm   : {reference: 'swarm',    title: 'Swarm'},
+            terminal
+        },
+        nodes: {
+            root       : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes},
+            'main-tabs': {type: 'tabs', items: ['strategy', 'swarm'], activeItemId},
+            'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
+        }
+    }
+}
+
+/**
+ * @summary Asserts an unusable step is skipped WITHOUT taking the rest of the plan with it.
+ *
+ * The defect these arms exist for is not a wrong value — it is `applied: 0` on a restore that
+ * reported no error worth acting on, because `applyRestorePlan` is fail-closed and one refused step
+ * strands every later one. So each case carries a second, unrelated pending change and asserts the
+ * plan is exactly that step: the unusable one absent, the valid one present AND applied. Asserting
+ * only that the unusable field is untouched would pass on a planner that emitted nothing at all.
+ * @param {Object} current
+ * @param {Object} captured
+ * @returns {Object} the restore receipt, for per-case assertions
+ */
+function expectSkippedButPlanStillRuns(current, captured) {
+    const receipt = DockRestorePlanner.restoreToward(current, captured);
+
+    expect(receipt.deferred).toBe(false);
+    expect(receipt.errors, 'a skipped step is never a restore error').toEqual([]);
+    expect(receipt.plan, 'exactly the unrelated valid step — and NOT an empty plan')
+        .toEqual([{operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'swarm'}]);
+    expect(receipt.applied, 'the valid step still ran').toBe(1);
+    expect(receipt.document.nodes['main-tabs'].activeItemId).toBe('swarm');
+
+    return receipt
+}
+
+test.describe('DockRestorePlanner — steps the executor would refuse (#18585)', () => {
+    test('a split size the CONTRACT accepts and the reducer refuses is skipped, not planned', () => {
+        // `[0, 1]` sums to 1 and matches the children count, so `WorkspaceDocument.validate` accepts
+        // it — the document is legal. `normalizeSplitSizes` additionally requires every element > 0,
+        // so `resizeSplit` refuses it. The two are different sets and this capture sits between them.
+        const captured = flagDoc({sizes: [0, 1], activeItemId: 'swarm'}),
+              current  = flagDoc({sizes: [0.6, 0.4]});
+
+        expect(WorkspaceDocument.validate(captured),
+            'the premise: the document contract accepts this capture').toEqual([]);
+        expect(DockTopologyDiff.diffDockDocuments(current, captured).resizes,
+            'and the differ reports it, because document truth is not reducer acceptance')
+            .toEqual([{nodeId: 'root', fromSizes: [0.6, 0.4], toSizes: [0, 1]}]);
+
+        const {document: restored} = expectSkippedButPlanStillRuns(current, captured);
+
+        expect(restored.nodes.root.sizes, 'the live split is left where it was').toEqual([0.6, 0.4])
+    });
+
+    test('a non-finite split size is skipped on the same axis', () => {
+        const captured = flagDoc({sizes: [Number.NaN, 1], activeItemId: 'swarm'}),
+              current  = flagDoc({sizes: [0.6, 0.4]});
+
+        // `NaN` fails the reducer's finiteness check rather than its positivity check, so this pins
+        // the other half of one clause — `Number.isFinite(size) && size > 0` needs both.
+        expectSkippedButPlanStillRuns(current, captured);
+    });
+
+    test('an auto-hide the reducer refuses is skipped: unpinnable panes keep their live visibility', () => {
+        // `validate` requires `autoHidden` to be a boolean and says nothing about `pinnable`, so a
+        // pane declared `pinnable: false, autoHidden: true` is a legal document. `setItemAutoHidden`
+        // refuses to auto-hide a non-pinnable item, which is the second divergence, not the same one.
+        const captured = flagDoc({autoHidden: true,  pinnable: false, activeItemId: 'swarm'}),
+              current  = flagDoc({autoHidden: false, pinnable: false});
+
+        expect(WorkspaceDocument.validate(captured), 'legal document, refused step').toEqual([]);
+        expect(DockTopologyDiff.diffDockDocuments(current, captured).autoHideFlips)
+            .toEqual([{itemId: 'terminal', from: false, to: true}]);
+
+        const {document: restored} = expectSkippedButPlanStillRuns(current, captured);
+
+        expect(restored.items.terminal.autoHidden, 'the pane stays visible rather than aborting the restore').toBe(false)
+    });
+
+    test('a pinned pane is not auto-hidden either, and that refusal is the reducer\'s own', () => {
+        const captured = flagDoc({autoHidden: true, activeItemId: 'swarm'}),
+              current  = flagDoc({autoHidden: false});
+
+        captured.items.terminal.pinned = true;
+        current.items.terminal.pinned  = true;
+
+        expectSkippedButPlanStillRuns(current, captured);
+    });
+
+    test('the inverse halves: a legal size and a legal auto-hide still plan and apply', () => {
+        // The control that makes every arm above mean something. Same fixtures, values inside both
+        // the contract AND the reducer's domain: the steps must be planned, not filtered.
+        const sized = DockRestorePlanner.restoreToward(flagDoc({sizes: [0.6, 0.4]}), flagDoc({sizes: [0.25, 0.75]}));
+
+        expect(sized.errors).toEqual([]);
+        expect(sized.plan).toEqual([{operation: 'resizeSplit', splitNodeId: 'root', sizes: [0.25, 0.75]}]);
+        expect(sized.applied).toBe(1);
+        expect(sized.document.nodes.root.sizes).toEqual([0.25, 0.75]);
+
+        const hidden = DockRestorePlanner.restoreToward(flagDoc({autoHidden: false}), flagDoc({autoHidden: true}));
+
+        expect(hidden.errors).toEqual([]);
+        expect(hidden.plan).toEqual([{operation: 'setItemAutoHidden', itemId: 'terminal', autoHidden: true}]);
+        expect(hidden.applied).toBe(1);
+        expect(hidden.document.items.terminal.autoHidden).toBe(true)
+    });
+
+    test('un-hiding an unpinnable pane is skipped too: the reducer refuses BOTH directions', () => {
+        // Not symmetry for its own sake — `setItemAutoHidden` gates on `pinnable` before it looks at
+        // the value, so `autoHidden: false` is refused for an unpinnable item exactly as `true` is. A
+        // filter written as `!(to && …)` alone would let this one through and abort the restore.
+        const captured = flagDoc({autoHidden: false, pinnable: false, activeItemId: 'swarm'}),
+              current  = flagDoc({autoHidden: true,  pinnable: false});
+
+        expect(DockTopologyDiff.diffDockDocuments(current, captured).autoHideFlips)
+            .toEqual([{itemId: 'terminal', from: true, to: false}]);
+
+        expectSkippedButPlanStillRuns(current, captured);
+    })
+});
