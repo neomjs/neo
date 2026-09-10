@@ -22,6 +22,7 @@ import WorkspaceController        from './WorkspaceController.mjs';
 import Operations                 from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence                from '../../../src/dashboard/dock/model/Persistence.mjs';
 import StateProvider              from '../../../src/state/Provider.mjs';
+import TopologyDiff               from '../../../src/dashboard/dock/model/TopologyDiff.mjs';
 import TourToolbar                from './TourToolbar.mjs';
 import TransactionManager         from '../../../src/manager/Transaction.mjs';
 import WindowManager              from '../../../src/manager/Window.mjs';
@@ -206,7 +207,12 @@ class Workspace extends DockWorkspace {
          */
         stateProvider: {
             module: StateProvider,
-            data  : {tour: initialTourState},
+            // `topology.modified` is DERIVED here rather than bound, because there is nothing to bind
+            // to: `dockModel` is a plain field on the dock Workspace, not a reactive config, so a
+            // formatter reading it would never re-run. {@link #syncTopologyModified} publishes it from
+            // the two places the document actually arrives. Seeded `false` only so the key exists
+            // before the first publish; `construct` overwrites it with the measured answer.
+            data  : {topology: {modified: false}, tour: initialTourState},
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
@@ -439,7 +445,19 @@ class Workspace extends DockWorkspace {
             // list is free to grow.
             items : [
                 {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
-                {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'}
+                {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'},
+                // Reads the derived key rather than recomputing: the diff runs once per committed
+                // document at its writer, not once per binding evaluation. Absent on the default
+                // arrangement rather than shown-and-empty — a badge that is always present says
+                // nothing, and the whole point is that the two states look different.
+                {
+                    ntype: 'component',
+                    bind : {
+                        cls : data => ['workstation-topology-modified'].concat(data.topology.modified ? [] : ['neo-hidden']),
+                        html: data => data.topology.modified ? 'Modified from default' : ''
+                    },
+                    flex : 'none'
+                }
             ],
             layout   : {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'},
             reference: 'topology-toolbar'
@@ -465,6 +483,121 @@ class Workspace extends DockWorkspace {
               steps    = provider ? count(provider) : 0;
 
         return Number.isFinite(steps) && steps > 0 ? `${steps}` : null
+    }
+
+    /**
+     * @summary Whether the live topology differs from the arrangement the app ships with.
+     *
+     * @description **The unit is the whole keyed topology, not this window's document.** What gets
+     * persisted and restored is {@link #getDockTopologyWorkspaces} — every registered workspace
+     * keyed by identity — because the thing a reader expects back when they open the app URL is
+     * their multi-window setup, not one window's panes. So a pane torn out into a second window is
+     * a departure from the default even when the document left behind still matches: **the extra
+     * workspace IS the difference**, and comparing `main` alone would call that arrangement
+     * default.
+     *
+     * The question is a COMPARISON, not a dirty flag: a flag set on the first operation never
+     * clears when the user undoes back to the start, while a comparison recomputed from live state
+     * does, for free.
+     *
+     * Per document, `TopologyDiff.diffDockDocuments` is the comparator rather than
+     * `computeShapeFingerprint`, whose own docblock states it carries "no node ids, item ids,
+     * sizes, titles or window identity" — shape-only by contract, so it reads a dragged boundary, a
+     * reordered tab and a switched pane as unchanged. Those are the operations this workspace is
+     * FOR. Categories are read off the returned object rather than listed here: the differ's class
+     * comment stood at seven while the code returned eight, so a hand-copied list under-reports
+     * exactly where the documentation has drifted.
+     *
+     * **Window geometry needs no separate test here, and the reason is the shipped arrangement
+     * rather than geometry being cosmetic.** It is emphatically not cosmetic:
+     * {@link Neo.dashboard.dock.window.Placement} is an auxiliary participant in this same Group
+     * history, writes a settled popup move as an appended row, and `undo` applies it natively — a
+     * dragged window is an undoable step exactly as a dragged splitter is. But its hints are popup
+     * offsets measured RELATIVE TO MAIN (`observedHints` skips the main binding), and this app ships
+     * a single window. So any hint worth comparing implies a second workspace, which the key check
+     * above has already answered. Testing hints as well would not add a case — it would subtract
+     * correctness: `getPlacementHints` reads the raw hint record rather than the pruned one, so a
+     * hint outliving a closed popup would report a user who is genuinely back at the default as
+     * modified.
+     *
+     * Two deliberate `false` answers. **An unestablished topology** — no workspace registered yet —
+     * is not a departure; it is the absence of an answer, and reporting one would light the
+     * indicator during boot. **A malformed document** likewise: `errors` means the comparison did
+     * not happen, and an indicator that lights up because the differ failed tells the reader
+     * something false about their own layout.
+     * @returns {Boolean}
+     * @protected
+     */
+    isTopologyModified() {
+        const me         = this,
+              workspaces = me.getDockTopologyWorkspaces(),
+              keys       = Object.keys(workspaces);
+
+        if (!keys.length) return false;
+
+        if (keys.length > 1 || keys[0] !== Workspace.MAIN_WORKSPACE_ID) return true;
+
+        const diff = TopologyDiff.diffDockDocuments(initialDocument, workspaces[keys[0]]);
+
+        return !diff.errors.length && Object.keys(diff).some(category =>
+            category !== 'errors' && category !== 'unchanged' && diff[category]?.length)
+    }
+
+    /**
+     * @summary Publishes the first modified readout once the provider is resolvable.
+     *
+     * Boot is the second place a committed topology arrives and the only one the Group's document
+     * setter cannot see: {@link #construct} seeds `dockModel` from a persisted `initialTopology`,
+     * which is an arrangement the user already changed. Without this the indicator reads "default"
+     * on a cold-hydrated custom perspective — the exact state this affordance exists to expose.
+     *
+     * It lives here rather than on the controller's `onComponentConstructed` seam because the state
+     * is the view's: the view owns `dockModel` and the provider, and a controller that had to call
+     * it would impose the method on every component that controller can drive.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.syncTopologyModified()
+    }
+
+    /**
+     * @summary Republishes the modified readout after a Group commit has settled.
+     *
+     * @description **The seam matters more than the timing.** Presentation runs after the queue
+     * releases and, by the manager's contract, "cannot reject the commit" — whereas the participant's
+     * document setter runs inside the adopt phase, where a throw becomes an `AggregateError` in
+     * `transaction/Commit.mjs`'s rollback and takes the whole transaction down. A status readout must
+     * never be able to fail the commit it is reporting on, so it hangs here rather than there.
+     *
+     * It overrides the class method rather than wrapping the `project` callback in
+     * {@link #registerMainWorkspace}, because that registration is deliberately `.call()`-able onto
+     * a plain dock Workspace — the transaction specs borrow it to isolate Group behaviour from this
+     * app's. Behaviour that belongs to this subclass attaches to this subclass; a borrowed
+     * registration keeps the engine's projection untouched.
+     *
+     * Undo and redo project through here too, which is why undoing back to the shipped arrangement
+     * clears the indicator with no path of its own.
+     * @param {Object} context The Group participant's projection context.
+     * @returns {Promise} This projection's outcome.
+     */
+    projectDockCommit(context) {
+        const projection = super.projectDockCommit(context);
+
+        this.syncTopologyModified();
+
+        return projection
+    }
+
+    /**
+     * @summary Publishes {@link #isTopologyModified} for the topology bar's readout.
+     * @protected
+     */
+    syncTopologyModified() {
+        const me = this;
+
+        if (me.isDestroyed || !me.getStateProvider()) return;
+
+        me.setState({'topology.modified': me.isTopologyModified()})
     }
 
     /**

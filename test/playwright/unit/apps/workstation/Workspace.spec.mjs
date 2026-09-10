@@ -3260,7 +3260,14 @@ test.describe('Workstation topology bar — the view declares it, the controller
         // formatter off the config object would exercise the arithmetic and none of the wiring.
         // The local provider holds no data — the formatters read the Group's own leaf where it
         // lives — but a component only binds once it can resolve one.
-        const bar  = Neo.create(Toolbar, {...Workspace.prototype.createTopologyBar.call(host), stateProvider: {}}),
+        // The provider carries `topology` because the bar DECLARES a binding on it — the history
+        // formatters read the Group's own leaf where it lives, but the modified readout is published
+        // state, and a component only binds once it can resolve a provider that holds its key. An
+        // empty one is an incomplete fixture rather than a smaller one.
+        const bar = Neo.create(Toolbar, {
+                  ...Workspace.prototype.createTopologyBar.call(host),
+                  stateProvider: {data: {topology: {modified: false}}}
+              }),
               undo = bar.getAction('undo'),
               redo = bar.getAction('redo'),
               // Read it where a user does: the badge is a vdom node the button hides rather than
@@ -3315,5 +3322,88 @@ test.describe('Workstation topology bar — the view declares it, the controller
             TransactionManager.retireGroup(group.groupId);
             TransactionManager.historyDepth = restoreDepth
         }
+    })
+});
+
+test.describe('Workstation modified-from-default readout (#18553)', () => {
+    const MAIN = Workspace.MAIN_WORKSPACE_ID;
+
+    /**
+     * The production predicate on the minimal host it actually reads. `isTopologyModified` consults
+     * only the keyed workspaces, so a constructed Workspace would add a Group, a provider and a
+     * projection without changing a single answer below.
+     * @param {Object} workspaces
+     * @returns {Boolean}
+     */
+    const answer = workspaces => Workspace.prototype.isTopologyModified.call({
+        getDockTopologyWorkspaces: () => workspaces
+    });
+
+    const drag = descriptor => {
+        const result = Operations.applyOperation(WorkspaceDocument.clone(initialDocument), descriptor);
+
+        expect(result.errors, `the fixture operation must commit: ${JSON.stringify(descriptor)}`).toEqual([]);
+
+        return result.document
+    };
+
+    test('both directions: the shipped arrangement is unmodified, one committed operation is not', () => {
+        // AC-6's first direction. An indicator that is always on is indistinguishable from one that
+        // works, so the negative is asserted against the real shipped document rather than assumed.
+        expect(answer({[MAIN]: WorkspaceDocument.clone(initialDocument)}), 'freshly seeded').toBe(false);
+
+        expect(answer({[MAIN]: drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]})}),
+            'one dragged split boundary').toBe(true);
+
+        expect(answer({[MAIN]: drag({operation: 'moveItem', itemId: 'audit', targetNodeId: 'right-bottom-tabs'})}),
+            'one relocated pane').toBe(true)
+    });
+
+    test('a dragged rail counts, which it could not before the differ reported edge extents', () => {
+        // The shape fingerprint reads this document as identical to the default, and so did
+        // `diffDockDocuments` until `edgeResizes` landed. It is asserted here rather than left to
+        // the differ's own suite because THIS readout is what a user sees, and a rail drag is a
+        // first-class gesture of this workspace — three of its four edges ship `resizable: true`.
+        expect(answer({[MAIN]: drag({operation: 'resizeEdgeZone', edgeZoneId: 'root', edge: 'left', extent: 0.4})}),
+            'the left rail dragged from 0.11 to 0.4').toBe(true)
+    });
+
+    test('returning to the shipped arrangement clears it, which a dirty flag could not', () => {
+        // The property that rules out a boolean set on the first operation: the answer is recomputed
+        // from live state, so a document that has come back to the default reads unmodified no
+        // matter how it got there. Undo drives exactly this transition.
+        const dragged  = drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}),
+              restored = Operations.applyOperation(dragged, {
+                  operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.6, 0.4]
+              });
+
+        expect(restored.errors).toEqual([]);
+        expect(answer({[MAIN]: dragged}),           'modified while away').toBe(true);
+        expect(answer({[MAIN]: restored.document}), 'and clear on return').toBe(false)
+    });
+
+    test('a second window is a departure even when the document left behind still matches', () => {
+        // What the reader expects back on opening the app URL is their multi-window setup, so the
+        // extra workspace IS the difference. Comparing the main document alone would call this
+        // arrangement default — the case that makes the keyed topology the unit rather than
+        // `dockModel`.
+        expect(answer({
+            [MAIN] : WorkspaceDocument.clone(initialDocument),
+            'popup': WorkspaceDocument.clone(initialDocument)
+        }), 'main untouched, one pane living in its own window').toBe(true)
+    });
+
+    test('two silences: an unestablished topology and an uncomparable one both read unmodified', () => {
+        // Before any workspace registers there is no answer to give, and lighting the indicator
+        // during boot would report a departure the user has not made.
+        expect(answer({}), 'nothing registered yet').toBe(false);
+
+        // `errors` means the comparison did not happen. An indicator that lights up because the
+        // differ failed tells the reader something false about their own layout.
+        const malformed = WorkspaceDocument.clone(initialDocument);
+
+        malformed.nodes['scale-tabs'].type = 'carousel';
+
+        expect(answer({[MAIN]: malformed}), 'a document the differ cannot read').toBe(false)
     })
 });
