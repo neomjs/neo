@@ -136,7 +136,7 @@
     },
     "overrides": {
         "gray-matter": {
-            "js-yaml": "^3.15.1"
+            "js-yaml": "^3.15.2"
         }
     },
     "funding": {
