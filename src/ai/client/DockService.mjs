@@ -3,6 +3,7 @@ import DockTopologyReconciler from '../../dashboard/dock/model/TopologyReconcile
 import Operations             from '../../dashboard/dock/model/Operations.mjs';
 import Persistence            from '../../dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary     from '../../dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import PerspectiveState       from '../../dashboard/dock/projection/PerspectiveState.mjs';
 import Service                from './Service.mjs';
 
 /**
@@ -200,6 +201,16 @@ class DockService extends Service {
     }
 
     /**
+     * @summary The names a holder's `activePerspective` accepts, through the same facade the
+     * persistence libraries take. A holder without it declares nothing.
+     * @param {Neo.component.Base} holder The resolved dock-document holder
+     * @returns {String[]}
+     */
+    static declaredPerspectives(holder) {
+        return holder.declaredPerspectives?.() ?? []
+    }
+
+    /**
      * Reads the holder's current dock document through the v1 holder contract:
      * `getDockZoneDocument()` (the canonical workspace accessor — read-path twin of the
      * `applyDockZoneOperation` write seam) first, then the plain `dockZoneDocument` field.
@@ -356,24 +367,32 @@ class DockService extends Service {
     }
 
     /**
-     * Lists the holder's stored single-workspace perspectives and keyed topologies without
-     * combining their collections. Fail-closed only when neither surface exists.
+     * Lists the holder's declared perspectives beside its stored single-workspace perspectives and
+     * keyed topologies, never combining the three. The key is the discriminator: `declared` names are
+     * the values `activePerspective` accepts and have no record to summarize, so they come with the
+     * published `dock.perspective` facts instead; stored records keep their summaries. Fail-closed only
+     * when no surface exists.
      * @param {Object} params
      * @param {String} params.componentId The dock workspace / holder component id
-     * @returns {Object} `{perspectives, topologies, activeLayoutId, activeTopologyLayoutId, errors}`
+     * @returns {Object} `{declared, perspective, perspectives, topologies, activeLayoutId, activeTopologyLayoutId, errors}`
+     * — `perspective` is `{active, modified, pending}` for a declaring holder, else `null`
      */
     async listPerspectives({componentId}) {
         const holder        = this.resolveHolder(componentId),
               store         = holder.perspectiveStore,
               collection    = holder.topologyCollection,
+              declared      = DockService.declaredPerspectives(holder),
+              perspective   = declared.length ? PerspectiveState.read(holder) : null,
               hasLayouts    = typeof store?.list === 'function',
               hasTopologies = collection !== undefined && collection !== null;
 
-        if (!hasLayouts && !hasTopologies) {
+        if (!hasLayouts && !hasTopologies && !declared.length) {
             return {
                 activeLayoutId        : null,
                 activeTopologyLayoutId: null,
-                errors                : [`Component ${componentId} exposes no perspective or topology store — nothing to list`],
+                declared,
+                errors                : [`Component ${componentId} declares no perspectives and exposes no perspective or topology store — nothing to list`],
+                perspective,
                 perspectives          : null,
                 topologies            : null
             }
@@ -385,7 +404,9 @@ class DockService extends Service {
             return {
                 activeLayoutId        : hasLayouts ? store.collection?.activeLayoutId ?? null : null,
                 activeTopologyLayoutId: null,
+                declared,
                 errors                : topologyErrors,
+                perspective,
                 perspectives          : hasLayouts ? store.list() : [],
                 topologies            : null
             }
@@ -394,38 +415,42 @@ class DockService extends Service {
         return {
             activeLayoutId        : hasLayouts ? store.collection?.activeLayoutId ?? null : null,
             activeTopologyLayoutId: hasTopologies ? collection.activeLayoutId : null,
+            declared,
             errors                : [],
+            perspective,
             perspectives          : hasLayouts ? store.list() : [],
             topologies            : hasTopologies ? DockService.listTopologies(collection) : []
         }
     }
 
     /**
-     * Restores a named record by schema after read-only lookup in the separate layout and topology
-     * collections. A name present in both is ambiguous and fails closed. `layout.v1` prefers the
-     * holder's switch seam, while `topology.v1` uses keyed reconciliation plus one atomic commit.
-     * Neither active pointer advances before the corresponding document commit succeeds.
+     * Restores a name after read-only lookup across the declared list and the separate layout and
+     * topology collections. A name present in more than one is ambiguous and fails closed. A declared
+     * name takes the holder's accepted `activePerspective` write; `layout.v1` prefers the holder's
+     * switch seam, while `topology.v1` uses keyed reconciliation plus one atomic commit. Neither
+     * active pointer advances before the corresponding document commit succeeds.
      * @param {Object} params
      * @param {String} params.componentId The dock workspace / holder component id
-     * @param {String} params.name        The perspective's product name (or technical layoutId)
+     * @param {String} params.name        A declared perspective name, a record's product name or its technical layoutId
      * @param {Object} [context] Current Neural Link caller, when invoked remotely.
-     * @returns {Object} Layout: `{switched, schema, captureScope, errors, document}`. Topology adds
-     * `{workspaces, restored, unrestored, displaced}`.
+     * @returns {Object} Layout: `{switched, schema, captureScope, errors, document}`; a declared name
+     * adds `source: 'declared'`. Topology adds `{workspaces, restored, unrestored, displaced}`.
      */
     async restorePerspective({componentId, name}, context) {
         const holder            = this.resolveHolder(componentId),
               store             = holder.perspectiveStore,
               collection        = holder.topologyCollection,
+              declared          = DockService.declaredPerspectives(holder).includes(name),
               hasLayoutReader   = typeof store?.getPerspective === 'function',
               hasTopologyReader = collection !== undefined && collection !== null;
 
-        if (!hasLayoutReader && !hasTopologyReader) {
+        if (!hasLayoutReader && !hasTopologyReader && !declared) {
             return {
                 captureScope: null,
                 document    : this.readDocument(holder),
                 errors      : [
-                    `Component ${componentId} exposes no perspective store with a read-only getPerspective() ` +
-                    'seam and no topology collection — schema must be inspected before state moves'
+                    `Component ${componentId} declares no perspective named "${name}" and exposes no perspective store ` +
+                    'with a read-only getPerspective() seam and no topology collection — schema must be inspected before state moves'
                 ],
                 schema  : null,
                 switched: false
@@ -433,16 +458,21 @@ class DockService extends Service {
         }
 
         const layoutEntry   = hasLayoutReader ? store.getPerspective(name) : null,
-              topologyEntry = hasTopologyReader ? DockService.resolveTopologyEntry(collection, name) : null;
+              topologyEntry = hasTopologyReader ? DockService.resolveTopologyEntry(collection, name) : null,
+              sources       = [declared && 'the declared list', layoutEntry && 'the layout collection', topologyEntry && 'the topology collection'].filter(Boolean);
 
-        if (layoutEntry && topologyEntry) {
+        if (sources.length > 1) {
             return {
                 captureScope: null,
                 document    : this.readDocument(holder),
-                errors      : [`perspective name "${name}" is ambiguous across layout and topology collections`],
+                errors      : [`perspective name "${name}" is ambiguous across ${sources.join(' and ')}`],
                 schema      : null,
                 switched    : false
             }
+        }
+
+        if (declared) {
+            return this.restoreDeclaredPerspective({holder, name}, context)
         }
 
         if (topologyEntry) {
@@ -525,6 +555,47 @@ class DockService extends Service {
         }
 
         return {captureScope: 'window', document, errors: [], schema: Persistence.LAYOUT_SCHEMA, switched: true}
+    }
+
+    /**
+     * @summary Selects a declared perspective through the holder's accepted `activePerspective`
+     * write — the path the UI takes, so the carried identity and provenance are identical — or
+     * re-applies its baseline when it is already selected, and reports the settled request. Under a
+     * Group a remote caller is fenced against the live document owners first and an open batch refuses.
+     * @param {Object} config
+     * @param {Neo.dashboard.dock.Workspace} config.holder The resolved declaring workspace
+     * @param {String} config.name The declared perspective name
+     * @param {Object} [context] Current Neural Link caller, when invoked remotely.
+     * @returns {Promise<Object>} `{switched, source, schema, captureScope, errors, document}`
+     * @protected
+     */
+    async restoreDeclaredPerspective({holder, name}, context) {
+        const verdict = errors => ({
+            captureScope: 'window',
+            document    : this.readDocument(holder),
+            errors,
+            schema      : null,
+            source      : 'declared',
+            switched    : !errors.length
+        });
+
+        const select = () => {
+            if (holder.activePerspective === name) return holder.resetPerspective();
+            holder.activePerspective = name;
+            return holder.perspectiveSelection.pending
+        };
+
+        try {
+            if (context && holder.topologyGroupId) {
+                if (Neo.manager.Transaction.findBatch(this.transactionOwner(context))) {
+                    return verdict(['perspective restore requires a completed batch'])
+                }
+                return verdict((await this.client.services.instance.withGroupWrite(holder.topologyGroupId, context, select)).errors)
+            }
+            return verdict((await select()).errors)
+        } catch (error) {
+            return verdict([error.message])
+        }
     }
 
     /**
