@@ -716,8 +716,46 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
                 expect(focus.length, 'focus ran').toBe(1);
                 expect(focus[0].projectionsSoFar, 'focus waited for the close to project, not for the previous refresh')
-                    .toBeGreaterThan(before)
+                    .toBeGreaterThan(before);
+
+                // AC-2's other half: the published refresh must INCLUDE the follow-up, or a later
+                // commit schedules off a promise that does not cover the focus it has to order after.
+                let settled = false;
+
+                await workspace.refreshPromise.then(() => {settled = focus.length === 1});
+
+                expect(settled, 'refreshPromise covers the follow-up it scheduled').toBe(true)
             } finally {
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        test('a refused Group write runs no focus, and surfaces exactly as it does today', async () => {
+            const {commits, focus, groupId, set, workspace} = await stage(),
+                  rejections                                = [],
+                  onRejection                               = event => {rejections.push(event.reason); event.preventDefault?.()};
+
+            globalThis.addEventListener?.('unhandledrejection', onRejection);
+
+            try {
+                // The refusal the engine already produces for an unregistered participant. AC-5 is a
+                // PARITY claim, not new behaviour: no focus, and no rejection the caller did not
+                // already get — the follow-up must not surface the same failure a second time.
+                workspace.workspaceKey = 'not-registered';
+
+                workspace.handleDockCloseAction({
+                    dockNodeId  : 'side-tabs',
+                    tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                });
+
+                await Promise.allSettled(commits);
+                await Promise.resolve();
+
+                expect(focus.length, 'a refused write owes no focus').toBe(0);
+                expect(rejections, 'and the follow-up adds no unhandled rejection of its own').toEqual([])
+            } finally {
+                globalThis.removeEventListener?.('unhandledrejection', onRejection);
                 set.destroy();
                 TransactionManager.retireGroup(groupId)
             }

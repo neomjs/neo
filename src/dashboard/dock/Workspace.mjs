@@ -427,6 +427,13 @@ class Workspace extends Container {
      * transactions cannot overlap or cross-correlate. Each commit stores the promise of ITS OWN
      * transaction here: a rejection belongs to whoever awaits the snapshot taken at that commit,
      * and the next commit schedules off the settled tail, never off the rejection.
+     *
+     * **It is not updated synchronously on every path.** `onDockZoneDocumentChange`'s Group branch
+     * returns the write and schedules no projection: the commit queues that as a detached microtask
+     * and the write resolves first, so immediately after a Group-routed change this field still holds
+     * the PREVIOUS refresh — or `null`, on a shell projected statically before any commit. A consumer
+     * that needs the refresh a specific change scheduled must await that change's own promise first;
+     * reading this field at call time reads the one before it.
      * @member {Promise|null} refreshPromise=null
      * @protected
      */
@@ -1680,7 +1687,10 @@ class Workspace extends Container {
      *
      * Live reconciled order owns the close target at dispatch time. The current model locates that
      * item's semantic tabs node, and the committed result owns its focus successor. Successful focus
-     * is chained onto `refreshPromise`, so it cannot reach chrome the reconciler retires.
+     * is chained onto the refresh THIS close scheduled, so it cannot reach chrome the reconciler
+     * retires — which is not always the `refreshPromise` standing at dispatch. The direct branch
+     * publishes its refresh inside the call and is chained immediately; the Group branch publishes
+     * from the commit's own microtask, so the follow-up waits for the returned promise first.
      * @param {Object} data
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
