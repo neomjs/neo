@@ -3183,7 +3183,16 @@ test.describe('Workstation topology bar — the view declares it, the controller
         // — a spacer plus one item per action. A count read here certified nothing about the live
         // bar; the materialised bar and its sync are exercised in WorkspaceController.spec.
         expect(bar.reference).toBe('topology-toolbar');
-        expect(bar.items.map(item => item.handler)).toEqual(['saveTopology', 'closeTopology']);
+
+        // The controller-routed buttons, still in authored order. Filtered to string handlers rather
+        // than pinned as the whole list, because the view now handles some of its own items and the
+        // authored list is contractually free to grow.
+        expect(bar.items.map(item => item.handler).filter(handler => typeof handler === 'string'))
+            .toEqual(['saveTopology', 'closeTopology']);
+
+        // …and the declaration property itself, asserted directly instead of inferred from that
+        // list's length: `toolbar.Base` merges one item per action into `items`, and none is here.
+        expect(bar.items.every(item => !item.action), 'no materialised action items in the declaration').toBe(true);
 
         // Persistent, not focus-gated: an undo control that appears only once the bar holds focus is
         // undiscoverable exactly when a user reaches for it.
@@ -3450,5 +3459,130 @@ test.describe('Workstation modified-from-default readout (#18553)', () => {
         // default with no extra windows must be the ONLY silent state — asserted rather than
         // assumed, because a formatter that returned '' too often would hide a real departure.
         expect(Workspace.topologyStateText(), 'no argument at all').toBe('')
+    })
+});
+
+test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
+    const MAIN = Workspace.MAIN_WORKSPACE_ID;
+
+    // `WorkspaceSet.write` refuses without a bound Group, and reset is a Group write by design — so
+    // the binding is a precondition of the arm, not scaffolding around it.
+    test.beforeEach(() => {
+        TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'})
+    });
+
+    test.afterEach(() => {
+        let bound;
+        while ((bound = TransactionManager.findByWindow(Neo.config.windowId))) {
+            TransactionManager.retireGroup(bound.groupId)
+        }
+    });
+
+    test('reset restores the shipped document through the Group, and undo reaches past it', async () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              groupId   = workspace.topologyGroupId;
+
+        TransactionManager.setHistoryDepth({groupId, depth: 5});
+
+        try {
+            // A REAL committed mutation rather than a hand-fed document: reset has to undo what the
+            // Group actually holds, and a fixture built from my own reconstruction could only
+            // confirm that reconstruction.
+            await workspace.workspaceSet.commit(MAIN, [
+                {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
+            ]);
+
+            expect(workspace.readTopologyState().modified, 'departed after one committed operation').toBe(true);
+
+            const result = await workspace.resetTopology();
+
+            expect(result.errors, 'the reset commit is accepted').toEqual([]);
+            expect(result.reset).toBe(true);
+
+            // The Group mints the transactionId. Its presence is what separates this from
+            // `TourController`'s `workspace.dockModel = …` assignment, which fires no commit event —
+            // so `TopologyLibrary`'s `commit: data => this.persistCurrent()` never runs and the OLD
+            // topology stays in IndexedDB to return on the next reload. That is AC-5's failure mode
+            // sitting in this repo as the nearest copyable precedent.
+            expect(typeof result.transactionId, 'it went through the Group, not a field write').toBe('string');
+
+            expect(workspace.getDockTopologyWorkspaces()[MAIN].nodes['split-main'].sizes,
+                'the shipped sizes are back').toEqual([0.6, 0.4]);
+            expect(workspace.readTopologyState().modified, 'and the readout clears').toBe(false);
+
+            // AC-4's mechanism, MEASURED rather than argued. `WorkspaceSet.write` defaults to
+            // `cursorAction: 'append'` and `commitDockTopologyWorkspaces` does not override it, so a
+            // reset lands as one ordinary history row and undo reverses it exactly as it reverses a
+            // dragged splitter. That is why this control carries no confirmation ceremony: the
+            // AC's stated rationale — "an undo control that no longer reaches past it" — does not
+            // hold for this shape, and a dialog would guard nothing.
+            await TransactionManager.undo({groupId});
+
+            expect(workspace.getDockTopologyWorkspaces()[MAIN].nodes['split-main'].sizes,
+                'undo reaches past the reset and returns the arrangement it replaced').toEqual([0.25, 0.75]);
+            expect(workspace.readTopologyState().modified,
+                'and the readout follows the undo, because it is a comparison and not a flag').toBe(true)
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('a second workspace survives the reset and is reported, not retired', async () => {
+        // The popup carries its OWN small document rather than a clone of the shipped one: item ids
+        // are unique across the whole keyed topology, so cloning `initialDocument` into a second key
+        // is refused by the engine — and rightly, since a torn-out pane MOVES rather than copies.
+        const workspace = Neo.create(Workspace, {
+            initialTopology: {workspaces: {
+                [MAIN]   : WorkspaceDocument.clone(initialDocument),
+                'popup-a': {
+                    schema: 'neo.dock.zone.v1', root: 'popup-tabs',
+                    items : {'popup-pane': {reference: 'popup-pane'}},
+                    nodes : {'popup-tabs': {type: 'tabs', items: ['popup-pane'], activeItemId: 'popup-pane'}}
+                }
+            }},
+            windowId: Neo.config.windowId
+        });
+
+        try {
+            await workspace.workspaceSet.commit(MAIN, [
+                {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
+            ]);
+
+            expect(workspace.readTopologyState(), 'departed, with one extra window standing')
+                .toEqual({additionalWindows: 1, modified: true});
+
+            const result = await workspace.resetTopology();
+
+            // `TopologySeams.commitDockTopologyWorkspaces` refuses a commit that does not name
+            // exactly the registered keys, so passing the other workspaces through unchanged is what
+            // makes a single-commit reset legal at all.
+            expect(result.errors, 'the commit names exactly the registered keys').toEqual([]);
+
+            // The contract, not a shortfall: retiring a window inside the commit is not buildable —
+            // adoption must be synchronous while a native close is async AND refusable — so reset
+            // leaves it standing and the readout says so.
+            expect(workspace.workspaceSet.has('popup-a'), 'the extra workspace is not retired').toBe(true);
+
+            // THE case the two-fact split exists for. The earlier collapsed Boolean answered
+            // "modified" here — true of nothing the user could act on, and reached without ever
+            // comparing the document that had just been restored.
+            expect(workspace.readTopologyState(), 'default arrangement, one window beyond the shipped one')
+                .toEqual({additionalWindows: 1, modified: false});
+            expect(Workspace.topologyStateText(workspace.readTopologyState()))
+                .toBe('Default arrangement · 1 additional window')
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('reset names its own refusal when no main workspace is registered', async () => {
+        // Not a defensive guard. With no main entry to replace, the commit would ADD a key and be
+        // refused by the seam for naming something unregistered — so refusing here reports the
+        // actual cause instead of the seam's generic shape.
+        const result = await Workspace.prototype.resetTopology.call({
+            getDockTopologyWorkspaces: () => ({'popup-a': WorkspaceDocument.clone(initialDocument)})
+        });
+
+        expect(result).toEqual({errors: ['the main workspace is not registered'], reset: false, transactionId: null})
     })
 });

@@ -446,6 +446,19 @@ class Workspace extends DockWorkspace {
             items : [
                 {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
                 {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'},
+                // Handled on the view rather than by controller name, like undo and redo above it:
+                // the state, the shipped document and the commit seam all live on the view, and a
+                // controller method would only forward. Disabled on the shipped arrangement so the
+                // control answers "there is nothing to go back to" instead of committing a no-op
+                // history row — and it reads the SAME derived key as the readout, so the button and
+                // the line beside it can never disagree about whether the user has left the default.
+                {
+                    ntype  : 'button',
+                    bind   : {disabled: data => !data.topology.modified},
+                    handler: () => me.resetTopology(),
+                    iconCls: 'fa fa-rotate-left',
+                    text   : 'Reset to default'
+                },
                 // Reads the derived keys rather than recomputing: the diff runs once per committed
                 // document at its writer, not once per binding evaluation. Both bindings go through
                 // the one static formatter so the visibility test and the text can never disagree
@@ -590,6 +603,61 @@ class Workspace extends DockWorkspace {
         if (additionalWindows) parts.push(`${additionalWindows} additional window${additionalWindows === 1 ? '' : 's'}`);
 
         return parts.join(' · ')
+    }
+
+    /**
+     * @summary Returns the main workspace to the arrangement the app ships with.
+     *
+     * @description **One commit, and that is the whole design.** The shipped document replaces the
+     * main entry of the live keyed topology and every other key is passed through **unchanged**, so
+     * the write names exactly the registered keys that
+     * {@link Neo.dashboard.dock.window.TopologySeams#commitDockTopologyWorkspaces} requires and no
+     * window has to be retired for the commit to be legal.
+     *
+     * **Leaving other windows standing is the contract, not a shortfall.** Retiring them inside the
+     * commit is not buildable: `transaction/Commit.mjs` throws unless adoption is synchronous, while
+     * a native close is asynchronous *and* refusable — `Window.mjs` gates `close` as a route
+     * capability and defaults a route without one to `{close: false}`. Placed in `prepare`, the only
+     * async phase, a blocked popup would abort the restore and the user could not get their layout
+     * back because a window would not shut. Placed after the commit it is no longer atomic. So the
+     * standing window is reported by {@link #readTopologyState} rather than acted on, and the user
+     * closes it themselves.
+     *
+     * **It commits through the Group rather than assigning `dockModel`.** The nearest precedent in
+     * this repo — `TourController`'s `workspace.dockModel = WorkspaceDocument.clone(initialDocument)`
+     * — is a direct field write that fires no commit event, so `TopologyLibrary`'s
+     * `commit: data => this.persistCurrent()` never runs and the OLD topology stays in IndexedDB to
+     * return on the next reload. Copying it would leave the user's arrangement restored on refresh.
+     *
+     * **Single-commit is also what makes it recoverable.** Persistence is commit-driven, so a
+     * multi-step reset would write each intermediate state to IndexedDB as it went and could strand
+     * a persisted half-reset whose original was already overwritten by step one. There are no
+     * intermediate states here: one write, one auto-save. And `WorkspaceSet.write` defaults to
+     * `cursorAction: 'append'`, so this lands as one ordinary history row — undo reverses it exactly
+     * as it reverses a dragged splitter, which is why it carries no confirmation ceremony.
+     *
+     * It deliberately does **not** route through `startBlankRoot()`: that path admits
+     * `{topologyIdentity: {}}` and exists for the load-failure case. Blank is not default, and
+     * conflating them would delete the product's own layout.
+     * @returns {Promise<{errors: String[], reset: Boolean, transactionId: String|null}>}
+     */
+    async resetTopology() {
+        const me         = this,
+              workspaces = me.getDockTopologyWorkspaces();
+
+        // Not a defensive guard: with no main workspace registered there is no entry for the shipped
+        // document to replace, so the commit would ADD a key and be refused for naming something
+        // unregistered. Refusing here names the actual cause instead of the seam's generic shape.
+        if (!Object.hasOwn(workspaces, Workspace.MAIN_WORKSPACE_ID)) {
+            return {errors: ['the main workspace is not registered'], reset: false, transactionId: null}
+        }
+
+        const {errors, transactionId} = await me.commitDockTopologyWorkspaces({
+            ...workspaces,
+            [Workspace.MAIN_WORKSPACE_ID]: WorkspaceDocument.clone(initialDocument)
+        }, {name: 'default', provenance: {origin: 'human'}});
+
+        return {errors, reset: !errors.length, transactionId: transactionId ?? null}
     }
 
     /**

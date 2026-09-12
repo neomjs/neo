@@ -136,9 +136,20 @@ test.describe('Workstation topology save and close coordination', () => {
         // toolbar.Base merges `createActionItemConfigs()` into `items` as a spacer plus one item per
         // action, so the live bar holds more items than it authors. A fixture that omits `actions`
         // cannot reproduce the defect and therefore cannot certify the fix — the previous one did.
-        const bar = Neo.create(Toolbar, Workspace.prototype.createTopologyBar.call({topologyGroupId: 'spec-group'}));
+        // Counted off the declaration rather than pinned, and the counts are read BEFORE `Neo.create`
+        // consumes it. The boundary this arm protects is that the materialised bar holds MORE than
+        // the view authored — a literal total asserts that only by coincidence, and reds on the next
+        // item the view adds while saying nothing about the merge it was written to catch.
+        const declaration   = Workspace.prototype.createTopologyBar.call({topologyGroupId: 'spec-group'}),
+              authoredCount = declaration.items.length,
+              actionCount   = declaration.actions.length,
+              bar           = Neo.create(Toolbar, declaration);
 
-        expect(bar.items.length, 'three authored items, plus the spacer and one item per action').toBe(6);
+        expect(authoredCount, 'the factory authors items at all').toBeGreaterThan(0);
+        expect(actionCount,   'and declares the actions whose merge is under test').toBeGreaterThan(0);
+
+        expect(bar.items.length, 'every authored item, plus the spacer and one item per action')
+            .toBe(authoredCount + 1 + actionCount);
         expect(bar.getActionSpacer(), 'the toolbar owns a spacer once actions exist').not.toBeNull();
 
         // The invariant whose violation threw `Component not found for id` on every viewport sync:
@@ -178,7 +189,7 @@ test.describe('Workstation topology save and close coordination', () => {
             .map(item => item.text);
 
         expect(ordinaryTexts(), 'the lifecycle hook already populated it').toEqual([
-            'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
+            'Save workspace', 'Close workspace', 'Reset to default', 'Open alpha as window', 'Show alpha here'
         ]);
 
         // Positional `slice(count)` destroyed these three, and `items.length = count` left their
@@ -190,7 +201,7 @@ test.describe('Workstation topology save and close coordination', () => {
 
         expect(controller.syncTopologyBar()).toBe(true);
         expect(ordinaryTexts(), 'and a resync is not additive').toEqual([
-            'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
+            'Save workspace', 'Close workspace', 'Reset to default', 'Open alpha as window', 'Show alpha here'
         ]);
         expectVdomAligned('aligned after a resync');
 
@@ -216,7 +227,7 @@ test.describe('Workstation topology save and close coordination', () => {
         participants = [];
 
         expect(controller.syncTopologyBar()).toBe(true);
-        expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace']);
+        expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace', 'Reset to default']);
         expect(bar.getAction('undo'), 'an emptied participant set still leaves the actions alone').not.toBeNull();
         expectVdomAligned('aligned after every participant leaves');
 
