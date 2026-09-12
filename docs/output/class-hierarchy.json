@@ -248,6 +248,7 @@
  "Neo.dashboard.dock.projection.HeaderActionPolicy": "Neo.core.Base",
  "Neo.dashboard.dock.projection.LayoutAdapter": "Neo.core.Base",
  "Neo.dashboard.dock.projection.MotionSignal": "Neo.core.Base",
+ "Neo.dashboard.dock.projection.PerspectiveState": "Neo.core.Base",
  "Neo.dashboard.dock.projection.Reconciler": "Neo.core.Base",
  "Neo.dashboard.dock.window.DragTarget": "Neo.core.Base",
  "Neo.dashboard.dock.window.NativeVesselTransaction": "Neo.core.Base",
