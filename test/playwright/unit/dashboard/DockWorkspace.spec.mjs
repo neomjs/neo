@@ -616,6 +616,141 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         })
     });
 
+    test.describe('a pane close under a Group chains its focus follow-up onto its OWN refresh', () => {
+        // `handleDockCloseAction` chained focus onto `refreshPromise` at the moment of the call. On
+        // the Group branch that promise belongs to the PREVIOUS refresh — or is still `null` — because
+        // `onDockZoneDocumentChange` returns the write and schedules no projection: `Commit.complete`
+        // queues it as a detached microtask, and `Transaction.write` resolves before it runs.
+        //
+        // Two traps the arms exist to hold down. A `?.` guard alone fixes the throw and leaves the
+        // stale chain. Assigning the chain to `refreshPromise` BEFORE the projection is scheduled
+        // deadlocks, because `projectDockZoneDocument` takes `me.refreshPromise?.catch(…)` as its own
+        // tail — the fix must assign only after the returned promise settles.
+        //
+        // Found by @neo-opus-grace against a live app, reproduced on a real Group by @neo-fable.
+        const stage = async () => {
+            const {groupId} = TransactionManager.bind({windowId: `dock-close-focus-${Neo.getId('t')}`, workspaceKey: 'main'}),
+                  workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), topologyGroupId: groupId}),
+                  set       = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, getGroupId: () => groupId, manager: TransactionManager}),
+                  commits   = [],
+                  focus     = [],
+                  projected = {count: 0},
+                  project   = workspace.projectDockCommit.bind(workspace);
+
+            TransactionManager.setHistoryDepth({groupId, depth: 5});
+            // Without this the workspace has no `workspaceSet`, `onDockZoneDocumentChange` takes the
+            // DIRECT branch, and the fixture never reaches the defect at all — it measured the branch
+            // that was already correct.
+            // `workspaceKey` makes the participant lookup direct; without it `onDockZoneDocumentChange`
+            // scans for a participant whose `componentId` matches, which this fixture's registration
+            // does not supply, and the write is rejected before the defect can be reached.
+            workspace.workspaceKey         = 'main';
+            workspace.workspaceSet         = set;
+            workspace.projectDockCommit    = context => {projected.count++; return project(context)};
+
+            // The arms settle on the SAME promise production waits on, captured here rather than
+            // approximated with a sleep. The handler registers its continuation on it before this
+            // capture is awaited, so by the time the arm resumes the follow-up chain is published.
+            const change = workspace.onDockZoneDocumentChange.bind(workspace);
+
+            workspace.onDockZoneDocumentChange = (...args) => {
+                const result = change(...args);
+                commits.push(result);
+                return result
+            };
+            workspace.focusDockCloseTarget = data => focus.push({...data, projectionsSoFar: projected.count});
+
+            set.register('main', {
+                getDocument: () => workspace.dockModel,
+                setDocument: value => workspace.dockModel = value,
+                project    : context => workspace.projectDockCommit(context)
+            });
+
+            return {commits, focus, groupId, projected, set, workspace}
+        };
+
+        test('the first close on a statically projected shell does not throw, and focus still runs', async () => {
+            const {commits, focus, groupId, set, workspace} = await stage();
+
+            try {
+                // Facet 1. `refreshPromise` is null until the first commit projects, and the shell here
+                // was projected statically in `construct` — the Workstation idiom. The close itself
+                // always landed; it was the follow-up that died with it.
+                expect(workspace.refreshPromise, 'the precondition the defect needs: no refresh yet').toBe(null);
+
+                const tabs    = tabsOf(workspace.items[0]).get('side-tabs'),
+                      outcome = workspace.handleDockCloseAction({dockNodeId: 'side-tabs', tabContainer: tabs});
+
+                expect(outcome?.errors ?? [], 'the close commits').toEqual([]);
+
+                await commits.at(-1);
+                await workspace.refreshPromise;
+
+                expect(focus.length, 'the focus follow-up ran rather than dying with a TypeError').toBe(1)
+            } finally {
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        test('after an earlier commit the follow-up waits for the CLOSE\'s projection, not the previous one', async () => {
+            const {commits, focus, groupId, projected, set, workspace} = await stage();
+
+            try {
+                // Facet 2, and the one a `?.` guard leaves behind: with a settled refresh already in
+                // place the chain resolves immediately, so focus reached the outgoing chrome.
+                await set.commit('main', [{operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.75, 0.25]}]);
+                await workspace.refreshPromise;
+
+                const before = projected.count;
+
+                expect(before, 'an earlier commit really projected').toBeGreaterThan(0);
+
+                workspace.handleDockCloseAction({
+                    dockNodeId  : 'side-tabs',
+                    tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                });
+
+                await commits.at(-1);
+                await workspace.refreshPromise;
+
+                expect(focus.length, 'focus ran').toBe(1);
+                expect(focus[0].projectionsSoFar, 'focus waited for the close to project, not for the previous refresh')
+                    .toBeGreaterThan(before)
+            } finally {
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        test('control: the direct branch already ordered focus after its own projection', async () => {
+            // No Group, so `onDockZoneDocumentChange` runs `projectDockZoneDocument`, which assigns
+            // `refreshPromise` inside the call. This arm was green before the fix and must stay green:
+            // it is what proves the repair did not buy the Group branch at the direct branch's expense.
+            const workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()}),
+                  focus     = [],
+                  projected = {count: 0},
+                  project   = workspace.projectDockZoneDocument.bind(workspace);
+
+            workspace.projectDockZoneDocument = (...args) => {projected.count++; return project(...args)};
+            workspace.focusDockCloseTarget    = data => focus.push({...data, projectionsSoFar: projected.count});
+
+            try {
+                workspace.handleDockCloseAction({
+                    dockNodeId  : 'side-tabs',
+                    tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                });
+
+                await workspace.refreshPromise;
+
+                expect(focus.length, 'focus ran on the direct branch').toBe(1);
+                expect(focus[0].projectionsSoFar, 'and after its own projection').toBeGreaterThan(0)
+            } finally {
+                workspace.destroy()
+            }
+        })
+    });
+
     test.describe('#17947 pop-out dispatches the drag terminal, never a second lifecycle', () => {
         // The whole point of the leaf: a click enters the SAME pair the pointer gesture's terminal
         // calls. These arms assert the dispatch and its ordering, because "no parallel lifecycle" is

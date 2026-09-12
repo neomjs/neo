@@ -1706,10 +1706,36 @@ class Workspace extends Container {
         if (result && !result.errors?.length && result.document) {
             let focusId = result.document.nodes?.[modelNodeId]?.activeItemId ?? null;
 
-            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
-            me.refreshPromise = me.refreshPromise.then(() => {
-                me.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId})
-            })
+            // Focus must land after the refresh THIS close scheduled, and the two branches of
+            // `onDockZoneDocumentChange` publish that refresh at different times. The discriminator
+            // is the observable one rather than a test of which branch ran: did the call publish a
+            // new refresh before returning?
+            const published = me.refreshPromise,
+                  pending   = me.onDockZoneDocumentChange(result.document, descriptor, tabContainer),
+                  focus     = () => me.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId});
+
+            if (me.refreshPromise && me.refreshPromise !== published) {
+                // The direct branch projected inside the call and assigned its own refresh, so chain
+                // now — which also keeps the follow-up observable to a caller that awaits
+                // `refreshPromise` immediately, as the close specs do.
+                me.refreshPromise = me.refreshPromise.then(focus)
+            } else {
+                // The Group branch returned the write and scheduled no projection: `Commit.complete`
+                // queues it as a detached microtask and the write resolves first, so `refreshPromise`
+                // still holds the PREVIOUS refresh, or `null` on a shell projected statically before
+                // any commit. Reading it here chained focus onto a settled promise — focus reached
+                // chrome the reconciler was about to retire — or threw on the null.
+                //
+                // The assignment must stay inside the `then`: `projectDockZoneDocument` takes
+                // `me.refreshPromise` as its own tail, so publishing a chain that awaits the
+                // projection before it is scheduled makes the projection wait on itself.
+                //
+                // A rejected write means no close landed and no focus is owed. The commit path
+                // already logs it; this catch only stops the follow-up reporting it twice.
+                Promise.resolve(pending)
+                    .then(() => {me.refreshPromise = (me.refreshPromise ?? Promise.resolve()).then(focus)})
+                    .catch(() => {})
+            }
         }
 
         return result
