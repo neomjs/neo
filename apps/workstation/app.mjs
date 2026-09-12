@@ -15,6 +15,21 @@ export function resolveBootstrapTheme({search='', themes=[]} = {}) {
 }
 
 /**
+ * @summary Reads the search params one Workstation window booted with.
+ *
+ * The main thread registers each window's URL alongside its config, so the App worker can read a window's
+ * boot intent synchronously — no round-trip to the realm that owns the document. Both view controllers
+ * read it here so that the entry point and the views agree on where that truth lives.
+ * @param {String} windowId
+ * @returns {URLSearchParams}
+ */
+export function resolveBootParams(windowId) {
+    const config = Neo.windowConfigs?.[windowId] || Neo.config;
+
+    return new URLSearchParams(config.url?.search ?? '')
+}
+
+/**
  * @summary Starts each Workstation window with its carried theme on the first viewport instance.
  * @returns {Neo.controller.Application}
  */
@@ -27,7 +42,7 @@ export const onStart = () => {
             themes: config.themes
         });
 
-    const params  = new URLSearchParams(config.url?.search ?? ''),
+    const params  = resolveBootParams(windowId),
           carried = config.topologyIdentity;
     // A popup cannot cold-create its absent root before that root selects durable truth.
     if ((params.has('popout') || params.has('workspace')) && carried?.groupId && !Transaction.get(carried.groupId)) {
