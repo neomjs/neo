@@ -225,6 +225,7 @@
  "Neo.dashboard.dock.interaction.DockSplitter": "Neo.component.Splitter",
  "Neo.dashboard.dock.interaction.DragAffordances": "Neo.core.Base",
  "Neo.dashboard.dock.interaction.DropIndicators": "Neo.container.Base",
+ "Neo.dashboard.dock.interaction.PerspectiveSelection": "Neo.core.Base",
  "Neo.dashboard.dock.interaction.Preview": "Neo.component.Base",
  "Neo.dashboard.dock.interaction.PreviewProducer": "Neo.core.Base",
  "Neo.dashboard.dock.interaction.Rail": "Neo.container.Base",

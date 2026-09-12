@@ -696,6 +696,8 @@ class Transaction extends Manager {
      * @param {String} request.cause Explicit reason for this write, separate from cursorAction.
      * @param {Object} [request.provenance={}] Plain origin metadata.
      * @param {Object} [request.descriptor={}] Plain transaction metadata.
+     * @param {Function} [request.prepareDescriptor] Pure synchronous `({descriptor, snapshot})` metadata resolver
+     *     at the Group queue head. Must not mutate participants or enqueue another write.
      * @param {Object[]} [request.changes=[]] Unique {workspaceKey, input} entries.
      * @param {String} [request.cursorAction='append'] append, preserve, undo or redo.
      * @param {Object[]} [request.effects=[]] {effectId, run} callbacks, invoked after semantic commit.
@@ -711,6 +713,9 @@ class Transaction extends Manager {
         }
 
         try {
+            if (request.prepareDescriptor !== undefined && typeof request.prepareDescriptor !== 'function') {
+                throw new TypeError('prepareDescriptor must be a function')
+            }
             request = Object.freeze({
                 ...request,
                 changes   : Commit.copy(request.changes ?? []),

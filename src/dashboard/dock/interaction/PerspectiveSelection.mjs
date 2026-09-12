@@ -1,0 +1,232 @@
+import Base      from '../../../core/Base.mjs';
+import Authoring from '../model/Authoring.mjs';
+import Document  from '../model/WorkspaceDocument.mjs';
+
+/**
+ * @summary Owns captured perspective declarations and the lifetime of one Workspace's selection requests.
+ * A Group retains identity as an auxiliary participant in the document's atomic write.
+ * Projection synchronizes the public config without restoring again; pending newer intent survives.
+ * Documents remain with the Workspace and its Group. This owner imports no transaction machinery.
+ * @class Neo.dashboard.dock.interaction.PerspectiveSelection
+ * @extends Neo.core.Base
+ */
+class PerspectiveSelection extends Base {
+    static config = {
+        /** @member {String} className='Neo.dashboard.dock.interaction.PerspectiveSelection' */
+        className: 'Neo.dashboard.dock.interaction.PerspectiveSelection',
+        /** @member {Neo.dashboard.dock.Workspace|null} workspace=null The declaring host. */
+        workspace: null
+    }
+
+    /** @member {Boolean} initialized=false Whether declarations have been captured. */
+    initialized = false
+    /** @member {String|null} publishedName=null Identity observed by the latest projection. */
+    publishedName = null
+    /** @member {String|null} pendingName=null Latest unresolved request, independent of projection. */
+    pendingName = null
+    /** @member {Promise} pending Settlement of the latest request. */
+    pending = Promise.resolve({errors: []})
+    /** @member {Map<String,Object>} #documents Captured lowered baselines. @private */
+    #documents = new Map()
+    /** @member {Number} #serial=0 Request generation. @private */
+    #serial = 0
+    /** @member {Boolean} #sync=false Suppresses restoration during public synchronization. @private */
+    #sync = false
+    /** @member {Object|null} #manager=null Borrowed Group authority. @private */
+    #manager = null
+    /** @member {String|null} #groupId=null Observed Group. @private */
+    #groupId = null
+    /** @member {String|null} #directName=null Identity for the standalone document path. @private */
+    #directName = null
+    /** @member {Object|null} #entry=null Group-owned identity participant. @private */
+    #entry = null
+    /** @member {Promise|null} #registration=null Queue-ordered identity registration. @private */
+    #registration = null
+
+    /** @summary Reads semantic identity independently of observer delivery. @member {String|null} committedName */
+    get committedName() { return this.#entry?.capture().value.name ?? this.#directName }
+
+    /** @summary Captures declarations after the host's complete construction chain. @returns {Object} Initial zones. */
+    capture() {
+        const host     = this.workspace, supplied = host.dockModel !== null,
+              declared = host.perspectives === null
+                  ? {[Authoring.defaultPerspectiveName]: host.zones ?? {type: 'edge-zone'}}
+                  : Neo.clone(host.perspectives, true, true);
+        if (!declared || typeof declared !== 'object' || Array.isArray(declared) || !Object.keys(declared).length) {
+            throw new TypeError('perspectives must be a nonempty map of names to zones')
+        }
+        for (const [name, zones] of Object.entries(declared)) {
+            if (!name.trim()) throw new TypeError('perspective names must not be empty');
+            const result = supplied && host.perspectives === null
+                ? {document: Document.clone(host.dockModel), errors: []}
+                : Authoring.fromZones(host.panes ?? {}, zones);
+            if (result.errors.length) throw new TypeError(`perspectives.${name}: ${result.errors.join('; ')}`);
+            this.#documents.set(name, Document.clone(result.document))
+        }
+        const first = this.#documents.keys().next().value;
+        let   name  = host.activePerspective ?? first;
+        if (!this.#documents.has(name)) {
+            console.error('Supported values for activePerspective are:', ...this.#documents.keys());
+            name = first
+        }
+        this.#directName = this.publishedName = name;
+        host.activePerspective = name;
+        return declared[name]
+    }
+
+    /** @summary Reads a fresh copy of a captured baseline. @param {String} name @returns {Object|null} */
+    document(name) { return this.#documents.has(name) ? Document.clone(this.#documents.get(name)) : null }
+
+    /** @summary Refuses unknown names against the captured set. @param {String} value @returns {String} */
+    accept(value) {
+        if (this.#documents.has(value)) return value;
+        console.error('Supported values for activePerspective are:', ...this.#documents.keys());
+        return this.committedName
+    }
+
+    /** @summary A config write admits intent unless it is synchronization from accepted truth. @param {String} value */
+    onIntent(value) {
+        if (!this.#sync && value !== this.committedName) this.restore(value)
+    }
+
+    /** @summary Resolves the host's document participant without owning a registry. @returns {String|undefined} */
+    workspaceKey() {
+        const host = this.workspace, set = host.workspaceSet;
+        return host.workspaceKey ?? set?.ids().find(key => set.getParticipant(key)?.componentId === host.id)
+    }
+
+    /**
+     * @summary Registers auxiliary identity on the Group queue without admitting a nested write.
+     * Its captured name survives view replacement; it is not a workspace document or persisted wire.
+     * @returns {Promise<void>}
+     */
+    attachGroup() {
+        const host    = this.workspace, manager = host.workspaceSet?.manager ?? host.transactionManager ?? Neo.manager?.Transaction,
+              groupId = host.topologyGroupId;
+        if (this.#manager === manager && this.#groupId === groupId && this.#registration) return this.#registration;
+        this.#directName = this.committedName;
+        this.#entry = null;
+        this.#manager = manager;
+        this.#groupId = groupId;
+        if (!groupId || !manager) return Promise.resolve();
+        const group = manager.get(groupId), key = this.workspaceKey(), identityKey = this.identityKey();
+        if (!group || !key) return Promise.reject(new Error('dock participant not registered'));
+        this.#registration = manager.enqueue(group, () => {
+            if (this.isDestroyed || host.isDestroyed) throw new Error('perspective workspace destroyed');
+            let entry = manager.getParticipant(groupId, identityKey);
+            if (entry && entry.perspectiveSelection !== true) throw new Error('perspective participant key already in use');
+            if (!entry) {
+                const state = {value: Object.freeze({name: this.#directName}), revision: 0},
+                      names = new Set(this.#documents.keys());
+                entry = {
+                    domain : 'dock', perspectiveSelection: true,
+                    capture: () => ({value: state.value, revision: state.revision,
+                        generation: manager.getBinding(groupId, key)?.generation ?? 0}),
+                    prepare: value => {
+                        if (!value || !names.has(value.name)) throw new Error('unknown declared perspective');
+                        return {name: value.name}
+                    },
+                    adopt     : value => {state.value = value; state.revision++},
+                    compensate: captured => {state.value = captured.value; state.revision = captured.revision}
+                };
+                if (!manager.registerParticipant({groupId, workspaceKey: identityKey, participant: entry})) {
+                    throw new Error('perspective participant could not register')
+                }
+            }
+            this.#entry = entry
+        }).catch(error => {
+            this.#registration = null;
+            throw error
+        });
+        return this.#registration
+    }
+
+    /** @summary Names this document's auxiliary identity slot. @returns {String} */
+    identityKey() { return `$perspective:${this.workspaceKey()}` }
+
+    /** @summary Reads selection metadata only for this participant. @param {Object} context @returns {String|null} */
+    identity(context) {
+        const replay = context.cursorAction === 'undo' || context.cursorAction === 'redo',
+              entry  = replay ? context.replayRow ?? context.row : context.descriptor,
+              name   = context.cursorAction === 'undo' ? entry?.before : entry?.after;
+        return entry?.operation === 'restorePerspective' && entry.workspaceKey === this.workspaceKey() && this.#documents.has(name)
+            ? name : null
+    }
+
+    /** @summary Public synchronization preserves Effects and two-way bindings. @param {String} name */
+    sync(name) {
+        if (this.isDestroyed || this.workspace.isDestroyed) return;
+        this.#sync = true;
+        try { this.workspace.activePerspective = name } finally { this.#sync = false }
+    }
+
+    /** @summary Projects carried identity without overwriting a newer pending request. @param {Object} context */
+    project(context) {
+        const name = this.identity(context);
+        if (name === null) return;
+        this.publishedName = name;
+        if (this.pendingName === null || this.pendingName === name) this.sync(name)
+    }
+
+    /**
+     * @summary Restores a captured document; foreign-owned panes refuse before any adoption.
+     * The callback captures the before-name inside the existing Group queue. It admits no write itself.
+     * @param {String} name
+     * @returns {Promise<{document:Object,errors:String[]}>}
+     */
+    restore(name = this.committedName) {
+        const host = this.workspace, document = this.document(name), serial = ++this.#serial;
+        this.pendingName = name;
+        let pending;
+        try {
+            if (!document) throw new Error(`unknown declared perspective "${name}"`);
+            const key = this.workspaceKey(), set = host.workspaceSet;
+            if (set && host.topologyGroupId) {
+                if (!key) throw new Error('dock participant not registered');
+                pending = this.attachGroup().then(() => this.#manager.write({
+                    groupId: host.topologyGroupId,
+                    cause  : 'perspective',
+                    changes: [{workspaceKey: key, input: document},
+                        {workspaceKey: this.identityKey(), input: {name}}],
+                    descriptor       : {operation: 'restorePerspective', workspaceKey: key, after: name},
+                    prepareDescriptor: ({descriptor}) => {
+                        if (this.isDestroyed || host.isDestroyed) throw new Error('perspective workspace destroyed');
+                        for (const sibling of set.ids().filter(id => id !== key)) {
+                            if (Object.keys(set.getDocument(sibling)?.items ?? {}).some(id => Object.hasOwn(document.items, id))) {
+                                throw new Error(`perspective restore would duplicate a pane owned by "${sibling}"`)
+                            }
+                        }
+                        return {...descriptor, before: this.committedName}
+                    }
+                }))
+            } else {
+                pending = host.onDockZoneDocumentChange(document, {
+                    operation: 'restorePerspective', workspaceKey: key,
+                    before   : this.committedName, after: name
+                }, host);
+                this.#directName = name
+            }
+        } catch (error) { pending = Promise.reject(error) }
+        this.pending = Promise.resolve(pending).then(() => {
+            if (!this.isDestroyed && !host.isDestroyed && serial === this.#serial) {
+                this.pendingName = null;
+                this.sync(this.committedName)
+            }
+            return {document: host.dockModel, errors: []}
+        }, error => {
+            if (!this.isDestroyed && !host.isDestroyed && serial === this.#serial) {
+                this.pendingName = null;
+                this.sync(this.committedName)
+            }
+            return {document: host.dockModel, errors: [error.message]}
+        });
+        return this.pending
+    }
+
+    /** @summary Releases the view's reference; the Group retains its identity participant. @param {...*} args */
+    destroy(...args) {
+        super.destroy(...args)
+    }
+}
+
+export default Neo.setupClass(PerspectiveSelection);
