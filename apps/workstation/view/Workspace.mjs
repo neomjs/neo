@@ -207,12 +207,12 @@ class Workspace extends DockWorkspace {
          */
         stateProvider: {
             module: StateProvider,
-            // `topology.modified` is DERIVED here rather than bound, because there is nothing to bind
-            // to: `dockModel` is a plain field on the dock Workspace, not a reactive config, so a
-            // formatter reading it would never re-run. {@link #syncTopologyModified} publishes it from
-            // the two places the document actually arrives. Seeded `false` only so the key exists
-            // before the first publish; `construct` overwrites it with the measured answer.
-            data  : {topology: {modified: false}, tour: initialTourState},
+            // The `topology` keys are DERIVED here rather than bound, because there is nothing to
+            // bind to: `dockModel` is a plain field on the dock Workspace, not a reactive config, so
+            // a formatter reading it would never re-run. {@link #syncTopologyState} publishes them
+            // from the two places the document actually arrives. Seeded only so the keys exist before
+            // the first publish; `construct` overwrites both with the measured answer.
+            data  : {topology: {additionalWindows: 0, modified: false}, tour: initialTourState},
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
@@ -446,15 +446,15 @@ class Workspace extends DockWorkspace {
             items : [
                 {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
                 {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'},
-                // Reads the derived key rather than recomputing: the diff runs once per committed
-                // document at its writer, not once per binding evaluation. Absent on the default
-                // arrangement rather than shown-and-empty — a badge that is always present says
-                // nothing, and the whole point is that the two states look different.
+                // Reads the derived keys rather than recomputing: the diff runs once per committed
+                // document at its writer, not once per binding evaluation. Both bindings go through
+                // the one static formatter so the visibility test and the text can never disagree
+                // about whether there is something to say.
                 {
                     ntype: 'component',
                     bind : {
-                        cls : data => ['workstation-topology-modified'].concat(data.topology.modified ? [] : ['neo-hidden']),
-                        html: data => data.topology.modified ? 'Modified from default' : ''
+                        cls : data => ['workstation-topology-state'].concat(Workspace.topologyStateText(data.topology) ? [] : ['neo-hidden']),
+                        html: data => Workspace.topologyStateText(data.topology)
                     },
                     flex : 'none'
                 }
@@ -486,15 +486,28 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary Whether the live topology differs from the arrangement the app ships with.
+     * @summary How the live topology stands against the arrangement the app ships with, as two
+     * independent facts.
      *
      * @description **The unit is the whole keyed topology, not this window's document.** What gets
      * persisted and restored is {@link #getDockTopologyWorkspaces} — every registered workspace
      * keyed by identity — because the thing a reader expects back when they open the app URL is
-     * their multi-window setup, not one window's panes. So a pane torn out into a second window is
-     * a departure from the default even when the document left behind still matches: **the extra
-     * workspace IS the difference**, and comparing `main` alone would call that arrangement
-     * default.
+     * their multi-window setup, not one window's panes. So a pane torn out into a second window IS
+     * a departure from the shipped arrangement, which ships exactly one workspace.
+     *
+     * **But that is a second fact, not the same one, and collapsing them made the readout lossy.**
+     * An earlier revision returned a single Boolean and answered `true` on any extra key *before*
+     * the differ ran. Two costs, and the second is worse than the first: a user whose main document
+     * genuinely matches the default was told they had "modified" it, and the document that actually
+     * matched was never compared at all — so the answer was not merely coarse, it was unmeasured.
+     * It also made reset look broken: reset commits the shipped document and deliberately leaves
+     * other windows standing ({@link Neo.dashboard.dock.window.TopologySeams#commitDockTopologyWorkspaces}
+     * refuses a commit that does not name every registered key, and retiring a window is neither
+     * synchronous nor guaranteed), so the readout lit up the instant the user pressed it.
+     *
+     * Reported separately, both halves stay true and the user can act on each: the named document
+     * is at the default or it is not, and N windows stand beyond the one the app ships. Rendering
+     * is {@link Workspace.topologyStateText}'s problem, not this method's.
      *
      * The question is a COMPARISON, not a dirty flag: a flag set on the first operation never
      * clears when the user undoes back to the start, while a comparison recomputed from live state
@@ -514,33 +527,69 @@ class Workspace extends DockWorkspace {
      * history, writes a settled popup move as an appended row, and `undo` applies it natively — a
      * dragged window is an undoable step exactly as a dragged splitter is. But its hints are popup
      * offsets measured RELATIVE TO MAIN (`observedHints` skips the main binding), and this app ships
-     * a single window. So any hint worth comparing implies a second workspace, which the key check
-     * above has already answered. Testing hints as well would not add a case — it would subtract
-     * correctness: `getPlacementHints` reads the raw hint record rather than the pruned one, so a
-     * hint outliving a closed popup would report a user who is genuinely back at the default as
-     * modified.
+     * a single window. So any hint worth comparing implies a second workspace, which
+     * `additionalWindows` already reports. Testing hints as well would not add a case — it would
+     * subtract correctness: `getPlacementHints` reads the raw hint record rather than the pruned
+     * one, so a hint outliving a closed popup would report a user who is genuinely back at the
+     * default as modified.
      *
-     * Two deliberate `false` answers. **An unestablished topology** — no workspace registered yet —
-     * is not a departure; it is the absence of an answer, and reporting one would light the
-     * indicator during boot. **A malformed document** likewise: `errors` means the comparison did
-     * not happen, and an indicator that lights up because the differ failed tells the reader
-     * something false about their own layout.
-     * @returns {Boolean}
+     * Three deliberate `modified: false` answers, all of them "no comparison happened" rather than
+     * "compared equal". **An unestablished topology** — no workspace registered yet — is not a
+     * departure; it is the absence of an answer, and reporting one would light the indicator during
+     * boot. **A main workspace that is not registered**, likewise: there is nothing to compare the
+     * shipped document against. `additionalWindows` is still counted honestly in that case, because
+     * it is a separate fact that remains knowable. **A malformed document** likewise: `errors` means
+     * the comparison did not happen, and an indicator that lights up because the differ failed tells
+     * the reader something false about their own layout.
+     * @returns {{additionalWindows: Number, modified: Boolean}}
      * @protected
      */
-    isTopologyModified() {
-        const me         = this,
-              workspaces = me.getDockTopologyWorkspaces(),
-              keys       = Object.keys(workspaces);
+    readTopologyState() {
+        const me                = this,
+              workspaces        = me.getDockTopologyWorkspaces(),
+              keys              = Object.keys(workspaces),
+              main              = workspaces[Workspace.MAIN_WORKSPACE_ID],
+              additionalWindows = keys.filter(key => key !== Workspace.MAIN_WORKSPACE_ID).length;
 
-        if (!keys.length) return false;
+        if (!main) return {additionalWindows, modified: false};
 
-        if (keys.length > 1 || keys[0] !== Workspace.MAIN_WORKSPACE_ID) return true;
+        const diff = TopologyDiff.diffDockDocuments(initialDocument, main);
 
-        const diff = TopologyDiff.diffDockDocuments(initialDocument, workspaces[keys[0]]);
+        return {
+            additionalWindows,
+            modified: !diff.errors.length && Object.keys(diff).some(category =>
+                category !== 'errors' && category !== 'unchanged' && diff[category]?.length)
+        }
+    }
 
-        return !diff.errors.length && Object.keys(diff).some(category =>
-            category !== 'errors' && category !== 'unchanged' && diff[category]?.length)
+    /**
+     * @summary The topology bar's state line, or an empty string when there is nothing to say.
+     *
+     * @description Static and pure so the binding, the spec and any future consumer read one
+     * formatter rather than three phrasings that drift. It composes the two facts
+     * {@link #readTopologyState} measures; it does not re-derive them.
+     *
+     * **Silence is a state.** On the shipped arrangement with no extra windows this returns `''`
+     * and the component hides. A readout that is always present says nothing — the whole point of
+     * the ticket is that "this is the product" and "you made this" look different at a glance.
+     *
+     * The default-arrangement half appears **only** alongside extra windows. Saying "Default
+     * arrangement" on its own would be that always-present readout; saying it beside a window count
+     * is what stops the count from reading as an accusation after a reset.
+     * @param {Object}  [state={}]
+     * @param {Number}  [state.additionalWindows=0]
+     * @param {Boolean} [state.modified=false]
+     * @returns {String}
+     */
+    static topologyStateText({additionalWindows=0, modified=false}={}) {
+        const parts = [];
+
+        if (modified)               parts.push('Modified from default');
+        else if (additionalWindows) parts.push('Default arrangement');
+
+        if (additionalWindows) parts.push(`${additionalWindows} additional window${additionalWindows === 1 ? '' : 's'}`);
+
+        return parts.join(' · ')
     }
 
     /**
@@ -557,7 +606,7 @@ class Workspace extends DockWorkspace {
      */
     onConstructed() {
         super.onConstructed();
-        this.syncTopologyModified()
+        this.syncTopologyState()
     }
 
     /**
@@ -583,21 +632,27 @@ class Workspace extends DockWorkspace {
     projectDockCommit(context) {
         const projection = super.projectDockCommit(context);
 
-        this.syncTopologyModified();
+        this.syncTopologyState();
 
         return projection
     }
 
     /**
-     * @summary Publishes {@link #isTopologyModified} for the topology bar's readout.
+     * @summary Publishes {@link #readTopologyState} for the topology bar's readout.
+     *
+     * Both keys are written by path in one call rather than replacing the `topology` object, so a
+     * key added here later cannot be silently dropped by this publisher, and the pair lands as one
+     * update rather than flashing a half-state through the binding.
      * @protected
      */
-    syncTopologyModified() {
+    syncTopologyState() {
         const me = this;
 
         if (me.isDestroyed || !me.getStateProvider()) return;
 
-        me.setState({'topology.modified': me.isTopologyModified()})
+        const {additionalWindows, modified} = me.readTopologyState();
+
+        me.setState({'topology.additionalWindows': additionalWindows, 'topology.modified': modified})
     }
 
     /**

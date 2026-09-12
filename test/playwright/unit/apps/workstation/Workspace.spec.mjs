@@ -3329,15 +3329,22 @@ test.describe('Workstation modified-from-default readout (#18553)', () => {
     const MAIN = Workspace.MAIN_WORKSPACE_ID;
 
     /**
-     * The production predicate on the minimal host it actually reads. `isTopologyModified` consults
+     * The production derivation on the minimal host it actually reads. `readTopologyState` consults
      * only the keyed workspaces, so a constructed Workspace would add a Group, a provider and a
      * projection without changing a single answer below.
      * @param {Object} workspaces
-     * @returns {Boolean}
+     * @returns {{additionalWindows: Number, modified: Boolean}}
      */
-    const answer = workspaces => Workspace.prototype.isTopologyModified.call({
+    const read = workspaces => Workspace.prototype.readTopologyState.call({
         getDockTopologyWorkspaces: () => workspaces
     });
+
+    /**
+     * The departure half alone, for the cases that are only about the named document.
+     * @param {Object} workspaces
+     * @returns {Boolean}
+     */
+    const answer = workspaces => read(workspaces).modified;
 
     const drag = descriptor => {
         const result = Operations.applyOperation(WorkspaceDocument.clone(initialDocument), descriptor);
@@ -3382,21 +3389,36 @@ test.describe('Workstation modified-from-default readout (#18553)', () => {
         expect(answer({[MAIN]: restored.document}), 'and clear on return').toBe(false)
     });
 
-    test('a second window is a departure even when the document left behind still matches', () => {
-        // What the reader expects back on opening the app URL is their multi-window setup, so the
-        // extra workspace IS the difference. Comparing the main document alone would call this
-        // arrangement default — the case that makes the keyed topology the unit rather than
-        // `dockModel`.
-        expect(answer({
+    test('a second window is counted, not folded into the departure it is not', () => {
+        // The two facts are independent and this is the case that separates them. An earlier
+        // revision answered `true` on any extra key BEFORE the differ ran, which cost twice: a user
+        // whose main document matched the default was told they had modified it, and the document
+        // that actually matched was never compared. Reset makes that visible — it commits the
+        // shipped document and deliberately leaves other windows standing, so the collapsed answer
+        // lit up the instant the user pressed it.
+        expect(read({
             [MAIN] : WorkspaceDocument.clone(initialDocument),
             'popup': WorkspaceDocument.clone(initialDocument)
-        }), 'main untouched, one pane living in its own window').toBe(true)
+        }), 'main untouched, one pane living in its own window').toEqual({additionalWindows: 1, modified: false});
+
+        // And the halves compose rather than masking each other: a departure in the named document
+        // is still reported while an extra window stands.
+        expect(read({
+            [MAIN] : drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}),
+            'popup': WorkspaceDocument.clone(initialDocument)
+        }), 'both at once').toEqual({additionalWindows: 1, modified: true})
     });
 
-    test('two silences: an unestablished topology and an uncomparable one both read unmodified', () => {
+    test('three silences: unestablished, main-less and uncomparable all read unmodified', () => {
         // Before any workspace registers there is no answer to give, and lighting the indicator
         // during boot would report a departure the user has not made.
-        expect(answer({}), 'nothing registered yet').toBe(false);
+        expect(read({}), 'nothing registered yet').toEqual({additionalWindows: 0, modified: false});
+
+        // No main workspace means nothing to compare the shipped document against — but the window
+        // count is a SEPARATE fact that stays knowable, so it is still reported honestly rather than
+        // zeroed along with the comparison that failed.
+        expect(read({'popup': WorkspaceDocument.clone(initialDocument)}), 'main not registered')
+            .toEqual({additionalWindows: 1, modified: false});
 
         // `errors` means the comparison did not happen. An indicator that lights up because the
         // differ failed tells the reader something false about their own layout.
@@ -3405,5 +3427,28 @@ test.describe('Workstation modified-from-default readout (#18553)', () => {
         malformed.nodes['scale-tabs'].type = 'carousel';
 
         expect(answer({[MAIN]: malformed}), 'a document the differ cannot read').toBe(false)
+    });
+
+    test('the state line says both facts, and says nothing on the shipped arrangement', () => {
+        // Silence is a state: the component hides on the default with no extra windows, because a
+        // readout that is always present cannot distinguish "this is the product" from "you made
+        // this" — which is the affordance.
+        expect(Workspace.topologyStateText({additionalWindows: 0, modified: false}), 'nothing to say').toBe('');
+
+        expect(Workspace.topologyStateText({additionalWindows: 0, modified: true})).toBe('Modified from default');
+
+        // The case the split exists for: immediately after a reset with a popup standing. The old
+        // collapsed answer read "Modified from default" here, which was true of nothing the user
+        // could act on.
+        expect(Workspace.topologyStateText({additionalWindows: 1, modified: false}), 'just after a reset')
+            .toBe('Default arrangement · 1 additional window');
+
+        expect(Workspace.topologyStateText({additionalWindows: 2, modified: true}), 'both, pluralised')
+            .toBe('Modified from default · 2 additional windows');
+
+        // The formatter is what both bindings read, so its empty answer IS the visibility test. A
+        // default with no extra windows must be the ONLY silent state — asserted rather than
+        // assumed, because a formatter that returned '' too often would hide a real departure.
+        expect(Workspace.topologyStateText(), 'no argument at all').toBe('')
     })
 });
