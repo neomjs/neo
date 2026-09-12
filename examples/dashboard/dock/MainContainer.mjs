@@ -14,7 +14,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used b
  * @extends Neo.dashboard.dock.Workspace
  * @summary Declarative dock layout with optional example-owned perspectives and tour replay.
  *
- * The panes and zones configs define the complete initial arrangement. Workspace owns lowering,
+ * The panes and perspectives configs define the available arrangements. Workspace owns lowering,
  * pane resolution, first projection and interaction lifetimes. Named structural IDs below are
  * used by the Review preset and tour operations; other node IDs belong to the engine.
  *
@@ -31,6 +31,8 @@ class MainContainer extends DockWorkspace {
          * @protected
          */
         className: 'Neo.examples.dashboard.dock.MainContainer',
+        /** @member {String} activePerspective='operator-default' The initial declared arrangement. */
+        activePerspective: 'operator-default',
         /**
          * The projected shell shares the root vbox with the perspective toolbar above it.
          * @member {Object} dockProjectionConfig={flex:1}
@@ -83,21 +85,36 @@ class MainContainer extends DockWorkspace {
             history  : {ntype: 'component', cls: ['neo-example-dock-pane'], header: {text: 'History'}, text: 'History'}
         },
         /**
-         * Nested placement: center tabs beside a vertical split, with an inspector edge band.
-         * @member {Object} zones
+         * Declared arrangements share pane identities while varying split sizes and the visible tab.
+         * @member {Object} perspectives
          */
-        zones: {
-            center: {
-                id      : 'root-split', orientation: 'horizontal', sizes: [0.65, 0.35],
-                children: [{
-                    id   : 'main-tabs',
-                    items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history']
-                }, {
-                    id      : 'side-split', orientation: 'vertical', sizes: [0.6, 0.4],
-                    children: ['terminal', 'logs']
-                }]
+        perspectives: {
+            'operator-default': {
+                center: {
+                    id      : 'root-split', orientation: 'horizontal', sizes: [0.65, 0.35],
+                    children: [{
+                        id   : 'main-tabs',
+                        items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history']
+                    }, {
+                        id      : 'side-split', orientation: 'vertical', sizes: [0.6, 0.4],
+                        children: ['terminal', 'logs']
+                    }]
+                },
+                right: {items: ['inspector'], extent: 0.25, resizable: true}
             },
-            right: {items: ['inspector'], extent: 0.25, resizable: true}
+            'review-focus': {
+                center: {
+                    id      : 'root-split', orientation: 'horizontal', sizes: [0.48, 0.52],
+                    children: [{
+                        id   : 'main-tabs', activeItemId: 'swarm',
+                        items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history']
+                    }, {
+                        id      : 'side-split', orientation: 'vertical', sizes: [0.42, 0.58],
+                        children: ['terminal', 'logs']
+                    }]
+                },
+                right: {items: ['inspector'], extent: 0.25, resizable: true}
+            }
         }
     }
 
@@ -108,7 +125,7 @@ class MainContainer extends DockWorkspace {
     layoutCollectionStorageKey = 'neo.examples.dashboard.dock.layoutCollection'
 
     /**
-     * The active named-perspective collection backing the toolbar.
+     * User-saved snapshots, independent of the declared perspective selection.
      * @member {Object|null} layoutCollection=null
      */
     layoutCollection = null
@@ -137,16 +154,6 @@ class MainContainer extends DockWorkspace {
         me.layoutCollection = me.createDefaultLayoutCollection();
         me.add(me.createPerspectiveToolbar());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
-    }
-
-    /**
-     * The perspective toolbar re-syncs on every re-projection: layout buttons keep identity, move
-     * into collection order, and update their active state in place.
-     * @param {Object} document The committed document this refresh projects.
-     * @param {Object} refreshOptions
-     */
-    beforeRefreshDockWorkspace(document, refreshOptions) {
-        this.syncPerspectiveToolbar()
     }
 
     /**
@@ -193,43 +200,13 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * @summary Derives Operator and Review perspectives from the effective initial document.
+     * @summary Creates the empty user-snapshot collection beside the declared arrangements.
      * @returns {Object}
      */
     createDefaultLayoutCollection() {
-        const operator = WorkspaceDocument.clone(this.dockModel),
-              review   = WorkspaceDocument.clone(operator),
-              nodes    = review.nodes;
-
-        // Restored documents can have different topology; adjust only the matching named regions.
-        if (nodes['root-split']?.type === 'split' && nodes['root-split'].children.length === 2) nodes['root-split'].sizes = [0.48, 0.52];
-        if (nodes['main-tabs']?.items?.includes('swarm')) nodes['main-tabs'].activeItemId = 'swarm';
-        if (nodes['side-split']?.type === 'split' && nodes['side-split'].children.length === 2) nodes['side-split'].sizes = [0.42, 0.58];
-
-        let layouts = [
-                {document: operator, layoutId: 'operator-default', title: 'Operator'},
-                {document: review, layoutId: 'review-focus', title: 'Review'}
-            ].map(({document, layoutId, title}) => {
-                let {layout, errors} = Persistence.createSavedLayout(document, {
-                    layoutId,
-                    title,
-                    metadata: {
-                        source: 'examples/dashboard/dock'
-                    }
-                });
-
-                if (errors.length) {
-                    throw new Error(`Failed to create seeded dock perspective "${layoutId}": ${errors.join('; ')}`)
-                }
-
-                return layout
-            }),
-            {collection, errors} = PerspectiveLibrary.createSavedLayoutCollection(layouts, {
-                activeLayoutId: 'operator-default',
-                metadata      : {
-                    owner: 'examples/dashboard/dock'
-                }
-            });
+        const {collection, errors} = PerspectiveLibrary.createSavedLayoutCollection([], {
+            metadata: {owner: 'examples/dashboard/dock'}
+        });
 
         if (errors.length) {
             throw new Error(`Failed to create dock perspective collection: ${errors.join('; ')}`)
@@ -239,13 +216,11 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Builds a compact named-perspective toolbar from the current collection.
+     * @summary Binds declared selection and modification state beside saved-snapshot controls.
      * @returns {Object}
      */
     createPerspectiveToolbar() {
-        let me            = this,
-            collection    = me.layoutCollection,
-            layoutButtons = Object.values(collection?.layouts || {}).map(layout => me.createPerspectiveButton(layout));
+        const me = this;
 
         return {
             cls         : ['neo-dashboard-dock-perspective-toolbar'],
@@ -268,14 +243,21 @@ class MainContainer extends DockWorkspace {
                     whiteSpace : 'nowrap'
                 },
                 html: 'Perspectives'
-            }, ...layoutButtons, {
+            }, me.createPerspectiveButton('operator-default', 'Operator'),
+                me.createPerspectiveButton('review-focus', 'Review'), {
+                ntype    : 'component',
+                reference: 'perspective-modified',
+                bind     : {text: data => data.dock.perspective.modified ? 'Modified' : ''}
+            }, {
                 iconCls: 'fa fa-save',
                 handler: () => me.saveCurrentPerspective(),
                 text   : 'Save Current'
             }, {
-                iconCls: 'fa fa-trash',
-                handler: () => me.removeActivePerspective(),
-                text   : 'Delete Active'
+                disabled : true,
+                iconCls  : 'fa fa-trash',
+                handler  : () => me.removeActivePerspective(),
+                reference: 'delete-saved-perspective',
+                text     : 'Delete Saved'
             }],
             layout: {ntype: 'hbox', align: 'center'},
             ntype : 'toolbar',
@@ -287,29 +269,22 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Creates one identity-keyed perspective button from the current saved-layout collection.
-     * @param {Object} layout Saved layout record.
+     * @summary Selects a declaration through the intent config and binds its committed state.
+     * @param {String} name Declared perspective name.
+     * @param {String} title Button label.
      * @returns {Object}
      */
-    createPerspectiveButton(layout) {
-        let me       = this,
-            isActive = layout.layoutId === me.layoutCollection?.activeLayoutId;
-
+    createPerspectiveButton(name, title) {
         return {
-            cls      : isActive ? ['neo-dashboard-dock-perspective-active'] : [],
-            handler  : () => me.restorePerspective(layout.layoutId),
-            pressed  : isActive,
-            reference: `dock-perspective-${layout.layoutId}`,
-            text     : layout.title
+            bind     : {pressed: data => data.dock.perspective.active === name},
+            handler  : () => {this.activePerspective = name},
+            reference: `dock-perspective-${name}`,
+            text     : title
         }
     }
 
     /**
-     * @summary Reconciles dynamic perspective buttons inside the persistent toolbar.
-     *
-     * The label and Save/Delete controls retain identity. Layout buttons key by `layoutId`, move
-     * silently into collection order, update active/title state in place, and are created or
-     * destroyed only when the saved-layout membership itself changes.
+     * @summary Reconciles saved-snapshot membership only when the collection changes.
      */
     syncPerspectiveToolbar() {
         let me        = this,
@@ -321,8 +296,8 @@ class MainContainer extends DockWorkspace {
         if (toolbar?.dockNodeType !== 'perspective-toolbar') return;
 
         buttons = new Map(toolbar.items
-            .filter(item => item.reference?.startsWith('dock-perspective-'))
-            .map(item => [item.reference.slice('dock-perspective-'.length), item]));
+            .filter(item => item.reference?.startsWith('dock-snapshot-'))
+            .map(item => [item.reference.slice('dock-snapshot-'.length), item]));
 
         buttons.forEach((button, layoutId) => {
             if (!layoutIds.has(layoutId)) {
@@ -331,13 +306,16 @@ class MainContainer extends DockWorkspace {
         });
 
         layouts.forEach((layout, index) => {
-            let targetIndex = index + 1,
+            let targetIndex = index + 4,
                 button      = buttons.get(layout.layoutId),
-                currentIndex,
-                isActive;
+                currentIndex;
 
             if (!button || button.isDestroyed) {
-                button = toolbar.insert(targetIndex, me.createPerspectiveButton(layout), true)
+                button = toolbar.insert(targetIndex, {
+                    handler  : () => me.restorePerspective(layout.layoutId),
+                    reference: `dock-snapshot-${layout.layoutId}`,
+                    text     : layout.title
+                }, true)
             } else {
                 currentIndex = toolbar.indexOf(button);
 
@@ -347,19 +325,14 @@ class MainContainer extends DockWorkspace {
                 }
             }
 
-            isActive = layout.layoutId === me.layoutCollection.activeLayoutId;
-            button.set({
-                cls: isActive
-                    ? [...new Set([...button.cls, 'neo-dashboard-dock-perspective-active'])]
-                    : button.cls.filter(cls => cls !== 'neo-dashboard-dock-perspective-active'),
-                pressed: isActive,
-                text   : layout.title
-            })
-        })
+            button.text = layout.title
+        });
+        toolbar.getReference('delete-saved-perspective').disabled = !layouts.length;
+        toolbar.update()
     }
 
     /**
-     * Reads the persisted named-perspective collection and applies it only when both the collection and active restore
+     * @summary Reads saved snapshots and applies them only when both the collection and active restore
      * validate. Invalid payloads fail closed to the seeded collection/current document.
      * @returns {Promise<{collection:(Object|null), document:(Object|null), errors:String[], loaded:Boolean}>}
      */
@@ -389,14 +362,16 @@ class MainContainer extends DockWorkspace {
                 return {collection: null, document: null, errors, loaded: false}
             }
 
-            restored = PerspectiveLibrary.restoreActiveSavedLayout(parsed);
+            restored = parsed.activeLayoutId === null ? {document: null, errors: []}
+                : PerspectiveLibrary.restoreActiveSavedLayout(parsed);
 
             if (restored.errors.length) {
                 return {collection: null, document: null, errors: restored.errors, loaded: false}
             }
 
             me.layoutCollection = WorkspaceDocument.clone(parsed);
-            me.onDockZoneDocumentChange(restored.document);
+            me.syncPerspectiveToolbar();
+            if (restored.document) me.onDockZoneDocumentChange(restored.document);
             await me.refreshPromise;
 
             return {collection: me.layoutCollection, document: me.dockModel, errors: [], loaded: true}
@@ -431,7 +406,7 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Selects and restores a named perspective through `PerspectiveLibrary.restoreActiveSavedLayout()`.
+     * @summary Restores a saved snapshot without changing the declared comparison baseline.
      * @param {String} layoutId
      * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
@@ -458,7 +433,7 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Saves the current committed dock document as a new named perspective and activates it.
+     * @summary Saves the committed document as a snapshot without selecting a declared perspective.
      * @returns {{collection:Object, layout:(Object|null), errors:String[]}}
      */
     saveCurrentPerspective() {
@@ -487,13 +462,13 @@ class MainContainer extends DockWorkspace {
 
         me.layoutCollection = upserted.collection;
         me.persistLayoutCollection();
-        me.onDockZoneDocumentChange(me.dockModel);
+        me.syncPerspectiveToolbar();
 
         return {collection: me.layoutCollection, layout: saved.layout, errors: []}
     }
 
     /**
-     * Removes the active saved perspective and restores the next available replacement.
+     * @summary Deletes the selected saved snapshot; the final deletion retains the live document.
      * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
     removeActivePerspective() {
@@ -504,8 +479,15 @@ class MainContainer extends DockWorkspace {
             replacementId  = layoutIds.find(layoutId => layoutId !== activeLayoutId),
             removed, restored;
 
-        if (!activeLayoutId || !replacementId) {
-            return {collection, document: null, errors: ['at least one replacement perspective must remain']}
+        if (!activeLayoutId) {
+            return {collection, document: null, errors: ['no saved snapshot selected']}
+        }
+
+        if (!replacementId) {
+            me.layoutCollection = me.createDefaultLayoutCollection();
+            me.persistLayoutCollection();
+            me.syncPerspectiveToolbar();
+            return {collection: me.layoutCollection, document: me.dockModel, errors: []}
         }
 
         removed = PerspectiveLibrary.removeSavedLayout(collection, {
@@ -525,6 +507,7 @@ class MainContainer extends DockWorkspace {
 
         me.layoutCollection = removed.collection;
         me.persistLayoutCollection();
+        me.syncPerspectiveToolbar();
         me.onDockZoneDocumentChange(restored.document);
 
         return {collection: me.layoutCollection, document: me.dockModel, errors: []}
