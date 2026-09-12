@@ -18,6 +18,36 @@ import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceC
 import ViewportController  from '../../../../../apps/workstation/view/ViewportController.mjs';
 import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
 import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
+import WorkspaceDocument   from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import WorkspaceSet        from '../../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+
+/**
+ * @summary The controller under test with its bar syncs counted, so an arm can tell "re-synced" from
+ * "the bar happens to read right" — and, after destroy, "not notified" from "notified and harmless".
+ */
+class RecordingWorkspaceController extends WorkspaceController {
+    static config = {
+        className: 'Test.Workstation.RecordingWorkspaceController'
+    }
+
+    /**
+     * Class-level on purpose: `destroy` clears an instance's fields, and the arm reads the count after
+     * destroying the controller to prove it was not notified.
+     * @member {Number} syncs=0
+     * @static
+     */
+    static syncs = 0
+
+    /**
+     * @returns {Boolean}
+     */
+    syncTopologyBar() {
+        RecordingWorkspaceController.syncs++;
+        return super.syncTopologyBar()
+    }
+}
+
+Neo.setupClass(RecordingWorkspaceController);
 
 /**
  * @summary An event-driven storage boundary for a write already in flight.
@@ -236,6 +266,59 @@ test.describe('Workstation topology save and close coordination', () => {
         expect(controller.syncTopologyBar(), 'a destroyed bar is not a synced bar').toBe(false);
 
         controller.destroy()
+    });
+
+    test('the bar follows membership: a participant registered after boot gains its buttons, an unregistered one loses them, and a destroyed controller stops listening', () => {
+        const binding = Transaction.bind({windowId: 'controller-membership-root'}),
+              set     = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, manager: Transaction, getGroupId: () => binding.groupId}),
+              bar     = Neo.create(Toolbar, Workspace.prototype.createTopologyBar.call({topologyGroupId: binding.groupId})),
+              seams   = key => ({getDocument: () => ({
+                  schema: 'neo.dock.zone.v1', root: 'tabs',
+                  items : {[key]: {reference: key}},
+                  nodes : {tabs: {type: 'tabs', items: [key], activeItemId: key}}
+              })}),
+              ordinaryTexts = () => bar.items
+                  .filter(item => item.isToolbarAction !== true && item.isToolbarActionSpacer !== true)
+                  .map(item => item.text);
+
+        RecordingWorkspaceController.syncs = 0;
+
+        // The real registry, and the real seam the Workstation derives its recovery buttons from:
+        // one popup state per registered id. Nothing here calls `syncTopologyBar` after construction.
+        const controller = Neo.create(RecordingWorkspaceController, {
+            component: {
+                down          : () => bar,
+                getPopupStates: () => set.ids().map(workspaceId => ({workspaceId})),
+                isConstructed : true,
+                workspaceSet  : set
+            }
+        });
+
+        try {
+            // Control: the first paint is the construction-time population, with nothing registered.
+            expect(RecordingWorkspaceController.syncs, 'constructed once').toBe(1);
+            expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace']);
+
+            expect(set.register('alpha', seams('alpha')), 'a participant arrives after boot').toBe(true);
+            // The affordance first: this is the assertion a broken publication must fail on.
+            expect(ordinaryTexts(), 'the bar offers the new workspace without a reload').toEqual([
+                'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
+            ]);
+            expect(RecordingWorkspaceController.syncs, 'through exactly one more sync').toBe(2);
+
+            expect(set.unregister('alpha')).toBe(true);
+            expect(RecordingWorkspaceController.syncs, 'the removal re-synced it too').toBe(3);
+            expect(ordinaryTexts(), 'a gone workspace offers nothing').toEqual(['Save workspace', 'Close workspace']);
+
+            controller.destroy();
+
+            expect(set.register('beta', seams('beta'))).toBe(true);
+            expect(RecordingWorkspaceController.syncs, 'a destroyed controller is not notified').toBe(3)
+        } finally {
+            bar.destroy();
+            set.destroy();
+            Transaction.retireGroup(binding.groupId)
+        }
     })
 });
 

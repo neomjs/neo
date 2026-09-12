@@ -548,5 +548,38 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
         expect(main.document.items.main.title).toBe('synchronous');
         expect(main.writes).toHaveLength(1);
         legacy.destroy()
+    });
+
+    test('membership is a reactive config: register and unregister each publish once, a same-id replacement publishes nothing, a destroyed observer hears nothing', () => {
+        const observer = Neo.create(core.Base), seen = [];
+
+        try {
+            observer.observeConfig(set, 'memberIds', value => seen.push([...value]));
+            expect(set.memberIds, 'nothing registered yet').toEqual([]);
+
+            // `holder` registers as it builds, so the first publication is its registration.
+            const main = holder('main');
+
+            expect(seen, 'a registration publishes the new membership').toEqual([['main']]);
+
+            expect(set.register('main', main.seams), 'replacing the same id is a registration').toBe(true);
+            expect(seen, 'and not a membership change — the set is equal').toHaveLength(1);
+
+            const popup = holder('popup');
+
+            expect(seen.at(-1)).toEqual(['main', 'popup']);
+
+            expect(set.unregister('popup')).toBe(true);
+            expect(seen.at(-1), 'a removal publishes too').toEqual(['main']);
+            expect(seen).toHaveLength(3);
+
+            observer.destroy();
+
+            expect(set.register('popup', popup.seams)).toBe(true);
+            expect(seen, 'a destroyed observer hears nothing').toHaveLength(3);
+            expect(set.memberIds, 'while the set itself moved on').toEqual(['main', 'popup'])
+        } finally {
+            observer.isDestroyed || observer.destroy()
+        }
     })
 });
