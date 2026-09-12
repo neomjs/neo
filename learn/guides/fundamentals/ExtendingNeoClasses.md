@@ -84,6 +84,17 @@ If what you need is custom behavior rather than a new default, implement the `be
 `afterSetWidth()` hooks described in section 3 instead of redeclaring the config. The canonical statement of this rule
 lives in [Class Compilation → Prototype Chain Walking & Config Merging](../coreengine/SetupClass.md#1-prototype-chain-walking--config-merging).
 
+### Fields and configs never trade places
+
+The same discipline covers the other kind of member: **a class extension never replaces a class field with a config, or
+a config with a field.** A field is an own data property that `new` initializes on the instance; a config is a prototype
+value or, when reactive, a prototype accessor that `Neo.setupClass` generates. A name shared across the two anywhere in
+one prototype chain is a collision, not an override — the own property shadows the prototype for reads and writes
+alike, so a reactive config's default never applies and its hooks never run, and nothing reports it. For a reactive
+config the engine refuses the collision at the first construction (`core.Base#construct`), naming both classes and the
+hook that would never fire; for a plain config the rule stands as written and is yours to keep. Give a config a new
+default with a bare entry in `static config`, and keep internal state in fields whose names no config in the chain uses.
+
 ## 3. Configuration Lifecycle Hooks (`beforeSet`, `afterSet`, `beforeGet`)
 
 For every reactive config (`myConfig_`), Neo.mjs provides three optional lifecycle hooks that you can implement in your

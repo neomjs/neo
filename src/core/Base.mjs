@@ -99,6 +99,9 @@ class Base {
      *     mechanism. This allows external code (like themes or application-level overrides) to change
      *     the default value for the class, which then propagates to all subclasses and instances
      *     globally. Use standard class fields for internal state that should not be globally reconfigured.
+     *     A class extension never replaces a class field with a config, or a config with a field: a field
+     *     is an own data property, and a name it shares with a config anywhere in the prototype chain
+     *     shadows the config instead of overriding it. `construct()` refuses the reactive case.
      *
      * @returns {Object} config
      */
@@ -1112,14 +1115,16 @@ class Base {
     }
 
     /**
-     * @summary A class field is an own data property, so a field named like a reactive config of the
-     * same instance shadows the generated accessor for the instance's lifetime: the config's
-     * `beforeSet` / `afterSet` hooks never run and every read returns the field. Refuses exactly that —
-     * an own data property whose key `isConfig()` — at every construction, since a subclass's
+     * @summary Enforces the reactive half of the rule that a class extension never replaces a class
+     * field with a config or vice versa. A field is an own data property, so one named like a reactive
+     * config of the same instance shadows the generated accessor for the instance's lifetime: the
+     * config's default never applies and its `beforeSet` / `afterSet` hooks never run. Refuses exactly
+     * that — an own data property whose key `isConfig()` — at every construction, since a subclass's
      * `construct()` may add or remove own properties before `super.construct()`. Own accessors are
-     * ordinary overrides and pass, as do fields named like non-reactive configs or plain prototype
-     * accessors. `Neo.createConfig` can only guard a redefined setter at setup time; fields exist only
-     * after `new`.
+     * ordinary overrides and pass, as do fields named like plain configs (whose backing convention,
+     * `_vdom` for `vdom_`, makes that half of the rule documentation rather than a check) or like plain
+     * prototype accessors. `Neo.createConfig` can only guard a redefined setter at setup time; fields
+     * exist only after `new`.
      * @throws {Error} Naming the field, the instance class and the class whose config it shadows.
      * @protected
      */
@@ -1127,7 +1132,7 @@ class Base {
         const me = this, cls = me.constructor;
 
         Object.getOwnPropertyNames(me).forEach(key => {
-            if (!(key in cls.config) || !('value' in Object.getOwnPropertyDescriptor(me, key)) || !me.isConfig(key)) return;
+            if (!Object.hasOwn(cls.config, key) || !('value' in Object.getOwnPropertyDescriptor(me, key)) || !me.isConfig(key)) return;
 
             let proto = Object.getPrototypeOf(me);
 
