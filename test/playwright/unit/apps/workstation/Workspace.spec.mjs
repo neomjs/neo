@@ -14,6 +14,7 @@ import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/Wo
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import '../../../../../src/manager/Instance.mjs';
+import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import StateProvider      from '../../../../../src/state/Provider.mjs';
 import Toolbar            from '../../../../../src/toolbar/Base.mjs';
@@ -3572,6 +3573,42 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
                 .toBe('Default arrangement · 1 additional window')
         } finally {
             workspace.destroy()
+        }
+    });
+
+    test('the reset re-seeds the persisted record, so it cannot come back on the next reload', async () => {
+        // AC-5, and the whole reason reset commits through the Group. Persistence is commit-driven —
+        // `TopologyLibrary.attachGroup` registers `commit: data => this.persistCurrent()` — so a
+        // reset that wrote `dockModel` directly would fire no commit, leave the OLD topology in
+        // storage, and hand it back on the next reload. Asserted against a real attached library
+        // with a spy adapter rather than inferred from the commit path.
+        const writes  = [],
+              library = Neo.create(TopologyLibrary, {persistenceAdapter: {
+                  read : async () => null,
+                  write: topology => {writes.push(topology); return Promise.resolve(true)}
+              }}),
+              workspace = Neo.create(Workspace, {topologyLibrary: library, windowId: Neo.config.windowId});
+
+        try {
+            expect(workspace.getController().attachTopologyLibrary(), 'the library is attached to the Group').toBe(true);
+
+            await workspace.workspaceSet.commit(MAIN, [
+                {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
+            ]);
+
+            const writesBeforeReset = writes.length;
+
+            expect(writesBeforeReset, 'the ordinary commit already persisted').toBeGreaterThan(0);
+
+            await workspace.resetTopology();
+
+            expect(writes.length, 'the reset persisted too — it is not a silent live-only change')
+                .toBeGreaterThan(writesBeforeReset);
+            expect(library.resolve().topology.workspaces[MAIN].nodes['split-main'].sizes,
+                're-seeded with the shipped arrangement, not left holding the old one').toEqual([0.6, 0.4])
+        } finally {
+            workspace.destroy();
+            library.destroy()
         }
     });
 
