@@ -427,6 +427,13 @@ class Workspace extends Container {
      * transactions cannot overlap or cross-correlate. Each commit stores the promise of ITS OWN
      * transaction here: a rejection belongs to whoever awaits the snapshot taken at that commit,
      * and the next commit schedules off the settled tail, never off the rejection.
+     *
+     * **It is not updated synchronously on every path.** `onDockZoneDocumentChange`'s Group branch
+     * returns the write and schedules no projection: the commit queues that as a detached microtask
+     * and the write resolves first, so immediately after a Group-routed change this field still holds
+     * the PREVIOUS refresh — or `null`, on a shell projected statically before any commit. A consumer
+     * that needs the refresh a specific change scheduled must await that change's own promise first;
+     * reading this field at call time reads the one before it.
      * @member {Promise|null} refreshPromise=null
      * @protected
      */
@@ -1680,7 +1687,10 @@ class Workspace extends Container {
      *
      * Live reconciled order owns the close target at dispatch time. The current model locates that
      * item's semantic tabs node, and the committed result owns its focus successor. Successful focus
-     * is chained onto `refreshPromise`, so it cannot reach chrome the reconciler retires.
+     * is chained onto the refresh THIS close scheduled, so it cannot reach chrome the reconciler
+     * retires — which is not always the `refreshPromise` standing at dispatch. The direct branch
+     * publishes its refresh inside the call and is chained immediately; the Group branch publishes
+     * from the commit's own microtask, so the follow-up waits for the returned promise first.
      * @param {Object} data
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
@@ -1706,10 +1716,25 @@ class Workspace extends Container {
         if (result && !result.errors?.length && result.document) {
             let focusId = result.document.nodes?.[modelNodeId]?.activeItemId ?? null;
 
-            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
-            me.refreshPromise = me.refreshPromise.then(() => {
-                me.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId})
-            })
+            // Which refresh this close must wait for is decided by an observable test, not by
+            // which branch ran: did the call publish a new refresh? (Timing: see `refreshPromise`.)
+            const published = me.refreshPromise,
+                  pending   = me.onDockZoneDocumentChange(result.document, descriptor, tabContainer),
+                  focus     = () => me.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId});
+
+            if (me.refreshPromise && me.refreshPromise !== published) {
+                // Chaining now also keeps the follow-up observable to a caller that awaits
+                // `refreshPromise` immediately, which the close specs do.
+                me.refreshPromise = me.refreshPromise.then(focus)
+            } else {
+                // Two invariants. The assignment stays INSIDE the continuation, or
+                // `projectDockZoneDocument` — which takes `refreshPromise` as its tail — waits on
+                // itself. And the assigned chain is RETURNED, or a rejected projection escapes the
+                // trailing catch and the follow-up adds a second, unhandled receipt.
+                Promise.resolve(pending)
+                    .then(() => me.refreshPromise = (me.refreshPromise ?? Promise.resolve()).then(focus))
+                    .catch(() => {})
+            }
         }
 
         return result
