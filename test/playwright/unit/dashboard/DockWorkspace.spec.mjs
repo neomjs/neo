@@ -761,7 +761,14 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                 seen.length = 0;
 
                 await body();
-                await new Promise(resolve => setImmediate(resolve));
+
+                // Drain BOTH phases: the refresh chain ends on a `timeout(0)` macrotask, so a
+                // check-phase turn alone closes the window before the rejection is raised and the
+                // arm passes whatever the handler does. Bounded turns, not a fixed sleep.
+                for (let turn = 0; turn < 4; turn++) {
+                    await new Promise(resolve => setImmediate(resolve));
+                    await new Promise(resolve => setTimeout(resolve, 0))
+                }
 
                 return seen
             } finally {
@@ -812,7 +819,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
                         tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
                     });
                     await Promise.allSettled(commits);
-                    await Promise.allSettled([workspace.refreshPromise])
+
+                    // Deliberately NOT awaiting `refreshPromise`: `allSettled` would ATTACH a
+                    // handler to the very promise whose unhandledness is under test and mark it
+                    // handled, so the arm would pass with or without the repair.
                 });
 
                 expect(unhandled, 'the follow-up adds no unhandled rejection of its own').toEqual([]);
