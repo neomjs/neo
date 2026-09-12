@@ -125,6 +125,11 @@ class PerspectiveLibrary extends Base {
 
     /**
      * @summary Validates a named saved-layout collection and each contained saved-layout wrapper.
+     *
+     * Engine-reserved names (`$`-prefixed, {@link Neo.dashboard.dock.model.Persistence#reservedNameErrors})
+     * refuse here too: the collection is the one gate every static write path passes — the factory, the
+     * static upsert, a borrowed read — where no library instance applies the rule. The declared-name
+     * refusal needs the workspace's declared set and stays with the instance library.
      * @param {Object} collection
      * @returns {String[]} the (possibly empty) list of invariant violations
      * @static
@@ -189,6 +194,12 @@ class PerspectiveLibrary extends Base {
                 if (savedLayout.layoutId !== layoutId) {
                     errors.push(`layout key "${layoutId}" must match saved layout id "${savedLayout.layoutId}"`)
                 }
+
+                // The write-boundary rule at the collection itself, so the factory, the static upsert
+                // and a borrowed read all refuse alike: a `$`-prefixed key can never be a saved record.
+                // The declared-name refusal needs the workspace's declared set and stays with the
+                // instance library's `savePerspective` / `renamePerspective`.
+                errors.push(...Persistence.reservedNameErrors([layoutId, savedLayout.perspectiveName]));
 
                 let restored = Persistence.restoreSavedLayout(savedLayout);
 
@@ -262,6 +273,10 @@ class PerspectiveLibrary extends Base {
 
     /**
      * @summary Adds or replaces a saved-layout wrapper in a collection.
+     *
+     * An engine-reserved key (`$`-prefixed) refuses through {@link #validateSavedLayoutCollection},
+     * the same gate the factory and a borrowed read pass — a consumer that keeps a plain collection
+     * through these statics has no library instance to enforce the rule for it.
      * @param {Object} collection
      * @param {Object} savedLayout
      * @param {Object} [options={}] {activate}

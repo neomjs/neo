@@ -423,6 +423,31 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             expect(unsafe.errors.join(' ')).toContain('not usable')
         });
 
+        test('keyed topology collection: an engine-reserved id or name refuses at the factory, so a plain collection cannot shadow a declared perspective', () => {
+            // The record itself is well-formed — the name rule is the collection's, the one write path
+            // with no library instance to apply it.
+            const reservedId = Persistence.captureTopologyPerspective({main: doc()}, {layoutId: '$default', title: 'Reserved Id'}),
+                  byId       = Persistence.createTopologyCollection([reservedId.topology]);
+
+            expect(reservedId.errors).toEqual([]);
+            expect(byId.collection).toBe(null);
+            expect(byId.errors.join(' ')).toContain('"$default" is an engine-reserved perspective name');
+
+            const reservedName = Persistence.captureTopologyPerspective({main: doc()}, {layoutId: 'plain', perspectiveName: '$snapshot', title: 'Reserved Name'}),
+                  byName       = Persistence.createTopologyCollection([reservedName.topology]);
+
+            expect(byName.collection).toBe(null);
+            expect(byName.errors.join(' ')).toContain('"$snapshot" is an engine-reserved perspective name');
+
+            // The plain `default` — what a first auto-save mints — stays usable.
+            const plain = Persistence.createTopologyCollection([
+                Persistence.captureTopologyPerspective({main: doc()}, {layoutId: 'default', title: 'Default'}).topology
+            ]);
+
+            expect(plain.errors).toEqual([]);
+            expect(Object.keys(plain.collection.topologies)).toEqual(['default'])
+        });
+
         test('creates and restores a versioned saved-layout wrapper', () => {
             const {layout, errors} = Persistence.createSavedLayout(doc(), {
                 layoutId: 'operator-default',
@@ -977,6 +1002,49 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
 
             expect(rejected.collection).toBe(collection);
             expect(rejected.errors.join(' ')).toContain('missing-tabs')
+        });
+
+        test('an engine-reserved layoutId or perspectiveName refuses at the saved-layout factory and on the static upsert, the collection returned unchanged; a plain name still stores', () => {
+            // The record itself stays valid whatever its name — the collection is the boundary.
+            expect(Persistence.capturePerspective(doc(), {layoutId: '$default', title: 'Reserved Id'}).errors).toEqual([]);
+
+            // The factory is a write path too: a plain-collection consumer builds its records here.
+            const factory = PerspectiveLibrary.createSavedLayoutCollection([savedLayout('$default', 'Reserved Id')]);
+
+            expect(factory.collection).toBe(null);
+            expect(factory.errors).toEqual(['"$default" is an engine-reserved perspective name']);
+
+            // A borrowed collection that already carries one fails the same validation on read.
+            const borrowed = {
+                schema        : PerspectiveLibrary.LAYOUT_COLLECTION_SCHEMA,
+                activeLayoutId: '$default',
+                layouts       : {'$default': savedLayout('$default', 'Reserved Id')},
+                metadata      : {}
+            };
+
+            expect(PerspectiveLibrary.validateSavedLayoutCollection(borrowed)).toEqual(['"$default" is an engine-reserved perspective name']);
+
+            const operator     = savedLayout('operator-default', 'Operator Default'),
+                  {collection} = PerspectiveLibrary.createSavedLayoutCollection([operator]),
+                  reservedId   = PerspectiveLibrary.upsertSavedLayout(collection, savedLayout('$default', 'Reserved Id'), {activate: true});
+
+            expect(reservedId.collection).toBe(collection);
+            expect(reservedId.errors).toEqual(['"$default" is an engine-reserved perspective name']);
+
+            const named = savedLayout('plain-id', 'Reserved Name');
+
+            named.perspectiveName = '$snapshot';
+
+            const reservedName = PerspectiveLibrary.upsertSavedLayout(collection, named);
+
+            expect(reservedName.collection).toBe(collection);
+            expect(reservedName.errors).toEqual(['"$snapshot" is an engine-reserved perspective name']);
+
+            // The plain `default` — the name a first auto-save mints — is not reserved.
+            const plain = PerspectiveLibrary.upsertSavedLayout(collection, savedLayout('default', 'Default'));
+
+            expect(plain.errors).toEqual([]);
+            expect(Object.keys(plain.collection.layouts)).toEqual(['operator-default', 'default'])
         });
 
         test('selects an existing active layout and fails closed for missing ids', () => {

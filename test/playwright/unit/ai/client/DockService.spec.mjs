@@ -1,9 +1,9 @@
-import {test, expect}       from '@playwright/test';
-import Neo                  from '../../../../../src/Neo.mjs';
-import * as core            from '../../../../../src/core/_export.mjs';
-import DockService          from '../../../../../src/ai/client/DockService.mjs';
-import Operations           from '../../../../../src/dashboard/dock/model/Operations.mjs';
-import Persistence          from '../../../../../src/dashboard/dock/model/Persistence.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
+import DockService    from '../../../../../src/ai/client/DockService.mjs';
+import Operations     from '../../../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence    from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 
 /**
  * @summary Creates a valid dockZone.v1 fixture for diff-tool assertions.
@@ -380,6 +380,26 @@ test.describe.serial('Neo.ai.client.DockService', () => {
 
         expect(refused.captured).toBe(false);
         expect(refused.errors[0]).toContain('getDockTopologyWorkspaces')
+    });
+
+    test('capturePerspective (topology) cannot store an engine-reserved name: the collection factory refuses and the holder keeps what it had', async () => {
+        const holder = {
+            id                       : 'zone-6e',
+            dockZoneDocument         : doc(),
+            getDockTopologyWorkspaces: () => ({main: doc()}),
+            topologyCollection       : Persistence.createTopologyCollection().collection
+        };
+
+        Neo.getComponent = () => holder;
+
+        const result = await service.capturePerspective({componentId: 'zone-6e', layoutId: '$default', captureScope: 'topology'});
+
+        // the capture is fine — the record is well-formed; the store is where the name rule lives
+        expect(result.captured).toBe(true);
+        expect(result.stored).toBe(false);
+        expect(result.errors.join(' ')).toContain('"$default" is an engine-reserved perspective name');
+        expect(holder.topologyCollection.activeLayoutId).toBe(null);
+        expect(Object.keys(holder.topologyCollection.topologies)).toEqual([])
     });
 
     test('capturePerspective stores through the holder perspective store and surfaces its structured collision verdict', async () => {

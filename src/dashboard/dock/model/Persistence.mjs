@@ -725,6 +725,12 @@ class Persistence extends Base {
 
     /**
      * @summary Validates a named collection of topology records without widening the layout library.
+     *
+     * Engine-reserved names (`$`-prefixed, {@link #reservedNameErrors}) refuse here too: this is the one
+     * write path with no library instance — `createTopologyCollection`, and the Neural Link's topology
+     * store through it — so the rule the instance libraries apply at their write boundary has to live
+     * at the collection's own validation. The declared-name refusal needs the workspace's declared set
+     * and stays with the instance library.
      * @param {Object} collection
      * @returns {String[]}
      * @static
@@ -790,6 +796,8 @@ class Persistence extends Base {
                 for (const name of [layoutId, topology?.perspectiveName].filter(Boolean)) {
                     if (Persistence.unsafeRecordKeys.has(name)) {
                         errors.push(`topology name "${name}" is not usable`)
+                    } else if (name.startsWith(Persistence.RESERVED_NAME_PREFIX)) {
+                        errors.push(...Persistence.reservedNameErrors([name]))
                     } else if (namespaceOwners.has(name) && namespaceOwners.get(name) !== layoutId) {
                         errors.push(`topology name "${name}" is shared by "${namespaceOwners.get(name)}" and "${layoutId}"`)
                     } else {
