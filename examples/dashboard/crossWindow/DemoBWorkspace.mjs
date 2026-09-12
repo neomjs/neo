@@ -1,25 +1,28 @@
-import Component                          from '../../../src/component/Base.mjs';
-import Container                          from '../../../src/container/Base.mjs';
-import CounterPane                        from './CounterPane.mjs';
-import {createCrossWindowStage}           from './DemoBCrossWindowStage.mjs';
-import DockDropIndicators                 from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
-import DockLayoutAdapter                  from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import DockMotionSignal                   from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
-import PerspectiveLibrary                 from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
-import Placement                          from '../../../src/dashboard/dock/window/Placement.mjs';
-import TopologySeams                      from '../../../src/dashboard/dock/window/TopologySeams.mjs';
-import DockPreview                        from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockPreviewProducer                from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
-import DockProjectionReconciler           from '../../../src/dashboard/dock/projection/Reconciler.mjs';
-import DockService                        from '../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler             from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
-import WorkspaceDocument                  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import Operations                         from '../../../src/dashboard/dock/model/Operations.mjs';
-import Persistence                        from '../../../src/dashboard/dock/model/Persistence.mjs';
-import InteractionService                 from '../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands}       from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
-import {createDockTearOutHandlers}        from '../../../src/dashboard/dock/window/TearOut.mjs';
-import {createDockVesselEmbodiment}       from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import Component                    from '../../../src/component/Base.mjs';
+import Container                    from '../../../src/container/Base.mjs';
+import CounterPane                  from './CounterPane.mjs';
+import {createCrossWindowStage}     from './DemoBCrossWindowStage.mjs';
+import DockDropIndicators           from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter            from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockMotionSignal             from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import PerspectiveLibrary           from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import Placement                    from '../../../src/dashboard/dock/window/Placement.mjs';
+import TopologySeams                from '../../../src/dashboard/dock/window/TopologySeams.mjs';
+import DockPreview                  from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockPreviewProducer          from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import DockProjectionReconciler     from '../../../src/dashboard/dock/projection/Reconciler.mjs';
+import DockService                  from '../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler       from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
+import WorkspaceDocument            from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Operations                   from '../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence                  from '../../../src/dashboard/dock/model/Persistence.mjs';
+import InteractionService           from '../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands} from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
+import {createDockTearOutHandlers}  from '../../../src/dashboard/dock/window/TearOut.mjs';
+import {
+    createDockVesselEmbodiment,
+    createDockVesselProxyEmbodiment
+} from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import WorkspaceSet                       from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 import NativeVesselTransaction            from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import VesselPark                         from '../../../src/dashboard/dock/window/VesselPark.mjs';
@@ -404,6 +407,12 @@ class DemoBWorkspace extends Container {
      */
     tearOutEmbodiment = null
     /**
+     * Target-local live pane ownership while its native source vessel is parked.
+     * @member {Object|null} vesselProxyEmbodiment=null
+     * @protected
+     */
+    vesselProxyEmbodiment = null
+    /**
      * Monotonic count of actual tear-out `windowOpen` attempts. The headed conversion witness
      * snapshots this counter at first park and after re-show; equality is the mechanical proof
      * that one continuous gesture never tries to reacquire popup activation.
@@ -504,12 +513,21 @@ class DemoBWorkspace extends Container {
         me.perspectiveStore = Neo.create(PerspectiveLibrary, {});
         me.topologyCollection = Persistence.createTopologyCollection().collection;
 
+        me.vesselProxyEmbodiment = createDockVesselProxyEmbodiment({
+            resolvePane       : itemId => me.paneCache[itemId],
+            resolveProxyConfig: ({sourceSortZone, targetWindowId}) => ({
+                ...sourceSortZone.getDragProxyConfig(),
+                appName: Neo.apps[targetWindowId]?.name ?? me.appName
+            })
+        });
+
         // The cross-window stage choreography (decomposition Phase 1): a pure decision
         // machine over host-injected seams. Stage STATE stays host-owned by contract — the
         // unit spec's stage doubles write `crossWindowTargetWindowId` and call
         // `crossWindowStageResolve` directly, so those fields remain this component's public
         // stage surface while the module owns the code manipulating them.
         me.crossWindowStage = createCrossWindowStage({
+            dragEmbodiment              : me.vesselProxyEmbodiment,
             adoptCommittedTransferPair  : pair => me.adoptCommittedTransferPair(pair),
             retireReturnedPopupWorkspace: () => me.retireReturnedPopupWorkspace(),
             applyWorkspaceOperation     : (workspaceId, descriptor) => me.applyWorkspaceOperation(workspaceId, descriptor),
@@ -1604,7 +1622,7 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary Awaits Group transfer admission and its projections before reporting the native gesture.
+     * @summary Acknowledges Group transfer admission before the deferred rendered gesture receipt.
      * @param {Object} data
      * @returns {Promise}
      * @protected
@@ -1661,11 +1679,8 @@ class DemoBWorkspace extends Container {
             .then(async () => {
                 if (!ownsTransfer()) return;
 
-                // `onRemoteDropOut()` and the source-local suppression decision both finish on
-                // the coordinator's synchronous mouseup stack, before this deferred projection.
-                // Snapshot their counters now: the source projection intentionally destroys its
-                // empty tabs zone, so reading a field from that zone after reconciliation would
-                // manufacture false evidence from a torn-down object.
+                // The admitted result lets source retirement finish before deferred projection.
+                // Read host-owned counters: projection can destroy the emptied source tabs zone.
                 let sourceDecision = {
                     localDropFires    : me.crossWindowStats.localDropFires,
                     remoteDropOutFires: me.crossWindowStats.remoteDropOutFires
@@ -1691,8 +1706,11 @@ class DemoBWorkspace extends Container {
                             && sourceDecision.localDropFires === 0,
                         targetItemPlaced        : !!targetDocument.items?.[itemId]
                             && targetTabsId === descriptor.target?.tabsNodeId,
-                        targetMountDelta: Number.isInteger(context?.vesselMountCount)
-                            ? (pane?.mountCount ?? 0) - context.vesselMountCount
+                        targetMountDelta: Number.isInteger(context?.proxyMountCount)
+                            ? (pane?.mountCount ?? 0) - context.proxyMountCount
+                            : null,
+                        proxyMountDelta: Number.isInteger(context?.proxyMountCount)
+                            ? context.proxyMountCount - context.vesselMountCount
                             : null,
                         targetTabsId,
                         transferCommits : me.crossWindowStats.transferCommits,
@@ -1710,8 +1728,9 @@ class DemoBWorkspace extends Container {
                         ['worker component instance stayed identical', proof.sameInstance],
                         ['instance heartbeat did not reset', proof.framesNotReset],
                         ['live vessel added exactly one mount', proof.vesselMountDelta === 1],
+                        ['target proxy added exactly one mount', proof.proxyMountDelta === 1],
                         ['target document added exactly one mount', proof.targetMountDelta === 1],
-                        ['live vessel and target added exactly two mounts', proof.mountDelta === 2],
+                        ['vessel, proxy and final target each mounted once', proof.mountDelta === 3],
                         ['continuity witness is complete', typeof pane?.id === 'string'
                             && Number.isInteger(pane?.mountCount)]
                     ],
@@ -1732,7 +1751,7 @@ class DemoBWorkspace extends Container {
                 me.crossWindowGestureResolve = null
             });
 
-        return me.refreshPromise.then(() => true)
+        return true
     }
 
     /**
@@ -1849,6 +1868,7 @@ class DemoBWorkspace extends Container {
             candidateSet                                  = indicators?.candidateSet ?? null,
             snapshot                                      = {
                 coordinator: coordinator?.toJSON?.() ?? null,
+                embodiment : me.vesselProxyEmbodiment.snapshot(context?.itemId),
                 engaged    : coordinator?.activeTargetZone === target,
                 indicators : {
                     activePreviewId: indicators?.activeCandidate?.preview?.previewId ?? null,
@@ -1907,17 +1927,20 @@ class DemoBWorkspace extends Container {
             renderer                        = host?.down({ntype: 'dock-preview'}),
             indicators                      = host?.down({ntype: 'dashboard-dock-drop-indicators'}),
             snapshot                        = {
-                activeTargetZone      : coordinator?.toJSON?.().activeTargetZone ?? null,
-                activeCandidateId     : indicators?.activeCandidate?.preview?.previewId ?? null,
-                candidateSetSchema    : indicators?.candidateSet?.schema ?? null,
-                dragDataPresent       : sourceZone?.data != null,
-                dragEndActive         : sourceZone?.dragEndActive === true,
-                dragPlaceholderPresent: !!sourceZone?.dragPlaceholder,
-                dragProxyPresent      : !!sourceZone?.dragProxy,
-                draggingClass         : sourceZone?.owner?.cls?.includes?.('neo-is-dragging') === true,
-                nativeCandidateCount  : coordinator?.nativeWindowDropCandidates?.size ?? 0,
-                semanticPreviewId     : participation?.target?.currentPreview?.previewId ?? null,
-                renderedPreviewId     : renderer?.dockPreview?.previewId ?? null
+                activeTargetZone       : coordinator?.toJSON?.().activeTargetZone ?? null,
+                activeCandidateId      : indicators?.activeCandidate?.preview?.previewId ?? null,
+                candidateSetSchema     : indicators?.candidateSet?.schema ?? null,
+                dragDataPresent        : sourceZone?.data != null,
+                dragEndActive          : sourceZone?.dragEndActive === true,
+                dragPlaceholderPresent : !!sourceZone?.dragPlaceholder,
+                dragProxyPresent       : !!sourceZone?.dragProxy,
+                proxyEmbodimentPresent : me.vesselProxyEmbodiment.snapshot(context?.itemId) !== null,
+                vesselEmbodimentPresent: me.tearOutEmbodiment.isStaged(context?.itemId),
+                sourcePaneRestored     : !!context?.pane && context.pane.windowId === context.sourceWindowId,
+                draggingClass          : sourceZone?.owner?.cls?.includes?.('neo-is-dragging') === true,
+                nativeCandidateCount   : coordinator?.nativeWindowDropCandidates?.size ?? 0,
+                semanticPreviewId      : participation?.target?.currentPreview?.previewId ?? null,
+                renderedPreviewId      : renderer?.dockPreview?.previewId ?? null
             };
 
         snapshot.ready = snapshot.activeTargetZone === null
@@ -1927,6 +1950,9 @@ class DemoBWorkspace extends Container {
             && snapshot.dragEndActive === false
             && snapshot.dragPlaceholderPresent === false
             && snapshot.dragProxyPresent === false
+            && snapshot.proxyEmbodimentPresent === false
+            && snapshot.vesselEmbodimentPresent === false
+            && snapshot.sourcePaneRestored === true
             && snapshot.draggingClass === false
             && snapshot.nativeCandidateCount === 0
             && snapshot.semanticPreviewId === null
@@ -2232,6 +2258,12 @@ class DemoBWorkspace extends Container {
             for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
                 remoteSnapshot = me.readCrossWindowRemoteSnapshot(me.crossWindowGestureContext);
 
+                if (remoteSnapshot.ready) {
+                    const target = me.crossWindowParticipations.get(targetWorkspaceId)?.target;
+                    remoteSnapshot.ready = await target?.awaitRemoteDragEmbodiment(sourceZone.dragComponent) === true;
+                    remoteSnapshot.embodiment = me.vesselProxyEmbodiment.snapshot(itemId);
+                }
+
                 if (remoteSnapshot.ready || attempt === 120) break;
 
                 await me.interactionService.simulateEvent({events: [{
@@ -2319,7 +2351,7 @@ class DemoBWorkspace extends Container {
             }
 
             me.crossWindowGestureContext.remoteSnapshot = remoteSnapshot;
-            me.crossWindowGestureContext.vesselMountCount = pane.mountCount;
+            me.crossWindowGestureContext.proxyMountCount = pane.mountCount;
 
             if (roundTrip) {
                 // Remote preview can settle before the asynchronously-acquired tear-out child has
@@ -3129,6 +3161,11 @@ class DemoBWorkspace extends Container {
                     return false
                 }
 
+                const gesture = me.crossWindowGestureContext;
+                if (context.staged && gesture?.itemId === itemId && gesture.pane === me.paneCache[itemId]) {
+                    gesture.vesselMountCount = gesture.pane.mountCount
+                }
+
                 return true
             },
             // Whichever of terminal and connect lands SECOND performs adoption. Arriving here with
@@ -3326,7 +3363,7 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * A window that held one of this workspace's slots left the shared heap: whatever pane it hosted
+     * @summary A window that held one of this workspace's slots left the shared heap: whatever pane it hosted
      * comes HOME — the reattach commit brings the item back into the document; the re-projection
      * re-adopts the parked instance. Physical death is authoritative: every state owner clears, so
      * a successor gesture can neither inherit nor be blocked by the retired generation.
@@ -3342,6 +3379,8 @@ class DemoBWorkspace extends Container {
             reservation                       = me.vesselReservations.get(workspaceKey);
 
         if (me.isDestroyed || groupId !== me.topologyGroupId) return;
+
+        me.vesselProxyEmbodiment.restoreByWindow(windowId);
 
         // A tear-out vessel's death is the Group's to observe: its slot is the vessel source's, so
         // the `released` effect restores an unsettled stage and brings a committed item home. Only
@@ -3769,9 +3808,14 @@ class DemoBWorkspace extends Container {
                 sourceRect: data.record?.sourceRect ?? null,
                 windowName: me.resolveTearOutVessel(data.itemId)?.windowName
             }),
-            onDockVesselConversionOut: data => me.vesselParkHandlers.onConversionOut({
-                rect: data.logicalRect ?? data.record?.sourceRect ?? null
-            }),
+            onDockVesselConversionOut: data => {
+                if (me.vesselProxyEmbodiment.isStaged(data.itemId)
+                    && !me.vesselProxyEmbodiment.restore({itemId: data.itemId})) return false;
+
+                return me.vesselParkHandlers.onConversionOut({
+                    rect: data.logicalRect ?? data.record?.sourceRect ?? null
+                })
+            },
             onDockVesselConversionTerminal: data => me.vesselParkHandlers.onGestureTerminal(data),
             onDockVesselConversionRetired : data => me.vesselParkHandlers.onVesselRetired(data),
             onDockZoneDocumentChange      : (nextDocument, descriptor) => me.onWorkspaceDocumentChange(workspaceId, nextDocument, {descriptor}),
@@ -3941,7 +3985,7 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
+     * @summary The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
      * or a refused model commit). Identity is the slot's lineage token — a successor admission for
      * the same item shares the window name, never the token — so a retirement presenting a superseded
      * token is refused and the live vessel survives it. The live connection remains recoverable until
@@ -3996,10 +4040,15 @@ class DemoBWorkspace extends Container {
         // committed transfer promotes the staged pane instead, letting the target-first reconciler
         // take it without a false source restoration.
         if (embodiedWindowId && me.tearOutEmbodiment.isStaged(itemId)) {
-            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
-                  settled    = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
-                      itemId, windowId: embodiedWindowId
-                  });
+            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId));
+
+            // Unwind the target proxy first; its source slot lives inside this vessel.
+            if (sourceOwns && me.vesselProxyEmbodiment.isStaged(itemId)
+                && !me.vesselProxyEmbodiment.restore({itemId})) return false;
+
+            const settled = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
+                itemId, windowId: embodiedWindowId
+            });
 
             if (!settled) return false
         }
@@ -4386,7 +4435,7 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Tears down the runner, seam, store, and every cached pane with the workspace.
+     * @summary Tears down the runner, seam, store, and every cached pane with the workspace.
      * @param {...*} args
      */
     destroy(...args) {
@@ -4419,6 +4468,8 @@ class DemoBWorkspace extends Container {
         });
         me.vesselReservations.clear();
         me.vesselParkHandlers?.destroy();
+        me.vesselProxyEmbodiment?.destroy();
+        me.vesselProxyEmbodiment = null;
         me.tearOutEmbodiment?.destroy();
         me.tearOutEmbodiment = null;
         me.crossWindowStagePromise   = null;

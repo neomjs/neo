@@ -1315,6 +1315,39 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(workspace.detachedPanes.workbench).toBeUndefined()
     });
 
+    test('cancelling a proxied tear-out restores its inner slot before the source slot', async () => {
+        const vessel = installWindowVessel(),
+              pane   = workspace.resolvePane('timeline', initialDocument.items.timeline),
+              home   = pane.parent,
+              index  = home.items.indexOf(pane),
+              moving = Neo.create(Container, {windowId: 'nested-restore-vessel'});
+
+        Neo.apps['nested-restore-vessel'] = {mainView: moving};
+        try {
+            expect(await workspace.tearOutEmbodiment.stage({itemId: 'timeline', windowId: moving.windowId})).toBe(true);
+            expect(workspace.vesselProxyEmbodiment.move({
+                draggedItem   : {dockItemId: 'timeline'},
+                proxyRect     : {height: 100, width: 200, x: 10, y: 10},
+                sourceSortZone: {getDragProxyConfig: () => ({})},
+                sourceWindowId: moving.windowId,
+                targetWindowId: 'nested-restore-target'
+            })).toBe(true);
+            expect(await workspace.vesselProxyEmbodiment.whenSettled({itemId: 'timeline'})).toBe(true);
+
+            expect(await workspace.closeTearOutVessel({itemId: 'timeline', windowName: 'tearout-timeline'})).toBe(true);
+            // The coordinator's later cancel must have no remaining proxy slot to restore.
+            expect(workspace.vesselProxyEmbodiment.restore({itemId: 'timeline'})).toBe(false);
+            expect(pane.parent).toBe(home);
+            expect(home.items[index]).toBe(pane);
+            expect(workspace.tearOutEmbodiment.isStaged('timeline')).toBe(false)
+        } finally {
+            workspace.vesselProxyEmbodiment.destroy();
+            moving.destroy();
+            delete Neo.apps['nested-restore-vessel'];
+            vessel.restore()
+        }
+    });
+
     test('a popup close during projection settlement cannot strand committed popup ownership', async () => {
         const
             pane     = workspace.resolvePane('workbench', initialDocument.items.workbench),
@@ -1368,6 +1401,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         await targetRefreshStarted;
 
+        // Source retirement needs the admitted outcome while target projection is still pending.
+        expect(await commit).toBe(true);
         expect(workspace.detachedPanes.workbench.windowId).toBe('window-popup');
 
         await releaseWindow('window-popup', DemoBWorkspace.POPUP_WORKSPACE_ID);

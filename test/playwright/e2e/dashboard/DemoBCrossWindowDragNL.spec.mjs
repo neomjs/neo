@@ -354,7 +354,8 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(result.proof).toMatchObject({
             framesNotReset           : true,
             localDropFires           : 0,
-            mountDelta               : 2,
+            mountDelta               : 3,
+            proxyMountDelta          : 1,
             remoteDropOutFires       : 1,
             sameInstance             : true,
             sourceSuppressionConsumed: true,
@@ -391,9 +392,9 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   schema: 'neo.dock.zone.v1',
                   root  : 'root',
                   items : {
-                      inspector: {reference: 'Inspector', title: 'Inspector'},
-                      timeline : {reference: 'Timeline',  title: 'Timeline'},
-                      console  : {reference: 'Console',   title: 'Console'}
+                      inspector: {title: 'Inspector'},
+                      timeline : {title: 'Timeline'},
+                      console  : {title: 'Console'}
                   },
                   nodes: {
                       root       : {type: 'edge-zone', zones: {right: {nodeId: 'side-tabs'}}},
@@ -406,7 +407,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   schema: 'neo.dock.zone.v1',
                   root  : 'popup-root',
                   items : {
-                      workbench: {reference: 'Workbench', title: 'Workbench'}
+                      workbench: {title: 'Workbench'}
                   },
                   nodes: {
                       'popup-root': {type: 'edge-zone', zones: {center: {nodeId: 'popup-tabs'}}},
@@ -424,7 +425,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             transferCommits   : 1
         });
         expect(counter.id).toBe(baseline.id);
-        expect(counter.properties.mountCount).toBe(baseline.properties.mountCount + 2);
+        expect(counter.properties.mountCount).toBe(baseline.properties.mountCount + 3);
         expect(counter.properties.mounted).toBe(true);
         expect(counter.properties.windowId).not.toBe(baseline.properties.windowId);
 
@@ -553,8 +554,11 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                 + `\nround-trip result: ${JSON.stringify(result)}`)
         }
 
-        await expect(tearOutPopup.locator('.agentos-dockdemo-counter-pane'),
-            'the moving tear-out vessel must render its real live pane before any terminal commit')
+        await expect(targetPopup.locator('.agentos-dockdemo-counter-pane'),
+            'the same live pane renders in the target proxy while its native source is parked')
+            .toBeVisible({timeout: 5000});
+        await expect(tearOutPopup.locator('.neo-dashboard-dock-vessel-placeholder'),
+            'the parked source reserves the pane slot until restore or commit')
             .toBeVisible({timeout: 5000});
 
         let sourceParkState;
@@ -588,24 +592,20 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         // source to report false would encode a browser-harness quirk as product semantics.
         expect(parkReceipt.refocused).toBe(true);
 
-        let restoreReceipt;
+        const result         = await resultPromise,
+              restoreReceipt = result.proof?.restoreReceipt;
 
-        await expect.poll(async () => {
-            restoreReceipt = (await app.getComponent(wsId, ['lastVesselRestoreReceipt'])).lastVesselRestoreReceipt;
-            return Boolean(restoreReceipt?.requested)
-        }, {
-            message  : 'out-conversion must publish its exact restore request',
-            timeout  : 3000,
-            intervals: [10, 25, 50]
-        }).toBe(true);
+        expect(restoreReceipt?.frame,
+            'the settled out-conversion must publish its exact frame-space restore request').toEqual({
+            x: expect.any(Number),
+            y: expect.any(Number)
+        });
 
         await placePopupAtObservedOrigin(
             tearOutPopup,
-            restoreReceipt.requested,
+            restoreReceipt.frame,
             'the CDP adapter must let the real vessel reach Neo\'s exact restore request'
         );
-
-        const result = await resultPromise;
 
         expect(result.errors,
             `the full conversion round-trip must settle detached: ${JSON.stringify(result.debug ?? null)}`)
@@ -686,8 +686,8 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(survivingTearOut, 're-show and terminal retain the acquisition-time Page object').toBe(tearOutPopup);
         expect(finalCounterList, 'the round-trip never duplicates the live CounterPane').toHaveLength(1);
         await expect(survivingTearOut.locator('.agentos-dockdemo-counter-pane')).toBeVisible({timeout: 10000});
-        expect(Math.abs(restoredPhysical.x - result.proof.restoreReceipt.requested.x)).toBeLessThanOrEqual(2);
-        expect(Math.abs(restoredPhysical.y - result.proof.restoreReceipt.requested.y)).toBeLessThanOrEqual(2);
+        expect(Math.abs(restoredPhysical.x - result.proof.restoreReceipt.frame.x)).toBeLessThanOrEqual(2);
+        expect(Math.abs(restoredPhysical.y - result.proof.restoreReceipt.frame.y)).toBeLessThanOrEqual(2);
         expect(after.tearOutAcquisitionAttempts).toBe(1);
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.dockModel.items.workbench).toEqual(before.dockModel.items.workbench);
@@ -695,7 +695,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(native.owners.workbench.windowId).toBe(result.proof.firstIdentity.windowId);
         expect(after.crossWindowStats).toEqual(result.proof.stats);
         expect(finalCounter.id).toBe(baseline.id);
-        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 1);
+        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 3);
         expect(finalCounter.properties.windowId).toBe(result.proof.firstIdentity.windowId);
         expect(pageErrors).toEqual([]);
 
@@ -799,18 +799,21 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             settled          : true
         });
         expect(result.proof.cleanup).toEqual({
-            activeTargetZone      : null,
-            activeCandidateId     : null,
-            candidateSetSchema    : null,
-            dragDataPresent       : false,
-            dragEndActive         : false,
-            dragPlaceholderPresent: false,
-            dragProxyPresent      : false,
-            draggingClass         : false,
-            nativeCandidateCount  : 0,
-            semanticPreviewId     : null,
-            renderedPreviewId     : null,
-            ready                 : true
+            activeTargetZone       : null,
+            activeCandidateId      : null,
+            candidateSetSchema     : null,
+            dragDataPresent        : false,
+            dragEndActive          : false,
+            dragPlaceholderPresent : false,
+            dragProxyPresent       : false,
+            proxyEmbodimentPresent : false,
+            vesselEmbodimentPresent: false,
+            sourcePaneRestored     : true,
+            draggingClass          : false,
+            nativeCandidateCount   : 0,
+            semanticPreviewId      : null,
+            renderedPreviewId      : null,
+            ready                  : true
         });
         expect(result.proof.stats).toEqual({
             localDropFires    : 0,
@@ -822,7 +825,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.crossWindowStats).toEqual(result.proof.stats);
         expect(finalCounter.id).toBe(baseline.id);
-        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 2);
+        expect(finalCounter.properties.mountCount).toBe(baseline.properties.mountCount + 3);
         expect(finalCounter.properties.windowId).toBe(baseline.properties.windowId);
         expect(trace?.events.at(-1)?.t).toBe('cancel');
         expect(runtimeErrors).toEqual([]);

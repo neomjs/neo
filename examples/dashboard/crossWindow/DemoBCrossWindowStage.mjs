@@ -38,6 +38,7 @@ import PreviewContract    from '../../../src/dashboard/dock/model/PreviewContrac
  * @param {Object} seams.workspaceIds `{main, popup, popup2}` semantic workspace ids (`popup2`
  *     optional — the stage parameterizes over every popup id the host registers).
  * @param {String} seams.sortGroup The shared cross-window coordinator sort group.
+ * @param {Object} seams.dragEmbodiment The host-owned proxy embodiment shared by its targets.
  * @param {Function} seams.applyWorkspaceOperation `(workspaceId, descriptor) => {document, errors}|null`
  * @param {Function} seams.adoptCommittedTransferPair `(pair) => Promise<Boolean>` — the HOST's wrappable
  *     adoption facade; `commitWholeStackReturn` routes through it (never its own internal twin)
@@ -90,6 +91,7 @@ export function createCrossWindowStage(seams) {
         workspaceSet,
         workspaceIds,
         sortGroup,
+        dragEmbodiment,
         applyWorkspaceOperation,
         attachKeydown,
         bumpStageGeneration,
@@ -167,6 +169,27 @@ export function createCrossWindowStage(seams) {
         registries.participations.get(workspaceId)?.destroy();
 
         let participation = Neo.create(Participation, {
+            dragEmbodiment,
+            /**
+             * @summary Settles the existing custom preview and exact target-local live pane.
+             * @param {Object} payload
+             * @returns {Promise<Boolean>}
+             */
+            awaitDragEmbodiment: async payload => {
+                const preview = host.down({ntype: 'dock-preview'});
+                if (!dragEmbodiment || !preview?.dockPreview) return false;
+
+                const [settled] = await Promise.all([
+                    dragEmbodiment.whenSettled({
+                        itemId        : payload.draggedItem?.dockItemId,
+                        sourceWindowId: payload.sourceWindowId,
+                        targetWindowId: windowId
+                    }),
+                    preview.promiseUpdate()
+                ]);
+                return settled === true && Boolean(preview.dockPreview)
+                    && isTargetCurrent(workspaceId, windowId, host, generation)
+            },
             clearPreview: () => clearWorkspaceAffordances(workspaceId),
             commitLocal : operation => {
                 let result = applyWorkspaceOperation(workspaceId, operation);
