@@ -3529,7 +3529,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
         }
     });
 
-    test('a second workspace is retired by the reset, and the readout follows', async () => {
+    test('a second workspace survives the reset and is reported beside it', async () => {
         // The popup carries its OWN small document rather than a clone of the shipped one: item ids
         // are unique across the whole keyed topology, so cloning `initialDocument` into a second key
         // is refused by the engine — and rightly, since a torn-out pane MOVES rather than copies.
@@ -3557,19 +3557,17 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             expect(result.errors, 'the commit is accepted').toEqual([]);
 
-            // ⚠️ This arm previously asserted the OPPOSITE — that the extra workspace survives — and
-            // that was the defect @neo-gpt-emmy found, encoded as a contract. Reset retires every
-            // non-main PARTICIPANT before committing, which is what the ticket's trap 3 prescribed
-            // and what I wrongly talked myself out of: the impossibility argument covers closing the
-            // native WINDOW inside the commit, not unregistering a participant before it.
-            // `unregisterParticipant` is a synchronous `participants.delete` that fires no commit,
-            // so it cannot strand a persisted intermediate state.
-            expect(workspace.workspaceSet.has('popup-a'), 'the extra participant is retired').toBe(false);
+            // Every participant is RETAINED. Unregistering one would happen outside the transaction,
+            // so undo could not restore it — see the transferred-pane arm, which is where that
+            // actually bites.
+            expect(workspace.workspaceSet.has('popup-a'), 'the extra participant survives').toBe(true);
 
-            // …and the readout follows, because it reads the registered set rather than a flag.
-            expect(workspace.readTopologyState(), 'back to the shipped arrangement, nothing beside it')
-                .toEqual({additionalWindows: 0, modified: false});
-            expect(Workspace.topologyStateText(workspace.readTopologyState()), 'silence is the default state').toBe('')
+            // The readout reports the two facts separately: main is back at the shipped arrangement,
+            // and one window still stands beside it.
+            expect(workspace.readTopologyState(), 'default arrangement, one window beyond the shipped one')
+                .toEqual({additionalWindows: 1, modified: false});
+            expect(Workspace.topologyStateText(workspace.readTopologyState()))
+                .toBe('Default arrangement · 1 additional window')
         } finally {
             workspace.destroy()
         }
@@ -3669,7 +3667,17 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             await TransactionManager.undo({groupId: workspace.topologyGroupId});
 
-            expect(workspace.readTopologyState().modified, 'undo reaches past the reset here too').toBe(true)
+            expect(workspace.readTopologyState().modified, 'undo reaches past the reset here too').toBe(true);
+
+            // THE arm my first repair lacked, and the reason it shipped a worse defect than the one
+            // it fixed. Retiring the popup happened OUTSIDE the transaction, so undo rolled main back
+            // to a document whose pane lived in a workspace that no longer existed: `queues` ended up
+            // owned by NOBODY. Asserting "modified === true" passed straight through that.
+            const afterUndo = Object.entries(workspace.getDockTopologyWorkspaces())
+                .filter(([, document]) => Object.hasOwn(document?.items ?? {}, 'queues'))
+                .map(([key]) => key);
+
+            expect(afterUndo, 'undo puts the transferred pane back in its window, not nowhere').toEqual(['popup-a'])
         } finally {
             workspace.destroy();
             library.destroy()

@@ -562,25 +562,44 @@ class Workspace extends DockWorkspace {
     }
 
     /**
+     * @summary A valid document for a workspace that owns no panes.
+     *
+     * @description The empty **edge-root** shape, not an emptied tree. Detaching a workspace's last
+     * pane prunes its final tabs node and leaves `root` pointing at a node that no longer exists, so
+     * the result is refused; an edge zone with no zones validates and projects as an empty container.
+     * Established by @neo-gpt-emmy's counterexample after I had reported the pruned shape as proof
+     * that no valid empty document existed.
+     * @returns {Object}
+     */
+    static createEmptyWorkspaceDocument() {
+        return {schema: 'neo.dock.zone.v1', root: 'root', items: {}, nodes: {root: {type: 'edge-zone', zones: {}}}}
+    }
+
+    /**
      * @summary Returns the workspace to the arrangement the app ships with, in one undoable commit.
      *
-     * @description Every non-main participant is **unregistered first**, then the shipped document is
-     * committed for `main` alone. Both halves are load-bearing:
+     * @description The shipped document is committed for `main`, and every other workspace gives back
+     * the panes `initialDocument` owns — in the SAME write. Both halves matter:
      *
-     * - **Retire before committing.** A pane torn into a window is still listed by `initialDocument`,
-     *   so restoring that document beside the popup's own would leave the pane owned twice — an
-     *   invalid topology `Persistence` refuses to capture. Reclaiming it instead empties the popup's
-     *   last tabs node and leaves its `root` dangling, so there is no valid document for a window
-     *   that has handed everything home.
-     * - **Retirement is not the impossible act.** `unregisterParticipant` is a synchronous map
-     *   delete that fires no commit, so it strands no persisted intermediate state. What cannot be
-     *   done is closing the native WINDOW inside the commit, where adoption must be synchronous and
-     *   a native close is neither. The window stays open; it stops participating.
+     * - **Give the panes back, do not just restore main.** A pane torn into a window is still listed
+     *   by `initialDocument`, so restoring that document beside an untouched popup would leave it
+     *   owned twice — an invalid topology `Persistence` refuses to capture, making a reset that
+     *   reports success unpersistable.
+     * - **A workspace left with nothing becomes the empty edge-root, not a pruned tree.** Detaching
+     *   a workspace's last pane prunes its final tabs node and leaves `root` dangling; replacing the
+     *   document with `{root: 'root', items: {}, nodes: {root: {type: 'edge-zone', zones: {}}}}`
+     *   validates and projects as an empty container.
+     *
+     * **Every participant is retained, and that is what makes the reset undoable.** Unregistering
+     * one would happen outside the transaction, so `undo` could not restore it: the commit would
+     * roll back to a document whose panes lived in a workspace that no longer exists, and the torn-out
+     * pane would end up owned by nobody. Keeping every key in the write keeps the whole reset inside
+     * the one history row that reverses it.
      *
      * Committing through the Group rather than assigning `dockModel` is what makes the result
      * durable: a direct field write fires no commit event, so the auto-save never runs and the old
      * topology returns on the next reload. `WorkspaceSet.write` appends, so this is one ordinary
-     * history row and `undo` reverses it — which is why it needs no confirmation ceremony.
+     * history row — which is why it needs no confirmation ceremony.
      *
      * Not `startBlankRoot()`: that admits `{topologyIdentity: {}}` for the load-failure path, and
      * blank is not default.
@@ -597,12 +616,46 @@ class Workspace extends DockWorkspace {
             return {errors: ['the main workspace is not registered'], reset: false, transactionId: null}
         }
 
-        Object.keys(workspaces)
-            .filter(workspaceKey => workspaceKey !== Workspace.MAIN_WORKSPACE_ID)
-            .forEach(workspaceKey => me.workspaceSet.unregister(workspaceKey));
+        const shipped  = new Set(Object.keys(initialDocument.items ?? {})),
+              next     = {[Workspace.MAIN_WORKSPACE_ID]: WorkspaceDocument.clone(initialDocument)},
+              refusals = [];
 
-        const {errors, transactionId} = await me.commitDockTopologyWorkspaces(
-            {[Workspace.MAIN_WORKSPACE_ID]: WorkspaceDocument.clone(initialDocument)},
+        for (const [workspaceKey, document] of Object.entries(workspaces)) {
+            if (workspaceKey === Workspace.MAIN_WORKSPACE_ID) continue;
+
+            const owned   = Object.keys(document?.items ?? {}),
+                  reclaim = owned.filter(itemId => shipped.has(itemId));
+
+            if (!reclaim.length) {
+                next[workspaceKey] = document;
+                continue
+            }
+
+            if (reclaim.length === owned.length) {
+                next[workspaceKey] = Workspace.createEmptyWorkspaceDocument();
+                continue
+            }
+
+            // Partial reclaim: the same two steps `Operations.transferItem` performs on its source
+            // side, then through the shared fail-closed commit so the result is normalized and
+            // validated rather than assumed well-formed.
+            const working = WorkspaceDocument.clone(document);
+
+            reclaim.forEach(itemId => {
+                WorkspaceDocument.detachFromTabs(working, itemId);
+                delete working.items[itemId]
+            });
+
+            const result = WorkspaceDocument.commit(document, working);
+
+            result.errors.length ? refusals.push(...result.errors) : next[workspaceKey] = result.document
+        }
+
+        // A workspace that cannot give a shipped pane back is a refusal, not something to commit
+        // around: committing the rest would restore main while leaving the duplicate in place.
+        if (refusals.length) return {errors: refusals, reset: false, transactionId: null};
+
+        const {errors, transactionId} = await me.commitDockTopologyWorkspaces(next,
             {name: 'default', provenance: {origin: 'human'}});
 
         return {errors, reset: !errors.length, transactionId: transactionId ?? null}
