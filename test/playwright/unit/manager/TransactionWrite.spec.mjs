@@ -232,6 +232,27 @@ test.describe.serial('Neo.manager.Transaction — history admission, the queue a
         expect(provider.getData('historyLength')).toBe(2)
     });
 
+    test('queue-head metadata sees the preceding accepted value and is frozen before preparation', async () => {
+        const {groupId} = Transaction.bind({windowId: 'descriptor-queue'}), state = registerValue(groupId), seen = [];
+        Transaction.setHistoryDepth({groupId, depth: 5});
+        const send = kind => write({groupId, descriptor: {kind},
+            prepareDescriptor: ({descriptor}) => ({...descriptor, before: state.value.kind}),
+            changes          : [{workspaceKey: 'main', input: {kind}}]});
+        const first = send('first'), second = send('second');
+        seen.push(await first, await second);
+        expect(seen.map(result => result.row.before)).toEqual(['initial', 'first']);
+        expect(Object.isFrozen(seen[1].row)).toBe(true);
+    });
+
+    test('a metadata resolver cannot make adoption asynchronous or admit non-JSON metadata', async () => {
+        const {groupId} = Transaction.bind({windowId: 'descriptor-refusal'}), state = registerValue(groupId);
+        for (const prepareDescriptor of [async () => ({}), () => ({callback() {}}), () => {throw new Error('refused')}]) {
+            await expect(write({groupId, prepareDescriptor, changes: [{workspaceKey: 'main', input: {kind: 'bad'}}]})).rejects.toThrow();
+            expect(state.value).toEqual({kind: 'initial'});
+        }
+        await expect(write({groupId, prepareDescriptor: 'not-a-function'})).rejects.toThrow('prepareDescriptor');
+    });
+
     test('a descriptor that cannot become immutable data is refused before participant adoption', async () => {
         Transaction.historyDepth = 5;
 

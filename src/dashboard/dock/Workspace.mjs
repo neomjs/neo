@@ -9,6 +9,7 @@ import LayoutAdapter               from './projection/LayoutAdapter.mjs';
 import Maximize                    from './plugin/Maximize.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
+import PerspectiveSelection        from './interaction/PerspectiveSelection.mjs';
 import Reconciler                  from './projection/Reconciler.mjs';
 import StateProvider               from '../../state/Provider.mjs';
 import {createDockTearOutHandlers} from './window/TearOut.mjs';
@@ -29,7 +30,9 @@ import TopologySeams               from './window/TopologySeams.mjs';
  * that hands the surviving live panes into the next projection instead of recreating them
  * ({@link #refreshDockWorkspace} over {@link Neo.dashboard.dock.projection.Reconciler}, bracketed by
  * the FLIP motion signal). Before this class, each consumer wrote that loop by hand; this class owns
- * it once. A basic consumer declares initial {@link #panes} and {@link #zones}; advanced consumers
+ * it once. A basic consumer declares initial {@link #panes} and {@link #zones}. Named arrangements
+ * use {@link #perspectives} and {@link #activePerspective}; {@link #resetPerspective} re-applies
+ * the committed baseline. Advanced consumers
  * specialize the existing template hooks:
  *
  * - {@link #resolvePane} — custom live component or config resolution beyond declared panes;
@@ -383,6 +386,14 @@ class Workspace extends Container {
          * @member {Object|null} panes=null
          */
         panes: null,
+        /** @member {Object|null} perspectives=null Named zones captured once at construction. */
+        perspectives: null,
+        /**
+         * @member {String|null} activePerspective_=null Accepted declared selection intent, not completion.
+         * Unknown names retain committed identity; equal assignments are no-ops. Use resetPerspective to restore again.
+         * @reactive
+         */
+        activePerspective_: null,
 
         /**
          * Initial nested dock arrangement. Strings/arrays name tabs; objects describe splits
@@ -495,6 +506,33 @@ class Workspace extends Container {
      */
     observedWindowGeometryId = null
 
+    /** @member {Neo.dashboard.dock.interaction.PerspectiveSelection|null} perspectiveSelection=null Selection owner. */
+    perspectiveSelection = null
+
+    /** @summary Validates runtime intent against the captured declarations. @param {String} value @returns {String} */
+    beforeSetActivePerspective(value) {
+        const selection = this.perspectiveSelection;
+        if (selection?.initialized) return selection.accept(value);
+        if (this.isConstructed && !selection && value !== null) {
+            console.error('No declared perspectives are available');
+            return null
+        }
+        return value
+    }
+
+    /** @summary Routes accepted intent and publishes public synchronization. @param {String} value @param {String} oldValue */
+    afterSetActivePerspective(value, oldValue) {
+        if (this.perspectiveSelection?.initialized) {
+            this.perspectiveSelection.onIntent(value);
+            this.fire('activePerspectiveChange', {value, oldValue})
+        }
+    }
+
+    /** @summary Re-applies the committed declared baseline as an explicit write. @returns {Promise<Object>} */
+    resetPerspective() {
+        return this.perspectiveSelection?.restore() ?? Promise.resolve({document: this.dockModel, errors: ['no declared perspective']})
+    }
+
     /**
      * @summary Initializes dock-owned services and arms geometry only when already window-bound.
      * @param {Object} config
@@ -591,8 +629,13 @@ class Workspace extends Container {
         if (supplied) Authoring.validateDocument(me.dockModel, errors);
         if (errors.length) throw new Error(`dockModel: ${errors.join('; ')}`);
 
-        if (me.panes !== null || me.zones !== null) {
-            const {document, errors} = Authoring.fromZones(me.panes ?? {}, supplied ? {type: 'edge-zone'} : me.zones ?? {type: 'edge-zone'});
+        if (me.perspectives !== null || me.zones !== null || me.panes !== null || me.activePerspective !== null) {
+            me.perspectiveSelection = Neo.create(PerspectiveSelection, {workspace: me})
+        }
+        const zones = me.perspectiveSelection?.capture() ?? me.zones;
+
+        if (me.panes !== null || me.zones !== null || me.perspectives !== null) {
+            const {document, errors} = Authoring.fromZones(me.panes ?? {}, supplied ? {type: 'edge-zone'} : zones ?? {type: 'edge-zone'});
             if (errors.length) throw new Error(errors.join('; '));
 
             const declarations = Neo.clone(me.panes ?? {}, true, true), ids = new Set();
@@ -606,6 +649,11 @@ class Workspace extends Container {
             me.paneDeclarations = declarations;
             me.declaredPaneItems = document.items;
             if (!supplied) me.dockModel = document
+        }
+
+        if (me.perspectiveSelection) {
+            me.perspectiveSelection.initialized = true;
+            me.perspectiveSelection.connect()
         }
 
         super.onAfterConstructed()
@@ -1266,6 +1314,8 @@ class Workspace extends Container {
      */
     destroy(...args) {
         const me = this;
+        me.perspectiveSelection?.destroy();
+        me.perspectiveSelection = null;
         me.releaseDeclaredPanes(null);
         me.transactionManager?.un({bind: me.onTopologyGroupBinding, scope: me});
         me.nativeWindows?.unregisterSource(me.id);
@@ -2348,9 +2398,10 @@ class Workspace extends Container {
      */
     projectDockCommit(context) {
         return this.projectDockZoneDocument(context.snapshot.participants[context.workspaceKey], context.descriptor, this, {
-            preserveItemIds : context.preserveItemIds,
-            previousDocument: context.captured.value,
-            workspaceKey    : context.workspaceKey
+            perspectiveContext: context,
+            preserveItemIds   : context.preserveItemIds,
+            previousDocument  : context.captured.value,
+            workspaceKey      : context.workspaceKey
         })
     }
 
@@ -2366,7 +2417,7 @@ class Workspace extends Container {
      */
     projectDockZoneDocument(document, descriptor=null, source=null, projectionOptions={}) {
         let me = this,
-            {previousDocument=me.dockModel, workspaceKey, ...viewOptions} = projectionOptions,
+            {previousDocument=me.dockModel, workspaceKey, perspectiveContext, ...viewOptions} = projectionOptions,
             commitOptions, preserved, tabInsertDescriptor, refreshOptions, tail;
 
         // Presentation owners release transient state before the outgoing shell is reconciled.
@@ -2391,6 +2442,7 @@ class Workspace extends Container {
         // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
         // a revealed rail pane here, as it always did — and nothing else moves. Optional because a
         // test may drive this hook with a hand-built `this`.
+        me.perspectiveSelection?.project(perspectiveContext ?? {descriptor});
         me.dockHeaderActionPolicy?.publishDocument(document);
 
         me.refreshPromise = tail

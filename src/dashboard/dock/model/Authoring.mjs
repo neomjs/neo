@@ -14,6 +14,9 @@ import WorkspaceDocument from './WorkspaceDocument.mjs';
  * input that omitted a title. No component construction or host lifecycle lives here.
  */
 class Authoring extends Base {
+    /** @member {String} defaultPerspectiveName='$default' Name of a zones-only declaration. @static */
+    static defaultPerspectiveName = '$default'
+
     /**
      * Valid values for a split node's orientation.
      * @member {String[]} orientations=['horizontal','vertical']

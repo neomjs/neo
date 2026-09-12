@@ -218,7 +218,8 @@ class WorkspaceSet extends Base {
      * @summary Registers-or-replaces one workspace participant in the host's Group. Replacement is
      * deliberate: a re-embodied vessel re-registers the SAME stable workspace id with fresh
      * accessor seams, and the stale seams must not survive it. Refused while the host has no
-     * Group — there is no membership to join yet.
+     * Group — there is no membership to join yet. A declaring owner's selection attaches on the
+     * Group queue; its pending promise includes synchronization of retained identity.
      * @param {String} workspaceId Stable semantic identity — never a `windowId`.
      * @param {Object} seams
      * @param {Function} seams.getDocument `()` → the workspace's current committed document.
@@ -315,11 +316,13 @@ class WorkspaceSet extends Base {
         if (componentId !== undefined) entry.componentId = componentId;
         if (typeof dispose === 'function') entry.dispose = dispose;
 
-        return manager.registerParticipant({
+        const registered = manager.registerParticipant({
             groupId     : id,
             participant : entry,
             workspaceKey: workspaceId
-        })
+        });
+        if (registered && componentId) Neo.get(componentId)?.perspectiveSelection?.connect();
+        return registered
     }
 
     /**

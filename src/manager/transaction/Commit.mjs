@@ -58,6 +58,7 @@ class Commit extends Base {
     /**
      * @summary Runs at the Group queue head; no awaited work occurs inside adoption/rollback.
      * Transaction id, cause, provenance and participant endpoints override descriptor fields in the retained row.
+     * Replay projection contexts carry the frozen source row as replayRow, independently of new request metadata.
      * @param {Neo.manager.Transaction} manager
      * @param {Object} group
      * @param {Object} request
@@ -68,7 +69,6 @@ class Commit extends Base {
         const {
             cause,
             cursorAction = 'append',
-            descriptor = {},
             provenance = {},
             effects = []
         } = request;
@@ -83,7 +83,18 @@ class Commit extends Base {
         if ((cursorAction === 'undo' || cursorAction === 'redo') && !priorRow) {
             return {row: null, snapshot: group.snapshot ?? null, transactionId, participants: [], notificationErrors: [], plans: [], effects: []}
         }
-        const changes = priorRow
+        const resolvedDescriptor = request.prepareDescriptor
+            ? request.prepareDescriptor({descriptor: request.descriptor, snapshot: group.snapshot})
+            : request.descriptor ?? {};
+        if (typeof resolvedDescriptor?.then === 'function') {
+            Promise.resolve(resolvedDescriptor).catch(() => {});
+            throw new TypeError('a descriptor resolver must synchronously return plain metadata')
+        }
+        if (!resolvedDescriptor || typeof resolvedDescriptor !== 'object' || Array.isArray(resolvedDescriptor)) {
+            throw new TypeError('a descriptor resolver must synchronously return plain metadata')
+        }
+        const descriptor = this.copy(resolvedDescriptor);
+        const changes    = priorRow
             ? priorRow.participants.map(entry => ({workspaceKey: entry.workspaceKey, input: entry[cursorAction === 'undo' ? 'before' : 'after']}))
             : request.changes ?? [];
         if (!Array.isArray(changes) || !Array.isArray(effects)) throw new TypeError('changes and effects must be arrays');
@@ -107,10 +118,10 @@ class Commit extends Base {
         if (changes.some(change => ['adopt', 'compensate'].some(key =>
             Object.prototype.toString.call(byKey.get(change.workspaceKey)[key]) === '[object AsyncFunction]'
         ))) throw new TypeError('participant adoption and compensation must be synchronous');
-        const captures = new Map(members.map(([key, entry]) => [key, this.capture(entry)]));
+        const captures     = new Map(members.map(([key, entry]) => [key, this.capture(entry)]));
         const valuesBefore = Object.freeze(Object.fromEntries([...captures].map(([key, capture]) => [key, capture.value])));
-        const metadata = this.copy({cause, provenance, descriptor});
-        const plans    = [];
+        const metadata     = this.copy({cause, provenance, descriptor, ...(priorRow ? {replayRow: priorRow} : {})});
+        const plans        = [];
         for (const change of [...changes].sort((a, b) => a.workspaceKey.localeCompare(b.workspaceKey))) {
             const participant = byKey.get(change.workspaceKey), captured = captures.get(change.workspaceKey);
             const context     = Object.freeze({transactionId, cursorAction, ...metadata, workspaceKey: change.workspaceKey, captured, valuesBefore});
