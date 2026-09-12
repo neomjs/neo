@@ -1,6 +1,7 @@
-import Base      from '../../../core/Base.mjs';
-import Authoring from '../model/Authoring.mjs';
-import Document  from '../model/WorkspaceDocument.mjs';
+import Base             from '../../../core/Base.mjs';
+import Authoring        from '../model/Authoring.mjs';
+import Document         from '../model/WorkspaceDocument.mjs';
+import PerspectiveState from '../projection/PerspectiveState.mjs';
 
 /**
  * @summary Owns captured perspective declarations and the lifetime of one Workspace's selection requests.
@@ -154,7 +155,8 @@ class PerspectiveSelection extends Base {
             entry.owner = this;
             this.#entry = entry;
             this.publishedName = this.committedName;
-            if (this.pendingName === null) this.sync(this.committedName)
+            if (this.pendingName === null) this.sync(this.committedName);
+            PerspectiveState.publishDocument(host, host.dockModel)
         }).catch(error => {
             this.#registration = null;
             throw error
@@ -198,6 +200,7 @@ class PerspectiveSelection extends Base {
     restore(name = this.committedName) {
         const host = this.workspace, document = this.document(name), serial = ++this.#serial;
         this.pendingName = name;
+        PerspectiveState.publishPending(host, name);
         let pending;
         try {
             if (!document) throw new Error(`unknown declared perspective "${name}"`);
@@ -232,12 +235,14 @@ class PerspectiveSelection extends Base {
         this.pending = Promise.resolve(pending).then(() => {
             if (!this.isDestroyed && !host.isDestroyed && serial === this.#serial) {
                 this.pendingName = null;
+                PerspectiveState.publishPending(host, null);
                 this.sync(this.committedName)
             }
             return {document: host.dockModel, errors: []}
         }, error => {
             if (!this.isDestroyed && !host.isDestroyed && serial === this.#serial) {
                 this.pendingName = null;
+                PerspectiveState.publishPending(host, null);
                 this.sync(this.committedName)
             }
             return {document: host.dockModel, errors: [error.message]}

@@ -10,6 +10,7 @@ import Maximize                    from './plugin/Maximize.mjs';
 import MotionSignal                from './projection/MotionSignal.mjs';
 import PreviewProducer             from './interaction/PreviewProducer.mjs';
 import PerspectiveSelection        from './interaction/PerspectiveSelection.mjs';
+import PerspectiveState            from './projection/PerspectiveState.mjs';
 import Reconciler                  from './projection/Reconciler.mjs';
 import StateProvider               from '../../state/Provider.mjs';
 import {createDockTearOutHandlers} from './window/TearOut.mjs';
@@ -509,6 +510,17 @@ class Workspace extends Container {
     /** @member {Neo.dashboard.dock.interaction.PerspectiveSelection|null} perspectiveSelection=null Selection owner. */
     perspectiveSelection = null
 
+    /**
+     * @summary Seeds perspective data before the received provider's formulas first execute.
+     * @param {Object|Neo.state.Provider|null} value
+     * @param {Neo.state.Provider|null} oldValue
+     * @returns {Neo.state.Provider|null}
+     * @protected
+     */
+    beforeSetStateProvider(value, oldValue) {
+        return super.beforeSetStateProvider(PerspectiveState.seedProvider(this, value), oldValue)
+    }
+
     /** @summary Validates runtime intent against the captured declarations. @param {String} value @returns {String} */
     beforeSetActivePerspective(value) {
         const selection = this.perspectiveSelection;
@@ -653,7 +665,8 @@ class Workspace extends Container {
 
         if (me.perspectiveSelection) {
             me.perspectiveSelection.initialized = true;
-            me.perspectiveSelection.connect()
+            me.perspectiveSelection.connect();
+            PerspectiveState.publishDocument(me, me.dockModel)
         }
 
         super.onAfterConstructed()
@@ -2443,6 +2456,7 @@ class Workspace extends Container {
         // a revealed rail pane here, as it always did — and nothing else moves. Optional because a
         // test may drive this hook with a hand-built `this`.
         me.perspectiveSelection?.project(perspectiveContext ?? {descriptor});
+        PerspectiveState.publishDocument(me, document);
         me.dockHeaderActionPolicy?.publishDocument(document);
 
         me.refreshPromise = tail
