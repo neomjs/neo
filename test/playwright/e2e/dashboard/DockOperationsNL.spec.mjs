@@ -178,12 +178,12 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         expect(stored.schema).toBe('neo.dock.layoutCollection.v1');
         expect(stored.layouts[savedId].dockZone).toEqual(savedDocument);
         await expect.poll(async () => (await readButtons()).map(entry => entry.text))
-            .toEqual(['Operator', 'Review', 'Saved 1', 'Save Current', 'Delete Saved']);
+            .toEqual(['Operator', 'Review', 'Saved 1', 'Save Current', 'Delete Saved 1']);
         await expect(button('Review')).toHaveClass(/\bpressed\b/);
         await expect(button('Saved 1')).not.toHaveClass(/\bpressed\b/);
         const buttonsAfterSave = await readButtons();
         for (const entry of initialButtons) {
-            expect(buttonsAfterSave.find(current => current.text === entry.text)?.id).toBe(entry.id)
+            expect(buttonsAfterSave.some(current => current.id === entry.id)).toBe(true)
         }
         expect(await toolbar.getAttribute('id')).toBe(toolbarId);
         for (const node of retainedNodes) expect(await node.evaluate(element => element.isConnected)).toBe(true);
@@ -219,7 +219,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         await expect(reloadedToolbar.getByRole('button', {name: 'Saved 1', exact: true})).not.toHaveClass(/\bpressed\b/);
         await expect(reloadedToolbar.getByText('Modified', {exact: true})).toBeVisible();
         await expect(page.locator('[class~="dock-flip-item-swarm"]')).toBeVisible();
-        await reloadedToolbar.getByRole('button', {name: 'Delete Saved', exact: true}).click();
+        await reloadedToolbar.getByRole('button', {name: 'Delete Saved 1', exact: true}).click();
         await expect(reloadedToolbar.getByRole('button', {name: 'Saved 1', exact: true})).toHaveCount(0);
         await expect(reloadedToolbar.getByRole('button', {name: 'Delete Saved', exact: true})).toBeDisabled();
         expect(await readTopology(currentApp, currentHolderId)).toEqual(savedDocument)

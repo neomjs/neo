@@ -119,7 +119,7 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Browser-local storage key for the example's named-perspective collection.
+     * Browser-local storage key for the example's saved snapshots.
      * @member {String} layoutCollectionStorageKey='neo.examples.dashboard.dock.layoutCollection'
      */
     layoutCollectionStorageKey = 'neo.examples.dashboard.dock.layoutCollection'
@@ -153,7 +153,12 @@ class MainContainer extends DockWorkspace {
 
         me.layoutCollection = me.createDefaultLayoutCollection();
         me.add(me.createPerspectiveToolbar());
-        me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
+        me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage().then(result => {
+            if (!me.isDestroyed && result.errors.length) {
+                me.items[0].getReference('snapshot-status').text = 'Saved layouts unavailable'
+            }
+            return result
+        })
     }
 
     /**
@@ -220,7 +225,7 @@ class MainContainer extends DockWorkspace {
      * @returns {Object}
      */
     createPerspectiveToolbar() {
-        const me = this;
+        const me = this, titles = {'operator-default': 'Operator', 'review-focus': 'Review'};
 
         return {
             cls         : ['neo-dashboard-dock-perspective-toolbar'],
@@ -243,8 +248,7 @@ class MainContainer extends DockWorkspace {
                     whiteSpace : 'nowrap'
                 },
                 html: 'Perspectives'
-            }, me.createPerspectiveButton('operator-default', 'Operator'),
-                me.createPerspectiveButton('review-focus', 'Review'), {
+            }, ...me.declaredPerspectives().map(name => me.createPerspectiveButton(name, titles[name] ?? name)), {
                 ntype    : 'component',
                 reference: 'perspective-modified',
                 bind     : {text: data => data.dock.perspective.modified ? 'Modified' : ''}
@@ -258,6 +262,10 @@ class MainContainer extends DockWorkspace {
                 handler  : () => me.removeActivePerspective(),
                 reference: 'delete-saved-perspective',
                 text     : 'Delete Saved'
+            }, {
+                ntype    : 'component',
+                reference: 'snapshot-status',
+                text     : ''
             }],
             layout: {ntype: 'hbox', align: 'center'},
             ntype : 'toolbar',
@@ -305,8 +313,9 @@ class MainContainer extends DockWorkspace {
             }
         });
 
+        const start = toolbar.indexOf(toolbar.getReference('perspective-modified')) + 1;
         layouts.forEach((layout, index) => {
-            let targetIndex = index + 4,
+            let targetIndex = index + start,
                 button      = buttons.get(layout.layoutId),
                 currentIndex;
 
@@ -327,13 +336,29 @@ class MainContainer extends DockWorkspace {
 
             button.text = layout.title
         });
-        toolbar.getReference('delete-saved-perspective').disabled = !layouts.length;
+        const selected = me.layoutCollection.layouts[me.layoutCollection.activeLayoutId];
+        toolbar.getReference('delete-saved-perspective').set({
+            disabled: !selected,
+            text    : selected ? `Delete ${selected.title}` : 'Delete Saved'
+        });
         toolbar.update()
     }
 
     /**
+     * @summary Refuses snapshot identifiers that could impersonate the captured declarations.
+     * @param {Object} collection
+     * @returns {String[]} Schema or reserved-name errors.
+     * @private
+     */
+    validateLayoutCollection(collection) {
+        const errors = PerspectiveLibrary.validateSavedLayoutCollection(collection), names = this.declaredPerspectives();
+        return errors.length ? errors : Object.values(collection.layouts).flatMap(layout =>
+            Persistence.reservedNameErrors([layout.layoutId, layout.perspectiveName], names))
+    }
+
+    /**
      * @summary Reads saved snapshots and applies them only when both the collection and active restore
-     * validate. Invalid payloads fail closed to the seeded collection/current document.
+     * validate. Colliding or invalid storage stays untouched; the declared arrangement remains active.
      * @returns {Promise<{collection:(Object|null), document:(Object|null), errors:String[], loaded:Boolean}>}
      */
     async loadLayoutCollectionFromStorage() {
@@ -356,7 +381,7 @@ class MainContainer extends DockWorkspace {
             }
 
             parsed = JSON.parse(value);
-            errors = PerspectiveLibrary.validateSavedLayoutCollection(parsed);
+            errors = me.validateLayoutCollection(parsed);
 
             if (errors.length) {
                 return {collection: null, document: null, errors, loaded: false}
@@ -381,7 +406,7 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Persists the current named-perspective collection via the main-thread LocalStorage addon.
+     * Persists the saved-snapshot collection via the main-thread LocalStorage addon.
      * @param {Object} [collection=this.layoutCollection]
      * @returns {Promise<{persisted:Boolean, error:(String|null)}>|undefined}
      */
@@ -415,6 +440,7 @@ class MainContainer extends DockWorkspace {
             selected = PerspectiveLibrary.selectSavedLayout(me.layoutCollection, layoutId),
             restored;
 
+        selected.errors.push(...me.validateLayoutCollection(me.layoutCollection));
         if (selected.errors.length) {
             return {collection: me.layoutCollection, document: null, errors: selected.errors}
         }
@@ -427,6 +453,7 @@ class MainContainer extends DockWorkspace {
 
         me.layoutCollection = selected.collection;
         me.persistLayoutCollection();
+        me.syncPerspectiveToolbar();
         me.onDockZoneDocumentChange(restored.document);
 
         return {collection: me.layoutCollection, document: me.dockModel, errors: []}
@@ -468,7 +495,7 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * @summary Deletes the selected saved snapshot; the final deletion retains the live document.
+     * @summary Deletes the toolbar's named snapshot and repoints the collection without restoring a document.
      * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
     removeActivePerspective() {
@@ -477,44 +504,30 @@ class MainContainer extends DockWorkspace {
             layoutIds      = Object.keys(collection?.layouts || {}),
             activeLayoutId = collection?.activeLayoutId,
             replacementId  = layoutIds.find(layoutId => layoutId !== activeLayoutId),
-            removed, restored;
+            removed;
 
         if (!activeLayoutId) {
             return {collection, document: null, errors: ['no saved snapshot selected']}
         }
 
-        if (!replacementId) {
-            me.layoutCollection = me.createDefaultLayoutCollection();
-            me.persistLayoutCollection();
-            me.syncPerspectiveToolbar();
-            return {collection: me.layoutCollection, document: me.dockModel, errors: []}
-        }
-
-        removed = PerspectiveLibrary.removeSavedLayout(collection, {
+        removed = replacementId ? PerspectiveLibrary.removeSavedLayout(collection, {
             layoutId           : activeLayoutId,
             replacementLayoutId: replacementId
-        });
+        }) : {collection: me.createDefaultLayoutCollection(), errors: []};
 
         if (removed.errors.length) {
             return {collection, document: null, errors: removed.errors}
         }
 
-        restored = PerspectiveLibrary.restoreActiveSavedLayout(removed.collection);
-
-        if (restored.errors.length) {
-            return {collection, document: null, errors: restored.errors}
-        }
-
         me.layoutCollection = removed.collection;
         me.persistLayoutCollection();
         me.syncPerspectiveToolbar();
-        me.onDockZoneDocumentChange(restored.document);
 
         return {collection: me.layoutCollection, document: me.dockModel, errors: []}
     }
 
     /**
-     * Returns the next free example-generated perspective id and updates the visible suffix counter.
+     * @summary Generates a snapshot id outside the captured declaration and stored-record namespaces.
      * @returns {String}
      */
     nextSavedPerspectiveId() {
@@ -524,7 +537,7 @@ class MainContainer extends DockWorkspace {
         do {
             me.savedPerspectiveCount++;
             id = `saved-perspective-${me.savedPerspectiveCount}`
-        } while (me.layoutCollection?.layouts?.[id]);
+        } while (me.layoutCollection?.layouts?.[id] || Persistence.reservedNameErrors([id], me.declaredPerspectives()).length);
 
         return id
     }

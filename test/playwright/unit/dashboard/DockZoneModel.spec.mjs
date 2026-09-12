@@ -1070,11 +1070,12 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
     test.describe('standalone dock example perspectives', () => {
         let originalLocalStorage, examples;
 
-        /** @summary Constructs the real example so selection and toolbar bindings share their production owner. */
-        function createExample() {
+        /** @summary Constructs the real example with its production binding owner. @param {Object} config */
+        function createExample(config={}) {
             const example = Neo.create(MainContainer, {
                 appName : 'NeoDashboardDockZoneModelTest',
-                windowId: 1
+                windowId: 1,
+                ...config
             });
             examples.push(example);
             return example
@@ -1176,6 +1177,94 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             expect(toolbar.items).toEqual(controls);
             expect(toolbar.getReference('delete-saved-perspective').disabled).toBe(true);
             expect(JSON.parse(writes.at(-1).value).layouts).toEqual({})
+        });
+
+        test('refuses the former seeded collection without duplicating declarations or restoring its stale preset', async () => {
+            const baseline = createExample();
+            await baseline.layoutCollectionLoadPromise;
+            const operator = Persistence.createSavedLayout(baseline.dockModel, {
+                layoutId: 'operator-default', title: 'Operator', metadata: {source: 'examples/dashboard/dock'}
+            }).layout;
+            const review = WorkspaceDocument.clone(operator);
+            review.layoutId = 'review-focus';
+            review.title = 'Review';
+            review.dockZone.nodes['root-split'].sizes = [0.48, 0.52];
+            review.dockZone.nodes['side-split'].sizes = [0.42, 0.58];
+            review.dockZone.nodes['main-tabs'].activeItemId = 'swarm';
+            const {collection} = PerspectiveLibrary.createSavedLayoutCollection([operator, review], {activeLayoutId: 'review-focus'});
+            const stored       = JSON.stringify(collection), writes = [];
+            Neo.main.addon.LocalStorage.readLocalStorageItem = async ({key}) => ({key, value: stored});
+            Neo.main.addon.LocalStorage.updateLocalStorageItem = async payload => {writes.push(payload)};
+
+            const example = createExample(), loaded = await example.layoutCollectionLoadPromise;
+            expect(loaded.loaded).toBe(false);
+            expect(loaded.errors.join()).toContain('names a declared perspective');
+            expect(example.dockModel).toEqual(baseline.dockModel);
+            expect(example.getState('dock.perspective')).toEqual({active: 'operator-default', modified: false, pending: null});
+            expect(example.layoutCollection.layouts).toEqual({});
+            expect(example.items[0].items.filter(item => ['Operator', 'Review'].includes(item.text))).toHaveLength(2);
+            expect(example.items[0].getReference('snapshot-status').text).toBe('Saved layouts unavailable');
+            expect(writes).toEqual([])
+        });
+
+        test('captured declaration names reserve generated snapshot ids and define the complete button list', async () => {
+            const example = createExample({perspectives: {
+                ...MainContainer.config.perspectives,
+                'saved-perspective-1': MainContainer.config.perspectives['review-focus']
+            }});
+            await example.layoutCollectionLoadPromise;
+            const toolbar = example.items[0], added = toolbar.getReference('dock-perspective-saved-perspective-1');
+            expect(added.text).toBe('saved-perspective-1');
+            const saved = example.saveCurrentPerspective();
+            expect(saved.errors).toEqual([]);
+            expect(saved.layout.layoutId).toBe('saved-perspective-2');
+            const modifiedIndex = toolbar.indexOf(toolbar.getReference('perspective-modified'));
+            expect(toolbar.indexOf(added)).toBeLessThan(modifiedIndex);
+            expect(toolbar.items[modifiedIndex + 1].reference).toBe('dock-snapshot-saved-perspective-2')
+        });
+
+        test('stored aliases and reserved prefixes cannot impersonate a declaration', async () => {
+            for (const options of [
+                {layoutId: 'snapshot', perspectiveName: 'review-focus'},
+                {layoutId: '$snapshot', perspectiveName: 'Saved'}
+            ]) {
+                const layout = Persistence.createSavedLayout(doc(), {...options, title: 'Saved'}).layout;
+                const stored = JSON.stringify({schema: PerspectiveLibrary.LAYOUT_COLLECTION_SCHEMA,
+                    activeLayoutId: layout.layoutId, layouts: {[layout.layoutId]: layout}, metadata: {}});
+                Neo.main.addon.LocalStorage.readLocalStorageItem = async ({key}) => ({key, value: stored});
+                const example = createExample(), loaded = await example.layoutCollectionLoadPromise;
+                expect(loaded.loaded).toBe(false);
+                expect(loaded.errors.join()).toMatch(/declared perspective|engine-reserved/);
+                expect(example.layoutCollection.layouts).toEqual({})
+            }
+        });
+
+        test('deletion identifies its snapshot target and never restores a replacement document', async () => {
+            const example = createExample();
+            await example.layoutCollectionLoadPromise;
+            const first   = example.saveCurrentPerspective().layout;
+            const resized = Operations.applyOperation(example.dockModel, {
+                operation: 'resizeSplit', sizes: [0.4, 0.6], splitNodeId: 'root-split'
+            });
+            await example.onDockZoneDocumentChange(resized.document);
+            await example.refreshPromise;
+            const second = example.saveCurrentPerspective().layout;
+            example.activePerspective = 'review-focus';
+            await example.perspectiveSelection.pending;
+            await example.refreshPromise;
+
+            const document = example.dockModel, published = example.getState('dock.perspective'),
+                  button   = example.items[0].getReference('delete-saved-perspective'), label = button.text;
+            expect(example.removeActivePerspective().errors).toEqual([]);
+            expect(example.dockModel).toBe(document);
+            expect(example.getState('dock.perspective')).toEqual(published);
+            expect(label).toBe(`Delete ${second.title}`);
+            expect(button.text).toBe(`Delete ${first.title}`);
+            expect(example.layoutCollection.activeLayoutId).toBe(first.layoutId);
+            expect(example.layoutCollection.layouts[second.layoutId]).toBeUndefined();
+            expect(example.removeActivePerspective().errors).toEqual([]);
+            expect(example.dockModel).toBe(document);
+            expect(button.disabled).toBe(true)
         });
 
         test('rehydrates snapshots, handles an empty collection, and rejects invalid storage', async () => {
