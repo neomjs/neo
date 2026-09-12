@@ -73,20 +73,25 @@ class PerspectiveSelection extends Base {
         return this.#documents.has(name) ? {workspaceKey: this.identityKey(), input: {name}} : null
     }
 
-    /** @summary Captures declarations after the host's complete construction chain. @returns {Object} Initial zones. */
+    /**
+     * @summary Captures declarations after the host's complete construction chain.
+     * A value is zones, lowered with the host's `panes`, or an already-lowered document admitted as its
+     * own baseline. A baseline is never registered, so it may hold a pane a sibling workspace owns.
+     * @returns {Object|String|String[]} The active declaration: zones or a lowered document.
+     */
     capture() {
         const host     = this.workspace, supplied = host.dockModel !== null,
               declared = host.perspectives === null
                   ? {[Authoring.defaultPerspectiveName]: host.zones ?? {type: 'edge-zone'}}
                   : Neo.clone(host.perspectives, true, true);
         if (!declared || typeof declared !== 'object' || Array.isArray(declared) || !Object.keys(declared).length) {
-            throw new TypeError('perspectives must be a nonempty map of names to zones')
+            throw new TypeError('perspectives must be a nonempty map of names to zones or documents')
         }
-        for (const [name, zones] of Object.entries(declared)) {
+        for (const [name, value] of Object.entries(declared)) {
             if (!name.trim()) throw new TypeError('perspective names must not be empty');
             const result = supplied && host.perspectives === null
                 ? {document: Document.clone(host.dockModel), errors: []}
-                : Authoring.fromZones(host.panes ?? {}, zones);
+                : Authoring.isDocument(value) ? Authoring.fromDocument(value) : Authoring.fromZones(host.panes ?? {}, value);
             if (result.errors.length) throw new TypeError(`perspectives.${name}: ${result.errors.join('; ')}`);
             this.#documents.set(name, Document.clone(result.document))
         }

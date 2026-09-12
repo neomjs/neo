@@ -8,7 +8,8 @@ import WorkspaceDocument from './WorkspaceDocument.mjs';
  *
  * `fromZones` accepts component configurations but copies only the document catalog fields.
  * `toConfig` exports that catalog and a nested tree; it cannot recover runtime configuration.
- * Both APIs fail closed, leave inputs untouched and apply WorkspaceDocument.normalizeTree.
+ * Both fail closed, leave inputs untouched and apply WorkspaceDocument.normalizeTree. `fromDocument`
+ * admits an already-lowered document in `fromZones`' result shape, validated but never normalized.
  * Independent validation failures accumulate; malformed branches stop before unsafe traversal.
  * Round trips compare after normalization and catalog defaults, not byte-for-byte with an
  * input that omitted a title. No component construction or host lifecycle lives here.
@@ -31,6 +32,33 @@ class Authoring extends Base {
          * @protected
          */
         className: 'Neo.dashboard.dock.model.Authoring'
+    }
+
+    /**
+     * @summary Whether a declaration is an already-lowered `neo.dock.zone.v1` document rather than zones.
+     * Discriminates by the document's own `schema` marker; validity is {@link #fromDocument}'s concern.
+     * @param {*} value
+     * @returns {Boolean}
+     * @static
+     */
+    static isDocument(value) {
+        return WorkspaceDocument.isJsonRecord(value) && value.schema === WorkspaceDocument.SCHEMA
+    }
+
+    /**
+     * @summary Admits an already-lowered document through the checks a supplied `dockModel` passes.
+     * Returns `fromZones`' result shape, so a declaration may be either kind. The input stays
+     * untouched and is not normalized: an admitted document is its own baseline byte-for-byte.
+     * @param {Object} document
+     * @returns {{document:(Object|null), errors:String[]}}
+     * @static
+     */
+    static fromDocument(document) {
+        const errors = [];
+
+        this.validateDocument(document, errors);
+
+        return {document: errors.length ? null : WorkspaceDocument.clone(document), errors}
     }
 
     /**

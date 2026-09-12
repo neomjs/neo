@@ -387,7 +387,7 @@ class Workspace extends Container {
          * @member {Object|null} panes=null
          */
         panes: null,
-        /** @member {Object|null} perspectives=null Named zones captured once at construction. */
+        /** @member {Object|null} perspectives=null Named zones or already-lowered documents, captured once at construction. */
         perspectives: null,
         /**
          * @member {String|null} activePerspective_=null Accepted declared selection intent, not completion.
@@ -673,10 +673,12 @@ class Workspace extends Container {
         if (me.perspectives !== null || me.zones !== null || me.panes !== null || me.activePerspective !== null) {
             me.perspectiveSelection = Neo.create(PerspectiveSelection, {workspace: me})
         }
-        const zones = me.perspectiveSelection?.capture() ?? me.zones;
+        const declaration = me.perspectiveSelection?.capture() ?? me.zones,
+              lowered     = !supplied && Authoring.isDocument(declaration);
 
         if (me.panes !== null || me.zones !== null || me.perspectives !== null) {
-            const {document, errors} = Authoring.fromZones(me.panes ?? {}, supplied ? {type: 'edge-zone'} : zones ?? {type: 'edge-zone'});
+            // A lowered active declaration is the first document itself; the pane catalog still lowers alone.
+            const {document, errors} = Authoring.fromZones(me.panes ?? {}, supplied || lowered ? {type: 'edge-zone'} : declaration ?? {type: 'edge-zone'});
             if (errors.length) throw new Error(errors.join('; '));
 
             const declarations = Neo.clone(me.panes ?? {}, true, true), ids = new Set();
@@ -689,7 +691,7 @@ class Workspace extends Container {
 
             me.paneDeclarations = declarations;
             me.declaredPaneItems = document.items;
-            if (!supplied) me.dockModel = document
+            if (!supplied) me.dockModel = lowered ? WorkspaceDocument.clone(declaration) : document
         }
 
         if (me.perspectiveSelection) {
