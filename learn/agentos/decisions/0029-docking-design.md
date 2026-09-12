@@ -263,8 +263,9 @@ Four sentences an implementation leaf may rely on:
    setter's previous value. Selecting a saved record by name is a separate, deferred contract whose constraint is
    sentence 3.
 2. **A saved record is a snapshot.** A layout or topology record may equal a declared perspective's lowered document
-   and may carry which declared perspective it was captured under, but it never defines one; restoring it changes no
-   selection.
+   and may carry which declared perspective it was captured under, but it never defines one. Restoring a record whose
+   accepted metadata names a declared perspective selects that origin; restoring an originless record retains the last
+   committed or initialized declared baseline, so the selection does not change.
 3. **The reserved name is refused at both persisted write boundaries.** Neither `perspectiveName` nor `layoutId` may
    take the reserved name or a declared name; the refusal lives beside the existing unsafe-key refusal.
 4. **Origin metadata follows the accepted-write identity, never a published leaf.** A declared-selection append
