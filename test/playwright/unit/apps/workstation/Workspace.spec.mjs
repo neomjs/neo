@@ -12,10 +12,13 @@ import * as core                from '../../../../../src/core/_export.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence              from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import '../../../../../src/manager/Instance.mjs';
+import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import StateProvider      from '../../../../../src/state/Provider.mjs';
+import Container          from '../../../../../src/container/Base.mjs';
 import Toolbar            from '../../../../../src/toolbar/Base.mjs';
 import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
 import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
@@ -3183,7 +3186,16 @@ test.describe('Workstation topology bar — the view declares it, the controller
         // — a spacer plus one item per action. A count read here certified nothing about the live
         // bar; the materialised bar and its sync are exercised in WorkspaceController.spec.
         expect(bar.reference).toBe('topology-toolbar');
-        expect(bar.items.map(item => item.handler)).toEqual(['saveTopology', 'closeTopology']);
+
+        // The controller-routed buttons, still in authored order. Filtered to string handlers rather
+        // than pinned as the whole list, because the view now handles some of its own items and the
+        // authored list is contractually free to grow.
+        expect(bar.items.map(item => item.handler).filter(handler => typeof handler === 'string'))
+            .toEqual(['saveTopology', 'closeTopology']);
+
+        // …and the declaration property itself, asserted directly instead of inferred from that
+        // list's length: `toolbar.Base` merges one item per action into `items`, and none is here.
+        expect(bar.items.every(item => !item.action), 'no materialised action items in the declaration').toBe(true);
 
         // Persistent, not focus-gated: an undo control that appears only once the bar holds focus is
         // undiscoverable exactly when a user reaches for it.
@@ -3260,7 +3272,14 @@ test.describe('Workstation topology bar — the view declares it, the controller
         // formatter off the config object would exercise the arithmetic and none of the wiring.
         // The local provider holds no data — the formatters read the Group's own leaf where it
         // lives — but a component only binds once it can resolve one.
-        const bar  = Neo.create(Toolbar, {...Workspace.prototype.createTopologyBar.call(host), stateProvider: {}}),
+        // The provider carries `topology` because the bar DECLARES a binding on it — the history
+        // formatters read the Group's own leaf where it lives, but the modified readout is published
+        // state, and a component only binds once it can resolve a provider that holds its key. An
+        // empty one is an incomplete fixture rather than a smaller one.
+        const bar = Neo.create(Toolbar, {
+                  ...Workspace.prototype.createTopologyBar.call(host),
+                  stateProvider: {data: {topology: {modified: false}}}
+              }),
               undo = bar.getAction('undo'),
               redo = bar.getAction('redo'),
               // Read it where a user does: the badge is a vdom node the button hides rather than
@@ -3285,8 +3304,11 @@ test.describe('Workstation topology bar — the view declares it, the controller
 
             await command('undo');
 
-            // The state that tells the two formulas apart: swapped, mirrored and off-by-one counts
-            // all read alike here, and no constant survives 2 → 1 on the same control.
+            // Off-by-one is what this state catches: `cursor` is 0 here, so a formula reading it
+            // raw reports null where the count is 1. Swapped and mirrored formulas are NOT caught
+            // here — all three read `['1', '1']` — they are caught by the asymmetric states above
+            // and below, where one direction has a count and the other has none. The mutation
+            // receipt says so: mirroring redo onto undo reds at "two steps behind the cursor".
             expect(read(), 'one step each way')
                 .toEqual([['1', false, false], ['1', false, false]]);
 
@@ -3312,5 +3334,481 @@ test.describe('Workstation topology bar — the view declares it, the controller
             TransactionManager.retireGroup(group.groupId);
             TransactionManager.historyDepth = restoreDepth
         }
+    })
+});
+
+test.describe('Workstation modified-from-default readout (#18553)', () => {
+    const MAIN = Workspace.MAIN_WORKSPACE_ID;
+
+    /**
+     * The production derivation on the minimal host it actually reads. `readTopologyState` consults
+     * only the keyed workspaces, so a constructed Workspace would add a Group, a provider and a
+     * projection without changing a single answer below.
+     * @param {Object} workspaces
+     * @returns {{additionalWindows: Number, modified: Boolean}}
+     */
+    const read = workspaces => Workspace.prototype.readTopologyState.call({
+        getDockTopologyWorkspaces: () => workspaces
+    });
+
+    /**
+     * The departure half alone, for the cases that are only about the named document.
+     * @param {Object} workspaces
+     * @returns {Boolean}
+     */
+    const answer = workspaces => read(workspaces).modified;
+
+    const drag = descriptor => {
+        const result = Operations.applyOperation(WorkspaceDocument.clone(initialDocument), descriptor);
+
+        expect(result.errors, `the fixture operation must commit: ${JSON.stringify(descriptor)}`).toEqual([]);
+
+        return result.document
+    };
+
+    test('both directions: the shipped arrangement is unmodified, one committed operation is not', () => {
+        // AC-6's first direction. An indicator that is always on is indistinguishable from one that
+        // works, so the negative is asserted against the real shipped document rather than assumed.
+        expect(answer({[MAIN]: WorkspaceDocument.clone(initialDocument)}), 'freshly seeded').toBe(false);
+
+        expect(answer({[MAIN]: drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]})}),
+            'one dragged split boundary').toBe(true);
+
+        expect(answer({[MAIN]: drag({operation: 'moveItem', itemId: 'audit', targetNodeId: 'right-bottom-tabs'})}),
+            'one relocated pane').toBe(true)
+    });
+
+    test('a dragged rail counts, which it could not before the differ reported edge extents', () => {
+        // The shape fingerprint reads this document as identical to the default, and so did
+        // `diffDockDocuments` until `edgeResizes` landed. It is asserted here rather than left to
+        // the differ's own suite because THIS readout is what a user sees, and a rail drag is a
+        // first-class gesture of this workspace — three of its four edges ship `resizable: true`.
+        expect(answer({[MAIN]: drag({operation: 'resizeEdgeZone', edgeZoneId: 'root', edge: 'left', extent: 0.4})}),
+            'the left rail dragged from 0.11 to 0.4').toBe(true)
+    });
+
+    test('returning to the shipped arrangement clears it, which a dirty flag could not', () => {
+        // The property that rules out a boolean set on the first operation: the answer is recomputed
+        // from live state, so a document that has come back to the default reads unmodified no
+        // matter how it got there. Undo drives exactly this transition.
+        const dragged  = drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}),
+              restored = Operations.applyOperation(dragged, {
+                  operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.6, 0.4]
+              });
+
+        expect(restored.errors).toEqual([]);
+        expect(answer({[MAIN]: dragged}),           'modified while away').toBe(true);
+        expect(answer({[MAIN]: restored.document}), 'and clear on return').toBe(false)
+    });
+
+    test('a second window is counted, not folded into the departure it is not', () => {
+        // The two facts are independent and this is the case that separates them. An earlier
+        // revision answered `true` on any extra key BEFORE the differ ran, which cost twice: a user
+        // whose main document matched the default was told they had modified it, and the document
+        // that actually matched was never compared. Reset makes that visible — it commits the
+        // shipped document and deliberately leaves other windows standing, so the collapsed answer
+        // lit up the instant the user pressed it.
+        expect(read({
+            [MAIN] : WorkspaceDocument.clone(initialDocument),
+            'popup': WorkspaceDocument.clone(initialDocument)
+        }), 'main untouched, one pane living in its own window').toEqual({additionalWindows: 1, modified: false});
+
+        // And the halves compose rather than masking each other: a departure in the named document
+        // is still reported while an extra window stands.
+        expect(read({
+            [MAIN] : drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}),
+            'popup': WorkspaceDocument.clone(initialDocument)
+        }), 'both at once').toEqual({additionalWindows: 1, modified: true})
+    });
+
+    test('three silences: unestablished, main-less and uncomparable all read unmodified', () => {
+        // Before any workspace registers there is no answer to give, and lighting the indicator
+        // during boot would report a departure the user has not made.
+        expect(read({}), 'nothing registered yet').toEqual({additionalWindows: 0, modified: false});
+
+        // No main workspace means nothing to compare the shipped document against — but the window
+        // count is a SEPARATE fact that stays knowable, so it is still reported honestly rather than
+        // zeroed along with the comparison that failed.
+        expect(read({'popup': WorkspaceDocument.clone(initialDocument)}), 'main not registered')
+            .toEqual({additionalWindows: 1, modified: false});
+
+        // `errors` means the comparison did not happen. An indicator that lights up because the
+        // differ failed tells the reader something false about their own layout.
+        const malformed = WorkspaceDocument.clone(initialDocument);
+
+        malformed.nodes['scale-tabs'].type = 'carousel';
+
+        expect(answer({[MAIN]: malformed}), 'a document the differ cannot read').toBe(false)
+    });
+
+    test('the state line says both facts, and says nothing on the shipped arrangement', () => {
+        // Silence is a state: the component hides on the default with no extra windows, because a
+        // readout that is always present cannot distinguish "this is the product" from "you made
+        // this" — which is the affordance.
+        expect(Workspace.topologyStateText({additionalWindows: 0, modified: false}), 'nothing to say').toBe('');
+
+        expect(Workspace.topologyStateText({additionalWindows: 0, modified: true})).toBe('Modified from default');
+
+        // The case the split exists for: immediately after a reset with a popup standing. The old
+        // collapsed answer read "Modified from default" here, which was true of nothing the user
+        // could act on.
+        expect(Workspace.topologyStateText({additionalWindows: 1, modified: false}), 'just after a reset')
+            .toBe('Default arrangement · 1 additional window');
+
+        expect(Workspace.topologyStateText({additionalWindows: 2, modified: true}), 'both, pluralised')
+            .toBe('Modified from default · 2 additional windows');
+
+        // The formatter is what both bindings read, so its empty answer IS the visibility test. A
+        // default with no extra windows must be the ONLY silent state — asserted rather than
+        // assumed, because a formatter that returned '' too often would hide a real departure.
+        expect(Workspace.topologyStateText(), 'no argument at all').toBe('')
+    })
+});
+
+test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
+    const MAIN = Workspace.MAIN_WORKSPACE_ID;
+
+    // `WorkspaceSet.write` refuses without a bound Group, and reset is a Group write by design — so
+    // the binding is a precondition of the arm, not scaffolding around it.
+    test.beforeEach(() => {
+        TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'})
+    });
+
+    test.afterEach(() => {
+        let bound;
+        while ((bound = TransactionManager.findByWindow(Neo.config.windowId))) {
+            TransactionManager.retireGroup(bound.groupId)
+        }
+    });
+
+    test('reset restores the shipped document through the Group, and undo reaches past it', async () => {
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              groupId   = workspace.topologyGroupId;
+
+        TransactionManager.setHistoryDepth({groupId, depth: 5});
+
+        try {
+            // A REAL committed mutation rather than a hand-fed document: reset has to undo what the
+            // Group actually holds, and a fixture built from my own reconstruction could only
+            // confirm that reconstruction.
+            await workspace.workspaceSet.commit(MAIN, [
+                {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
+            ]);
+
+            expect(workspace.readTopologyState().modified, 'departed after one committed operation').toBe(true);
+
+            const result = await workspace.resetTopology();
+
+            expect(result.errors, 'the reset commit is accepted').toEqual([]);
+            expect(result.reset).toBe(true);
+
+            // The Group mints the transactionId. Its presence is what separates this from
+            // `TourController`'s `workspace.dockModel = …` assignment, which fires no commit event —
+            // so `TopologyLibrary`'s `commit: data => this.persistCurrent()` never runs and the OLD
+            // topology stays in IndexedDB to return on the next reload. That is AC-5's failure mode
+            // sitting in this repo as the nearest copyable precedent.
+            expect(typeof result.transactionId, 'it went through the Group, not a field write').toBe('string');
+
+            expect(workspace.getDockTopologyWorkspaces()[MAIN].nodes['split-main'].sizes,
+                'the shipped sizes are back').toEqual([0.6, 0.4]);
+            expect(workspace.readTopologyState().modified, 'and the readout clears').toBe(false);
+
+            // AC-4's mechanism, MEASURED rather than argued. `WorkspaceSet.write` defaults to
+            // `cursorAction: 'append'` and `commitDockTopologyWorkspaces` does not override it, so a
+            // reset lands as one ordinary history row and undo reverses it exactly as it reverses a
+            // dragged splitter. That is why this control carries no confirmation ceremony: the
+            // AC's stated rationale — "an undo control that no longer reaches past it" — does not
+            // hold for this shape, and a dialog would guard nothing.
+            await TransactionManager.undo({groupId});
+
+            expect(workspace.getDockTopologyWorkspaces()[MAIN].nodes['split-main'].sizes,
+                'undo reaches past the reset and returns the arrangement it replaced').toEqual([0.25, 0.75]);
+            expect(workspace.readTopologyState().modified,
+                'and the readout follows the undo, because it is a comparison and not a flag').toBe(true)
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('a second workspace survives the reset and is reported beside it', async () => {
+        // The popup carries its OWN small document rather than a clone of the shipped one: item ids
+        // are unique across the whole keyed topology, so cloning `initialDocument` into a second key
+        // is refused by the engine — and rightly, since a torn-out pane MOVES rather than copies.
+        const workspace = Neo.create(Workspace, {
+            initialTopology: {workspaces: {
+                [MAIN]   : WorkspaceDocument.clone(initialDocument),
+                'popup-a': {
+                    schema: 'neo.dock.zone.v1', root: 'popup-tabs',
+                    items : {'popup-pane': {reference: 'popup-pane'}},
+                    nodes : {'popup-tabs': {type: 'tabs', items: ['popup-pane'], activeItemId: 'popup-pane'}}
+                }
+            }},
+            windowId: Neo.config.windowId
+        });
+
+        try {
+            await workspace.workspaceSet.commit(MAIN, [
+                {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
+            ]);
+
+            expect(workspace.readTopologyState(), 'departed, with one extra window standing')
+                .toEqual({additionalWindows: 1, modified: true});
+
+            const result = await workspace.resetTopology();
+
+            expect(result.errors, 'the commit is accepted').toEqual([]);
+
+            // Every participant is RETAINED. Unregistering one would happen outside the transaction,
+            // so undo could not restore it — see the transferred-pane arm, which is where that
+            // actually bites.
+            expect(workspace.workspaceSet.has('popup-a'), 'the extra participant survives').toBe(true);
+
+            // The readout reports the two facts separately: main is back at the shipped arrangement,
+            // and one window still stands beside it.
+            expect(workspace.readTopologyState(), 'default arrangement, one window beyond the shipped one')
+                .toEqual({additionalWindows: 1, modified: false});
+            expect(Workspace.topologyStateText(workspace.readTopologyState()))
+                .toBe('Default arrangement · 1 additional window')
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('the reset re-seeds the persisted record, so it cannot come back on the next reload', async () => {
+        // AC-5, and the whole reason reset commits through the Group. Persistence is commit-driven —
+        // `TopologyLibrary.attachGroup` registers `commit: data => this.persistCurrent()` — so a
+        // reset that wrote `dockModel` directly would fire no commit, leave the OLD topology in
+        // storage, and hand it back on the next reload. Asserted against a real attached library
+        // with a spy adapter rather than inferred from the commit path.
+        const writes  = [],
+              library = Neo.create(TopologyLibrary, {persistenceAdapter: {
+                  read : async () => null,
+                  write: topology => {writes.push(topology); return Promise.resolve(true)}
+              }}),
+              workspace = Neo.create(Workspace, {topologyLibrary: library, windowId: Neo.config.windowId});
+
+        try {
+            expect(workspace.getController().attachTopologyLibrary(), 'the library is attached to the Group').toBe(true);
+
+            await workspace.workspaceSet.commit(MAIN, [
+                {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
+            ]);
+
+            const writesBeforeReset = writes.length;
+
+            expect(writesBeforeReset, 'the ordinary commit already persisted').toBeGreaterThan(0);
+
+            await workspace.resetTopology();
+
+            expect(writes.length, 'the reset persisted too — it is not a silent live-only change')
+                .toBeGreaterThan(writesBeforeReset);
+            expect(library.resolve().topology.workspaces[MAIN].nodes['split-main'].sizes,
+                're-seeded with the shipped arrangement, not left holding the old one').toEqual([0.6, 0.4])
+        } finally {
+            workspace.destroy();
+            library.destroy()
+        }
+    });
+
+    test('a pane TRANSFERRED out of the shipped arrangement does not come back owned twice', async () => {
+        // @neo-gpt-emmy's review finding, and the arm my own fixture could not produce. The other
+        // multi-key arm gives the popup a NEW item (`popup-pane`), which no shipped document ever
+        // owned — so it proves the keyed-count branch and is structurally incapable of catching
+        // duplication. The hard shape is a pane that MOVED: `initialDocument` still lists it, so
+        // restoring the whole document beside a popup that now holds it makes it owned twice,
+        // `Persistence` refuses the capture, and the reset reports success while being unpersistable.
+        const moved = Operations.transferItem(
+            WorkspaceDocument.clone(initialDocument),
+            {schema: 'neo.dock.zone.v1', root: 'popup-tabs', items: {}, nodes: {'popup-tabs': {type: 'tabs', items: [], activeItemId: null}}},
+            {itemId: 'queues', sourceWorkspaceId: MAIN, targetWorkspaceId: 'popup-a',
+             target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}}
+        );
+
+        expect(moved.errors, 'the transfer fixture must itself commit').toEqual([]);
+
+        const writes  = [],
+              library = Neo.create(TopologyLibrary, {persistenceAdapter: {
+                  read : async () => null,
+                  write: topology => {writes.push(topology); return Promise.resolve(true)}
+              }}),
+              workspace = Neo.create(Workspace, {
+                  initialTopology: {workspaces: {[MAIN]: moved.sourceDocument, 'popup-a': moved.targetDocument}},
+                  topologyLibrary: library,
+                  windowId       : Neo.config.windowId
+              });
+
+        try {
+            expect(workspace.getController().attachTopologyLibrary(), 'the library is attached').toBe(true);
+            TransactionManager.setHistoryDepth({groupId: workspace.topologyGroupId, depth: 5});
+
+            const writesBefore = writes.length;
+            const result       = await workspace.resetTopology();
+
+            expect(result.errors, 'the reset commit is accepted').toEqual([]);
+
+            // The assertion that fails before the fix: `queues` must have exactly ONE owner across
+            // the whole keyed topology, whatever reset decided to do about the standing window.
+            const owners = Object.entries(workspace.getDockTopologyWorkspaces())
+                .filter(([, document]) => Object.hasOwn(document?.items ?? {}, 'queues'))
+                .map(([key]) => key);
+
+            expect(owners, 'exactly one workspace owns the transferred pane after a reset').toHaveLength(1);
+
+            // …and the consequence that makes it more than a purity check: an invalid keyed topology
+            // cannot be captured, so a reset reporting success would silently never persist.
+            const captured = Persistence.captureTopologyPerspective(workspace.getDockTopologyWorkspaces());
+
+            expect(captured.errors, 'the reset result is persistable').toEqual([]);
+
+            // Persistable is not persisted, and undo is the other half of the reset contract. Both
+            // asserted here rather than inherited from the single-window arm, because the defect
+            // this arm exists for was invisible to exactly that inheritance.
+            expect(writes.length, 'the reset actually reached storage').toBeGreaterThan(writesBefore);
+            expect(library.resolve().topology.workspaces[MAIN].items.queues, 'the pane is home in the stored record').toBeTruthy();
+
+            await TransactionManager.undo({groupId: workspace.topologyGroupId});
+
+            expect(workspace.readTopologyState().modified, 'undo reaches past the reset here too').toBe(true);
+
+            // THE arm my first repair lacked, and the reason it shipped a worse defect than the one
+            // it fixed. Retiring the popup happened OUTSIDE the transaction, so undo rolled main back
+            // to a document whose pane lived in a workspace that no longer existed: `queues` ended up
+            // owned by NOBODY. Asserting "modified === true" passed straight through that.
+            const afterUndo = Object.entries(workspace.getDockTopologyWorkspaces())
+                .filter(([, document]) => Object.hasOwn(document?.items ?? {}, 'queues'))
+                .map(([key]) => key);
+
+            expect(afterUndo, 'undo puts the transferred pane back in its window, not nowhere').toEqual(['popup-a'])
+        } finally {
+            workspace.destroy();
+            library.destroy()
+        }
+    });
+
+    test('reset waits for every participant host projection, not only the root one', async () => {
+        // @neo-opus-vega's real-popup witness: documents correct at every step, the LIVE pane one
+        // write behind and in the window its document had just left. Each host publishes its own
+        // refresh, so awaiting only `me.refreshPromise` returns while the popup is still stale.
+        //
+        // Instrumented as a THENABLE rather than by timing. A first version asserted that reset had
+        // not resolved yet, which cannot distinguish "waiting for the host" from "waiting for the
+        // Group commit" — it passed with the await removed. This observes the dependency itself.
+        const workspace = Neo.create(Workspace, {
+            initialTopology: {workspaces: {
+                [MAIN]   : WorkspaceDocument.clone(initialDocument),
+                'popup-a': {
+                    schema: 'neo.dock.zone.v1', root: 'popup-tabs',
+                    items : {'popup-pane': {reference: 'popup-pane'}},
+                    nodes : {'popup-tabs': {type: 'tabs', items: ['popup-pane'], activeItemId: 'popup-pane'}}
+                }
+            }},
+            windowId: Neo.config.windowId
+        });
+
+        try {
+            const host = workspace.getPopupStates().find(state => state.workspaceId === 'popup-a')?.host;
+
+            expect(host, 'the fixture really registered a popup host').toBeTruthy();
+
+            let awaited = false;
+
+            const settled = Promise.resolve();
+
+            // `Promise.resolve(thenable)` calls `.then`, so this records whether the reset adopted
+            // the host's refresh at all — a fact, not a race.
+            host.refreshPromise = {then: (...args) => {awaited = true; return settled.then(...args)}};
+
+            const result = await workspace.resetTopology();
+
+            expect(result.errors, 'the reset itself succeeds').toEqual([]);
+            expect(awaited, 'the popup host projection was awaited, not skipped').toBe(true)
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('a reclaimed pane comes home to THIS window, not only to this window\'s document', async () => {
+        // This arm passed the first time it ran, before any repair existed — it pins a property that
+        // already held, and it is recorded as such so nobody reads it as a receipt for a fix.
+        //
+        // It was written to red on a prediction of mine: that a reclaim across a window boundary had
+        // no carrier for the live pane, tear-out having `capturePane`/`adoptPane` and a cross-window
+        // drag the drag proxy. It passed instead, because `Container.base#add` sets `{parentId,
+        // windowId}` on the moved item and forces `mounted = false` across a window boundary, so the
+        // commit's own projection brings the component home unaided.
+        //
+        // A real-window poll later confirmed the same thing end to end — the same instance home in
+        // the destination at +360 ms, the document having moved at +32 ms. So the green here was
+        // never a boundary around a defect elsewhere; it was the answer. The lesson worth keeping
+        // beside the arm: a single snapshot taken after the document settles cannot distinguish a
+        // lost pane from one still in transit, and the assertion that can is embodiment — the
+        // `windowId` flip plus the destination DOM — never the document.
+        const VESSEL = 'vessel-window',
+              moved  = Operations.transferItem(
+                  WorkspaceDocument.clone(initialDocument),
+                  {schema: 'neo.dock.zone.v1', root: 'popup-tabs', items: {}, nodes: {'popup-tabs': {type: 'tabs', items: [], activeItemId: null}}},
+                  {itemId: 'queues', sourceWorkspaceId: MAIN, targetWorkspaceId: 'popup-a',
+                   target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}}
+              );
+
+        expect(moved.errors, 'the transfer fixture must itself commit').toEqual([]);
+
+        const previousApp = Neo.apps[VESSEL],
+              vesselMain  = Neo.create(Container, {windowId: VESSEL}),
+              workspace   = Neo.create(Workspace, {
+                  initialTopology: {workspaces: {[MAIN]: moved.sourceDocument, 'popup-a': moved.targetDocument}},
+                  windowId       : Neo.config.windowId
+              });
+
+        Neo.apps[VESSEL] = {mainView: vesselMain};
+
+        try {
+            TransactionManager.setHistoryDepth({groupId: workspace.topologyGroupId, depth: 5});
+
+            // The hard shape needs BOTH halves. A live pane embodied in a registered foreign window
+            // is only half of it: without a popup host owning that document there is one projection,
+            // and a single projection carries the pane home through `Container.add` on its own. The
+            // witness had two — the vessel's host projects the same item — so the fixture registers
+            // the host as well, or it measures a state the real app never reaches.
+            const state = registerPopupState(workspace, 'popup-a', {
+                document: moved.targetDocument, itemId: 'queues', windowId: VESSEL
+            });
+
+            expect(state.host, 'the fixture really registered a competing popup host').toBeTruthy();
+
+            const pane = workspace.resolvePane('queues', initialDocument.items.queues);
+
+            vesselMain.add(pane);
+
+            expect(vesselMain.items, 'the fixture really embodied the pane in the vessel window').toContain(pane);
+            expect(pane.windowId, 'and the pane really belongs to that window').toBe(VESSEL);
+
+            const result = await workspace.resetTopology();
+
+            expect(result.errors, 'the reset commit is accepted').toEqual([]);
+            expect(workspace.getDockTopologyWorkspaces()[MAIN].items.queues, 'the document reclaimed it').toBeTruthy();
+
+            // The two facts the document tier cannot carry. `not.toContain` alone would also pass on
+            // a pane that was DESTROYED rather than moved, which is the opposite of coming home — so
+            // liveness is asserted first and the window claim is about a component that still exists.
+            expect(pane.isDestroyed, 'the pane came home alive, it was not replaced').toBeFalsy();
+            expect(vesselMain.items, 'the live pane left the vessel window').not.toContain(pane);
+            expect(pane.windowId, 'the live pane belongs to the window its document now names').toBe(Neo.config.windowId)
+        } finally {
+            workspace.destroy();
+            vesselMain.destroy();
+            previousApp === undefined ? delete Neo.apps[VESSEL] : Neo.apps[VESSEL] = previousApp
+        }
+    });
+
+    test('reset names its own refusal when no main workspace is registered', async () => {
+        // Not a defensive guard. With no main entry to replace, the commit would ADD a key and be
+        // refused by the seam for naming something unregistered — so refusing here reports the
+        // actual cause instead of the seam's generic shape.
+        const result = await Workspace.prototype.resetTopology.call({
+            getDockTopologyWorkspaces: () => ({'popup-a': WorkspaceDocument.clone(initialDocument)})
+        });
+
+        expect(result).toEqual({errors: ['the main workspace is not registered'], reset: false, transactionId: null})
     })
 });

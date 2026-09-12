@@ -134,11 +134,22 @@ test.describe('Workstation topology save and close coordination', () => {
     test('the controller fills only its own buttons and cannot destroy what the toolbar owns', () => {
         // The VIEW's own factory, not a hand-written stand-in. `actions` is where the defect lived:
         // toolbar.Base merges `createActionItemConfigs()` into `items` as a spacer plus one item per
-        // action, so the live bar holds five items, not two. A fixture that omits `actions` cannot
-        // reproduce the defect and therefore cannot certify the fix — the previous one omitted it.
-        const bar = Neo.create(Toolbar, Workspace.prototype.createTopologyBar.call({topologyGroupId: 'spec-group'}));
+        // action, so the live bar holds more items than it authors. A fixture that omits `actions`
+        // cannot reproduce the defect and therefore cannot certify the fix — the previous one did.
+        // Counted off the declaration rather than pinned, and the counts are read BEFORE `Neo.create`
+        // consumes it. The boundary this arm protects is that the materialised bar holds MORE than
+        // the view authored — a literal total asserts that only by coincidence, and reds on the next
+        // item the view adds while saying nothing about the merge it was written to catch.
+        const declaration   = Workspace.prototype.createTopologyBar.call({topologyGroupId: 'spec-group'}),
+              authoredCount = declaration.items.length,
+              actionCount   = declaration.actions.length,
+              bar           = Neo.create(Toolbar, declaration);
 
-        expect(bar.items.length, 'two authored items, plus the spacer and one item per action').toBe(5);
+        expect(authoredCount, 'the factory authors items at all').toBeGreaterThan(0);
+        expect(actionCount,   'and declares the actions whose merge is under test').toBeGreaterThan(0);
+
+        expect(bar.items.length, 'every authored item, plus the spacer and one item per action')
+            .toBe(authoredCount + 1 + actionCount);
         expect(bar.getActionSpacer(), 'the toolbar owns a spacer once actions exist').not.toBeNull();
 
         // The invariant whose violation threw `Component not found for id` on every viewport sync:
@@ -166,14 +177,19 @@ test.describe('Workstation topology save and close coordination', () => {
             }
         });
 
-        // Ordinary items only: the spacer and the action group are the toolbar's own structure and
-        // are asserted separately, because reaching into them is exactly what the defect was.
+        // Ordinary BUTTONS only: the spacer and the action group are the toolbar's own structure and
+        // are asserted separately, because reaching into them is exactly what the defect was. The
+        // view's factory also authors non-button readouts, and those are deliberately excluded by
+        // shape rather than by position — `createTopologyBar`'s own contract is that the authored
+        // list "is free to grow", so a filter keyed on what an item IS survives that growth while a
+        // filter keyed on where it sits does not.
         const ordinaryTexts = () => bar.items
-            .filter(item => item.isToolbarAction !== true && item.isToolbarActionSpacer !== true)
+            .filter(item => item.isToolbarAction !== true && item.isToolbarActionSpacer !== true &&
+                item.ntype === 'button')
             .map(item => item.text);
 
         expect(ordinaryTexts(), 'the lifecycle hook already populated it').toEqual([
-            'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
+            'Save workspace', 'Close workspace', 'Reset to default', 'Open alpha as window', 'Show alpha here'
         ]);
 
         // Positional `slice(count)` destroyed these three, and `items.length = count` left their
@@ -185,17 +201,24 @@ test.describe('Workstation topology save and close coordination', () => {
 
         expect(controller.syncTopologyBar()).toBe(true);
         expect(ordinaryTexts(), 'and a resync is not additive').toEqual([
-            'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
+            'Save workspace', 'Close workspace', 'Reset to default', 'Open alpha as window', 'Show alpha here'
         ]);
         expectVdomAligned('aligned after a resync');
 
         // The derived buttons join the ordinary items ahead of the `flex: 1` action spacer, rather
-        // than stranded past it on the far side of undo/redo.
-        expect(bar.items.indexOf(bar.getActionSpacer()), 'derived buttons precede the action group').toBe(4);
+        // than stranded past it on the far side of undo/redo. Asserted as an ORDERING rather than an
+        // index: the authored list is documented as free to grow, so a hard-coded position reds on
+        // the next readout the view adds and says nothing about the property it was protecting.
+        const derived = bar.items.filter(item => item.workspaceKey !== undefined);
+
+        expect(derived.length, 'both derived buttons are present').toBe(2);
+        expect(Math.max(...derived.map(item => bar.items.indexOf(item))),
+            'derived buttons precede the action group')
+            .toBeLessThan(bar.items.indexOf(bar.getActionSpacer()));
 
         // Each derived button carries the participant it addresses, which is the whole of what the
         // declarative handlers read — no closure over the controller or over this call.
-        expect(bar.items.slice(2, 4).map(item => [item.handler, item.workspaceKey])).toEqual([
+        expect(derived.map(item => [item.handler, item.workspaceKey])).toEqual([
             ['onOpenTopologyWorkspace', 'alpha'], ['onMountTopologyWorkspace', 'alpha']
         ]);
 
@@ -204,7 +227,7 @@ test.describe('Workstation topology save and close coordination', () => {
         participants = [];
 
         expect(controller.syncTopologyBar()).toBe(true);
-        expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace']);
+        expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace', 'Reset to default']);
         expect(bar.getAction('undo'), 'an emptied participant set still leaves the actions alone').not.toBeNull();
         expectVdomAligned('aligned after every participant leaves');
 

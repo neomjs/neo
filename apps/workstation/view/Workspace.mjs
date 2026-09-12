@@ -22,6 +22,7 @@ import WorkspaceController        from './WorkspaceController.mjs';
 import Operations                 from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence                from '../../../src/dashboard/dock/model/Persistence.mjs';
 import StateProvider              from '../../../src/state/Provider.mjs';
+import TopologyDiff               from '../../../src/dashboard/dock/model/TopologyDiff.mjs';
 import TourToolbar                from './TourToolbar.mjs';
 import TransactionManager         from '../../../src/manager/Transaction.mjs';
 import WindowManager              from '../../../src/manager/Window.mjs';
@@ -206,7 +207,12 @@ class Workspace extends DockWorkspace {
          */
         stateProvider: {
             module: StateProvider,
-            data  : {tour: initialTourState},
+            // The `topology` keys are DERIVED here rather than bound, because there is nothing to
+            // bind to: `dockModel` is a plain field on the dock Workspace, not a reactive config, so
+            // a formatter reading it would never re-run. {@link #syncTopologyState} publishes them
+            // from the two places the document actually arrives. Seeded only so the keys exist before
+            // the first publish; `construct` overwrites both with the measured answer.
+            data  : {topology: {additionalWindows: 0, modified: false}, tour: initialTourState},
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
@@ -439,7 +445,27 @@ class Workspace extends DockWorkspace {
             // list is free to grow.
             items : [
                 {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
-                {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'}
+                {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'},
+                // Handled on the view, like undo and redo above it: the state, the shipped document
+                // and the commit seam all live here. Disabled on the shipped arrangement, reading the
+                // SAME derived key as the readout, so control and line cannot disagree.
+                {
+                    ntype  : 'button',
+                    bind   : {disabled: data => !data.topology.modified},
+                    handler: () => me.resetTopology(),
+                    iconCls: 'fa fa-rotate-left',
+                    text   : 'Reset to default'
+                },
+                // Both bindings go through the one formatter, so the visibility test and the text
+                // cannot disagree about whether there is anything to say.
+                {
+                    ntype: 'component',
+                    bind : {
+                        cls : data => ['workstation-topology-state'].concat(Workspace.topologyStateText(data.topology) ? [] : ['neo-hidden']),
+                        html: data => Workspace.topologyStateText(data.topology)
+                    },
+                    flex : 'none'
+                }
             ],
             layout   : {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'},
             reference: 'topology-toolbar'
@@ -465,6 +491,239 @@ class Workspace extends DockWorkspace {
               steps    = provider ? count(provider) : 0;
 
         return Number.isFinite(steps) && steps > 0 ? `${steps}` : null
+    }
+
+    /**
+     * @summary How the live topology stands against the arrangement the app ships with, as two
+     * independent facts.
+     *
+     * @description **The unit is the whole keyed topology, not this window's document.** What gets
+     * persisted and restored is {@link #getDockTopologyWorkspaces} — every registered workspace
+     * keyed by identity — because the thing a reader expects back when they open the app URL is
+     * their multi-window setup, not one window's panes. So a pane torn out into a second window IS
+     * a departure from the shipped arrangement, which ships exactly one workspace.
+     *
+     * **These are two facts, not one.** A pane torn into a second window IS a departure from the
+     * shipped arrangement, which ships a single workspace — but it is a different departure from the
+     * named document having changed, and collapsing them loses the half a user can act on. Window
+     * geometry needs no third test: popup placement hints are measured relative to main, so any hint
+     * worth comparing already implies a second workspace.
+     *
+     * Three `modified: false` answers mean **no comparison happened**, never "compared equal": no
+     * workspace registered yet, no main workspace to compare against, or a document the differ
+     * reports errors for. `additionalWindows` is still counted in each case, because it stays
+     * knowable when the comparison does not.
+     * @returns {{additionalWindows: Number, modified: Boolean}}
+     * @protected
+     */
+    readTopologyState() {
+        const me                = this,
+              workspaces        = me.getDockTopologyWorkspaces(),
+              keys              = Object.keys(workspaces),
+              main              = workspaces[Workspace.MAIN_WORKSPACE_ID],
+              additionalWindows = keys.filter(key => key !== Workspace.MAIN_WORKSPACE_ID).length;
+
+        if (!main) return {additionalWindows, modified: false};
+
+        const diff = TopologyDiff.diffDockDocuments(initialDocument, main);
+
+        return {
+            additionalWindows,
+            modified: !diff.errors.length && Object.keys(diff).some(category =>
+                category !== 'errors' && category !== 'unchanged' && diff[category]?.length)
+        }
+    }
+
+    /**
+     * @summary The topology bar's state line, or an empty string when there is nothing to say.
+     *
+     * @description Static and pure so the binding, the spec and any future consumer read one
+     * formatter rather than three phrasings that drift. It composes the two facts
+     * {@link #readTopologyState} measures; it does not re-derive them.
+     *
+     * **Silence is a state:** the shipped arrangement with no extra windows renders `''` and the
+     * component hides, so "this is the product" and "you made this" look different at a glance. The
+     * default-arrangement half appears only beside a window count, never alone.
+     *
+     * @param {Object}  [state={}]
+     * @param {Number}  [state.additionalWindows=0]
+     * @param {Boolean} [state.modified=false]
+     * @returns {String}
+     */
+    static topologyStateText({additionalWindows=0, modified=false}={}) {
+        const parts = [];
+
+        if (modified)               parts.push('Modified from default');
+        else if (additionalWindows) parts.push('Default arrangement');
+
+        if (additionalWindows) parts.push(`${additionalWindows} additional window${additionalWindows === 1 ? '' : 's'}`);
+
+        return parts.join(' · ')
+    }
+
+    /**
+     * @summary A valid document for a workspace that owns no panes.
+     *
+     * @description The empty **edge-root** shape, not an emptied tree. Detaching a workspace's last
+     * pane prunes its final tabs node and leaves `root` pointing at a node that no longer exists, so
+     * the result is refused; an edge zone with no zones validates and projects as an empty container.
+     * Established by @neo-gpt-emmy's counterexample after I had reported the pruned shape as proof
+     * that no valid empty document existed.
+     * @returns {Object}
+     */
+    static createEmptyWorkspaceDocument() {
+        return {schema: 'neo.dock.zone.v1', root: 'root', items: {}, nodes: {root: {type: 'edge-zone', zones: {}}}}
+    }
+
+    /**
+     * @summary Returns the workspace to the arrangement the app ships with, in one undoable commit.
+     *
+     * @description The shipped document is committed for `main`, and every other workspace gives back
+     * the panes `initialDocument` owns — in the SAME write. Both halves matter:
+     *
+     * - **Give the panes back, do not just restore main.** A pane torn into a window is still listed
+     *   by `initialDocument`, so restoring that document beside an untouched popup would leave it
+     *   owned twice — an invalid topology `Persistence` refuses to capture, making a reset that
+     *   reports success unpersistable.
+     * - **A workspace left with nothing becomes the empty edge-root, not a pruned tree.** Detaching
+     *   a workspace's last pane prunes its final tabs node and leaves `root` dangling; replacing the
+     *   document with `{root: 'root', items: {}, nodes: {root: {type: 'edge-zone', zones: {}}}}`
+     *   validates and projects as an empty container.
+     *
+     * **Every participant is retained, and that is what makes the reset undoable.** Unregistering
+     * one would happen outside the transaction, so `undo` could not restore it: the commit would
+     * roll back to a document whose panes lived in a workspace that no longer exists, and the torn-out
+     * pane would end up owned by nobody. Keeping every key in the write keeps the whole reset inside
+     * the one history row that reverses it.
+     *
+     * Committing through the Group rather than assigning `dockModel` is what makes the result
+     * durable: a direct field write fires no commit event, so the auto-save never runs and the old
+     * topology returns on the next reload. `WorkspaceSet.write` appends, so this is one ordinary
+     * history row — which is why it needs no confirmation ceremony.
+     *
+     * Not `startBlankRoot()`: that admits `{topologyIdentity: {}}` for the load-failure path, and
+     * blank is not default.
+     * @returns {Promise<{errors: String[], reset: Boolean, transactionId: String|null}>}
+     */
+    async resetTopology() {
+        const me         = this,
+              workspaces = me.getDockTopologyWorkspaces();
+
+        // Not a defensive guard: with no main workspace registered there is no entry for the shipped
+        // document to replace, so the commit would ADD a key and be refused for naming something
+        // unregistered. Refusing here names the actual cause instead of the seam's generic shape.
+        if (!Object.hasOwn(workspaces, Workspace.MAIN_WORKSPACE_ID)) {
+            return {errors: ['the main workspace is not registered'], reset: false, transactionId: null}
+        }
+
+        const shipped  = new Set(Object.keys(initialDocument.items ?? {})),
+              next     = {[Workspace.MAIN_WORKSPACE_ID]: WorkspaceDocument.clone(initialDocument)},
+              refusals = [];
+
+        for (const [workspaceKey, document] of Object.entries(workspaces)) {
+            if (workspaceKey === Workspace.MAIN_WORKSPACE_ID) continue;
+
+            const owned   = Object.keys(document?.items ?? {}),
+                  reclaim = owned.filter(itemId => shipped.has(itemId));
+
+            if (!reclaim.length) {
+                next[workspaceKey] = document;
+                continue
+            }
+
+            if (reclaim.length === owned.length) {
+                next[workspaceKey] = Workspace.createEmptyWorkspaceDocument();
+                continue
+            }
+
+            // Partial reclaim: the same two steps `Operations.transferItem` performs on its source
+            // side, then through the shared fail-closed commit so the result is normalized and
+            // validated rather than assumed well-formed.
+            const working = WorkspaceDocument.clone(document);
+
+            reclaim.forEach(itemId => {
+                WorkspaceDocument.detachFromTabs(working, itemId);
+                delete working.items[itemId]
+            });
+
+            const result = WorkspaceDocument.commit(document, working);
+
+            result.errors.length ? refusals.push(...result.errors) : next[workspaceKey] = result.document
+        }
+
+        // A workspace that cannot give a shipped pane back is a refusal, not something to commit
+        // around: committing the rest would restore main while leaving the duplicate in place.
+        if (refusals.length) return {errors: refusals, reset: false, transactionId: null};
+
+        const {errors, transactionId} = await me.commitDockTopologyWorkspaces(next,
+            {name: 'default', provenance: {origin: 'human'}});
+
+        // Every participant's OWN projection has to settle, not just this window's. A reclaim moves
+        // panes between workspaces that render in different windows, and each host publishes its own
+        // refresh — so awaiting only `me.refreshPromise` leaves the popup's live pane a write behind
+        // its document, visible in the window the document says it has left.
+        // `commitCrossWindowTransfer` awaits source and target hosts for the same reason.
+        // Measured on a real popup by @neo-opus-vega: documents correct at every step, embodiment one
+        // write late and on the wrong window.
+        errors.length || await Promise.all([
+            me.refreshPromise,
+            ...me.getPopupStates().map(state => state.host?.refreshPromise)
+        ].map(promise => Promise.resolve(promise).catch(() => {})));
+
+        return {errors, reset: !errors.length, transactionId: transactionId ?? null}
+    }
+
+    /**
+     * @summary Publishes the first modified readout once the provider is resolvable.
+     *
+     * Boot is the second place a committed topology arrives and the only one the Group's document
+     * setter cannot see: `construct` seeds `dockModel` from a persisted topology the user already
+     * changed, so without this the readout claims "default" on a cold-hydrated custom arrangement.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.syncTopologyState()
+    }
+
+    /**
+     * @summary Republishes the modified readout after a Group commit has settled.
+     *
+     * @description Presentation runs after the queue releases and cannot reject the commit, whereas
+     * the participant's document setter runs inside the adopt phase where a throw takes the whole
+     * transaction down. A status readout must never be able to fail the commit it reports on.
+     *
+     * It overrides the class method rather than wrapping `registerMainWorkspace`'s `project`
+     * callback, because that registration is deliberately `.call()`-able onto a plain dock Workspace.
+     * Undo and redo project through here too, so returning to the shipped arrangement clears the
+     * readout with no path of its own.
+     *
+     * @param {Object} context The Group participant's projection context.
+     * @returns {Promise} This projection's outcome.
+     */
+    projectDockCommit(context) {
+        const projection = super.projectDockCommit(context);
+
+        this.syncTopologyState();
+
+        return projection
+    }
+
+    /**
+     * @summary Publishes {@link #readTopologyState} for the topology bar's readout.
+     *
+     * Both keys are written by path in one call rather than replacing the `topology` object, so a
+     * key added here later cannot be silently dropped by this publisher, and the pair lands as one
+     * update rather than flashing a half-state through the binding.
+     * @protected
+     */
+    syncTopologyState() {
+        const me = this;
+
+        if (me.isDestroyed || !me.getStateProvider()) return;
+
+        const {additionalWindows, modified} = me.readTopologyState();
+
+        me.setState({'topology.additionalWindows': additionalWindows, 'topology.modified': modified})
     }
 
     /**

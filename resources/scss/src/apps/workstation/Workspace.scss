@@ -161,6 +161,28 @@
         --button-text-color               : var(--workstation-ink);
         --button-text-color-disabled      : color-mix(in srgb, var(--workstation-ink) 45%, transparent);
     }
+
+    // The state line is a READOUT sitting among four controls, and the risk is that it reads as a
+    // fifth one. So it takes the opposite of the button treatment above: no border, dim ink, and a
+    // ground tinted rather than filled. Findable at a glance — which is the entire affordance this
+    // ticket exists for — without inviting a click that does nothing.
+    //
+    // It stays in flow after the last button rather than being pushed right with an auto margin:
+    // the controller inserts its own per-workspace recovery buttons into this same bar and the
+    // action spacer owns the right-hand boundary, so a second element claiming free space would
+    // fight a layout contract that is already load-bearing.
+    //
+    // `nowrap` puts any wrapping on the bar (`layout.wrap: 'wrap'`) instead of inside the line: the
+    // text is two facts joined by a separator, and breaking it mid-phrase reads as two readouts.
+    .workstation-topology-state {
+        background   : color-mix(in srgb, var(--workstation-signal) 10%, transparent);
+        border-radius: 4px;
+        color        : var(--workstation-ink-dim);
+        font-size    : 12px;
+        line-height  : 1;
+        padding      : 6px 10px;
+        white-space  : nowrap;
+    }
 }
 
 .workstation-tourbar {
