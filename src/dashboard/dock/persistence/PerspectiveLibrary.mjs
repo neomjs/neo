@@ -195,10 +195,6 @@ class PerspectiveLibrary extends Base {
                     errors.push(`layout key "${layoutId}" must match saved layout id "${savedLayout.layoutId}"`)
                 }
 
-                // The write-boundary rule at the collection itself, so the factory, the static upsert
-                // and a borrowed read all refuse alike: a `$`-prefixed key can never be a saved record.
-                // The declared-name refusal needs the workspace's declared set and stays with the
-                // instance library's `savePerspective` / `renamePerspective`.
                 errors.push(...Persistence.reservedNameErrors([layoutId, savedLayout.perspectiveName]));
 
                 let restored = Persistence.restoreSavedLayout(savedLayout);

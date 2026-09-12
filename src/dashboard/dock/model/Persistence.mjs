@@ -793,11 +793,11 @@ class Persistence extends Base {
                     errors.push(`topology key "${layoutId}" must match topology layoutId "${topology?.layoutId}"`)
                 }
 
+                errors.push(...Persistence.reservedNameErrors([layoutId, topology?.perspectiveName]));
+
                 for (const name of [layoutId, topology?.perspectiveName].filter(Boolean)) {
                     if (Persistence.unsafeRecordKeys.has(name)) {
                         errors.push(`topology name "${name}" is not usable`)
-                    } else if (name.startsWith(Persistence.RESERVED_NAME_PREFIX)) {
-                        errors.push(...Persistence.reservedNameErrors([name]))
                     } else if (namespaceOwners.has(name) && namespaceOwners.get(name) !== layoutId) {
                         errors.push(`topology name "${name}" is shared by "${namespaceOwners.get(name)}" and "${layoutId}"`)
                     } else {

@@ -439,6 +439,19 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             expect(byName.collection).toBe(null);
             expect(byName.errors.join(' ')).toContain('"$snapshot" is an engine-reserved perspective name');
 
+            // A malformed alias keeps the schema's structured error: the name rule is consulted through
+            // its type-safe helper, so a truthy non-string never reaches a string method.
+            for (const perspectiveName of [42, {}, true]) {
+                const malformed = Persistence.captureTopologyPerspective({main: doc()}, {layoutId: 'plain', title: 'Malformed'}).topology;
+
+                malformed.perspectiveName = perspectiveName;
+
+                const refused = Persistence.createTopologyCollection([malformed]);
+
+                expect(refused.collection).toBe(null);
+                expect(refused.errors.join(' ')).toContain('perspectiveName must be a non-empty string when present')
+            }
+
             // The plain `default` — what a first auto-save mints — stays usable.
             const plain = Persistence.createTopologyCollection([
                 Persistence.captureTopologyPerspective({main: doc()}, {layoutId: 'default', title: 'Default'}).topology
