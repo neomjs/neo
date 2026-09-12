@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Accepted — 2026-07-02 (#14423; PR #14425 merged to `dev`). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. **Renamed** 2026-08-21 from `0029-harness-docking-design.md` (#17503; §2.9): the subsystem is a generic Body capability — the harness misnomer is retired, persisted schema strings stay frozen. **Amended** 2026-08-22 (`#17541`; §2.1): the normative workspace host becomes the engine class `Neo.dashboard.dock.Workspace`. **Amended** 2026-08-31 (`#17969`; §2.7 state table): the *detached* row's `autoHidden` mutual-exclusion clause is retired as an error — detachment and auto-hide are orthogonal, and the exclusion holds structurally in the projection walk rather than as a commit rule. **Amended** 2026-09-04 (`#18308`; §§2.1/2.2/2.8.4/2.9): positional topology state is removed from `layout.v1`; keyed topology records and collections plus `topologyShape.v2` become the only multi-workspace wire. **Amended** 2026-09-05 (`#18284`; §§2.3/2.8.1): the cross-window drag registry gains a commit-authority axis — the logical topology Group of the window a surface renders in — kept separate from `sortGroup`; candidates are admitted by ownership before hit-test and claim, claims are raised among same-ownership candidates only, and the target's commit re-checks the axis. **Amended** 2026-09-09 (`#18528`; §§2.3/2.6): the catalog's `componentRef` is retired in favour of the engine's own `reference` vocabulary. The item key is the lookup identity and lowering derives no field from it; a record names a `reference` only to override that, and the projection stamps the resulting key onto the pane so `data-ref` and `getReference()` reach a docked surface for the first time. The persisted wire string `neo.dock.zone.v1` is unchanged; the field is removed from the allowlist rather than tolerated, so a document still carrying it fails validation loudly. |
+| **Status** | Accepted — 2026-07-02 (#14423; PR #14425 merged to `dev`). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. **Renamed** 2026-08-21 from `0029-harness-docking-design.md` (#17503; §2.9): the subsystem is a generic Body capability — the harness misnomer is retired, persisted schema strings stay frozen. **Amended** 2026-08-22 (`#17541`; §2.1): the normative workspace host becomes the engine class `Neo.dashboard.dock.Workspace`. **Amended** 2026-08-31 (`#17969`; §2.7 state table): the *detached* row's `autoHidden` mutual-exclusion clause is retired as an error — detachment and auto-hide are orthogonal, and the exclusion holds structurally in the projection walk rather than as a commit rule. **Amended** 2026-09-04 (`#18308`; §§2.1/2.2/2.8.4/2.9): positional topology state is removed from `layout.v1`; keyed topology records and collections plus `topologyShape.v2` become the only multi-workspace wire. **Amended** 2026-09-05 (`#18284`; §§2.3/2.8.1): the cross-window drag registry gains a commit-authority axis — the logical topology Group of the window a surface renders in — kept separate from `sortGroup`; candidates are admitted by ownership before hit-test and claim, claims are raised among same-ownership candidates only, and the target's commit re-checks the axis. **Amended** 2026-09-09 (`#18528`; §§2.3/2.6): the catalog's `componentRef` is retired in favour of the engine's own `reference` vocabulary. The item key is the lookup identity and lowering derives no field from it; a record names a `reference` only to override that, and the projection stamps the resulting key onto the pane so `data-ref` and `getReference()` reach a docked surface for the first time. The persisted wire string `neo.dock.zone.v1` is unchanged; the field is removed from the allowlist rather than tolerated, so a document still carrying it fails validation loudly. **Amended** 2026-09-12 (`#18606`; §§2.1/2.2/5; epic `#18605`, graduated from Discussion #18594): the declaration tier gains a second stage — `perspectives` and the reactive accepted intent `activePerspective_`, with the committed name carried by the accepted write and published beside header truth — and a collection's `activeLayoutId` is restated as a collection invariant, never a selection. |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5, Claude Code). The cross-window seam contract descends from Discussion #13370's graduated Option-4 convergence (cross-family); the §7 auto-hide contract was written implementation-sufficient for its claimed leaf owner (@neo-opus-grace, #13280). |
 | **Resolves** | #14423 — the #13158 design-gate sub: settle the seven shared design questions (layout model, perspectives, cross-window drag, grouped drag/overflow, core-lift disposition, container contract, auto-hide UI) before further implementation lands on the current base (operator direction, 2026-07-02). |
 | **Parent epic** | #13158 (*QT-parity docking polish*) under #13012 (Agent Harness). Operator re-ranked 2026-07-02 as an agent-harness cornerstone: the docking shell is the substrate the #13015 FM-UX and #13444 HOME surfaces stand on. |
@@ -65,8 +65,15 @@ cache or projection hook is required.
 
 A supplied valid `dockModel` takes precedence over `zones`; invalid supplied documents fail visibly.
 Later assignments or mutations of `panes`/`zones` do not replace the document or captured definitions.
-This tier is initial-only: reactive declaration reconciliation, perspective/storage configuration and
-multi-workspace authoring are separate contracts. No persisted schema changes.
+The declaration tier is initial-only and has two stages (the second amended in, 2026-09-12 — #18606, epic #18605):
+stage one captures `panes` and `zones` once; stage two adds `perspectives` — a map of named `zones` arrangements,
+captured once the same way, with a `zones`-only workspace declaring one under a reserved name — and the reactive
+accepted intent `activePerspective_`, which selects among the captured names through the ordinary commit path. The
+committed name travels in the accepted write's descriptor and is published beside header truth; the pieces are
+classified in the state-class table below and the selection contract lives in §2.2. Reactive declaration
+reconciliation (a bound `panes_` catalog) and multi-workspace authoring remain separate contracts. No persisted
+schema changes. *Stage-one read, retained verbatim as provenance:* "This tier is initial-only: reactive declaration
+reconciliation, perspective/storage configuration and multi-workspace authoring are separate contracts."
 
 Template hooks remain advanced extension points for custom resolution, owner-preserved item IDs,
 pre-refresh chrome, extra projection options and reconciliation policy. Optional native lifecycle
@@ -115,6 +122,17 @@ successor. Runtime effect markers, native handles and screen rectangles stay out
 | **Main-thread-only state** | DOM nodes; `DOMRect`s; screen coordinates; native window geometry; `getWindowAt` lookups | main-thread addons (`Neo.manager.Window`, `WindowPosition`) | Never persisted; consumed by arbitration (§2.3), results delivered as semantic events |
 
 Every future docking leaf classifies each new piece of state into exactly one row of this table before implementation. State that wants to live in two rows is two pieces of state.
+
+#### Perspective selection, classified (amendment, 2026-09-12 — #18606 / epic #18605)
+
+| Piece of state | Row of the table above | Owner | Persistence |
+|---|---|---|---|
+| `activePerspective_` — the accepted intent: a reactive config that refuses an unknown name and, on refusal or compensation, restores the last committed name under a request serial | **Per-window runtime interaction state** | the window's workspace host | never persisted; crosses the seam only as the accepted write's operation descriptor |
+| the committed perspective name — carried in the accepted write's descriptor (`workspaceKey`, the before-name, the after-name), retained by the history row, handed to `project(context)` on replay, published as `dock.perspective.active` | **Worker-owned shared truth** | the workspace container(s) in the App Worker | serializable only as JSON-only origin metadata on a snapshot |
+| `dock.perspective.pending` — the in-flight request, written by the request lifecycle under the serial | **Per-window runtime interaction state** | the window's workspace host | never persisted |
+| `dock.perspective.modified` — departure of the committed document from the selected declared perspective's lowered document, under the declared exclusion set | **Worker-owned shared truth**, derived at the post-commit publication point | the workspace container(s) in the App Worker | never persisted; recomputed at publication |
+
+The committed document stays a class field on the host: its reactive hook would fire inside adoption and on compensation, so publication belongs to the post-commit point, not to a config.
 
 #### Splitter reconciliation (Discussion #13370 OQ3, dispositioned)
 
@@ -208,8 +226,11 @@ Rules:
 - `placementHints` is keyed by an existing workspace. Each hint contains finite relative `{dx, dy}` plus
   `fallbackTarget: {workspaceKey, nodeId}` into an existing document. Absolute coordinates, rects, monitor ids,
   `windowId`, and runtime objects remain invalid.
-- `metadata` is JSON-only and no-secret. `layoutId` is the topology identity; a collection's `activeLayoutId` must
-  name one entry in its `topologies` record.
+- `metadata` is JSON-only and no-secret. `layoutId` is the topology identity. A collection's `activeLayoutId` is a
+  collection invariant, never a selection: it must name one entry in its `topologies` record whenever the record is
+  non-empty, and it says nothing about which perspective a workspace has selected — it is a consumer-owned pointer
+  that auto-save rewrites on every commit; the selected perspective is the workspace's `activePerspective` and the
+  published `dock.perspective.active` (amendment, 2026-09-12 — #18606).
 - `neo.dock.layoutCollection.v1` validates every row through the single-workspace layout reader. It never admits a
   topology. The Group-level topology library is a separate, lazily loaded owner.
 
@@ -231,6 +252,31 @@ Windows are render targets (§2.1); restoring a topology restores **worker-owned
 `revision` is monotonic per layout/topology. Unknown wrapper or collection schemas fail closed. A future revision
 defines compatibility in the same change that introduces it; the current hard cut keeps no positional reader,
 compatibility alias, or best-effort migration.
+
+#### Selection contract (amendment, 2026-09-12 — #18606 / epic #18605, graduated from Discussion #18594)
+
+Four sentences an implementation leaf may rely on:
+
+1. **The declared list is the only name source at this stage.** A workspace selects among its captured
+   `perspectives` (a `zones`-only workspace declares one, under a reserved name); `activePerspective_` refuses any
+   other name and, on refusal or compensation, restores the last committed name under a request serial — never the
+   setter's previous value. Selecting a saved record by name is a separate, deferred contract whose constraint is
+   sentence 3.
+2. **A saved record is a snapshot.** A layout or topology record may equal a declared perspective's lowered document
+   and may carry which declared perspective it was captured under, but it never defines one; restoring it changes no
+   selection.
+3. **The reserved name is refused at both persisted write boundaries.** Neither `perspectiveName` nor `layoutId` may
+   take the reserved name or a declared name; the refusal lives beside the existing unsafe-key refusal.
+4. **Origin metadata follows the accepted-write identity, never a published leaf.** A declared-selection append
+   records its carried after-name; a hydrate of a snapshot with known origin records that origin; an originless
+   hydrate or a selection-free write retains the last committed or initialized declared baseline. A history row need
+   not exist for any of these.
+
+`dock.perspective.active` and `dock.perspective.modified` are written from the accepted write at the post-commit
+publication point, beside header truth; `modified` is departure from the selected declared perspective's lowered
+document under a declared exclusion set (a one-sided edge extent counts; `resizable` does not, because nothing a user
+does writes it). `dock.perspective.pending` is written by the request lifecycle under the request serial, because a
+held prepare never reaches the post-commit point. Assigning the current name is a no-op; reset is its own verb.
 
 ### §2.3 Cross-Window Drag
 
@@ -737,6 +783,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 | Coordinator teardown hygiene (exact-once terminals) | §2.8.2 invariant 4 | #15248 landed (epic #15239) |
 | Neural Link generic window identity + physical focus/position/close | §2.8.5 | #15514 landed |
 | Dual-window conversion + in-gesture park/re-show | §2.3 transition-policy hook + §2.8.6 | #15395 / #15396 landed (epic #15239) |
+| Reactive perspective selection: `perspectives` + `activePerspective_`, published `dock.perspective.{active, modified, pending}`, declared-only names with snapshot provenance | §2.1 (stage two + the classified pieces) + §2.2 selection contract | graduated from Discussion #18594 — epic #18605; this amendment (#18606) lands first, the engine leaves follow |
 
 ### JSON-First Guardrail (restated, applied)
 

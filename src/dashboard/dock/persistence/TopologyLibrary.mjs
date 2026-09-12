@@ -14,6 +14,10 @@ import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
  * acknowledgement for an older version never makes newer state clean. An optional Group attachment
  * retains its truth across reconnect leases and retires only after a current durable acknowledgement.
  *
+ * The collection's `activeLayoutId` is a collection invariant, not a selection: it names one stored
+ * topology whenever records exist and auto-save rewrites it on every commit; which perspective a
+ * workspace has selected is its `activePerspective` and the published `dock.perspective.active`.
+ *
  * @class Neo.dashboard.dock.persistence.TopologyLibrary
  * @extends Neo.core.Base
  */

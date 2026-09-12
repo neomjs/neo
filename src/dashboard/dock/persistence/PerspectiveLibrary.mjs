@@ -49,6 +49,10 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  *   it, in both directions.
  * - **Names resolve against `perspectiveName` first, `layoutId` second** — the product-facing
  *   key wins; the technical key stays addressable.
+ * - **`activeLayoutId` is a collection invariant, not a selection.** It names one stored record
+ *   whenever records exist (repointed by the rules above) and says nothing about which perspective
+ *   a workspace has selected — that is the workspace's `activePerspective` and the published
+ *   `dock.perspective.active`.
  *
  * Lifecycle events for UI binding (the switcher consumes these): `perspectiveSaved`,
  * `perspectiveLoaded`, `perspectiveRemoved`, `perspectiveRenamed`, `collectionChange` — each
