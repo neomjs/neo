@@ -3627,13 +3627,23 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
         expect(moved.errors, 'the transfer fixture must itself commit').toEqual([]);
 
-        const workspace = Neo.create(Workspace, {
-            initialTopology: {workspaces: {[MAIN]: moved.sourceDocument, 'popup-a': moved.targetDocument}},
-            windowId       : Neo.config.windowId
-        });
+        const writes  = [],
+              library = Neo.create(TopologyLibrary, {persistenceAdapter: {
+                  read : async () => null,
+                  write: topology => {writes.push(topology); return Promise.resolve(true)}
+              }}),
+              workspace = Neo.create(Workspace, {
+                  initialTopology: {workspaces: {[MAIN]: moved.sourceDocument, 'popup-a': moved.targetDocument}},
+                  topologyLibrary: library,
+                  windowId       : Neo.config.windowId
+              });
 
         try {
-            const result = await workspace.resetTopology();
+            expect(workspace.getController().attachTopologyLibrary(), 'the library is attached').toBe(true);
+            TransactionManager.setHistoryDepth({groupId: workspace.topologyGroupId, depth: 5});
+
+            const writesBefore = writes.length;
+            const result       = await workspace.resetTopology();
 
             expect(result.errors, 'the reset commit is accepted').toEqual([]);
 
@@ -3649,9 +3659,20 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
             // cannot be captured, so a reset reporting success would silently never persist.
             const captured = Persistence.captureTopologyPerspective(workspace.getDockTopologyWorkspaces());
 
-            expect(captured.errors, 'the reset result is persistable').toEqual([])
+            expect(captured.errors, 'the reset result is persistable').toEqual([]);
+
+            // Persistable is not persisted, and undo is the other half of the reset contract. Both
+            // asserted here rather than inherited from the single-window arm, because the defect
+            // this arm exists for was invisible to exactly that inheritance.
+            expect(writes.length, 'the reset actually reached storage').toBeGreaterThan(writesBefore);
+            expect(library.resolve().topology.workspaces[MAIN].items.queues, 'the pane is home in the stored record').toBeTruthy();
+
+            await TransactionManager.undo({groupId: workspace.topologyGroupId});
+
+            expect(workspace.readTopologyState().modified, 'undo reaches past the reset here too').toBe(true)
         } finally {
-            workspace.destroy()
+            workspace.destroy();
+            library.destroy()
         }
     });
 

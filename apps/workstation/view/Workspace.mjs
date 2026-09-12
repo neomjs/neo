@@ -446,12 +446,9 @@ class Workspace extends DockWorkspace {
             items : [
                 {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
                 {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'},
-                // Handled on the view rather than by controller name, like undo and redo above it:
-                // the state, the shipped document and the commit seam all live on the view, and a
-                // controller method would only forward. Disabled on the shipped arrangement so the
-                // control answers "there is nothing to go back to" instead of committing a no-op
-                // history row — and it reads the SAME derived key as the readout, so the button and
-                // the line beside it can never disagree about whether the user has left the default.
+                // Handled on the view, like undo and redo above it: the state, the shipped document
+                // and the commit seam all live here. Disabled on the shipped arrangement, reading the
+                // SAME derived key as the readout, so control and line cannot disagree.
                 {
                     ntype  : 'button',
                     bind   : {disabled: data => !data.topology.modified},
@@ -459,10 +456,8 @@ class Workspace extends DockWorkspace {
                     iconCls: 'fa fa-rotate-left',
                     text   : 'Reset to default'
                 },
-                // Reads the derived keys rather than recomputing: the diff runs once per committed
-                // document at its writer, not once per binding evaluation. Both bindings go through
-                // the one static formatter so the visibility test and the text can never disagree
-                // about whether there is something to say.
+                // Both bindings go through the one formatter, so the visibility test and the text
+                // cannot disagree about whether there is anything to say.
                 {
                     ntype: 'component',
                     bind : {
@@ -508,52 +503,16 @@ class Workspace extends DockWorkspace {
      * their multi-window setup, not one window's panes. So a pane torn out into a second window IS
      * a departure from the shipped arrangement, which ships exactly one workspace.
      *
-     * **But that is a second fact, not the same one, and collapsing them made the readout lossy.**
-     * An earlier revision returned a single Boolean and answered `true` on any extra key *before*
-     * the differ ran. Two costs, and the second is worse than the first: a user whose main document
-     * genuinely matches the default was told they had "modified" it, and the document that actually
-     * matched was never compared at all — so the answer was not merely coarse, it was unmeasured.
-     * It also made reset look broken: reset commits the shipped document and deliberately leaves
-     * other windows standing ({@link Neo.dashboard.dock.window.TopologySeams#commitDockTopologyWorkspaces}
-     * refuses a commit that does not name every registered key, and retiring a window is neither
-     * synchronous nor guaranteed), so the readout lit up the instant the user pressed it.
+     * **These are two facts, not one.** A pane torn into a second window IS a departure from the
+     * shipped arrangement, which ships a single workspace — but it is a different departure from the
+     * named document having changed, and collapsing them loses the half a user can act on. Window
+     * geometry needs no third test: popup placement hints are measured relative to main, so any hint
+     * worth comparing already implies a second workspace.
      *
-     * Reported separately, both halves stay true and the user can act on each: the named document
-     * is at the default or it is not, and N windows stand beyond the one the app ships. Rendering
-     * is {@link Workspace.topologyStateText}'s problem, not this method's.
-     *
-     * The question is a COMPARISON, not a dirty flag: a flag set on the first operation never
-     * clears when the user undoes back to the start, while a comparison recomputed from live state
-     * does, for free.
-     *
-     * Per document, `TopologyDiff.diffDockDocuments` is the comparator rather than
-     * `computeShapeFingerprint`, whose own docblock states it carries "no node ids, item ids,
-     * sizes, titles or window identity" — shape-only by contract, so it reads a dragged boundary, a
-     * reordered tab and a switched pane as unchanged. Those are the operations this workspace is
-     * FOR. Categories are read off the returned object rather than listed here: the differ's class
-     * comment stood at seven while the code returned eight, so a hand-copied list under-reports
-     * exactly where the documentation has drifted.
-     *
-     * **Window geometry needs no separate test here, and the reason is the shipped arrangement
-     * rather than geometry being cosmetic.** It is emphatically not cosmetic:
-     * {@link Neo.dashboard.dock.window.Placement} is an auxiliary participant in this same Group
-     * history, writes a settled popup move as an appended row, and `undo` applies it natively — a
-     * dragged window is an undoable step exactly as a dragged splitter is. But its hints are popup
-     * offsets measured RELATIVE TO MAIN (`observedHints` skips the main binding), and this app ships
-     * a single window. So any hint worth comparing implies a second workspace, which
-     * `additionalWindows` already reports. Testing hints as well would not add a case — it would
-     * subtract correctness: `getPlacementHints` reads the raw hint record rather than the pruned
-     * one, so a hint outliving a closed popup would report a user who is genuinely back at the
-     * default as modified.
-     *
-     * Three deliberate `modified: false` answers, all of them "no comparison happened" rather than
-     * "compared equal". **An unestablished topology** — no workspace registered yet — is not a
-     * departure; it is the absence of an answer, and reporting one would light the indicator during
-     * boot. **A main workspace that is not registered**, likewise: there is nothing to compare the
-     * shipped document against. `additionalWindows` is still counted honestly in that case, because
-     * it is a separate fact that remains knowable. **A malformed document** likewise: `errors` means
-     * the comparison did not happen, and an indicator that lights up because the differ failed tells
-     * the reader something false about their own layout.
+     * Three `modified: false` answers mean **no comparison happened**, never "compared equal": no
+     * workspace registered yet, no main workspace to compare against, or a document the differ
+     * reports errors for. `additionalWindows` is still counted in each case, because it stays
+     * knowable when the comparison does not.
      * @returns {{additionalWindows: Number, modified: Boolean}}
      * @protected
      */
@@ -582,13 +541,10 @@ class Workspace extends DockWorkspace {
      * formatter rather than three phrasings that drift. It composes the two facts
      * {@link #readTopologyState} measures; it does not re-derive them.
      *
-     * **Silence is a state.** On the shipped arrangement with no extra windows this returns `''`
-     * and the component hides. A readout that is always present says nothing — the whole point of
-     * the ticket is that "this is the product" and "you made this" look different at a glance.
+     * **Silence is a state:** the shipped arrangement with no extra windows renders `''` and the
+     * component hides, so "this is the product" and "you made this" look different at a glance. The
+     * default-arrangement half appears only beside a window count, never alone.
      *
-     * The default-arrangement half appears **only** alongside extra windows. Saying "Default
-     * arrangement" on its own would be that always-present readout; saying it beside a window count
-     * is what stops the count from reading as an accusation after a reset.
      * @param {Object}  [state={}]
      * @param {Number}  [state.additionalWindows=0]
      * @param {Boolean} [state.modified=false]
@@ -606,39 +562,28 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary Returns the main workspace to the arrangement the app ships with.
+     * @summary Returns the workspace to the arrangement the app ships with, in one undoable commit.
      *
-     * @description **One commit, and that is the whole design.** The shipped document replaces the
-     * main entry of the live keyed topology and every other key is passed through **unchanged**, so
-     * the write names exactly the registered keys that
-     * {@link Neo.dashboard.dock.window.TopologySeams#commitDockTopologyWorkspaces} requires and no
-     * window has to be retired for the commit to be legal.
+     * @description Every non-main participant is **unregistered first**, then the shipped document is
+     * committed for `main` alone. Both halves are load-bearing:
      *
-     * **Leaving other windows standing is the contract, not a shortfall.** Retiring them inside the
-     * commit is not buildable: `transaction/Commit.mjs` throws unless adoption is synchronous, while
-     * a native close is asynchronous *and* refusable — `Window.mjs` gates `close` as a route
-     * capability and defaults a route without one to `{close: false}`. Placed in `prepare`, the only
-     * async phase, a blocked popup would abort the restore and the user could not get their layout
-     * back because a window would not shut. Placed after the commit it is no longer atomic. So the
-     * standing window is reported by {@link #readTopologyState} rather than acted on, and the user
-     * closes it themselves.
+     * - **Retire before committing.** A pane torn into a window is still listed by `initialDocument`,
+     *   so restoring that document beside the popup's own would leave the pane owned twice — an
+     *   invalid topology `Persistence` refuses to capture. Reclaiming it instead empties the popup's
+     *   last tabs node and leaves its `root` dangling, so there is no valid document for a window
+     *   that has handed everything home.
+     * - **Retirement is not the impossible act.** `unregisterParticipant` is a synchronous map
+     *   delete that fires no commit, so it strands no persisted intermediate state. What cannot be
+     *   done is closing the native WINDOW inside the commit, where adoption must be synchronous and
+     *   a native close is neither. The window stays open; it stops participating.
      *
-     * **It commits through the Group rather than assigning `dockModel`.** The nearest precedent in
-     * this repo — `TourController`'s `workspace.dockModel = WorkspaceDocument.clone(initialDocument)`
-     * — is a direct field write that fires no commit event, so `TopologyLibrary`'s
-     * `commit: data => this.persistCurrent()` never runs and the OLD topology stays in IndexedDB to
-     * return on the next reload. Copying it would leave the user's arrangement restored on refresh.
+     * Committing through the Group rather than assigning `dockModel` is what makes the result
+     * durable: a direct field write fires no commit event, so the auto-save never runs and the old
+     * topology returns on the next reload. `WorkspaceSet.write` appends, so this is one ordinary
+     * history row and `undo` reverses it — which is why it needs no confirmation ceremony.
      *
-     * **Single-commit is also what makes it recoverable.** Persistence is commit-driven, so a
-     * multi-step reset would write each intermediate state to IndexedDB as it went and could strand
-     * a persisted half-reset whose original was already overwritten by step one. There are no
-     * intermediate states here: one write, one auto-save. And `WorkspaceSet.write` defaults to
-     * `cursorAction: 'append'`, so this lands as one ordinary history row — undo reverses it exactly
-     * as it reverses a dragged splitter, which is why it carries no confirmation ceremony.
-     *
-     * It deliberately does **not** route through `startBlankRoot()`: that path admits
-     * `{topologyIdentity: {}}` and exists for the load-failure case. Blank is not default, and
-     * conflating them would delete the product's own layout.
+     * Not `startBlankRoot()`: that admits `{topologyIdentity: {}}` for the load-failure path, and
+     * blank is not default.
      * @returns {Promise<{errors: String[], reset: Boolean, transactionId: String|null}>}
      */
     async resetTopology() {
@@ -652,25 +597,6 @@ class Workspace extends DockWorkspace {
             return {errors: ['the main workspace is not registered'], reset: false, transactionId: null}
         }
 
-        // **Every other workspace is RETIRED first, and the ordering is the whole correctness
-        // argument.** Restoring `initialDocument` beside an untouched popup is only safe while that
-        // popup holds nothing the shipped document also lists — and the ordinary case violates it:
-        // tear a shipped pane into a window and both documents then claim it, the topology is
-        // invalid, `Persistence` refuses the capture, and the reset reports success while being
-        // unpersistable. Found by @neo-gpt-emmy in review.
-        //
-        // Reclaiming the pane instead of retiring the workspace does not work either: giving back a
-        // popup's only pane prunes its last tabs node and leaves `root` dangling, so the emptied
-        // document is refused as `root node "…" is missing`. A window that has handed everything
-        // home has no valid document to hold.
-        //
-        // **Retirement is safe here precisely because it is NOT in the atomic section.**
-        // `Transaction#unregisterParticipant` is `participants.delete(workspaceKey)` — synchronous,
-        // firing no commit — so it cannot auto-save an intermediate state, which is what made the
-        // ticket warn about multi-step resets. What cannot be done is closing the native WINDOW
-        // inside the commit: adoption must be synchronous while a native close is asynchronous and
-        // refusable. Retiring the participant and closing the window are different acts, and only
-        // the second is impossible. The window stays open; it simply no longer participates.
         Object.keys(workspaces)
             .filter(workspaceKey => workspaceKey !== Workspace.MAIN_WORKSPACE_ID)
             .forEach(workspaceKey => me.workspaceSet.unregister(workspaceKey));
@@ -686,13 +612,8 @@ class Workspace extends DockWorkspace {
      * @summary Publishes the first modified readout once the provider is resolvable.
      *
      * Boot is the second place a committed topology arrives and the only one the Group's document
-     * setter cannot see: {@link #construct} seeds `dockModel` from a persisted `initialTopology`,
-     * which is an arrangement the user already changed. Without this the indicator reads "default"
-     * on a cold-hydrated custom perspective — the exact state this affordance exists to expose.
-     *
-     * It lives here rather than on the controller's `onComponentConstructed` seam because the state
-     * is the view's: the view owns `dockModel` and the provider, and a controller that had to call
-     * it would impose the method on every component that controller can drive.
+     * setter cannot see: `construct` seeds `dockModel` from a persisted topology the user already
+     * changed, so without this the readout claims "default" on a cold-hydrated custom arrangement.
      */
     onConstructed() {
         super.onConstructed();
@@ -702,20 +623,15 @@ class Workspace extends DockWorkspace {
     /**
      * @summary Republishes the modified readout after a Group commit has settled.
      *
-     * @description **The seam matters more than the timing.** Presentation runs after the queue
-     * releases and, by the manager's contract, "cannot reject the commit" — whereas the participant's
-     * document setter runs inside the adopt phase, where a throw becomes an `AggregateError` in
-     * `transaction/Commit.mjs`'s rollback and takes the whole transaction down. A status readout must
-     * never be able to fail the commit it is reporting on, so it hangs here rather than there.
+     * @description Presentation runs after the queue releases and cannot reject the commit, whereas
+     * the participant's document setter runs inside the adopt phase where a throw takes the whole
+     * transaction down. A status readout must never be able to fail the commit it reports on.
      *
-     * It overrides the class method rather than wrapping the `project` callback in
-     * {@link #registerMainWorkspace}, because that registration is deliberately `.call()`-able onto
-     * a plain dock Workspace — the transaction specs borrow it to isolate Group behaviour from this
-     * app's. Behaviour that belongs to this subclass attaches to this subclass; a borrowed
-     * registration keeps the engine's projection untouched.
+     * It overrides the class method rather than wrapping `registerMainWorkspace`'s `project`
+     * callback, because that registration is deliberately `.call()`-able onto a plain dock Workspace.
+     * Undo and redo project through here too, so returning to the shipped arrangement clears the
+     * readout with no path of its own.
      *
-     * Undo and redo project through here too, which is why undoing back to the shipped arrangement
-     * clears the indicator with no path of its own.
      * @param {Object} context The Group participant's projection context.
      * @returns {Promise} This projection's outcome.
      */
