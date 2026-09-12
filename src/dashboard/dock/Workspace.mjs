@@ -651,7 +651,10 @@ class Workspace extends Container {
             if (!supplied) me.dockModel = document
         }
 
-        if (me.perspectiveSelection) me.perspectiveSelection.initialized = true;
+        if (me.perspectiveSelection) {
+            me.perspectiveSelection.initialized = true;
+            me.perspectiveSelection.connect()
+        }
 
         super.onAfterConstructed()
     }

@@ -101,9 +101,17 @@ class PerspectiveSelection extends Base {
         return host.workspaceKey ?? set?.ids().find(key => set.getParticipant(key)?.componentId === host.id)
     }
 
+    /** @summary Attaches a registered document owner without admitting a selection write. @returns {void} */
+    connect() {
+        if (!this.initialized || !this.workspace.workspaceSet?.has(this.workspaceKey())) return;
+        const pending = this.attachGroup().then(() => ({errors: []}), error => ({errors: [error.message]}));
+        if (this.pendingName === null) this.pending = pending
+    }
+
     /**
      * @summary Registers auxiliary identity on the Group queue without admitting a nested write.
-     * Its captured name survives view replacement; it is not a workspace document or persisted wire.
+     * A replacement retains a name it declares, otherwise captures its initialized baseline.
+     * The live owner supplies validation; the Group retains identity independently of view lifetime.
      * @returns {Promise<void>}
      */
     attachGroup() {
@@ -119,17 +127,21 @@ class PerspectiveSelection extends Base {
         if (!group || !key) return Promise.reject(new Error('dock participant not registered'));
         this.#registration = manager.enqueue(group, () => {
             if (this.isDestroyed || host.isDestroyed) throw new Error('perspective workspace destroyed');
+            const participant = manager.getParticipant(groupId, key);
+            if (!participant || participant.componentId && participant.componentId !== host.id) {
+                throw new Error('perspective workspace replaced')
+            }
             let entry = manager.getParticipant(groupId, identityKey);
             if (entry && entry.perspectiveSelection !== true) throw new Error('perspective participant key already in use');
             if (!entry) {
-                const state = {value: Object.freeze({name: this.#directName}), revision: 0},
-                      names = new Set(this.#documents.keys());
+                const state = {value: Object.freeze({name: this.#directName}), revision: 0};
                 entry = {
                     domain : 'dock', perspectiveSelection: true,
-                    capture: () => ({value: state.value, revision: state.revision,
+                    capture: () => ({value: entry.owner && !entry.owner.#documents.has(state.value.name)
+                        ? {name: entry.owner.#directName} : state.value, revision: state.revision,
                         generation: manager.getBinding(groupId, key)?.generation ?? 0}),
                     prepare: value => {
-                        if (!value || !names.has(value.name)) throw new Error('unknown declared perspective');
+                        if (!value || !entry.owner?.#documents.has(value.name)) throw new Error('unknown declared perspective');
                         return {name: value.name}
                     },
                     adopt     : value => {state.value = value; state.revision++},
@@ -139,7 +151,10 @@ class PerspectiveSelection extends Base {
                     throw new Error('perspective participant could not register')
                 }
             }
-            this.#entry = entry
+            entry.owner = this;
+            this.#entry = entry;
+            this.publishedName = this.committedName;
+            if (this.pendingName === null) this.sync(this.committedName)
         }).catch(error => {
             this.#registration = null;
             throw error
@@ -197,6 +212,7 @@ class PerspectiveSelection extends Base {
                     descriptor       : {operation: 'restorePerspective', workspaceKey: key, after: name},
                     prepareDescriptor: ({descriptor}) => {
                         if (this.isDestroyed || host.isDestroyed) throw new Error('perspective workspace destroyed');
+                        if (this.#entry.owner !== this) throw new Error('perspective workspace replaced');
                         for (const sibling of set.ids().filter(id => id !== key)) {
                             if (Object.keys(set.getDocument(sibling)?.items ?? {}).some(id => Object.hasOwn(document.items, id))) {
                                 throw new Error(`perspective restore would duplicate a pane owned by "${sibling}"`)
@@ -231,6 +247,7 @@ class PerspectiveSelection extends Base {
 
     /** @summary Releases the view's reference; the Group retains its identity participant. @param {...*} args */
     destroy(...args) {
+        if (this.#entry?.owner === this) this.#entry.owner = null;
         super.destroy(...args)
     }
 }

@@ -302,6 +302,99 @@ test('accepted identity works without retained history and remains outside docum
     } finally {f.destroy()}
 });
 
+class ConstructedPerspectiveWorkspace extends Workspace {
+    static config = {
+        className   : 'Test.Unit.Dashboard.ConstructedPerspectiveWorkspace',
+        workspaceSet: null,
+        workspaceKey: 'main'
+    }
+
+    /** @summary Exercises the host registration seam before declaration capture. */
+    onConstructed(...args) {
+        super.onConstructed(...args);
+        this.workspaceSet.register(this.workspaceKey, {
+            componentId: this.id, getDocument: () => this.dockModel,
+            setDocument: value => this.dockModel = value,
+            project    : context => this.projectDockCommit(context)
+        })
+    }
+}
+Neo.setupClass(ConstructedPerspectiveWorkspace);
+
+for (const early of [true, false]) for (const retainsName of [true, false]) {
+    test(`a replacement owner registered ${early ? 'during' : 'after'} construction ${retainsName ? 'retains a declared identity' : 'uses its baseline for an undeclared identity'} and accepts new names`, async () => {
+        const f = fixture({group: true}), {workspace, groupId, set} = f;
+        let second;
+        try {
+            workspace.activePerspective = 'review';
+            await f.settle();
+            const identity = Transaction.getParticipant(groupId, '$perspective:main'),
+                  windowId = workspace.windowId, document = Document.clone(workspace.dockModel);
+            workspace.destroy();
+            second = Neo.create(early ? ConstructedPerspectiveWorkspace : Workspace, {
+                windowId, dockModel: document, enableDockMaximizeAction: false,
+                ...(early ? {workspaceSet: set} : {}),
+                panes       : {editor: {ntype: 'component'}, preview: {ntype: 'component'}},
+                perspectives: {
+                    operator: {center: ['editor', 'preview']},
+                    ...(retainsName ? {review: {center: ['editor', 'preview']}} : {}),
+                    extra: {center: ['editor', 'preview']}
+                },
+                activePerspective: 'operator',
+                stateProvider    : {data: {chosen: 'operator'}},
+                bind             : {activePerspective: {key: 'chosen', twoWay: true}}
+            });
+            if (!early) {
+                second.workspaceKey = 'main';
+                second.workspaceSet = set;
+                expect(set.register('main', {
+                    componentId: second.id, getDocument: () => second.dockModel,
+                    setDocument: value => second.dockModel = value,
+                    project    : context => second.projectDockCommit(context)
+                })).toBe(true)
+            }
+            await second.perspectiveSelection.pending;
+            const baseline = retainsName ? 'review' : 'operator';
+            expect.soft(second.perspectiveSelection.committedName).toBe(baseline);
+            expect.soft(second.activePerspective).toBe(baseline);
+            expect.soft(second.stateProvider.getData('chosen')).toBe(baseline);
+            expect(Transaction.getParticipant(groupId, '$perspective:main')).toBe(identity);
+            expect(second.dockModel).toEqual(document);
+            expect(Transaction.get(groupId).history.count).toBe(1);
+
+            second.activePerspective = 'extra';
+            expect((await second.perspectiveSelection.pending).errors).toEqual([]);
+            expect(second.activePerspective).toBe('extra');
+            expect(identity.capture().value.name).toBe('extra');
+            expect(Transaction.get(groupId).history.current).toMatchObject({before: baseline, after: 'extra'});
+            await Transaction.undo({groupId});
+            expect(second.activePerspective).toBe(baseline);
+            expect(second.perspectiveSelection.committedName).toBe(baseline);
+        } finally {second?.destroy(); f.destroy()}
+    });
+}
+
+for (const attached of [false, true]) test(`a replaced owner cannot ${attached ? 'write through its successor' : 'attach late'}`, async () => {
+    const f               = fixture({group: true}), {workspace, set, groupId} = f,
+          firstAttachment = workspace.perspectiveSelection.pending;
+    if (attached) expect((await firstAttachment).errors).toEqual([]);
+    const second = Neo.create(ConstructedPerspectiveWorkspace, {
+              windowId                : workspace.windowId, workspaceSet: set,
+              enableDockMaximizeAction: false,
+              panes                   : {editor: {ntype: 'component'}},
+              perspectives            : {operator: {center: 'editor'}, extra: {center: 'editor'}}
+          });
+    try {
+        if (!attached) expect((await firstAttachment).errors).toEqual(['perspective workspace replaced']);
+        expect((await second.perspectiveSelection.pending).errors).toEqual([]);
+        const document = Document.clone(second.dockModel);
+        expect((await workspace.perspectiveSelection.restore('review')).errors).toEqual(['perspective workspace replaced']);
+        expect(second.dockModel).toEqual(document);
+        expect(second.activePerspective).toBe('operator');
+        expect(Transaction.get(groupId).history).toBeNull();
+    } finally {second.destroy(); f.destroy()}
+});
+
 test('public selection events and two-way synchronization occur once per effective name', async () => {
     const f = fixture({group: true}), {workspace, groupId} = f, events = [];
     workspace.on('activePerspectiveChange', ({value}) => events.push(value));
