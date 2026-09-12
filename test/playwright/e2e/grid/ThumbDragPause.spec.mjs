@@ -219,6 +219,23 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
         // pushed clean out of the viewport while the worker chases a jump nothing is holding.
         const blankFrames = [...pauseSamples, ...postSamples].filter(sample => !sample.painted);
 
-        expect(blankFrames.length, 'no frame blanked during or after the pause').toBe(0)
+        // `painted` is false through two structurally different branches — `rowCount === 0`, meaning
+        // no rows in the DOM at all, versus rows present but outside the wrapper band, the pooled
+        // case above. They predict different relationships to machine speed, so a bare count cannot
+        // tell a repeat of one from a repeat of the other, and the sampler already collects the
+        // field that separates them. `RowPinning.spec.mjs` logs its blank detail to stdout; putting
+        // it on the assertion instead prints it in the failure block rather than burying it.
+        const blankDetail = () => {
+            const byRowCount = {},
+                  times      = blankFrames.map(sample => sample.t);
+
+            blankFrames.forEach(sample => {
+                byRowCount[sample.rowCount] = (byRowCount[sample.rowCount] || 0) + 1
+            });
+
+            return ` — rowCount→frames ${JSON.stringify(byRowCount)}, spanning ${Math.round(Math.max(...times) - Math.min(...times))}ms`
+        };
+
+        expect(blankFrames.length, `no frame blanked during or after the pause${blankFrames.length ? blankDetail() : ''}`).toBe(0)
     })
 });
