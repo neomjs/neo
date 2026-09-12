@@ -119,6 +119,8 @@ class Provider extends Base {
          * Each formula is a function that receives a `data` argument, which is a hierarchical proxy
          * allowing access to data from the current provider and all its parent providers.
          * Changes to dependencies (accessed via `data.propertyName`) will automatically re-run the formula.
+         * A formula that reads a key which does not exist yet re-runs once that key gets created on this
+         * provider or on one of its parents.
          * @member {Object|null} formulas_=null
          * @example
          *     data: {
@@ -202,6 +204,20 @@ class Provider extends Base {
      * @private
      */
     #dataConfigs = {}
+    /**
+     * Counts the data properties created on this provider: the plain mirror of `#dataKeyVersion`,
+     * so that a bump never registers a read.
+     * @member {Number} #dataKeyCount=0
+     * @private
+     */
+    #dataKeyCount = 0
+    /**
+     * Changes whenever a data property gets created on this provider. An effect that looked a path
+     * up here while it was absent depends on it and re-runs once the key exists (see `#findDataOwner`).
+     * @member {Neo.core.Config} #dataKeyVersion=new Config(0)
+     * @private
+     */
+    #dataKeyVersion = new Config(0)
     /**
      * @member {Map} #formulaEffects=new Map()
      * @private
@@ -594,19 +610,48 @@ class Provider extends Base {
      * @returns {{owner: Neo.state.Provider, propertyName: String}|null}
      */
     getOwnerOfDataProperty(path) {
-        let me = this;
+        return this.#findDataOwner(path, true)
+    }
+
+    /**
+     * Walks the parent chain for the provider owning a data path.
+     * A miss at a level reads that provider's `#dataKeyVersion`: an active effect which read a path
+     * that does not exist yet depends on the key set of every provider it looked in, so it re-runs
+     * when the key gets created on any of them (see `#createDataConfig`).
+     * @param {String}  path
+     * @param {Boolean} track `false` on the write path: a write's owner lookup is not a read
+     * @returns {{owner: Neo.state.Provider, propertyName: String}|null}
+     * @private
+     */
+    #findDataOwner(path, track) {
+        const me = this;
 
         if (me.#dataConfigs[path]) {
             return {owner: me, propertyName: path}
         }
 
-        // Check for parent ownership
-        const parent = me.getParent();
-        if (parent) {
-            return parent.getOwnerOfDataProperty(path)
-        }
+        track && me.#dataKeyVersion.get();
 
-        return null
+        const parent = me.getParent();
+
+        return parent ? parent.#findDataOwner(path, track) : null
+    }
+
+    /**
+     * The single creation point for a data property's Config. Bumping `#dataKeyVersion` re-runs
+     * exactly the effects that read this provider's key set while the path was absent.
+     * @param {String} path
+     * @param {*}      value
+     * @returns {Neo.core.Config}
+     * @private
+     */
+    #createDataConfig(path, value) {
+        const config = new Config(value);
+
+        this.#dataConfigs[path] = config;
+        this.#dataKeyVersion.set(++this.#dataKeyCount);
+
+        return config
     }
 
     /**
@@ -682,6 +727,9 @@ class Provider extends Base {
             keys       = new Set(),
             pathPrefix = path ? `${path}.` : '';
 
+        // An enumeration depends on this provider's key set
+        this.#dataKeyVersion.get();
+
         for (const fullPath in this.#dataConfigs) {
             if (fullPath.startsWith(pathPrefix)) {
                 const
@@ -736,7 +784,7 @@ class Provider extends Base {
         }
 
         const
-            ownerDetails   = originStateProvider && me.getOwnerOfDataProperty(key),
+            ownerDetails   = originStateProvider && me.#findDataOwner(key, false),
             targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
 
         me.#setConfigValue(targetProvider, key, value, null);
@@ -823,7 +871,7 @@ class Provider extends Base {
             if (me.#dataConfigs[fullPath]) {
                 me.#dataConfigs[fullPath].set(value)
             } else {
-                me.#dataConfigs[fullPath] = new Config(value)
+                me.#createDataConfig(fullPath, value)
             }
 
             me.#syncRecordDataValue(fullPath, value);
@@ -869,10 +917,7 @@ class Provider extends Base {
             oldValue  = currentConfig.get();
             hasChange = currentConfig.set(newValue)
         } else {
-            currentConfig = new Config(newValue);
-            provider.#dataConfigs[path] = currentConfig;
-            // Trigger all binding effects to re-evaluate their dependencies
-            provider.#bindingEffects.forEach(effect => effect.run())
+            currentConfig = provider.#createDataConfig(path, newValue)
         }
 
         if (hasChange) {

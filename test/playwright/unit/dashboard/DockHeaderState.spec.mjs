@@ -589,27 +589,24 @@ test.describe('Neo.dashboard.dock.Workspace — the consumer\'s header-action ve
         }
     });
 
-    test('⚠️ a veto published AFTER the first run does not land, and lands silently on the next unrelated re-evaluation', async () => {
-        // The documented limitation, asserted rather than described. An Effect reading an ABSENT key
-        // touches no Config and so registers no dependency on it, and `setConfigValue` re-runs only
-        // the OWNER provider's bindings when a new key appears, so the veto is latent, not rejected.
+    test('a veto published AFTER the first run lands at once, and an unrelated re-evaluation keeps it', async () => {
+        // A formatter that read the ABSENT `dockActionPolicy` at its first run touched no Config,
+        // so the provider lets that miss depend on its key set: creating the key re-runs exactly the
+        // formatters that missed it, and the veto lands immediately instead of staying latent.
         const center = hostWith({}),
               close  = center.getAction('close');
 
         expect(close.hidden, 'alpha is closable and nothing is vetoed').toBe(false);
 
         host.stateProvider.setData('dockActionPolicy.close', false);
-        expect(close.hidden, 'the late key is invisible to a formatter that never depended on it').toBe(false);
+        expect(close.hidden, 'the late key reaches the formatter that read it while it was absent').toBe(true);
 
-        // Worse than inert, and the reason the declared path is the contract: the veto is not
-        // rejected, it is LATENT. Any later change to a leaf the formula does depend on applies it.
-        //
         // The RETURN to index 0 is load-bearing and the arm is theatre without it: beta declares
         // `closable: false`, so a `close.hidden` of true there proves nothing — the per-item policy
         // produces it whether or not the veto works. Alpha IS closable, so only a working veto can
         // hide close on it.
         await center.set({activeIndex: 1});
         await center.set({activeIndex: 0});
-        expect(close.hidden, 'an unrelated re-evaluation now applies a veto set two steps ago').toBe(true)
+        expect(close.hidden, 'an unrelated re-evaluation keeps the veto').toBe(true)
     })
 });
