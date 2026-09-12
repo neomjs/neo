@@ -546,6 +546,35 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary The declared perspective names: what a saved record may equal but never take. The
+     * persistence libraries take this through their `declaredPerspectives` wiring.
+     * @returns {String[]} Empty when nothing is declared.
+     */
+    declaredPerspectives() {
+        return this.perspectiveSelection?.names ?? []
+    }
+
+    /**
+     * @summary The origin a captured snapshot carries: the accepted-write identity, never a published
+     * leaf, so an auto-save that captures before projection still records the right name.
+     * @returns {Object} `{declaredPerspective}`, or an empty object when nothing is declared.
+     */
+    perspectiveProvenance() {
+        return this.perspectiveSelection?.provenance() ?? {}
+    }
+
+    /**
+     * @summary The identity change a Group write adopts beside a restored snapshot's document, or null
+     * when the snapshot carries no origin this workspace declares — the selection then retains its
+     * last committed or initialized declared baseline.
+     * @param {Object|null} metadata The snapshot's `metadata`
+     * @returns {{workspaceKey: String, input: {name: String}}|null}
+     */
+    perspectiveOriginChange(metadata) {
+        return this.perspectiveSelection?.originChange(metadata) ?? null
+    }
+
+    /**
      * @summary Initializes dock-owned services and arms geometry only when already window-bound.
      * @param {Object} config
      */

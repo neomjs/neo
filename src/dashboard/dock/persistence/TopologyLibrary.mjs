@@ -81,7 +81,14 @@ class TopologyLibrary extends Base {
          * those bytes by resolving and reports failure by rejecting. Only plain JSON crosses it.
          * @member {Object|null} persistenceAdapter=null
          */
-        persistenceAdapter: null
+        persistenceAdapter: null,
+        /**
+         * The names a stored topology may equal but never take: the owning workspace's declared
+         * perspectives, as an iterable or a function returning one. Wiring, not state; null skips the
+         * declared-name refusal. Engine-reserved names (`$`-prefixed) are refused either way.
+         * @member {Function|Iterable<String>|null} declaredPerspectives=null
+         */
+        declaredPerspectives: null
     }
 
     /** @member {String[]} lastErrors=[] */
@@ -347,7 +354,13 @@ class TopologyLibrary extends Base {
 
         const record    = result.topology,
               layoutId  = record.layoutId,
-              candidate = this.collection ?? Persistence.createTopologyCollection([], {activeLayoutId: null}).collection;
+              candidate = this.collection ?? Persistence.createTopologyCollection([], {activeLayoutId: null}).collection,
+              reserved  = Persistence.reservedNameErrors([layoutId, record.perspectiveName], this.declaredPerspectives);
+
+        if (reserved.length) {
+            this.lastErrors = reserved;
+            return {saved: false, layoutId, collision: null, errors: reserved}
+        }
 
         if (Object.hasOwn(candidate.topologies, layoutId) && replace !== true) {
             const errors = [`topology "${layoutId}" already exists; replacement must be explicit`];

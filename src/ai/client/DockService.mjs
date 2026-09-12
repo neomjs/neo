@@ -283,7 +283,9 @@ class DockService extends Service {
         const holder   = this.resolveHolder(componentId),
               metadata = {
                   layoutId,
-                  metadata: {source: 'neural-link-capture'},
+                  // the declared origin rides the accepted-write identity, so a capture taken
+                  // before a projection still names the perspective it was taken under
+                  metadata: {source: 'neural-link-capture', ...holder.perspectiveProvenance?.()},
                   // the wrapper requires a display title; a capture must not refuse over a
                   // missing label — the name (or id) is the honest default
                   title   : title ?? perspectiveName ?? layoutId,
