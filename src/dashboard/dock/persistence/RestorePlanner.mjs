@@ -43,9 +43,11 @@ class RestorePlanner extends Base {
      * split resizes → edge-zone resizes → auto-hide flips; `adds` lead when present). `removes` are NOT
      * destroyed — restore never deletes — they surface as a `surplus` list the cross-topology dual consumes.
      *
-     * Not every reported change becomes a step: `edgeResizes` is filtered to what the executor accepts,
-     * so a zone the app has since made non-resizable is reported by the differ and skipped here rather
-     * than planned into a step that would fail the whole application.
+     * Not every reported change becomes a step: each value-bearing category is filtered to what the
+     * executor accepts, so a zone the app has since made non-resizable, a split size outside the
+     * reducer's domain, or an auto-hide of an unpinnable pane is reported by the differ and skipped
+     * here rather than planned into a step that would fail the whole application. A skipped step is
+     * never an error — the differ reports document truth, this planner emits only what can run.
      * @param {Object} current  The live committed document.
      * @param {Object} captured The captured layout document to restore toward.
      * @returns {{deferred: Boolean, reason: (String|null), plan: Object[], surplus: Object[], errors: String[]}}
@@ -126,29 +128,26 @@ class RestorePlanner extends Base {
         diff.activeItemChanges.forEach(({nodeId, to}) =>
             plan.push({operation: 'setActiveItem', tabsNodeId: nodeId, itemId: to}));
 
-        diff.resizes.forEach(({nodeId, toSizes}) =>
-            plan.push({operation: 'resizeSplit', splitNodeId: nodeId, sizes: [...toSizes]}));
+        // Only steps the executor will accept: `applyRestorePlan` is fail-closed, so one refused step
+        // strands every later one, and neither the shape gate nor `WorkspaceDocument.validate` predicts
+        // acceptance — a legal `sizes: [0, 1]`, or `pinnable: false` beside `autoHidden: true`, is
+        // still refused, and nothing in this tier validates a capture at all. Predicates read `current`,
+        // the document the executor validates. `planRestore` stays a pure fold: where a reducer exposes
+        // its acceptance as a pure function it is asked; where it does not, its refusals are restated
+        // here, and the arms in `DockRestorePlanner.spec.mjs` are what would catch a new one.
 
-        // Only the steps the executor will accept. `Operations.resizeEdgeZone` has four refusals;
-        // the shape gate upstream already rejects one of them (an unresolvable descriptor fails
-        // `computeShapeFingerprint`, so no plan is built at all), and the three below are this
-        // filter's scope: a non-edge `center`, a descriptor that is not exactly `resizable`, and an
-        // `extent` outside the open interval `(0, 1)`. The permission and the edge are read off the
-        // LIVE document because that is the descriptor the executor validates — reading the
-        // capture's would emit a step the executor then rejects, and suppress one it would accept.
-        //
-        // Missing ANY of the three is not "the rail does not move". `applyRestorePlan` is
-        // fail-closed on the first error, so one unusable step strands every later one — a valid
-        // auto-hide flip queued behind an illegal rail simply never runs. The `(0, 1)` clause
-        // matters because nothing in the persistence tier calls `WorkspaceDocument.validate`: a
-        // capture is trusted on shape and never on contract, so a contract-illegal value from
-        // another writer (hand-authored, an older schema, edited storage) reaches here intact.
-        //
-        // This predicate deliberately mirrors the executor's rather than sharing it. Keeping the
-        // planner a PURE fold — no executor round-trip to decide what to plan — is worth the
-        // duplication, but the duplication is real and unlinked: a fifth refusal added to
-        // `Operations.resizeEdgeZone` will not surface here, and the arms in
-        // `DockRestorePlanner.spec.mjs` are what would catch it.
+        // `resizeSplit` accepts exactly what `normalizeSplitSizes` accepts, counted against the LIVE split.
+        diff.resizes.forEach(({nodeId, toSizes}) => {
+            const count = current.nodes?.[nodeId]?.children?.length ?? 0;
+
+            if (!WorkspaceDocument.normalizeSplitSizes(toSizes, count, nodeId).errors.length) {
+                plan.push({operation: 'resizeSplit', splitNodeId: nodeId, sizes: [...toSizes]})
+            }
+        });
+
+        // `resizeEdgeZone` rejects `center` (not one of the four resizable edges), a descriptor that
+        // is not exactly `resizable`, and an extent outside the open interval `(0, 1)`. Its fourth
+        // refusal — an unresolvable descriptor — is the one the shape gate already catches.
         diff.edgeResizes.forEach(({nodeId, edge, to}) => {
             if (edge !== 'center' && to > 0 && to < 1 &&
                 current.nodes?.[nodeId]?.zones?.[edge]?.resizable === true
@@ -157,8 +156,15 @@ class RestorePlanner extends Base {
             }
         });
 
-        diff.autoHideFlips.forEach(({itemId, to}) =>
-            plan.push({operation: 'setItemAutoHidden', itemId, autoHidden: to}));
+        // `setItemAutoHidden` refuses a non-pinnable item in BOTH directions (it gates on `pinnable`
+        // before the value) and refuses auto-hiding a pinned one; the pane keeps its live visibility.
+        diff.autoHideFlips.forEach(({itemId, to}) => {
+            const item = current.items?.[itemId];
+
+            if (item && item.pinnable !== false && !(to && item.pinned === true)) {
+                plan.push({operation: 'setItemAutoHidden', itemId, autoHidden: to})
+            }
+        });
 
         // Restore never destroys: an item current holds that the capture doesn't surfaces as surplus, not a delete.
         let surplus = diff.removes.map(({itemId, from}) => ({itemId, from}));
