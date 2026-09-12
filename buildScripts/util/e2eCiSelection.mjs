@@ -41,6 +41,11 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
+    // Named individually because both siblings in `e2e/portal` are excluded below. Neither of their
+    // causes reaches this one: they fail hosted on live previews and content routing, and this arm
+    // needs neither — it boots the portal root and reads `document.body`'s theme class. The sidebar
+    // arm of `LearnLinkRoutingNL` already shows the portal itself booting on a hosted runner.
+    'test/playwright/e2e/portal/StoredThemeBoot.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs'
 ];
