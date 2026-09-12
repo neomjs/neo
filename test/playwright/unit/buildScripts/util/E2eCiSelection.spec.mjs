@@ -79,6 +79,10 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
         add('core/B.spec.mjs');
         add('dashboard/C.spec.mjs');
         add('grid/D.spec.mjs');
+        // Named, not `portal/E.spec.mjs`, because `RUN_PATHS` names this file rather than its
+        // directory — `portal/Outside.spec.mjs` below is still outside the run set, which is what
+        // that arm needs.
+        add('portal/StoredThemeBoot.spec.mjs');
         add('rendering/InputModalityMultiWindow.spec.mjs');
         add('rendering/ViewTransitionReveal.spec.mjs');
 
