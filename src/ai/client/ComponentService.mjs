@@ -261,14 +261,16 @@ class ComponentService extends Service {
     }
 
     /**
+     * Paints the highlight for `duration`, then restores exactly the keys it wrote — by value,
+     * `null` where the component had none. A style key leaves the vdom root only through `null`
+     * (`Neo.component.Base#style_`); assigning the pre-highlight object keeps it painted.
      * @param {Object} params
      * @param {String} params.componentId
      * @param {Object} [params.options]
      * @returns {Object}
      */
     highlightComponent({componentId, options}) {
-        let component = Neo.getComponent(componentId),
-            originalStyle;
+        let component = Neo.getComponent(componentId);
 
         if (!component) {
             throw new Error(`Component not found: ${componentId}`)
@@ -277,25 +279,19 @@ class ComponentService extends Service {
         options = options || {};
 
         const
-            color    = options.color    || 'red',
-            duration = options.duration || 2000,
-            mode     = options.style    || 'outline'; // 'outline' or 'box-shadow'
+            color     = options.color    || 'red',
+            duration  = options.duration || 2000,
+            mode      = options.style    || 'outline', // 'outline' or 'box-shadow'
+            original  = component.style || {},
+            highlight = mode === 'outline' ?
+                {outline: `2px solid ${color}`, outlineOffset: '-2px'} :
+                {boxShadow: `0 0 10px ${color}, inset 0 0 10px ${color}`},
+            restore   = Object.fromEntries(Object.keys(highlight).map(key => [key, original[key] ?? null]));
 
-        originalStyle = component.style || {};
-
-        let highlightStyle = {};
-
-        if (mode === 'outline') {
-            highlightStyle.outline       = `2px solid ${color}`;
-            highlightStyle.outlineOffset = '-2px'
-        } else {
-            highlightStyle.boxShadow = `0 0 10px ${color}, inset 0 0 10px ${color}`
-        }
-
-        component.style = {...originalStyle, ...highlightStyle};
+        component.style = {...original, ...highlight};
 
         this.timeout(duration).then(() => {
-            component.style = originalStyle
+            !component.isDestroyed && (component.style = {...original, ...restore})
         });
 
         return {success: true}
