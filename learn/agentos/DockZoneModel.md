@@ -280,7 +280,7 @@ Rules:
 - `layouts` is keyed by each saved layout's `layoutId`; the key and wrapper id must match.
 - `activeLayoutId` must name an existing layout whenever the collection contains layouts.
 - Collection and saved-layout metadata are JSON-only and must not contain secrets, PATs, credentials, functions, DOM nodes, or live components.
-- Restoring a perspective must go through `restoreSavedLayout()` so the saved-layout schema, dock-zone schema, and JSON-only checks stay shared.
+- Restoring a saved perspective must go through `restoreSavedLayout()` so the saved-layout schema, dock-zone schema, and JSON-only checks stay shared. A *declared* perspective is not a saved record: it is selected through the workspace's accepted `activePerspective` write, which restores its lowered baseline through the ordinary commit path and carries the name as the write's identity; saved records restore through the wrappers, and a saved record may equal a declared perspective but never take its name.
 - Removing the active layout requires an explicit replacement id. Do not silently pick a different active layout.
 
 Storage remains out of scope for this layer. Browser preferences, Memory Core persistence, import/export, and rendered layout switchers consume this collection contract later; they must not fork their own collection shape.

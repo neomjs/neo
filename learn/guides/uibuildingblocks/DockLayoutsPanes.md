@@ -451,3 +451,154 @@ ordinary composition without asking a pane to manage either responsibility.
 
 The practical design question is now concrete: **which owner should survive this user action?** Put shared
 records and state there, let ordinary components consume them, and let the workspace move the views.
+
+## Declare two arrangements and select one reactively
+
+The journey above has one arrangement. Real workspaces have a few — a focus mode, a review mode — and the user
+switches between them. Declare them once, by name, and the switch becomes a config write:
+
+```javascript readonly
+static config = {
+    perspectives: {
+        review: {center: ['summary', 'notes'], right: {items: ['queue', 'help'], extent: 0.55, resizable: true}},
+        focus : {center: ['queue'],            right: {items: ['summary', 'notes', 'help'], extent: 0.3}}
+    },
+    activePerspective: 'review'
+}
+```
+
+`perspectives` maps names to the same `zones` vocabulary the single arrangement used; every name lowers against
+the same `panes` catalog, once, at construction. `activePerspective` is the intent: assigning a declared name
+restores that arrangement through the ordinary commit path, an unknown name is refused and the committed name
+stays, and assigning the name that is already active is a no-op — call `resetPerspective()` to re-apply a
+baseline the user has rearranged. Declaring `zones` alone still works: the one unnamed arrangement lowers under
+the reserved name `$default`, and a declared name never starts with `$`.
+
+The workspace publishes what happened as provider data, beside the header state it already publishes:
+`dock.perspective.active` is the committed name, `dock.perspective.modified` says whether the live document has
+left that name's baseline, and `dock.perspective.pending` names a request that is in flight until it settles — it
+is not the refresh promise. A switcher therefore binds; it does not compute:
+
+```javascript readonly
+{
+    module : Button,
+    text   : 'Focus',
+    bind   : {pressed: data => data.dock.perspective.active === 'focus'},
+    handler: 'onSelectFocus'
+}
+```
+
+**Bind and derive on the publishing provider or below.** The workspace writes these leaves into the provider it
+resolves — its own, or the nearest ancestor's when it declares none. A formula on a provider *above* that one never
+observes the publication, because a descendant's write is not in an ancestor's lookup. Keeping the toolbar inside the
+workspace, as below, keeps the switcher on the publishing provider without any extra wiring.
+
+If you know `Neo.tab.Container`, you know this shape already: `activeIndex` is the intent, the committed state is
+what the tabs render, `activeIndexChange` fires, a binding can drive it and a click writes it back.
+`activePerspective` and `activePerspectiveChange` are the same idiom one level up.
+
+The preview declares both arrangements on the QueueWorkspace, puts a small toolbar above the dock shell, and binds
+the two buttons and a *Modified* badge to the published leaves. Open **Preview**, press **Focus**, drag a tab
+somewhere else and watch the badge, then press **Reset**.
+
+```javascript live-preview
+import Button     from '../button/Base.mjs';
+import Component  from '../component/Base.mjs';
+import Controller from '../controller/Component.mjs';
+import Provider   from '../state/Provider.mjs';
+import Toolbar    from '../toolbar/Base.mjs';
+import Workspace  from '../dashboard/dock/Workspace.mjs';
+
+class PerspectiveController extends Controller {
+    static config = {
+        className: 'Guides.dockLayoutsPanes.PerspectiveController'
+    }
+
+    onSelectFocus() {
+        this.component.activePerspective = 'focus'
+    }
+
+    onSelectReview() {
+        this.component.activePerspective = 'review'
+    }
+
+    onReset() {
+        this.component.resetPerspective()
+    }
+
+    onPerspectiveChange({value}) {
+        this.setState({lastAction: `Selected: ${value}`})
+    }
+}
+
+PerspectiveController = Neo.setupClass(PerspectiveController);
+
+class PerspectiveView extends Workspace {
+    static config = {
+        className: 'Guides.dockLayoutsPanes.PerspectiveView',
+        controller: PerspectiveController,
+        layout: {ntype: 'vbox', align: 'stretch'},
+        stateProvider: {
+            module: Provider,
+            data: {lastAction: 'Pick an arrangement.'}
+        },
+        listeners: {activePerspectiveChange: 'onPerspectiveChange'},
+        dockShellIndex: 1,
+        items: [{
+            module: Toolbar,
+            flex: 'none',
+            items: [{
+                module: Button,
+                text: 'Focus',
+                bind: {pressed: data => data.dock.perspective.active === 'focus'},
+                handler: 'onSelectFocus'
+            }, {
+                module: Button,
+                text: 'Review',
+                bind: {pressed: data => data.dock.perspective.active === 'review'},
+                handler: 'onSelectReview'
+            }, {
+                module: Button,
+                text: 'Reset',
+                handler: 'onReset'
+            }, '->', {
+                module: Component,
+                bind: {text: data => data.dock.perspective.modified ? 'Modified' : ''}
+            }]
+        }],
+        panes: {
+            summary: {
+                module: Component,
+                header: {text: 'Summary'},
+                bind: {text: data => data.lastAction}
+            },
+            notes: {
+                module: Component,
+                header: {text: 'Notes'},
+                text: 'Two arrangements, one catalog of panes.'
+            },
+            queue: {
+                module: Component,
+                header: {text: 'Work queue'},
+                text: 'Focus puts the queue in the center on its own.'
+            },
+            help: {
+                module: Component,
+                header: {text: 'Help'},
+                text: 'Drag a tab, then press Reset.'
+            }
+        },
+        perspectives: {
+            review: {center: ['summary', 'notes'], right: {items: ['queue', 'help'], extent: 0.55, resizable: true}},
+            focus : {center: ['queue'],            right: {items: ['summary', 'notes', 'help'], extent: 0.3}}
+        },
+        activePerspective: 'review'
+    }
+}
+
+PerspectiveView = Neo.setupClass(PerspectiveView);
+```
+
+Nothing in the preview computes the active name, sweeps the toolbar or rebuilds a button. The declarations are the
+name source, the config is the intent, the provider carries the truth, and saved snapshots — the subject of the
+adoption guide — stay what they are: records that may equal a declared arrangement but never define one.

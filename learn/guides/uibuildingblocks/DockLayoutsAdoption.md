@@ -379,6 +379,19 @@ reload. The rule underneath is the one the intro stated and the reducer enforces
 half-restore. A saved layout either validates completely or it is rejected completely, and runtime-only preview state
 can never leak into a persisted document — `createSavedLayout` refuses to serialize it.
 
+Saved layouts are one of **two name sources**, and not the authoritative one. The arrangements a workspace
+*declares* — `perspectives`, a map of names to zones, selected through the reactive `activePerspective_` — are the
+names it answers to; a saved record is a snapshot with provenance. The two never trade places: the libraries refuse a
+declared name, and any `$`-prefixed engine-reserved name, on both the product name and the technical `layoutId`, on
+save and on rename, so a snapshot may equal a declared arrangement but never define or impersonate it. A snapshot
+records the declared name it was captured under as `metadata.declaredPerspective`, written from the accepted write —
+an auto-save that captures inside the commit listener still names the arrangement it was taken under. Restoring a
+snapshot whose origin the workspace declares adopts that name; an originless snapshot keeps the committed baseline;
+the selection never becomes null. The example's toolbar shows both sources side by side: declared buttons bind
+`dock.perspective.active`, snapshot buttons restore through the library, and the *Modified* badge reads
+`dock.perspective.modified`. Selecting a saved name through the config is deliberately not offered; a snapshot is
+restored, a declaration is selected.
+
 ## The tear-out window's render target
 
 Tear-out turns a pane into a real OS window whose content is *the same live object* — and honesty about today's
