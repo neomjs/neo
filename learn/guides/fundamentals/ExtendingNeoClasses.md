@@ -90,10 +90,10 @@ The same discipline covers the other kind of member: **a class extension never r
 a config with a field.** A field is an own data property that `new` initializes on the instance; a config is a prototype
 value or, when reactive, a prototype accessor that `Neo.setupClass` generates. A name shared across the two anywhere in
 one prototype chain is a collision, not an override — the own property shadows the prototype for reads and writes
-alike, so a reactive config's default never applies and its hooks never run, and nothing reports it. For a reactive
-config the engine refuses the collision at the first construction (`core.Base#construct`), naming both classes and the
-hook that would never fire; for a plain config the rule stands as written and is yours to keep. Give a config a new
-default with a bare entry in `static config`, and keep internal state in fields whose names no config in the chain uses.
+alike, so a plain config's value never applies and a reactive config's hooks never run, and nothing would report it.
+`Neo.create` refuses the collision right after `new`, before `construct()` runs — for plain and reactive configs alike —
+naming the field, the class and, for a reactive config, the hook that would never fire. Give a config a new default with
+a bare entry in `static config`, and keep internal state in fields whose names no config in the chain uses.
 
 ## 3. Configuration Lifecycle Hooks (`beforeSet`, `afterSet`, `beforeGet`)
 

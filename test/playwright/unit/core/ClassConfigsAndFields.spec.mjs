@@ -435,19 +435,14 @@ test.describe('ClassConfigsAndFields', () => {
         instance.destroy()
     });
 
-    test('validation is per instance: a first instance that removes its shadow before super.construct() exempts no later shadowed one, in either order', () => {
+    test('the declaration is refused at creation, before any construct() could repair it: removing the shadow before super.construct() changes nothing', () => {
         class Masked extends core.Base {
             static config = {
                 className: 'Test.Unit.Core.ClassConfigsAndFields.Masked',
                 value_   : 1
             }
 
-            value     = null
-            hookCalls = 0
-
-            afterSetValue() {
-                this.hookCalls++
-            }
+            value = null
 
             construct(config={}) {
                 if (config.unmask) delete this.value;
@@ -459,23 +454,76 @@ test.describe('ClassConfigsAndFields', () => {
 
         const shadowed = /Invalid class field 'value' in Test\.Unit\.Core\.ClassConfigsAndFields\.Masked/;
 
-        // clean first, shadowed second
-        const clean = Neo.create(Masked, {unmask: true});
+        expect(() => Neo.create(Masked, {unmask: true})).toThrow(shadowed);
+        expect(() => Neo.create(Masked)).toThrow(shadowed)
+    });
 
-        expect(clean.value).toBe(1);
-        expect(clean.hookCalls).toBe(1);
-        expect(() => Neo.create(Masked)).toThrow(shadowed);
+    test('the rule covers plain configs in both directions: a base field under a subclass plain config, and a subclass field over an inherited plain config', () => {
+        class PlainFieldBase extends core.Base {
+            static config = {className: 'Test.Unit.Core.ClassConfigsAndFields.PlainFieldBase'}
 
-        // shadowed first, clean second
-        expect(() => Neo.create(Masked)).toThrow(shadowed);
+            mode = 'field'
+        }
 
-        const clean2 = Neo.create(Masked, {unmask: true});
+        Neo.setupClass(PlainFieldBase);
 
-        clean2.set({value: 3});
-        expect(clean2.value).toBe(3);
-        expect(clean2.hookCalls).toBe(2);
+        class PlainConfigSub extends PlainFieldBase {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.PlainConfigSub',
+                mode     : 'config'
+            }
+        }
 
-        clean.destroy();
-        clean2.destroy()
+        Neo.setupClass(PlainConfigSub);
+
+        expect(() => Neo.create(PlainConfigSub)).toThrow(/Invalid class field 'mode' in Test\.Unit\.Core\.ClassConfigsAndFields\.PlainConfigSub: it shadows the config 'mode': its value in static config never applies/);
+
+        class PlainConfigBase extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.PlainConfigBase',
+                mode     : 'config'
+            }
+        }
+
+        Neo.setupClass(PlainConfigBase);
+
+        class FieldOverPlainConfig extends PlainConfigBase {
+            static config = {className: 'Test.Unit.Core.ClassConfigsAndFields.FieldOverPlainConfig'}
+
+            mode = 'field'
+        }
+
+        Neo.setupClass(FieldOverPlainConfig);
+
+        expect(() => Neo.create(FieldOverPlainConfig)).toThrow(/Invalid class field 'mode' in Test\.Unit\.Core\.ClassConfigsAndFields\.FieldOverPlainConfig/);
+
+        // Each base alone is fine: a field with no config of that name, a config with no field of that name.
+        const fieldOnly = Neo.create(PlainFieldBase), configOnly = Neo.create(PlainConfigBase);
+
+        expect(fieldOnly.mode).toBe('field');
+        expect(configOnly.mode).toBe('config');
+        fieldOnly.destroy();
+        configOnly.destroy()
+    });
+
+    test('a construct() that assigns a plain config before super.construct() declares no field: it runs after the check and passes', () => {
+        class Presets extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.Presets',
+                mode     : 'config'
+            }
+
+            construct(config) {
+                this.mode = 'assigned';
+                super.construct(config)
+            }
+        }
+
+        Neo.setupClass(Presets);
+
+        const instance = Neo.create(Presets);
+
+        expect(instance.mode).toBe('assigned');
+        instance.destroy()
     });
 });

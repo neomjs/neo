@@ -101,7 +101,7 @@ class Base {
      *     globally. Use standard class fields for internal state that should not be globally reconfigured.
      *     A class extension never replaces a class field with a config, or a config with a field: a field
      *     is an own data property, and a name it shares with a config anywhere in the prototype chain
-     *     shadows the config instead of overriding it. `construct()` refuses the reactive case.
+     *     shadows the config instead of overriding it. `Neo.create` refuses it right after `new`.
      *
      * @returns {Object} config
      */
@@ -268,8 +268,6 @@ class Base {
      */
     construct(config={}) {
         let me = this;
-
-        me.assertFieldsShadowNoConfig();
 
         Object.defineProperties(me, {
             [configSymbol]: {
@@ -1115,24 +1113,22 @@ class Base {
     }
 
     /**
-     * @summary Enforces the reactive half of the rule that a class extension never replaces a class
-     * field with a config or vice versa. A field is an own data property, so one named like a reactive
-     * config of the same instance shadows the generated accessor for the instance's lifetime: the
-     * config's default never applies and its `beforeSet` / `afterSet` hooks never run. Refuses exactly
-     * that — an own data property whose key `isConfig()` — at every construction, since a subclass's
-     * `construct()` may add or remove own properties before `super.construct()`. Own accessors are
-     * ordinary overrides and pass, as do fields named like plain configs (whose backing convention,
-     * `_vdom` for `vdom_`, makes that half of the rule documentation rather than a check) or like plain
-     * prototype accessors. `Neo.createConfig` can only guard a redefined setter at setup time; fields
-     * exist only after `new`.
-     * @throws {Error} Naming the field, the instance class and the class whose config it shadows.
+     * @summary Refuses the collision behind the rule that a class extension never replaces a class
+     * field with a config, or a config with a field. `Neo.create` calls this right after `new`, when
+     * the instance owns exactly its class fields and no `construct()` has run: an own data property
+     * whose key is a config of the class shadows that config for the instance's lifetime — a plain
+     * config's value never applies, a reactive config's `beforeSet` / `afterSet` never run. Own
+     * accessors are ordinary overrides and pass, and a `construct()` that assigns a plain config before
+     * `super.construct()` runs after this check and passes too. `Neo.createConfig` refuses the setter
+     * flavour of the same rule at setup time; fields exist only after `new`.
+     * @throws {Error} Naming the field, the instance class and, for a reactive config, the class whose accessor it shadows.
      * @protected
      */
     assertFieldsShadowNoConfig() {
         const me = this, cls = me.constructor;
 
         Object.getOwnPropertyNames(me).forEach(key => {
-            if (!Object.hasOwn(cls.config, key) || !('value' in Object.getOwnPropertyDescriptor(me, key)) || !me.isConfig(key)) return;
+            if (!Object.hasOwn(cls.config, key) || !('value' in Object.getOwnPropertyDescriptor(me, key))) return;
 
             let proto = Object.getPrototypeOf(me);
 
@@ -1140,12 +1136,15 @@ class Base {
                 proto = Object.getPrototypeOf(proto)
             }
 
-            const owner = proto?.constructor.config?.className ?? proto?.constructor.name,
-                  uKey  = key[0].toUpperCase() + key.slice(1);
+            const owner = proto && (proto.constructor.config?.className ?? proto.constructor.name),
+                  uKey  = key[0].toUpperCase() + key.slice(1),
+                  what  = owner
+                      ? `the reactive config '${key}_' declared by ${owner}: the config's accessor never runs and afterSet${uKey}() never fires`
+                      : `the config '${key}': its value in static config never applies`;
 
             throw new Error(
-`Invalid class field '${key}' in ${cls.config.className}: it shadows the reactive config '${key}_' declared by ${owner}.
-A class field is an own data property, so the config's accessor never runs and afterSet${uKey}() never fires.
+`Invalid class field '${key}' in ${cls.config.className}: it shadows ${what}.
+A class extension never replaces a class field with a config, or a config with a field.
 Give the config its default with a plain '${key}' entry in static config, or rename one of them.`
             )
         })

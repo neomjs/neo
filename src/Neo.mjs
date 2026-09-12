@@ -326,6 +326,7 @@ Neo = globalThis.Neo = Object.assign({
 
         instance = new cls();
 
+        instance.assertFieldsShadowNoConfig();
         instance.construct(config);
         instance.onConstructed();
         instance.onAfterConstructed();
