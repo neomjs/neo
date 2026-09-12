@@ -188,7 +188,13 @@ class WorkspaceController extends Controller {
      * itself over to be finished.
      */
     onComponentConstructed() {
-        this.syncTopologyBar()
+        const me = this, set = me.component.workspaceSet;
+
+        me.syncTopologyBar();
+
+        // Membership arrives after boot too — a pane torn into its own window, a saved window reopened —
+        // and the bar follows it. The subscription is the observer's: it dies with this controller.
+        set && me.observeConfig(set, 'memberIds', () => me.syncTopologyBar())
     }
 
     /**
@@ -197,10 +203,9 @@ class WorkspaceController extends Controller {
      * The bar itself is declared by the view, which owns its structure; this reaches it through
      * its reference and supplies only the part that depends on live Group membership.
      *
-     * Idempotent and re-callable, but wired to {@link #onComponentConstructed} alone — the same
-     * single population the previous shape performed. `WorkspaceSet` publishes no membership
-     * signal, so a participant registered after boot still gains no buttons until a reload; that
-     * is unchanged here and needs a signal in the engine, not a second reader in this file.
+     * Idempotent and re-callable: it runs once at {@link #onComponentConstructed} for the first paint,
+     * and again whenever the `WorkspaceSet` republishes its `memberIds`, so a participant registered
+     * after boot gains its buttons — and one unregistered loses them — without a reload.
      * @returns {Boolean} Whether the bar was reachable.
      */
     syncTopologyBar() {

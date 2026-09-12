@@ -25,7 +25,16 @@ class WorkspaceSet extends Base {
         /** @member {Function|null} getGroupId=null Resolves the host's current Group identity. */
         getGroupId: null,
         /** @member {Neo.manager.Transaction|null} manager=null Worker-wide transaction authority. */
-        manager: null
+        manager: null,
+        /**
+         * The registered workspace ids, republished by {@link #register} and {@link #unregister} so a
+         * consumer can OBSERVE membership instead of reading it once: `observeConfig(set, 'memberIds', fn)`
+         * ties the subscription to the observer's own lifetime. Replacing a registration under the same
+         * id changes nothing here — the membership is the same set.
+         * @member {String[]} memberIds_=[]
+         * @reactive
+         */
+        memberIds_: []
     }
 
     /**
@@ -322,6 +331,8 @@ class WorkspaceSet extends Base {
             workspaceKey: workspaceId
         });
         if (registered && componentId) Neo.get(componentId)?.perspectiveSelection?.connect();
+        if (registered) this.memberIds = this.ids();
+
         return registered
     }
 
@@ -383,9 +394,12 @@ class WorkspaceSet extends Base {
      * @returns {Boolean} true when a participant was removed
      */
     unregister(workspaceId) {
-        const id = this.resolveGroupId();
+        const id      = this.resolveGroupId(),
+              removed = id ? this.manager.unregisterParticipant({groupId: id, workspaceKey: workspaceId}) : false;
 
-        return id ? this.manager.unregisterParticipant({groupId: id, workspaceKey: workspaceId}) : false
+        if (removed) this.memberIds = this.ids();
+
+        return removed
     }
 }
 

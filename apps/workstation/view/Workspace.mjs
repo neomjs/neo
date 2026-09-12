@@ -745,21 +745,7 @@ class Workspace extends DockWorkspace {
 
         for (const [workspaceId, document] of Object.entries(me.initialTopology?.workspaces ?? {})) {
             if (workspaceId === Workspace.MAIN_WORKSPACE_ID) continue;
-            const host = Neo.create(PopupWorkspace, {
-                dockModel      : WorkspaceDocument.clone(document), flex: 1, rootWorkspace: me,
-                topologyGroupId: me.topologyGroupId, workspaceKey: workspaceId, workspaceSet: me.workspaceSet,
-                stateProvider  : {module: StateProvider, parent: me.stateProvider}
-            });
-            const state = {
-                committed   : true,
-                disconnected: true,
-                host,
-                get document() { return host.dockModel },
-                set document(value) { host.dockModel = value },
-                windowId    : null,
-                workspaceId
-            };
-            host.runtimeState = state
+            me.createPopupWorkspace(workspaceId, WorkspaceDocument.clone(document), {committed: true, windowId: null})
         }
 
         me.registerMainWorkspace();
@@ -1332,6 +1318,35 @@ class Workspace extends DockWorkspace {
      */
     getPopupStates() {
         return this.workspaceSet?.ids().map(key => this.getPopupState(key)).filter(Boolean) ?? []
+    }
+
+    /**
+     * @summary Creates the owner of one popup workspace with its runtime state already in place.
+     *
+     * The state is handed to the owner at creation, so the Group registration the owner performs in
+     * its own `construct` — and everything that reacts to that membership, the topology bar included —
+     * already resolves the workspace through {@link #getPopupState}. Assigning the state afterwards
+     * left a gap in which the membership had changed and the workspace was visible to no reader.
+     * @param {String} workspaceId
+     * @param {Object} dockModel The workspace's document.
+     * @param {Object} fields The state's ownership facts: `committed`, and `itemId` or `windowId` as the site knows them.
+     * @returns {Object} The runtime state; its `host` is the new owner.
+     */
+    createPopupWorkspace(workspaceId, dockModel, fields) {
+        const me    = this,
+              state = {
+                  ...fields, disconnected: true, host: null, workspaceId,
+                  get document() { return state.host.dockModel },
+                  set document(value) { state.host.dockModel = value }
+              };
+
+        state.host = Neo.create(PopupWorkspace, {
+            dockModel, flex: 1, rootWorkspace: me, runtimeState: state,
+            stateProvider  : {module: StateProvider, parent: me.stateProvider},
+            topologyGroupId: me.topologyGroupId, workspaceKey: workspaceId, workspaceSet: me.workspaceSet
+        });
+
+        return state
     }
 
     /**
@@ -2419,16 +2434,7 @@ class Workspace extends DockWorkspace {
         try {
             if (!me.tearOutHandlers.capturePane(itemId)) throw new Error(`No live pane for ${itemId}`);
             if (!state) {
-                const host = Neo.create(PopupWorkspace, {
-                    dockModel    : me.createVesselWorkspaceDocument(itemId), flex: 1,
-                    rootWorkspace: me, topologyGroupId: me.topologyGroupId,
-                    workspaceKey : workspaceId, workspaceSet: me.workspaceSet,
-                    stateProvider: {module: StateProvider, parent: me.stateProvider}
-                });
-                state = {host, itemId, workspaceId, committed: false, disconnected: true,
-                    get document() { return host.dockModel },
-                    set document(value) { host.dockModel = value }};
-                host.runtimeState = state
+                state = me.createPopupWorkspace(workspaceId, me.createVesselWorkspaceDocument(itemId), {committed: false, itemId})
             }
             await me.workspaceSet.transfer({
                 operation        : 'transferItem', itemId, sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
