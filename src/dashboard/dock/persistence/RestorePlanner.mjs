@@ -128,38 +128,19 @@ class RestorePlanner extends Base {
         diff.activeItemChanges.forEach(({nodeId, to}) =>
             plan.push({operation: 'setActiveItem', tabsNodeId: nodeId, itemId: to}));
 
-        // The three value-bearing categories emit only what the executor will accept, and the rule
-        // for each is the same: cover the refusals the shape gate upstream does not. Predicates read
-        // `current`, never the capture, because the live document is the one the executor validates —
-        // reading the capture's would emit a step it then rejects, and suppress one it would accept.
-        //
-        // Why a filter and not a best effort: `applyRestorePlan` is fail-closed on the first error,
-        // so ONE unusable step strands every later one, including steps with no relationship to it.
-        // The failure is not "the rail does not move" but "the restore silently did almost nothing".
-        //
-        // A value gets here unusable for two different reasons, and both are measured:
-        //   - contract-ILLEGAL and unchecked — nothing in the persistence tier calls
-        //     `WorkspaceDocument.validate`, so an out-of-range extent from another writer
-        //     (hand-authored, an older schema, edited storage) arrives intact.
-        //   - contract-LEGAL and refused anyway — the contract and the reducers are different sets.
-        //     `validate` accepts a split `sizes: [0, 1]` (it checks the sum, not the elements) and
-        //     accepts `pinnable: false` beside `autoHidden: true` (it checks the type only), while
-        //     `normalizeSplitSizes` and `setItemAutoHidden` refuse both.
-        //
-        // So NEITHER the shape gate nor `validate` predicts what the executor takes, and a
-        // validate-on-load boundary would leave the second reason untouched. The reducers' own
-        // predicates are the only honest source, which is what these filters mirror.
-        //
-        // These predicates deliberately MIRROR the executor's rather than sharing them: keeping
-        // `planRestore` a pure fold — no executor round-trip to decide what to plan — is worth the
-        // duplication. But the duplication is real and unlinked. A refusal added to any of the three
-        // reducers will not surface here, and the arms in `DockRestorePlanner.spec.mjs` are the only
-        // thing that would catch it.
+        // Only steps the executor will accept: `applyRestorePlan` is fail-closed, so one refused step
+        // strands every later one, and neither the shape gate nor `WorkspaceDocument.validate` predicts
+        // acceptance — a legal `sizes: [0, 1]`, or `pinnable: false` beside `autoHidden: true`, is
+        // still refused, and nothing in this tier validates a capture at all. Predicates read `current`,
+        // the document the executor validates. `planRestore` stays a pure fold: where a reducer exposes
+        // its acceptance as a pure function it is asked; where it does not, its refusals are restated
+        // here, and the arms in `DockRestorePlanner.spec.mjs` are what would catch a new one.
 
-        // `resizeSplit` rejects a non-finite or non-positive element; every-element-positive also
-        // gives `normalizeSplitSizes` the finite positive total it requires.
+        // `resizeSplit` accepts exactly what `normalizeSplitSizes` accepts, counted against the LIVE split.
         diff.resizes.forEach(({nodeId, toSizes}) => {
-            if (toSizes.every(size => Number.isFinite(size) && size > 0)) {
+            const count = current.nodes?.[nodeId]?.children?.length ?? 0;
+
+            if (!WorkspaceDocument.normalizeSplitSizes(toSizes, count, nodeId).errors.length) {
                 plan.push({operation: 'resizeSplit', splitNodeId: nodeId, sizes: [...toSizes]})
             }
         });
@@ -175,10 +156,8 @@ class RestorePlanner extends Base {
             }
         });
 
-        // `setItemAutoHidden` rejects a non-pinnable item — in BOTH directions, since it gates on
-        // `pinnable` before it looks at the value — and rejects auto-hiding a pinned one. A pane the
-        // app has since unpinned from the rail keeps its live visibility rather than taking the
-        // restore down with it, the same degradation the edge-zone filter above chooses.
+        // `setItemAutoHidden` refuses a non-pinnable item in BOTH directions (it gates on `pinnable`
+        // before the value) and refuses auto-hiding a pinned one; the pane keeps its live visibility.
         diff.autoHideFlips.forEach(({itemId, to}) => {
             const item = current.items?.[itemId];
 

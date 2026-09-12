@@ -538,12 +538,34 @@ test.describe('DockRestorePlanner — steps the executor would refuse (#18585)',
         expect(restored.nodes.root.sizes, 'the live split is left where it was').toEqual([0.6, 0.4])
     });
 
-    test('a non-finite split size is skipped on the same axis', () => {
-        const captured = flagDoc({sizes: [Number.NaN, 1], autoHidden: true}),
-              current  = flagDoc({sizes: [0.6, 0.4],       autoHidden: false});
+    test('a non-finite element is skipped, and the arm sees finiteness rather than positivity', () => {
+        // `Infinity > 0` holds, so a planner checking positivity alone would emit this step and the
+        // executor would refuse it. `NaN` cannot make that distinction: it fails `> 0` as well.
+        const captured = flagDoc({sizes: [Number.POSITIVE_INFINITY, 1], autoHidden: true}),
+              current  = flagDoc({sizes: [0.6, 0.4],                    autoHidden: false});
 
-        // `NaN` fails the reducer's finiteness check rather than its positivity check, so this pins
-        // the other half of one clause — `Number.isFinite(size) && size > 0` needs both.
+        expectSkippedButPlanStillRuns(current, captured, SURVIVOR.afterResizes);
+    });
+
+    test('a size count that does not match the live split is skipped', () => {
+        // `[1]` passes every per-element check — finite, positive — and the reducer refuses it on
+        // count against the split's children. The count is read from the LIVE split; the shape gate
+        // upstream is what guarantees it equals the capture's.
+        const captured = flagDoc({sizes: [1],        autoHidden: true}),
+              current  = flagDoc({sizes: [0.6, 0.4], autoHidden: false});
+
+        expect(DockTopologyDiff.diffDockDocuments(current, captured).resizes, 'the differ reports the length change as a resize')
+            .toEqual([{nodeId: 'root', fromSizes: [0.6, 0.4], toSizes: [1]}]);
+
+        expectSkippedButPlanStillRuns(current, captured, SURVIVOR.afterResizes);
+    });
+
+    test('finite positive elements whose total overflows are skipped: the sum is the reducer\'s own clause', () => {
+        // Each element passes finiteness and positivity on its own; their sum is `Infinity`, which
+        // `normalizeSplitSizes` refuses. A mirror of the per-element checks alone emits this step.
+        const captured = flagDoc({sizes: [Number.MAX_VALUE, Number.MAX_VALUE], autoHidden: true}),
+              current  = flagDoc({sizes: [0.6, 0.4],                           autoHidden: false});
+
         expectSkippedButPlanStillRuns(current, captured, SURVIVOR.afterResizes);
     });
 
