@@ -3728,21 +3728,21 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
     });
 
     test('a reclaimed pane comes home to THIS window, not only to this window\'s document', async () => {
-        // This arm passed the first time it ran, before any repair existed — so it is a pin on a
-        // property that already holds, not a receipt for a fixed defect, and it is recorded as such.
+        // This arm passed the first time it ran, before any repair existed — it pins a property that
+        // already held, and it is recorded as such so nobody reads it as a receipt for a fix.
         //
-        // It exists because @neo-opus-vega's real-window witness found the documents,
-        // participants, receipts and persisted record right at every step while the LIVE pane stayed
-        // in the popup. I predicted the cause was a missing embodiment carrier — the reset being the
-        // app's first programmatic, gesture-less cross-window move, where tear-out carries the pane
-        // through `capturePane`/`adoptPane` and a cross-window drag through the drag proxy. This arm
-        // is that prediction's red, and it refuted it: `Container.base#add` sets `{parentId,
+        // It was written to red on a prediction of mine: that a reclaim across a window boundary had
+        // no carrier for the live pane, tear-out having `capturePane`/`adoptPane` and a cross-window
+        // drag the drag proxy. It passed instead, because `Container.base#add` sets `{parentId,
         // windowId}` on the moved item and forces `mounted = false` across a window boundary, so the
         // commit's own projection brings the component home unaided.
         //
-        // What it therefore contributes is a BOUND: the live-pane defect is not at the component
-        // tier and not reachable in this runtime, so it lives in something only real window realms
-        // have. The mechanism is unisolated; see the PR body.
+        // A real-window poll later confirmed the same thing end to end — the same instance home in
+        // the destination at +360 ms, the document having moved at +32 ms. So the green here was
+        // never a boundary around a defect elsewhere; it was the answer. The lesson worth keeping
+        // beside the arm: a single snapshot taken after the document settles cannot distinguish a
+        // lost pane from one still in transit, and the assertion that can is embodiment — the
+        // `windowId` flip plus the destination DOM — never the document.
         const VESSEL = 'vessel-window',
               moved  = Operations.transferItem(
                   WorkspaceDocument.clone(initialDocument),
