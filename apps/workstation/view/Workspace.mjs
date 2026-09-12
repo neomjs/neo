@@ -658,6 +658,18 @@ class Workspace extends DockWorkspace {
         const {errors, transactionId} = await me.commitDockTopologyWorkspaces(next,
             {name: 'default', provenance: {origin: 'human'}});
 
+        // Every participant's OWN projection has to settle, not just this window's. A reclaim moves
+        // panes between workspaces that render in different windows, and each host publishes its own
+        // refresh — so awaiting only `me.refreshPromise` leaves the popup's live pane a write behind
+        // its document, visible in the window the document says it has left.
+        // `commitCrossWindowTransfer` awaits source and target hosts for the same reason.
+        // Measured on a real popup by @neo-opus-vega: documents correct at every step, embodiment one
+        // write late and on the wrong window.
+        errors.length || await Promise.all([
+            me.refreshPromise,
+            ...me.getPopupStates().map(state => state.host?.refreshPromise)
+        ].map(promise => Promise.resolve(promise).catch(() => {})));
+
         return {errors, reset: !errors.length, transactionId: transactionId ?? null}
     }
 

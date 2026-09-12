@@ -3684,6 +3684,52 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
         }
     });
 
+    test('reset waits for every participant host projection, not only the root one', async () => {
+        // @neo-opus-vega's real-popup witness: documents correct at every step, the LIVE pane one
+        // write behind and in the window its document had just left. Each host publishes its own
+        // refresh, so awaiting only `me.refreshPromise` returns while the popup is still stale.
+        const workspace = Neo.create(Workspace, {
+            initialTopology: {workspaces: {
+                [MAIN]   : WorkspaceDocument.clone(initialDocument),
+                'popup-a': {
+                    schema: 'neo.dock.zone.v1', root: 'popup-tabs',
+                    items : {'popup-pane': {reference: 'popup-pane'}},
+                    nodes : {'popup-tabs': {type: 'tabs', items: ['popup-pane'], activeItemId: 'popup-pane'}}
+                }
+            }},
+            windowId: Neo.config.windowId
+        });
+
+        try {
+            const host = workspace.getPopupStates().find(state => state.workspaceId === 'popup-a')?.host;
+
+            expect(host, 'the fixture really registered a popup host').toBeTruthy();
+
+            // A refresh this arm controls: if reset does not await it, reset resolves first.
+            let settleHost;
+
+            host.refreshPromise = new Promise(resolve => {settleHost = resolve});
+
+            let resolved = false;
+
+            const reset = workspace.resetTopology().then(value => {resolved = true; return value});
+
+            await new Promise(resolve => setImmediate(resolve));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(resolved, 'reset must NOT resolve while a participant host is still projecting').toBe(false);
+
+            settleHost();
+
+            const result = await reset;
+
+            expect(resolved).toBe(true);
+            expect(result.errors, 'and the reset itself still succeeds').toEqual([])
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('reset names its own refusal when no main workspace is registered', async () => {
         // Not a defensive guard. With no main entry to replace, the commit would ADD a key and be
         // refused by the seam for naming something unregistered — so refusing here reports the
