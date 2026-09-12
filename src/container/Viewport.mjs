@@ -95,7 +95,7 @@ class Viewport extends Container {
      * The disagreement this prevents is not cosmetic. `background-color` resolves from the theme class on
      * the viewport while `color` INHERITS from the body's, so a stored light preference against a
      * dark-booted body renders a light background carrying the dark theme's text — measured at 1.13:1
-     * contrast, effectively invisible (#18571).
+     * contrast, effectively invisible.
      *
      * Every declared theme is removed rather than only `oldValue`: the class the body carries at boot came
      * from `themes[0]` and was never this config's value, so `oldValue` is `undefined` on the first change

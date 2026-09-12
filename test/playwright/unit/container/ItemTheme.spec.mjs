@@ -99,7 +99,7 @@ test.describe('Neo.container.Base — an item config\'s own theme survives creat
     });
 
     /**
-     * #18571 AC-5. The stored-preference read is a promise, so the theme can land AFTER the tree is
+     * A stored-preference read is a promise, so a theme can land AFTER the tree is
      * built — and an item added later still has to resolve the CURRENT theme rather than the one
      * present at construction. Both directions are asserted because they fail independently:
      * `afterSetTheme` propagates to LIVE items, while `createItem` resolves precedence for a new one.

@@ -3,7 +3,7 @@ import {test, expect} from '@playwright/test';
 /**
  * A stored `portalTheme` preference must reach the whole page, not one half of it.
  *
- * #18571, measured at `dev@e99ffb6588`. With `localStorage.portalTheme = 'neo-theme-neo-light'` the
+ * With `localStorage.portalTheme = 'neo-theme-neo-light'` stored, the
  * preference DOES arrive: `div#neo-viewport-1` carries `neo-theme-neo-light`. `document.body` keeps
  * `neo-theme-neo-dark`, because the body class is written ONCE on the main thread by
  * `main.addon.Stylesheet#addGlobalCss` from the static `Neo.config.themes[0]` — before any worker runs —
