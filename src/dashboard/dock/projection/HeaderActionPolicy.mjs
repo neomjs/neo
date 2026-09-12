@@ -196,11 +196,11 @@ class HeaderActionPolicy extends Base {
      * {@link #publishDocument} rewrites it from the committed document on every commit, so a
      * consumer write there would survive until the next commit and then vanish.
      *
-     * ⚠️ The key must be DECLARED, not assigned later. An `Effect` reading an absent key touches no
-     * `Config` and so registers no dependency on it, and `state.Provider#setConfigValue` re-runs
-     * only the owner provider's bindings when a new key appears. A late key is therefore latent
-     * rather than rejected: it applies at the next evaluation some other leaf triggers. The same
-     * hazard is why {@link #publishDocument} seeds the leaves a formatter reads before its first run.
+     * The key may be declared up front or assigned later. An `Effect` reading an absent key touches
+     * no `Config`, so `state.Provider` lets that miss depend on the key set of every provider it
+     * looked in: creating the key re-runs exactly the formatters that read it while it was absent,
+     * on the owner or on a descendant, and a late veto lands at once. {@link #publishDocument} still
+     * seeds the leaves a formatter reads, so the first run computes from a value, not from `undefined`.
      *
      * ⚠️ Clear a veto per LEAF, never by re-assigning the namespace object. Writing a partial object
      * MERGES: present keys update and omitted keys persist, so `{close: true}` meant as "close
@@ -312,8 +312,7 @@ class HeaderActionPolicy extends Base {
                 pinnable: item?.pinnable !== false
             };
 
-            // A leaf a binding reads must exist before the binding's first run: a formatter
-            // registers the configs it read, and a key created later is not one of them. The
+            // Seeded so a binding's first run computes from a value rather than `undefined`. The
             // flight is owned by the workspace's reload path, so an existing value is never touched.
             !provider.getDataConfig(`dock.flights.${itemId}`) && (flights[itemId] = null)
         });
