@@ -1,7 +1,7 @@
 import Controller          from '../../../src/controller/Component.mjs';
 import Persistence         from '../../../src/dashboard/dock/model/Persistence.mjs';
 import TransactionManager  from '../../../src/manager/Transaction.mjs';
-import {resolveBootParams} from '../app.mjs';
+import {resolveBootIntent} from '../BootIntent.mjs';
 
 /**
  * @summary Workstation actions, durable topology, window adoption and optional tour-controller activation.
@@ -41,7 +41,9 @@ class WorkspaceController extends Controller {
      * The worker publishes `connect` once the window's app and main view exist, so the render target is
      * live. The binding says which slot the window took; the window's own URL says what it came FOR, and
      * the two must agree — a non-matching arrival is ignored rather than adopted, the owner's half of the
-     * fail-closed contract whose other half is the arriving viewport's refusal. Three arrivals are adopted:
+     * fail-closed contract whose other half is the arriving viewport's refusal. Both halves read the URL
+     * through `resolveBootIntent`, so neither can call an intent what the other calls none. Three arrivals
+     * are adopted:
      *
      * - the root's own `main` slot (the one {@link Workstation.view.Workspace#registerMainWorkspace} binds
      *   under) rebound to a new window — a reload of the main window while this worker lives — so the root
@@ -68,12 +70,10 @@ class WorkspaceController extends Controller {
 
         if (!target || target.isDestroyed) return false;
 
-        const params   = resolveBootParams(windowId),
-              popout   = params.get('popout'),
-              declared = params.get('workspace') ?? (popout ? root.tearOutWorkspaceKey(popout) : null);
+        const intent = resolveBootIntent(windowId);
 
         if (binding.workspaceKey === 'main') {
-            if (declared) return false;
+            if (intent.mode !== 'default') return false;
 
             // The old render target is gone; detach silently before the ordinary cross-window add.
             root.parent?.remove(root, false, true);
@@ -81,6 +81,9 @@ class WorkspaceController extends Controller {
 
             return true
         }
+
+        const declared = intent.mode === 'workspace' ? intent.key
+            : intent.mode === 'popout' ? root.tearOutWorkspaceKey(intent.key) : null;
 
         if (declared !== binding.workspaceKey) return false;
 

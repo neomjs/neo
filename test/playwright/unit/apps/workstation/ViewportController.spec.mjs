@@ -12,8 +12,10 @@ import * as core      from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import Container          from '../../../../../src/container/Base.mjs';
 import Transaction        from '../../../../../src/manager/Transaction.mjs';
-import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
+// The controller is the first app module this spec loads, on purpose: a controller that reaches the
+// app entry point through its imports loads its own view before itself, and this order is what fails.
 import ViewportController from '../../../../../apps/workstation/view/ViewportController.mjs';
+import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
 
 /**
  * @summary The controller under test with its root creation recorded instead of run.

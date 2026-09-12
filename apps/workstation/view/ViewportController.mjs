@@ -1,7 +1,7 @@
 import Controller          from '../../../src/controller/Component.mjs';
 import Transaction         from '../../../src/manager/Transaction.mjs';
 import Workspace           from './Workspace.mjs';
-import {resolveBootParams} from '../app.mjs';
+import {resolveBootIntent} from '../BootIntent.mjs';
 
 /**
  * @summary Decides one Workstation window's boot from the registry, and creates a root only where no owner exists.
@@ -69,11 +69,12 @@ class ViewportController extends Controller {
     }
 
     /**
-     * The search params this window booted with, read from the config the main thread registered for it.
-     * @member {URLSearchParams} bootParams
+     * What this window booted FOR, read from the URL the main thread registered for it: the mode by a
+     * parameter's presence, the key by its value — the one reading the owner shares.
+     * @member {{mode: String, key: String|null, params: URLSearchParams}} bootIntent
      */
-    get bootParams() {
-        return resolveBootParams(this.component.windowId)
+    get bootIntent() {
+        return resolveBootIntent(this.component.windowId)
     }
 
     /**
@@ -85,7 +86,7 @@ class ViewportController extends Controller {
     onComponentConstructed() {
         const me = this;
 
-        if (me.bootParams.get('popout')) {
+        if (me.bootIntent.mode === 'popout') {
             me.component.addCls('workstation-popout-host')
         }
 
@@ -133,14 +134,14 @@ class ViewportController extends Controller {
 
         me.#decided = true;
 
-        const params = me.bootParams;
+        const intent = me.bootIntent;
 
-        if (params.get('popout')) return;
+        if (intent.mode === 'popout') return;
 
-        if (params.has('workspace')) {
+        if (intent.mode === 'workspace') {
             const root = binding && ViewportController.rootOf(Transaction.getParticipant(binding.groupId, binding.workspaceKey));
 
-            if (!root || binding.workspaceKey !== params.get('workspace')) {
+            if (!root || binding.workspaceKey !== intent.key) {
                 component.add({ntype: 'component', html: 'This saved window is waiting for its original workspace.'})
             }
 
@@ -151,7 +152,7 @@ class ViewportController extends Controller {
             return
         }
 
-        return me.createRoot(binding, params.get('layout') ?? undefined).catch(error => {
+        return me.createRoot(binding, intent.params.get('layout') ?? undefined).catch(error => {
             console.error('[Workstation] root creation failed', error)
         })
     }

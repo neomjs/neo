@@ -1,5 +1,6 @@
-import Viewport    from './view/Viewport.mjs';
-import Transaction from '../../src/manager/Transaction.mjs';
+import Viewport            from './view/Viewport.mjs';
+import Transaction         from '../../src/manager/Transaction.mjs';
+import {resolveBootIntent} from './BootIntent.mjs';
 
 /**
  * @summary Resolves one Workstation window's carried Neo theme against that window's configured themes.
@@ -15,21 +16,6 @@ export function resolveBootstrapTheme({search='', themes=[]} = {}) {
 }
 
 /**
- * @summary Reads the search params one Workstation window booted with.
- *
- * The main thread registers each window's URL alongside its config, so the App worker can read a window's
- * boot intent synchronously — no round-trip to the realm that owns the document. Both view controllers
- * read it here so that the entry point and the views agree on where that truth lives.
- * @param {String} windowId
- * @returns {URLSearchParams}
- */
-export function resolveBootParams(windowId) {
-    const config = Neo.windowConfigs?.[windowId] || Neo.config;
-
-    return new URLSearchParams(config.url?.search ?? '')
-}
-
-/**
  * @summary Starts each Workstation window with its carried theme on the first viewport instance.
  * @returns {Neo.controller.Application}
  */
@@ -40,12 +26,11 @@ export const onStart = () => {
         theme    = resolveBootstrapTheme({
             search: config.url?.search,
             themes: config.themes
-        });
+        }),
+        carried  = config.topologyIdentity;
 
-    const params  = resolveBootParams(windowId),
-          carried = config.topologyIdentity;
     // A popup cannot cold-create its absent root before that root selects durable truth.
-    if ((params.has('popout') || params.has('workspace')) && carried?.groupId && !Transaction.get(carried.groupId)) {
+    if (resolveBootIntent(windowId).mode !== 'default' && carried?.groupId && !Transaction.get(carried.groupId)) {
         config.topologyIdentity = {}
     }
 
