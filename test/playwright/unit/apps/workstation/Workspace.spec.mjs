@@ -9,6 +9,7 @@ setup({
 import {test, expect}           from '@playwright/test';
 import Neo                      from '../../../../../src/Neo.mjs';
 import * as core                from '../../../../../src/core/_export.mjs';
+import DockLayoutAdapter        from '../../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
@@ -3312,5 +3313,36 @@ test.describe('Workstation topology bar — the view declares it, the controller
             TransactionManager.retireGroup(group.groupId);
             TransactionManager.historyDepth = restoreDepth
         }
+    })
+});
+
+test.describe('Workstation rail reveal extent — the resolver is asked, and answers', () => {
+    // The overlay of a revealed rail pane renders ~2.5x the width its committed edge implies, and
+    // the ticket offers a fork: either the fail-soft default is applied where a real extent should
+    // resolve, or the wide value is intended and a screenshot baseline is stale.
+    //
+    // Answering it needs the resolved extent MEASURED, not inferred from the rendered pixels. I had
+    // hand-walked the resolver over this document and predicted it answers — but a reconstruction
+    // can only confirm the reconstruction it was built from, so this executes the real static
+    // against the real shipped document instead.
+    test('each railed pane resolves its committed edge fraction, not the fail-soft null', () => {
+        expect(initialDocument.items.graph.autoHidden,     'graph is railed in the shipped document').toBe(true);
+        expect(initialDocument.items.inspector.autoHidden, 'inspector is railed too').toBe(true);
+
+        const graph     = DockLayoutAdapter.resolveRevealExtent(initialDocument, 'graph'),
+              inspector = DockLayoutAdapter.resolveRevealExtent(initialDocument, 'inspector');
+
+        // The recorded values AC-1 asks for. Both panes sit in real `tabs` nodes under the root
+        // edge-zone, whose left and bottom descriptors commit 0.11 and 0.17 — and the resolver is
+        // documented to answer the OWNING EDGE's extent, never a nested split share.
+        expect(graph,     'the left edge commits 0.11 and the railed pane resolves to it').toBeCloseTo(0.11);
+        expect(inspector, 'the bottom edge commits 0.17').toBeCloseTo(0.17);
+
+        // The discriminator. The observed overlay width matches the workspace's own fallback
+        // fraction, and neither resolved extent is that value — so a rendered fallback cannot be
+        // explained by the resolver answering wrongly. It answered; something downstream did not
+        // ask it, or did not use what it returned.
+        expect(graph,     'the resolved extent is not the fallback fraction').not.toBeCloseTo(0.35);
+        expect(inspector, 'nor is the bottom one').not.toBeCloseTo(0.35)
     })
 });
