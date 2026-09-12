@@ -12,6 +12,7 @@ import * as core                from '../../../../../src/core/_export.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence              from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
@@ -3528,7 +3529,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
         }
     });
 
-    test('a second workspace survives the reset and is reported, not retired', async () => {
+    test('a second workspace is retired by the reset, and the readout follows', async () => {
         // The popup carries its OWN small document rather than a clone of the shipped one: item ids
         // are unique across the whole keyed topology, so cloning `initialDocument` into a second key
         // is refused by the engine — and rightly, since a torn-out pane MOVES rather than copies.
@@ -3554,23 +3555,21 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             const result = await workspace.resetTopology();
 
-            // `TopologySeams.commitDockTopologyWorkspaces` refuses a commit that does not name
-            // exactly the registered keys, so passing the other workspaces through unchanged is what
-            // makes a single-commit reset legal at all.
-            expect(result.errors, 'the commit names exactly the registered keys').toEqual([]);
+            expect(result.errors, 'the commit is accepted').toEqual([]);
 
-            // The contract, not a shortfall: retiring a window inside the commit is not buildable —
-            // adoption must be synchronous while a native close is async AND refusable — so reset
-            // leaves it standing and the readout says so.
-            expect(workspace.workspaceSet.has('popup-a'), 'the extra workspace is not retired').toBe(true);
+            // ⚠️ This arm previously asserted the OPPOSITE — that the extra workspace survives — and
+            // that was the defect @neo-gpt-emmy found, encoded as a contract. Reset retires every
+            // non-main PARTICIPANT before committing, which is what the ticket's trap 3 prescribed
+            // and what I wrongly talked myself out of: the impossibility argument covers closing the
+            // native WINDOW inside the commit, not unregistering a participant before it.
+            // `unregisterParticipant` is a synchronous `participants.delete` that fires no commit,
+            // so it cannot strand a persisted intermediate state.
+            expect(workspace.workspaceSet.has('popup-a'), 'the extra participant is retired').toBe(false);
 
-            // THE case the two-fact split exists for. The earlier collapsed Boolean answered
-            // "modified" here — true of nothing the user could act on, and reached without ever
-            // comparing the document that had just been restored.
-            expect(workspace.readTopologyState(), 'default arrangement, one window beyond the shipped one')
-                .toEqual({additionalWindows: 1, modified: false});
-            expect(Workspace.topologyStateText(workspace.readTopologyState()))
-                .toBe('Default arrangement · 1 additional window')
+            // …and the readout follows, because it reads the registered set rather than a flag.
+            expect(workspace.readTopologyState(), 'back to the shipped arrangement, nothing beside it')
+                .toEqual({additionalWindows: 0, modified: false});
+            expect(Workspace.topologyStateText(workspace.readTopologyState()), 'silence is the default state').toBe('')
         } finally {
             workspace.destroy()
         }
@@ -3609,6 +3608,50 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
         } finally {
             workspace.destroy();
             library.destroy()
+        }
+    });
+
+    test('a pane TRANSFERRED out of the shipped arrangement does not come back owned twice', async () => {
+        // @neo-gpt-emmy's review finding, and the arm my own fixture could not produce. The other
+        // multi-key arm gives the popup a NEW item (`popup-pane`), which no shipped document ever
+        // owned — so it proves the keyed-count branch and is structurally incapable of catching
+        // duplication. The hard shape is a pane that MOVED: `initialDocument` still lists it, so
+        // restoring the whole document beside a popup that now holds it makes it owned twice,
+        // `Persistence` refuses the capture, and the reset reports success while being unpersistable.
+        const moved = Operations.transferItem(
+            WorkspaceDocument.clone(initialDocument),
+            {schema: 'neo.dock.zone.v1', root: 'popup-tabs', items: {}, nodes: {'popup-tabs': {type: 'tabs', items: [], activeItemId: null}}},
+            {itemId: 'queues', sourceWorkspaceId: MAIN, targetWorkspaceId: 'popup-a',
+             target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}}
+        );
+
+        expect(moved.errors, 'the transfer fixture must itself commit').toEqual([]);
+
+        const workspace = Neo.create(Workspace, {
+            initialTopology: {workspaces: {[MAIN]: moved.sourceDocument, 'popup-a': moved.targetDocument}},
+            windowId       : Neo.config.windowId
+        });
+
+        try {
+            const result = await workspace.resetTopology();
+
+            expect(result.errors, 'the reset commit is accepted').toEqual([]);
+
+            // The assertion that fails before the fix: `queues` must have exactly ONE owner across
+            // the whole keyed topology, whatever reset decided to do about the standing window.
+            const owners = Object.entries(workspace.getDockTopologyWorkspaces())
+                .filter(([, document]) => Object.hasOwn(document?.items ?? {}, 'queues'))
+                .map(([key]) => key);
+
+            expect(owners, 'exactly one workspace owns the transferred pane after a reset').toHaveLength(1);
+
+            // …and the consequence that makes it more than a purity check: an invalid keyed topology
+            // cannot be captured, so a reset reporting success would silently never persist.
+            const captured = Persistence.captureTopologyPerspective(workspace.getDockTopologyWorkspaces());
+
+            expect(captured.errors, 'the reset result is persistable').toEqual([])
+        } finally {
+            workspace.destroy()
         }
     });
 

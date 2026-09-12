@@ -652,10 +652,32 @@ class Workspace extends DockWorkspace {
             return {errors: ['the main workspace is not registered'], reset: false, transactionId: null}
         }
 
-        const {errors, transactionId} = await me.commitDockTopologyWorkspaces({
-            ...workspaces,
-            [Workspace.MAIN_WORKSPACE_ID]: WorkspaceDocument.clone(initialDocument)
-        }, {name: 'default', provenance: {origin: 'human'}});
+        // **Every other workspace is RETIRED first, and the ordering is the whole correctness
+        // argument.** Restoring `initialDocument` beside an untouched popup is only safe while that
+        // popup holds nothing the shipped document also lists — and the ordinary case violates it:
+        // tear a shipped pane into a window and both documents then claim it, the topology is
+        // invalid, `Persistence` refuses the capture, and the reset reports success while being
+        // unpersistable. Found by @neo-gpt-emmy in review.
+        //
+        // Reclaiming the pane instead of retiring the workspace does not work either: giving back a
+        // popup's only pane prunes its last tabs node and leaves `root` dangling, so the emptied
+        // document is refused as `root node "…" is missing`. A window that has handed everything
+        // home has no valid document to hold.
+        //
+        // **Retirement is safe here precisely because it is NOT in the atomic section.**
+        // `Transaction#unregisterParticipant` is `participants.delete(workspaceKey)` — synchronous,
+        // firing no commit — so it cannot auto-save an intermediate state, which is what made the
+        // ticket warn about multi-step resets. What cannot be done is closing the native WINDOW
+        // inside the commit: adoption must be synchronous while a native close is asynchronous and
+        // refusable. Retiring the participant and closing the window are different acts, and only
+        // the second is impossible. The window stays open; it simply no longer participates.
+        Object.keys(workspaces)
+            .filter(workspaceKey => workspaceKey !== Workspace.MAIN_WORKSPACE_ID)
+            .forEach(workspaceKey => me.workspaceSet.unregister(workspaceKey));
+
+        const {errors, transactionId} = await me.commitDockTopologyWorkspaces(
+            {[Workspace.MAIN_WORKSPACE_ID]: WorkspaceDocument.clone(initialDocument)},
+            {name: 'default', provenance: {origin: 'human'}});
 
         return {errors, reset: !errors.length, transactionId: transactionId ?? null}
     }
