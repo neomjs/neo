@@ -1,4 +1,5 @@
 import {test, expect}   from '@playwright/test';
+import {execFileSync}   from 'node:child_process';
 import path             from 'node:path';
 import {fileURLToPath}  from 'node:url';
 import {measureClosure} from '../../../../buildScripts/util/static-closure.mjs';
@@ -28,6 +29,7 @@ const staticFiles = entry => measureClosure([entry], ROOT).files,
       crossings   = (files, forbidden) => files.filter(file => forbidden.test(file)),
 
       DOCK_ENTRY  = 'src/dashboard/dock/Workspace.mjs',
+      PERSPECTIVE_ENTRY = 'test/playwright/component/apps/dock-authoring/PerspectiveWorkspace.mjs',
       TX_ENTRY    = 'src/manager/Transaction.mjs',
       TOPOLOGY_RE = /^(src\/manager\/(Transaction\.mjs|transaction\/)|src\/dashboard\/dock\/persistence\/TopologyLibrary\.mjs)/,
 
@@ -73,6 +75,57 @@ test.describe('Neo.dashboard.dock — the façade import-direction rule', () => 
         const found = crossings(staticFiles(TX_ENTRY), DOCK_RE);
 
         expect(found, `the manager would know a dock concept: ${found.join(', ')}`).toEqual([]);
+    });
+
+    test('a declared perspective consumer switches through bound chrome without loading the optional topology tier', () => {
+        const files = staticFiles(PERSPECTIVE_ENTRY);
+        expect(files).toContain(PERSPECTIVE_ENTRY);
+        expect(files).toContain(DOCK_ENTRY);
+        expect(files).toContain('src/dashboard/dock/interaction/PerspectiveSelection.mjs');
+        expect(files).toContain('src/dashboard/dock/projection/PerspectiveState.mjs');
+        expect(crossings(files, TOPOLOGY_RE)).toEqual([]);
+
+        // A fresh process prevents another spec's Group imports from deciding this consumer's result.
+        const script = `
+            import {setup} from './test/playwright/setup.mjs';
+            import Neo from './src/Neo.mjs';
+            import './src/core/_export.mjs';
+            import './src/manager/Instance.mjs';
+            import Consumer from './${PERSPECTIVE_ENTRY}';
+            setup({appConfig: {name: 'DockPerspectiveClosureTest'}});
+            const optional = () => ({
+                transaction: !!Neo.manager?.Transaction,
+                history: !!Neo.manager?.transaction?.History,
+                library: !!Neo.dashboard?.dock?.persistence?.TopologyLibrary
+            });
+            const workspace = Neo.create(Consumer, {windowId: 1}), toolbar = workspace.items[0];
+            const read = () => ({
+                state: workspace.getState('dock.perspective'),
+                pressed: toolbar.items.map(button => button.pressed),
+                tab: workspace.dockModel.nodes.tabs.activeItemId,
+                optional: optional()
+            });
+            const before = read();
+            await toolbar.getReference('review').handler();
+            const result = await workspace.perspectiveSelection.pending;
+            await workspace.refreshPromise;
+            const after = read();
+            workspace.destroy();
+            process.stdout.write(JSON.stringify({before, after, errors: result.errors}));
+        `;
+        const receipt = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: ROOT, encoding: 'utf8', timeout: 15000
+        }));
+        const optional = {transaction: false, history: false, library: false};
+        expect(receipt.before).toEqual({
+            state  : {active: 'operator', modified: false, pending: null},
+            pressed: [true, false], tab: 'editor', optional
+        });
+        expect(receipt.after).toEqual({
+            state  : {active: 'review', modified: false, pending: null},
+            pressed: [false, true], tab: 'preview', optional
+        });
+        expect(receipt.errors).toEqual([])
     });
 
     test('the manager stays reachable LAZILY, so direction A is a boundary and not an absence', () => {
