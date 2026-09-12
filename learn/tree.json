@@ -104,6 +104,7 @@
             {"name": "Component Testing",                              "parentId": "guides/testing",                                      "id": "guides/testing/ComponentTesting"},
             {"name": "Benchmarking",                                   "parentId": "guides/testing",                                      "id": "guides/testing/Benchmarking"},
             {"name": "Whitebox E2E",                                   "parentId": "guides/testing",                                      "id": "guides/testing/WhiteboxE2E"},
+            {"name": "Dock Layouts: Testing and Debugging",            "parentId": "guides/testing",                                      "id": "guides/testing/DockLayoutsTesting"},
         {"name": "Specific Applications/Features",                     "parentId": "guides",                             "isLeaf": false, "id": "guides/specificfeatures", "collapsed": true},
             {"name": "Multi-Window Applications",                      "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/MultiWindow", "hidden":  true},
             {"name": "Tear-Out Portability Matrix",                    "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/TearOutPortabilityMatrix", "hidden": true},

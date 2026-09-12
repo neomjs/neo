@@ -257,6 +257,8 @@ the retired pre-release family is rejected as foreign.
   decomposition ledger.
 - [The Dock-Zone Model Contract](../../agentos/DockZoneModel.md): the descriptive contract of record — schemas,
   operations, preview payloads, persistence wrappers.
+- [Dock Layouts: Testing and Debugging](../testing/DockLayoutsTesting.md): which test tier can see which dock fact,
+  how to prove a run selected what you asked for, and how to read a live dock through the Neural Link.
 - The QT-parity polish line has its own tracking epic; its closure gate is an experience-parity matrix against the
   Qt-ADS interaction inventory, row by row, evidence-linked.
 
