@@ -3688,6 +3688,10 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
         // @neo-opus-vega's real-popup witness: documents correct at every step, the LIVE pane one
         // write behind and in the window its document had just left. Each host publishes its own
         // refresh, so awaiting only `me.refreshPromise` returns while the popup is still stale.
+        //
+        // Instrumented as a THENABLE rather than by timing. A first version asserted that reset had
+        // not resolved yet, which cannot distinguish "waiting for the host" from "waiting for the
+        // Group commit" — it passed with the await removed. This observes the dependency itself.
         const workspace = Neo.create(Workspace, {
             initialTopology: {workspaces: {
                 [MAIN]   : WorkspaceDocument.clone(initialDocument),
@@ -3705,26 +3709,18 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             expect(host, 'the fixture really registered a popup host').toBeTruthy();
 
-            // A refresh this arm controls: if reset does not await it, reset resolves first.
-            let settleHost;
+            let awaited = false;
 
-            host.refreshPromise = new Promise(resolve => {settleHost = resolve});
+            const settled = Promise.resolve();
 
-            let resolved = false;
+            // `Promise.resolve(thenable)` calls `.then`, so this records whether the reset adopted
+            // the host's refresh at all — a fact, not a race.
+            host.refreshPromise = {then: (...args) => {awaited = true; return settled.then(...args)}};
 
-            const reset = workspace.resetTopology().then(value => {resolved = true; return value});
+            const result = await workspace.resetTopology();
 
-            await new Promise(resolve => setImmediate(resolve));
-            await new Promise(resolve => setTimeout(resolve, 0));
-
-            expect(resolved, 'reset must NOT resolve while a participant host is still projecting').toBe(false);
-
-            settleHost();
-
-            const result = await reset;
-
-            expect(resolved).toBe(true);
-            expect(result.errors, 'and the reset itself still succeeds').toEqual([])
+            expect(result.errors, 'the reset itself succeeds').toEqual([]);
+            expect(awaited, 'the popup host projection was awaited, not skipped').toBe(true)
         } finally {
             workspace.destroy()
         }
