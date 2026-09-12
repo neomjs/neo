@@ -18,6 +18,7 @@ import '../../../../../src/manager/Instance.mjs';
 import TopologyLibrary    from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import StateProvider      from '../../../../../src/state/Provider.mjs';
+import Container          from '../../../../../src/container/Base.mjs';
 import Toolbar            from '../../../../../src/toolbar/Base.mjs';
 import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
 import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
@@ -3723,6 +3724,80 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
             expect(awaited, 'the popup host projection was awaited, not skipped').toBe(true)
         } finally {
             workspace.destroy()
+        }
+    });
+
+    test('a reclaimed pane comes home to THIS window, not only to this window\'s document', async () => {
+        // This arm passed the first time it ran, before any repair existed — so it is a pin on a
+        // property that already holds, not a receipt for a fixed defect, and it is recorded as such.
+        //
+        // It exists because @neo-opus-vega's real-window witness found the documents,
+        // participants, receipts and persisted record right at every step while the LIVE pane stayed
+        // in the popup. I predicted the cause was a missing embodiment carrier — the reset being the
+        // app's first programmatic, gesture-less cross-window move, where tear-out carries the pane
+        // through `capturePane`/`adoptPane` and a cross-window drag through the drag proxy. This arm
+        // is that prediction's red, and it refuted it: `Container.base#add` sets `{parentId,
+        // windowId}` on the moved item and forces `mounted = false` across a window boundary, so the
+        // commit's own projection brings the component home unaided.
+        //
+        // What it therefore contributes is a BOUND: the live-pane defect is not at the component
+        // tier and not reachable in this runtime, so it lives in something only real window realms
+        // have. The mechanism is unisolated; see the PR body.
+        const VESSEL = 'vessel-window',
+              moved  = Operations.transferItem(
+                  WorkspaceDocument.clone(initialDocument),
+                  {schema: 'neo.dock.zone.v1', root: 'popup-tabs', items: {}, nodes: {'popup-tabs': {type: 'tabs', items: [], activeItemId: null}}},
+                  {itemId: 'queues', sourceWorkspaceId: MAIN, targetWorkspaceId: 'popup-a',
+                   target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}}
+              );
+
+        expect(moved.errors, 'the transfer fixture must itself commit').toEqual([]);
+
+        const previousApp = Neo.apps[VESSEL],
+              vesselMain  = Neo.create(Container, {windowId: VESSEL}),
+              workspace   = Neo.create(Workspace, {
+                  initialTopology: {workspaces: {[MAIN]: moved.sourceDocument, 'popup-a': moved.targetDocument}},
+                  windowId       : Neo.config.windowId
+              });
+
+        Neo.apps[VESSEL] = {mainView: vesselMain};
+
+        try {
+            TransactionManager.setHistoryDepth({groupId: workspace.topologyGroupId, depth: 5});
+
+            // The hard shape needs BOTH halves. A live pane embodied in a registered foreign window
+            // is only half of it: without a popup host owning that document there is one projection,
+            // and a single projection carries the pane home through `Container.add` on its own. The
+            // witness had two — the vessel's host projects the same item — so the fixture registers
+            // the host as well, or it measures a state the real app never reaches.
+            const state = registerPopupState(workspace, 'popup-a', {
+                document: moved.targetDocument, itemId: 'queues', windowId: VESSEL
+            });
+
+            expect(state.host, 'the fixture really registered a competing popup host').toBeTruthy();
+
+            const pane = workspace.resolvePane('queues', initialDocument.items.queues);
+
+            vesselMain.add(pane);
+
+            expect(vesselMain.items, 'the fixture really embodied the pane in the vessel window').toContain(pane);
+            expect(pane.windowId, 'and the pane really belongs to that window').toBe(VESSEL);
+
+            const result = await workspace.resetTopology();
+
+            expect(result.errors, 'the reset commit is accepted').toEqual([]);
+            expect(workspace.getDockTopologyWorkspaces()[MAIN].items.queues, 'the document reclaimed it').toBeTruthy();
+
+            // The two facts the document tier cannot carry. `not.toContain` alone would also pass on
+            // a pane that was DESTROYED rather than moved, which is the opposite of coming home — so
+            // liveness is asserted first and the window claim is about a component that still exists.
+            expect(pane.isDestroyed, 'the pane came home alive, it was not replaced').toBeFalsy();
+            expect(vesselMain.items, 'the live pane left the vessel window').not.toContain(pane);
+            expect(pane.windowId, 'the live pane belongs to the window its document now names').toBe(Neo.config.windowId)
+        } finally {
+            workspace.destroy();
+            vesselMain.destroy();
+            previousApp === undefined ? delete Neo.apps[VESSEL] : Neo.apps[VESSEL] = previousApp
         }
     });
 
