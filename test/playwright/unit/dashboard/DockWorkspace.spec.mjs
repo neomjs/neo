@@ -3911,6 +3911,182 @@ test('the holder contract: a config-assigned document is readable before any ope
         })
     });
 
+    test.describe('a projection repair joins the refresh tail and stands down behind a newer commit', () => {
+        /**
+         * A projecting host that counts refreshes in flight and hands out one live pane per item (the
+         * Workstation's cache shape), so a repair running beside a later commit, or re-projecting a
+         * stale snapshot over it, shows on the count and on the shell.
+         */
+        class RepairTailWorkspace extends PlainWorkspace {
+            static config = {
+                className: 'Test.Unit.Dashboard.DockWorkspace.RepairTailWorkspace'
+            }
+
+            failures    = []
+            inFlight    = 0
+            maxInFlight = 0
+            paneCache   = {}
+            refreshLog  = []
+
+            construct(config) {
+                super.construct(config);
+                this.on('dockProjectionFailed', ({isRetry, recovery}) => this.failures.push({isRetry, recovery}))
+            }
+
+            resolvePane(itemId) {
+                const cached = this.paneCache[itemId];
+
+                return cached && !cached.isDestroyed ? cached : (this.paneCache[itemId] = Neo.create(Container, {dockItemId: itemId}))
+            }
+
+            async refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions={}) {
+                this.refreshLog.push(`${document.nodes['side-tabs'].items.join('+')}${refreshOptions.isDockProjectionRetry ? ' (repair)' : ''}`);
+                this.maxInFlight = Math.max(this.maxInFlight, ++this.inFlight);
+
+                try {
+                    return await super.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+                } finally {
+                    this.inFlight--
+                }
+            }
+        }
+
+        Neo.setupClass(RepairTailWorkspace);
+
+        /**
+         * The first projection fails with the reconciler's typed failure; every later one suspends on one
+         * macrotask first. In the App worker every `host.promiseUpdate()` inside a projection is a
+         * VDom-worker round-trip; unit mode resolves updates synchronously, so this stands in for it —
+         * without it no projection here ever leaves the microtask queue and nothing can overlap.
+         * @returns {Function} Restores the reconciler.
+         */
+        const failOnce = workspace => {
+            const reconcile = DockProjectionReconciler.reconcileProjection;
+            let   armed     = true;
+
+            DockProjectionReconciler.reconcileProjection = async function(projection) {
+                if (armed) {
+                    armed = false;
+                    throw Object.assign(new Error('injected: the projection in flight fails'), {isDockProjectionFailure: true, projectionRecovery: 'retired-staged'})
+                }
+
+                await workspace.timeout(0);
+
+                return reconcile.call(this, projection)
+            };
+
+            return () => { DockProjectionReconciler.reconcileProjection = reconcile }
+        };
+
+        const sideItems = workspace => tabsOf(workspace.items[0]).get('side-tabs').getCardContainer().items.map(pane => pane.dockItemId);
+
+        const withoutTerminal = () => {
+            const document = createDocument();
+
+            document.nodes['side-tabs'].items = ['preview'];
+
+            return document
+        };
+
+        test('a commit that lands during a failing refresh keeps its place on the tail: the repair runs in line and stands down behind it', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const terminal = workspace.paneCache.terminal,
+                  restore  = failOnce(workspace);
+
+            try {
+                const away = workspace.onDockZoneDocumentChange(withoutTerminal()),  // fails its projection
+                      back = workspace.onDockZoneDocumentChange(createDocument());   // lands while `away` is in flight
+
+                await Promise.all([away, back]);
+                // The stand-down resolves the chain rather than leaving it pending — the tear-out hand-off
+                // and the close follow-up await this field, and would wedge on a repair that never settled.
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures, 'the injected failure is the only one').toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.maxInFlight, 'never two projections over one host').toBe(1);
+            expect(workspace.refreshLog, 'the failed snapshot is projected once, and never as a repair').toEqual(['preview', 'preview+terminal']);
+            expect(sideItems(workspace), 'the shell presents the newer document').toEqual(['preview', 'terminal']);
+            expect(workspace.paneCache.terminal, 'through the same live pane').toBe(terminal)
+        });
+
+        test('with no newer commit the repair still runs, chained, and lands the failed document', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const restore = failOnce(workspace);
+
+            try {
+                await workspace.onDockZoneDocumentChange(withoutTerminal());
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.refreshLog, 'one failed attempt, one repair').toEqual(['preview', 'preview (repair)']);
+            expect(workspace.maxInFlight).toBe(1);
+            expect(sideItems(workspace), 'the repair landed the document').toEqual(['preview'])
+        });
+
+        test('the close follow-up focuses exactly once when the close projection fails and is repaired', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument(), enableDockCloseAction: true});
+
+            const side = tabsOf(workspace.items[0]).get('side-tabs');
+
+            workspace.focusDockCloseTarget = ({itemId}) => workspace.refreshLog.push(`focus ${itemId}`);
+
+            await side.set({activeIndex: 1});
+            await workspace.refreshPromise;
+
+            workspace.refreshLog = [];
+
+            const restore = failOnce(workspace);
+
+            try {
+                const result = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
+
+                expect(result.errors).toEqual([]);
+                // The close chained its focus onto its own refresh, and the failing cycle chained the repair
+                // after that: reading the field once observes the follow-up, reading it again the repair.
+                await workspace.refreshPromise;
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            // The follow-up is chained onto the close's own refresh, so it runs after the failed attempt and
+            // before the repair, once — the same order as before the repair joined the tail.
+            expect(workspace.refreshLog, 'one focus, on the successor, between the attempt and its repair').toEqual(['preview', 'focus preview', 'preview (repair)']);
+            expect(sideItems(workspace)).toEqual(['preview'])
+        });
+
+        test('a re-projection of the same committed document during a failing refresh waits for its turn: the repair cannot stand down, so the chain is what serializes it', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const document = withoutTerminal(),
+                  restore  = failOnce(workspace);
+
+            try {
+                // The same object twice — the plain branch re-projects an identical document — so the
+                // scheduled document never moves on and the repair runs; only its place in the chain keeps
+                // it from running beside the re-projection.
+                await Promise.all([workspace.onDockZoneDocumentChange(document), workspace.onDockZoneDocumentChange(document)]);
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.maxInFlight, 'never two projections over one host').toBe(1);
+            expect(workspace.refreshLog, 'the re-projection, then the repair, in line').toEqual(['preview', 'preview', 'preview (repair)']);
+            expect(sideItems(workspace)).toEqual(['preview'])
+        })
+    });
+
     test.describe('#18153 the engine resolves its own tear-out pane', () => {
         // The resolution lives behind the choreography, and the choreography only exists
         // under `enableDockTearOutLifecycle` — so these arms arm it, rather than asserting against a
