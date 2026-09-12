@@ -64,7 +64,12 @@ class Viewport extends Container {
      */
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
-        this.isConstructed && this.syncBodyTheme(oldValue)
+
+        // `oldValue` is what makes a reset publishable. `theme_: null` is a supported state meaning
+        // "inherit", and after this method has already published an explicit theme the body cannot be
+        // left carrying it — `getTheme()` has moved on and the two surfaces would disagree again, which
+        // is the whole defect. A viewport that never had a theme is a different case and stays silent.
+        this.isConstructed && (value || oldValue) && this.syncBodyTheme(oldValue)
     }
 
     /**
@@ -81,7 +86,9 @@ class Viewport extends Container {
             windowId
         });
 
-        me.syncBodyTheme()
+        // Only when this viewport carries an explicit theme. An untouched default already agrees with the
+        // body, and publishing it here would make that path depend on this method.
+        me.theme && me.syncBodyTheme()
     }
 
     /**
@@ -100,20 +107,24 @@ class Viewport extends Container {
      * Every declared theme is removed rather than only `oldValue`: the class the body carries at boot came
      * from `themes[0]` and was never this config's value, so `oldValue` is `undefined` on the first change
      * and cannot name what is actually there.
+     *
+     * What is published is the EFFECTIVE theme from `getTheme()`, never the `theme` config. The two differ
+     * exactly when the config is reset to `null` to return to inheritance: the config says nothing, while
+     * `getTheme()` resolves the ancestor's or the window default. Publishing the config there would leave
+     * the body on the last explicit theme forever. The callers decide WHETHER to publish; this decides WHAT.
      * @param {String} [oldValue] A previous theme outside the declared set, which `themes` cannot name
      * @protected
      */
     syncBodyTheme(oldValue) {
-        let me                = this,
-            {theme, windowId} = me;
+        let me         = this,
+            {windowId} = me;
 
-        // No theme config means this viewport inherits the boot theme, which the body already carries.
-        // Rewriting it here would make the no-preference default depend on this method.
-        if (!me.applyBodyCls || !theme) {
+        if (!me.applyBodyCls) {
             return
         }
 
-        let remove = new Set((Neo.windowConfigs?.[windowId] || Neo.config).themes || []);
+        let theme  = me.getTheme(),
+            remove = new Set((Neo.windowConfigs?.[windowId] || Neo.config).themes || []);
 
         oldValue && remove.add(oldValue);
         remove.delete(theme);
