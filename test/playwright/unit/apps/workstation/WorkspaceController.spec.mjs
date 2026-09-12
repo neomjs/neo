@@ -6,12 +6,18 @@ import {test, expect}      from '@playwright/test';
 import Neo                 from '../../../../../src/Neo.mjs';
 import * as core           from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
-import ComponentManager    from '../../../../../src/manager/Component.mjs';
-import Transaction         from '../../../../../src/manager/Transaction.mjs';
-import TopologyLibrary     from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
-import Toolbar             from '../../../../../src/toolbar/Base.mjs';
-import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
+import Base             from '../../../../../src/core/Base.mjs';
+import ComponentManager from '../../../../../src/manager/Component.mjs';
+import Transaction      from '../../../../../src/manager/Transaction.mjs';
+import TopologyLibrary  from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
+import Container        from '../../../../../src/container/Base.mjs';
+import Toolbar          from '../../../../../src/toolbar/Base.mjs';
+// The controller loads before the views it serves: an import path from the controller back to the
+// app entry point would evaluate `Workspace` before this binding exists, and this order exposes it.
 import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceController.mjs';
+import ViewportController  from '../../../../../apps/workstation/view/ViewportController.mjs';
+import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
+import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
 
 /**
  * @summary An event-driven storage boundary for a write already in flight.
@@ -207,5 +213,250 @@ test.describe('Workstation topology save and close coordination', () => {
         expect(controller.syncTopologyBar(), 'a destroyed bar is not a synced bar').toBe(false);
 
         controller.destroy()
+    })
+});
+
+/** The arriving side's fail-closed answer to a saved-window URL it cannot be adopted under. */
+const REFUSAL = 'This saved window is waiting for its original workspace.';
+
+/**
+ * @summary A stand-in for the App worker with the engine's own event surface, so `connect` can be FIRED.
+ *
+ * The harness worker stub has `on` and `un` as no-ops and no `fire`; an arm about the subscription itself
+ * needs the real Observable behind those three and nothing else about the worker.
+ */
+class ObservableWorker extends Base {
+    static config = {className: 'Test.Workstation.ObservableWorker'}
+    static observable = true
+}
+
+Neo.setupClass(ObservableWorker);
+
+/**
+ * @summary A root Workspace whose window is bound into a Group, plus one connected window with a live main view.
+ * @returns {Object}
+ */
+function createAdoptionFixture() {
+    const rootWindowId = `adoption-root-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          rootBinding  = Transaction.bind({windowId: rootWindowId, workspaceKey: 'main'}),
+          root         = Neo.create(Workspace, {windowId: rootWindowId}),
+          windows      = [];
+
+    Neo.windowConfigs ??= {};
+
+    /**
+     * @param {String} search The URL the arriving window booted with.
+     * @param {Object} [options]
+     * @param {Function} [options.bind] Binds the window before its main view constructs, as admission precedes the view.
+     * @param {Function} [options.controller] The main view's controller — the real arriving one, when an arm couples both sides.
+     * @returns {{windowId: String, target: Neo.container.Base}}
+     */
+    const connectWindow = (search, {bind, controller} = {}) => {
+        const windowId = `${rootWindowId}-w${windows.length + 1}`;
+
+        Neo.windowConfigs[windowId] = {url: {search}};
+        bind?.(windowId);
+
+        const target = Neo.create(Container, {controller, windowId});
+
+        Neo.apps[windowId] = {mainView: target};
+        windows.push({windowId, target});
+
+        return {windowId, target}
+    };
+
+    /**
+     * @param {String} workspaceKey
+     * @returns {Object} The popup owner's runtime state.
+     */
+    const registerPopup = workspaceKey => {
+        const host = Neo.create(PopupWorkspace, {
+            dockModel      : root.createVesselWorkspaceDocument('alerts'), rootWorkspace: root,
+            topologyGroupId: root.topologyGroupId, workspaceKey, workspaceSet: root.workspaceSet
+        });
+
+        host.runtimeState = {
+            committed: true, disconnected: true, host, windowId: null, workspaceId: workspaceKey,
+            get document() { return host.dockModel },
+            set document(value) { host.dockModel = value }
+        };
+
+        return host.runtimeState
+    };
+
+    const destroy = () => {
+        windows.forEach(({windowId, target}) => {
+            delete Neo.apps[windowId];
+            delete Neo.windowConfigs[windowId];
+            target.destroy()
+        });
+        root.destroy();
+        Transaction.retireGroup(rootBinding.groupId)
+    };
+
+    return {connectWindow, destroy, registerPopup, root, rootBinding}
+}
+
+test.describe('Workstation topology adoption on window connect', () => {
+    test('a restored window bound under its declared key is adopted once, and a second connect is a no-op', async () => {
+        const fixture = createAdoptionFixture(), {root} = fixture, key = 'details';
+
+        try {
+            const state = fixture.registerPopup(key);
+
+            Transaction.bind({...Transaction.reserve({groupId: root.topologyGroupId, workspaceKey: key}), windowId: `${root.windowId}-w1`});
+
+            const {windowId, target} = fixture.connectWindow(`?workspace=${key}`);
+
+            expect(await root.controller.onWindowConnect({windowId}), 'the root adopts the arrival').toBe(true);
+            expect(state.host.parent, 'the popup owner renders into the arriving window').toBe(target);
+            expect(state).toMatchObject({disconnected: false, windowId});
+
+            expect(await root.controller.onWindowConnect({windowId}), 'an already-mounted host is left alone').toBe(false);
+            expect(state.host.parent).toBe(target)
+        } finally {
+            fixture.destroy()
+        }
+    });
+
+    test('an arrival whose URL declares a different key than its binding is ignored, not adopted', async () => {
+        const fixture = createAdoptionFixture(), {root} = fixture, key = 'details';
+
+        try {
+            const state = fixture.registerPopup(key);
+
+            Transaction.bind({...Transaction.reserve({groupId: root.topologyGroupId, workspaceKey: key}), windowId: `${root.windowId}-w1`});
+
+            const {windowId, target} = fixture.connectWindow('?workspace=other');
+
+            expect(await root.controller.onWindowConnect({windowId})).toBe(false);
+            expect(state.host.parent, 'a non-matching arrival mounts nothing').not.toBe(target);
+            expect(state).toMatchObject({disconnected: true, windowId: null})
+        } finally {
+            fixture.destroy()
+        }
+    });
+
+    test('a window bound into another Group is not this root\'s to adopt', async () => {
+        const fixture = createAdoptionFixture(), {root} = fixture;
+
+        let foreign;
+
+        try {
+            const {windowId} = fixture.connectWindow('');
+
+            foreign = Transaction.bind({windowId});
+
+            expect(foreign.groupId).not.toBe(root.topologyGroupId);
+            expect(await root.controller.onWindowConnect({windowId})).toBe(false)
+        } finally {
+            fixture.destroy();
+            foreign && Transaction.retireGroup(foreign.groupId)
+        }
+    });
+
+    test('the root\'s own slot rebound to a new window moves the root, unless that window declares another intent', async () => {
+        const fixture = createAdoptionFixture(), {root, rootBinding} = fixture;
+
+        try {
+            const {windowId, target} = fixture.connectWindow('?workspace=details');
+
+            // The main window reloaded while this worker lives: its slot is released, then rebound to the new window.
+            Transaction.release(root.windowId);
+            Transaction.bind({groupId: rootBinding.groupId, workspaceKey: 'main', generationToken: rootBinding.generationToken, windowId});
+
+            expect(await root.controller.onWindowConnect({windowId}), 'a root slot whose window asks for a saved workspace is refused').toBe(false);
+            expect(root.parent, 'and the root stays where it is').toBeNull();
+
+            Neo.windowConfigs[windowId].url.search = '';
+
+            expect(await root.controller.onWindowConnect({windowId}), 'the same slot with no declared intent is the reload').toBe(true);
+            expect(root.parent).toBe(target);
+            expect(root.windowId).toBe(windowId)
+        } finally {
+            fixture.destroy()
+        }
+    });
+
+    test('both sides read one intent: a rebound root slot whose URL carries `workspace=` with no key is refused by the arriving controller and not adopted by the owner', async () => {
+        const fixture = createAdoptionFixture(), {root, rootBinding} = fixture;
+
+        // Each row rebinds the root's own slot to a new window whose main view runs the REAL arriving
+        // controller, so the refusal and the adoption decision are read off the same window.
+        let previous = root.windowId;
+
+        const rebind = search => fixture.connectWindow(search, {
+            controller: ViewportController,
+            bind      : windowId => {
+                Transaction.release(previous);
+                Transaction.bind({groupId: rootBinding.groupId, workspaceKey: 'main', generationToken: rootBinding.generationToken, windowId});
+                previous = windowId
+            }
+        });
+
+        try {
+            for (const [search, refused, adopted] of [['', false, true], ['?workspace=details', true, false], ['?workspace=', true, false]]) {
+                const {windowId, target} = rebind(search), label = search || '(no search)';
+
+                expect(target.items.some(item => item.html === REFUSAL), `${label}: the arriving side refuses`).toBe(refused);
+                expect(await root.controller.onWindowConnect({windowId}), `${label}: the owner adopts`).toBe(adopted);
+                expect(root.parent === target, `${label}: the root is in that window`).toBe(adopted)
+            }
+        } finally {
+            fixture.destroy()
+        }
+    });
+
+    test('the owner adopts through the worker\'s own connect event, and stops listening when it is destroyed', () => {
+        const harnessWorker = Neo.currentWorker,
+              worker        = Neo.create(ObservableWorker);
+
+        // Whatever the engine asks a worker for while a Workspace constructs stays the harness stub's answer;
+        // only the event surface is the real one.
+        Object.assign(worker, {
+            getAddon        : harnessWorker.getAddon,
+            insertThemeFiles: harnessWorker.insertThemeFiles,
+            isSharedWorker  : false,
+            promiseMessage  : harnessWorker.promiseMessage,
+            sendMessage     : harnessWorker.sendMessage
+        });
+        Neo.currentWorker = worker;
+
+        const subscribers = () => (worker.toJSON().listeners.connect ?? []).map(({scope}) => scope.id);
+
+        let fixture;
+
+        try {
+            fixture = createAdoptionFixture();
+
+            const {root, rootBinding} = fixture,
+                  controllerId        = root.controller.id;
+
+            expect(subscribers(), 'constructing the root subscribed its controller').toContain(controllerId);
+
+            const {windowId, target} = fixture.connectWindow('', {
+                bind: windowId => {
+                    Transaction.release(root.windowId);
+                    Transaction.bind({groupId: rootBinding.groupId, workspaceKey: 'main', generationToken: rootBinding.generationToken, windowId})
+                }
+            });
+
+            // The payload `Neo.worker.App` publishes, fired the way it fires it — nothing calls the handler.
+            worker.fire('connect', {appName: 'Workstation', windowData: {}, windowId});
+
+            expect(root.parent, 'the event alone moved the root').toBe(target);
+            expect(root.windowId).toBe(windowId);
+
+            const before = subscribers().length;
+
+            root.destroy();
+
+            expect(subscribers(), 'destroying the root unsubscribed its controller').not.toContain(controllerId);
+            expect(subscribers().length, 'and nothing else').toBe(before - 1)
+        } finally {
+            fixture?.destroy();
+            Neo.currentWorker = harnessWorker;
+            worker.destroy()
+        }
     })
 });

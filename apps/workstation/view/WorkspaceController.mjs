@@ -1,9 +1,10 @@
-import Controller         from '../../../src/controller/Component.mjs';
-import Persistence        from '../../../src/dashboard/dock/model/Persistence.mjs';
-import TransactionManager from '../../../src/manager/Transaction.mjs';
+import Controller          from '../../../src/controller/Component.mjs';
+import Persistence         from '../../../src/dashboard/dock/model/Persistence.mjs';
+import TransactionManager  from '../../../src/manager/Transaction.mjs';
+import {resolveBootIntent} from '../BootIntent.mjs';
 
 /**
- * @summary Workstation actions, durable topology and optional tour-controller activation.
+ * @summary Workstation actions, durable topology, window adoption and optional tour-controller activation.
  * @class Workstation.view.WorkspaceController
  * @extends Neo.controller.Component
  */
@@ -15,6 +16,85 @@ class WorkspaceController extends Controller {
 
     /** @member {Promise|null} tourControllerPromise=null */
     tourControllerPromise = null
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        Neo.currentWorker.on({connect: this.onWindowConnect, scope: this})
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        Neo.currentWorker.un({connect: this.onWindowConnect, scope: this});
+
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary A window bound into this root's Group announced itself: the root adopts it.
+     *
+     * The worker publishes `connect` once the window's app and main view exist, so the render target is
+     * live. The binding says which slot the window took; the window's own URL says what it came FOR, and
+     * the two must agree — a non-matching arrival is ignored rather than adopted, the owner's half of the
+     * fail-closed contract whose other half is the arriving viewport's refusal. Both halves read the URL
+     * through `resolveBootIntent`, so neither can call an intent what the other calls none. Three arrivals
+     * are adopted:
+     *
+     * - the root's own `main` slot (the one {@link Workstation.view.Workspace#registerMainWorkspace} binds
+     *   under) rebound to a new window — a reload of the main window while this worker lives — so the root
+     *   moves itself into the new render target;
+     * - a restored `?workspace=<key>` window bound under `key`;
+     * - a reloaded vessel window bound under its item's key.
+     *
+     * A vessel connecting for the first time belongs to the tear-out lifecycle, which registers its target
+     * itself; this handler recognises an already-mounted host and leaves it alone.
+     * @param {Object} data
+     * @param {String} data.windowId
+     * @returns {Promise<Boolean>} Whether this call adopted the window.
+     */
+    async onWindowConnect({windowId}) {
+        const me = this, root = me.component;
+
+        if (!root || root.isDestroyed || windowId === root.windowId) return false;
+
+        const binding = TransactionManager.findByWindow(windowId);
+
+        if (!binding || binding.groupId !== root.topologyGroupId) return false;
+
+        const target = Neo.apps[windowId]?.mainView;
+
+        if (!target || target.isDestroyed) return false;
+
+        const intent = resolveBootIntent(windowId);
+
+        if (binding.workspaceKey === 'main') {
+            if (intent.mode !== 'default') return false;
+
+            // The old render target is gone; detach silently before the ordinary cross-window add.
+            root.parent?.remove(root, false, true);
+            target.add(root);
+
+            return true
+        }
+
+        const declared = intent.mode === 'workspace' ? intent.key
+            : intent.mode === 'popout' ? root.tearOutWorkspaceKey(intent.key) : null;
+
+        if (declared !== binding.workspaceKey) return false;
+
+        const state = root.getPopupState(binding.workspaceKey);
+
+        if (!state || (state.windowId === windowId && state.host?.parent === target && !state.disconnected)) {
+            return false
+        }
+
+        return me.mountTopologyWorkspace(binding.workspaceKey, target)
+    }
 
     /**
      * @summary Installs the optional playback controller on its real toolbar at first activation.
