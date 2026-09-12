@@ -96,5 +96,31 @@ test.describe('Neo.container.Base — an item config\'s own theme survives creat
         });
 
         expect(container.items[0].theme).toBe('neo-theme-neo-light')
+    });
+
+    /**
+     * #18571 AC-5. The stored-preference read is a promise, so the theme can land AFTER the tree is
+     * built — and an item added later still has to resolve the CURRENT theme rather than the one
+     * present at construction. Both directions are asserted because they fail independently:
+     * `afterSetTheme` propagates to LIVE items, while `createItem` resolves precedence for a new one.
+     * An arm covering only the second passes while a live item keeps a stale theme, and vice versa.
+     */
+    test('a theme change reaches the live item AND the one added after it', () => {
+        container = Neo.create(Container, {
+            appName,
+            theme: 'neo-theme-neo-dark',
+            items: [{module: Component}]
+        });
+
+        const [existing] = container.items;
+
+        expect(existing.theme, 'inherited at construction').toBe('neo-theme-neo-dark');
+
+        container.theme = 'neo-theme-neo-light';
+        container.add({module: Component});
+
+        expect(existing.theme, 'the live item follows the change').toBe('neo-theme-neo-light');
+        expect(container.items[1].theme, 'and the item added after it resolves the CURRENT theme')
+            .toBe('neo-theme-neo-light')
     })
 });
