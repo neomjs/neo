@@ -673,8 +673,7 @@ class Workspace extends Container {
         if (me.perspectives !== null || me.zones !== null || me.panes !== null || me.activePerspective !== null) {
             me.perspectiveSelection = Neo.create(PerspectiveSelection, {workspace: me})
         }
-        const declaration = me.perspectiveSelection?.capture() ?? me.zones,
-              lowered     = !supplied && Authoring.isDocument(declaration);
+        const declaration = me.perspectiveSelection?.capture() ?? me.zones, lowered = !supplied && Authoring.isDocument(declaration);
 
         if (me.panes !== null || me.zones !== null || me.perspectives !== null) {
             // A lowered active declaration is the first document itself; the pane catalog still lowers alone.
