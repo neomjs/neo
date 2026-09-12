@@ -43,6 +43,8 @@ class PopupWorkspace extends DockWorkspace {
 
     /**
      * Presentation and connection references owned by this popup; membership lives in its Group.
+     * Supplied at creation by the root's `createPopupWorkspace`, so the Group registration in
+     * {@link #construct} already finds it — a reader reacting to that membership must resolve it.
      * @member {Object|null} runtimeState=null
      */
     runtimeState = null

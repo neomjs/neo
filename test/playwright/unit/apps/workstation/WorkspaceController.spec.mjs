@@ -18,8 +18,6 @@ import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceC
 import ViewportController  from '../../../../../apps/workstation/view/ViewportController.mjs';
 import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
 import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
-import WorkspaceDocument   from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
-import WorkspaceSet        from '../../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 
 /**
  * @summary The controller under test with its bar syncs counted, so an arm can tell "re-synced" from
@@ -268,55 +266,56 @@ test.describe('Workstation topology save and close coordination', () => {
         controller.destroy()
     });
 
-    test('the bar follows membership: a participant registered after boot gains its buttons, an unregistered one loses them, and a destroyed controller stops listening', () => {
-        const binding = Transaction.bind({windowId: 'controller-membership-root'}),
-              set     = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, manager: Transaction, getGroupId: () => binding.groupId}),
-              bar     = Neo.create(Toolbar, Workspace.prototype.createTopologyBar.call({topologyGroupId: binding.groupId})),
-              seams   = key => ({getDocument: () => ({
+    test('the bar follows membership through the production path: a popup workspace created after boot gains its buttons, a destroyed one loses them, and a destroyed controller stops listening', () => {
+        const windowId = 'controller-membership-root',
+              binding  = Transaction.bind({windowId, workspaceKey: 'main'}),
+              document = key => ({
                   schema: 'neo.dock.zone.v1', root: 'tabs',
                   items : {[key]: {reference: key}},
                   nodes : {tabs: {type: 'tabs', items: [key], activeItemId: key}}
-              })}),
+              });
+
+        RecordingWorkspaceController.syncs = 0;
+
+        // The real root, its real registry, its real bar and its real popup-state lookup: the arm drives
+        // the one production seam both creation sites call, so it measures the order in which a popup
+        // workspace registers and becomes resolvable — not a stand-in for that order.
+        const root          = Neo.create(Workspace, {controller: RecordingWorkspaceController, windowId}),
+              bar           = root.controller.getReference('topology-toolbar'),
               ordinaryTexts = () => bar.items
                   .filter(item => item.isToolbarAction !== true && item.isToolbarActionSpacer !== true)
                   .map(item => item.text);
 
-        RecordingWorkspaceController.syncs = 0;
-
-        // The real registry, and the real seam the Workstation derives its recovery buttons from:
-        // one popup state per registered id. Nothing here calls `syncTopologyBar` after construction.
-        const controller = Neo.create(RecordingWorkspaceController, {
-            component: {
-                down          : () => bar,
-                getPopupStates: () => set.ids().map(workspaceId => ({workspaceId})),
-                isConstructed : true,
-                workspaceSet  : set
-            }
-        });
-
         try {
-            // Control: the first paint is the construction-time population, with nothing registered.
+            // Control: the construction-time population, with no popup workspace registered.
             expect(RecordingWorkspaceController.syncs, 'constructed once').toBe(1);
             expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace']);
 
-            expect(set.register('alpha', seams('alpha')), 'a participant arrives after boot').toBe(true);
-            // The affordance first: this is the assertion a broken publication must fail on.
+            const alpha = root.createPopupWorkspace('alpha', document('alpha'), {committed: true, windowId: null});
+
+            // The affordance first: this is the assertion a broken publication — or a registration that
+            // outruns its state — must fail on. Nothing here calls the controller.
             expect(ordinaryTexts(), 'the bar offers the new workspace without a reload').toEqual([
                 'Save workspace', 'Close workspace', 'Open alpha as window', 'Show alpha here'
             ]);
             expect(RecordingWorkspaceController.syncs, 'through exactly one more sync').toBe(2);
+            expect(root.getPopupState('alpha'), 'and the state the buttons address is the one created').toBe(alpha);
 
-            expect(set.unregister('alpha')).toBe(true);
+            alpha.host.destroy();
+
             expect(RecordingWorkspaceController.syncs, 'the removal re-synced it too').toBe(3);
             expect(ordinaryTexts(), 'a gone workspace offers nothing').toEqual(['Save workspace', 'Close workspace']);
 
-            controller.destroy();
+            // The component drops its controller the way its own destroy does: the config write destroys
+            // the old instance, and with it the subscription that instance owned.
+            root.controller = null;
 
-            expect(set.register('beta', seams('beta'))).toBe(true);
-            expect(RecordingWorkspaceController.syncs, 'a destroyed controller is not notified').toBe(3)
+            const beta = root.createPopupWorkspace('beta', document('beta'), {committed: true, windowId: null});
+
+            expect(RecordingWorkspaceController.syncs, 'a destroyed controller is not notified').toBe(3);
+            beta.host.destroy()
         } finally {
-            bar.destroy();
-            set.destroy();
+            root.destroy();
             Transaction.retireGroup(binding.groupId)
         }
     })

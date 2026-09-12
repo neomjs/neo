@@ -377,6 +377,7 @@ test.describe.serial('Dock WorkspaceSet transaction participants', () => {
             workspaceSet                 : set, topologyGroupId: groupId,
             getPopupState                : WorkstationWorkspace.prototype.getPopupState,
             getPopupStates               : WorkstationWorkspace.prototype.getPopupStates,
+            createPopupWorkspace         : WorkstationWorkspace.prototype.createPopupWorkspace,
             stateProvider                : TransactionManager.getProvider(groupId),
             resolvePane                  : () => ({ntype: 'component'}),
             createVesselWorkspaceDocument: WorkstationWorkspace.prototype.createVesselWorkspaceDocument,
