@@ -266,6 +266,8 @@ class Base {
     construct(config={}) {
         let me = this;
 
+        me.assertFieldsShadowNoConfig();
+
         Object.defineProperties(me, {
             [configSymbol]: {
                 configurable: true,
@@ -1107,6 +1109,41 @@ class Base {
             // Trigger the skipped Effect, if needed
             EffectManager.resume()
         }
+    }
+
+    /**
+     * @summary A class field is an own data property, so a field named like a reactive config of the
+     * same instance shadows the generated accessor for the instance's lifetime: the config's
+     * `beforeSet` / `afterSet` hooks never run and every read returns the field. Refuses exactly that —
+     * an own data property whose key `isConfig()` — at every construction, since a subclass's
+     * `construct()` may add or remove own properties before `super.construct()`. Own accessors are
+     * ordinary overrides and pass, as do fields named like non-reactive configs or plain prototype
+     * accessors. `Neo.createConfig` can only guard a redefined setter at setup time; fields exist only
+     * after `new`.
+     * @throws {Error} Naming the field, the instance class and the class whose config it shadows.
+     * @protected
+     */
+    assertFieldsShadowNoConfig() {
+        const me = this, cls = me.constructor;
+
+        Object.getOwnPropertyNames(me).forEach(key => {
+            if (!(key in cls.config) || !('value' in Object.getOwnPropertyDescriptor(me, key)) || !me.isConfig(key)) return;
+
+            let proto = Object.getPrototypeOf(me);
+
+            while (proto && typeof Object.getOwnPropertyDescriptor(proto, key)?.set !== 'function') {
+                proto = Object.getPrototypeOf(proto)
+            }
+
+            const owner = proto?.constructor.config?.className ?? proto?.constructor.name,
+                  uKey  = key[0].toUpperCase() + key.slice(1);
+
+            throw new Error(
+`Invalid class field '${key}' in ${cls.config.className}: it shadows the reactive config '${key}_' declared by ${owner}.
+A class field is an own data property, so the config's accessor never runs and afterSet${uKey}() never fires.
+Give the config its default with a plain '${key}' entry in static config, or rename one of them.`
+            )
+        })
     }
 
     /**
