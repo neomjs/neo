@@ -49,6 +49,30 @@ class PerspectiveSelection extends Base {
     /** @summary Reads semantic identity independently of observer delivery. @member {String|null} committedName */
     get committedName() { return this.#entry?.capture().value.name ?? this.#directName }
 
+    /** @summary The declared names: what a saved record may equal but never take. @member {String[]} names */
+    get names() { return [...this.#documents.keys()] }
+
+    /**
+     * @summary The origin a snapshot carries: the accepted-write identity, never a published leaf.
+     * An auto-save captures before projection, and the identity participant adopts with the document.
+     * @returns {{declaredPerspective: String}}
+     */
+    provenance() { return {declaredPerspective: this.committedName} }
+
+    /**
+     * @summary The identity change a Group write adopts beside a restored snapshot's document: its
+     * declared origin when this workspace declares it, else nothing — an originless snapshot, or one
+     * captured under a name this workspace does not declare, retains the last committed or
+     * initialized declared baseline.
+     * @param {Object|null} metadata The snapshot's `metadata`
+     * @returns {{workspaceKey: String, input: {name: String}}|null}
+     */
+    originChange(metadata) {
+        const name = metadata?.declaredPerspective;
+
+        return this.#documents.has(name) ? {workspaceKey: this.identityKey(), input: {name}} : null
+    }
+
     /** @summary Captures declarations after the host's complete construction chain. @returns {Object} Initial zones. */
     capture() {
         const host     = this.workspace, supplied = host.dockModel !== null,
@@ -172,8 +196,11 @@ class PerspectiveSelection extends Base {
         const replay = context.cursorAction === 'undo' || context.cursorAction === 'redo',
               entry  = replay ? context.replayRow ?? context.row : context.descriptor,
               name   = context.cursorAction === 'undo' ? entry?.before : entry?.after;
-        return entry?.operation === 'restorePerspective' && entry.workspaceKey === this.workspaceKey() && this.#documents.has(name)
-            ? name : null
+        if (entry?.operation === 'restorePerspective' && entry.workspaceKey === this.workspaceKey() && this.#documents.has(name)) return name;
+        // A snapshot restore carries its declared origin in the descriptor. Under a Group the identity
+        // participant adopted that origin with the document, so committedName already reads it.
+        const origin = replay ? undefined : context.descriptor?.declaredPerspective;
+        return this.#documents.has(origin) ? origin : null
     }
 
     /** @summary Public synchronization preserves Effects and two-way bindings. @param {String} name */
@@ -185,8 +212,11 @@ class PerspectiveSelection extends Base {
 
     /** @summary Projects carried identity without overwriting a newer pending request. @param {Object} context */
     project(context) {
-        const name = this.identity(context);
+        // Under a Group the adopted identity participant is the truth for every projection, so a
+        // hydrate that changed it publishes, and one that did not retains the baseline.
+        const name = this.identity(context) ?? (this.#entry ? this.committedName : null);
         if (name === null) return;
+        if (!this.#entry) this.#directName = name;
         this.publishedName = name;
         if (this.pendingName === null || this.pendingName === name) this.sync(name)
     }

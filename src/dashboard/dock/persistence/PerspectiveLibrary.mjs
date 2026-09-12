@@ -35,7 +35,9 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  *   resolution namespace: a save whose layoutId an OTHER record's perspectiveName would shadow
  *   (or vice versa) is a collision, so every stored record stays addressable through both
  *   documented paths. Prototype-shaped keys (`__proto__`, `constructor`, `prototype`) are
- *   rejected at the write boundary.
+ *   rejected at the write boundary, and so are engine-reserved names (`$`-prefixed) and the
+ *   owning workspace's declared perspective names ({@link #declaredPerspectives}): a saved record
+ *   may equal a declared perspective, never define or impersonate one.
  * - **Removing the active perspective repoints, never dangles.** With siblings present the
  *   successor is the caller's `replacementName` or the first remaining record (insertion
  *   order), reusing the landed `removeSavedLayout` invariant; removing the last record clears
@@ -95,7 +97,15 @@ class PerspectiveLibrary extends Base {
          * non-reactive config: the adapter is wiring, not state.
          * @member {Object|null} persistenceAdapter=null
          */
-        persistenceAdapter: null
+        persistenceAdapter: null,
+        /**
+         * The names a saved record may equal but never take: the owning workspace's declared
+         * perspectives, as an iterable or a function returning one. Wiring, not state: a consumer
+         * passes `() => workspace.declaredPerspectives()`; null skips the declared-name refusal.
+         * Engine-reserved names (`$`-prefixed) are refused either way.
+         * @member {Function|Iterable<String>|null} declaredPerspectives=null
+         */
+        declaredPerspectives: null
     }
     /**
      * The saved layout collection schema for named layout perspectives. One greenfield
@@ -524,6 +534,13 @@ class PerspectiveLibrary extends Base {
             return {collision: null, errors, layoutId: null, saved: false}
         }
 
+        let reserved = Persistence.reservedNameErrors([record.layoutId, record.perspectiveName], me.declaredPerspectives);
+
+        if (reserved.length) {
+            me.lastErrors = reserved;
+            return {collision: null, errors: reserved, layoutId: null, saved: false}
+        }
+
         let name     = record.perspectiveName ?? record.layoutId,
             existing = me.resolveEntry(name),
             // the technical id must STAY reachable after the save: another record's
@@ -636,6 +653,13 @@ class PerspectiveLibrary extends Base {
             let errors = [`"${to}" is not a usable perspective key`];
             me.lastErrors = errors;
             return {collision: null, errors, renamed: false}
+        }
+
+        let reserved = Persistence.reservedNameErrors([to], me.declaredPerspectives);
+
+        if (reserved.length) {
+            me.lastErrors = reserved;
+            return {collision: null, errors: reserved, renamed: false}
         }
 
         let holder = me.resolveEntry(to);

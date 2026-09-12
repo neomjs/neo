@@ -89,6 +89,53 @@ class Persistence extends Base {
     static unsafeRecordKeys = new Set(['__proto__', 'constructor', 'prototype'])
 
     /**
+     * Names beginning with this prefix are engine-reserved: the zones-only declaration's `$default`
+     * and the Group's `$perspective:<workspaceKey>` identity slots. A saved record may never take
+     * one, on either persisted key.
+     * @member {String} RESERVED_NAME_PREFIX='$'
+     * @static
+     */
+    static RESERVED_NAME_PREFIX = '$'
+
+    /**
+     * @summary The write-boundary refusal beside the unsafe-key refusal: a persisted key may neither be
+     * engine-reserved nor name a declared perspective — a saved record may equal a declared
+     * perspective, but never define or impersonate one.
+     * @param {Array<String|undefined>} keys The candidate `layoutId` / `perspectiveName` values.
+     * @param {Function|Iterable<String>|null} [declared=null] The workspace's declared names, or a
+     *     function returning them; null when no declaration set is wired.
+     * @returns {String[]} Errors, empty when every key is usable.
+     * @static
+     */
+    static reservedNameErrors(keys, declared=null) {
+        const names = new Set(typeof declared === 'function' ? declared() ?? [] : declared ?? []);
+
+        return keys.filter(key => typeof key === 'string').flatMap(key => {
+            if (key.startsWith(Persistence.RESERVED_NAME_PREFIX)) {
+                return [`"${key}" is an engine-reserved perspective name`]
+            }
+
+            return names.has(key) ? [`"${key}" names a declared perspective; a saved record may equal one but never take its name`] : []
+        })
+    }
+
+    /**
+     * @summary Validates the origin a snapshot may carry: `metadata.declaredPerspective` names the
+     * declared perspective it was captured under, written from the accepted-write identity.
+     * @param {Object|null} metadata The record's `metadata`
+     * @param {String} path The record path for the error message
+     * @returns {String[]}
+     * @static
+     */
+    static validateDeclaredOrigin(metadata, path) {
+        const origin = metadata?.declaredPerspective;
+
+        return origin === undefined || (typeof origin === 'string' && origin.trim())
+            ? []
+            : [`${path}.declaredPerspective must be a non-empty string when present`]
+    }
+
+    /**
      * @summary Validates the perspective fields shared by the create and restore paths.
      *
      * `windowFingerprint` describes one workspace's topology SHAPE and must be a JSON object or
@@ -407,6 +454,8 @@ class Persistence extends Base {
             errors.push('metadata must be a JSON object')
         }
 
+        errors.push(...Persistence.validateDeclaredOrigin(savedLayout.metadata, 'savedLayout.metadata'));
+
         let secretKey = Object.hasOwn(savedLayout, 'metadata')
             ? WorkspaceDocument.findSecretMetadataKey(savedLayout.metadata, 'savedLayout.metadata')
             : null;
@@ -509,6 +558,8 @@ class Persistence extends Base {
         if (Object.hasOwn(topology, 'metadata') && !WorkspaceDocument.isJsonRecord(topology.metadata)) {
             errors.push('metadata must be a JSON object')
         }
+
+        errors.push(...Persistence.validateDeclaredOrigin(topology.metadata, 'topology.metadata'));
 
         let unexpected = WorkspaceDocument.findUnexpectedKey(topology, Persistence.topologyKeys, 'topology');
 
