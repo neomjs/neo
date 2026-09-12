@@ -59,6 +59,10 @@ a loading pipeline.
 The following modules share an application directory. Their engine imports assume a location three
 levels below the repository root, as in the dashboard examples; adjust the paths for your application.
 
+These five file-by-file examples stay `readonly` because each fence represents one application module.
+The complete live preview later in this guide folds the same roles into the portal's single-module execution
+envelope, so you can run the ownership journey without confusing that teaching constraint with an app structure.
+
 `QueueModel.mjs` defines the record fields:
 
 ```javascript readonly
@@ -242,6 +246,134 @@ The provider is at the lowest common root of the consumers that need it. It crea
 `QueueStore` class and owns that Store's retirement. The queue pane merely uses it. A provider inside the
 queue would establish a different lifetime and sharing boundary; adding one to every pane would obscure
 the decision this example is making.
+
+## Run the ownership journey
+
+The file-by-file version above is what you would keep in an application. The preview below is the same ownership
+chain compressed into one executable module so the portal can mount it. Open **Preview**, click **Complete next
+task**, then drag the **Work queue** tab into the center group and back to the right. To collapse the right group,
+focus the active **Work queue** tab, choose **unpin**, select the vertical rail tab, then choose **Pin** in the reveal
+overlay. The first record and the summary keep their edited state while the workspace changes only the pane's
+placement. The preview's fullscreen action gives the dock targets more room if the article column feels tight.
+
+```javascript live-preview
+import Button     from '../button/Base.mjs';
+import Component  from '../component/Base.mjs';
+import Container  from '../container/Base.mjs';
+import Controller from '../controller/Component.mjs';
+import Grid        from '../grid/Container.mjs';
+import Model       from '../data/Model.mjs';
+import Provider    from '../state/Provider.mjs';
+import Store       from '../data/Store.mjs';
+import Workspace   from '../dashboard/dock/Workspace.mjs';
+
+class QueueModel extends Model {
+    static config = {
+        className: 'Guides.dockLayoutsPanes.QueueModel',
+        fields: [
+            {name: 'id', type: 'String'},
+            {name: 'title', type: 'String'},
+            {name: 'status', type: 'String'}
+        ]
+    }
+}
+
+QueueModel = Neo.setupClass(QueueModel);
+
+class QueueStore extends Store {
+    static config = {
+        className: 'Guides.dockLayoutsPanes.QueueStore',
+        model: QueueModel,
+        data: [
+            {id: 'design', title: 'Review the design', status: 'Ready'},
+            {id: 'build', title: 'Build the preview', status: 'Ready'},
+            {id: 'check', title: 'Check the result', status: 'Ready'}
+        ]
+    }
+}
+
+QueueStore = Neo.setupClass(QueueStore);
+
+class QueueController extends Controller {
+    static config = {
+        className: 'Guides.dockLayoutsPanes.QueueController'
+    }
+
+    onCompleteNext() {
+        const record = this.getStore('queue').find('status', 'Ready', true);
+
+        if (record) {
+            record.status = 'Done';
+            this.setState({lastAction: `Completed: ${record.title}`})
+        }
+    }
+}
+
+QueueController = Neo.setupClass(QueueController);
+
+class QueueContainer extends Container {
+    static config = {
+        className: 'Guides.dockLayoutsPanes.QueueContainer',
+        controller: QueueController,
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items: [{
+            module: Button,
+            flex: 'none',
+            text: 'Complete next task',
+            handler: 'onCompleteNext'
+        }, {
+            module: Grid,
+            flex: 1,
+            bind: {store: 'stores.queue'},
+            columns: [
+                {dataField: 'title', text: 'Task', flex: 1},
+                {dataField: 'status', text: 'Status', width: 100}
+            ]
+        }]
+    }
+}
+
+QueueContainer = Neo.setupClass(QueueContainer);
+
+class MainView extends Workspace {
+    static config = {
+        className: 'Guides.dockLayoutsPanes.MainView',
+        layout: {ntype: 'vbox', align: 'stretch'},
+        stateProvider: {
+            module: Provider,
+            data: {lastAction: 'Pick a task to complete.'},
+            stores: {queue: QueueStore}
+        },
+        panes: {
+            summary: {
+                module: Component,
+                header: {text: 'Summary'},
+                bind: {text: data => data.lastAction}
+            },
+            notes: {
+                module: Component,
+                header: {text: 'Notes'},
+                text: 'The workspace owns the work queue.'
+            },
+            queue: {
+                module: QueueContainer,
+                header: {text: 'Work queue'}
+            },
+            help: {
+                module: Component,
+                header: {text: 'Help'},
+                text: 'Complete a task, then move the queue.'
+            }
+        },
+        zones: {
+            center: ['summary', 'notes'],
+            right: {items: ['queue', 'help'], extent: 0.55, resizable: true}
+        }
+    }
+}
+
+MainView = Neo.setupClass(MainView);
+```
 
 ## Move the work without rebuilding it
 

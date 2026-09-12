@@ -14,6 +14,11 @@ refresh scheduling, reconciliation, motion and cross-zone drops. Both the minima
 that engine class today. The basic path below uses initial declarations; the existing consumers also show the advanced
 extension points for richer application integration.
 
+The snippets in this guide intentionally remain `readonly`: each is a partial application file or fragment with
+app-local modules, storage or surrounding state, so running it alone would teach a false boundary. The
+[ordinary-panes guide](DockLayoutsPanes.md) carries the self-contained live workspace where you can exercise the
+same declarations, data ownership and movement inside the portal.
+
 ## One class, five decisions
 
 ```mermaid
