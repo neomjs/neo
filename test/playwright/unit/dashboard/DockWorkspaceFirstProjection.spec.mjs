@@ -167,17 +167,20 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         expect(DockReconciler.collectProjectedTabs(workspace.items[1]).size).toBe(4)
     });
 
-    test('the example derives its presets from the effective declared arrangement', async () => {
+    test('the example captures its effective perspective declarations without seeding saved records', async () => {
         workspace = Neo.create(MainContainer, {
-            zones: {
-                center: {
-                    id      : 'root-split', orientation: 'horizontal', sizes: [0.25, 0.75],
-                    children: [
-                        {id: 'main-tabs', items: ['swarm', 'strategy']},
-                        {id: 'side-split', orientation: 'vertical', children: ['terminal', 'logs']}
-                    ]
+            perspectives: {
+                'operator-default': {
+                    center: {
+                        id      : 'root-split', orientation: 'horizontal', sizes: [0.25, 0.75],
+                        children: [
+                            {id: 'main-tabs', items: ['swarm', 'strategy']},
+                            {id: 'side-split', orientation: 'vertical', children: ['terminal', 'logs']}
+                        ]
+                    },
+                    right: {items: ['inspector'], extent: 0.2}
                 },
-                right: {items: ['inspector'], extent: 0.2}
+                'review-focus': MainContainer.config.perspectives['review-focus']
             }
         });
 
@@ -187,8 +190,9 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
 
         expect(dockModel.nodes['root-split'].sizes).toEqual([0.25, 0.75]);
         expect(dockModel.nodes['main-tabs'].activeItemId).toBe('swarm');
-        expect(layoutCollection.layouts['operator-default'].dockZone).toEqual(dockModel);
-        expect(layoutCollection.layouts['review-focus'].dockZone.nodes['root-split'].sizes).toEqual([0.48, 0.52]);
+        expect(layoutCollection.layouts).toEqual({});
+        expect(workspace.perspectiveSelection.document('operator-default')).toEqual(dockModel);
+        expect(workspace.perspectiveSelection.document('review-focus').nodes['root-split'].sizes).toEqual([0.48, 0.52]);
         expect(workspace.items[0].dockNodeType).toBe('perspective-toolbar')
     });
 
@@ -199,7 +203,8 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         await workspace.layoutCollectionLoadPromise;
 
         expect(workspace.dockModel).toEqual(document);
-        expect(workspace.layoutCollection.layouts['operator-default'].dockZone).toEqual(document);
+        expect(workspace.layoutCollection.layouts).toEqual({});
+        expect(workspace.getState('dock.perspective')).toEqual({active: 'operator-default', modified: true, pending: null});
         expect(workspace.items[0].dockNodeType).toBe('perspective-toolbar')
     });
 

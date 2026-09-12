@@ -125,7 +125,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         await testInfo.attach('dock-example-declarative-default', {path: screenshot, contentType: 'image/png'})
     });
 
-    test('Review and Operator retain toolbar identity, and a saved layout survives restore and page reload', async ({page, neuralLink}) => {
+    test('declared perspectives bind their state while snapshots retain toolbar identity through reload', async ({page, neuralLink}, testInfo) => {
         const {app, holderId} = await connect(page, neuralLink),
               toolbar         = page.locator('.neo-dashboard-dock-perspective-toolbar'),
               storageKey      = 'neo.examples.dashboard.dock.layoutCollection',
@@ -133,6 +133,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
               readButtons     = () => toolbar.locator('.neo-button').evaluateAll(nodes =>
                   nodes.map(node => ({id: node.id, text: node.textContent.trim()}))),
               readCollection = async () => (await app.getComponent(holderId, ['layoutCollection'])).layoutCollection,
+              readPerspective = () => app.callMethod(holderId, 'getState', ['dock.perspective']),
               readStored = () => page.evaluate(key => {
                   const value = localStorage.getItem(key);
                   return value ? JSON.parse(value) : null
@@ -143,21 +144,23 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         const initialButtons = await readButtons(), toolbarId = await toolbar.getAttribute('id'),
               retainedNodes  = await Promise.all([toolbar, ...initialButtons.map(entry => page.locator(`#${entry.id}`))]
                   .map(locator => locator.elementHandle()));
-        expect(initialButtons.map(entry => entry.text)).toEqual(['Operator', 'Review', 'Save Current', 'Delete Active']);
+        expect(initialButtons.map(entry => entry.text)).toEqual(['Operator', 'Review', 'Save Current', 'Delete Saved']);
+        expect((await readCollection()).layouts).toEqual({});
+        await expect.poll(readPerspective).toEqual({active: 'operator-default', modified: false, pending: null});
 
         await button('Review').click();
-        await expect.poll(async () => (await readCollection()).activeLayoutId).toBe('review-focus');
+        await expect.poll(readPerspective).toEqual({active: 'review-focus', modified: false, pending: null});
         await expect.poll(async () => (await readTopology(app, holderId)).nodes['root-split'].sizes).toEqual([0.48, 0.52]);
         await expect.poll(async () => (await readTopology(app, holderId)).nodes['main-tabs'].activeItemId).toBe('swarm');
         expect((await readTopology(app, holderId)).nodes['side-split'].sizes).toEqual([0.42, 0.58]);
-        await expect(button('Review')).toHaveClass(/neo-dashboard-dock-perspective-active/);
+        await expect(button('Review')).toHaveClass(/\bpressed\b/);
         expect(await readButtons()).toEqual(initialButtons);
 
         await button('Operator').click();
-        await expect.poll(async () => (await readCollection()).activeLayoutId).toBe('operator-default');
+        await expect.poll(readPerspective).toEqual({active: 'operator-default', modified: false, pending: null});
         await expect.poll(async () => (await readTopology(app, holderId)).nodes['root-split'].sizes).toEqual([0.65, 0.35]);
         await expect.poll(async () => (await readTopology(app, holderId)).nodes['main-tabs'].activeItemId).toBe('strategy');
-        await expect(button('Operator')).toHaveClass(/neo-dashboard-dock-perspective-active/);
+        await expect(button('Operator')).toHaveClass(/\bpressed\b/);
         expect(await readButtons()).toEqual(initialButtons);
 
         // Save a document which visibly differs from the declared Operator default.
@@ -175,7 +178,9 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         expect(stored.schema).toBe('neo.dock.layoutCollection.v1');
         expect(stored.layouts[savedId].dockZone).toEqual(savedDocument);
         await expect.poll(async () => (await readButtons()).map(entry => entry.text))
-            .toEqual(['Operator', 'Review', 'Saved 1', 'Save Current', 'Delete Active']);
+            .toEqual(['Operator', 'Review', 'Saved 1', 'Save Current', 'Delete Saved']);
+        await expect(button('Review')).toHaveClass(/\bpressed\b/);
+        await expect(button('Saved 1')).not.toHaveClass(/\bpressed\b/);
         const buttonsAfterSave = await readButtons();
         for (const entry of initialButtons) {
             expect(buttonsAfterSave.find(current => current.text === entry.text)?.id).toBe(entry.id)
@@ -188,9 +193,15 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         });
         expect(resized).toMatchObject({applied: true, errors: []});
         await expect.poll(async () => (await readTopology(app, holderId)).nodes['root-split'].sizes).toEqual([0.5, 0.5]);
+        await expect.poll(readPerspective).toEqual({active: 'review-focus', modified: true, pending: null});
+        await expect(toolbar.getByText('Modified', {exact: true})).toBeVisible();
+        const screenshot = testInfo.outputPath('dock-perspective-modified.png');
+        await page.screenshot({path: screenshot, animations: 'disabled'});
+        await testInfo.attach('dock-perspective-modified', {path: screenshot, contentType: 'image/png'});
         expect((await readStored()).layouts[savedId].dockZone).toEqual(savedDocument);
         await button('Saved 1').click();
         await expect.poll(() => readTopology(app, holderId)).toEqual(savedDocument);
+        await expect.poll(readPerspective).toEqual({active: 'review-focus', modified: false, pending: null});
         expect(await readButtons()).toEqual(buttonsAfterSave);
 
         await page.reload();
@@ -203,9 +214,15 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         await expect.poll(async () => (await currentApp.getComponent(currentHolderId, ['layoutCollection'])).layoutCollection?.activeLayoutId)
             .toBe(savedId);
         await expect.poll(() => readTopology(currentApp, currentHolderId)).toEqual(savedDocument);
-        await expect(page.locator('.neo-dashboard-dock-perspective-toolbar').getByRole('button', {name: 'Saved 1', exact: true}))
-            .toHaveClass(/neo-dashboard-dock-perspective-active/);
-        await expect(page.locator('[class~="dock-flip-item-swarm"]')).toBeVisible()
+        const reloadedToolbar = page.locator('.neo-dashboard-dock-perspective-toolbar');
+        await expect(reloadedToolbar.getByRole('button', {name: 'Operator', exact: true})).toHaveClass(/\bpressed\b/);
+        await expect(reloadedToolbar.getByRole('button', {name: 'Saved 1', exact: true})).not.toHaveClass(/\bpressed\b/);
+        await expect(reloadedToolbar.getByText('Modified', {exact: true})).toBeVisible();
+        await expect(page.locator('[class~="dock-flip-item-swarm"]')).toBeVisible();
+        await reloadedToolbar.getByRole('button', {name: 'Delete Saved', exact: true}).click();
+        await expect(reloadedToolbar.getByRole('button', {name: 'Saved 1', exact: true})).toHaveCount(0);
+        await expect(reloadedToolbar.getByRole('button', {name: 'Delete Saved', exact: true})).toBeDisabled();
+        expect(await readTopology(currentApp, currentHolderId)).toEqual(savedDocument)
     });
 
     test('a deferred first document cannot poison the SharedWorker mount or later edge resizes', async ({page, neuralLink}) => {
