@@ -815,8 +815,20 @@ class Workspace extends Container {
                 me.afterTearOutWindowDisconnect({...context, pane})
             },
             expired: async context => {
-                const pane = await me.tearOutHandlers.onBindingReleased({...context, committed: !!context.entry});
-                me.afterTearOutWindowDisconnect({...context, committed: !!context.entry, expired: true, pane})
+                const committed = !!context.entry;
+
+                // A vessel that never bound has no binding to release, so this is the one route on
+                // which the host was never asked whether it retains the vessel. Ask the same hook
+                // `unbind` routes to — with the slot the lease freed and no window, since none ever
+                // bound — before handing the pane back to the return flow, which for a host that
+                // moved the item into the vessel's own document would settle a live pane.
+                if (await me.onNativeWindowRelease({...context.data, windowId: null, expired: true}) === false) {
+                    me.afterTearOutWindowDisconnect({...context, committed, expired: true, pane: null, recovered: false});
+                    return
+                }
+
+                const pane = await me.tearOutHandlers.onBindingReleased({...context, committed});
+                me.afterTearOutWindowDisconnect({...context, committed, expired: true, pane})
             }
         })
     }
@@ -832,7 +844,16 @@ class Workspace extends Container {
 
     /**
      * @summary Lets a full Workspace retain its projection owner when its native target unbinds.
+     *
+     * Asked on two routes: by the Group's `unbind` effect when a bound window releases, and by this
+     * host's own `expired` effect when a reservation's lease ends for a vessel that never bound —
+     * then with `windowId: null` and `expired: true`, since there was no window. `false` on either
+     * route keeps the semantic Workspace and its live pane with the host.
      * @param {Object} data
+     * @param {String} data.groupId
+     * @param {String} data.workspaceKey
+     * @param {String|null} data.windowId `null` when no window ever bound the slot.
+     * @param {Boolean} [data.expired] `true` on the lease-end route.
      * @returns {Boolean|Promise<Boolean>} False when the host retained the semantic Workspace.
      */
     onNativeWindowRelease(data) { return true }
@@ -1270,6 +1291,12 @@ class Workspace extends Container {
     /**
      * Hook: observes physical tear-out retirement after state reconciliation.
      * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Boolean} data.committed Whether the vessel held committed ownership of the item.
+     * @param {Boolean} [data.expired] `true` when a reservation's lease ended rather than a window releasing.
+     * @param {Boolean} [data.recovered] `false` when the host retained the vessel at lease end, so the item
+     *     stayed in the vessel's document and no pane came home; absent otherwise.
+     * @param {Neo.component.Base|null} [data.pane] The pane the return flow handed back, `null` when retained.
      * @protected
      */
     afterTearOutWindowDisconnect(data) {}

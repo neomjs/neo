@@ -435,6 +435,27 @@ class TearOutWorkspace extends DockWorkspace {
     }
 }
 
+/**
+ * A host that keeps a vessel's semantic Workspace when its window is gone — the Workstation's headless
+ * retention — answering `false` on both release routes and recording what each asked.
+ */
+class RetainingTearOutWorkspace extends TearOutWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.RetainingTearOutWorkspace'
+    }
+
+    releaseAsks = []
+
+    onNativeWindowRelease(data) {
+        this.releaseAsks.push(data);
+        return false
+    }
+
+    afterTearOutWindowDisconnect({expired, pane, recovered}) {
+        this.lifecycleEvents.push(`disconnect:${recovered}:${expired}:${pane?.id ?? null}`)
+    }
+}
+
 Neo.setupClass(DroppedOptInsWorkspace);
 Neo.setupClass(HandWrittenFlagWorkspace);
 Neo.setupClass(NoLifecycleWorkspace);
@@ -444,6 +465,7 @@ Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
 Neo.setupClass(TearOutWorkspace);
+Neo.setupClass(RetainingTearOutWorkspace);
 Neo.setupClass(HostActionWorkspace);
 Neo.setupClass(HostBothActionsWorkspace);
 
@@ -2248,6 +2270,57 @@ test('the holder contract: a config-assigned document is readable before any ope
 
             workspace.closeResult = true;
             await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('a lease that runs out for a vessel that never bound asks the host first: a retaining host keeps the live pane and hears recovered: false, a plain host gets its item back', async () => {
+            TransactionManager.reconnectLeaseMs = 20;
+            workspace = Neo.create(RetainingTearOutWorkspace, {dockModel: createDocument()});
+
+            const settled = [], settle = workspace.settleDockPane;
+
+            workspace.settleDockPane = pane => {
+                settled.push(pane?.id ?? null);
+                return settle.call(workspace, pane)
+            };
+
+            // The pop-out's terminal with no drag: the detach commits, the live pane is captured for the
+            // vessel about to open — and no window ever binds the reserved slot, so nothing adopts it.
+            const {zone} = await beginExit('preview');
+
+            await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
+
+            const pane     = workspace.tearOutHandlers.heldPane('preview'),
+                  detached = JSON.stringify(workspace.dockModel);
+
+            expect(pane, 'the terminal captured the live pane and nothing adopted it').not.toBeNull();
+            expect(workspace.nativeWindows.getOwner(workspace.id, 'preview'), 'ownership was committed at the terminal, windowless')
+                .toMatchObject({windowId: null});
+
+            // The reservation's lease runs out; the lifecycle retires the never-connected admission.
+            await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+            await expect.poll(() => workspace.lifecycleEvents.length).toBeGreaterThan(0);
+
+            expect(workspace.releaseAsks, 'asked exactly once').toHaveLength(1);
+            expect(workspace.releaseAsks[0], 'with the freed slot and no window, marked as the lease-end route')
+                .toMatchObject({groupId: workspace.topologyGroupId, workspaceKey: 'popup:preview', windowId: null, expired: true});
+            expect(workspace.lifecycleEvents, 'no return ran, and the hook heard the retention').toEqual(['disconnect:false:true:null']);
+            expect(settled, 'nothing settled the pane').toEqual([]);
+            expect(pane.isDestroyed, 'the same live instance survives the lease').toBeFalsy();
+            expect(workspace.tearOutHandlers.heldPane('preview'), 'and stays with the host').toBe(pane);
+            expect(JSON.stringify(workspace.dockModel), 'the retained route mutates no document').toBe(detached);
+
+            // Control: a host that does not retain gets its item back through the return flow, as before.
+            workspace.destroy();
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const control = await beginExit('preview');
+
+            await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: control.zone});
+            await expect.poll(() => Boolean(workspace.nativeWindows.getAdmission(workspace.id, 'preview'))).toBe(false);
+            await expect.poll(() => workspace.lifecycleEvents.includes('disconnect')).toBe(true);
+
+            expect(workspace.lifecycleEvents[0], 'the plain host returned its item home').toMatch(/^return:true/);
+            expect(workspace.tearOutHandlers.heldPane('preview'), 'and released the handle').toBeNull()
         });
 
         test('stale-open close refusal remains tracked and blocks a successor until exact retry succeeds', async () => {
