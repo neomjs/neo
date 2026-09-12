@@ -193,6 +193,17 @@ class Workspace extends DockWorkspace {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * The shipped arrangement, declared rather than supplied: `construct` keeps supplying the saved
+         * main document, so `dock.perspective.modified` reads live-versus-shipped while a torn-out
+         * pane stays owned by its vessel.
+         * @member {Object} perspectives={shipped: initialDocument}
+         */
+        perspectives: {shipped: initialDocument},
+        /**
+         * @member {String} activePerspective='shipped'
+         */
+        activePerspective: 'shipped',
+        /**
          * The preview design-language switch (the design-exploration selector): the value maps to a
          * `neo-preview-lang-<value>` modifier cls on the dock host, so skin variants swap live — on
          * the workspace config, from a tour script, or from the console — without touching behavior.
@@ -737,10 +748,12 @@ class Workspace extends DockWorkspace {
 
         me.dockModel         = WorkspaceDocument.clone(me.initialTopology?.workspaces[Workspace.MAIN_WORKSPACE_ID] ?? initialDocument);
         me.dockService       = Neo.create(DockService, {});
-        me.perspectiveStore  = Neo.create(PerspectiveLibrary, {});
+        me.perspectiveStore  = Neo.create(PerspectiveLibrary, {declaredPerspectives: () => me.declaredPerspectives()});
         me.topologyLibrary ??= Neo.create(TopologyLibrary, {
             collection: Persistence.createTopologyCollection([], {activeLayoutId: null}).collection
         });
+        // A saved record may equal the shipped perspective but never take its name, whoever built the library.
+        me.topologyLibrary.declaredPerspectives ??= () => me.declaredPerspectives();
         me.workspaceSet = Neo.create(WorkspaceSet, {documentModel: WorkspaceDocument, manager: TransactionManager, getGroupId: () => me.topologyGroupId});
 
         for (const [workspaceId, document] of Object.entries(me.initialTopology?.workspaces ?? {})) {

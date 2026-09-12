@@ -216,9 +216,15 @@ class ViewportController extends Controller {
             });
 
             if (selection.topology) {
+                // A snapshot captured under a declared perspective adopts that name with its documents.
+                const origin = workspace.perspectiveOriginChange(selection.topology.metadata);
+
                 await Transaction.write({
                     cause       : 'cold-hydrate',
-                    changes     : Object.entries(selection.topology.workspaces).map(([workspaceKey, document]) => ({workspaceKey, input: document})),
+                    changes     : [
+                        ...Object.entries(selection.topology.workspaces).map(([workspaceKey, document]) => ({workspaceKey, input: document})),
+                        ...(origin ? [origin] : [])
+                    ],
                     cursorAction: 'preserve',
                     descriptor  : {operation: 'hydrateTopology', layoutId: selection.topology.layoutId},
                     groupId     : binding.groupId,

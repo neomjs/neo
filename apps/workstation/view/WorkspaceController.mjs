@@ -127,14 +127,15 @@ class WorkspaceController extends Controller {
 
     /**
      * @summary Captures the full keyed composition under its explicit active layout identity.
-     * @param {String} [layoutId] Defaults to the selected layout, or the new-root name `default`.
+     * The record's declared origin is the accepted-write identity, never the collection's pointer.
+     * @param {String} [layoutId] Defaults to the collection's save pointer, or the new-root name `default`.
      * @returns {Object} The finite topology producer receipt.
      */
     captureTopology(layoutId=this.component.topologyCollection?.activeLayoutId ?? 'default') {
         const selected = this.component.topologyCollection?.topologies?.[layoutId];
         return Persistence.captureTopologyPerspective(this.component.getDockTopologyWorkspaces(), {
             layoutId,
-            metadata      : selected?.metadata ?? {},
+            metadata      : {...selected?.metadata, ...this.component.perspectiveProvenance()},
             placementHints: this.component.getPlacementHints(),
             title         : selected?.title ?? layoutId,
             ...(selected && Object.hasOwn(selected, 'revision') && {revision: selected.revision}),

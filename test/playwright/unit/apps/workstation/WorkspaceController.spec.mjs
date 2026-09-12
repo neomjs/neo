@@ -71,8 +71,9 @@ test.describe('Workstation topology save and close coordination', () => {
                   getDockTopologyWorkspaces: () => ({main: document, details: {
                       ...document, items: {b: {reference: 'b'}}, nodes: {tabs: {type: 'tabs', items: ['b'], activeItemId: 'b'}}
                   }}),
-                  getPlacementHints : () => live,
-                  topologyCollection: {activeLayoutId: 'saved', topologies: {saved: {title: 'Saved', placementHints: stored}}}
+                  getPlacementHints    : () => live,
+                  perspectiveProvenance: () => ({declaredPerspective: 'shipped'}),
+                  topologyCollection   : {activeLayoutId: 'saved', topologies: {saved: {title: 'Saved', placementHints: stored}}}
               },
               result = WorkspaceController.prototype.captureTopology.call({component});
 
@@ -135,6 +136,7 @@ test.describe('Workstation topology save and close coordination', () => {
                   component: {
                       getDockTopologyWorkspaces: () => ({main: document}),
                       getPlacementHints        : () => ({}),
+                      perspectiveProvenance    : () => ({declaredPerspective: 'shipped'}),
                       topologyGroupId          : root.groupId,
                       topologyLibrary          : library,
                       get topologyCollection() {return library.collection}
