@@ -2319,6 +2319,18 @@ test.describe('Workstation — dense living-data composition', () => {
                 title   = overlay.locator('.neo-dashboard-dock-reveal-title');
 
             await expect(overlay).toBeVisible({timeout: 10000});
+
+            // The committed right band is narrower than the Workstation's reveal floor, so the overlay
+            // takes the floor: max(revealExtent, defaultRevealFraction) of its containing block.
+            const {defaultRevealFraction, revealExtent} = await app.getComponent(
+                await overlay.getAttribute('id'), ['defaultRevealFraction', 'revealExtent']
+            );
+
+            expect([revealExtent, defaultRevealFraction], `${theme} resolves the committed band`).toEqual([0.14, 0.35]);
+            await expect.poll(() => overlay.evaluate(element =>
+                Number.parseFloat(getComputedStyle(element).width) / element.offsetParent.clientWidth
+            ), {message: `${theme} renders the floor over the narrower band`}).toBeCloseTo(0.35, 2);
+
             await expect(restore).toHaveClass(/neo-toolbar-action/);
             await expect(restore).not.toHaveClass(/neo-button-ghost/);
 
