@@ -731,31 +731,93 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             }
         });
 
-        test('a refused Group write runs no focus, and surfaces exactly as it does today', async () => {
-            const {commits, focus, groupId, set, workspace} = await stage(),
-                  rejections                                = [],
-                  onRejection                               = event => {rejections.push(event.reason); event.preventDefault?.()};
+        /**
+         * A REAL observer, with a positive control. The first version used
+         * `globalThis.addEventListener?.('unhandledrejection', …)`, which is `undefined` in this Node
+         * runtime — the optional call installed nothing and the arm asserted an array that could
+         * never be populated. A control that silently does nothing reads as a control that passed.
+         * Found by @neo-gpt-emmy, who also supplied the rejected-projection case below.
+         * @param {Function} body
+         * @returns {Promise<Object[]>} Every rejection nobody handled while `body` ran.
+         */
+        const watchUnhandled = async body => {
+            const seen    = [],
+                  observe = reason => seen.push(reason),
+                  // The runner installs its own `unhandledRejection` handler and fails the test on
+                  // one, so the positive control below would kill the arm that proves the observer
+                  // works. Take the window exclusively and hand it back in `finally`.
+                  borrowed = process.listeners('unhandledRejection');
 
-            globalThis.addEventListener?.('unhandledrejection', onRejection);
+            process.removeAllListeners('unhandledRejection');
+            process.on('unhandledRejection', observe);
 
             try {
-                // The refusal the engine already produces for an unregistered participant. AC-5 is a
-                // PARITY claim, not new behaviour: no focus, and no rejection the caller did not
-                // already get — the follow-up must not surface the same failure a second time.
+                // Positive control FIRST: if this does not arrive, the observer is inert and every
+                // assertion below is vacuous.
+                Promise.reject(new Error('observer-control'));
+                await new Promise(resolve => setImmediate(resolve));
+
+                expect(seen.map(String), 'the observer itself works').toEqual(['Error: observer-control']);
+                seen.length = 0;
+
+                await body();
+                await new Promise(resolve => setImmediate(resolve));
+
+                return seen
+            } finally {
+                process.off('unhandledRejection', observe);
+                borrowed.forEach(listener => process.on('unhandledRejection', listener))
+            }
+        };
+
+        test('a refused Group write runs no focus and adds no unhandled rejection', async () => {
+            const {commits, focus, groupId, set, workspace} = await stage();
+
+            try {
                 workspace.workspaceKey = 'not-registered';
 
-                workspace.handleDockCloseAction({
-                    dockNodeId  : 'side-tabs',
-                    tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                const unhandled = await watchUnhandled(async () => {
+                    workspace.handleDockCloseAction({
+                        dockNodeId  : 'side-tabs',
+                        tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                    });
+                    await Promise.allSettled(commits)
                 });
 
-                await Promise.allSettled(commits);
-                await Promise.resolve();
-
                 expect(focus.length, 'a refused write owes no focus').toBe(0);
-                expect(rejections, 'and the follow-up adds no unhandled rejection of its own').toEqual([])
+                expect(unhandled, 'and the follow-up adds none of its own').toEqual([])
             } finally {
-                globalThis.removeEventListener?.('unhandledrejection', onRejection);
+                set.destroy();
+                TransactionManager.retireGroup(groupId)
+            }
+        });
+
+        test('a rejected projection keeps the Group receipt and adds no SECOND, unhandled one', async () => {
+            const {commits, focus, groupId, set, workspace} = await stage();
+
+            try {
+                // Reach the state the defect needs: an earlier commit, so the follow-up takes the
+                // Group branch with a published refresh behind it.
+                await set.commit('main', [{operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.75, 0.25]}]);
+                await workspace.refreshPromise;
+
+                // The projection this close will schedule now fails. Before the repair the assigned
+                // chain was created inside the continuation and never returned, so the trailing catch
+                // did not cover it and this produced a rejection nobody handled.
+                workspace.refreshDockWorkspace = () => Promise.reject(new Error('projection rejected'));
+
+                const unhandled = await watchUnhandled(async () => {
+                    workspace.handleDockCloseAction({
+                        dockNodeId  : 'side-tabs',
+                        tabContainer: tabsOf(workspace.items[0]).get('side-tabs')
+                    });
+                    await Promise.allSettled(commits);
+                    await Promise.allSettled([workspace.refreshPromise])
+                });
+
+                expect(unhandled, 'the follow-up adds no unhandled rejection of its own').toEqual([]);
+                expect(focus.length, 'and a failed projection focuses nothing').toBe(0)
+            } finally {
                 set.destroy();
                 TransactionManager.retireGroup(groupId)
             }
