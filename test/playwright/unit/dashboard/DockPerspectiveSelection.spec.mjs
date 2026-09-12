@@ -342,3 +342,15 @@ test('a host without declarations refuses a runtime selection rather than silent
         expect(errors).toHaveLength(1);
     } finally {console.error = original; workspace.destroy()}
 });
+
+test('a newer intent returning to the committed name supersedes a pending switch', async () => {
+    const f = fixture({group: true}), {workspace, groupId} = f;
+    try {
+        workspace.activePerspective = 'review';
+        workspace.activePerspective = 'operator';
+        await f.settle();
+        expect(workspace.activePerspective).toBe('operator');
+        expect(workspace.stateProvider.getData('chosen')).toBe('operator');
+        expect(Transaction.get(groupId).history.current).toMatchObject({before: 'review', after: 'operator'});
+    } finally {f.destroy()}
+});

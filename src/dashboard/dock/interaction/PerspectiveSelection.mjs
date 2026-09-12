@@ -32,6 +32,8 @@ class PerspectiveSelection extends Base {
     #serial = 0
     /** @member {Boolean} #sync=false Suppresses restoration during public synchronization. @private */
     #sync = false
+    /** @member {Boolean} #rejected=false Marks enum compensation rather than accepted intent. @private */
+    #rejected = false
     /** @member {Object|null} #manager=null Borrowed Group authority. @private */
     #manager = null
     /** @member {String|null} #groupId=null Observed Group. @private */
@@ -79,14 +81,18 @@ class PerspectiveSelection extends Base {
 
     /** @summary Refuses unknown names against the captured set. @param {String} value @returns {String} */
     accept(value) {
+        this.#rejected = false;
         if (this.#documents.has(value)) return value;
+        this.#rejected = true;
         console.error('Supported values for activePerspective are:', ...this.#documents.keys());
         return this.committedName
     }
 
     /** @summary A config write admits intent unless it is synchronization from accepted truth. @param {String} value */
     onIntent(value) {
-        if (!this.#sync && value !== this.committedName) this.restore(value)
+        const rejected = this.#rejected;
+        this.#rejected = false;
+        if (!this.#sync && !rejected) this.restore(value)
     }
 
     /** @summary Resolves the host's document participant without owning a registry. @returns {String|undefined} */
