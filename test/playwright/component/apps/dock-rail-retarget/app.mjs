@@ -55,39 +55,89 @@ class RailRetargetWorkspace extends DockWorkspace {
     /** @member {Object|null} revealWaitProbe=null Test observations survive the Rail's teardown. */
     revealWaitProbe = null
 
+    /** @member {String[]} PROBED_METHODS The machine methods the probe wraps, and restores. @static */
+    static PROBED_METHODS = ['registerAsync', 'unregisterAsync', 'timeout']
+
     /**
-     * @summary Observes the existing owner's inherited waits without replacing timer behavior.
+     * @summary Observes the existing owner's waits by wrapping its methods, shaped exactly as they are, for as long as it observes.
+     *
+     * Wrapped, not read, because the machine exposes no seam for either fact this fixture reports:
+     * `core/Base` keeps async registrations in a private field, and a wait's outcome lives only in the
+     * promise `transitionAfter` awaits and drops — the machine fires no event, and its state is a plain
+     * field. Each wrapper mirrors the signature it wraps and forwards through the original, so a call
+     * production makes cannot fail here and pass there; `false` puts the originals back.
      * @param {Boolean} value
      */
     afterSetObserveRevealWaits(value) {
-        if (!value || this.revealWaitProbe) return;
-        const rail     = this.down({dockNodeType: 'edge-rail', dockEdge: 'right'}),
-              owner    = rail.revealMachine, timeout = owner.timeout,
-              register = owner.registerAsync, unregister = owner.unregisterAsync,
-              probe    = this.revealWaitProbe = {
-                  railId    : rail.id, ownerId: owner.id, owner,
-                  registered: 0, pending: new Set(), waits: []
+        const me = this;
+
+        if (!value) {
+            me.restoreRevealWaitProbe();
+            return
+        }
+
+        if (me.revealWaitProbe && !me.revealWaitProbe.restored) return;
+
+        const rail      = me.down({dockNodeType: 'edge-rail', dockEdge: 'right'}),
+              owner     = rail.revealMachine,
+              originals = Object.fromEntries(RailRetargetWorkspace.PROBED_METHODS.map(key => [key, {
+                  own: Object.hasOwn(owner, key), value: owner[key]
+              }])),
+              probe     = me.revealWaitProbe = {
+                  railId    : rail.id, ownerId: owner.id, owner, originals,
+                  registered: 0, pending: new Set(), restored: false, waits: []
               };
 
+        // Registrations: the engine keeps them in a private field, so they are counted here or nowhere.
         owner.registerAsync = (id, reject) => {
             probe.registered++;
             probe.pending.add(id);
-            return register.call(owner, id, reject)
+            return originals.registerAsync.value.call(owner, id, reject)
         };
         owner.unregisterAsync = id => {
             probe.pending.delete(id);
-            return unregister.call(owner, id)
+            return originals.unregisterAsync.value.call(owner, id)
         };
-        owner.timeout = (delay, options) => {
-            const receipt = {delay, itemId: owner.pendingItemId ?? owner.revealedItemId, state: owner.state, status: 'pending'},
-                  wait    = timeout.call(owner, delay, options);
+        // Outcomes: the wait's promise is awaited and dropped inside the machine, so elapsed, aborted
+        // and destroyed are told apart here or nowhere — a state observer sees the same abort on all three.
+        owner.timeout = (time, options = {}) => {
+            const receipt = {delay: time, itemId: owner.pendingItemId ?? owner.revealedItemId, state: owner.state, status: 'pending'},
+                  wait    = originals.timeout.value.call(owner, time, options);
+
             probe.waits.push(receipt);
             wait.then(() => {receipt.status = 'elapsed'}, error => {
                 receipt.status = error === Neo.isDestroyed ? 'destroyed' :
-                    options.signal.aborted && error === options.signal.reason ? 'aborted' : `error:${String(error)}`
+                    options.signal?.aborted && error === options.signal.reason ? 'aborted' : `error:${String(error)}`
             });
             return wait
         }
+    }
+
+    /**
+     * @summary Puts the machine's own methods back; what the probe observed stays readable.
+     * @returns {Boolean} Whether anything was restored.
+     */
+    restoreRevealWaitProbe() {
+        const probe = this.revealWaitProbe, owner = probe?.owner;
+
+        if (!owner || probe.restored) return false;
+
+        probe.restored = true;
+
+        Object.entries(probe.originals).forEach(([key, {own, value}]) => {
+            if (own) owner[key] = value;
+            else delete owner[key]
+        });
+
+        return true
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.restoreRevealWaitProbe();
+        super.destroy(...args)
     }
 
     /** @summary Returns serializable observations of the real reveal owner and its async lifetime. @returns {Object|null} */
@@ -103,8 +153,11 @@ class RailRetargetWorkspace extends DockWorkspace {
             pendingWaits   : probe.pending.size,
             ownerDestroyed : probe.owner.isDestroyed === true,
             ownerRegistered: !!Neo.get(probe.ownerId),
-            waits          : probe.waits.map(receipt => ({...receipt})),
-            documentJson   : JSON.stringify(this.dockModel)
+            // Read off the instance, not off the probe's own bookkeeping: whether the machine carries
+            // the wrappers as own properties right now.
+            wrapped     : RailRetargetWorkspace.PROBED_METHODS.some(key => Object.hasOwn(probe.owner, key)),
+            waits       : probe.waits.map(receipt => ({...receipt})),
+            documentJson: JSON.stringify(this.dockModel)
         }
     }
 

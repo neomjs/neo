@@ -92,7 +92,15 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
         expect(dismissed.waits.at(-1)).toEqual({delay: 1000, itemId: 'alpha', state: 'dismiss-pending', status: 'elapsed'});
         expect(dismissed.state).toBe('idle');
         expect(dismissed.pendingWaits).toBe(0);
-        expect(dismissed.documentJson).toBe(initial.documentJson)
+        expect(dismissed.documentJson).toBe(initial.documentJson);
+
+        // The probe borrows the machine's methods only while it observes: switching it off gives the
+        // instance its own methods back, and what was observed stays readable afterwards.
+        expect(dismissed.wrapped, 'the machine carries the probe\'s wrappers while observed').toBe(true);
+        await neo.setConfig('dock-rail-retarget-workspace', {observeRevealWaits: false});
+        const released = await readReveal(neo);
+        expect(released.wrapped, 'and its own methods once the probe is off').toBe(false);
+        expect(released.waits, 'without losing the receipts').toEqual(dismissed.waits)
     });
 
     test('hover retarget cancels the obsolete dwell and Rail teardown cancels its pending Base wait', async ({page, neo}) => {
