@@ -1196,5 +1196,76 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         } finally {
             host.destroy()
         }
+    });
+
+    test('a tabs node whose bar ids and body items disagree resolves every item through the app resolver', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta  = {reference: 'beta',  title: 'Beta'};
+        model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta', 'gamma'];
+
+        // Live instances that carry no dock-item stamp: the shape every host owning its own pane
+        // lifecycle hands over, since the adapter decorates configs and returns instances untouched.
+        const panes = {
+                  alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                  gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+              },
+              projected = structuredClone(model);
+
+        // The chrome on screen holds two of the three items — beta is away, its pane held elsewhere.
+        projected.nodes['root-tabs'].items        = ['alpha', 'gamma'];
+        projected.nodes['root-tabs'].activeItemId = 'alpha';
+
+        const host = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(projected, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              tab = host.items[0],
+              bar = tab.getTabBar();
+
+        try {
+            expect(tab.getCardContainer().items, 'the projected body holds the two present panes')
+                .toEqual([panes.alpha, panes.gamma]);
+
+            // The drift: the bar still lists the away item while the body no longer holds it. Pairing
+            // live panes to ids by POSITION then reads body.items[1] — gamma's pane — as beta's, so
+            // beta is never asked of the resolver (a returning pane is never taken) and two desired
+            // slots resolve to one instance, which the exactness check below reports as an inexact
+            // item set. The pairing must refuse a zip it cannot trust instead of guessing.
+            bar.setSilent({sortZoneConfig: {...bar.sortZoneConfig, dockItemIds: ['alpha', 'beta', 'gamma']}});
+
+            const asked        = [],
+                  placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef(_reference, item, itemId) {
+                          const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, placeholder);
+
+                          return placeholder
+                      }
+                  });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => {
+                    asked.push(itemId);
+                    return panes[itemId]
+                }
+            });
+
+            expect(asked, 'the item the drift mis-paired reaches the app resolver').toContain('beta');
+            expect(host.items[0].getCardContainer().items, 'every item lands on its own pane')
+                .toEqual([panes.alpha, panes.beta, panes.gamma]);
+            expect(host.items[0].getTabButtons(), 'one button per projected item').toHaveLength(3)
+        } finally {
+            host.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
     })
 });

@@ -833,10 +833,20 @@ class Reconciler extends Base {
             const
                 bar     = tab.getTabBar(),
                 body    = tab.getCardContainer(),
-                itemIds = bar.sortZoneConfig?.dockItemIds || [];
+                itemIds = bar.sortZoneConfig?.dockItemIds || [],
+                // Parallel arrays with nothing but the index tying them together. Zipping them when
+                // their lengths disagree binds an item's id to a SIBLING's pane, which strands the
+                // mis-bound item — never asked of `resolveItem`, so a returning pane is never taken —
+                // and lands two desired slots on one instance. An untrustworthy zip is refused, and
+                // only a pane naming its own item still binds; every other id asks the resolver.
+                paired  = itemIds.length === body.items.length;
 
             itemIds.forEach((itemId, index) => {
-                body.items[index] && liveItems.set(itemId, body.items[index])
+                const pane = body.items[index];
+
+                if (pane && (paired || pane.dockItemId === itemId)) {
+                    liveItems.set(itemId, pane)
+                }
             })
         });
 
@@ -916,7 +926,7 @@ class Reconciler extends Base {
                 if (!state) {
                     if (pane.parent && pane.parent.windowId === targetBody.windowId) {
                         const sourceParents = [pane.parent, ...pane.parent.getParents()],
-                              ancestor = [targetBody, ...targetBody.getParents()]
+                              ancestor      = [targetBody, ...targetBody.getParents()]
                                   .find(parent => sourceParents.includes(parent));
 
                         ancestor && commitAncestors.add(ancestor)
