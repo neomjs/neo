@@ -270,16 +270,18 @@ test.describe('Grid selection: the View follows the store and owns the lifecycle
 
     test('every row-selecting model follows the flag — RowModel, CellRowModel, CellColumnRowModel — and a cell or column model leaves it alone', async () => {
         for (const module of [RowModel, CellRowModel, CellColumnRowModel]) {
-            store = createStore();
+            store = createStore([1]);
             grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag', selectionModel: {module}}});
 
+            expect(grid.view.selectedRows, `${module.name} adopts a pre-flagged record at bind`).toEqual([1]);
             await renderRows(grid);
+            expect(paintedRows(grid), `${module.name} paints it in every body`).toEqual([[1], [1], [1]]);
 
             store.get(3).flag = true;
             await grid.timeout(20);
 
-            expect(grid.view.selectedRows, `${module.name} adopts the flag`).toEqual([3]);
-            expect(paintedRows(grid), `${module.name} paints it in every body`).toEqual([[3], [3], [3]]);
+            expect(grid.view.selectedRows, `${module.name} follows a flag set after the render, under its own policy`).toEqual([3]);
+            expect(paintedRows(grid), `${module.name} paints the new row in every body`).toEqual([[3], [3], [3]]);
 
             grid.destroy();
             store.destroy()
