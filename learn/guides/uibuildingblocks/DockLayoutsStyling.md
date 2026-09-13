@@ -128,10 +128,12 @@ plainly while reviewing a Workstation vessel defect: cross-window CSS has two in
 stylesheet must load in that window, and then a selector in that sheet must match the transferred pane. Moving a
 selector cannot repair a rule whose sheet never loaded.
 
-The Workstation shows why the first gate is the one people miss. Its vessel is a viewport without a workspace, so the
-sheet generated for its workspace class never loads there. Open a vessel from its Queues pane and list the document's
-stylesheets: the Workstation's viewport sheets are there, and no workspace sheet at all. That is why every rule that
-styles a pane's content lives in the viewport's sheet, and only the dense workspace composition stays behind.
+The Workstation shows why the first gate is the one people miss. A vessel window does get a dock Workspace: a
+`PopupWorkspace` owns the popup's document and projects it under `.workstation-vessel-dock-host`. What never mounts
+there is the application's root `Workstation.view.Workspace`, so the sheet generated for that class never loads. Open a
+vessel from its Queues pane and list the document's stylesheets: the Workstation's viewport sheets are there, and no
+`Workspace.css` at all. That is why every rule that styles a pane's content lives in the viewport's sheet, and only the
+dense composition of the root workspace stays behind.
 
 A class's sheet loads when that class is instantiated. When a class needs another class's theme values without
 instantiating it, `additionalThemeFiles` declares the dependency. The dock workspace already declares
@@ -183,8 +185,9 @@ is why some defaults look plain:
 The Workstation maps grid and tab tokens onto its own palette, and the history of that bridge is the clearest lesson this
 subsystem has to offer about dock styling.
 
-The bridge first sat on the workspace element. That scope never reached the popup vessel, which has a viewport but no
-workspace, so torn-out panes lost their mapping and fell back to stock values. So the bridge moved up to the viewport —
+The bridge first sat on the root workspace element, `.workstation-workspace`. That scope never reached a popup vessel,
+which mounts the viewport but never the root workspace, so torn-out panes lost their mapping and fell back to stock
+values. So the bridge moved up to the viewport —
 and lost there instead. The engine stamps the theme class onto that same element, and `.workstation-viewport` weighs
 (0,1,0) against the theme's `:root .neo-theme-*` at (0,2,0). Measured at the time, 21 of the 23 tokens both layers
 declare resolved to the theme, and one of those losses moved a grid header button's alignment, so it was layout as well
