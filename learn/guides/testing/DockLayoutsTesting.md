@@ -8,7 +8,8 @@ one place.
 In Neo, a single dock fact exists in several places at once. The **committed document** — which pane sits where, at
 what extent — lives in the App Worker. The **component tree** that document projects lives there too. A **VDOM delta**
 crosses to the main thread. The browser **paints** it, under whatever stylesheets it actually loaded. And when a pane
-leaves for its own window, a **physical OS window** takes part, with a position no worker can see.
+leaves for its own window, a **physical OS window** takes part. The main thread measures where that window stands,
+and the App Worker holds the geometry in `Neo.manager.Window` only as the main thread reported it.
 
 Most wrong answers about this subsystem were not bad assertions. They were good assertions pointed at a place that
 could not contain the answer: a green test that read the document while the DOM had not followed, a red test that
@@ -39,7 +40,7 @@ flowchart TD
     Physical -.- HeadedProbe["Headed whitebox run"]
 ```
 
-Each stage can be right while the next one is wrong, and each instrument is blind past its own stage:
+Each stage can be right while another is wrong, and each instrument answers only for the stage it observes:
 
 | Where the fact lives | What it knows | Instrument that can see it | What that instrument cannot see |
 |---|---|---|---|
@@ -47,14 +48,15 @@ Each stage can be right while the next one is wrong, and each instrument is blin
 | Projected component tree | Live pane instances, identities, providers | Whitebox reads through the `neuralLink` fixture | Whether the DOM followed |
 | Delivered VDOM | What the main thread was told to render | `verify_component_consistency` | Pixels and theme paint |
 | Painted DOM and main-thread geometry | Element rects, computed styles, resolved tokens | The component tier; `observe_motion` for rects over time | Worker-side intent |
-| Physical windows | Window position, native titlebar drags | A headed whitebox run | Nothing above it — it is the last word |
+| Physical windows | Window position, native titlebar drags | A headed whitebox run, set against the geometry `Neo.manager.Window` holds | Whether the earlier stages were right — a correct window proves its own plane, not the path to it |
 
 The rest of this guide is what each row costs you when you pick the wrong one.
 
 ## Pick the tier that can hold the answer
 
-The engine runs three Playwright tiers, each with its own configuration file. Always name the file — a bare
-`npx playwright test` does not pick the tier you meant. The general guides cover each tier in depth
+Dock tests run in three Playwright tiers, each with its own configuration file, and a fourth configuration runs the
+cross-window measurements headed. Always name the file — a bare `npx playwright test` does not pick the tier you meant.
+The general guides cover each tier in depth
 ([Unit Testing](UnitTesting.md), [Component Testing](ComponentTesting.md), [Whitebox E2E](WhiteboxE2E.md)); this section
 is what matters when the subject is docking.
 
@@ -67,8 +69,8 @@ npx playwright test test/playwright/unit/dashboard/DockPerspectiveState.spec.mjs
 
 The unit tier runs the worker architecture inside one Node process, with no browser. That makes it the right home for
 everything the committed document decides: operations, reducers, the transaction and undo cursor, persistence
-wrappers, and the truth a Workspace publishes to its state provider. It is fast enough to run on every save, and the
-dock folder alone carries more than fifty spec files.
+wrappers, and the truth a Workspace publishes to its state provider. It is fast enough to run on every save, and its
+`dashboard` folder alone carries more than fifty dock spec files.
 
 Two things to know before you trust a local run of the whole tier. The `Neo` namespace persists across the files one
 Playwright worker runs — the Unit Testing guide's "Safety Net" section covers what that means for class names. And a
@@ -237,8 +239,8 @@ This loop is only the part a dock question needs; the
 [Neural Link Capability Matrix](../../agentos/tooling/NeuralLinkCapabilityMatrix.md) lists the full tool surface.
 
 **Name your witness before you read.** `get_worker_topology` lists every App Worker connected to the bridge — the browser
-the bug was reported in, and also any browser you opened yourself to look. A read that does not name a session can
-default to the most recently connected one, which is usually yours. Before reading, decide how you will recognise the
+the bug was reported in, and also any browser you opened yourself to look. A read that does not name a session goes
+to the most recently registered one, which is usually yours. Before reading, decide how you will recognise the
 instance you mean — its port, its user agent, its session id, or its window geometry — and say which one you read.
 
 ## When the answer only exists headed
@@ -248,6 +250,12 @@ another popup, a vessel parked and re-shown mid-gesture, a pointer crossing from
 browser does not reproduce all of it, and some of those branches are only reachable in a headed run. When your change
 touches vessel admission, proxy motion or window geometry, run the relevant witnesses headed, as the
 [Dock Layouts overview](../uibuildingblocks/DockLayouts.md) describes for its own tear-out journey.
+
+The measurements that decide native placement have a runner of their own, `playwright.config.matrix.mjs`. It selects
+the tear-out matrix and the cross-window demo specs by name, runs them headed in your installed Chrome, one at a time,
+and stays separate from the whitebox configuration because a GPU launch flag would distort the placement it measures.
+CI does not run it. It serves the [Tear-Out Portability Matrix](../specificfeatures/TearOutPortabilityMatrix.md), the
+evidence ledger for native placement.
 
 Know, too, what CI does and does not certify. The engine's e2e job runs a deliberate subset of the tier. The Brain-gated
 specs are outside it, because CI provisions no Brain checkout. The Workstation specs are outside it as well, because
@@ -267,8 +275,11 @@ telling you about shared state, not about the arm.
 
 CI takes the question out of your hands for the unit tier. It retries a failed test twice and still fails the run when a
 test only passed on a retry, so an intermittent unit result counts as a failure rather than as a pass. The whitebox tier
-runs one test at a time on one worker, so an arm that fails there only while the machine is busy is pointing at timing or
-load rather than at shared state.
+runs one test at a time on one worker, but serial is not isolated: its fixture imports the Neural Link services once
+per worker process and every test reuses the same connection service, so state can outlive the test that left it. An
+arm that fails there only while the machine is busy has given you evidence about load, not a diagnosis. Separate the two
+before you choose a fix: rerun the same batch, in the same order, on an idle machine, and rerun the arm alone, in a
+fresh process, under load.
 
 Whichever it is, write down which. "Fails alone", "fails only in its batch" and "fails only under load" route to
 different fixes, and a report that does not say which forces the next reader to repeat your runs.
