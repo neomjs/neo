@@ -39,10 +39,11 @@ Every gesture in this guide passes through the same five hands, and each one hol
   reach the App Worker only as the numbers a gesture reports.
 - **The preview** belongs to the window's interaction surfaces: mid-drag splitter math, a `dockPreview` payload, an
   indicator menu. It dies with the gesture.
-- **The descriptor** is the only thing that crosses into the model — `resizeSplit`, `resizeEdgeZone`, `addTab` — and it
-  carries no pixels: a split's new size vector, an edge's normalized extent, an item and the stack it belongs in.
-- **The committed document** is worker-owned JSON. The workspace's `applyDockZoneOperation` is a pure reducer over it,
-  and nothing else writes it.
+- **The descriptor** is the only thing a gesture sends into the model — `resizeSplit`, `resizeEdgeZone`, `addTab` — and
+  it carries no pixels: a split's new size vector, an edge's normalized extent, an item and the stack it belongs in.
+- **The committed document** is worker-owned JSON. The workspace's `applyDockZoneOperation` is a pure reducer over it:
+  it returns the next document and writes nothing; the committing surface passes a successful result to the view-sync,
+  which stores it.
 - **The projection** is the component tree the document becomes: tab containers, headers and the pane instances inside
   them. It is derived, and it still carries identity, which is why moving it is the delicate part.
 
