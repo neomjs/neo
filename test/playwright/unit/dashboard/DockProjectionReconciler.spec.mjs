@@ -131,16 +131,16 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         test(`external pane move settles its ancestor before descendant commits (retain=${retainTopology})`, async () => {
             const model = createRootTabsModel(),
                   empty = structuredClone(model),
-                  pane = Neo.create(Component, {header: {text: 'Alpha'}});
+                  pane  = Neo.create(Component, {header: {text: 'Alpha'}});
 
             empty.items = {};
             empty.nodes['root-tabs'].items = [];
             empty.nodes['root-tabs'].activeItemId = null;
 
-            const host = Neo.create(Container, {items: retainTopology ? [DockLayoutAdapter.project(empty)] : []}),
-                  viewport = Neo.create(Container, {items: [pane, host]}),
+            const host         = Neo.create(Container, {items: retainTopology ? [DockLayoutAdapter.project(empty)] : []}),
+                  viewport     = Neo.create(Container, {items: [pane, host]}),
                   placeholders = new Map(),
-                  nextConfig = DockLayoutAdapter.project(model, {
+                  nextConfig   = DockLayoutAdapter.project(model, {
                       resolveComponentRef() {
                           const placeholder = Neo.create(Component, {header: {text: 'Alpha'}, hidden: true});
                           placeholders.set('alpha', placeholder);
@@ -1263,6 +1263,63 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             expect(host.items[0].getCardContainer().items, 'every item lands on its own pane')
                 .toEqual([panes.alpha, panes.beta, panes.gamma]);
             expect(host.items[0].getTabButtons(), 'one button per projected item').toHaveLength(3)
+        } finally {
+            host.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
+    });
+
+    test('a pane naming its own item outranks its position when the bar ids disagree at equal length', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta  = {reference: 'beta',  title: 'Beta'};
+        model.items.gamma = {reference: 'gamma', title: 'Gamma'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta', 'gamma'];
+
+        // Panes carrying their own dock identity, as every pane materialized from a projected config
+        // does. Equal lengths prove a COUNT and never an order: a bar whose ids have drifted out of
+        // the body's order is exactly as long as the body it contradicts, so a length check alone
+        // would hand each swapped id its neighbour's pane and report success.
+        const panes = {
+                  alpha: Neo.create(Component, {dockItemId: 'alpha', header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {dockItemId: 'beta',  header: {text: 'Beta'}}),
+                  gamma: Neo.create(Component, {dockItemId: 'gamma', header: {text: 'Gamma'}})
+              },
+              host  = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              tab   = host.items[0],
+              bar   = tab.getTabBar();
+
+        try {
+            expect(tab.getCardContainer().items, 'the body holds the three panes in the committed order')
+                .toEqual([panes.alpha, panes.beta, panes.gamma]);
+
+            // The drift, at equal length: the bar's ids swap the last two, the body does not.
+            bar.setSilent({sortZoneConfig: {...bar.sortZoneConfig, dockItemIds: ['alpha', 'gamma', 'beta']}});
+
+            const placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef(_reference, item, itemId) {
+                          const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, placeholder);
+
+                          return placeholder
+                      }
+                  });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            });
+
+            expect(host.items[0].getCardContainer().items, 'each item keeps the pane that names it')
+                .toEqual([panes.alpha, panes.beta, panes.gamma])
         } finally {
             host.destroy();
             Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())

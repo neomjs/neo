@@ -834,17 +834,17 @@ class Reconciler extends Base {
                 bar     = tab.getTabBar(),
                 body    = tab.getCardContainer(),
                 itemIds = bar.sortZoneConfig?.dockItemIds || [],
-                // Parallel arrays with nothing but the index tying them together. Zipping them when
-                // their lengths disagree binds an item's id to a SIBLING's pane, which strands the
-                // mis-bound item — never asked of `resolveItem`, so a returning pane is never taken —
-                // and lands two desired slots on one instance. An untrustworthy zip is refused, and
-                // only a pane naming its own item still binds; every other id asks the resolver.
+                // Two parallel arrays with nothing but the index tying them together, so the zip is
+                // evidence only where nothing contradicts it: equal lengths prove a COUNT, never an
+                // order. A pane naming its own item therefore answers for itself, and an unstamped
+                // one answers by position only while the lengths agree. Every other id asks the
+                // resolver instead of binding to a SIBLING's pane, which strands both of them.
                 paired  = itemIds.length === body.items.length;
 
             itemIds.forEach((itemId, index) => {
                 const pane = body.items[index];
 
-                if (pane && (paired || pane.dockItemId === itemId)) {
+                if (pane && (pane.dockItemId ? pane.dockItemId === itemId : paired)) {
                     liveItems.set(itemId, pane)
                 }
             })
