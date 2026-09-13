@@ -325,6 +325,37 @@ test.describe('Grid selection: the View follows the store and owns the lifecycle
         expect(paintedRows(grid), 'a flag without a model marks nothing').toEqual([[], [], []])
     });
 
+    test('two grids never share a selection, and a destroyed grid leaves nothing behind for the next', async () => {
+        const storeA = createStore(),
+              gridA  = await createGrid(storeA, {viewConfig: {selectedRecordField: 'flag'}}),
+              storeB = createStore(),
+              gridB  = await createGrid(storeB, {viewConfig: {selectedRecordField: 'flag'}}),
+              modelA = gridA.view.selectionModel,
+              modelB = gridB.view.selectionModel;
+
+        expect(modelB.selectedRows,    'each model owns its rows array').not.toBe(modelA.selectedRows);
+        expect(modelB.selectedColumns, 'each model owns its columns array').not.toBe(modelA.selectedColumns);
+
+        await renderRows(gridA);
+        await renderRows(gridB);
+        modelA.selectRow(3);
+
+        expect(gridA.view.selectedRows).toEqual([3]);
+        expect(gridB.view.selectedRows, 'the second grid holds no row the first selected').toEqual([]);
+        expect(paintedRows(gridB)).toEqual([[], [], []]);
+
+        gridA.destroy();
+        storeA.destroy();
+
+        store = createStore();
+        grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag'}});
+
+        expect(grid.view.selectedRows, 'a grid created after another was destroyed starts empty').toEqual([]);
+
+        gridB.destroy();
+        storeB.destroy()
+    });
+
     test('lock and unlock churn recreates bodies, never a model: the View keeps its one instance', async () => {
         store = createStore();
         grid  = await createGrid(store);

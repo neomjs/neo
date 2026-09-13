@@ -1,5 +1,6 @@
-import Model    from '../Model.mjs';
-import NeoArray from '../../util/Array.mjs';
+import {isDescriptor} from '../../core/ConfigSymbols.mjs';
+import Model          from '../Model.mjs';
+import NeoArray       from '../../util/Array.mjs';
 
 /**
  * Abstract base class for all grid related selection models
@@ -15,16 +16,31 @@ class BaseModel extends Model {
          */
         className: 'Neo.selection.grid.BaseModel',
         /**
-         * Storing the column dataFields
-         * @member {String[]} selectedColumns=[]
+         * The column dataFields this model holds selected. A descriptor, like `Neo.selection.Model#items_`
+         * and `grid.Body`'s windows: a static array default is ONE object per class — every model of that
+         * class shared it, and two grids selected together — so `clone` makes it per instance, and
+         * `cloneOnGet: 'none'` lets the in-place `NeoArray` writes land instead of hitting a read copy.
+         * @member {String[]} selectedColumns_=[]
+         * @reactive
          */
-        selectedColumns: [],
+        selectedColumns_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : []
+        },
         /**
-         * Storing the record ids
-         * @member {Number[]|String[]} selectedRows=[]
+         * The record ids this model holds selected; the descriptor for the reason above.
+         * @member {Number[]|String[]} selectedRows_=[]
          * @protected
+         * @reactive
          */
-        selectedRows: []
+        selectedRows_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : []
+        }
     }
 
     /**
