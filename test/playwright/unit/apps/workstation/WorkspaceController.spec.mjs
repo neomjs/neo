@@ -75,11 +75,38 @@ test.describe('Workstation topology save and close coordination', () => {
                   perspectiveProvenance: () => ({declaredPerspective: 'shipped'}),
                   topologyCollection   : {activeLayoutId: 'saved', topologies: {saved: {title: 'Saved', placementHints: stored}}}
               },
-              result = WorkspaceController.prototype.captureTopology.call({component});
+              result = Workspace.prototype.captureTopology.call(component);
 
         expect(result.errors).toEqual([]);
         expect(result.topology.placementHints).toEqual(live);
         expect(component.topologyCollection.topologies.saved.placementHints).toEqual(stored)
+    });
+
+    test('the toolbar\'s Save handler keeps the click payload out of the layout id', async () => {
+        // A button invokes a string handler with its click data. Routed straight into
+        // `saveTopology(layoutId)`, that payload became the record's name and the producer refused
+        // it — measured before this handler existed: "layoutId must be a non-empty string".
+        const clickData = {component: {id: 'neo-button-1'}, path: [{id: 'neo-button-1'}]},
+              calls     = [],
+              component = {
+                  getDockTopologyWorkspaces: () => ({main: {
+                      schema: 'neo.dock.zone.v1', root: 'tabs',
+                      items : {a: {reference: 'a'}},
+                      nodes : {tabs: {type: 'tabs', items: ['a'], activeItemId: 'a'}}
+                  }}),
+                  getPlacementHints    : () => ({}),
+                  perspectiveProvenance: () => ({declaredPerspective: 'shipped'}),
+                  topologyCollection   : null,
+                  saveTopology(...args) {calls.push(args); return Promise.resolve({persisted: true, current: true, errors: []})}
+              };
+
+        // The control: the payload IS harmful if it reaches the command.
+        expect(Workspace.prototype.captureTopology.call(component, clickData).errors.join(' '))
+            .toContain('layoutId must be a non-empty string');
+
+        // The handler: it never does.
+        await expect(WorkspaceController.prototype.onSaveTopology.call({component}, clickData)).resolves.toMatchObject({persisted: true});
+        expect(calls, 'the component command is called with no layout argument').toEqual([[]])
     });
 
     test('a partial carrier refusal compensates cleared windows and closes none', async () => {
@@ -95,8 +122,10 @@ test.describe('Workstation topology save and close coordination', () => {
 
         try {
             const result = await WorkspaceController.prototype.closeTopology.call({
-                component   : {topologyGroupId: root.groupId},
-                saveTopology: async () => ({persisted: true, current: true, errors: []})
+                component: {
+                    topologyGroupId: root.groupId,
+                    saveTopology   : async () => ({persisted: true, current: true, errors: []})
+                }
             });
 
             expect(result.closed).toBe(false);
@@ -132,6 +161,7 @@ test.describe('Workstation topology save and close coordination', () => {
                   read : async () => null,
                   write: () => {started.resolve(); return acknowledgement.promise}
               }}),
+              // The command cluster lives on the component; the controller reaches it there.
               context = {
                   component: {
                       getDockTopologyWorkspaces: () => ({main: document}),
@@ -139,10 +169,10 @@ test.describe('Workstation topology save and close coordination', () => {
                       perspectiveProvenance    : () => ({declaredPerspective: 'shipped'}),
                       topologyGroupId          : root.groupId,
                       topologyLibrary          : library,
-                      get topologyCollection() {return library.collection}
-                  },
-                  captureTopology: WorkspaceController.prototype.captureTopology,
-                  saveTopology   : WorkspaceController.prototype.saveTopology
+                      get topologyCollection() {return library.collection},
+                      captureTopology: Workspace.prototype.captureTopology,
+                      saveTopology   : Workspace.prototype.saveTopology
+                  }
               };
 
         try {

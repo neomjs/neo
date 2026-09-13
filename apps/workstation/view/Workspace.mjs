@@ -455,7 +455,7 @@ class Workspace extends DockWorkspace {
             // and removes only the ones it flagged, so neither side counts the other's and this
             // list is free to grow.
             items : [
-                {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
+                {ntype: 'button', handler: 'onSaveTopology', text: 'Save workspace'},
                 {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'},
                 // Handled on the view, like undo and redo above it: the shipped document and the commit
                 // seam live here. Disabled on the shipped arrangement, reading the SAME engine leaf as
@@ -1057,12 +1057,79 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary Saves the current topology through the root controller and waits for durability.
+     * @summary Captures the full keyed composition under its explicit active layout identity.
+     * The record's declared origin is the accepted-write identity, never the collection's pointer.
+     * @param {String} [layoutId] Defaults to the collection's save pointer, or the new-root name `default`.
+     * @returns {Object} The finite topology producer receipt.
+     */
+    captureTopology(layoutId=this.topologyCollection?.activeLayoutId ?? 'default') {
+        const me       = this,
+              selected = me.topologyCollection?.topologies?.[layoutId];
+
+        return Persistence.captureTopologyPerspective(me.getDockTopologyWorkspaces(), {
+            layoutId,
+            metadata      : {...selected?.metadata, ...me.perspectiveProvenance()},
+            placementHints: me.getPlacementHints(),
+            title         : selected?.title ?? layoutId,
+            ...(selected && Object.hasOwn(selected, 'revision') && {revision: selected.revision}),
+            ...(selected && Object.hasOwn(selected, 'perspectiveName') && {perspectiveName: selected.perspectiveName})
+        })
+    }
+
+    /**
+     * @summary Saves a named multi-workspace composition and waits for durable acknowledgement.
+     *
+     * A command on the component, beside the state it reads — the keyed documents, the placement
+     * hints, the library and the Group — and the address the Neural Link already uses. The
+     * controller routes the toolbar's click here through `onSaveTopology`, which names no layout.
      * @param {String} [layoutId]
      * @returns {Promise<Object>}
      */
-    saveTopology(layoutId) {
-        return this.getController().saveTopology(layoutId)
+    async saveTopology(layoutId) {
+        const me    = this,
+              group = TransactionManager.get(me.topologyGroupId);
+
+        if (!group || me.isDestroyed) return {persisted: false, current: false, errors: ['workspace is no longer open']};
+
+        const queue = group.queue;
+
+        await queue;
+
+        if (TransactionManager.get(group.id) !== group || group.queue !== queue) {
+            return {persisted: false, current: false, errors: ['workspace changed while waiting to save']}
+        }
+
+        const {topology, errors} = me.captureTopology(layoutId);
+
+        if (errors.length) return {persisted: false, errors};
+
+        const saved = me.topologyLibrary.save(topology, {activate: true, replace: true});
+
+        if (saved.errors.length) return {persisted: false, errors: saved.errors};
+
+        const result  = await me.topologyLibrary.persist(),
+              current = me.captureTopology(topology.layoutId);
+
+        return {
+            ...result,
+            current: result.current && group.queue === queue && !current.errors.length &&
+                JSON.stringify(current.topology) === JSON.stringify(topology)
+        }
+    }
+
+    /**
+     * @summary Lets the Group library own the reconnect lease and durable disposal of this root.
+     * @returns {Boolean}
+     */
+    attachTopologyLibrary() {
+        const me = this;
+
+        return me.topologyLibrary.attachGroup({
+            capture: () => me.captureTopology(),
+            dispose: () => me.destroy(),
+            groupId: me.topologyGroupId,
+            manager: TransactionManager
+        })
     }
 
     /**
