@@ -2648,6 +2648,13 @@ test.describe('Workstation — dense living-data composition', () => {
             intervals: [25, 50, 100]
         }).toBe('scale-tabs');
         await expect(container).toHaveClass(/neo-dock-maximized/);
+        // The class lands with the FLIP's invert, so the rect is read once the play has settled:
+        // the running animation is the authority, not a cleared inline transform.
+        await page.waitForFunction(selector => {
+            const el = document.querySelector(selector);
+
+            return el && !el.style.transform && el.getAnimations().length === 0
+        }, `#${chrome.containerId}`, {timeout: 15000});
 
         const maximizedRect = await container.boundingBox();
 
