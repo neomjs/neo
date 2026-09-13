@@ -428,20 +428,24 @@ class NativeGestureDriver extends GestureDriver {
                 if (!armed) {
                     release = {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY};
 
-                    let cancellation = await driver.cancelTearOutGesture(run, button, release, {sortZone, targetId: handleId});
+                    let sourceArm = {
+                        buttonId       : button.id,
+                        dockGroupNodeId: sortZone.dockGroupNodeId,
+                        dragComponent  : sortZone.dragComponent?.id ?? null,
+                        dragEndActive  : sortZone.dragEndActive,
+                        dragProxyReady : Boolean(sortZone.dragProxy),
+                        handleId,
+                        handleRect,
+                        stackDragActive: sortZone.stackDragActive === true,
+                        startIndex     : sortZone.startIndex
+                    }, cancellation = await driver.cancelTearOutGesture(run, button, release, {sortZone, targetId: handleId});
 
                     return {
                         applied: false,
                         errors : ['whole-stack source drag did not arm from the rendered grip'],
                         proof  : {
                             cancellation,
-                            sourceArm: {
-                                dockGroupNodeId: sortZone.dockGroupNodeId,
-                                dragComponent  : sortZone.dragComponent?.id ?? null,
-                                dragProxyReady : Boolean(sortZone.dragProxy),
-                                stackDragActive: sortZone.stackDragActive === true,
-                                startIndex     : sortZone.startIndex
-                            }
+                            sourceArm
                         }
                     }
                 }
@@ -773,7 +777,7 @@ class NativeGestureDriver extends GestureDriver {
                     await driver.trap(moveTo(outX, outY + i * 12))
                 }
 
-                let survivedProbe = Boolean(me.nativeWindows?.getConnection(me.id, itemId));
+                let survivedProbe = await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0}));
 
                 if (reenter) {
                     // The morph beat: walk back INSIDE until the PROXY re-enters past the reattach
@@ -879,14 +883,14 @@ class NativeGestureDriver extends GestureDriver {
                     errors: applied ? [] : ['tear-out ownership did not settle in the expected vessel'],
                     proof : {
                         ...ownership,
-                        born              : true,
+                        born            : true,
                         survivedProbe,
                         committed,
                         documentBefore,
                         documentAfter,
                         targetDocumentAfter,
                         catalogPreserved,
-                        vesselWindowName  : `tearout-${itemId}`
+                        vesselWindowName: `tearout-${itemId}`
                     }
                 }
             } catch (error) {
@@ -917,7 +921,7 @@ class NativeGestureDriver extends GestureDriver {
         let me = this.workspace, driver = this;
 
         return driver.waitFor(() => Boolean(
-            me.nativeWindows?.getConnection(me.id, itemId) || me.nativeWindows?.getOwner(me.id, itemId)
+            me.nativeWindows?.getConnection(me.id, itemId)?.windowId != null || me.nativeWindows?.getOwner(me.id, itemId)?.windowId != null
         ), {attempts, delay})
     }
 

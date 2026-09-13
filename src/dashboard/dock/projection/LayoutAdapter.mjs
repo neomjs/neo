@@ -133,6 +133,8 @@ class LayoutAdapter extends Base {
      * Live instances retain their original header ownership/value behind both the stack grip and
      * add-tab animation. Each call starts from that original header, so an unrelated projection
      * removes the transient decoration without copying it into application or persisted state.
+     * A config-born grip carries the same provenance on its header until the first live refresh.
+     * An undeclared live header receives a stable document-title fallback before stack decoration.
      * @param {*} component Resolved pane config or live component instance.
      * @param {String} itemId Stable item identity.
      * @param {Object} item Persisted item record.
@@ -152,7 +154,7 @@ class LayoutAdapter extends Base {
             header;
 
         if (isLive) {
-            const source = config[projectedHeaderSource];
+            const source = config[projectedHeaderSource] || config.header?.[projectedHeaderSource];
 
             if (source) {
                 if (source.hadOwn) {
@@ -162,6 +164,10 @@ class LayoutAdapter extends Base {
                 }
 
                 delete config[projectedHeaderSource]
+            }
+
+            if (stackHandle && config.header === undefined) {
+                config.header = {text: item?.title || itemId}
             }
 
             if (stackHandle || isInsertion) {
@@ -207,7 +213,8 @@ class LayoutAdapter extends Base {
 
         return {
             ...source,
-            text: [
+            [projectedHeaderSource]: {hadOwn: header !== undefined, value: header},
+            text                   : [
                 ...(Array.isArray(text)
                     ? text
                     : [text?.constructor === Object ? text : {vtype: 'text', text: text ?? item?.title ?? itemId}]),

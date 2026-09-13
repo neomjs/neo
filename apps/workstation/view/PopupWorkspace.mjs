@@ -77,16 +77,20 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Owns one interaction participant per live popup render target.
+     * @summary Owns one interaction participant per live popup, admitting drops only while populated.
+     * Empty retained vessels cannot target their own next tear-out. The visual owner survives
+     * document changes so in-flight projection never references an overlay destroyed mid-commit.
      */
     syncParticipation() {
         const me = this;
         me.participation?.destroy();
-        me.participation = me.windowId && me.workspaceSet ? Neo.create(Participation, {
+        const participation = me.windowId && me.workspaceSet ? Neo.create(Participation, {
             dragEmbodiment: me.rootWorkspace.vesselProxyEmbodiment,
+            hitTest       : (x, y) => Object.keys(me.dockModel.items).length > 0 && participation.defaultHitTest(x, y),
             sortGroup     : me.rootWorkspace.constructor.CROSS_WINDOW_SORT_GROUP,
             windowId      : me.windowId, workspace: me, workspaceId: me.workspaceKey, workspaceSet: me.workspaceSet
-        }) : null
+        }) : null;
+        me.participation = participation
     }
 
     /**

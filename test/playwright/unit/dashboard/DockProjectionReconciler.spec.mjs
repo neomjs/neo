@@ -129,6 +129,70 @@ const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemId
 };
 
 test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
+    test('preparing a dormant lazy card preserves its slot identity without loading or duplicating it', async () => {
+        let   loads = 0;
+        const model = createRootTabsModel(), pane = Neo.create(Component, {header: {text: 'Alpha'}}),
+              lazy = {id: 'reconciler-lazy-card', module: () => {loads++; return Promise.resolve(Component)}, header: {text: 'Lazy'}};
+        model.items.beta = {reference: 'beta', title: 'Lazy'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta'];
+        const host = Neo.create(Container, {items: [DockLayoutAdapter.project(model, {
+            resolveComponentRef: (_reference, _item, itemId) => itemId === 'alpha' ? pane : lazy
+        })]}), resident = host.items[0].getCardContainer().items[1], placeholders = new Map();
+
+        try {
+            expect(resident.constructor, 'the inactive card is still its config').toBe(Object);
+            expect(loads).toBe(0);
+            const nextConfig = DockLayoutAdapter.project(model, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+                    placeholders.set(itemId, placeholder);
+                    return placeholder
+                }
+            });
+            await DockProjectionReconciler.reconcileProjection({
+                host, nextConfig, placeholders, resolveItem: itemId => itemId === 'alpha' ? pane : lazy,
+                prepareItem(value, itemId, context) {
+                    const prepared = DockLayoutAdapter.decorateProjectedItem(value, itemId, model.items[itemId], context);
+                    prepared.header = {...prepared.header, text: `Prepared ${itemId}`};
+                    return prepared
+                }
+            });
+            expect(host.items[0].getCardContainer().items).toHaveLength(2);
+            expect(host.items[0].getCardContainer().items[1]).toBe(resident);
+            expect(host.items[0].getTabButtons()).toHaveLength(2);
+            expect(resident.header.text).toBe('Prepared beta');
+            expect(host.items[0].getTabButtons()[1].text).toBe('Prepared beta');
+            expect(loads, 'metadata preparation does not activate the lazy module').toBe(0)
+        } finally {
+            host.destroy();
+            pane.isDestroyed || pane.destroy()
+        }
+    });
+
+    test('pane preparation keeps the projected context after fresh tab construction consumes its config', async () => {
+        const model      = createRootTabsModel(), pane = Neo.create(Component, {header: {text: 'Alpha'}}),
+              host       = Neo.create(Container, {items: []}), placeholders = new Map(), contexts = [],
+              nextConfig = DockLayoutAdapter.project(model, {
+                  resolveComponentRef(_reference, item, itemId) {
+                      const placeholder = Neo.create(Component, {header: {text: item.title}, hidden: true});
+                      placeholders.set(itemId, placeholder);
+                      return placeholder
+                  }
+              });
+
+        try {
+            await DockProjectionReconciler.reconcileProjection({
+                host, nextConfig, placeholders, resolveItem: () => pane,
+                prepareItem(resolved, itemId, context) {contexts.push({itemId, ...context}); return resolved}
+            });
+            expect(contexts).toEqual([{itemId: 'alpha', nodeId: 'root-tabs', stackHandle: false}]);
+            expect(host.items[0].getCardContainer().items).toEqual([pane])
+        } finally {
+            host.destroy();
+            pane.isDestroyed || pane.destroy()
+        }
+    });
+
     for (const retainTopology of [false, true]) {
         test(`external pane move settles its ancestor before descendant commits (retain=${retainTopology})`, async () => {
             const model = createRootTabsModel(),

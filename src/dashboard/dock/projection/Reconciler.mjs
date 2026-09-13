@@ -163,6 +163,7 @@ class Reconciler extends Base {
      *     the proven-identical structural shell.
      * @param {Iterable<String>} [options.preserveItemIds=[]]
      * @param {Function|null} [options.resolveItem=null]
+     * @param {Function|null} [options.prepareItem=null] Prepares each resolved pane for its projected slot.
      * @returns {{currentTabs:Map,nextShell:Neo.component.Base,plans:Map}|null}
      * @static
      */
@@ -170,7 +171,7 @@ class Reconciler extends Base {
         oldShell,
         nextConfig,
         placeholders,
-        {preserveItemIds=[], reconcileItems=false, resolveItem=null}={}
+        {preserveItemIds=[], reconcileItems=false, resolveItem=null, prepareItem=null}={}
     ) {
         const
             currentNodes = this.collectProjectionTopology(oldShell),
@@ -256,6 +257,7 @@ class Reconciler extends Base {
                     config      : next.node,
                     desiredItems: [...(next.node.headerToolbar?.sortZoneConfig?.dockItemIds || [])],
                     placeholder : null,
+                    sortConfig  : {...next.node.headerToolbar?.sortZoneConfig},
                     tab         : current
                 })
             }
@@ -273,7 +275,8 @@ class Reconciler extends Base {
                 resolveItem,
                 preserveItemIds,
                 commitBars,
-                commitAncestors
+                commitAncestors,
+                prepareItem
             )
         }
 
@@ -288,8 +291,8 @@ class Reconciler extends Base {
     /**
      * @summary Replaces retained projected tab configs with geometry-equivalent staging placeholders.
      *
-     * Each plan captures the projected active/item state while the placeholder reserves the retained
-     * tab container's destination. New and removed logical tab nodes remain ordinary projected instances.
+     * Each plan captures active/item/drag metadata before construction consumes config fields.
+     * The placeholder reserves the retained tab's destination; new nodes materialize normally.
      * @param {*} config
      * @param {Map<String,Neo.tab.Container>} currentTabs
      * @param {Map<String,Object>} plans
@@ -313,6 +316,7 @@ class Reconciler extends Base {
                     config,
                     desiredItems,
                     placeholder: null,
+                    sortConfig : {...config.headerToolbar?.sortZoneConfig},
                     tab        : currentTab
                 };
 
@@ -366,6 +370,9 @@ class Reconciler extends Base {
      * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes which are absent
      * from this projection but must survive without their obsolete tab buttons.
      * @param {Function} options.resolveItem Resolves one live pane or materializable config by dock item id.
+     * @param {Function|null} [options.prepareItem=null] `(pane, itemId, {nodeId, stackHandle}) => pane`:
+     *     applies owner-held item metadata to retained and arriving panes before their header sync.
+     *     A prepared copy of a resident lazy config updates that config in place, without loading it.
      * @param {Function|null} [options.onProjectionStaged=null]
      * @param {Number} [options.shellIndex=0]
      * @param {Function|null} [options.waitForOverflowProjection=null]
@@ -379,6 +386,7 @@ class Reconciler extends Base {
         nextConfig,
         placeholders,
         preserveItemIds=[],
+        prepareItem=null,
         retainTopology=false,
         resolveItem,
         onProjectionStaged=null,
@@ -392,6 +400,7 @@ class Reconciler extends Base {
         const stableProjection = oldShell && (geometryOnly || retainTopology)
             ? this.reconcileStableTopology(oldShell, nextConfig, placeholders, {
                 preserveItemIds,
+                prepareItem,
                 reconcileItems: retainTopology,
                 resolveItem
             })
@@ -514,7 +523,8 @@ class Reconciler extends Base {
                 resolveItem,
                 preserveItemIds,
                 commitBars,
-                commitAncestors
+                commitAncestors,
+                prepareItem
             );
 
             for (const ancestor of commitAncestors) {
@@ -804,6 +814,7 @@ class Reconciler extends Base {
      * @param {Set<Neo.container.Base>} [commitAncestors=new Set()] Common ancestors of live panes
      * imported from outside the projected tabs. Commit these before descendant flights so the
      * renderer observes one move instead of inserting a duplicate beside the external DOM copy.
+     * @param {Function|null} [prepareItem=null] Prepares the resolved pane/config before pairing its header.
      * @returns {Map<String,Object>}
      * @static
      */
@@ -815,7 +826,8 @@ class Reconciler extends Base {
         resolveItem,
         preserveItemIds=[],
         commitBars=new Set(),
-        commitAncestors=new Set()
+        commitAncestors=new Set(),
+        prepareItem=null
     ) {
         const
             nextTabs       = this.collectProjectedTabs(nextShell),
@@ -888,7 +900,7 @@ class Reconciler extends Base {
             return null
         };
 
-        plans.forEach(plan => {
+        plans.forEach((plan, nodeId) => {
             const
                 targetTab  = plan.tab,
                 targetBar  = targetTab.getTabBar(),
@@ -896,12 +908,25 @@ class Reconciler extends Base {
 
             plan.desiredItems.forEach((itemId, targetIndex) => {
                 const
-                    pane        = resolve(itemId),
                     placeholder = placeholders.get(itemId);
-                let stagedButton = null;
+                let pane = resolve(itemId), stagedButton = null;
 
                 if (!pane) {
                     throw new Error(`Dock projection could not resolve live item "${itemId}"`)
+                }
+
+                if (prepareItem) {
+                    // Preparation follows identity resolution: a cache hit and a resolver fallback
+                    // receive the same projection metadata without trusting a stale positional pair.
+                    const prepared = prepareItem(pane, itemId, {
+                        nodeId,
+                        stackHandle: plan.sortConfig.dockGroupNodeId === nodeId
+                            && targetIndex === plan.activeIndex
+                    });
+                    // A dormant lazy config already occupies a card slot. Keep that identity just
+                    // as we keep live instances; inserting its decorated clone would duplicate it.
+                    pane = pane.constructor === Object && findItemState(pane) ? Object.assign(pane, prepared) : prepared;
+                    resolvedItems.set(itemId, pane)
                 }
 
                 if (placeholder?.parent) {
@@ -1022,7 +1047,7 @@ class Reconciler extends Base {
                 bar                 = tab.getTabBar(),
                 body                = tab.getCardContainer(),
                 activeIndex         = plan.activeIndex,
-                projectedSortConfig = plan.config.headerToolbar?.sortZoneConfig || {},
+                projectedSortConfig = plan.sortConfig,
                 sortConfig          = {
                     ...bar.sortZoneConfig,
                     ...projectedSortConfig,
@@ -1038,6 +1063,7 @@ class Reconciler extends Base {
             body.layout._activeIndex = activeIndex;
             bar.setSilent({sortZoneConfig: sortConfig});
             bar.sortZone?.set({
+                dockGroupNodeId : sortConfig.dockGroupNodeId,
                 dockItemIds     : [...plan.desiredItems],
                 dockSourceNodeId: sortConfig.dockSourceNodeId,
                 dockWorkspaceId : sortConfig.dockWorkspaceId,
