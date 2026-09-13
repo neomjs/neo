@@ -3442,20 +3442,20 @@ test.describe('Workstation topology bar reads the engine perspective leaf (#1861
             const bar   = workspace.getController().getReference('topology-toolbar'),
                   reset = bar.items.find(item => item.text === 'Reset to default'),
                   line  = bar.items.find(item => item.cls?.includes('workstation-topology-state')),
-                  read  = () => ({disabled: reset.disabled, text: line.html || ''});
+                  read  = () => ({disabled: reset.disabled, inRow: line.vdom.removeDom !== true, text: line.html || ''});
 
-            expect(read(), 'the shipped arrangement: nothing to reset, nothing to say').toEqual({disabled: true, text: ''});
+            expect(read(), 'the shipped arrangement: nothing to reset, nothing to say, no box in the row').toEqual({disabled: true, inRow: false, text: ''});
 
             await workspace.workspaceSet.commit(MAIN, [{operation: 'setItemPinned', itemId: 'commits', pinned: false}]);
             await workspace.refreshPromise;
 
             expect(workspace.getState('dock.perspective').modified, 'the engine sees the pin flip').toBe(true);
-            expect(read(), 'and the bar follows it').toEqual({disabled: false, text: 'Modified from default'});
+            expect(read(), 'and the bar follows it').toEqual({disabled: false, inRow: true, text: 'Modified from default'});
 
             await TransactionManager.undo({groupId: binding.groupId});
             await workspace.refreshPromise;
 
-            expect(read(), 'undo returns the shipped arrangement').toEqual({disabled: true, text: ''})
+            expect(read(), 'undo returns the shipped arrangement').toEqual({disabled: true, inRow: false, text: ''})
         } finally {
             workspace.destroy();
             TransactionManager.retireGroup(binding.groupId)
