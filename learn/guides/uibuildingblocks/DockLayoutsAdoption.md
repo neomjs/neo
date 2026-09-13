@@ -375,7 +375,8 @@ const restored = Persistence.restoreSavedLayout(layout);
 
 // the document alone restores the arrangement beside the committed declared baseline, and the
 // Modified badge then reports the distance; carrying the snapshot's origin in the descriptor makes
-// the workspace adopt that declared name again — when it declares it
+// a standalone workspace adopt that declared name again — when it declares it. Under a Group the
+// descriptor is not the path: the origin rides the Group write (see below)
 restored.document && this.onDockZoneDocumentChange(restored.document, {
     declaredPerspective: layout.metadata.declaredPerspective
 })
@@ -400,8 +401,11 @@ collection. Provenance is the capture's choice: `metadata: {...workspace.perspec
 `metadata.declaredPerspective` from the accepted write — an auto-save that captures inside the commit listener still
 names the arrangement it was taken under — and a capture without it stores an empty `metadata`. Restoring the
 document alone never moves the selection: the committed declared baseline stays, and *Modified* reports the distance.
-A restore whose descriptor carries `declaredPerspective` adopts that name when the workspace declares it; an origin
-the workspace does not declare, or none, keeps the committed baseline; the selection never becomes null. The example's
+On a standalone workspace, a restore whose descriptor carries `declaredPerspective` adopts that name when the
+workspace declares it; an origin the workspace does not declare, or none, keeps the committed baseline; the selection
+never becomes null. Under a Group the restore descriptor is not the path: a document restore becomes a Group write
+that carries the document alone, so the origin has to ride that write as the identity entry
+`perspectiveOriginChange(metadata)` returns — the accepted-write path the Group adopts beside the document. The example's
 toolbar shows both sources side by side: one button per declared name binds `dock.perspective.active` and writes
 `activePerspective`, the *Modified* badge reads `dock.perspective.modified`, and its snapshot buttons restore a
 document beside the declared baseline on purpose — those captures carry no provenance, so a restored snapshot reads

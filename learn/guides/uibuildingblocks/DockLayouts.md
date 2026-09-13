@@ -224,8 +224,10 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    no workspace to ask, so a consumer writing through them passes the declared list itself, as the dock example does
    with `Persistence.reservedNameErrors(keys, workspace.declaredPerspectives())`. Provenance is the capture's choice:
    spread `workspace.perspectiveProvenance()` into the snapshot's `metadata` and it records `metadata.declaredPerspective`
-   from the accepted write rather than from a published leaf; a restore adopts that origin only when its descriptor
-   carries the name and the workspace declares it, and a document restored on its own keeps the committed baseline.
+   from the accepted write rather than from a published leaf; a standalone workspace's restore adopts that origin only
+   when its descriptor carries the name and the workspace declares it (under a Group the origin rides the Group write
+   as the identity entry `perspectiveOriginChange()` returns, never the descriptor), and a document restored on its
+   own keeps the committed baseline.
    The workspace publishes `dock.perspective.active` (the committed name), `dock.perspective.modified` (the live
    document has left that baseline) and `dock.perspective.pending` (a request in flight, never the refresh promise) on
    its **own** `stateProvider` — every workspace declares one by default, and yours replaces it — so bind there or
