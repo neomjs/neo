@@ -215,3 +215,53 @@ test.describe('tear-out commit ownership', () => {
         })
     }
 });
+
+test.describe('cross-window target admission', () => {
+    const cases = [
+        {name: 'starts input for a committed popup with host-owned participation', input: true, mutate() {}},
+        {name: 'refuses an uncommitted popup before input', mutate(state) {state.committed = false}},
+        {name: 'refuses a closing popup before input', mutate(state) {state.closeRequested = true}},
+        {name: 'refuses a popup without its current participation', mutate(state) {state.host.participation = null}},
+        {name: 'refuses a missing popup before input', missing: true, mutate() {}}
+    ];
+
+    for (const {name, input=false, missing=false, mutate} of cases) {
+        test(name, async () => {
+            const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+            const {default: WindowManager}       = await import('../../../../../src/manager/Window.mjs');
+            const sourceWindowId = 'gesture-admission-source', targetWindowId = 'gesture-admission-target',
+                  state = {committed: true, windowId: targetWindowId, host: {participation: {}}},
+                  calls = [], sortZone = {},
+                  button = {id: 'gesture-admission-tab', windowId: sourceWindowId,
+                      getDomRect: async () => [{x: 100, y: 100, width: 40, height: 20}]},
+                  workspace = {constructor: Workspace, id: 'gesture-admission-workspace',
+                      dockModel: {items: {commits: {}}, nodes: {source: {type: 'tabs', items: ['commits']}}},
+                      getDockHost: () => ({down: () => ({getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
+                      getPopupState: () => missing ? null : state,
+                      nativeWindows: {getOwner: () => ({windowId: targetWindowId}), clearConnection() {}},
+                      paneCache: {commits: {}}},
+                  driver = Neo.create(NativeGestureDriver, {workspace});
+
+            mutate(state);
+            driver.interactionService.simulateEvent = async ({events}) => {calls.push(events[0].type); return true};
+            driver.interactionService.dispatch = async () => true;
+            driver.waitForTearOutDragArmed = async () => false;
+            driver.cancelTearOutGesture = async () => ({cancelled: true});
+            for (const id of [sourceWindowId, targetWindowId]) {
+                WindowManager.register({id, windowId: id, innerRect: {x: 0, y: 0, width: 1200, height: 800}})
+            }
+            try {
+                const receipt = await driver.executeCrossWindowDockStep({
+                    itemId: 'commits', sourceNodeId: 'source', targetItemId: 'metrics'
+                });
+                expect(calls).toEqual(input ? ['mousedown', 'mousemove', 'mousemove'] : []);
+                expect(receipt.applied).toBe(false);
+                if (input) expect(receipt.errors).toEqual(['cross-window source drag did not arm'])
+            } finally {
+                driver.destroy();
+                WindowManager.unregister(sourceWindowId);
+                WindowManager.unregister(targetWindowId)
+            }
+        })
+    }
+});

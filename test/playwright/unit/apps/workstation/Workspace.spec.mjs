@@ -1874,6 +1874,46 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('the tour observes a fresh popup Group transfer without a root callback receipt', async () => {
+        const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+        const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
+        const {state, workspaceId, tabsNodeId} = stageCommittedVessel(workspace);
+        const driver = Neo.create(NativeGestureDriver, {workspace});
+        const descriptor = {operation: 'transferItem', itemId: 'activity',
+            sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID, targetWorkspaceId: workspaceId,
+            target: {operation: 'addTab', tabsNodeId}};
+        try {
+            state.host.windowId = state.windowId;
+            const commit = state.host.participation.resolveCommitTransfer();
+            expect(await commit({descriptor, sourceWorkspaceId: descriptor.sourceWorkspaceId,
+                targetWorkspaceId: workspaceId})).toBe(true);
+            expect(state.document.items.activity).toEqual(initialDocument.items.activity);
+            expect(workspace.dockModel.items.activity).toBeUndefined();
+            expect(workspace.lastCrossWindowTransfer).toBeNull();
+            const expected = {sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID, targetWorkspaceId: workspaceId};
+            const receipt = await driver.waitForCrossWindowTransfer(expected, {attempts: 0});
+            expect(receipt).toMatchObject({
+                applied: true, reconciled: true, descriptor,
+                ...expected
+            });
+            expect(receipt.transactionId).toBeTruthy();
+            workspace.lastCrossWindowTransfer = {...receipt, transactionId: 'stale', closeRequested: true};
+            expect(await driver.waitForCrossWindowTransfer(expected, {attempts: 0})).not.toHaveProperty('closeRequested');
+            workspace.lastCrossWindowTransfer = {...receipt, closeRequested: true};
+            expect(await driver.waitForCrossWindowTransfer(expected, {attempts: 0})).toBe(workspace.lastCrossWindowTransfer);
+            await expect(driver.waitForCrossWindowTransfer(expected, {
+                attempts: 0, previousTransactionId: receipt.transactionId
+            })).resolves.toBeNull();
+            await expect(driver.waitForCrossWindowTransfer({...expected, targetWorkspaceId: 'unrelated'}, {
+                attempts: 0
+            })).resolves.toBeNull()
+        } finally {
+            driver.destroy();
+            state.host.destroy();
+            workspace.destroy()
+        }
+    });
+
     test('full Workspace transfer compensates refusal and settles both projections before native close', async () => {
         const workspace                        = Neo.create(Workspace, {windowId: Neo.config.windowId});
         const {state, workspaceId, tabsNodeId} = stageCommittedVessel(workspace);
