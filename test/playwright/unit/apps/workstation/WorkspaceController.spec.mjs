@@ -11,12 +11,12 @@ import ComponentManager from '../../../../../src/manager/Component.mjs';
 import Transaction      from '../../../../../src/manager/Transaction.mjs';
 import TopologyLibrary  from '../../../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
 import Container        from '../../../../../src/container/Base.mjs';
-import Toolbar          from '../../../../../src/toolbar/Base.mjs';
 // The controller loads before the views it serves: an import path from the controller back to the
 // app entry point would evaluate `Workspace` before this binding exists, and this order exposes it.
 import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceController.mjs';
 import ViewportController  from '../../../../../apps/workstation/view/ViewportController.mjs';
 import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
+import TopologyToolbar     from '../../../../../apps/workstation/view/TopologyToolbar.mjs';
 import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
 
 /**
@@ -192,20 +192,19 @@ test.describe('Workstation topology save and close coordination', () => {
     });
 
     test('the controller fills only its own buttons and cannot destroy what the toolbar owns', () => {
-        // The VIEW's own factory, not a hand-written stand-in. `actions` is where the defect lived:
+        // The real topology toolbar, not a hand-written stand-in. `actions` is where the defect lived:
         // toolbar.Base merges `createActionItemConfigs()` into `items` as a spacer plus one item per
         // action, so the live bar holds more items than it authors. A fixture that omits `actions`
         // cannot reproduce the defect and therefore cannot certify the fix — the previous one did.
-        // Counted off the declaration rather than pinned, and the counts are read BEFORE `Neo.create`
-        // consumes it. The boundary this arm protects is that the materialised bar holds MORE than
-        // the view authored — a literal total asserts that only by coincidence, and reds on the next
-        // item the view adds while saying nothing about the merge it was written to catch.
-        const declaration   = Workspace.prototype.createTopologyBar.call({topologyGroupId: 'spec-group'}),
+        // `originalConfig` captures the constructor's authored items/actions before their materialization.
+        // The bar must hold MORE than that authored list: a literal total would assert the boundary
+        // only by coincidence and fail when the view adds an unrelated item.
+        const bar           = Neo.create(TopologyToolbar, {workspace: {topologyGroupId: 'spec-group'}}),
+              declaration   = bar.originalConfig,
               authoredCount = declaration.items.length,
-              actionCount   = declaration.actions.length,
-              bar           = Neo.create(Toolbar, declaration);
+              actionCount   = declaration.actions.length;
 
-        expect(authoredCount, 'the factory authors items at all').toBeGreaterThan(0);
+        expect(authoredCount, 'the toolbar class authors items at all').toBeGreaterThan(0);
         expect(actionCount,   'and declares the actions whose merge is under test').toBeGreaterThan(0);
 
         expect(bar.items.length, 'every authored item, plus the spacer and one item per action')
@@ -239,8 +238,8 @@ test.describe('Workstation topology save and close coordination', () => {
 
         // Ordinary BUTTONS only: the spacer and the action group are the toolbar's own structure and
         // are asserted separately, because reaching into them is exactly what the defect was. The
-        // view's factory also authors non-button readouts, and those are deliberately excluded by
-        // shape rather than by position — `createTopologyBar`'s own contract is that the authored
+        // toolbar class also authors non-button readouts, and those are deliberately excluded by
+        // shape rather than by position — TopologyToolbar's own contract is that the authored
         // list "is free to grow", so a filter keyed on what an item IS survives that growth while a
         // filter keyed on where it sits does not.
         const ordinaryTexts = () => bar.items
@@ -315,7 +314,7 @@ test.describe('Workstation topology save and close coordination', () => {
         const root = Neo.create(Workspace, {controller: RecordingWorkspaceController, windowId}),
               bar  = root.controller.getReference('topology-toolbar'),
               // The derived buttons are read by what they ARE — each carries the participant it
-              // addresses — never by where the authored list ends: `createTopologyBar`'s contract is
+              // addresses — never by where the authored list ends: TopologyToolbar's contract is
               // that the authored items are free to grow, so a pinned head reds on the next readout
               // the view adds and says nothing about membership.
               recoveryTexts = () => bar.items.filter(item => item.workspaceKey !== undefined).map(item => item.text),

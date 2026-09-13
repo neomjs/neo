@@ -689,8 +689,8 @@ test.describe('Workstation — dense living-data composition', () => {
             themeToggle = page.locator('.workstation-theme-button');
 
         const
-            {dockModel: responsiveDockModelBefore} = await app.getComponent(workspaceId, ['dockModel']),
-            {feedSequence: feedSequenceBefore}     = await app.getComponent(workspaceId, ['feedSequence']);
+            {dockModel: responsiveDockModelBefore}                     = await app.getComponent(workspaceId, ['dockModel']),
+            {'stateProvider.stores.feed.sequence': feedSequenceBefore} = await app.getComponent(workspaceId, ['stateProvider.stores.feed.sequence']);
 
         await page.evaluate(() => {
             globalThis.__workstationResponsiveDocument = document;
@@ -898,7 +898,7 @@ test.describe('Workstation — dense living-data composition', () => {
                 && globalThis.__workstationResponsiveScalePane === document.querySelector('.workstation-scale-pane')),
             'the same document and primary pane survive every viewport'
         ).toBe(true);
-        await expect.poll(async () => (await app.getComponent(workspaceId, ['feedSequence'])).feedSequence, {
+        await expect.poll(async () => (await app.getComponent(workspaceId, ['stateProvider.stores.feed.sequence']))['stateProvider.stores.feed.sequence'], {
             message  : 'the live feed keeps advancing through viewport-only projection changes',
             timeout  : 3000,
             intervals: [100, 250]

@@ -22,6 +22,34 @@ Ordinary docking, live panes, saving/restoring and theme controls work without a
 The lightweight tour toolbar binds its caption and progress to the existing root state provider.
 Its playback controller, runner and gesture drivers are created only when requested.
 
+## Composition and ownership
+
+[`view/Workspace.mjs`](view/Workspace.mjs) is the composition entrypoint. It declares the shipped
+perspective and root provider, selects the three pane classes, and keeps the app's topology and
+theme commands beside the state they use. Its constructor assembles the ordinary views and starts
+the existing Feed store. No tour driver is needed for that boot.
+
+| Owner | Responsibility |
+|---|---|
+| `view/VesselWorkspace.mjs` | App-specific Group, popup and native-vessel policy using the engine's existing owners; projection ordering and window-resource teardown. |
+| `view/TopologyToolbar.mjs` | Topology controls and live Group history bindings; borrows the workspace's commands and provider. |
+| `view/TourToolbar.mjs`, `view/StatusComponent.mjs` | Lightweight playback chrome and a readout bound directly to the existing stores. |
+| `view/FeedPane.mjs`, `view/ScalePane.mjs`, `view/ResidentComponent.mjs` | The data views and resident presentation, with the same pane identities across docking. |
+| `store/Feed.mjs` | One explicit-start producer, five records every 500 ms, monotonic IDs and the newest-first 500-record cap. Its timer retires with the store. |
+
+The root provider owns stores it creates. Panes, toolbars and popup header providers borrow that
+same store authority; a passed-in store remains its creator's responsibility. Native resources
+retire before the composition releases its pane cache and services. The engine still owns Group
+membership, document commits, history and generic window lifecycle.
+
+The live feed's observation surface is now the store: `workspace.getStateProvider().getStore('feed')`
+exposes `sequence`, `batchCount`, `batchSize` and `intervalMs`. `appendBatch()` adds one bounded batch;
+`start()` and `stop()` control the store's single producer without resetting its records or sequence.
+Neural Link readers can address `stateProvider.stores.feed.sequence` on the workspace. There is no
+second counter on the view.
+
+## Activate the optional tour
+
 Press **Start dense tour**. The screenplay opens the real overflow menu, scrolls the 100k grid,
 promotes a live pane through `splitNode`, returns it through `addTab`, and flips both themes.
 Pane, store, component, and relevant DOM identities remain stable while the layout changes.
@@ -29,7 +57,7 @@ Pane, store, component, and relevant DOM identities remain stable while the layo
 The data-only screenplay lives in `apps/workstation/tour/denseWorkstation.mjs`; the mounted
 whitebox journey is the runtime and visual falsifier.
 
-For programmatic playback, resolve the optional owner with
+For programmatic playback from outside the view, resolve the optional owner with
 `await workspace.getController().getTourController()`, then call its `startTour()`,
 `runTourSpec()` or `getTourReceipt()`. `cancelTour()` retires that playback controller and waits
 for its started cue work; a later Start creates a fresh controller. The workspace and its stores
