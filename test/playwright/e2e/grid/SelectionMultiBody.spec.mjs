@@ -15,7 +15,7 @@ test.describe('Desktop (1920x1080): lockedColumns Multi-Body Neural Link Selecti
         const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
         const gridId = await resolveGridId(app);
 
-        await app.setProperties(gridId, { 'body.selectionModel': { ntype: 'selection-grid-rowmodel' } });
+        await app.setProperties(gridId, { 'view.selectionModel': { ntype: 'selection-grid-rowmodel' } });
 
         await expect.poll(async () => {
             const props = await app.getComponent(gridId, ['view.selectionModel.id']);

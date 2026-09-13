@@ -66,13 +66,16 @@ class View extends Base {
          */
         scrollTop_: 0,
         /**
-         * The single SelectionModel owned by grid.View (the body orchestrator) — NOT by an individual
-         * grid.Body. `bodyStart`/`body`/`bodyEnd` are pure render/event delegates; selection state is
-         * keyed by recordId and spans all bodies, replacing the per-body cloned models plus the
-         * `getActivePeers()` fan-out (the multi-body SelectionModel design-lock).
-         * @member {Neo.selection.grid.BaseModel|null} selectionModel_=null
+         * The grid's one selection model, owned here: the View orchestrates the bodies, the bodies
+         * render and forward events and carry no model of their own. Three states — the `RowModel`
+         * class (the default, instantiated once, here), a model config or instance (the explicit
+         * model), and `null`: no selection at all, nothing instantiated, no row ever marked, no
+         * selection handler installed. Selection state is keyed by recordId and spans all bodies.
+         * Consumers set it through `grid.Container#viewConfig` and write `grid.view.selectionModel`.
+         * @member {Neo.selection.grid.BaseModel|null} selectionModel_=RowModel
+         * @reactive
          */
-        selectionModel_: null
+        selectionModel_: RowModel
     }
 
     /**
@@ -177,23 +180,34 @@ class View extends Base {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        // Not gated on vnodeInitialized: Container.applyViewSelectionModel() hoists the model during
-        // construction, and the single model needs its `view` set immediately so its row/record contract
-        // (store, bodies, getRow…) resolves. register() only binds component-level events, safe pre-vnode.
-        value?.register(this)
+        // A model set after construction registers at once (component-level events only, safe
+        // pre-vnode). The one created from the View's own configs waits for onConstructed(): its
+        // keyboard keys need `keys` to be the finished KeyNavigation, and its row/record contract
+        // (store, bodies, getRow…) needs the bodies in place.
+        this.isConstructed && value?.register(this)
     }
 
     /**
-     * Triggered before the selectionModel config gets changed. Defaults to a RowModel — the same
-     * default the per-body path used, now instantiated once at the grid.View (orchestrator) level.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @returns {Neo.selection.Model}
+     * Registers the model the View's own configs created, once every config — `keys` and the
+     * bodies included — is in place.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.selectionModel?.register(this)
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed. Instantiates a class or config into
+     * the one instance and keeps every falsy value as `null` — the honest state of a grid that
+     * selects nothing. The previous instance is destroyed here: the View owns the lifecycle.
+     * @param {Neo.selection.Model|Function|Object|null} value
+     * @param {Neo.selection.Model|null} oldValue
+     * @returns {Neo.selection.Model|null}
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
-        return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : value
+        return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : null
     }
 
     /**

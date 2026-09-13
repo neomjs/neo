@@ -106,6 +106,14 @@ class GridContainer extends BaseContainer {
          */
         view: null,
         /**
+         * Extra configs for the grid.View this container creates — the seam for what the View owns,
+         * first of all the selection model: `viewConfig: {selectionModel: null}` selects nothing,
+         * `{selectionModel: {module: CellModel}}` names the model; omitted, the View instantiates its
+         * default `RowModel`. Applied once, at creation; runtime changes go to `grid.view` directly.
+         * @member {Object|null} viewConfig=null
+         */
+        viewConfig: null,
+        /**
          * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
          * @reactive
@@ -282,6 +290,7 @@ class GridContainer extends BaseContainer {
         });
 
         me.view = Neo.create(View, {
+            ...me.viewConfig,
             appName,
             flex         : 1,
             gridContainer: me,
@@ -846,7 +855,6 @@ class GridContainer extends BaseContainer {
             if (!me.bodyStart) {
                 me.bodyStart = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
                     flex          : 'none',
                     gridContainer : me,
                     parentId      : me.view.id,
@@ -871,7 +879,6 @@ class GridContainer extends BaseContainer {
             if (!me.bodyEnd) {
                 me.bodyEnd = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
                     flex          : 'none',
                     gridContainer : me,
                     parentId      : me.view.id,
@@ -899,38 +906,8 @@ class GridContainer extends BaseContainer {
 
         me.view.items = bodyItems;
 
-        // Single View-owned SelectionModel: hoist the center body's model up to grid.View and share
-        // the one instance to all bodies BEFORE they render (no per-body clones, no transient models).
-        me.applyViewSelectionModel(me.view.selectionModel || me.body?.selectionModel);
-
         // Header assembly is owned by header.Wrapper.updateHeaders(); only the bodies render here.
         me.view.createItems()
-    }
-
-    /**
-     * Establishes the single View-owned SelectionModel: registers it on grid.View (the body
-     * orchestrator) and shares the one instance to every body as a render/event delegate, so locked
-     * bodies never carry independent cloned models. Identity-guarded (idempotent + re-entrant-safe);
-     * invoked on sub-grid (re)creation and on any dynamic `body.selectionModel` swap.
-     * @param {Neo.selection.grid.BaseModel|null} model
-     * @protected
-     */
-    applyViewSelectionModel(model) {
-        let me = this;
-
-        // Re-entrancy guard: sharing the model to a body fires Body.afterSetSelectionModel, which calls
-        // back here. Without this flag the callbacks re-add the `selectionModel` config during a body's
-        // processConfigs and recurse infinitely.
-        if (!model || !me.view || me.applyingViewSelectionModel) return;
-
-        me.applyingViewSelectionModel = true;
-
-        me.view.selectionModel      !== model && (me.view.selectionModel      = model);
-        me.body      && me.body.selectionModel      !== model && (me.body.selectionModel      = model);
-        me.bodyStart && me.bodyStart.selectionModel !== model && (me.bodyStart.selectionModel = model);
-        me.bodyEnd   && me.bodyEnd.selectionModel   !== model && (me.bodyEnd.selectionModel   = model);
-
-        me.applyingViewSelectionModel = false
     }
 
     /**

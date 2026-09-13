@@ -75,7 +75,6 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
             selectedCells         : [],
             selectedRecordField   : null,
             selectedRows          : null,
-            selectionModel        : null,
             store                 : {},
             stripedRows           : false
         };

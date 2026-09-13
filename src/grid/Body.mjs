@@ -1,9 +1,7 @@
-import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from '../component/Base.mjs';
 import Collection      from '../collection/Base.mjs';
 import Performance     from '../util/Performance.mjs';
 import Row             from './Row.mjs';
-import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
@@ -215,11 +213,6 @@ class GridBody extends Component {
          * @reactive
          */
         scrollTop_: 0,
-        /**
-         * @member {Neo.selection.Model} selectionModel_=null
-         * @reactive
-         */
-        selectionModel_: null,
         /**
          * @member {String} selectedRecordField='annotations.selected'
          */
@@ -589,21 +582,6 @@ class GridBody extends Component {
     }
 
     /**
-     * Triggered after the selectionModel config got changed
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
-     */
-    afterSetSelectionModel(value, oldValue) {
-        // The single model is owned + registered by grid.View; bodies are render/event delegates that
-        // never register as its view. A POST-construction (dynamic) body.selectionModel swap forwards up
-        // so grid.View re-hoists the one instance across all bodies. Gated on vnodeInitialized so it
-        // never fires during construction (where forwarding re-enters processConfigs and recurses);
-        // initial sharing is driven by grid.Container.applyViewSelectionModel().
-        this.vnodeInitialized && this.gridContainer?.applyViewSelectionModel?.(value)
-    }
-
-    /**
      * Triggered after the startIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -697,15 +675,18 @@ class GridBody extends Component {
     }
 
     /**
-     * Triggered before the selectionModel config gets changed.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
+     * The grid's selection model, read from its owner for the paint and the selection-aware readers
+     * of this body. A body configures, instantiates and destroys no model of its own — see
+     * {@link Neo.grid.View#selectionModel}; a bare body (no grid container) reads `null`.
+     * @member {Neo.selection.grid.BaseModel|null} selectionModel
+     * @readonly
      */
-    beforeSetSelectionModel(value, oldValue) {
-        // grid.View owns the single model's lifecycle (including destroy on swap); a body only
-        // instantiates a config into an instance and holds the shared reference — it never destroys.
-        return ClassSystemUtil.beforeSetInstance(value, RowModel)
+    get selectionModel() {
+        return this.gridContainer?.view?.selectionModel ?? null
+    }
+
+    set selectionModel(value) {
+        throw new Error('grid.Body carries no selection model: configure it on the View — grid.Container#viewConfig.selectionModel, or grid.view.selectionModel at runtime')
     }
 
     /**
@@ -1366,7 +1347,7 @@ class GridBody extends Component {
                 for (let i = 0, len = fields.length; i < len; i++) {
                     let field = fields[i];
                     if (field.name === me.selectedRecordField) {
-                        if (selectionModel.ntype === 'selection-grid-rowmodel') {
+                        if (selectionModel?.ntype === 'selection-grid-rowmodel') {
                             recordId = me.getRecordId(record);
 
                             selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)

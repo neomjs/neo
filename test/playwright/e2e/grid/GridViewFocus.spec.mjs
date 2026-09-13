@@ -30,7 +30,7 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
         const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
         const gridId = await resolveGridId(app);
 
-        await app.setProperties(gridId, { 'body.selectionModel': { ntype: 'selection-grid-rowmodel' } });
+        await app.setProperties(gridId, { 'view.selectionModel': { ntype: 'selection-grid-rowmodel' } });
         await expect.poll(async () =>
             (await app.getComponent(gridId, ['view.selectionModel.id']))['view.selectionModel.id'],
             { timeout: 5000 }

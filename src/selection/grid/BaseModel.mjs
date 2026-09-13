@@ -56,8 +56,8 @@ class BaseModel extends Model {
             items = [items]
         }
 
-        // The single View-owned model spans bodyStart/body/bodyEnd directly (no per-body model +
-        // getActivePeers() fan-out): each record/cell is toggled in every body that renders it.
+        // The single View-owned model spans bodyStart/body/bodyEnd directly: each record/cell is
+        // toggled in every body that renders it.
         this.view.bodies.forEach(body => this.updateBodyRows(body, items, silent))
     }
 
@@ -169,8 +169,7 @@ class BaseModel extends Model {
         me.view.silentSelect = false;
 
         if (!silent) {
-            me.updateRows(item);
-            me.getActivePeers().forEach(peer => peer.updateRows(item))
+            me.updateRows(item)
         }
     }
 
@@ -186,8 +185,7 @@ class BaseModel extends Model {
         super.deselectAll(silent, itemCollection);
         me.view.silentSelect = false;
 
-        me.updateRows(items);
-        me.getActivePeers().forEach(peer => peer.updateRows(items, silent))
+        me.updateRows(items)
     }
 
     /**
@@ -202,8 +200,7 @@ class BaseModel extends Model {
         super.select(items, itemCollection, selectedCls);
         me.view.silentSelect = false;
 
-        me.updateRows(items);
-        me.getActivePeers().forEach(peer => peer.updateRows(items))
+        me.updateRows(items)
     }
 
     /**
@@ -219,8 +216,7 @@ class BaseModel extends Model {
             });
 
             if (!silent) {
-                me.updateRows(items);
-                me.getActivePeers().forEach(peer => peer.updateRows(items))
+                me.updateRows(items)
             }
 
             me.fire('selectionChange', {
@@ -241,28 +237,7 @@ class BaseModel extends Model {
 
         NeoArray.remove(me.selectedRows, recordId);
 
-        me.updateRows(recordId, silent);
-        me.getActivePeers().forEach(peer => peer.updateRows(recordId, silent))
-    }
-
-    /**
-     * Retrieves sibling Selection Models in a Multi-Body environment.
-     * @returns {Neo.selection.grid.BaseModel[]}
-     */
-    getActivePeers() {
-        let me        = this,
-            container = me.view?.gridContainer,
-            peers     = [];
-
-        if (container) {
-            peers = [
-                container.bodyStart?.selectionModel,
-                container.body?.selectionModel,
-                container.bodyEnd?.selectionModel
-            ].filter(sm => sm && sm !== me)
-        }
-
-        return peers
+        me.updateRows(recordId, silent)
     }
 
     /**
@@ -387,8 +362,7 @@ class BaseModel extends Model {
 
         NeoArray.add(me.selectedRows, recordId);
 
-        me.updateRows(recordId, silent);
-        me.getActivePeers().forEach(peer => peer.updateRows(recordId, silent))
+        me.updateRows(recordId, silent)
     }
 
     /**

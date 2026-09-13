@@ -75,9 +75,6 @@ class ColumnModel extends BaseModel {
         if (dataField) {
             me.selectedColumns = me.isSelectedColumn(dataField) ? [] : [dataField];
 
-            // Sync visual state to sibling sub-grids
-            me.getActivePeers().forEach(peer => peer.view.createViewData());
-
             view.createViewData()
         }
     }
