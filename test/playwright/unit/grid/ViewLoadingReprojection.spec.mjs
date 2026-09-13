@@ -71,7 +71,9 @@ test.describe('Neo.grid.View — clearing isLoading re-projects', () => {
     };
 
     test.beforeEach(() => {
-        view = Neo.create(GridView, {appName})
+        // a bare View, no grid container: it selects nothing — the default RowModel would register
+        // against the container that does not exist here, and these arms are about re-projection
+        view = Neo.create(GridView, {appName, selectionModel: null})
     });
 
     test.afterEach(() => {

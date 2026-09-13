@@ -1,9 +1,7 @@
-import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from '../component/Base.mjs';
 import Collection      from '../collection/Base.mjs';
 import Performance     from '../util/Performance.mjs';
 import Row             from './Row.mjs';
-import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
@@ -216,15 +214,6 @@ class GridBody extends Component {
          */
         scrollTop_: 0,
         /**
-         * @member {Neo.selection.Model} selectionModel_=null
-         * @reactive
-         */
-        selectionModel_: null,
-        /**
-         * @member {String} selectedRecordField='annotations.selected'
-         */
-        selectedRecordField: 'annotations.selected',
-        /**
          * @member {Number} startIndex_=0
          * @reactive
          */
@@ -309,32 +298,6 @@ class GridBody extends Component {
      * @member {Number|null} rowPoolSize=null
      */
     rowPoolSize = null
-
-    /**
-     * @member {String[]} selectedCells
-     */
-    get selectedCells() {
-        let { selectionModel } = this;
-
-        if (selectionModel?.ntype?.includes('cell')) {
-            return selectionModel.items
-        }
-
-        return []
-    }
-
-    /**
-     * @member {String[]} selectedRows
-     */
-    get selectedRows() {
-        let { selectionModel } = this;
-
-        if (selectionModel?.ntype?.includes('row')) {
-            return selectionModel.selectedRows
-        }
-
-        return []
-    }
 
     /**
      * @param config
@@ -589,21 +552,6 @@ class GridBody extends Component {
     }
 
     /**
-     * Triggered after the selectionModel config got changed
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
-     */
-    afterSetSelectionModel(value, oldValue) {
-        // The single model is owned + registered by grid.View; bodies are render/event delegates that
-        // never register as its view. A POST-construction (dynamic) body.selectionModel swap forwards up
-        // so grid.View re-hoists the one instance across all bodies. Gated on vnodeInitialized so it
-        // never fires during construction (where forwarding re-enters processConfigs and recurses);
-        // initial sharing is driven by grid.Container.applyViewSelectionModel().
-        this.vnodeInitialized && this.gridContainer?.applyViewSelectionModel?.(value)
-    }
-
-    /**
      * Triggered after the startIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -697,15 +645,13 @@ class GridBody extends Component {
     }
 
     /**
-     * Triggered before the selectionModel config gets changed.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
+     * A body configures, instantiates, holds and exposes no selection model: the grid's one model is
+     * {@link Neo.grid.View#selectionModel}, and a row paints the View's projected selection. The
+     * setter is the migration guard — a leftover `body: {selectionModel}` fails loudly here.
+     * @param {*} value
      */
-    beforeSetSelectionModel(value, oldValue) {
-        // grid.View owns the single model's lifecycle (including destroy on swap); a body only
-        // instantiates a config into an instance and holds the shared reference — it never destroys.
-        return ClassSystemUtil.beforeSetInstance(value, RowModel)
+    set selectionModel(value) {
+        throw new Error('grid.Body carries no selection model: configure it on the View — grid.Container#viewConfig.selectionModel, or grid.view.selectionModel at runtime')
     }
 
     /**
@@ -1345,33 +1291,24 @@ class GridBody extends Component {
      * @param {Object}         data.record
      */
     onStoreRecordChange({ fields, record }) {
-        let me = this,
-            fieldNames = fields.map(field => field.name),
-            rowIndex = me.store.indexOf(record),
-            { mountedRows, selectionModel } = me,
-            poolSize = me.items.length,
-            itemIndex, recordId, row;
+        let me              = this,
+            fieldNames      = fields.map(field => field.name),
+            rowIndex        = me.store.indexOf(record),
+            { mountedRows } = me,
+            poolSize        = me.items.length,
+            itemIndex, row;
 
         if (fieldNames.includes(me.colspanField)) {
             me.createViewData()
         } else {
+            // the record's selection flag is the View's to follow (grid.View#onStoreRecordChange),
+            // once per grid; a body only repaints the row it renders
             if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
                 itemIndex = rowIndex % poolSize;
                 row = me.items[itemIndex];
 
                 if (row) {
                     row.createVdom(false, false)
-                }
-
-                for (let i = 0, len = fields.length; i < len; i++) {
-                    let field = fields[i];
-                    if (field.name === me.selectedRecordField) {
-                        if (selectionModel.ntype === 'selection-grid-rowmodel') {
-                            recordId = me.getRecordId(record);
-
-                            selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
-                        }
-                    }
                 }
             }
         }
@@ -1634,14 +1571,12 @@ class GridBody extends Component {
 
         return {
             ...super.toJSON(),
-            animatedRowSorting: me.animatedRowSorting,
-            bufferColumnRange: me.bufferColumnRange,
-            bufferRowRange: me.bufferRowRange,
-            colspanField: me.colspanField,
+            animatedRowSorting    : me.animatedRowSorting,
+            bufferColumnRange     : me.bufferColumnRange,
+            bufferRowRange        : me.bufferRowRange,
+            colspanField          : me.colspanField,
             highlightModifiedCells: me.highlightModifiedCells,
-            rowHeight: me.rowHeight,
-            selectedRecordField: me.selectedRecordField,
-            selectionModel: me.selectionModel?.toJSON()
+            rowHeight             : me.rowHeight
         }
     }
 }

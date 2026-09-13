@@ -272,32 +272,31 @@ be created? The engine supports two patterns, each with different implications f
 
 In this pattern, you ensure the instance is created as soon as the config is set. This is typically done inside a `beforeSet` hook.
 
-The `Neo.grid.Body` class provides a perfect example with its `selectionModel_` config.
+The `Neo.grid.View` class provides a perfect example with its `selectionModel_` config — the grid's one selection
+model lives on the view, never on a body.
 
 ```javascript readonly
-// In Neo.grid.Body
+// In Neo.grid.View
 beforeSetSelectionModel(value, oldValue) {
     oldValue?.destroy();
 
-    // beforeSetInstance ensures the value is a valid instance,
-    // creating one from a config object if necessary.
-    return ClassSystemUtil.beforeSetInstance(value, RowModel);
+    // beforeSetInstance turns a class or a config object into a valid instance;
+    // a falsy value stays null — a grid that selects nothing.
+    return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : null
 }
 ```
 
-When the engine processes the grid body's configs during its `construct` phase, `beforeSetSelectionModel` is called.
+When the engine processes the grid view's configs during its `construct` phase, `beforeSetSelectionModel` is called.
 It immediately creates the selection model instance.
 
-**The key takeaway is the guarantee this provides for `onConstructed()`**. Because the selection model was instantiated
-during `construct`, by the time `onConstructed()` is called, you can safely assume the instance exists.
+**The key takeaway is the guarantee this provides for every later hook.** Because the selection model is instantiated
+the moment its config is processed, the `afterSet` hook — and `onConstructed()` after it — can rely on the instance.
 
 ```javascript readonly
-// In Neo.grid.Body
-onConstructed() {
-    super.onConstructed();
-
-    // This is safe because beforeSetSelectionModel already created the instance.
-    this.selectionModel?.register(this);
+// In Neo.grid.View
+afterSetSelectionModel(value, oldValue) {
+    // Safe during construct: the instance exists, and `keys` was processed before this config.
+    value?.register(this)
 }
 ```
 

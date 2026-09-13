@@ -452,7 +452,7 @@ myGrid.getSorter('name').direction = 'DESC';
 // Option 2: Assigning a new value to the sorters config
 myGrid.sorters = [{
     property : 'name',
-    direction: 'DESC' 
+    direction: 'DESC'
 }];
 ```
 
@@ -572,7 +572,8 @@ const myGrid = Neo.create(GridContainer, {
 
 ## Selection Models
 
-The grid's selection behavior is controlled by a selection model, which you can configure on the `body`.
+The grid's selection behavior is controlled by one selection model, owned by the grid's view: configure it through
+`viewConfig` (a `RowModel` is the default; `null` selects nothing), and write `grid.view.selectionModel` at runtime.
 
 Available selection models in `Neo.selection.grid`:
 - `RowModel`: Selects entire rows.
@@ -585,7 +586,7 @@ import {RowModel} from '../../../src/selection/grid/_export.mjs';
 
 const myGrid = Neo.create(GridContainer, {
     // ...
-    body: {
+    viewConfig: {
         selectionModel: RowModel
     }
 });

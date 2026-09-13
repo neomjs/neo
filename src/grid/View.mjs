@@ -66,13 +66,24 @@ class View extends Base {
          */
         scrollTop_: 0,
         /**
-         * The single SelectionModel owned by grid.View (the body orchestrator) — NOT by an individual
-         * grid.Body. `bodyStart`/`body`/`bodyEnd` are pure render/event delegates; selection state is
-         * keyed by recordId and spans all bodies, replacing the per-body cloned models plus the
-         * `getActivePeers()` fan-out (the multi-body SelectionModel design-lock).
-         * @member {Neo.selection.grid.BaseModel|null} selectionModel_=null
+         * The grid's one selection model, owned here: the View orchestrates the bodies, the bodies
+         * render and forward events and carry no model of their own. Three states — the `RowModel`
+         * class (the default, instantiated once, here), a model config or instance (the explicit
+         * model), and `null`: no selection at all, nothing instantiated, no row ever marked, no
+         * selection handler installed. Selection state is keyed by recordId and spans all bodies.
+         * Consumers set it through `grid.Container#viewConfig` and write `grid.view.selectionModel`.
+         * @member {Neo.selection.grid.BaseModel|null} selectionModel_=RowModel
+         * @reactive
          */
-        selectionModel_: null
+        selectionModel_: RowModel,
+        /**
+         * The record field a row selection mirrors: a {@link Neo.selection.grid.RowModel} writes it
+         * when a row is selected, and the View adopts records that carry it — once, on the store's
+         * load and on a record change — so a flagged record becomes a selected row through the one
+         * owner, never inside a body's render.
+         * @member {String} selectedRecordField='annotations.selected'
+         */
+        selectedRecordField: 'annotations.selected'
     }
 
     /**
@@ -107,11 +118,31 @@ class View extends Base {
     }
 
     /**
-     * The selected-record annotation field. Body-agnostic — delegates to the center body.
-     * @returns {String}
+     * The one model when it selects rows — `RowModel` and the combined cell-row models — else `null`.
+     * The paint and the store-following adopt {@link #selectedRecordField} through it and only through
+     * it: a cell or column model leaves a record's flag alone.
+     * @returns {Neo.selection.grid.BaseModel|null}
      */
-    get selectedRecordField() {
-        return this.gridContainer?.body?.selectedRecordField
+    get rowSelectionModel() {
+        let {selectionModel} = this;
+        return selectionModel?.ntype?.includes('row') ? selectionModel : null
+    }
+
+    /**
+     * The cell ids the View's model holds selected — `[]` under a row or column model, and under none.
+     * @returns {String[]}
+     */
+    get selectedCells() {
+        let {selectionModel} = this;
+        return selectionModel?.ntype?.includes('cell') ? selectionModel.items : []
+    }
+
+    /**
+     * The record ids the View's model holds selected — `[]` under a cell or column model, and under none.
+     * @returns {Number[]|String[]}
+     */
+    get selectedRows() {
+        return this.rowSelectionModel?.selectedRows ?? []
     }
 
     /**
@@ -177,23 +208,110 @@ class View extends Base {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        // Not gated on vnodeInitialized: Container.applyViewSelectionModel() hoists the model during
-        // construction, and the single model needs its `view` set immediately so its row/record contract
-        // (store, bodies, getRow…) resolves. register() only binds component-level events, safe pre-vnode.
-        value?.register(this)
+        // A model set after construction registers at once (component-level events only, safe
+        // pre-vnode). The one created from the View's own configs waits for onConstructed(): its
+        // keyboard keys need `keys` to be the finished KeyNavigation, and its row/record contract
+        // (store, bodies, getRow…) needs the bodies in place.
+        this.isConstructed && value?.register(this)
     }
 
     /**
-     * Triggered before the selectionModel config gets changed. Defaults to a RowModel — the same
-     * default the per-body path used, now instantiated once at the grid.View (orchestrator) level.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @returns {Neo.selection.Model}
+     * Registers the model the View's own configs created, once every config — `keys` and the
+     * bodies included — is in place, and starts following the store for the selection field.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.selectionModel?.register(this);
+        this.bindStore(this.store, null)
+    }
+
+    /**
+     * Listens to the store for the one selection concern the View owns — a record's
+     * {@link #selectedRecordField} — once per grid, however many bodies render the record.
+     * `grid.Container` calls it again when its store changes.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     */
+    bindStore(value, oldValue) {
+        let me        = this,
+            listeners = {load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me};
+
+        // on() and un() consume keys like `scope` from the passed object, so each call gets its own copy
+        oldValue?.un({...listeners});
+        value   ?.on({...listeners});
+
+        // a store that already holds its records fires no load for them
+        value?.count && me.onStoreLoad()
+    }
+
+    /**
+     * Re-projects every body from the committed selection — the seam the column-selecting models
+     * call after a swap or a column toggle.
+     * @param {Boolean} [silent=false]
+     * @param {Boolean} [force=false]
+     */
+    createViewData(silent=false, force=false) {
+        this.bodies.forEach(body => body.createViewData(silent, force))
+    }
+
+    /**
+     * Retires the model the View owns and stops following the store; a body's destruction never
+     * touches the model.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.bindStore(null, me.store);
+        me.selectionModel?.destroy?.();
+        super.destroy(...args)
+    }
+
+    /**
+     * A loaded store's flagged records are the selected rows — adopted here, once, through the one
+     * row-selecting model; a paint follows through the model's own row update, never a mutation in
+     * a render.
+     */
+    onStoreLoad() {
+        let me                         = this,
+            {rowSelectionModel, store} = me,
+            field                      = me.selectedRecordField;
+
+        if (rowSelectionModel && store && field) {
+            store.items.forEach(record => {
+                record[field] && rowSelectionModel.selectRow(me.getRecordId(record))
+            })
+        }
+    }
+
+    /**
+     * A record's selection flag changed: the one row-selecting model follows it, once.
+     * @param {Object}   data
+     * @param {Object[]} data.fields
+     * @param {Object}   data.record
+     */
+    onStoreRecordChange({fields, record}) {
+        let me                  = this,
+            {rowSelectionModel} = me,
+            field               = fields.find(item => item.name === me.selectedRecordField);
+
+        if (field && rowSelectionModel) {
+            rowSelectionModel[field.value ? 'selectRow' : 'deselectRow'](me.getRecordId(record))
+        }
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed. Instantiates a class or config into
+     * the one instance and keeps every falsy value as `null` — the honest state of a grid that
+     * selects nothing. The previous instance is destroyed here: the View owns the lifecycle.
+     * @param {Neo.selection.Model|Function|Object|null} value
+     * @param {Neo.selection.Model|null} oldValue
+     * @returns {Neo.selection.Model|null}
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
-        return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : value
+        return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : null
     }
 
     /**

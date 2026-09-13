@@ -1,5 +1,6 @@
-import CellModel from './CellModel.mjs';
-import VDomUtil  from '../../util/VDom.mjs';
+import {isDescriptor} from '../../core/ConfigSymbols.mjs';
+import CellModel      from './CellModel.mjs';
+import VDomUtil       from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.CellColumnModel
@@ -28,10 +29,18 @@ class CellColumnModel extends CellModel {
          */
         selectedColumnCellCls: 'selected-column-cell',
         /**
-         * @member {String[]} selectedColumnCellIds=[]
+         * The column cell ids this model holds selected — a descriptor, so the default is per instance
+         * and the in-place writes land ({@link Neo.selection.grid.BaseModel#selectedRows_} says why).
+         * @member {String[]} selectedColumnCellIds_=[]
          * @protected
+         * @reactive
          */
-        selectedColumnCellIds: []
+        selectedColumnCellIds_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            value         : []
+        }
     }
 
     /**

@@ -88,7 +88,7 @@ class MainContainer extends ConfigurationViewport {
                 width: 200
             },
 
-            body: {
+            viewConfig: {
                 selectionModel: CellModel
             },
 
