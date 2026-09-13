@@ -1006,10 +1006,12 @@ class Workspace extends Container {
      * @protected
      */
     async closeTearOutVessel(vessel) {
-        // Read before the await: a close can race teardown, and `destroy()` deletes own properties.
+        // Resolved before the await, the vessel's expected name included: a close can race teardown, and
+        // `destroy()` deletes the own properties a `tearOutWindowName` override may read.
         const
             {id, nativeWindows, windowId}      = this,
-            windowNameFor                      = itemId => this.tearOutWindowName(itemId),
+            windowName                         = vessel?.itemId && this.tearOutWindowName(vessel.itemId),
+            windowNameFor                      = itemId => itemId === vessel?.itemId ? windowName : null,
             {default: NativeVesselTransaction} = await import('./window/NativeVesselTransaction.mjs');
 
         return NativeVesselTransaction.closeVessel({nativeWindows, ownerWindowId: windowId, sourceId: id, windowNameFor}, vessel)

@@ -4717,6 +4717,22 @@ test.describe('projectDockZoneDocument — the commit\'s parked panes and a sibl
     })
 });
 
+/**
+ * A host whose `tearOutWindowName` override reads its own config, which `destroy()` deletes.
+ */
+class PrefixedWorkspace extends PlainWorkspace {
+    static config = {
+        className   : 'Test.Unit.Dashboard.DockWorkspace.PrefixedWorkspace',
+        vesselPrefix: null
+    }
+
+    tearOutWindowName(itemId) {
+        return `${this.vesselPrefix}-${itemId}`
+    }
+}
+
+Neo.setupClass(PrefixedWorkspace);
+
 test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)', () => {
     test('the default closes a vessel it opened through the shared routine and returns the platform answer', async () => {
         const
@@ -4745,6 +4761,52 @@ test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)'
             Neo.Main.windowClose    = originalClose;
             workspace.nativeWindows = null;
             workspace.destroy()
+        }
+    });
+
+    test('a close whose workspace is destroyed during the lazy import closes by the name the live workspace resolved', async () => {
+        const
+            originalClose = Neo.Main.windowClose,
+            calls         = [],
+            created       = [],
+            vessel        = {itemId: 'preview', windowName: 'owned-preview'},
+            retire        = workspace => {
+                workspace.nativeWindows = null;
+                workspace.destroy()
+            },
+            create        = async () => {
+                const workspace = Neo.create(PrefixedWorkspace, {dockModel: createDocument(), vesselPrefix: 'owned'});
+
+                created.push(workspace);
+                await workspace.ready();
+                workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+
+                return workspace
+            };
+
+        Neo.Main.windowClose = async data => {calls.push(data); return true};
+
+        try {
+            const live = await create();
+
+            await expect(live.closeTearOutVessel(vessel), 'the live counterpart').resolves.toBe(true);
+
+            const
+                torn         = await create(),
+                tornWindowId = torn.windowId,
+                closing      = torn.closeTearOutVessel(vessel);
+
+            // The import yields before the routine runs, so the workspace retires inside that gap.
+            retire(torn);
+
+            await expect(closing, 'the counterpart destroyed in the import gap').resolves.toBe(true);
+            expect(calls).toEqual([
+                {names: ['owned-preview'], windowId: live.windowId},
+                {names: ['owned-preview'], windowId: tornWindowId}
+            ])
+        } finally {
+            Neo.Main.windowClose = originalClose;
+            created.filter(workspace => !workspace.isDestroyed).forEach(retire)
         }
     })
 });
