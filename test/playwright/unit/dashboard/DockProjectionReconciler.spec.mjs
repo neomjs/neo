@@ -1321,7 +1321,9 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                       }
                   });
 
-            await DockProjectionReconciler.reconcileProjection({
+            // Deliberately unguarded: a rejection here is a failure of the thing under test, and a
+            // catch would let every assertion below run against a tree that was never reconciled.
+            const result = await DockProjectionReconciler.reconcileProjection({
                 host,
                 nextConfig,
                 placeholders,
@@ -1329,9 +1331,18 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
                     asked.push(itemId);
                     return panes[itemId]
                 }
-            }).catch(() => {});
+            });
 
             const settled = host.items[0].getCardContainer();
+
+            // Staging already left exactly one stand-in in the body and had not asked the resolver,
+            // so the three assertions after these two are ALSO true of a reconcile that did nothing.
+            // Chrome reconciliation rewrites the bar's ids to the projected set as its last act, so
+            // the vanished third id is the one post-condition a no-op cannot produce.
+            expect(result, 'the projection completed rather than resolving early').toBeTruthy();
+            expect(host.items[0].getTabBar().sortZoneConfig.dockItemIds,
+                'chrome reconciliation ran through and rewrote the bar to the projected set')
+                .toEqual(['alpha', 'beta']);
 
             expect(asked, 'the host is never asked to produce an item whose stand-in is already present')
                 .not.toContain('beta');
