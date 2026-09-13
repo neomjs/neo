@@ -51,7 +51,12 @@ export function createDockVesselEmbodiment({resolvePane, resolveTarget} = {}) {
             return false
         }
 
-        const placeholder = Neo.create(VesselPlaceholder);
+        // The stand-in takes a real pane's slot inside a tab body, and a projection decides which live
+        // component belongs to which dock item. Carrying the item's own identity is what makes that
+        // decision evidence rather than a guess about position — a guess that stops holding the moment
+        // a projection in flight leaves the bar's id list and the body at different lengths, which
+        // duplicated this mask. Readers that resolve a LIVE pane exclude this class by category.
+        const placeholder = Neo.create(VesselPlaceholder, {dockItemId: itemId});
 
         let record = {pane, placeholder, settlement: null, sourceParent, windowId};
 

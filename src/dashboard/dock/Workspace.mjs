@@ -1141,6 +1141,12 @@ class Workspace extends Container {
                 && !component?.ntype?.endsWith('button')
                 && !cls.includes('neo-dashboard-dock-rail-tab')
                 && !cls.includes('neo-dashboard-dock-placeholder')
+                // The cross-window stand-in is the newest member of this category and the one that
+                // looks least like a stand-in: it carries the departing item's own identity, because a
+                // projection has to recognize it in the slot it occupies. That identity makes it
+                // findable here too, and a load mask handed back as the live pane is worse than the
+                // duplicate it prevents — so it is excluded by class, as every other stand-in is.
+                && !cls.includes('neo-dashboard-dock-vessel-placeholder')
                 && component?.data?.missingReference !== true
         }) || null
     }
