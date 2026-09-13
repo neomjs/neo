@@ -389,8 +389,11 @@ half-restore. A saved layout either validates completely or it is rejected compl
 can never leak into a persisted document — `createSavedLayout` refuses to serialize it.
 
 Saved layouts are one of **two name sources**, and not the authoritative one. The arrangements a workspace
-*declares* — `perspectives`, a map of names to zones, selected through the reactive `activePerspective_` — are the
-names it answers to; a saved record is a snapshot, with provenance when its capture asked for it. The two never trade
+*declares* — `perspectives`, a map of names to zones or to already-lowered documents, selected through the reactive
+`activePerspective_` — are the names it answers to; a saved record is a snapshot, with provenance when its capture
+asked for it. The document form is how a host that supplies its own document declares the arrangement it ships: the
+document is admitted like a supplied `dockModel`, captured as that name's baseline byte-for-byte, and never
+registered with a topology Group, so the baseline may name a pane a sibling window currently owns. The two never trade
 places, and the refusal has two reaches. Every write path, the static collection helpers included, refuses a
 `$`-prefixed engine-reserved name. A *declared* name is refused by a library instance that knows its workspace —
 `declaredPerspectives: () => workspace.declaredPerspectives()` on `PerspectiveLibrary` or `TopologyLibrary` — on both

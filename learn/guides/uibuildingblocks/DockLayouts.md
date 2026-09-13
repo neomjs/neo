@@ -215,8 +215,10 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    `neo.dock.topology.v1` / `neo.dock.topologyCollection.v1` records for the Group-level topology owner.
    Restore refuses invalid records wholesale — your users' layouts never half-restore.
 6. **Two name sources, one of them authoritative.** A workspace *declares* its perspectives (`perspectives`, a map
-   of names to zones, with `activePerspective_` as the reactive intent), and a saved record is a *snapshot* that may
-   equal a declared arrangement but never defines or impersonates one. The refusal has two reaches: every write path,
+   of names to zones or to already-lowered documents — a document is admitted like a supplied `dockModel`, captured
+   as its name's baseline byte-for-byte and never registered with a topology Group, which is how a host that
+   supplies its own document declares the arrangement it ships — with `activePerspective_` as the reactive intent),
+   and a saved record is a *snapshot* that may equal a declared arrangement but never defines or impersonates one. The refusal has two reaches: every write path,
    the static collection helpers included, refuses a `$`-prefixed engine-reserved name (the unnamed `zones`-only
    arrangement lowers under `$default`), while a *declared* name is refused only by a library instance wired to its
    workspace — `declaredPerspectives: () => workspace.declaredPerspectives()` on `PerspectiveLibrary` or
