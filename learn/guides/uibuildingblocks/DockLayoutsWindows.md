@@ -1,12 +1,15 @@
 # Dock Layouts: A Pane's Life Across Windows
 
 Tear a pane out of your application into a real operating-system window, and you have asked the web platform for
-something it was built to refuse. A second window is a second document, a second JavaScript heap, a second DOM. Every
-mainstream docking library answers that refusal one of two ways: it serializes the pane and rebuilds a copy in the
-child window, or it portals a subtree into the popup and hopes the parent never reloads. Both answers lose. A rebuilt
-grid forgets its scroll position and its selection; a portaled chart dies with its opener; a saved layout that spanned
-three monitors comes back as one window and a prayer. The desktop teams who ask for this feature first are the ones
-who notice fastest that the web version is a facsimile.
+something it was built to refuse. A second window is a second document, a second JavaScript heap, a second DOM. The
+web docking libraries the engine's design record surveyed in mid-2026 answer that refusal one of two ways, where they
+document an answer at all: one re-creates the pane in the child window from serialized state — "an entirely new one
+with the same state", in its own words — and two render the popout from the opener's realm, so the popout lives
+exactly as long as the opener does. Each answer pays somewhere. A re-created grid carries only the state its author
+chose to serialize, in a new instance; a portaled chart dies with its opener's reload. That survey is bounded on
+purpose — capability-scoped, undocumented mechanisms marked as such, a revalidation trigger named — and this guide
+takes its position from it and no further. The desktop teams who ask for this feature first are the ones who notice
+fastest when the web version is a facsimile.
 
 Neo takes a different position, and the whole of this guide follows from it: **the pane exists once, in the
 SharedWorker heap, and every window is a render target.** The component that shows your order book in the main window
@@ -72,7 +75,7 @@ flowchart TD
     classDef decision fill:#3d1f00,stroke:#f39c12,stroke-width:1px,color:#eee
 
     Home["the pane lives in the main workspace<br/>one live instance, one committed document"]:::truth
-    Terminal["tear-out terminal — the ONE commit<br/>detachItem leaves the tree, the catalog record stays"]:::decision
+    Terminal["tear-out terminal — the ONE commit<br/>detachItem for a detached item · transferItem into a nested workspace"]:::decision
     Vessel["a real OS window embodies the same instance<br/>windowId flips, the pane remounts, nothing is rebuilt"]:::window
     Participant["the vessel binds into the Group under its workspace key<br/>its own document, the atomic two-document transfer"]:::truth
     Park["mid-gesture conversion: park the window, never close it<br/>re-show the same window, dispose once, on commit"]:::window
@@ -80,7 +83,7 @@ flowchart TD
     Retain["your host answers: retained<br/>the participant stays, the pane parks headless"]:::truth
     Retire["your host answers: retired<br/>the item re-trees home, the vessel document goes"]:::truth
     Return["three roads home — Undo, Reset, Show here<br/>the same instance embodies again, ~360 ms after the document"]:::window
-    Reload["warm reload rebinds the same lineage<br/>cold reload restores keyed documents headless, windows by gesture"]:::truth
+    Reload["warm reload rebinds the same lineage — same objects, same history<br/>cold reload: a new heap restores the keyed documents headless — new instances, windows by gesture"]:::truth
 
     Home --> Terminal
     Terminal --> Vessel
@@ -104,19 +107,24 @@ proxy that resumes when you change your mind. What matters here is the last beat
 at the detached terminal, never at the boundary.** A gesture that re-enters or cancels leaves the committed document
 untouched, so you can tear out and return a dozen times without the layout drifting by one node.
 
-That one commit is a `detachItem` through the same reducer every in-window operation uses. It removes the item from
-the tree and keeps its catalog record, and the placement intent it records is a separate hint layer keyed by
-workspace key — never a field inside the tree. The engine's design record states the two shapes multi-window
-composition may take: a *detached item*, whose component embodies into a popup while its record stays in the owning
-document's catalog, and a *nested workspace*, where the popup hosts its own workspace with its own document. The
-Workstation — the flagship consumer this guide reads its receipts from — uses the second shape: the vessel is a full
-workspace of its own, born with an empty edge-root document that the first transfer fills.
+The engine's design record states the two shapes multi-window composition may take, and the terminal commits a
+different operation for each. A *detached item* commits `detachItem` through the same reducer every in-window
+operation uses: the item leaves the tree, its catalog record stays in the owning document, and the placement intent
+goes into a separate hint layer keyed by workspace key — never a field inside the tree. A *nested workspace*, where
+the popup hosts its own workspace with its own document, commits `transferItem`: one atomic two-document transaction
+removes the item from the source tree **and** its catalog, and adopts the record verbatim into the destination
+document. The Workstation — the flagship consumer this guide reads its receipts from — uses the second shape: the
+reducer's terminal `detachItem` is what its host receives, and the host answers it with a `transferItem` from the
+main document into the vessel's — a full workspace of its own, born with an empty edge-root document that this first
+transfer fills. Either way there is one semantic commit for the whole gesture.
 
 What moves the pane physically is nothing exotic. `Neo.container.Base#add` sets `windowId` and `parentId` on a moved
 item, and across a window boundary it forces `mounted = false` so the mount lifecycle fires again in the destination
 realm. The component never leaves the worker heap; only its projection changes address. That is the engine's answer
-to the industry's two bad options, and it is worth saying plainly: there is no serialization step anywhere in this
-journey, because there is nothing to serialize — the object is already where the state lives.
+to the surveyed field's two options, and it is worth saying plainly: there is no serialization step in the move
+itself, because there is nothing to serialize — the object is already where the state lives. Persistence is a
+different journey: what the topology library writes to storage is the keyed documents as JSON, and station six says
+what a fresh heap gets back from them and what it does not.
 
 ## Station two: the window becomes a participant
 
@@ -270,14 +278,17 @@ lost pane from a moving one.
 
 ## Station six: reload, and what comes back on its own
 
-Reload is where serialize-and-recreate designs finally fail, and where a worker-owned topology earns its keep.
+Reload is where two kinds of continuity part ways, and where this guide owes you the boundary between them: a worker
+that survives keeps its objects; a worker that restarts keeps only what was written down.
 
 A **warm** reload — the main frame refreshes while the SharedWorker survives — is a binding event, not a topology
 event. The reloading window releases its binding on disconnect and presents the same lineage token on connect; the
 Group rebinds that one slot at the next generation and touches nothing else. Popups keep rendering. The pane in the
-vessel never noticed. The design record's SharedWorker table names why: committed documents, the set registry, the
-keyed topology and the durable placement hints are "worker-owned shared truth"; projections, rails, splitter math and
-DOM rectangles are per-window and derived, and none of them is ever persisted.
+vessel never noticed, and the undo history is still where it was, because the Group never went anywhere. The design
+record's SharedWorker table names why: committed documents, the set registry, the keyed topology and the durable
+placement hints are "worker-owned shared truth"; projections, rails, splitter math and DOM rectangles are per-window
+and derived, and none of them is ever persisted. Same objects and live history are this reload's guarantee, and it
+is bounded to exactly this case: the worker survived.
 
 A **cold** reload — the worker itself restarted — restores worker-owned truth first and lets windows catch up, in
 the order the record prescribes: validate the whole keyed topology as one finite record before mutating anything;
@@ -289,11 +300,19 @@ against the main frame plus a semantic fallback target — never pixel coordinat
 geometry": a detached item whose window cannot be re-created re-enters at its fallback node, or at the nearest
 surviving ancestor, never at a stored screen position that may belong to a monitor you unplugged.
 
-The practical shape of that for a user is exactly what they wanted from a desktop app and never got from a web one:
-open the application URL and the arrangement is back, headless popups offering themselves as windows one gesture away,
-the main frame's undo history intact because the Group kept it, and every pane the same object it was before the
-browser closed. Your host owes the reload nothing beyond what it already owes the first boot: a render target for
-each window a user opens, and the retention answer.
+On the Workstation that order is one controller method: only the window that bound the `main` key may read storage;
+it hydrates the topology library from IndexedDB for its Group, prepares the saved selection, and constructs a **new**
+Workspace with the selected topology as its initial documents. A new heap means new instances: every pane is created
+again from its catalog record, and the Group — created fresh for this heap — starts with no history, because the cold
+hydrate is a preserving write, not a replay of the old one.
+
+The practical shape of that for a user: open the application URL after the browser closed and the arrangement is
+back — the saved keyed topology, headless popups offering themselves as windows one gesture away — together with
+whatever application state your host chose to persist beside it. What does not come back on its own is the objects.
+The panes are new instances and the undo history starts empty; same objects and live history belong to the warm
+reload above, and to nothing else. Your host owes the cold boot more than it owed the first one: the storage adapter
+and the bootstrap that reads it under the root binding, a render target for each window a user opens, and the
+retention answer.
 
 ## What this buys you, concretely
 
@@ -306,8 +325,9 @@ actually asked for, and each one is a station above rather than a marketing line
   advancing heartbeat across the whole journey.
 - **One undo, everywhere.** The Group's cursor is shared by every bound window and by every writer — a human clicking
   the toolbar and an agent operating the layout through the Neural Link move the same history.
-- **A reload that keeps its word.** Warm reload is invisible; cold reload restores the whole keyed arrangement without
-  re-fetching, and asks the user only for what the platform requires — a gesture per window.
+- **A reload that says what it keeps.** Warm reload is invisible — same objects, same history. Cold reload restores
+  the whole keyed arrangement from the saved topology into new instances, and asks the user only for what the
+  platform requires — a gesture per window.
 - **Retention as a product choice, not an accident.** A closed or killed window does not decide the fate of your
   pane; your host does, once, at a named seam.
 - **The same seam for people and agents.** The engine's possession interface addresses windows by their runtime
@@ -329,22 +349,26 @@ public and measuring my way out.
 The transit window was the first lesson. A colleague and I, on the same day, both read a torn-out pane as lost after a
 reset. We had different instruments — she had a regression arm, I had a Neural Link probe — and both of us read the
 component once, right after the document settled, and both of us saw a pane in neither window. We filed the defect.
-What killed it was her polled rig: document at thirty-two milliseconds, popup empty at fifty-one, pane embodied at
-three hundred and sixty, in every run. Every "no pane follows" reading either of us had taken sat inside that window.
-Grace, `@neo-opus-grace`, wrote the sentence that now sits in the ticket's traps table and in my own memory: *"a green
-arm that contradicts a claim is evidence against the claim, not a fence around it."* Her own arm had been telling her
-the pane came home, twice, and she had relabelled it a bound. I had done the equivalent with my probe. The regression
-arm described in station five exists so that nobody has to learn this a third time.
+What killed it was the polled rig I built to isolate it, with the root resolver recorded: document at thirty-two
+milliseconds, popup empty at fifty-one, pane embodied at three hundred and sixty, in every run. Every "no pane
+follows" reading either of us had taken sat inside that window. Grace, `@neo-opus-grace`, wrote the sentence that now
+sits in that ticket's traps table and in my own memory, in her own comment endorsing the re-scope: *"A green arm that
+contradicts my claim is evidence against the claim, not a fence around it."* Her unit arm had been telling her the
+pane came home, twice, and she had relabelled it a bound. I had done the equivalent with my probe. The regression arm
+described in station five exists so that nobody has to learn this a third time.
 
 The lease was the second lesson, and a gentler one, because the engine's rules were right and I only had to read them
-in order. The rig killed a popup two hundred milliseconds after it opened and polled for thirty-two seconds with three
-recorders armed. Binding released at twenty-five milliseconds. Nothing for twenty seconds. Then, at nineteen point
-nine seven seconds, the pane destroyed, with a stack trace that read like a sentence: the lease expired, the expiry
-effect ran the release route, the release route reintegrated the item, the reintegration found no home, and the
-settle destroyed the pane. Every step was correct on its own; the whole was a pane lost to a window nobody saw. The fix
-was one remembered answer. What stayed with me is how the Group's docblock had already said it — "unbind preserves
-committed ownership, and only explicit retirement closes native resources" — and the code had a route where those two
-had quietly become one.
+in order — and then correct my own reading once. The rig killed a popup about a hundred and fifty milliseconds after
+it opened, before its app had bound, and polled for thirty-two seconds with three recorders armed. Nothing, for
+twenty seconds. Then, just short of twenty seconds after the reservation, the pane destroyed, with a stack trace that
+read like a sentence: the lease expired, the expiry effect ran the release route, the release route reintegrated the
+item, the reintegration found no home, and the settle destroyed the pane. My first write-up said the window's binding
+had been released at twenty-five milliseconds; a third run with a recorder on the release hook showed it never ran,
+because the popup never bound — the reserved slot still read no window before the close — so there was nothing to
+release, and the lease had been running from the reservation all along. Every step was correct on its own; the whole
+was a pane lost to a window nobody saw. The fix was one remembered answer. What stayed with me is how the Group's
+docblock had already said it — "unbind preserves committed ownership, and only explicit retirement closes native
+resources" — and the code had a route where those two had quietly become one.
 
 If you take one working habit from this guide rather than one fact, take this: when a window-shaped thing looks
 broken, read the owner's docblock first, then measure with a poll, and only then believe your eyes. The owners in
