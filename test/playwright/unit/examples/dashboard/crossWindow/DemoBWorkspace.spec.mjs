@@ -41,6 +41,7 @@ import {createCrossWindowStage}           from '../../../../../../examples/dashb
 function installWindowVessel({
     openError=null,
     closeError=null,
+    closeResult=true,
     nativeCloseResult=true,
     nativeFocusResult=true,
     nativeMoveResult=true,
@@ -71,7 +72,8 @@ function installWindowVessel({
     Neo.Main.windowClose   = async data => {
         state.closeCalls.push(data);
         state.closeCount++;
-        if (closeError) throw closeError
+        if (closeError) throw closeError;
+        return closeResult
     };
     Neo.Main.windowNativeClose = async data => {
         state.nativeCloseCalls.push(data);
@@ -1345,6 +1347,20 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             moving.destroy();
             delete Neo.apps['nested-restore-vessel'];
             vessel.restore()
+        }
+    });
+
+    test('a by-name close reports what the platform answered, a refusal included', async () => {
+        for (const closeResult of [false, true]) {
+            const vessel = installWindowVessel({closeResult});
+
+            try {
+                expect(await workspace.closeTearOutVessel({itemId: 'timeline', windowName: 'tearout-timeline'}),
+                    `the platform answered ${closeResult}`).toBe(closeResult);
+                expect(vessel.closeCount, 'one close reached the platform').toBe(1)
+            } finally {
+                vessel.restore()
+            }
         }
     });
 

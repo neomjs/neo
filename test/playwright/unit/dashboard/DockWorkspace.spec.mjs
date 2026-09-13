@@ -4716,3 +4716,35 @@ test.describe('projectDockZoneDocument — the commit\'s parked panes and a sibl
         workspace.destroy()
     })
 });
+
+test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)', () => {
+    test('the default closes a vessel it opened through the shared routine and returns the platform answer', async () => {
+        const
+            workspace     = Neo.create(PlainWorkspace, {dockModel: createDocument()}),
+            originalClose = Neo.Main.windowClose,
+            calls         = [];
+
+        let answer = true;
+
+        Neo.Main.windowClose    = async data => {calls.push(data); return answer};
+        // Nothing is admitted, so the vessel has no route and closes by the name this workspace opened it under.
+        workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+
+        try {
+            const vessel = {itemId: 'preview', windowName: workspace.tearOutWindowName('preview')};
+
+            expect(vessel.windowName, 'the name openTearOutVessel mints').toBe('neo-dock-tearout-preview');
+            await expect(workspace.closeTearOutVessel(vessel)).resolves.toBe(true);
+
+            answer = false;
+            await expect(workspace.closeTearOutVessel(vessel), 'a refused close stays a refusal').resolves.toBe(false);
+            await expect(workspace.closeTearOutVessel({itemId: 'preview', windowName: 'tearout-preview'}), 'a foreign name refuses').resolves.toBe(false);
+
+            expect(calls).toEqual(Array(2).fill({names: ['neo-dock-tearout-preview'], windowId: workspace.windowId}))
+        } finally {
+            Neo.Main.windowClose    = originalClose;
+            workspace.nativeWindows = null;
+            workspace.destroy()
+        }
+    })
+});

@@ -2075,12 +2075,11 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
-     * or a refused model commit). Identity is the slot's lineage token — a successor admission for
-     * the same item shares the window name, never the token — so a retirement presenting a superseded
-     * token is refused and the live vessel survives it. The Group's native retirement holds the
-     * retirement fence and clears the ownership records around this call; the platform close and its
-     * receipt are this host's, and an explicit refusal retains exact retry authority.
+     * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel, or a
+     * refused model commit) through the engine's shared close. The Group's native retirement holds the
+     * retirement fence and clears the ownership records around this call. This host's part is its
+     * trimmings: the `lastTearOutClose` receipt the tour and the Neural Link read, and the park geometry an
+     * acknowledged close retires.
      * @param {Object} vessel
      * @param {String} [vessel.generationToken] The reservation's lineage token.
      * @param {String} vessel.itemId
@@ -2089,116 +2088,23 @@ class Workspace extends DockWorkspace {
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async closeTearOutVessel({generationToken, itemId, nativeRoute, windowName}) {
-        let me               = this,
-            entry            = me.resolveTearOutVessel(itemId),
-            admission        = me.nativeWindows?.getAdmission(me.id, itemId),
-            expected         = `tearout-${itemId}`,
-            exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
-            embodiedWindowId = entry?.windowId ?? admission?.windowId ?? me.tearOutEmbodiment.getWindowId(itemId),
-            closed           = false;
-
-        const closeReceipt = me.lastTearOutClose = {
-            identity: {
-                entryNameMatches : !entry || entry.windowName === windowName,
-                hasEntry         : Boolean(entry),
-                hasItemId        : Boolean(itemId),
-                lineageMatches   : !generationToken || !exactToken || generationToken === exactToken,
-                windowNameMatches: windowName === expected
-            },
-            itemId: itemId ?? null,
-            stage : 'validating-identity'
-        };
-
-        if (
-            !itemId || windowName !== expected || (entry && entry.windowName !== windowName) ||
-            (generationToken && exactToken && generationToken !== exactToken)
-        ) {
-            closeReceipt.stage = 'identity-refused';
-            return false
-        }
-
-        nativeRoute ??= entry?.nativeRoute ?? (
-            admission?.windowId && Neo.manager?.Window?.get(admission.windowId)?.nativeRoute
-        );
-
-        // Absence of a route is not a refusal here: such a vessel closes semantically. Only a route
-        // that exists and fails an axis is.
+    async closeTearOutVessel(vessel) {
         const
-            exactWindowId = entry?.windowId ?? admission?.windowId,
-            // No exact window means no target to constrain, which the key's ABSENCE says; passing it
-            // as null would instead say the caller lost an id it needed, and refuse.
-            auth          = WindowManager.resolveNativeRoute({
-                capability: 'close', ownerWindowId: me.windowId, route: nativeRoute,
-                ...(exactWindowId && {targetWindowId: exactWindowId})
-            });
+            me             = this,
+            parkGeometries = me.tearOutParkGeometries,
+            closed         = await NativeVesselTransaction.closeVessel({
+                embodiment    : me.tearOutEmbodiment,
+                nativeWindows : me.nativeWindows,
+                ownerWindowId : me.windowId,
+                publishReceipt: receipt => me.lastTearOutClose = receipt,
+                sourceId      : me.id,
+                sourceOwns    : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
+                windowNameFor : itemId => `tearout-${itemId}`
+            }, vessel);
 
-        closeReceipt.route = {
-            closeCapable      : !auth.present || auth.capable,
-            exactTargetMatches: !auth.present || auth.targetMatches,
-            exactWindowId     : exactWindowId ?? null,
-            hasHandle         : !auth.present || auth.hasHandle,
-            ownerMatches      : !auth.present || auth.ownerMatches,
-            ownerWindowId     : nativeRoute?.ownerWindowId ?? null,
-            present           : auth.present,
-            targetPresent     : !auth.present || auth.hasTarget,
-            targetWindowId    : nativeRoute?.targetWindowId ?? null
-        };
+        closed && delete parkGeometries[vessel.itemId];
 
-        if (auth.present && !auth.granted) {
-            closeReceipt.stage = 'route-refused';
-            return false
-        }
-
-        // The engine established retirement before this call; a refused close retains the exact
-        // route + tear-out machine slot for retry, but the content goes safely home first.
-        if (embodiedWindowId && me.tearOutEmbodiment.isStaged(itemId)) {
-            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
-                  settled    = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
-                      itemId, windowId: embodiedWindowId
-                  });
-
-            closeReceipt.embodiment = {settled, sourceOwns, staged: true};
-
-            if (!settled) {
-                closeReceipt.stage = 'embodiment-refused';
-                return false
-            }
-        }
-
-        try {
-            if (nativeRoute) {
-                closeReceipt.stage = 'native-dispatched';
-                closed = await Neo.Main.windowNativeClose({
-                    nativeHandleKey: nativeRoute.nativeHandleKey,
-                    targetWindowId : nativeRoute.targetWindowId,
-                    windowId       : me.windowId
-                }) === true
-            } else {
-                closeReceipt.stage = 'semantic-dispatched';
-                // Before connect there is no exact route to correlate yet; the active tear-out
-                // slot's unguessable semantic name is the only available authority. Once a route
-                // exists, ANY invalidity above fails closed — never downgrade to same-name close.
-                await Neo.Main.windowClose({names: [windowName], windowId: me.windowId});
-                closed = true
-            }
-        } catch (error) {
-            closeReceipt.error = String(error?.message || error);
-            closeReceipt.stage = 'threw';
-            return false
-        }
-
-        closeReceipt.closed = closed;
-
-        if (!closed) {
-            closeReceipt.stage = 'platform-refused';
-            return false
-        }
-
-        delete me.tearOutParkGeometries[itemId];
-        closeReceipt.stage = 'acknowledged';
-
-        return true
+        return closed
     }
 
     /**
@@ -2208,16 +2114,9 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     resolveTearOutVessel(itemId) {
-        let entry = this.nativeWindows?.getConnection(this.id, itemId) ?? this.nativeWindows?.getOwner(this.id, itemId);
-
-        if (!entry?.windowId) return null;
-
-        return {
-            ...entry,
-            itemId,
-            nativeRoute: entry.nativeRoute ?? Neo.manager?.Window?.get(entry.windowId)?.nativeRoute ?? null,
-            windowName : entry.windowName ?? `tearout-${itemId}`
-        }
+        return NativeVesselTransaction.resolveVessel({
+            nativeWindows: this.nativeWindows, sourceId: this.id, windowNameFor: id => `tearout-${id}`
+        }, itemId)
     }
 
     /**

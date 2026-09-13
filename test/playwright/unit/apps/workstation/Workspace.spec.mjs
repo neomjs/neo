@@ -2476,6 +2476,30 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('a by-name close reports what the platform answered, a refusal included', async () => {
+        const
+            workspace     = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+            originalClose = Neo.Main.windowClose,
+            vessel        = {itemId: 'alerts', windowName: 'tearout-alerts'};
+
+        try {
+            for (const [answer, stage] of [[false, 'platform-refused'], [true, 'acknowledged']]) {
+                Neo.Main.windowClose = async () => answer;
+
+                await expect(workspace.closeTearOutVessel(vessel), `the platform answered ${answer}`).resolves.toBe(answer);
+                expect(workspace.lastTearOutClose.stage).toBe(stage)
+            }
+
+            Neo.Main.windowClose = async () => {throw new Error('no live handle')};
+
+            await expect(workspace.closeTearOutVessel(vessel)).resolves.toBe(false);
+            expect(workspace.lastTearOutClose).toMatchObject({error: 'no live handle', stage: 'threw'})
+        } finally {
+            Neo.Main.windowClose = originalClose;
+            workspace.destroy()
+        }
+    });
+
     test('the production resolver keeps the main participant through the root\'s release and lease expiry; a never-bound first boot joins when its binding is accepted', async () => {
         // The window is NOT pre-bound: a first boot, whose minted identity the carrier accepts after
         // this instance constructed. Until then there is no Group to join — registration refuses.

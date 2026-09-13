@@ -3886,17 +3886,9 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     resolveTearOutVessel(itemId) {
-        let me    = this,
-            entry = me.nativeWindows?.getConnection(me.vesselSourceId, itemId)
-                 ?? me.nativeWindows?.getOwner(me.vesselSourceId, itemId);
-
-        if (!entry?.windowId) return null;
-
-        return {
-            ...entry,
-            nativeRoute: entry.nativeRoute ?? Neo.manager?.Window?.get(entry.windowId)?.nativeRoute ?? null,
-            windowName : entry.windowName ?? `tearout-${itemId}`
-        }
+        return NativeVesselTransaction.resolveVessel({
+            nativeWindows: this.nativeWindows, sourceId: this.vesselSourceId, windowNameFor: id => `tearout-${id}`
+        }, itemId)
     }
 
     /**
@@ -3986,12 +3978,12 @@ class DemoBWorkspace extends Container {
 
     /**
      * @summary The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
-     * or a refused model commit). Identity is the slot's lineage token — a successor admission for
-     * the same item shares the window name, never the token — so a retirement presenting a superseded
-     * token is refused and the live vessel survives it. The live connection remains recoverable until
-     * the platform strictly admits the close; an explicit refusal can therefore be retried instead of
-     * orphaning a parked native generation. {@link #onTopologyRelease} ignores tear-out windows by
-     * construction (no {@link #detachedPanes} entry), so no reattach machinery fires after success.
+     * or a refused model commit) through the engine's shared close. The live connection remains
+     * recoverable until the platform strictly admits the close, so an explicit refusal can be retried
+     * instead of orphaning a parked native generation. {@link #onTopologyRelease} ignores tear-out windows
+     * by construction (no {@link #detachedPanes} entry), so no reattach machinery fires after success.
+     * This host's trimming is the vessel proxy: its source slot lives inside the vessel, so it unwinds
+     * before a restoring settle.
      * @param {Object} vessel
      * @param {String} [vessel.generationToken] The reservation's lineage token.
      * @param {String} vessel.itemId
@@ -4000,80 +3992,18 @@ class DemoBWorkspace extends Container {
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async closeTearOutVessel({generationToken, itemId, nativeRoute, windowName}) {
-        let me    = this,
-            entry = me.resolveTearOutVessel(itemId),
-            // The pending slot is the Group's admission. A vessel whose binding is still being
-            // decided names its window as `connectingWindowId` and only earns `windowId` on
-            // acceptance — a close arriving mid-decision must still reach that exact window.
-            admission = me.nativeWindows?.getAdmission(me.vesselSourceId, itemId),
-            admittedWindowId = admission?.windowId ?? admission?.connectingWindowId ?? null,
-            expected         = `tearout-${itemId}`,
-            exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
-            embodiedWindowId = entry?.windowId ?? admittedWindowId ?? me.tearOutEmbodiment.getWindowId(itemId),
-            closed           = false;
+    closeTearOutVessel(vessel) {
+        const me = this;
 
-        if (
-            !itemId || windowName !== expected || (entry && entry.windowName !== windowName) ||
-            (generationToken && exactToken && generationToken !== exactToken)
-        ) {
-            return false
-        }
-
-        nativeRoute ??= entry?.nativeRoute ?? (
-            admittedWindowId && Neo.manager?.Window?.get(admittedWindowId)?.nativeRoute
-        );
-
-        const exactWindowId = entry?.windowId ?? admittedWindowId;
-
-        // Absence of a route is not a refusal here: such a vessel closes semantically. No exact window
-        // means no target to constrain, which the key's ABSENCE says rather than a null value.
-        const closeAuth = WindowManager.resolveNativeRoute({
-            capability: 'close', ownerWindowId: me.windowId, route: nativeRoute,
-            ...(exactWindowId && {targetWindowId: exactWindowId})
-        });
-
-        if (closeAuth.present && !closeAuth.granted) return false;
-
-        // The Group established retirement before this call, so a refused close retains the exact
-        // route and the tear-out machine slot for retry while the content stays safely home. A
-        // committed transfer promotes the staged pane instead, letting the target-first reconciler
-        // take it without a false source restoration.
-        if (embodiedWindowId && me.tearOutEmbodiment.isStaged(itemId)) {
-            const sourceOwns = Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId));
-
-            // Unwind the target proxy first; its source slot lives inside this vessel.
-            if (sourceOwns && me.vesselProxyEmbodiment.isStaged(itemId)
-                && !me.vesselProxyEmbodiment.restore({itemId})) return false;
-
-            const settled = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
-                itemId, windowId: embodiedWindowId
-            });
-
-            if (!settled) return false
-        }
-
-        try {
-            if (nativeRoute) {
-                closed = await Neo.Main.windowNativeClose({
-                    nativeHandleKey: nativeRoute.nativeHandleKey,
-                    targetWindowId : nativeRoute.targetWindowId,
-                    windowId       : me.windowId
-                }) === true
-            } else {
-                // Before connect there is no exact route to correlate yet; the active tear-out
-                // slot's unguessable semantic name is the only available authority. Once a route
-                // exists, ANY invalidity above fails closed — never downgrade to same-name close.
-                await Neo.Main.windowClose({names: [windowName], windowId: me.windowId});
-                closed = true
-            }
-        } catch (error) {
-            return false
-        }
-
-        // The acknowledged close is all this effect owes: the Group clears the retirement it opened
-        // and the admission and connection that named this generation.
-        return closed
+        return NativeVesselTransaction.closeVessel({
+            beforeRestore: ({itemId}) => !me.vesselProxyEmbodiment.isStaged(itemId) || me.vesselProxyEmbodiment.restore({itemId}),
+            embodiment   : me.tearOutEmbodiment,
+            nativeWindows: me.nativeWindows,
+            ownerWindowId: me.windowId,
+            sourceId     : me.vesselSourceId,
+            sourceOwns   : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
+            windowNameFor: itemId => `tearout-${itemId}`
+        }, vessel)
     }
 
     /**

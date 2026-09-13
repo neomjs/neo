@@ -368,3 +368,224 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
         expect(admitted).toBe(false)
     });
 });
+
+/**
+ * The tear-out close every host used to write for itself. The arms pin the ORDER as much as the verdicts:
+ * identity before resolution, route authority before the pane moves, the pane home before its window
+ * goes, and the platform's own answer returned — the by-name `false` the copies used to swallow above all.
+ */
+test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', () => {
+    const CLOSE_ROUTE = {capabilities: {close: true}, nativeHandleKey: 'handle-close', ownerWindowId: 'win-owner', targetWindowId: 'win-vessel'};
+
+    let restorePlatform = null;
+
+    test.afterEach(() => {
+        restorePlatform?.();
+        restorePlatform = null
+    });
+
+    /**
+     * @summary Doubles both platform close routes and records what reached them, in order.
+     * @param {Object} [answers={}] `{byName, native}`: `true`, `false` or `'throw'`; `true` when omitted.
+     * Mutate it between calls to change an answer without reinstalling the double.
+     * @returns {Object[]} `{name, data}` per dispatched call.
+     */
+    const installClose = (answers={}) => {
+        Neo.Main ??= {};
+
+        const
+            calls    = [],
+            previous = {byName: Neo.Main.windowClose, native: Neo.Main.windowNativeClose},
+            answer   = (name, data) => {
+                calls.push({data, name});
+                if (answers[name] === 'throw') throw new Error(`${name} threw`);
+                return Promise.resolve(answers[name] ?? true)
+            };
+
+        Neo.Main.windowClose       = data => answer('byName', data);
+        Neo.Main.windowNativeClose = data => answer('native', data);
+
+        restorePlatform = () => {
+            Neo.Main.windowClose       = previous.byName;
+            Neo.Main.windowNativeClose = previous.native;
+            ['win-connecting', 'win-vessel'].forEach(id => WindowManager.get(id) && WindowManager.unregister(id))
+        };
+
+        return calls
+    };
+
+    // The lifecycle answers only under `source-1`, so every arm also proves the routine reads the admission
+    // and the vessel under the caller's registration.
+    const descriptorFor = ({admission=null, connection=null, receipts=[], ...rest} = {}) => ({
+        nativeWindows : {
+            getAdmission : sourceId => sourceId === 'source-1' ? admission : null,
+            getConnection: sourceId => sourceId === 'source-1' ? connection : null,
+            getOwner     : () => null
+        },
+        ownerWindowId : 'win-owner',
+        publishReceipt: receipt => receipts.push(receipt),
+        sourceId      : 'source-1',
+        windowNameFor : itemId => `vessel-${itemId}`,
+        ...rest
+    });
+
+    test('a mismatched name, a foreign entry name or a superseded lineage refuses before any dispatch', async () => {
+        const calls = installClose();
+
+        for (const [flag, vessel, connection] of [
+            ['windowNameMatches', {itemId: 'a', windowName: 'someone-else'}, null],
+            ['entryNameMatches',  {itemId: 'a', windowName: 'vessel-a'}, {windowId: 'win-vessel', windowName: 'vessel-a-successor'}],
+            ['lineageMatches',    {generationToken: 'old', itemId: 'a', windowName: 'vessel-a'}, {generationToken: 'new', windowId: 'win-vessel', windowName: 'vessel-a'}]
+        ]) {
+            const receipts = [];
+
+            expect(await NativeVesselTransaction.closeVessel(descriptorFor({connection, receipts}), vessel), flag).toBe(false);
+            expect(receipts[0].identity[flag], flag).toBe(false);
+            expect(receipts[0].stage, flag).toBe('identity-refused')
+        }
+
+        expect(calls, 'nothing reached the platform').toEqual([])
+    });
+
+    test('a present route that fails an axis refuses before the pane moves or the platform is asked', async () => {
+        const calls    = installClose(),
+              receipts = [],
+              restored = [];
+
+        WindowManager.register({id: 'win-vessel', nativeRoute: {...CLOSE_ROUTE, capabilities: {close: false}}});
+
+        expect(await NativeVesselTransaction.closeVessel(descriptorFor({
+            connection: {windowId: 'win-vessel', windowName: 'vessel-a'},
+            embodiment: {getWindowId: () => 'win-vessel', isStaged: () => true, promote: () => true, restore: data => restored.push(data) > 0},
+            receipts,
+            sourceOwns: () => true
+        }), {itemId: 'a', windowName: 'vessel-a'})).toBe(false);
+
+        expect(receipts[0]).toMatchObject({route: {closeCapable: false, present: true}, stage: 'route-refused'});
+        expect(restored, 'the pane stayed where it was').toEqual([]);
+        expect(calls).toEqual([])
+    });
+
+    test('a granted route closes through its native handle and returns the platform answer', async () => {
+        const answers = {},
+              calls   = installClose(answers);
+
+        WindowManager.register({id: 'win-vessel', nativeRoute: CLOSE_ROUTE});
+
+        for (const answer of [true, false]) {
+            const receipts = [];
+
+            answers.native = answer;
+            calls.length   = 0;
+
+            expect(await NativeVesselTransaction.closeVessel(
+                descriptorFor({connection: {windowId: 'win-vessel', windowName: 'vessel-a'}, receipts}),
+                {itemId: 'a', windowName: 'vessel-a'}
+            ), String(answer)).toBe(answer);
+            expect(calls).toEqual([{data: {nativeHandleKey: 'handle-close', targetWindowId: 'win-vessel', windowId: 'win-owner'}, name: 'native'}]);
+            expect(receipts[0], 'a resolved route the platform answered').toMatchObject({
+                dispatch: 'native', route: {present: true}, stage: answer ? 'acknowledged' : 'platform-refused'
+            })
+        }
+    });
+
+    test('an unrouted vessel closes by name and returns the platform answer, a refusal included', async () => {
+        const answers = {},
+              calls   = installClose(answers);
+
+        for (const [answer, expected, stage] of [[true, true, 'acknowledged'], [false, false, 'platform-refused'], ['throw', false, 'threw']]) {
+            const receipts = [];
+
+            answers.byName = answer;
+
+            expect(await NativeVesselTransaction.closeVessel(descriptorFor({receipts}), {itemId: 'a', windowName: 'vessel-a'}), String(answer)).toBe(expected);
+            expect(receipts[0], `no route, then the platform answered ${answer}`).toMatchObject({dispatch: 'semantic', route: {present: false}, stage})
+        }
+
+        expect(calls.map(call => call.data)).toEqual(Array(3).fill({names: ['vessel-a'], windowId: 'win-owner'}))
+    });
+
+    test('a staged pane goes home before its window closes, and a refused settle keeps the window', async () => {
+        const calls = installClose();
+
+        for (const [sourceOwns, method] of [[true, 'restore'], [false, 'promote']]) {
+            calls.length = 0;
+
+            expect(await NativeVesselTransaction.closeVessel(descriptorFor({
+                embodiment: {
+                    getWindowId: () => 'win-vessel',
+                    isStaged   : () => true,
+                    promote    : data => calls.push({data, name: 'promote'}) > 0,
+                    restore    : data => calls.push({data, name: 'restore'}) > 0
+                },
+                sourceOwns: () => sourceOwns
+            }), {itemId: 'a', windowName: 'vessel-a'}), method).toBe(true);
+
+            expect(calls.map(call => call.name), method).toEqual([method, 'byName']);
+            expect(calls[0].data).toEqual({itemId: 'a', windowId: 'win-vessel'})
+        }
+
+        const receipts = [];
+
+        calls.length = 0;
+
+        expect(await NativeVesselTransaction.closeVessel(descriptorFor({
+            embodiment: {getWindowId: () => 'win-vessel', isStaged: () => true, restore: () => false},
+            receipts,
+            sourceOwns: () => true
+        }), {itemId: 'a', windowName: 'vessel-a'})).toBe(false);
+
+        expect(receipts[0]).toMatchObject({embodiment: {settled: false, sourceOwns: true}, stage: 'embodiment-refused'});
+        expect(calls, 'the window was never asked to close').toEqual([])
+    });
+
+    test('a restoring settle waits for the host unwind, and a refused unwind refuses', async () => {
+        const calls = installClose(),
+              order = [];
+
+        expect(await NativeVesselTransaction.closeVessel(descriptorFor({
+            beforeRestore: () => false,
+            embodiment   : {getWindowId: () => 'win-vessel', isStaged: () => true, restore: () => order.push('restore') > 0},
+            sourceOwns   : () => true
+        }), {itemId: 'a', windowName: 'vessel-a'})).toBe(false);
+
+        expect(order, 'no restore after a refused unwind').toEqual([]);
+        expect(calls).toEqual([]);
+
+        expect(await NativeVesselTransaction.closeVessel(descriptorFor({
+            beforeRestore: () => order.push('unwind') > 0,
+            embodiment   : {getWindowId: () => 'win-vessel', isStaged: () => true, restore: () => order.push('restore') > 0},
+            sourceOwns   : () => true
+        }), {itemId: 'a', windowName: 'vessel-a'})).toBe(true);
+
+        expect(order).toEqual(['unwind', 'restore'])
+    });
+
+    test('a close arriving mid-decision addresses the connecting window', async () => {
+        const calls = installClose();
+
+        WindowManager.register({id: 'win-connecting', nativeRoute: {...CLOSE_ROUTE, targetWindowId: 'win-connecting'}});
+
+        expect(await NativeVesselTransaction.closeVessel(
+            descriptorFor({admission: {connectingWindowId: 'win-connecting', windowId: null}}),
+            {itemId: 'a', windowName: 'vessel-a'}
+        )).toBe(true);
+
+        expect(calls).toEqual([{data: {nativeHandleKey: 'handle-close', targetWindowId: 'win-connecting', windowId: 'win-owner'}, name: 'native'}])
+    });
+
+    test('resolveVessel: a connection outranks the recorded owner, and an entry without a window is no vessel', () => {
+        const
+            // Entries exist only under the registration `s`, so a resolver reading any other key finds nothing.
+            nativeWindows = {
+                getConnection: (sourceId, itemId) => sourceId === 's' && itemId === 'live' ? {windowId: 'win-live'} : null,
+                getOwner     : (sourceId, itemId) => sourceId === 's' ? {windowId: itemId === 'owned' ? 'win-owned' : null, windowName: 'owned-name'} : null
+            },
+            resolve       = (itemId, sourceId='s') => NativeVesselTransaction.resolveVessel({nativeWindows, sourceId, windowNameFor: id => `vessel-${id}`}, itemId);
+
+        expect(resolve('live')).toMatchObject({itemId: 'live', nativeRoute: null, windowId: 'win-live', windowName: 'vessel-live'});
+        expect(resolve('live', 'another-source'), 'an entry belongs to its own registration').toBeNull();
+        expect(resolve('owned')).toMatchObject({itemId: 'owned', windowId: 'win-owned', windowName: 'owned-name'});
+        expect(resolve('pending'), 'no window, no vessel').toBeNull()
+    });
+});

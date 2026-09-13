@@ -969,7 +969,7 @@ class Workspace extends Container {
                 width      = Math.max(Math.round(proxyRect?.width  || 480), 320),
                 left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
                 top        = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
-                windowName = `neo-dock-tearout-${itemId}`;
+                windowName = me.tearOutWindowName(itemId);
 
             const opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
@@ -995,14 +995,34 @@ class Workspace extends Container {
     }
 
     /**
-     * Hook: closes the consumer's platform-specific tear-out vessel. Explicit false retains retry
-     * authority; legacy void success remains admitted by {@link Neo.dashboard.dock.window.TearOut}.
+     * Hook: closes a tear-out vessel through the engine's shared close
+     * ({@link Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel}) for the vessels this
+     * workspace opens by default: identity, route authority and dispatch, with no staged embodiment to
+     * settle. A host that stages embodiment or keeps close receipts overrides this and calls the same
+     * routine with its own descriptor. The routine loads on first use, so a single-window app never pays
+     * for it. A refusal is `false`, which retains retry authority.
      * @param {Object} vessel
-     * @returns {Promise<Boolean|void>|Boolean|void}
+     * @returns {Promise<Boolean>}
      * @protected
      */
-    closeTearOutVessel(vessel) {
-        return false
+    async closeTearOutVessel(vessel) {
+        // Read before the await: a close can race teardown, and `destroy()` deletes own properties.
+        const
+            {id, nativeWindows, windowId}      = this,
+            windowNameFor                      = itemId => this.tearOutWindowName(itemId),
+            {default: NativeVesselTransaction} = await import('./window/NativeVesselTransaction.mjs');
+
+        return NativeVesselTransaction.closeVessel({nativeWindows, ownerWindowId: windowId, sourceId: id, windowNameFor}, vessel)
+    }
+
+    /**
+     * @summary The semantic window name this workspace opens a tear-out vessel under, and closes it by.
+     * @param {String} itemId
+     * @returns {String}
+     * @protected
+     */
+    tearOutWindowName(itemId) {
+        return `neo-dock-tearout-${itemId}`
     }
 
     /**
