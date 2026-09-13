@@ -467,15 +467,17 @@ class Workspace extends DockWorkspace {
                     iconCls: 'fa fa-rotate-left',
                     text   : 'Reset to default'
                 },
-                // Both bindings go through the one formatter, so the visibility test and the text
-                // cannot disagree about whether there is anything to say.
+                // Both bindings go through the one formatter, so hiding and the text cannot disagree
+                // about whether there is anything to say. `hidden` removes the DOM: a class that only
+                // turns the readout invisible leaves its box in the row, and the row wraps.
                 {
                     ntype: 'component',
                     bind : {
-                        cls : data => ['workstation-topology-state'].concat(Workspace.topologyStateText(lineState(data)) ? [] : ['neo-hidden']),
-                        html: data => Workspace.topologyStateText(lineState(data))
+                        hidden: data => !Workspace.topologyStateText(lineState(data)),
+                        html  : data => Workspace.topologyStateText(lineState(data))
                     },
-                    flex : 'none'
+                    cls : ['workstation-topology-state'],
+                    flex: 'none'
                 }
             ],
             layout   : {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'},
