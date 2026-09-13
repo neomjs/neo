@@ -417,7 +417,7 @@ export function planBeside(source, target, envelope, {gap=40}={}) {
  * @param {Number} [options.settleAttempts=20] Polls of the product's own placement before CDP.
  * @returns {Promise<Object>} `{bounds, fits, moved, reason}`.
  */
-export async function placeBesideSource(sourcePage, targetPage, {gap=40, settleAttempts=20}={}) {
+export async function placeBesideSource(sourcePage, targetPage, {envelope=null, gap=40, settleAttempts=20}={}) {
     await targetPage.waitForURL(url => url.protocol !== 'about:', {timeout: 30000});
 
     const outerRect = async page => {
@@ -435,7 +435,7 @@ export async function placeBesideSource(sourcePage, targetPage, {gap=40, settleA
         const [source, target] = await Promise.all([outerRect(sourcePage), outerRect(targetPage)]);
 
         if (!rectsOverlap(source, target)) {
-            return {bounds: target, fits: true, moved: false, reason: null}
+            return {bounds: target, fits: true, moved: false, reason: null, stageTrusted: true}
         }
 
         await targetPage.waitForTimeout(25)
@@ -443,14 +443,36 @@ export async function placeBesideSource(sourcePage, targetPage, {gap=40, settleA
 
     const
         [source, target] = await Promise.all([outerRect(sourcePage), outerRect(targetPage)]),
-        envelope         = await readDisplayEnvelope(sourcePage),
-        plan             = planBeside(source, target, envelope, {gap});
+        emulated         = Boolean((await readBrowserSurface(sourcePage)).emulatedViewport),
+        // `screenX`/`screenY` stay real under viewport emulation while `screen.avail*` reports the
+        // emulated size. Reading the envelope from an emulated page therefore measures a real window
+        // against a stage that does not exist, which is the failure this module exists to prevent —
+        // so the envelope is trusted only when the caller declares one or the page is unemulated.
+        stage            = envelope ?? (emulated ? null : await readDisplayEnvelope(sourcePage));
 
-    if (!plan.fits) {
-        return {...plan, moved: false}
+    let bounds;
+
+    if (stage) {
+        const plan = planBeside(source, target, stage, {gap});
+
+        if (!plan.fits) {
+            return {...plan, moved: false, stageTrusted: true}
+        }
+
+        bounds = plan.bounds
+    } else {
+        // No trustworthy envelope: skip the fit test rather than run it against fiction, and place
+        // beside the source. The non-overlap poll below is the receipt either way — it measures the
+        // arrangement the caller actually asked for instead of inferring it from a request.
+        bounds = {
+            height: target.height,
+            left  : source.left + source.width + gap,
+            top   : source.top,
+            width : target.width
+        }
     }
 
-    await placeNativeWindow(targetPage, plan.bounds);
+    await placeNativeWindow(targetPage, bounds);
 
     // The landing poll inside placeNativeWindow proves the window reached its REQUESTED origin. It
     // cannot prove the arrangement, which is what the caller actually asked for, so the goal itself
@@ -467,5 +489,5 @@ export async function placeBesideSource(sourcePage, targetPage, {gap=40, settleA
         intervals: [25, 50, 100]
     }).toBe(false);
 
-    return {...plan, moved: true}
+    return {bounds, fits: true, moved: true, reason: null, stageTrusted: Boolean(stage)}
 }

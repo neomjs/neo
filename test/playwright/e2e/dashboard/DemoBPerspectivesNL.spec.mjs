@@ -1,4 +1,5 @@
 import {test, expect}        from '../../fixtures.mjs';
+import {placeBesideSource}   from '../utils/filmStage.mjs';
 import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 import {demoBTourScript}     from '../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
@@ -8,34 +9,6 @@ import {demoBTourScript}     from '../../../../examples/dashboard/crossWindow/de
  * @type {String}
  */
 const HOSTED = 'the popup hosts the live workbench pane';
-
-/**
- * @summary Moves only the real headless-Chrome popup vessel outside the source viewport.
- * Product browsers honor the app-owned placement request; CDP supplies the missing window-manager
- * behavior in headless Chrome without bypassing Neo's pointer, preview, or commit path.
- * @param {import('@playwright/test').Page} page
- * @param {import('@playwright/test').Page} popup
- */
-async function placePopupOutsideSource(page, popup) {
-    const popupCdp    = await page.context().newCDPSession(popup),
-          popupWindow = await popupCdp.send('Browser.getWindowForTarget'),
-          sourceStage = await page.evaluate(() => ({
-              left : globalThis.screenX,
-              top  : globalThis.screenY,
-              width: globalThis.innerWidth
-          }));
-
-    await popupCdp.send('Browser.setWindowBounds', {
-        bounds: {
-            height     : popupWindow.bounds.height,
-            left       : sourceStage.left + sourceStage.width + 40,
-            top        : sourceStage.top,
-            width      : popupWindow.bounds.width,
-            windowState: 'normal'
-        },
-        windowId: popupWindow.windowId
-    })
-}
 
 /**
  * @summary Whitebox E2E for Demo B's full two-window perspective story.
@@ -130,7 +103,10 @@ test.describe('Dashboard Demo B — topology perspective + shared-heap popup jou
             const popup       = await popupPromise,
                   popupErrors = [];
 
-            await placePopupOutsideSource(page, popup);
+            const placement = await placeBesideSource(page, popup);
+
+            expect(placement.fits, placement.reason ?? 'the popup must be placeable outside the source')
+                .toBe(true);
 
             popup.on('pageerror', error => {
                 let value = error == null ? '' : String(error.stack || error.message || error);
