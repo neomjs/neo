@@ -15,6 +15,13 @@ class Animate extends Base {
     static transitionEasings = ['ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear']
 
     /**
+     * True when the owner declared a fixed itemHeight at plugin construction — the measured mode is
+     * the opt-in for an owner that declared none.
+     * @member {Boolean} hasFixedItemHeight=false
+     * @protected
+     */
+    hasFixedItemHeight = false
+    /**
      * True when the owner declared a fixed itemWidth at plugin construction — fluid geometry
      * passes must never mistake the width they wrote themselves for a fixed one.
      * @member {Boolean} hasFixedItemWidth=false
@@ -44,6 +51,17 @@ class Animate extends Base {
          */
         itemMargin: 10,
         /**
+         * Opt-in measured-height mode, the height twin of {@link #minItemWidth_}: with the owner's
+         * `itemHeight` null, the plugin measures the rendered items once they are in the DOM and takes
+         * the tallest as the uniform row height ({@link #rowHeight}) — measured again after a record
+         * change, a resize and every settle pass. An item stays as tall as its content: no height is
+         * written back, because a later measurement would read the written height, never the content.
+         * Leave false (with a fixed owner `itemHeight`) for the shipped fixed-row behavior.
+         * @member {Boolean} measureItemHeight_=false
+         * @reactive
+         */
+        measureItemHeight_: false,
+        /**
          * Opt-in fluid-width mode: a minimum item width in px. When set while the owner's
          * `itemWidth` is null, the plugin derives the column count from the owner's measured
          * width and writes the fluid per-item width back onto the owner — re-derived on every
@@ -57,6 +75,12 @@ class Animate extends Base {
          * @member {DOMRect|null} ownerRect=null
          */
         ownerRect: null,
+        /**
+         * Read only: the uniform row height in px — the owner's `itemHeight` in fixed mode, the tallest
+         * measured item in measured mode (`null` until the first measurement).
+         * @member {Number|null} rowHeight=null
+         */
+        rowHeight: null,
         /**
          * Read only
          * @member {Number|null} rows=null
@@ -83,6 +107,14 @@ class Animate extends Base {
     }
 
     /**
+     * The measured mode is on: the plugin, not the owner, decides the row height.
+     * @returns {Boolean}
+     */
+    get measuresItemHeight() {
+        return this.measureItemHeight && !this.hasFixedItemHeight
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -93,16 +125,23 @@ class Animate extends Base {
 
         // fluid mode writes the derived width onto owner.itemWidth — remember the mode BEFORE
         // the first write lands
-        me.hasFixedItemWidth = !!owner.itemWidth;
+        me.hasFixedItemWidth  = !!owner.itemWidth;
+        me.hasFixedItemHeight = !!owner.itemHeight;
+        me.rowHeight          = owner.itemHeight || null;
 
-        if (!owner.itemHeight || (!owner.itemWidth && !me.minItemWidth)) {
-            console.error('list.plugin.Animate requires a fixed itemHeight and either a fixed itemWidth or the plugin-level minItemWidth', owner)
+        if ((!owner.itemHeight && !me.measureItemHeight) || (!owner.itemWidth && !me.minItemWidth)) {
+            console.error('list.plugin.Animate requires a fixed itemHeight or the plugin-level measureItemHeight, and either a fixed itemWidth or the plugin-level minItemWidth', owner)
         }
 
         me.adjustCreateItem();
 
-        owner.onStoreFilter = me.onStoreFilter.bind(me);
-        owner.onStoreSort   = me.onStoreSort  .bind(me);
+        me.ownerOnStoreRecordChange = owner.onStoreRecordChange.bind(owner);
+
+        owner.onStoreFilter       = me.onStoreFilter      .bind(me);
+        owner.onStoreRecordChange = me.onStoreRecordChange.bind(me);
+        owner.onStoreSort         = me.onStoreSort        .bind(me);
+
+        owner.on('createItems', me.onOwnerCreateItems, me);
 
         // the absolute items anchor to the owner root: mark it and guarantee the containing block
         // (the #id {position:relative} rule rides getOwnerRules())
@@ -159,7 +198,7 @@ class Animate extends Base {
             me.columns = Math.max(1, Math.floor(width / owner.itemWidth))
         }
 
-        me.rows = Math.floor(rect.height / owner.itemHeight)
+        me.rows = me.rowHeight ? Math.floor(rect.height / me.rowHeight) : null
     }
 
     /**
@@ -197,7 +236,10 @@ class Animate extends Base {
         }
 
         me.applyGeometry(rect);
-        me.repositionItems()
+        me.repositionItems();
+
+        // a width change can change how an item wraps — measure once the widths have landed
+        me.measureAfterUpdate()
     }
 
     /**
@@ -224,7 +266,10 @@ class Animate extends Base {
                 Object.assign(node.style, {
                     transform: `translate(${position.x}px, ${position.y}px)`,
                     width    : `${owner.itemWidth}px`
-                })
+                });
+
+                // the measured first pass rendered its items hidden — the first row height reveals them
+                me.rowHeight && delete node.style.visibility
             }
         });
 
@@ -244,6 +289,26 @@ class Animate extends Base {
         if (oldValue !== undefined && me.ownerRect) {
             me.applyGeometry(me.ownerRect);
             me.repositionItems()
+        }
+    }
+
+    /**
+     * Triggered after the measureItemHeight config got changed — a runtime switch re-reads the owner's
+     * `itemHeight` (write that first) and re-renders; the settle pass measures.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMeasureItemHeight(value, oldValue) {
+        let me      = this,
+            {owner} = me;
+
+        if (me.isConstructed) {
+            me.hasFixedItemHeight = !!owner.itemHeight;
+            me.rowHeight          = owner.itemHeight || null;
+
+            me.ownerRect && me.applyGeometry(me.ownerRect);
+            owner.createItems()
         }
     }
 
@@ -304,8 +369,15 @@ class Animate extends Base {
             return null
         }
 
+        if (me.measuresItemHeight) {
+            // no inline height: the item is as tall as its content, which is what gets measured; before
+            // the first measurement there is no row to place it in, so it renders hidden
+            !me.rowHeight && (style.visibility = 'hidden')
+        } else {
+            style.height = `${owner.itemHeight}px`
+        }
+
         Object.assign(style, {
-            height   : `${owner.itemHeight}px`,
             position : 'absolute',
             transform: `translate(${position.x}px, ${position.y}px)`,
             width    : `${owner.itemWidth}px`
@@ -323,6 +395,7 @@ class Animate extends Base {
         let me      = this,
             ownerId = me.owner?.id;
 
+        me.owner?.un({createItems: me.onOwnerCreateItems, scope: me});
         me.addResizeObserver(false);
         ownerId && CssUtil.deleteRules(me.windowId, [`#${ownerId}`, `#${ownerId} .neo-list-item`]);
 
@@ -340,8 +413,8 @@ class Animate extends Base {
             margin = me.itemMargin,
             owner  = me.owner,
             row    = Math.floor(index / me.columns),
-            x      = column * (margin + owner.itemWidth)  + margin,
-            y      = row    * (margin + owner.itemHeight) + margin;
+            x      = column * (margin + owner.itemWidth)      + margin,
+            y      = row    * (margin + (me.rowHeight || 0)) + margin;
 
         return {x, y}
     }
@@ -361,6 +434,70 @@ class Animate extends Base {
             key   = owner.getKeyProperty();
 
         return map.indexOf(owner.getItemId(obj.record[key]))
+    }
+
+    /**
+     * Measures once the owner's pending update has landed — a fluid width write or a record change can
+     * change how an item wraps. No-op in fixed mode; a destroyed owner ends it quietly.
+     * @protected
+     */
+    async measureAfterUpdate() {
+        let me = this;
+
+        if (me.measuresItemHeight) {
+            try {
+                await me.owner.promiseUpdate()
+            } catch (e) {
+                return
+            }
+
+            await me.measureRows()
+        }
+    }
+
+    /**
+     * ONE batched rect read over the rendered items; the tallest becomes {@link #rowHeight}. An equal
+     * measurement changes nothing; a new one re-derives the rows and repositions — a reflow, never a
+     * rebuild. Runs after the items are in the DOM (the settle pass), never inside `createItem`, which
+     * would read 0.
+     * @protected
+     */
+    async measureRows() {
+        let me      = this,
+            {owner} = me,
+            ids     = owner.store.items.map(record => owner.getItemId(owner.getRecordId(record))),
+            rects, rowHeight;
+
+        if (!me.measuresItemHeight || ids.length < 1) {
+            return
+        }
+
+        try {
+            rects = await owner.getDomRect(ids)
+        } catch (e) {
+            return
+        }
+
+        if (me.isDestroyed) {
+            return
+        }
+
+        rowHeight = Math.ceil(Math.max(0, ...rects.map(rect => rect?.height || 0)));
+
+        if (rowHeight > 0 && rowHeight !== me.rowHeight) {
+            me.rowHeight = rowHeight;
+
+            me.ownerRect && me.applyGeometry(me.ownerRect);
+            me.repositionItems()
+        }
+    }
+
+    /**
+     * The owner's settle pass fired: its items are in the DOM, so a measured list reads them.
+     * @protected
+     */
+    onOwnerCreateItems() {
+        this.measuresItemHeight && this.measureRows()
     }
 
     /**
@@ -485,6 +622,16 @@ class Animate extends Base {
             owner.update();
             me.triggerTransitionCallback()
         })
+    }
+
+    /**
+     * The owner re-renders one item for a record change; a measured list reads it again once the
+     * update has landed — a longer text can wrap.
+     * @param {Object} data
+     */
+    onStoreRecordChange(data) {
+        this.ownerOnStoreRecordChange(data);
+        this.measureAfterUpdate()
     }
 
     /**

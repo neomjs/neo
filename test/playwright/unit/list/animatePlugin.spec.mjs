@@ -150,9 +150,11 @@ let runId = 0;
 
 /**
  * One constructed fixture: a store-fed list carrying the Animate plugin with deterministic
- * geometry (applyGeometry replaces the mount-time getDomRect pass — mount never runs here).
+ * geometry (applyGeometry replaces the mount-time getDomRect pass — mount never runs here unless
+ * `mounted` asks for it: an update's promise parks until the owner is mounted, and the measured
+ * mode settles on that promise).
  */
-async function createFixture({listClass = PlainList, listConfig = {}, pluginConfig = {}, storeConfig = {}, rect = {width: 935, height: 400}}) {
+async function createFixture({listClass = PlainList, listConfig = {}, mounted = false, pluginConfig = {}, storeConfig = {}, rect = {width: 935, height: 400}}) {
     runId++;
 
     const store = Neo.create(RosterStore, {
@@ -176,6 +178,11 @@ async function createFixture({listClass = PlainList, listConfig = {}, pluginConf
     plugin.applyGeometry(rect);
     list.createItems();
     await list.timeout(60);
+
+    if (mounted) {
+        list.mounted = true;
+        await list.timeout(60)
+    }
 
     return {list, plugin, store}
 }
@@ -491,6 +498,151 @@ test.describe('Neo.list.plugin.Animate', () => {
 
         expect(itemNodes(list)).toHaveLength(5);
         expect(list.items.map(item => item.text)).toEqual(['alpha', 'bravo', 'charlie', 'delta', 'echo']);
+
+        list.destroy()
+    })
+});
+
+// The measured mode reads the item rects through the owner's getDomRect; the harness answers it from this
+// map, keyed by record id, 78px for every record it does not name. Installed as the list's own
+// getDomRect, so `this` is the list and an item id resolves back to its record.
+const measuredHeights = new Map();
+
+const measuredRects = async function(ids) {
+    const list = this;
+
+    // the single-id read is the owner's own rect (the mount-time geometry pass)
+    if (!Array.isArray(ids)) {
+        return {height: 400, width: 935}
+    }
+
+    return ids.map(id => {
+        const record = list.store.items.find(item => list.getItemId(list.getRecordId(item)) === id);
+
+        return {height: measuredHeights.get(record?.id) ?? 78, width: 300}
+    })
+};
+
+const measuredConfig = () => ({listConfig: {getDomRect: measuredRects, itemHeight: null, itemWidth: 300}, mounted: true, pluginConfig: {measureItemHeight: true}});
+
+test.describe('Neo.list.plugin.Animate — measured row height', () => {
+    test.beforeEach(() => measuredHeights.clear());
+
+    test('the guard admits itemHeight null with measureItemHeight, and refuses it without', async () => {
+        const
+            errors = [],
+            prior  = console.error;
+
+        console.error = (...args) => errors.push(String(args[0]));
+
+        try {
+            const {list} = await createFixture(measuredConfig());
+            expect(errors).toEqual([]);
+            list.destroy();
+
+            const {list: bare} = await createFixture({listConfig: {getDomRect: measuredRects, itemHeight: null, itemWidth: 300}});
+            expect(errors.some(message => message.includes('measureItemHeight'))).toBe(true);
+            bare.destroy()
+        } finally {
+            console.error = prior
+        }
+    });
+
+    test('the settle pass measures the tallest item into rowHeight, positions by it and reveals; the first pass was hidden and height-less', async () => {
+        measuredHeights.set(2, 110);                        // one taller card decides the row
+
+        const {list, plugin} = await createFixture(measuredConfig());
+
+        expect(plugin.hasFixedItemHeight).toBe(false);
+        expect(plugin.measuresItemHeight).toBe(true);
+        expect(plugin.rowHeight).toBe(110);
+        expect(plugin.rows).toBe(3);                        // floor(400 / 110)
+
+        // columns = 3, margin 10: row 1 sits at y = 10 + 110 + 10
+        expect(transformOf(list, 1)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 4)).toBe('translate(10px, 130px)');
+
+        itemNodes(list).forEach(node => {
+            expect(node.style.height,     'an item stays as tall as its content').toBeUndefined();
+            expect(node.style.visibility, 'the measurement revealed it').toBeUndefined()
+        });
+
+        // the first pass, replayed: no row height yet → hidden, and no height
+        plugin.rowHeight = null;
+        const item = list.createItem(list.store.getAt(0), 0);
+        expect(item.style.visibility).toBe('hidden');
+        expect(item.style.height).toBeUndefined();
+
+        list.destroy()
+    });
+
+    test('a record change that wraps grows the row as a reposition; an equal measurement repositions nothing; a resize that unwraps shrinks it back', async () => {
+        const {list, plugin, store} = await createFixture(measuredConfig());
+
+        let   repositions = 0;
+        const reposition  = plugin.repositionItems;
+        plugin.repositionItems = function(...args) { repositions++; return reposition.apply(this, args) };
+
+        expect(plugin.rowHeight).toBe(78);
+
+        await plugin.measureRows();
+        expect(repositions, 'an equal measurement repositions nothing').toBe(0);
+
+        measuredHeights.set(2, 140);
+        store.get(2).name = 'charlie, wrapping onto a second line';
+        await list.timeout(60);
+
+        expect(plugin.rowHeight).toBe(140);
+        expect(repositions).toBe(1);
+        expect(transformOf(list, 4)).toBe('translate(10px, 160px)');
+        expect(itemNodes(list)).toHaveLength(5);
+
+        measuredHeights.clear();                            // wider items unwrap
+        plugin.onOwnerResize({rect: {width: 935, height: 400}});
+        await list.timeout(60);
+
+        expect(plugin.rowHeight, 'the row shrinks back — no height was written into the items').toBe(78);
+        expect(repositions, 'the resize reflow and the measurement').toBe(3);
+        expect(transformOf(list, 4)).toBe('translate(10px, 98px)');
+
+        list.destroy()
+    });
+
+    test('fixed mode never measures: rowHeight is the owner itemHeight and the items carry it inline', async () => {
+        let reads = 0;
+
+        const {list, plugin} = await createFixture({
+            listConfig: {getDomRect: async function(ids) { Array.isArray(ids) && reads++; return measuredRects.call(this, ids) }, itemWidth: 300},
+            mounted   : true
+        });
+
+        expect(plugin.hasFixedItemHeight).toBe(true);
+        expect(plugin.measuresItemHeight).toBe(false);
+        expect(plugin.rowHeight).toBe(126);
+        expect(reads, 'no item rect was ever read').toBe(0);
+        itemNodes(list).forEach(node => expect(node.style.height).toBe('126px'));
+
+        list.destroy()
+    });
+
+    test('a runtime switch: itemHeight null + measureItemHeight true measures; a fixed itemHeight again restores the inline heights', async () => {
+        measuredHeights.set(3, 96);
+
+        const {list, plugin} = await createFixture({listConfig: {getDomRect: measuredRects, itemWidth: 300}, mounted: true});
+
+        list.itemHeight          = null;
+        plugin.measureItemHeight = true;
+        await list.timeout(60);
+
+        expect(plugin.rowHeight).toBe(96);
+        itemNodes(list).forEach(node => expect(node.style.height).toBeUndefined());
+
+        list.itemHeight          = 126;
+        plugin.measureItemHeight = false;
+        await list.timeout(60);
+
+        expect(plugin.rowHeight).toBe(126);
+        itemNodes(list).forEach(node => expect(node.style.height).toBe('126px'));
 
         list.destroy()
     })
