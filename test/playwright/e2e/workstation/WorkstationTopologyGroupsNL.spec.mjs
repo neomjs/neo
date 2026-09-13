@@ -551,7 +551,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         expect(vesselCarrier, 'the vessel carries a slot of A\'s Group, never the URL').toEqual({
             generationToken: expect.any(String),
             groupId        : carrierA.groupId,
-            workspaceKey   : expect.stringMatching(/^popup:/)
+            workspaceKey   : 'workstation-vessel:feed'
         });
         expect([...new URL(vessel.url()).searchParams.keys()].sort(), 'the vessel URL names content and theme, never an owner').toEqual(['popout', 'theme']);
 
