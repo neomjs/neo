@@ -149,7 +149,8 @@ function awaitOriginParity(app, managerId, windowId, screen, message) {
  * @returns {Promise<Object[]>}
  */
 async function participations(app) {
-    return asArray(await app.findInstances({className: 'Neo.dashboard.dock.window.Participation'}, ['id', 'workspaceId']))
+    // By ntype: a host may compose its own Participation subclass, which keeps the engine's ntype but not its className.
+    return asArray(await app.findInstances({ntype: 'dock-crosswindow-participation'}, ['id', 'workspaceId']))
         .map(entry => ({id: entry.id, workspaceId: entry.properties?.workspaceId}))
 }
 
@@ -229,6 +230,8 @@ async function popOut({app, page, workspaceId, itemId}) {
 
     await expect(page.locator(`#${paneId}`), `the main window releases ${itemId}'s live pane`).toHaveCount(0);
     await expect(popup.locator(`#${paneId}`), `the popup adopts ${itemId}'s exact live pane`).toBeVisible();
+    await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'), `the main window retires ${itemId}'s stand-in`)
+        .toHaveCount(0, {timeout: 15000});
     await expect.poll(() => mainParticipationId(app), {
         message  : `the detach projection refresh re-registers the main target after ${itemId}`,
         timeout  : 15000,
@@ -557,6 +560,12 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             expect(targetDocument.nodes[`workstation-vessel-tabs:${TARGET_ITEM}`]?.items, 'the target vessel tabs node lists the transferred pane')
                 .toContain(SOURCE_ITEM);
             expect(mainItems, 'the main document no longer lists the transferred pane').not.toContain(SOURCE_ITEM);
+
+            // A stand-in holds a slot only while its pane settles in another window; one left behind is a pane lost from view.
+            await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'), 'the main window keeps no stand-in')
+                .toHaveCount(0, {timeout: 10000});
+            await expect(target.popup.locator('.neo-dashboard-dock-vessel-placeholder'), 'the target vessel keeps no stand-in')
+                .toHaveCount(0, {timeout: 10000});
 
             // Object permanence across windows: the transferred item is the SAME live pane instance,
             // now owned by the target vessel's window. It lands as an inactive tab (the target keeps
