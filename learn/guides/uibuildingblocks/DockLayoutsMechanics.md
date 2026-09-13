@@ -9,9 +9,9 @@ half-typed query — starts over.
 
 All three are the same question: who is allowed to change what, and when. Neo answers it with a boundary that never
 moves. While your pointer is down, a gesture owns pixels and a preview, and nothing else. When you let go, exactly one
-semantic descriptor crosses to the model, and the model commits it whole or refuses it whole. Then the projection hands
-the live components you were looking at to their new places instead of building new ones. A cancelled drag, a release
-over nothing and a refused descriptor all end the same way: the document you had is the document you keep.
+semantic descriptor crosses to the model, and the model commits it whole or refuses it whole. Then the projection keeps
+the live components you were looking at instead of building new ones. A cancelled drag, a release over nothing and a
+refused descriptor all end the same way: the document you had is the document you keep.
 
 This guide follows real gestures across that boundary on a live page — a split resize, an edge resize, a tab moved
 inside its header and into another zone — with the numbers they produced, and then walks the paths that commit nothing.
@@ -30,7 +30,7 @@ flowchart TD
     Descriptor --> Reducer["Reducer commit<br/>normalized and validated, or refused whole"]
     Reducer -->|"refused"| Restore
     Reducer -->|"committed"| Deferred["View-sync, one tick later<br/>on the settled refresh tail"]
-    Deferred --> Projection["Identity-preserving projection<br/>live panes move, none are rebuilt"]
+    Deferred --> Projection["Identity-preserving projection<br/>live panes are kept, none are rebuilt"]
 ```
 
 Every gesture in this guide passes through the same five hands, and each one holds a different kind of state:
@@ -133,8 +133,8 @@ On release, the sort zone reports the release point to the workspace. The previe
 pointer against every other stack's rectangle, `PreviewContract.previewToOperation` maps that preview to a semantic
 operation, and exactly one commit follows. The Logs stack becomes logs, metrics, with Metrics active, and the main stack
 loses Metrics and falls back to Strategy. The marked DOM node now sits inside the Logs tab container, the page holds
-exactly one Metrics pane, and the Logs header reads Logs, Metrics. Nothing was rebuilt: the pane you were looking at is
-the pane that arrived.
+exactly one Metrics pane, and the Logs header reads Logs, Metrics. The pane was not rebuilt: the one you were looking
+at is the one that arrived.
 
 **With a preview first.** The Workstation composes the engine's `DragAffordances` controller with a preview layer and an
 indicator menu, so the same move reads differently while you hold it. Dragging the Resident Activity tab over the stack
@@ -178,20 +178,24 @@ the owner that painted it.
 
 A commit happens inside the handler of the surface that made it — a splitter's drag end, a tab container's move event —
 and the projection that follows can retire that very surface along with the shell it lives in. So the view-sync does not
-project in place. It stores the committed document and schedules the projection one tick later, on the settled tail of
-the workspace's refresh chain. Rapid commits project in order, each as its own transaction, and a projection that fails
-stays observable on its own promise without suppressing the next one.
+project inside that handler. It stores the committed document and schedules the projection one tick later, on the
+settled tail of the workspace's refresh chain. Rapid commits project in order, each as its own transaction, and a
+projection that fails stays observable on its own promise without suppressing the next one.
 
-Each projection is an ownership transaction in four phases. The new shell mounts hidden beside the current one. Pane and
-button descendants move into it. Retained tab containers move into their staged slots, and the two shells swap
-visibility. Then the empty source shell is destroyed. Every phase gets its own host update, so renderer cleanup can never
-overtake a native move, and a live pane crossing between shells commits through their closest common ancestor. That is
-how the Metrics pane above arrived as the same DOM node.
+A projection takes one of two paths. A commit that only moves boundaries, like the resizes above, or only locks or
+unlocks items asks the reconciler to update the current shell in place, and the reconciler does so only after proving,
+node by node, that the structure has not changed. A projection that does not land in place takes the full path, an
+ownership transaction in four phases. The new shell mounts hidden beside the current one. Pane and button descendants
+move into it. Retained tab containers move into their staged slots. Then the two shells swap visibility and the old
+shell is destroyed, unless a retained tab container is itself the projected root: it takes the staged shell's place, so
+it is both shells at once and there is nothing to swap or destroy. Every phase gets its own host update, so renderer
+cleanup can never overtake a native move, and a live pane crossing between shells commits through their closest common
+ancestor. That is how the Metrics pane above arrived as the same DOM node.
 
-Reconciliation keeps whatever did not need to move; a stack whose tabs were only reordered stays exactly where it is.
-That is the point of it, and it carries a consequence worth knowing when you build on it: a listener the projection
-attached when it built a component stays attached, with the values it closed over, for as long as that component
-survives in place. Read identity from the live component when an event fires, not from what a closure remembered.
+Reconciliation pairs tab containers by the id of their stack, so a stack whose tabs were only reordered keeps its
+container instance. That is the point of it, and it carries a consequence worth knowing when you build on it: a
+listener the projection attached when it built that container can outlive the order it closed over. Read identity from
+the live component when an event fires, not from what a closure remembered.
 
 ## What it is like for me
 
@@ -214,7 +218,7 @@ positional reader after that, the reconciler first, resolved each index to the i
 The fix looked obvious, and the obvious half was not enough. I moved the ids with the tab, and every arm I had written
 went green but one: a second reorder, made after the first one landed, still moved the wrong tab. The listener that turns
 a move into a descriptor was reading the stack's order from the moment the projection built the container. The
-reconciler had kept that container, because keeping what did not move is its job, and with the container it kept the
+reconciler had kept that container, because keeping a stack's container is its job, and with the container it kept the
 listener's copy of an order that no longer existed. There were two copies of identity, and the second one was hiding in
 a closure. The arm that caught it is why I now write the second gesture into a witness, not just the first.
 
