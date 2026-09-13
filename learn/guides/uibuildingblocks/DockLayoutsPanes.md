@@ -468,7 +468,12 @@ static config = {
 ```
 
 `perspectives` maps names to the same `zones` vocabulary the single arrangement used; every name lowers against
-the same `panes` catalog, once, at construction. `activePerspective` is the intent: assigning a declared name
+the same `panes` catalog, once, at construction. A name may also map to an already-lowered `neo.dock.zone.v1`
+document instead — the record's `schema` tells the two kinds apart — for the arrangement that already exists as
+one: a shipped snapshot, a generated layout, the document a host supplies at construction. Such a document is
+admitted through the checks a supplied `dockModel` passes, captured as that name's baseline byte-for-byte, and never
+registered with a topology Group, so one map may mix both kinds and a host that supplies its own document can still
+declare the arrangement it ships. `activePerspective` is the intent: assigning a declared name
 restores that arrangement through the ordinary commit path, an unknown name is refused and the committed name
 stays, and assigning the name that is already active is a no-op — call `resetPerspective()` to re-apply a
 baseline the user has rearranged. Declaring `zones` alone still works: the one unnamed arrangement lowers under

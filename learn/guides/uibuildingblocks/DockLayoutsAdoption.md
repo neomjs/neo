@@ -389,8 +389,11 @@ half-restore. A saved layout either validates completely or it is rejected compl
 can never leak into a persisted document — `createSavedLayout` refuses to serialize it.
 
 Saved layouts are one of **two name sources**, and not the authoritative one. The arrangements a workspace
-*declares* — `perspectives`, a map of names to zones, selected through the reactive `activePerspective_` — are the
-names it answers to; a saved record is a snapshot, with provenance when its capture asked for it. The two never trade
+*declares* — `perspectives`, a map of names to zones or to already-lowered documents, selected through the reactive
+`activePerspective_` — are the names it answers to; a saved record is a snapshot, with provenance when its capture
+asked for it. The document form is how a host that supplies its own document declares the arrangement it ships: the
+document is admitted like a supplied `dockModel`, captured as that name's baseline byte-for-byte, and never
+registered with a topology Group, so the baseline may name a pane a sibling window currently owns. The two never trade
 places, and the refusal has two reaches. Every write path, the static collection helpers included, refuses a
 `$`-prefixed engine-reserved name. A *declared* name is refused by a library instance that knows its workspace —
 `declaredPerspectives: () => workspace.declaredPerspectives()` on `PerspectiveLibrary` or `TopologyLibrary` — on both
@@ -414,14 +417,16 @@ deliberately not offered; a snapshot is restored, a declaration is selected.
 
 ## The tear-out window's render target
 
-Tear-out turns a pane into a real OS window whose content is *the same live object* — and honesty about today's
-ownership boundary matters more here than anywhere else in this guide. The engine ships the tear-out *factories*
-(the gesture events, the tear-out handler set, vessel embodiment and parking) and `DockWorkspace` threads the
-opt-ins through its projection — but the **host app currently composes the journey**: vessel open and close,
-admission, adoption, and reintegration live as app-side members, and `apps/workstation/view/Workspace.mjs` is the
-worked reference for that composition. Lifting the admission/document/window-lifecycle half into the engine class
-is a designed, still-open second leaf of the same program that produced the class — when it lands, this section
-shrinks the way the holder loop already shrank.
+Tear-out turns a pane into a real OS window whose content is *the same live object* — and the ownership boundary
+deserves exact words here. With `enableDockTearOutLifecycle` on, the workspace composes the journey itself: exact
+gesture admission, the pre-terminal versus committed connection state, placement capture before `detachItem`, the
+same-instance semantic return after a physical disconnect, and exact-once teardown. Your application contributes
+only what the engine cannot know — the platform's vessel open and close, live-pane resolution, an optional grant
+policy through `admitTearOutConnection`, lifecycle observers, and continuations for window routes unrelated to
+tear-out. The opt-in is off by default, so a workspace that never asked for tear-out is byte-for-byte unchanged, and
+`apps/workstation/view/Workspace.mjs`, which enables it, is the worked reference for the app-side hooks. Before the
+lifecycle moved into the engine the host composed all of it; the workstation's remaining hooks are what that lift
+left on the application's side.
 
 What is stable under any future shape is the adopter-side obligation this section exists to teach: **the render
 target is yours** — a viewport that boots deliberately empty, because detached panes arrive at runtime. The
@@ -431,9 +436,9 @@ workspace reparents the live pane into it on connect — the shared-heap contrac
 targets."*
 
 The deeper mechanics of the journey (claims, vessels, conversion, reintegration) are Part 2's territory. If your app
-needs tear-out today, read the workstation's composition first. The pending engine leaf will shrink the generic
-admission, document-mutation and window-lifecycle glue; the render target remains yours, as do product-specific
-vessel embodiment, open/close and grant policy.
+needs tear-out today, enable the lifecycle and read the workstation's hooks first; the generic admission,
+document-mutation and window-lifecycle glue is the engine's, while the render target remains yours, as do
+product-specific vessel embodiment, open/close and grant policy.
 
 ## Migrating a consumer that already does this by hand
 
@@ -502,9 +507,11 @@ disagreed about something, and that disagreement was already in your code.
 
 The class's hooks form a ladder, and the two live consumers mark its ends.
 
-**The example overrides almost nothing.** `resolvePane` for its demo panes, `beforeRefreshDockWorkspace` to re-sync
-its perspective toolbar on every re-projection, and the two placement configs. That is a complete, polished, animated
-docking app in ~620 lines — most of which are panes and toolbars, not docking.
+**The example overrides nothing on the ladder.** It declares `panes` and `perspectives`, binds its declared buttons
+and its *Modified* badge to the published leaves, keeps its snapshot toolbar in step from its own save, restore and
+remove methods rather than from a refresh hook, and sets the two placement configs (`dockShellIndex`,
+`dockProjectionConfig`) so the shell shares the root with the toolbar. That is a complete, polished, animated docking
+app in ~550 lines — most of which are panes and toolbars, not docking.
 
 **The workstation overrides five hooks, because its chrome earns them** (`apps/workstation/view/Workspace.mjs`, the
 richest live reference for each):

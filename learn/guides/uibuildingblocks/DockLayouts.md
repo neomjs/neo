@@ -195,11 +195,11 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    stamps onto the projected pane — so `getReference('editor')`, a view controller, and `data-ref="editor"` in the DOM
    all reach the same live component, and you maintain no second name for it. A pane declaration is an ordinary
    component config: a registered `module`, an `ntype`, or a lazy `module: () => import(…)` that loads on first
-   activation. `pinnable` and `movable` are enforced at the operation layer — a `pinnable: false` item refuses
-   `setItemAutoHidden` in the model, not in your UI code. `closable` is a declared forward contract whose close-routing
-   enforcement has not landed yet; the
-   [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) keeps that split
-   explicit.
+   activation. `pinnable`, `movable` and `closable` are enforced at the operation layer — a `pinnable: false` item
+   refuses `setItemAutoHidden` and a `closable: false` item refuses `closeItem`, in the model, not in your UI code,
+   whether the request comes from projected chrome or a programmatic operation; the
+   [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) shows what the
+   model refuses.
 
    **The advanced paths remain, demoted rather than removed.** A consumer that already owns a valid document supplies
    it as `dockModel` and it takes precedence over `zones`. `resolvePane(itemId, item)` is still the extension point for
@@ -215,8 +215,10 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    `neo.dock.topology.v1` / `neo.dock.topologyCollection.v1` records for the Group-level topology owner.
    Restore refuses invalid records wholesale — your users' layouts never half-restore.
 6. **Two name sources, one of them authoritative.** A workspace *declares* its perspectives (`perspectives`, a map
-   of names to zones, with `activePerspective_` as the reactive intent), and a saved record is a *snapshot* that may
-   equal a declared arrangement but never defines or impersonates one. The refusal has two reaches: every write path,
+   of names to zones or to already-lowered documents — a document is admitted like a supplied `dockModel`, captured
+   as its name's baseline byte-for-byte and never registered with a topology Group, which is how a host that
+   supplies its own document declares the arrangement it ships — with `activePerspective_` as the reactive intent),
+   and a saved record is a *snapshot* that may equal a declared arrangement but never defines or impersonates one. The refusal has two reaches: every write path,
    the static collection helpers included, refuses a `$`-prefixed engine-reserved name (the unnamed `zones`-only
    arrangement lowers under `$default`), while a *declared* name is refused only by a library instance wired to its
    workspace — `declaredPerspectives: () => workspace.declaredPerspectives()` on `PerspectiveLibrary` or
