@@ -35,7 +35,7 @@ const fixtureDocument = {
  * (`Neo.dashboard.dock.Workspace#enableDockPopOutAction`), witnessed on a rendered workspace.
  *
  * **What this fixture is a host for.** `openTearOutVessel` / `closeTearOutVessel` are the engine's
- * platform hooks — the base class returns `null` / `false` and every real consumer implements them.
+ * platform hooks — the base class opens and closes a real OS window, and every real consumer overrides them.
  * This fixture implements them as a *recording* seam that admits without opening an OS window. That
  * is not a stub standing in for the code under test: the code under test is the engine half — the
  * projection, the router, the measured rect, and the tear-out pair's own commit — all of which run

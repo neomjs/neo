@@ -3,7 +3,7 @@ import WindowManager from '../../../manager/Window.mjs';
 
 /**
  * @summary The default park / re-show / dispose transaction behind {@link Neo.dashboard.dock.window.VesselPark}'s
- * three required seams.
+ * three required seams, and the tear-out close every host used to write for itself.
  *
  * `VesselPark` owns gesture-local admission, one-in-flight settlement and disposal ordering, and
  * requires three strict effects it deliberately does not implement — native window ownership stays
@@ -121,6 +121,175 @@ class NativeVesselTransaction extends Base {
         const chrome = WindowManager.get(windowId)?.chrome;
 
         return {x: rect.x - (chrome?.left ?? 0), y: rect.y - (chrome?.top ?? 0)}
+    }
+
+    /**
+     * @summary Resolves the live vessel one registration may address for an item, connect- or commit-side.
+     *
+     * A connection outranks a recorded owner, because it is the generation attached right now. An entry
+     * without a `windowId` is not a vessel yet, so it resolves to nothing.
+     * @param {Object} data
+     * @param {Object|null} data.nativeWindows The Group's native lifecycle.
+     * @param {String} data.sourceId The registration the host's effects were bound under.
+     * @param {Function} data.windowNameFor `itemId => String`, the host's semantic vessel name.
+     * @param {String} itemId
+     * @returns {Object|null}
+     */
+    static resolveVessel({nativeWindows, sourceId, windowNameFor}, itemId) {
+        const entry = nativeWindows?.getConnection(sourceId, itemId) ?? nativeWindows?.getOwner(sourceId, itemId);
+
+        if (!entry?.windowId) {
+            return null
+        }
+
+        return {
+            ...entry,
+            itemId,
+            nativeRoute: entry.nativeRoute ?? WindowManager.get(entry.windowId)?.nativeRoute ?? null,
+            windowName : entry.windowName ?? windowNameFor(itemId)
+        }
+    }
+
+    /**
+     * @summary Closes one tear-out vessel: refuses a mismatched identity, authorizes the route, settles a
+     * staged pane, dispatches, and reports what the platform answered.
+     *
+     * Each host that enabled tear-out used to write this sequence itself, and the copies drifted: they
+     * read the admission under different keys, only one followed a connection still being decided, and
+     * all of them reported a by-name close as success without reading its answer.
+     *
+     * **The order is the contract.** Identity refuses before anything resolves, and identity is the slot's
+     * lineage token: a successor admission for the same item shares the window name, never the token, so a
+     * retirement presenting a superseded token is refused and the live vessel survives it. A present route
+     * that fails an axis refuses before the pane moves. The pane settles before its window goes, so a
+     * refused close never strands content in a window that survives it. Every refusal is `false`, which is
+     * what keeps the Group's retry authority.
+     *
+     * An absent route is not a refusal: a vessel that never connected closes by its semantic name, the only
+     * authority that exists before connect. Once a route exists, a failed axis refuses — never a downgrade
+     * to a same-name close.
+     * @param {Object} descriptor The host-varying surface, built per call.
+     * @param {Object|null} descriptor.nativeWindows The Group's native lifecycle.
+     * @param {String} descriptor.ownerWindowId The host's current `windowId`, which dispatches the close.
+     * @param {String} descriptor.sourceId The registration this close was bound under.
+     * @param {Function} descriptor.windowNameFor `itemId => String`, the host's semantic vessel name.
+     * @param {Function} [descriptor.beforeRestore] `({itemId}) => Boolean`, an unwind that must precede a
+     * restoring settle; a falsy answer refuses.
+     * @param {Object} [descriptor.embodiment] The staged-pane owner: `isStaged`, `getWindowId`, `restore`, `promote`.
+     * @param {Function} [descriptor.publishReceipt] `receipt => void`. The receipt is published first and
+     * amended in place, so a reader after a refusal sees how far the close got.
+     * @param {Function} [descriptor.sourceOwns] `itemId => Boolean`, whether the source document still holds
+     * the item: the settle restores when it does and promotes when a committed transfer moved it.
+     * @param {Object} vessel
+     * @param {String} [vessel.generationToken] The reservation's lineage token.
+     * @param {String} vessel.itemId
+     * @param {Object} [vessel.nativeRoute] The opener-minted route, when one is known.
+     * @param {String} vessel.windowName
+     * @returns {Promise<Boolean>}
+     */
+    static async closeVessel(descriptor, {generationToken, itemId, nativeRoute, windowName} = {}) {
+        const
+            {embodiment=null, nativeWindows, ownerWindowId, sourceId} = descriptor,
+            entry            = NativeVesselTransaction.resolveVessel(descriptor, itemId),
+            admission        = nativeWindows?.getAdmission(sourceId, itemId),
+            // A binding still being decided names its window as `connectingWindowId` and earns `windowId`
+            // only on acceptance; a close arriving mid-decision must still reach that window.
+            admittedWindowId = admission?.windowId ?? admission?.connectingWindowId ?? null,
+            expected         = descriptor.windowNameFor(itemId),
+            exactToken       = entry?.generationToken ?? admission?.generationToken ?? null,
+            embodiedWindowId = entry?.windowId ?? admittedWindowId ?? embodiment?.getWindowId(itemId),
+            receipt          = {
+                identity: {
+                    entryNameMatches : !entry || entry.windowName === windowName,
+                    hasEntry         : Boolean(entry),
+                    hasItemId        : Boolean(itemId),
+                    lineageMatches   : !generationToken || !exactToken || generationToken === exactToken,
+                    windowNameMatches: windowName === expected
+                },
+                itemId: itemId ?? null,
+                stage : 'validating-identity'
+            },
+            {identity} = receipt;
+
+        descriptor.publishReceipt?.(receipt);
+
+        if (!itemId || !identity.windowNameMatches || !identity.entryNameMatches || !identity.lineageMatches) {
+            receipt.stage = 'identity-refused';
+            return false
+        }
+
+        nativeRoute ??= entry?.nativeRoute ?? (admittedWindowId && WindowManager.get(admittedWindowId)?.nativeRoute) ?? null;
+
+        const
+            exactWindowId = entry?.windowId ?? admittedWindowId,
+            // No exact window means no target to constrain, which the key's ABSENCE says; passing it as
+            // null would say the caller lost an id it needed, and refuse.
+            auth          = WindowManager.resolveNativeRoute({
+                capability: 'close', ownerWindowId, route: nativeRoute,
+                ...(exactWindowId && {targetWindowId: exactWindowId})
+            });
+
+        receipt.route = {
+            closeCapable      : !auth.present || auth.capable,
+            exactTargetMatches: !auth.present || auth.targetMatches,
+            exactWindowId     : exactWindowId ?? null,
+            hasHandle         : !auth.present || auth.hasHandle,
+            ownerMatches      : !auth.present || auth.ownerMatches,
+            ownerWindowId     : nativeRoute?.ownerWindowId ?? null,
+            present           : auth.present,
+            targetPresent     : !auth.present || auth.hasTarget,
+            targetWindowId    : nativeRoute?.targetWindowId ?? null
+        };
+
+        if (auth.present && !auth.granted) {
+            receipt.stage = 'route-refused';
+            return false
+        }
+
+        // The Group opened the retirement before this call, so a refused close keeps the exact route and
+        // slot for retry while the content goes home first. A committed transfer promotes the staged pane
+        // instead, letting the target-first reconciler take it without a false restoration.
+        if (embodiedWindowId && embodiment?.isStaged(itemId)) {
+            const
+                sourceOwns = Boolean(descriptor.sourceOwns?.(itemId)),
+                unwound    = !sourceOwns || !descriptor.beforeRestore || Boolean(descriptor.beforeRestore({itemId})),
+                settled    = unwound && Boolean(embodiment[sourceOwns ? 'restore' : 'promote']({itemId, windowId: embodiedWindowId}));
+
+            receipt.embodiment = {settled, sourceOwns, staged: true};
+
+            if (!settled) {
+                receipt.stage = 'embodiment-refused';
+                return false
+            }
+        }
+
+        // Which route carried the close outlives the final stage: a refused native close and a refused
+        // by-name close end on the same stage, and only this tells them apart.
+        receipt.dispatch = nativeRoute ? 'native' : 'semantic';
+
+        try {
+            if (nativeRoute) {
+                receipt.stage  = 'native-dispatched';
+                receipt.closed = await Neo.Main.windowNativeClose({
+                    nativeHandleKey: nativeRoute.nativeHandleKey,
+                    targetWindowId : nativeRoute.targetWindowId,
+                    windowId       : ownerWindowId
+                }) === true
+            } else {
+                receipt.stage  = 'semantic-dispatched';
+                // Before connect there is no exact route to correlate yet; the slot's unguessable semantic
+                // name is the only authority there is.
+                receipt.closed = await Neo.Main.windowClose({names: [windowName], windowId: ownerWindowId}) === true
+            }
+        } catch (error) {
+            receipt.error = String(error?.message || error);
+            receipt.stage = 'threw';
+            return false
+        }
+
+        receipt.stage = receipt.closed ? 'acknowledged' : 'platform-refused';
+
+        return receipt.closed
     }
 
     /**

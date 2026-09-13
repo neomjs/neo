@@ -4716,3 +4716,97 @@ test.describe('projectDockZoneDocument — the commit\'s parked panes and a sibl
         workspace.destroy()
     })
 });
+
+/**
+ * A host whose `tearOutWindowName` override reads its own config, which `destroy()` deletes.
+ */
+class PrefixedWorkspace extends PlainWorkspace {
+    static config = {
+        className   : 'Test.Unit.Dashboard.DockWorkspace.PrefixedWorkspace',
+        vesselPrefix: null
+    }
+
+    tearOutWindowName(itemId) {
+        return `${this.vesselPrefix}-${itemId}`
+    }
+}
+
+Neo.setupClass(PrefixedWorkspace);
+
+test.describe('Neo.dashboard.dock.Workspace#closeTearOutVessel (engine default)', () => {
+    test('the default closes a vessel it opened through the shared routine and returns the platform answer', async () => {
+        const
+            workspace     = Neo.create(PlainWorkspace, {dockModel: createDocument()}),
+            originalClose = Neo.Main.windowClose,
+            calls         = [];
+
+        let answer = true;
+
+        Neo.Main.windowClose    = async data => {calls.push(data); return answer};
+        // Nothing is admitted, so the vessel has no route and closes by the name this workspace opened it under.
+        workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+
+        try {
+            const vessel = {itemId: 'preview', windowName: workspace.tearOutWindowName('preview')};
+
+            expect(vessel.windowName, 'the name openTearOutVessel mints').toBe('neo-dock-tearout-preview');
+            await expect(workspace.closeTearOutVessel(vessel)).resolves.toBe(true);
+
+            answer = false;
+            await expect(workspace.closeTearOutVessel(vessel), 'a refused close stays a refusal').resolves.toBe(false);
+            await expect(workspace.closeTearOutVessel({itemId: 'preview', windowName: 'tearout-preview'}), 'a foreign name refuses').resolves.toBe(false);
+
+            expect(calls).toEqual(Array(2).fill({names: ['neo-dock-tearout-preview'], windowId: workspace.windowId}))
+        } finally {
+            Neo.Main.windowClose    = originalClose;
+            workspace.nativeWindows = null;
+            workspace.destroy()
+        }
+    });
+
+    test('a close whose workspace is destroyed during the lazy import closes by the name the live workspace resolved', async () => {
+        const
+            originalClose = Neo.Main.windowClose,
+            calls         = [],
+            created       = [],
+            vessel        = {itemId: 'preview', windowName: 'owned-preview'},
+            retire        = workspace => {
+                workspace.nativeWindows = null;
+                workspace.destroy()
+            },
+            create        = async () => {
+                const workspace = Neo.create(PrefixedWorkspace, {dockModel: createDocument(), vesselPrefix: 'owned'});
+
+                created.push(workspace);
+                await workspace.ready();
+                workspace.nativeWindows = {getAdmission: () => null, getConnection: () => null, getOwner: () => null};
+
+                return workspace
+            };
+
+        Neo.Main.windowClose = async data => {calls.push(data); return true};
+
+        try {
+            const live = await create();
+
+            await expect(live.closeTearOutVessel(vessel), 'the live counterpart').resolves.toBe(true);
+
+            const
+                torn         = await create(),
+                tornWindowId = torn.windowId,
+                closing      = torn.closeTearOutVessel(vessel);
+
+            // The import yields before the routine runs, so the workspace retires inside that gap.
+            retire(torn);
+
+            await expect(closing, 'the counterpart destroyed in the import gap').resolves.toBe(true);
+            expect(calls).toEqual([
+                {names: ['owned-preview'], windowId: live.windowId},
+                {names: ['owned-preview'], windowId: tornWindowId}
+            ])
+        } finally {
+            Neo.Main.windowClose = originalClose;
+            created.filter(workspace => !workspace.isDestroyed).forEach(retire)
+        }
+    })
+});
