@@ -118,6 +118,17 @@ class View extends Base {
     }
 
     /**
+     * The one model when it selects rows — `RowModel` and the combined cell-row models — else `null`.
+     * The paint and the store-following adopt {@link #selectedRecordField} through it and only through
+     * it: a cell or column model leaves a record's flag alone.
+     * @returns {Neo.selection.grid.BaseModel|null}
+     */
+    get rowSelectionModel() {
+        let {selectionModel} = this;
+        return selectionModel?.ntype?.includes('row') ? selectionModel : null
+    }
+
+    /**
      * The cell ids the View's model holds selected — `[]` under a row or column model, and under none.
      * @returns {String[]}
      */
@@ -131,8 +142,7 @@ class View extends Base {
      * @returns {Number[]|String[]}
      */
     get selectedRows() {
-        let {selectionModel} = this;
-        return selectionModel?.ntype?.includes('row') ? selectionModel.selectedRows : []
+        return this.rowSelectionModel?.selectedRows ?? []
     }
 
     /**
@@ -259,33 +269,34 @@ class View extends Base {
 
     /**
      * A loaded store's flagged records are the selected rows — adopted here, once, through the one
-     * row model; a paint follows through the model's own row update, never a mutation in a render.
+     * row-selecting model; a paint follows through the model's own row update, never a mutation in
+     * a render.
      */
     onStoreLoad() {
-        let me                      = this,
-            {selectionModel, store} = me,
-            field                   = me.selectedRecordField;
+        let me                         = this,
+            {rowSelectionModel, store} = me,
+            field                      = me.selectedRecordField;
 
-        if (selectionModel?.ntype === 'selection-grid-rowmodel' && store && field) {
+        if (rowSelectionModel && store && field) {
             store.items.forEach(record => {
-                record[field] && selectionModel.selectRow(me.getRecordId(record))
+                record[field] && rowSelectionModel.selectRow(me.getRecordId(record))
             })
         }
     }
 
     /**
-     * A record's selection flag changed: the one model follows it, once.
+     * A record's selection flag changed: the one row-selecting model follows it, once.
      * @param {Object}   data
      * @param {Object[]} data.fields
      * @param {Object}   data.record
      */
     onStoreRecordChange({fields, record}) {
-        let me               = this,
-            {selectionModel} = me,
-            field            = fields.find(item => item.name === me.selectedRecordField);
+        let me                  = this,
+            {rowSelectionModel} = me,
+            field               = fields.find(item => item.name === me.selectedRecordField);
 
-        if (field && selectionModel?.ntype === 'selection-grid-rowmodel') {
-            selectionModel[field.value ? 'selectRow' : 'deselectRow'](me.getRecordId(record))
+        if (field && rowSelectionModel) {
+            rowSelectionModel[field.value ? 'selectRow' : 'deselectRow'](me.getRecordId(record))
         }
     }
 

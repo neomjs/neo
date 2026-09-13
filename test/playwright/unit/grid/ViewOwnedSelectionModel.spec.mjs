@@ -31,7 +31,9 @@ import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import BaseModel          from '../../../../src/selection/grid/BaseModel.mjs';
+import CellColumnRowModel from '../../../../src/selection/grid/CellColumnRowModel.mjs';
 import CellModel          from '../../../../src/selection/grid/CellModel.mjs';
+import CellRowModel       from '../../../../src/selection/grid/CellRowModel.mjs';
 import ColumnModel        from '../../../../src/selection/grid/ColumnModel.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
 import RowModel           from '../../../../src/selection/grid/RowModel.mjs';
@@ -85,9 +87,9 @@ const renderRows = async grid => {
 // the record ids each body paints as selected, in body order
 const paintedRows = grid => bodiesOf(grid).map(body => body.items.filter(row => row.vdom.cls?.includes('neo-selected')).map(row => row.record?.id).sort());
 
+// No `NEO_TEST_SKIP_CI` guard anywhere in this file: nothing here needs a browser, and a guarded arm is
+// green in the unit CI job by not running.
 test.describe('Grid View-owned SelectionModel (#12758)', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     test.beforeEach(async () => {
@@ -134,8 +136,6 @@ test.describe('Grid View-owned SelectionModel (#12758)', () => {
 });
 
 test.describe('Grid selection: the View owns it — default, explicit, none', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let created, grid, ownConstruct, store;
 
     test.beforeEach(() => {
@@ -233,8 +233,6 @@ test.describe('Grid selection: the View owns it — default, explicit, none', ()
 });
 
 test.describe('Grid selection: the View follows the store and owns the lifecycle', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     test.afterEach(async () => {
@@ -268,6 +266,42 @@ test.describe('Grid selection: the View follows the store and owns the lifecycle
 
         expect(grid.view.selectedRows).toEqual([]);
         expect(paintedRows(grid)).toEqual([[], [], []])
+    });
+
+    test('every row-selecting model follows the flag — RowModel, CellRowModel, CellColumnRowModel — and a cell or column model leaves it alone', async () => {
+        for (const module of [RowModel, CellRowModel, CellColumnRowModel]) {
+            store = createStore();
+            grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag', selectionModel: {module}}});
+
+            await renderRows(grid);
+
+            store.get(3).flag = true;
+            await grid.timeout(20);
+
+            expect(grid.view.selectedRows, `${module.name} adopts the flag`).toEqual([3]);
+            expect(paintedRows(grid), `${module.name} paints it in every body`).toEqual([[3], [3], [3]]);
+
+            grid.destroy();
+            store.destroy()
+        }
+
+        for (const module of [CellModel, ColumnModel]) {
+            store = createStore([1]);
+            grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag', selectionModel: {module}}});
+
+            await renderRows(grid);
+
+            store.get(3).flag = true;
+            await grid.timeout(20);
+
+            expect(grid.view.selectionModel.selectedRows, `${module.name} holds no row for a flag`).toEqual([]);
+            expect(paintedRows(grid), `${module.name} paints no row for a flag`).toEqual([[], [], []]);
+
+            grid.destroy();
+            store.destroy()
+        }
+
+        grid = store = null
     });
 
     test('records flagged before the grid exists are adopted once by the one model, under its own policy — and never under selectionModel null', async () => {
