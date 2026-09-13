@@ -173,3 +173,122 @@ test.describe('Workstation — NL perspectives: capture → list → disrupt →
         expect(runtimeErrors, 'no runtime errors may escape during the perspective chain').toEqual([]);
     })
 })
+
+const
+    ITEM      = 'feed',
+    MAIN      = 'workstation-main',
+    POLL      = {intervals: [50, 100, 250], timeout: 20000},
+    WORKSPACE = 'Workstation.view.Workspace';
+
+/** A window's runtime generation, read where `Main.mjs` reads it. */
+const readWindowId = page => page.evaluate(() => Neo.worker.Manager.windowId);
+
+/** The live Workspace projected for one window, looked up by window rather than "the first". */
+const workspaceFor = async (app, windowId) => {
+    const records = await app.findInstances({className: WORKSPACE}, ['id', 'windowId']);
+
+    return (Array.isArray(records) ? records : [records]).filter(Boolean)
+        .map(record => ({...(record.properties ?? record), id: record.id ?? record.properties?.id}))
+        .find(workspace => workspace.windowId === windowId)?.id ?? null
+};
+
+/** The workspace keys whose committed document lists the item. */
+const holdersOf = async (app, workspaceId) => {
+    const workspaces = await app.callMethod(workspaceId, 'getDockTopologyWorkspaces');
+
+    return Object.entries(workspaces).filter(([, document]) => document?.items?.[ITEM]).map(([key]) => key).sort()
+};
+
+/** The live pane's embodiment, read from the component; a pane the manager no longer knows reads as destroyed. */
+const embodimentOf = async (app, paneId) => {
+    const pane = await app.getComponent(paneId, ['windowId', 'mounted', 'isDestroyed']).catch(() => null);
+
+    return pane
+        ? {windowId: pane.windowId, mounted: pane.mounted, isDestroyed: pane.isDestroyed === true}
+        : {windowId: null, mounted: null, isDestroyed: true}
+};
+
+/** Tears the item into a REAL popup through the focus-gated pop-out header action. */
+const popOut = async (page, app, workspaceId, paneId) => {
+    const workspaces = await app.callMethod(workspaceId, 'getDockTopologyWorkspaces'),
+          nodeId     = Object.entries(workspaces[MAIN].nodes).find(([, node]) => node.type === 'tabs' && node.items?.includes(ITEM))[0],
+          chrome     = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
+
+    await page.locator(`#${chrome.buttons[ITEM]}`).click();
+    await expect(page.locator(`#${paneId}`), 'the focused pane is visible before it is popped out').toBeVisible({timeout: 10000});
+
+    const action = await app.callMethod(chrome.containerId, 'getAction', ['pop-out']),
+          button = page.locator(`#${action?.id}`);
+
+    await expect(button, 'the pop-out action projects on the focused pane').toBeVisible({timeout: 10000});
+
+    const popupPromise = page.waitForEvent('popup', {timeout: 30000});
+
+    await button.click();
+
+    return popupPromise
+};
+
+/**
+ * @summary Rendered witness for a declared restore across a real window boundary: with a pane torn into a
+ * vessel, re-applying the shipped perspective would list that pane in main while the vessel still owns
+ * it, so the engine refuses, and the refusal leaves every document, every owner and the live pane as
+ * they were. The Workstation's own Reset, which gives torn-out panes back, stays offered.
+ */
+test.describe('Workstation — a shipped restore across a real popup (Neural Link)', () => {
+    test('a shipped restore refuses to duplicate a pane its vessel owns, and every pane keeps one owner', async ({page, neuralLink}) => {
+        test.setTimeout(180000);
+
+        const pageErrors = [];
+        let   popup      = null;
+
+        page.on('pageerror', error => pageErrors.push(String(error)));
+
+        try {
+            await page.goto('/apps/workstation/index.html');
+            await page.waitForSelector('.workstation-dock-host',               {timeout: 60000});
+            await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
+
+            const app          = await neuralLink.connectToApp('Workstation'),
+                  rootWindowId = await readWindowId(page),
+                  workspaceId  = await workspaceFor(app, rootWindowId),
+                  paneId       = await app.callMethod(workspaceId, 'getPaneIdentity', [ITEM]),
+                  perspective  = () => app.callMethod(workspaceId, 'getState', ['dock.perspective']);
+
+            expect(await holdersOf(app, workspaceId), 'the shipped pane starts in main').toEqual([MAIN]);
+            await expect.poll(perspective, {...POLL, message: 'a fresh Workstation reads its shipped perspective, unmodified'})
+                .toEqual({active: 'shipped', modified: false, pending: null});
+
+            popup = await popOut(page, app, workspaceId, paneId);
+            await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
+            await expect(popup.locator(`#${paneId}`), 'the vessel renders the live pane').toBeVisible({timeout: 15000});
+
+            const popupWindowId = await readWindowId(popup),
+                  holders       = await holdersOf(app, workspaceId),
+                  vesselKey     = holders.find(key => key !== MAIN);
+
+            expect(holders, 'after the tear-out the pane lives in exactly one document, the vessel').toEqual([vesselKey]);
+            await expect.poll(perspective, {...POLL, message: 'main no longer holds the shipped arrangement'})
+                .toEqual({active: 'shipped', modified: true, pending: null});
+
+            const before = await app.callMethod(workspaceId, 'getDockTopologyWorkspaces'),
+                  result = await app.callMethod(workspaceId, 'resetPerspective');
+
+            expect(result.errors, 'the restore is refused rather than listing the pane twice')
+                .toEqual([`perspective restore would duplicate a pane owned by "${vesselKey}"`]);
+            expect(await app.callMethod(workspaceId, 'getDockTopologyWorkspaces'), 'no document changed').toEqual(before);
+            expect(await holdersOf(app, workspaceId), 'the pane keeps its one owner').toEqual([vesselKey]);
+            expect(await embodimentOf(app, paneId), 'and its live instance stays embodied in the vessel window')
+                .toEqual({windowId: popupWindowId, mounted: true, isDestroyed: false});
+            await expect(popup.locator(`#${paneId}`), 'the vessel still shows it').toBeVisible({timeout: 10000});
+            expect(await page.locator(`#${paneId}`).count(), 'with no second embodiment in the root window').toBe(0);
+            expect(await perspective(), 'the departure stays truthful').toEqual({active: 'shipped', modified: true, pending: null});
+            await expect(page.getByRole('button', {name: 'Reset to default', exact: true}), 'the Workstation Reset stays offered')
+                .toBeEnabled({timeout: 10000})
+        } finally {
+            popup && !popup.isClosed() && await popup.close()
+        }
+
+        expect(pageErrors).toEqual([])
+    })
+})
