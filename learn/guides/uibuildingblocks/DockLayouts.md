@@ -216,14 +216,20 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    Restore refuses invalid records wholesale — your users' layouts never half-restore.
 6. **Two name sources, one of them authoritative.** A workspace *declares* its perspectives (`perspectives`, a map
    of names to zones, with `activePerspective_` as the reactive intent), and a saved record is a *snapshot* that may
-   equal a declared arrangement but never defines or impersonates one: the libraries refuse a declared name and any
-   `$`-prefixed engine-reserved name (the unnamed `zones`-only arrangement lowers under `$default`) on both the
-   product name and the technical id, and a snapshot carries the declared name it was taken under as
-   `metadata.declaredPerspective`, written from the accepted write rather than from a published leaf. Restoring a
-   snapshot adopts that origin when the workspace declares it; an originless one keeps the committed baseline. The
-   workspace publishes `dock.perspective.active` (the committed name), `dock.perspective.modified` (the live document
-   has left that baseline) and `dock.perspective.pending` (a request in flight, never the refresh promise) on the
-   provider it resolves — bind and derive there or below, never on an ancestor.
+   equal a declared arrangement but never defines or impersonates one. The refusal has two reaches: every write path,
+   the static collection helpers included, refuses a `$`-prefixed engine-reserved name (the unnamed `zones`-only
+   arrangement lowers under `$default`), while a *declared* name is refused only by a library instance wired to its
+   workspace — `declaredPerspectives: () => workspace.declaredPerspectives()` on `PerspectiveLibrary` or
+   `TopologyLibrary` — on both the product name and the technical id, on save and on rename. The static helpers have
+   no workspace to ask, so a consumer writing through them passes the declared list itself, as the dock example does
+   with `Persistence.reservedNameErrors(keys, workspace.declaredPerspectives())`. Provenance is the capture's choice:
+   spread `workspace.perspectiveProvenance()` into the snapshot's `metadata` and it records `metadata.declaredPerspective`
+   from the accepted write rather than from a published leaf; a restore adopts that origin only when its descriptor
+   carries the name and the workspace declares it, and a document restored on its own keeps the committed baseline.
+   The workspace publishes `dock.perspective.active` (the committed name), `dock.perspective.modified` (the live
+   document has left that baseline) and `dock.perspective.pending` (a request in flight, never the refresh promise) on
+   its **own** `stateProvider` — every workspace declares one by default, and yours replaces it — so bind there or
+   below; a workspace whose provider is set to `null` reads through the nearest ancestor but publishes nothing.
 
 Styling arrives through the engine's token layer. The dock's visual language lives in
 `resources/scss/src/dashboard/Container.scss` as neutral `--dock-*` tokens, so a consumer skins the affordances by

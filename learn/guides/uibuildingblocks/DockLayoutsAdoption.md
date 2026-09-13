@@ -356,10 +356,13 @@ fail-closed result objects — gate on `errors` before you trust either:
 ```javascript readonly
 import Persistence from '../../../src/dashboard/dock/model/Persistence.mjs';
 
-// save the live arrangement — an invalid document refuses to serialize: `layout` stays null
+// save the live arrangement — an invalid document refuses to serialize: `layout` stays null.
+// The metadata is yours; spreading the workspace's provenance into it records the declared
+// name the snapshot was taken under as `metadata.declaredPerspective`
 const {layout, errors} = Persistence.createSavedLayout(this.getDockZoneDocument(), {
     layoutId: 'review-setup',
-    title   : 'Review setup'
+    title   : 'Review setup',
+    metadata: {...this.perspectiveProvenance()}
 });
 
 if (!errors.length) {
@@ -370,7 +373,12 @@ if (!errors.length) {
 // preview-contaminated envelope is refused WHOLE, `document` stays null, the errors say why
 const restored = Persistence.restoreSavedLayout(layout);
 
-restored.document && this.onDockZoneDocumentChange(restored.document)
+// the document alone restores the arrangement beside the committed declared baseline, and the
+// Modified badge then reports the distance; carrying the snapshot's origin in the descriptor makes
+// the workspace adopt that declared name again — when it declares it
+restored.document && this.onDockZoneDocumentChange(restored.document, {
+    declaredPerspective: layout.metadata.declaredPerspective
+})
 ```
 
 `PerspectiveLibrary.createSavedLayoutCollection` and `PerspectiveLibrary.restoreActiveSavedLayout` lift the same
@@ -381,16 +389,24 @@ can never leak into a persisted document — `createSavedLayout` refuses to seri
 
 Saved layouts are one of **two name sources**, and not the authoritative one. The arrangements a workspace
 *declares* — `perspectives`, a map of names to zones, selected through the reactive `activePerspective_` — are the
-names it answers to; a saved record is a snapshot with provenance. The two never trade places: the libraries refuse a
-declared name, and any `$`-prefixed engine-reserved name, on both the product name and the technical `layoutId`, on
-save and on rename, so a snapshot may equal a declared arrangement but never define or impersonate it. A snapshot
-records the declared name it was captured under as `metadata.declaredPerspective`, written from the accepted write —
-an auto-save that captures inside the commit listener still names the arrangement it was taken under. Restoring a
-snapshot whose origin the workspace declares adopts that name; an originless snapshot keeps the committed baseline;
-the selection never becomes null. The example's toolbar shows both sources side by side: declared buttons bind
-`dock.perspective.active`, snapshot buttons restore through the library, and the *Modified* badge reads
-`dock.perspective.modified`. Selecting a saved name through the config is deliberately not offered; a snapshot is
-restored, a declaration is selected.
+names it answers to; a saved record is a snapshot, with provenance when its capture asked for it. The two never trade
+places, and the refusal has two reaches. Every write path, the static collection helpers included, refuses a
+`$`-prefixed engine-reserved name. A *declared* name is refused by a library instance that knows its workspace —
+`declaredPerspectives: () => workspace.declaredPerspectives()` on `PerspectiveLibrary` or `TopologyLibrary` — on both
+the product name and the technical `layoutId`, on save and on rename; a library left at its default, or the static
+helpers, cannot know the declared set, and a consumer on that path passes it into
+`Persistence.reservedNameErrors(keys, workspace.declaredPerspectives())` itself, as the example does for its
+collection. Provenance is the capture's choice: `metadata: {...workspace.perspectiveProvenance()}` records
+`metadata.declaredPerspective` from the accepted write — an auto-save that captures inside the commit listener still
+names the arrangement it was taken under — and a capture without it stores an empty `metadata`. Restoring the
+document alone never moves the selection: the committed declared baseline stays, and *Modified* reports the distance.
+A restore whose descriptor carries `declaredPerspective` adopts that name when the workspace declares it; an origin
+the workspace does not declare, or none, keeps the committed baseline; the selection never becomes null. The example's
+toolbar shows both sources side by side: one button per declared name binds `dock.perspective.active` and writes
+`activePerspective`, the *Modified* badge reads `dock.perspective.modified`, and its snapshot buttons restore a
+document beside the declared baseline on purpose — those captures carry no provenance, so a restored snapshot reads
+as a modification of the declared arrangement it differs from. Selecting a saved name through the config is
+deliberately not offered; a snapshot is restored, a declaration is selected.
 
 ## The tear-out window's render target
 

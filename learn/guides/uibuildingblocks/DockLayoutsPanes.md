@@ -488,10 +488,13 @@ is not the refresh promise. A switcher therefore binds; it does not compute:
 }
 ```
 
-**Bind and derive on the publishing provider or below.** The workspace writes these leaves into the provider it
-resolves — its own, or the nearest ancestor's when it declares none. A formula on a provider *above* that one never
-observes the publication, because a descendant's write is not in an ancestor's lookup. Keeping the toolbar inside the
-workspace, as below, keeps the switcher on the publishing provider without any extra wiring.
+**The workspace publishes into its own provider; bind there or below.** Every dock workspace owns a `stateProvider`:
+the class declares one by default, and a `stateProvider` config of your own, like the preview's, replaces it and hosts
+the same leaves beside your data. The write goes to that provider and never to an ancestor's. Lookup and publication
+run in different directions: a workspace whose provider you set to `null` still *reads* through the nearest ancestor,
+but it publishes nothing, so a binding on or beside that ancestor keeps whatever the ancestor seeded and never sees a
+switch. Keeping the toolbar inside the workspace, as below, puts the switcher under the publishing provider without
+any extra wiring.
 
 If you know `Neo.tab.Container`, you know this shape already: `activeIndex` is the intent, the committed state is
 what the tabs render, `activeIndexChange` fires, a binding can drive it and a click writes it back.
