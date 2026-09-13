@@ -51,7 +51,9 @@ export function createDockVesselEmbodiment({resolvePane, resolveTarget} = {}) {
             return false
         }
 
-        const placeholder = Neo.create(VesselPlaceholder);
+        // The stand-in holds a real pane's slot, so a projection must be able to name it rather than
+        // infer it from position. Live-pane lookups exclude this class by category.
+        const placeholder = Neo.create(VesselPlaceholder, {dockItemId: itemId});
 
         let record = {pane, placeholder, settlement: null, sourceParent, windowId};
 

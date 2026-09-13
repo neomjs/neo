@@ -1141,6 +1141,9 @@ class Workspace extends Container {
                 && !component?.ntype?.endsWith('button')
                 && !cls.includes('neo-dashboard-dock-rail-tab')
                 && !cls.includes('neo-dashboard-dock-placeholder')
+                // The cross-window stand-in names its item so a projection can pair it, which makes it
+                // findable here too; a mask returned as its own pane is the worse failure.
+                && !cls.includes('neo-dashboard-dock-vessel-placeholder')
                 && component?.data?.missingReference !== true
         }) || null
     }

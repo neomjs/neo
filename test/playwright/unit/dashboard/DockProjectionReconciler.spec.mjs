@@ -14,6 +14,8 @@ import Container                from '../../../../src/container/Base.mjs';
 import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+
+import {createDockVesselEmbodiment} from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/button/Base.mjs';
 import '../../../../src/tab/Container.mjs';
@@ -1265,6 +1267,92 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             expect(host.items[0].getTabButtons(), 'one button per projected item').toHaveLength(3)
         } finally {
             host.destroy();
+            Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
+        }
+    });
+
+    test('a stand-in staged into a tab body keeps its slot when the bar ids and the body have diverged', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta = {reference: 'beta', title: 'Beta'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta'];
+
+        const panes = {
+                  alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                  beta : Neo.create(Component, {header: {text: 'Beta'}})
+              },
+              host  = Neo.create(Container, {
+                  items: [DockLayoutAdapter.project(model, {
+                      resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                  })]
+              }),
+              tab    = host.items[0],
+              bar    = tab.getTabBar(),
+              vessel = Neo.create(Container, {items: []});
+
+        // The stand-in is minted by the production path, never hand-built here: the repair belongs to
+        // the creation site, so an arm that constructs its own placeholder could never witness it.
+        const embodiment = createDockVesselEmbodiment({
+            resolvePane  : itemId => panes[itemId] ?? null,
+            resolveTarget: windowId => windowId === 'admitted-window' ? vessel : null
+        });
+
+        try {
+            await embodiment.stage({itemId: 'beta', windowId: 'admitted-window'});
+
+            const body    = tab.getCardContainer(),
+                  standIn = body.items.find(item => item.cls?.includes('neo-dashboard-dock-vessel-placeholder'));
+
+            expect(standIn, 'staging left a stand-in in the tab body').toBeTruthy();
+
+            // A projection in flight elsewhere left the bar listing one more item than the body holds.
+            // Position stops being evidence here, and the stand-in is the component that pays for it.
+            bar.setSilent({sortZoneConfig: {...bar.sortZoneConfig, dockItemIds: ['alpha', 'beta', 'gamma']}});
+
+            const asked        = [],
+                  placeholders = new Map(),
+                  nextConfig   = DockLayoutAdapter.project(model, {
+                      resolveComponentRef(_reference, item, itemId) {
+                          const stub = Neo.create(Component, {header: {text: item.title}, hidden: true});
+
+                          placeholders.set(itemId, stub);
+
+                          return stub
+                      }
+                  });
+
+            // Deliberately unguarded: a rejection here is a failure of the thing under test, and a
+            // catch would let every assertion below run against a tree that was never reconciled.
+            const result = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => {
+                    asked.push(itemId);
+                    return panes[itemId]
+                }
+            });
+
+            const settled = host.items[0].getCardContainer();
+
+            // Staging already left exactly one stand-in in the body and had not asked the resolver,
+            // so the three assertions after these two are ALSO true of a reconcile that did nothing.
+            // Chrome reconciliation rewrites the bar's ids to the projected set as its last act, so
+            // the vanished third id is the one post-condition a no-op cannot produce.
+            expect(result, 'the projection completed rather than resolving early').toBeTruthy();
+            expect(host.items[0].getTabBar().sortZoneConfig.dockItemIds,
+                'chrome reconciliation ran through and rewrote the bar to the projected set')
+                .toEqual(['alpha', 'beta']);
+
+            expect(asked, 'the host is never asked to produce an item whose stand-in is already present')
+                .not.toContain('beta');
+            expect(settled.items.filter(item => item.cls?.includes('neo-dashboard-dock-vessel-placeholder')),
+                'exactly one stand-in survives — a second one is the duplicated load mask').toHaveLength(1);
+            expect(settled.items).toContain(standIn)
+        } finally {
+            embodiment.destroy();
+            host.destroy();
+            vessel.destroy();
             Object.values(panes).forEach(pane => pane.isDestroyed || pane.destroy())
         }
     });

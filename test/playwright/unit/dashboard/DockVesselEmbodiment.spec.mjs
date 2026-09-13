@@ -10,8 +10,9 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
-import Component from '../../../../src/component/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Component     from '../../../../src/component/Base.mjs';
+import Container     from '../../../../src/container/Base.mjs';
+import DockWorkspace from '../../../../src/dashboard/dock/Workspace.mjs';
 
 import {
     createDockVesselEmbodiment,
@@ -45,6 +46,42 @@ test.describe('Neo.dashboard.dock.window.VesselEmbodiment (#15396)', () => {
         embodiment?.destroy();
         source?.isDestroyed || source?.destroy();
         target?.isDestroyed || target?.destroy()
+    });
+
+    test('the staged stand-in names the item it stands in for', async () => {
+        await embodiment.stage({itemId: 'live', windowId: 'admitted-window'});
+
+        // The stand-in occupies a real pane's slot, and a projection decides which live component
+        // belongs to which dock item. Without the item's own identity on it, that decision falls back
+        // to the stand-in's POSITION — which stops being evidence the moment a projection in flight
+        // leaves the tab bar's id list and the body at different lengths.
+        expect(source.items[1].dockItemId, 'the stand-in carries the departing item\'s identity').toBe('live')
+    });
+
+    test('a stand-in never answers for the live pane it replaced', async () => {
+        // Identity makes the stand-in pairable, which also makes it FINDABLE by every reader that
+        // resolves a live pane by dock-item id. Those readers exclude stand-ins by category, and this
+        // class must be in that category — otherwise the load mask is handed back as the pane itself,
+        // which is a worse failure than the duplication the identity fixes.
+        const workspace = Neo.create(DockWorkspace, {windowId: 'lookup-window'}),
+              livePane  = Neo.create(Component, {dockItemId: 'live', html: 'the real pane'});
+
+        try {
+            await embodiment.stage({itemId: 'live', windowId: 'admitted-window'});
+
+            const standIn = source.items[1];
+
+            expect(standIn.dockItemId, 'precondition: the stand-in is stamped').toBe('live');
+
+            workspace.add(standIn, true);
+            expect(workspace.resolveLivePane('live'), 'a stand-in alone resolves no live pane').toBe(null);
+
+            workspace.add(livePane, true);
+            expect(workspace.resolveLivePane('live'), 'and beside a real pane it is never preferred').toBe(livePane)
+        } finally {
+            livePane.isDestroyed || livePane.destroy();
+            workspace.destroy()
+        }
     });
 
     test('stages the same pane in the vessel while preserving the source card slot', async () => {
