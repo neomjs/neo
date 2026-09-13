@@ -12,6 +12,7 @@ import * as core                from '../../../../../src/core/_export.mjs';
 import DockLayoutAdapter        from '../../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import WorkspaceDocument        from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import DockWorkspace            from '../../../../../src/dashboard/dock/Workspace.mjs';
 import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence              from '../../../../../src/dashboard/dock/model/Persistence.mjs';
 import DockParticipation        from '../../../../../src/dashboard/dock/window/Participation.mjs';
@@ -24,6 +25,7 @@ import Toolbar            from '../../../../../src/toolbar/Base.mjs';
 import FeedPane           from '../../../../../apps/workstation/view/FeedPane.mjs';
 import ScalePane          from '../../../../../apps/workstation/view/ScalePane.mjs';
 import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
+import TopologyToolbar    from '../../../../../apps/workstation/view/TopologyToolbar.mjs';
 import PopupWorkspace     from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
 import GestureDriver      from '../../../../../apps/workstation/tour/GestureDriver.mjs';
 import TourController     from '../../../../../apps/workstation/view/TourController.mjs';
@@ -370,7 +372,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('startTour preserves the structured receipt when host refresh settlement rejects', async () => {
         const
-            feedStore = {count: 25, maxRecords: 500},
+            feedStore = {batchCount: 7, batchSize: 5, count: 25, intervalMs: 500, maxRecords: 500},
             failure   = new Error('projection vanished'),
             captions  = [];
 
@@ -382,7 +384,6 @@ test.describe.serial('Workstation.view.Workspace', () => {
             cueReceipts         : [],
             cueSettlements      : new Map(),
             dockModel           : null,
-            feedBatchCount      : 7,
             lastTourReceipt     : null,
             progressPromise     : Promise.resolve(),
             refreshPromise      : Promise.resolve(),
@@ -448,17 +449,17 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 'synthetic Sparkline series stay bounded instead of wrapping across the full plot').toBe(true);
             expect(feedBefore).toBeGreaterThanOrEqual(25);
 
-            workspace.appendFeedBatch(5);
+            feedStore.appendBatch(5);
             expect(feedStore.count).toBeGreaterThanOrEqual(feedBefore + 5);
             expect(feedStore.count).toBeLessThanOrEqual(feedStore.maxRecords);
 
-            workspace.appendFeedBatch(600);
+            feedStore.appendBatch(600);
             expect(feedStore.count).toBe(feedStore.maxRecords);
             expect(feedStore.items[0].id)
-                .toBe(`feed-${String(workspace.feedSequence).padStart(8, '0')}`);
+                .toBe(`feed-${String(feedStore.sequence).padStart(8, '0')}`);
             expect(feedStore.items.at(-1).id)
-                .toBe(`feed-${String(workspace.feedSequence - feedStore.maxRecords + 1).padStart(8, '0')}`);
-            expect(Workspace.FEED_BATCH_SIZE * 1000 / Workspace.FEED_INTERVAL_MS).toBe(10);
+                .toBe(`feed-${String(feedStore.sequence - feedStore.maxRecords + 1).padStart(8, '0')}`);
+            expect(feedStore.batchSize * 1000 / feedStore.intervalMs).toBe(10);
 
             let result = workspace.applyDockZoneOperation({
                 operation   : 'splitNode',
@@ -3187,7 +3188,7 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
      */
     function refreshOptionsFor(descriptor, neuterEngine=false) {
         const
-            enginePrototype = Object.getPrototypeOf(Workspace.prototype),
+            enginePrototype = DockWorkspace.prototype,
             original        = enginePrototype.getRefreshOptions,
             workspace       = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest', windowId: Neo.config.windowId});
 
@@ -3236,20 +3237,19 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
 });
 
 test.describe('Workstation topology bar — the view declares it, the controller fills it (#18460)', () => {
+    let liveBar;
+    test.afterEach(() => { liveBar?.destroy(); liveBar = null });
     test('the topology bar carries undo and redo as bound actions that dispatch to the Group and own no history logic', () => {
-        // The factory reads the Group id off the host and nothing else — the per-participant rows
-        // are the controller's, so this arm stays on the two Group actions.
-        const host       = {topologyGroupId: 'topology-bar-group'},
-              bar        = Workspace.prototype.createTopologyBar.call(host),
+        // The toolbar borrows the command owner; its history reads stay on the Group.
+        const host = {topologyGroupId: 'topology-bar-group'},
+              bar  = liveBar = Neo.create(TopologyToolbar, {workspace: host,
+                  stateProvider: {data: {dock: {perspective: {modified: false}}, topology: {additionalWindows: 0}}}}),
               actions    = Object.fromEntries((bar.actions || []).map(action => [action.action, action])),
               dispatched = [];
 
         expect(Object.keys(actions).sort()).toEqual(['redo', 'undo']);
 
-        // This is the DECLARATION, not a toolbar. `createTopologyBar` returns a plain object, so
-        // `items` is what the view wrote and never what `toolbar.Base` materialises from `actions`
-        // — a spacer plus one item per action. A count read here certified nothing about the live
-        // bar; the materialised bar and its sync are exercised in WorkspaceController.spec.
+        // Exercise the materialized class, including the inherited action buttons.
         expect(bar.reference).toBe('topology-toolbar');
 
         // The controller-routed buttons, still in authored order. Filtered to string handlers rather
@@ -3258,9 +3258,8 @@ test.describe('Workstation topology bar — the view declares it, the controller
         expect(bar.items.map(item => item.handler).filter(handler => typeof handler === 'string'))
             .toEqual(['onSaveTopology', 'closeTopology']);
 
-        // …and the declaration property itself, asserted directly instead of inferred from that
-        // list's length: `toolbar.Base` merges one item per action into `items`, and none is here.
-        expect(bar.items.every(item => !item.action), 'no materialised action items in the declaration').toBe(true);
+        expect(bar.getAction('undo'), 'Undo is materialized by the toolbar').toBeTruthy();
+        expect(bar.getAction('redo'), 'Redo is materialized by the toolbar').toBeTruthy();
 
         // Persistent, not focus-gated: an undo control that appears only once the bar holds focus is
         // undiscoverable exactly when a user reaches for it.
@@ -3322,7 +3321,7 @@ test.describe('Workstation topology bar — the view declares it, the controller
               // The production method on the minimal host it actually reads: the Group id is the
               // whole of what the factory and the formatter need, and a constructed Workspace would
               // bind a Group of its own and set the depth this arm is controlling.
-              host  = {historyStepBadge: Workspace.prototype.historyStepBadge, topologyGroupId: group.groupId};
+              host  = {topologyGroupId: group.groupId};
 
         TransactionManager.registerParticipant({groupId: group.groupId, workspaceKey: 'main', participant: {
             domain    : 'dock',
@@ -3339,8 +3338,8 @@ test.describe('Workstation topology bar — the view declares it, the controller
         // the history formatters read the Group's own leaf where it lives, but the readout reads
         // published state, and a component only binds once it can resolve a provider that holds its
         // keys. An empty one is an incomplete fixture rather than a smaller one.
-        const bar = Neo.create(Toolbar, {
-                  ...Workspace.prototype.createTopologyBar.call(host),
+        const bar = Neo.create(TopologyToolbar, {
+                  workspace    : host,
                   stateProvider: {data: {dock: {perspective: {modified: false}}, topology: {additionalWindows: 0}}}
               }),
               undo = bar.getAction('undo'),
@@ -3391,7 +3390,7 @@ test.describe('Workstation topology bar — the view declares it, the controller
             // rather than from the arithmetic.
             TransactionManager.retireGroup(group.groupId);
 
-            expect(host.historyStepBadge(() => 99), 'a retired Group has no depth to show').toBe(null)
+            expect(bar.historyStepBadge(() => 99), 'a retired Group has no depth to show').toBe(null)
         } finally {
             bar.destroy();
             TransactionManager.retireGroup(group.groupId);
@@ -3433,23 +3432,23 @@ test.describe('Workstation topology readout: the window count and the state line
         // Silence is a state: the component hides on the default with no extra windows, because a
         // readout that is always present cannot distinguish "this is the product" from "you made
         // this" — which is the affordance.
-        expect(Workspace.topologyStateText({additionalWindows: 0, modified: false}), 'nothing to say').toBe('');
+        expect(TopologyToolbar.topologyStateText({additionalWindows: 0, modified: false}), 'nothing to say').toBe('');
 
-        expect(Workspace.topologyStateText({additionalWindows: 0, modified: true})).toBe('Modified from default');
+        expect(TopologyToolbar.topologyStateText({additionalWindows: 0, modified: true})).toBe('Modified from default');
 
         // The case the split exists for: immediately after a reset with a popup standing. The old
         // collapsed answer read "Modified from default" here, which was true of nothing the user
         // could act on.
-        expect(Workspace.topologyStateText({additionalWindows: 1, modified: false}), 'just after a reset')
+        expect(TopologyToolbar.topologyStateText({additionalWindows: 1, modified: false}), 'just after a reset')
             .toBe('Default arrangement · 1 additional window');
 
-        expect(Workspace.topologyStateText({additionalWindows: 2, modified: true}), 'both, pluralised')
+        expect(TopologyToolbar.topologyStateText({additionalWindows: 2, modified: true}), 'both, pluralised')
             .toBe('Modified from default · 2 additional windows');
 
         // The formatter is what both bindings read, so its empty answer IS the visibility test. A
         // default with no extra windows must be the ONLY silent state — asserted rather than
         // assumed, because a formatter that returned '' too often would hide a real departure.
-        expect(Workspace.topologyStateText(), 'no argument at all').toBe('')
+        expect(TopologyToolbar.topologyStateText(), 'no argument at all').toBe('')
     })
 });
 
@@ -3599,7 +3598,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
             // and one window still stands beside it.
             expect(workspace.readTopologyState(), 'one window beyond the shipped one').toEqual({additionalWindows: 1});
             expect(await departed(workspace), 'main is back at the shipped arrangement').toBe(false);
-            expect(Workspace.topologyStateText({...workspace.readTopologyState(), modified: await departed(workspace)}))
+            expect(TopologyToolbar.topologyStateText({...workspace.readTopologyState(), modified: await departed(workspace)}))
                 .toBe('Default arrangement · 1 additional window')
         } finally {
             workspace.destroy()

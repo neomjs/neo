@@ -531,7 +531,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * @returns {Promise<Number>}
      */
     async function readHeartbeat(app, wsId) {
-        return (await app.getComponent(wsId, ['feedSequence'])).feedSequence
+        return (await app.getComponent(wsId, ['stateProvider.stores.feed.sequence']))['stateProvider.stores.feed.sequence']
     }
 
     /**

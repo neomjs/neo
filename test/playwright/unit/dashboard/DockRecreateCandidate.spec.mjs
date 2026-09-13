@@ -754,6 +754,7 @@ test.describe('Workstation cache adoption', () => {
         // A hand-built `this` owns no provider: the recreate flight has nowhere to publish, and says
         // so — as an own value, so the prototype's config accessor is never entered.
         Object.defineProperty(workspace, 'stateProvider', {value: null});
+        workspace.getStateProvider = () => null;
 
         try {
             const

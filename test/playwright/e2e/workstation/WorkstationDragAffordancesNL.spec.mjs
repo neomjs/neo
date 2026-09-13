@@ -399,7 +399,7 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
                 y: hostBox.y + hostBox.height * .35
             },
             documentBefore  = (await app.getComponent(wsId, ['dockModel'])).dockModel,
-            heartbeatBefore = (await app.getComponent(wsId, ['feedSequence'])).feedSequence,
+            heartbeatBefore = (await app.getComponent(wsId, ['stateProvider.stores.feed.sequence']))['stateProvider.stores.feed.sequence'],
             paneIdBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
             popupPromise    = page.waitForEvent('popup', {timeout: 30000});
 
@@ -602,7 +602,7 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
 
             const
                 documentAfter  = (await app.getComponent(wsId, ['dockModel'])).dockModel,
-                heartbeatAfter = (await app.getComponent(wsId, ['feedSequence'])).feedSequence;
+                heartbeatAfter = (await app.getComponent(wsId, ['stateProvider.stores.feed.sequence']))['stateProvider.stores.feed.sequence'];
 
             expect(documentAfter, 're-entry is a zero-document-mutation transition').toEqual(documentBefore);
             expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),

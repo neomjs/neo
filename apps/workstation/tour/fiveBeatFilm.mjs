@@ -21,7 +21,7 @@
  * - mid-gesture window birth   → `proof.born` before pointer-up (scene 3)
  * - exactly-one-claim          → `claimCount: 1` + single rendered preview (scene 5)
  * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 6)
- * - living-content continuity  → monotonic `feedSequence`, never reset (scenes 1, 8)
+ * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 8)
  * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 2)
  * - perspective restore        → store-backed capture/list/restore with exact-baseline document
  *   fidelity                     equality, fail-closed on unknown names (scene 7)

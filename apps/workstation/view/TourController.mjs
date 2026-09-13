@@ -490,7 +490,7 @@ class TourController extends Controller {
         const
             feedStore      = me.getStateProvider().getStore('feed'),
             feedStartCount = feedStore.count,
-            feedStartBatch = workspace.feedBatchCount,
+            feedStartBatch = feedStore.batchCount,
             startedAt      = Date.now(),
             runnerResult   = await me.trap(me.tourRunner.start());
 
@@ -530,12 +530,12 @@ class TourController extends Controller {
                 elapsedMs,
                 errors,
                 feed       : {
-                    batches       : workspace.feedBatchCount - feedStartBatch,
-                    configuredRate: workspace.constructor.FEED_BATCH_SIZE * 1000 / workspace.constructor.FEED_INTERVAL_MS,
+                    batches       : feedStore.batchCount - feedStartBatch,
+                    configuredRate: feedStore.batchSize * 1000 / feedStore.intervalMs,
                     endCount      : feedEndCount,
                     growth        : feedEndCount - feedStartCount,
                     maxRecords    : feedStore.maxRecords,
-                    produced      : (workspace.feedBatchCount - feedStartBatch) * workspace.constructor.FEED_BATCH_SIZE,
+                    produced      : (feedStore.batchCount - feedStartBatch) * feedStore.batchSize,
                     startCount    : feedStartCount
                 },
                 log       : runnerResult.log
