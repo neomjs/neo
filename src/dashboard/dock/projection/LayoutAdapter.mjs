@@ -1399,9 +1399,10 @@ class LayoutAdapter extends Base {
                 dockTearOutEntry   : data => context.onDockTearOutEntry?.(data),
                 dockTearOutExit    : data => context.onDockTearOutExit?.(data),
                 dockTearOutTerminal: data => context.onDockTearOutTerminal?.(data),
-                // Within-container reorder rides the container's own `moveTo` event.
+                // Within-container reorder rides the container's own `moveTo` event. The id comes from the live
+                // header, already moved: `items` is this projection's order, stale once a reorder has landed.
                 moveTo: data => {
-                    let itemId = items[data.fromIndex],
+                    let itemId = Neo.get(data.source)?.getTabBar()?.sortZoneConfig?.dockItemIds?.[data.toIndex],
                         result = context.applyDockZoneOperation?.({operation: 'addTab', itemId, tabsNodeId: nodeId, index: data.toIndex});
 
                     if (result && !result.errors?.length && result.document) {
