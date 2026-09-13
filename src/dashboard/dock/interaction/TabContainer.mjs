@@ -1,8 +1,10 @@
 import BaseTabContainer from '../../../tab/Container.mjs';
+import NeoArray         from '../../../util/Array.mjs';
 
 /**
  * @summary The tab container a dock tabs node projects into: a generic {@link Neo.tab.Container} that
- * additionally binds the committed lock state of its items and presents it on its own chrome.
+ * additionally binds the committed lock state of its items and presents it on its own chrome, and keeps its
+ * header's item ids in step with its tabs when a tab moves.
  * @description The workspace publishes header truth on its state provider; the projection ties this
  * container's {@link #dockLockedItemIds} to that truth through `bind`, so the provider's own binding
  * machinery re-evaluates it exactly when one of this node's items changes its lock or the node's items
@@ -60,6 +62,31 @@ class TabContainer extends BaseTabContainer {
                 me.presentDockLock(itemId, false)
             }
         })
+    }
+
+    /**
+     * @summary Moves a tab, and its item id in the header's `dockItemIds` with it.
+     * @description `dockItemIds[i]` names the item behind the tab at index `i` for every positional
+     * reader: a tab click, the next header drag, the reconciler pairing live cards with items. The id
+     * moves before the generic move runs, so the `moveTo` event that move fires already sees the new order.
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {Neo.component.Base} The card component that was moved
+     */
+    moveTo(fromIndex, toIndex) {
+        let me      = this,
+            bar     = me.getTabBar(),
+            itemIds = bar?.sortZoneConfig?.dockItemIds;
+
+        if (fromIndex !== toIndex && itemIds?.[fromIndex] !== undefined && itemIds[toIndex] !== undefined) {
+            itemIds = [...itemIds];
+            NeoArray.move(itemIds, fromIndex, toIndex);
+
+            bar.setSilent({sortZoneConfig: {...bar.sortZoneConfig, dockItemIds: itemIds}});
+            bar.sortZone?.set({dockItemIds: [...itemIds]})
+        }
+
+        return super.moveTo(fromIndex, toIndex)
     }
 
     /**
