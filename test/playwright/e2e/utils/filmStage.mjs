@@ -334,3 +334,138 @@ export function planSideBySide(envelope, {gap=24, minHeight=700, minWidth=1200}=
 
     return {fits: true, main, reason: null, target}
 }
+
+/**
+ * @summary Reports whether two window rects share any area.
+ *
+ * Separate from the planners because "are these already apart" is the question a caller asks BEFORE
+ * deciding to move anything, and the cheapest correct answer to a placement request is often to
+ * leave the windows where the product put them.
+ * @param {Object} first `{height, left, top, width}`.
+ * @param {Object} second `{height, left, top, width}`.
+ * @returns {Boolean}
+ */
+export function rectsOverlap(first, second) {
+    return first.left < second.left + second.width
+        && first.left + first.width > second.left
+        && first.top  < second.top  + second.height
+        && first.top  + first.height > second.top
+}
+
+/**
+ * @summary Plans a target window beside an already-placed source, inside a measured envelope.
+ *
+ * Distinct from {@link planSideBySide}, which arranges BOTH windows from the envelope alone. Here
+ * the source is already somewhere the product or the operator put it, and only the target may move.
+ * Four slots are tried in order — right, left, below, above — and the first fitting entirely inside
+ * the envelope wins, so a target never lands half off the display.
+ *
+ * Returns a verdict for the same reason the other planner does: whether an impossible stage is a
+ * failure or a skip belongs to the caller. Note the source's `width` must be its OUTER width; a
+ * viewport width omits the window chrome and plans the target on top of its own source.
+ * @param {Object} source Already-placed source rect, `{height, left, top, width}`, outer.
+ * @param {Object} target Target size, `{height, width}`.
+ * @param {Object} envelope From {@link readDisplayEnvelope}.
+ * @param {Object} [options]
+ * @param {Number} [options.gap=40] Pixels between source and target.
+ * @returns {Object} `{bounds, fits, reason}`; `bounds` is null when `fits` is false.
+ */
+export function planBeside(source, target, envelope, {gap=40}={}) {
+    const
+        {availHeight, availLeft, availTop, availWidth} = envelope,
+        point                                          = [
+            {left: source.left + source.width + gap, top: source.top},
+            {left: source.left - target.width  - gap, top: source.top},
+            {left: source.left, top: source.top + source.height + gap},
+            {left: source.left, top: source.top - target.height  - gap}
+        ].find(candidate => candidate.left >= availLeft
+            && candidate.top >= availTop
+            && candidate.left + target.width  <= availLeft + availWidth
+            && candidate.top  + target.height <= availTop  + availHeight);
+
+    if (!point) {
+        return {
+            bounds: null,
+            fits  : false,
+            reason: `no slot beside the source fits on a ${availWidth}×${availHeight} display: ` +
+                `a ${source.width}×${source.height} source at ${source.left},${source.top} leaves ` +
+                `nowhere for a ${target.width}×${target.height} target with a ${gap}px gap`
+        }
+    }
+
+    return {
+        bounds: {height: target.height, left: point.left, top: point.top, width: target.width},
+        fits  : true,
+        reason: null
+    }
+}
+
+/**
+ * @summary Puts a target window beside an already-placed source, and proves it landed apart.
+ *
+ * The product's own placement gets first refusal: headed browsers honour the app's request once the
+ * popup connects, so this polls the observable rects first and moves NOTHING when the two windows
+ * already miss each other. Only a genuinely overlapping stage reaches CDP.
+ *
+ * Returns a verdict rather than throwing, so an impossible display is never discovered halfway
+ * through a gesture — the caller decides whether that is a failure or a skip. A `moved: false`
+ * verdict means the windows were already apart and nothing was touched.
+ * @param {import('@playwright/test').Page} sourcePage Already-placed source window.
+ * @param {import('@playwright/test').Page} targetPage Window to move.
+ * @param {Object} [options]
+ * @param {Number} [options.gap=40] Pixels between source and target.
+ * @param {Number} [options.settleAttempts=20] Polls of the product's own placement before CDP.
+ * @returns {Promise<Object>} `{bounds, fits, moved, reason}`.
+ */
+export async function placeBesideSource(sourcePage, targetPage, {gap=40, settleAttempts=20}={}) {
+    await targetPage.waitForURL(url => url.protocol !== 'about:', {timeout: 30000});
+
+    const outerRect = async page => {
+        const surface = await readBrowserSurface(page);
+
+        return {
+            height: surface.outer.height,
+            left  : surface.inner.x,
+            top   : surface.inner.y,
+            width : surface.outer.width
+        }
+    };
+
+    for (let attempt = 0; attempt < settleAttempts; attempt++) {
+        const [source, target] = await Promise.all([outerRect(sourcePage), outerRect(targetPage)]);
+
+        if (!rectsOverlap(source, target)) {
+            return {bounds: target, fits: true, moved: false, reason: null}
+        }
+
+        await targetPage.waitForTimeout(25)
+    }
+
+    const
+        [source, target] = await Promise.all([outerRect(sourcePage), outerRect(targetPage)]),
+        envelope         = await readDisplayEnvelope(sourcePage),
+        plan             = planBeside(source, target, envelope, {gap});
+
+    if (!plan.fits) {
+        return {...plan, moved: false}
+    }
+
+    await placeNativeWindow(targetPage, plan.bounds);
+
+    // The landing poll inside placeNativeWindow proves the window reached its REQUESTED origin. It
+    // cannot prove the arrangement, which is what the caller actually asked for, so the goal itself
+    // is the last assertion rather than an inference from the request.
+    await expect.poll(async () => {
+        const [nowSource, nowTarget] = await Promise.all([
+            outerRect(sourcePage), outerRect(targetPage)
+        ]);
+
+        return rectsOverlap(nowSource, nowTarget)
+    }, {
+        message  : 'the staged windows must end up physically non-overlapping',
+        timeout  : 5000,
+        intervals: [25, 50, 100]
+    }).toBe(false);
+
+    return {...plan, moved: true}
+}

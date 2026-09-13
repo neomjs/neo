@@ -1,5 +1,5 @@
-import {expect, test}   from '@playwright/test';
-import {planSideBySide} from '../../e2e/utils/filmStage.mjs';
+import {expect, test}                             from '@playwright/test';
+import {planBeside, planSideBySide, rectsOverlap} from '../../e2e/utils/filmStage.mjs';
 
 /**
  * @summary Unit coverage for the side-by-side stage planner.
@@ -89,4 +89,83 @@ test('a gap that still leaves usable rects is honoured, so the guard refuses onl
     expect(target.width).toBeGreaterThan(0);
     expect(target.height).toBeGreaterThan(0);
     expect(main.left + main.width, 'and they are still apart').toBeLessThanOrEqual(target.left)
+});
+
+test('rects that sit apart do not overlap, and rects that merely touch do not either', () => {
+    const left  = {height: 100, left: 0,   top: 0, width: 100},
+          apart = {height: 100, left: 200, top: 0, width: 100},
+          flush = {height: 100, left: 100, top: 0, width: 100};
+
+    expect(rectsOverlap(left, apart), 'a clear gap is not an overlap').toBe(false);
+    expect(rectsOverlap(left, flush), 'sharing an edge is not sharing an area').toBe(false)
+});
+
+test('rects that share area overlap, including one wholly inside the other', () => {
+    const outer   = {height: 100, left: 0,  top: 0,  width: 100},
+          partial = {height: 100, left: 50, top: 50, width: 100},
+          inside  = {height: 10,  left: 40, top: 40, width: 10};
+
+    expect(rectsOverlap(outer, partial)).toBe(true);
+    expect(rectsOverlap(outer, inside), 'containment is the extreme case of overlap').toBe(true)
+});
+
+test('a target is planned to the right of its source when the room is there', () => {
+    const plan = planBeside(
+        {height: 700, left: 20, top: 40, width: 800},
+        {height: 400, width: 460},
+        roomy
+    );
+
+    expect(plan.fits).toBe(true);
+    expect(plan.bounds.left, 'source right edge plus the default gap').toBe(860);
+    expect(plan.bounds.top).toBe(40);
+    expect(plan.bounds.width, 'the target keeps its own size').toBe(460)
+});
+
+test('a target falls back to the left when the right would leave the display', () => {
+    const plan = planBeside(
+        {height: 700, left: 1100, top: 40, width: 540},
+        {height: 400, width: 460},
+        roomy
+    );
+
+    expect(plan.fits).toBe(true);
+    expect(plan.bounds.left, 'left slot: source left minus target width minus gap').toBe(600)
+});
+
+test('a target falls back below when neither side has room', () => {
+    const plan = planBeside(
+        {height: 300, left: 300, top: 40, width: 1000},
+        {height: 400, width: 460},
+        {availHeight: 1084, availLeft: 0, availTop: 25, availWidth: 1440}
+    );
+
+    expect(plan.fits).toBe(true);
+    expect(plan.bounds.left).toBe(300);
+    expect(plan.bounds.top, 'below: source bottom plus the gap').toBe(380)
+});
+
+test('an impossible arrangement is refused, and the reason carries display, source and target', () => {
+    const plan = planBeside(
+        {height: 1000, left: 0, top: 0, width: 1200},
+        {height: 800, width: 900},
+        {availHeight: 1000, availLeft: 0, availTop: 0, availWidth: 1200}
+    );
+
+    expect(plan.fits).toBe(false);
+    expect(plan.bounds).toBeNull();
+    expect(plan.reason).toContain('1200×1000');
+    expect(plan.reason, 'the reader must not have to re-measure any of the three').toContain('900×800')
+});
+
+test('a planned target never overlaps the source it was planned beside', () => {
+    const source = {height: 700, left: 20, top: 40, width: 800},
+          target = {height: 400, width: 460};
+
+    [20, 40, 120].forEach(gap => {
+        const plan = planBeside(source, target, roomy, {gap});
+
+        expect(plan.fits, `gap ${gap}`).toBe(true);
+        expect(rectsOverlap(source, plan.bounds), `gap ${gap} must leave them apart`).toBe(false)
+    })
 });
