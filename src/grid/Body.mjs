@@ -214,10 +214,6 @@ class GridBody extends Component {
          */
         scrollTop_: 0,
         /**
-         * @member {String} selectedRecordField='annotations.selected'
-         */
-        selectedRecordField: 'annotations.selected',
-        /**
          * @member {Number} startIndex_=0
          * @reactive
          */
@@ -302,32 +298,6 @@ class GridBody extends Component {
      * @member {Number|null} rowPoolSize=null
      */
     rowPoolSize = null
-
-    /**
-     * @member {String[]} selectedCells
-     */
-    get selectedCells() {
-        let { selectionModel } = this;
-
-        if (selectionModel?.ntype?.includes('cell')) {
-            return selectionModel.items
-        }
-
-        return []
-    }
-
-    /**
-     * @member {String[]} selectedRows
-     */
-    get selectedRows() {
-        let { selectionModel } = this;
-
-        if (selectionModel?.ntype?.includes('row')) {
-            return selectionModel.selectedRows
-        }
-
-        return []
-    }
 
     /**
      * @param config
@@ -675,16 +645,11 @@ class GridBody extends Component {
     }
 
     /**
-     * The grid's selection model, read from its owner for the paint and the selection-aware readers
-     * of this body. A body configures, instantiates and destroys no model of its own — see
-     * {@link Neo.grid.View#selectionModel}; a bare body (no grid container) reads `null`.
-     * @member {Neo.selection.grid.BaseModel|null} selectionModel
-     * @readonly
+     * A body configures, instantiates, holds and exposes no selection model: the grid's one model is
+     * {@link Neo.grid.View#selectionModel}, and a row paints the View's projected selection. The
+     * setter is the migration guard — a leftover `body: {selectionModel}` fails loudly here.
+     * @param {*} value
      */
-    get selectionModel() {
-        return this.gridContainer?.view?.selectionModel ?? null
-    }
-
     set selectionModel(value) {
         throw new Error('grid.Body carries no selection model: configure it on the View — grid.Container#viewConfig.selectionModel, or grid.view.selectionModel at runtime')
     }
@@ -1326,33 +1291,24 @@ class GridBody extends Component {
      * @param {Object}         data.record
      */
     onStoreRecordChange({ fields, record }) {
-        let me = this,
-            fieldNames = fields.map(field => field.name),
-            rowIndex = me.store.indexOf(record),
-            { mountedRows, selectionModel } = me,
-            poolSize = me.items.length,
-            itemIndex, recordId, row;
+        let me              = this,
+            fieldNames      = fields.map(field => field.name),
+            rowIndex        = me.store.indexOf(record),
+            { mountedRows } = me,
+            poolSize        = me.items.length,
+            itemIndex, row;
 
         if (fieldNames.includes(me.colspanField)) {
             me.createViewData()
         } else {
+            // the record's selection flag is the View's to follow (grid.View#onStoreRecordChange),
+            // once per grid; a body only repaints the row it renders
             if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
                 itemIndex = rowIndex % poolSize;
                 row = me.items[itemIndex];
 
                 if (row) {
                     row.createVdom(false, false)
-                }
-
-                for (let i = 0, len = fields.length; i < len; i++) {
-                    let field = fields[i];
-                    if (field.name === me.selectedRecordField) {
-                        if (selectionModel?.ntype === 'selection-grid-rowmodel') {
-                            recordId = me.getRecordId(record);
-
-                            selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
-                        }
-                    }
                 }
             }
         }
@@ -1615,14 +1571,12 @@ class GridBody extends Component {
 
         return {
             ...super.toJSON(),
-            animatedRowSorting: me.animatedRowSorting,
-            bufferColumnRange: me.bufferColumnRange,
-            bufferRowRange: me.bufferRowRange,
-            colspanField: me.colspanField,
+            animatedRowSorting    : me.animatedRowSorting,
+            bufferColumnRange     : me.bufferColumnRange,
+            bufferRowRange        : me.bufferRowRange,
+            colspanField          : me.colspanField,
             highlightModifiedCells: me.highlightModifiedCells,
-            rowHeight: me.rowHeight,
-            selectedRecordField: me.selectedRecordField,
-            selectionModel: me.selectionModel?.toJSON()
+            rowHeight             : me.rowHeight
         }
     }
 }

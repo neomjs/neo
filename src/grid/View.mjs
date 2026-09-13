@@ -75,7 +75,15 @@ class View extends Base {
          * @member {Neo.selection.grid.BaseModel|null} selectionModel_=RowModel
          * @reactive
          */
-        selectionModel_: RowModel
+        selectionModel_: RowModel,
+        /**
+         * The record field a row selection mirrors: a {@link Neo.selection.grid.RowModel} writes it
+         * when a row is selected, and the View adopts records that carry it — once, on the store's
+         * load and on a record change — so a flagged record becomes a selected row through the one
+         * owner, never inside a body's render.
+         * @member {String} selectedRecordField='annotations.selected'
+         */
+        selectedRecordField: 'annotations.selected'
     }
 
     /**
@@ -110,11 +118,21 @@ class View extends Base {
     }
 
     /**
-     * The selected-record annotation field. Body-agnostic — delegates to the center body.
-     * @returns {String}
+     * The cell ids the View's model holds selected — `[]` under a row or column model, and under none.
+     * @returns {String[]}
      */
-    get selectedRecordField() {
-        return this.gridContainer?.body?.selectedRecordField
+    get selectedCells() {
+        let {selectionModel} = this;
+        return selectionModel?.ntype?.includes('cell') ? selectionModel.items : []
+    }
+
+    /**
+     * The record ids the View's model holds selected — `[]` under a cell or column model, and under none.
+     * @returns {Number[]|String[]}
+     */
+    get selectedRows() {
+        let {selectionModel} = this;
+        return selectionModel?.ntype?.includes('row') ? selectionModel.selectedRows : []
     }
 
     /**
@@ -189,11 +207,86 @@ class View extends Base {
 
     /**
      * Registers the model the View's own configs created, once every config — `keys` and the
-     * bodies included — is in place.
+     * bodies included — is in place, and starts following the store for the selection field.
      */
     onConstructed() {
         super.onConstructed();
-        this.selectionModel?.register(this)
+        this.selectionModel?.register(this);
+        this.bindStore(this.store, null)
+    }
+
+    /**
+     * Listens to the store for the one selection concern the View owns — a record's
+     * {@link #selectedRecordField} — once per grid, however many bodies render the record.
+     * `grid.Container` calls it again when its store changes.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     */
+    bindStore(value, oldValue) {
+        let me        = this,
+            listeners = {load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me};
+
+        // on() and un() consume keys like `scope` from the passed object, so each call gets its own copy
+        oldValue?.un({...listeners});
+        value   ?.on({...listeners});
+
+        // a store that already holds its records fires no load for them
+        value?.count && me.onStoreLoad()
+    }
+
+    /**
+     * Re-projects every body from the committed selection — the seam the column-selecting models
+     * call after a swap or a column toggle.
+     * @param {Boolean} [silent=false]
+     * @param {Boolean} [force=false]
+     */
+    createViewData(silent=false, force=false) {
+        this.bodies.forEach(body => body.createViewData(silent, force))
+    }
+
+    /**
+     * Retires the model the View owns and stops following the store; a body's destruction never
+     * touches the model.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.bindStore(null, me.store);
+        me.selectionModel?.destroy?.();
+        super.destroy(...args)
+    }
+
+    /**
+     * A loaded store's flagged records are the selected rows — adopted here, once, through the one
+     * row model; a paint follows through the model's own row update, never a mutation in a render.
+     */
+    onStoreLoad() {
+        let me                      = this,
+            {selectionModel, store} = me,
+            field                   = me.selectedRecordField;
+
+        if (selectionModel?.ntype === 'selection-grid-rowmodel' && store && field) {
+            store.items.forEach(record => {
+                record[field] && selectionModel.selectRow(me.getRecordId(record))
+            })
+        }
+    }
+
+    /**
+     * A record's selection flag changed: the one model follows it, once.
+     * @param {Object}   data
+     * @param {Object[]} data.fields
+     * @param {Object}   data.record
+     */
+    onStoreRecordChange({fields, record}) {
+        let me               = this,
+            {selectionModel} = me,
+            field            = fields.find(item => item.name === me.selectedRecordField);
+
+        if (field && selectionModel?.ntype === 'selection-grid-rowmodel') {
+            selectionModel[field.value ? 'selectRow' : 'deselectRow'](me.getRecordId(record))
+        }
     }
 
     /**

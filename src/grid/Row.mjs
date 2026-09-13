@@ -352,12 +352,15 @@ class Row extends Component {
 
         let {
                 cellPoolSize, columnPositions, colspanField, highlightModifiedCells,
-                mountedColumns, rowHeight, selectedRecordField, selectedCells,
-                selectionModel, store
-            }            = gridBody,
-            recordId     = gridBody.getRecordId(record),
-            countColumns = columns.getCount(),
-            cache        = {colspanField, columnPositions, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+                mountedColumns, rowHeight, store
+            }              = gridBody,
+            // selection is the View's: a row paints its projection and never holds or mutates it
+            view           = gridContainer?.view,
+            selectedCells  = view?.selectedCells ?? [],
+            selectionModel = view?.selectionModel ?? null,
+            recordId       = gridBody.getRecordId(record),
+            countColumns   = columns.getCount(),
+            cache          = {colspanField, columnPositions, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
@@ -405,11 +408,7 @@ class Row extends Component {
             rowCls.push('neo-even')
         }
 
-        let selectedRows = gridBody.selectedRows;
-
-        if (selectedRows && record[selectedRecordField]) {
-            NeoArray.add(selectedRows, recordId)
-        }
+        let selectedRows = gridContainer?.view?.selectedRows;
 
         if (selectedRows?.includes(recordId)) {
             rowCls.push('neo-selected');

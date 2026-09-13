@@ -565,6 +565,9 @@ class GridContainer extends BaseContainer {
         if (me.bodyEnd)           me.bodyEnd.store = value
         if (me.verticalScrollbar) me.verticalScrollbar.store = value
 
+        // the View follows the store for the one selection field it owns
+        me.view?.bindStore(value, oldValue);
+
         if (me.footerToolbar && me.footerToolbar.store !== value) {
             me.footerToolbar.store = value
         }
