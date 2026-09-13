@@ -1,5 +1,4 @@
 import Controller          from '../../../src/controller/Component.mjs';
-import Persistence         from '../../../src/dashboard/dock/model/Persistence.mjs';
 import TransactionManager  from '../../../src/manager/Transaction.mjs';
 import {resolveBootIntent} from '../BootIntent.mjs';
 
@@ -126,60 +125,17 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * @summary Captures the full keyed composition under its explicit active layout identity.
-     * The record's declared origin is the accepted-write identity, never the collection's pointer.
-     * @param {String} [layoutId] Defaults to the collection's save pointer, or the new-root name `default`.
-     * @returns {Object} The finite topology producer receipt.
-     */
-    captureTopology(layoutId=this.component.topologyCollection?.activeLayoutId ?? 'default') {
-        const selected = this.component.topologyCollection?.topologies?.[layoutId];
-        return Persistence.captureTopologyPerspective(this.component.getDockTopologyWorkspaces(), {
-            layoutId,
-            metadata      : {...selected?.metadata, ...this.component.perspectiveProvenance()},
-            placementHints: this.component.getPlacementHints(),
-            title         : selected?.title ?? layoutId,
-            ...(selected && Object.hasOwn(selected, 'revision') && {revision: selected.revision}),
-            ...(selected && Object.hasOwn(selected, 'perspectiveName') && {perspectiveName: selected.perspectiveName})
-        })
-    }
-
-    /**
-     * @summary Saves a named multi-workspace composition and waits for durable acknowledgement.
-     * @param {String} [layoutId]
+     * @summary Declarative handler: the toolbar's Save routes to the component's own command.
+     *
+     * The click payload stops here. A button invokes a string handler with its click data, and the
+     * component's `saveTopology(layoutId)` takes an optional layout id — routed together, the payload
+     * became the record's name and the producer refused every click. The handler names no layout, so
+     * the save lands under the collection's own pointer.
+     * @param {Object} data The click payload; unused by design.
      * @returns {Promise<Object>}
      */
-    async saveTopology(layoutId) {
-        const group = TransactionManager.get(this.component.topologyGroupId);
-        if (!group || this.isDestroyed) return {persisted: false, current: false, errors: ['workspace is no longer open']};
-        const queue = group.queue;
-        await queue;
-        if (TransactionManager.get(group.id) !== group || group.queue !== queue) {
-            return {persisted: false, current: false, errors: ['workspace changed while waiting to save']}
-        }
-        const {topology, errors} = this.captureTopology(layoutId);
-        if (errors.length) return {persisted: false, errors};
-        const saved = this.component.topologyLibrary.save(topology, {activate: true, replace: true});
-        if (saved.errors.length) return {persisted: false, errors: saved.errors};
-        const result  = await this.component.topologyLibrary.persist(),
-              current = this.captureTopology(topology.layoutId);
-        return {
-            ...result,
-            current: result.current && group.queue === queue && !current.errors.length &&
-                JSON.stringify(current.topology) === JSON.stringify(topology)
-        }
-    }
-
-    /**
-     * @summary Lets the Group library own the reconnect lease and durable disposal of this root.
-     * @returns {Boolean}
-     */
-    attachTopologyLibrary() {
-        return this.component.topologyLibrary.attachGroup({
-            capture: () => this.captureTopology(),
-            dispose: () => this.component.destroy(),
-            groupId: this.component.topologyGroupId,
-            manager: TransactionManager
-        })
+    onSaveTopology(data) {
+        return this.component.saveTopology()
     }
 
     /**
@@ -326,7 +282,7 @@ class WorkspaceController extends Controller {
      * @returns {Promise<Object>} Persistence or carrier refusal leaves the Workspace open.
      */
     async closeTopology() {
-        const saved = await this.saveTopology();
+        const saved = await this.component.saveTopology();
         if (!saved.persisted || !saved.current) return {closed: false, errors: saved.errors};
         const group    = TransactionManager.get(this.component.topologyGroupId),
               queue    = group.queue,

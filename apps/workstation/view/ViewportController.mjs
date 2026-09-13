@@ -238,9 +238,8 @@ class ViewportController extends Controller {
                 return
             }
 
-            // The attach must follow the cold-hydrate write, so it stays a step of this boot; moving the
-            // persistence cluster onto its owner is a separate change.
-            workspace.getController().attachTopologyLibrary();
+            // The attach must follow the cold-hydrate write, so it stays a step of this boot.
+            workspace.attachTopologyLibrary();
             view.add(workspace);
             if (!selection.topology) await workspace.saveTopology()
         } catch (error) {

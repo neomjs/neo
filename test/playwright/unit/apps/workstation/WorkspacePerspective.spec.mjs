@@ -133,7 +133,7 @@ test('a captured topology records the shipped perspective as its origin', () => 
           workspace = Neo.create(Workspace, {topologyGroupId: binding.groupId, windowId: Neo.config.windowId});
 
     try {
-        const {topology, errors} = workspace.getController().captureTopology('probe');
+        const {topology, errors} = workspace.captureTopology('probe');
 
         expect(errors).toEqual([]);
         expect(topology.metadata.declaredPerspective).toBe('shipped')
@@ -148,7 +148,7 @@ test('the topology library refuses a record that takes the shipped perspective n
           workspace = Neo.create(Workspace, {topologyGroupId: binding.groupId, windowId: Neo.config.windowId});
 
     try {
-        const {topology, errors} = workspace.getController().captureTopology('shipped');
+        const {topology, errors} = workspace.captureTopology('shipped');
 
         expect(errors).toEqual([]);
         expect(workspace.topologyLibrary.save(topology).errors.join()).toContain('names a declared perspective')

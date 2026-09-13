@@ -3192,7 +3192,7 @@ test.describe('Workstation topology bar — the view declares it, the controller
         // than pinned as the whole list, because the view now handles some of its own items and the
         // authored list is contractually free to grow.
         expect(bar.items.map(item => item.handler).filter(handler => typeof handler === 'string'))
-            .toEqual(['saveTopology', 'closeTopology']);
+            .toEqual(['onSaveTopology', 'closeTopology']);
 
         // …and the declaration property itself, asserted directly instead of inferred from that
         // list's length: `toolbar.Base` merges one item per action into `items`, and none is here.
@@ -3556,7 +3556,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
               workspace = Neo.create(Workspace, {topologyLibrary: library, windowId: Neo.config.windowId});
 
         try {
-            expect(workspace.getController().attachTopologyLibrary(), 'the library is attached to the Group').toBe(true);
+            expect(workspace.attachTopologyLibrary(), 'the library is attached to the Group').toBe(true);
 
             await workspace.workspaceSet.commit(MAIN, [
                 {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
@@ -3606,7 +3606,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
               });
 
         try {
-            expect(workspace.getController().attachTopologyLibrary(), 'the library is attached').toBe(true);
+            expect(workspace.attachTopologyLibrary(), 'the library is attached').toBe(true);
             TransactionManager.setHistoryDepth({groupId: workspace.topologyGroupId, depth: 5});
 
             const writesBefore = writes.length;
