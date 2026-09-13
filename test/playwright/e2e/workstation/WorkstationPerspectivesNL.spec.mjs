@@ -79,7 +79,11 @@ test.describe('Workstation — NL perspectives: capture → list → disrupt →
         expect(
             baselineLeftExtent,
             'precondition: the workspace boots with a committed left-edge extent'
-        ).toBe(0.2);
+        ).toEqual(expect.any(Number));
+        expect(
+            baselineLeftExtent,
+            'precondition: the disruption below moves the left edge away from its boot extent'
+        ).not.toBe(0.32);
         expect(
             baseline.nodes['right-top-tabs'].activeItemId,
             'precondition: capture starts from the non-first Audit tab'

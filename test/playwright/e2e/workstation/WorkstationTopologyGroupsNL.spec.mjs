@@ -191,8 +191,8 @@ const expectColdTopology = async (root, record) => {
     const state      = await topologyState(root.app, root.workspaceId),
           collection = (await root.app.getComponent(root.workspaceId, ['topologyLibrary.collection']))['topologyLibrary.collection'];
     expect(state.workspaceKeys.slice().sort()).toEqual(Object.keys(record.workspaces).sort());
-    expect(state.snapshot?.participants, 'cold truth includes the auxiliary placement participant').toEqual({
-        ...record.workspaces, placementHints: record.placementHints
+    expect(state.snapshot?.participants, 'cold truth includes the auxiliary placement participant and the declared perspective identity').toEqual({
+        ...record.workspaces, placementHints: record.placementHints, '$perspective:workstation-main': {name: 'shipped'}
     });
     expect(await root.app.callMethod(root.workspaceId, 'getPlacementHints')).toEqual(record.placementHints);
     expect(state.historyCount).toBe(0);
@@ -551,7 +551,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         expect(vesselCarrier, 'the vessel carries a slot of A\'s Group, never the URL').toEqual({
             generationToken: expect.any(String),
             groupId        : carrierA.groupId,
-            workspaceKey   : expect.stringMatching(/^popup:/)
+            workspaceKey   : 'workstation-vessel:feed'
         });
         expect([...new URL(vessel.url()).searchParams.keys()].sort(), 'the vessel URL names content and theme, never an owner').toEqual(['popout', 'theme']);
 
