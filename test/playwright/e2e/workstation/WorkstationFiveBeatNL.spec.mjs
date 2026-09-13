@@ -675,9 +675,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * @param {Object} data.app Neural Link app wrapper.
      * @param {Object} data.page Playwright page.
      * @param {String} data.wsId Workspace component id.
+     * @param {String} [data.sourceNodeId='right-bottom-tabs'] Incoming gesture's source; a missing node is the refusal control.
      * @returns {Promise<Object>}
      */
-    async function stageMergedVessel({app, page, wsId}) {
+    async function stageMergedVessel({app, page, wsId, sourceNodeId='right-bottom-tabs'}) {
         const
             targetPopupPromise = page.waitForEvent('popup', {timeout: 90000}),
             ownerResult        = await callWorkstationGesture(app, wsId, 'executeTearOutStep', [
@@ -700,48 +701,60 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         ).toEqual([]);
         expect(ownerResult.applied, 'the metrics tear-out must apply before merge staging continues').toBe(true);
 
-        const
-            targetPopup        = await targetPopupPromise,
-            sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
-            showCursor         = filmPace.showCursor ?? false,
-            cursorProofPromise = captureFilmCursorLifecycle({
-                action: () => callWorkstationGesture(app, wsId, 'executeCrossWindowDockStep', [
-                    {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
-                    {
-                        attempts  : filmPace.birthAttempts ?? 180,
-                        dwellDelay: filmPace.dwellDelay ?? 600,
-                        moveDelay : filmPace.moveDelay ?? 16,
-                        moveSteps : filmPace.moveSteps ?? 4,
-                        showCursor
-                    }
-                ]),
-                observeContinuously: showCursor,
-                page,
-                sourcePage         : page,
-                targetPage         : targetPopup
-            }),
-            targetProxy = targetPopup.locator('.workstation-vessel-dragproxy');
+        const targetPopup = await targetPopupPromise;
+        let sourcePopup;
+        const onPopup = popup => sourcePopup = popup;
+        page.on('popup', onPopup);
 
-        await expect(targetProxy, 'exactly one Workstation proxy must render in the target popup')
-            .toHaveCount(1, {timeout: 9000});
+        try {
+            const
+                showCursor         = filmPace.showCursor ?? false,
+                cursorProofPromise = captureFilmCursorLifecycle({
+                    action: () => callWorkstationGesture(app, wsId, 'executeCrossWindowDockStep', [
+                        {itemId: 'commits', sourceNodeId, targetItemId: 'metrics'},
+                        {
+                            attempts  : filmPace.birthAttempts ?? 180,
+                            dwellDelay: filmPace.dwellDelay ?? 600,
+                            moveDelay : filmPace.moveDelay ?? 16,
+                            moveSteps : filmPace.moveSteps ?? 4,
+                            showCursor
+                        }
+                    ]),
+                    observeContinuously: showCursor,
+                    page,
+                    sourcePage         : page,
+                    targetPage         : targetPopup
+                }),
+                targetProxy = targetPopup.locator('.workstation-vessel-dragproxy');
 
-        const computedOpacity = await targetProxy.evaluate(element =>
-            Number.parseFloat(getComputedStyle(element).opacity));
+            const proxyReady = expect(targetProxy, 'exactly one Workstation proxy must render in the target popup')
+                .toHaveCount(1, {timeout: 9000})
+                .then(() => targetProxy.evaluate(element => Number.parseFloat(getComputedStyle(element).opacity)));
+            const computedOpacity = await Promise.race([proxyReady, cursorProofPromise.then(({result}) => {
+                expect(result.errors, `cross-window driver: ${JSON.stringify(result.proof ?? null)}`).toEqual([]);
+                expect(result.applied, 'the cross-window driver must complete its transfer').toBe(true);
+                return proxyReady
+            })]);
 
-        expect(computedOpacity, 'the live target proxy must leave the dock preview legible').toBe(.7);
+            expect(computedOpacity, 'the live target proxy must leave the dock preview legible').toBe(.7);
 
-        const [{evidence: cursorEvidence, result: dockResult}, sourcePopup] =
-            await Promise.all([cursorProofPromise, sourcePopupPromise]);
+            const {evidence: cursorEvidence, result: dockResult} = await cursorProofPromise;
+            expect(dockResult.errors, `cross-window driver: ${JSON.stringify(dockResult.proof ?? null)}`).toEqual([]);
+            expect(dockResult.applied, 'the cross-window driver must complete its transfer').toBe(true);
+            expect(sourcePopup, 'the second gesture must acquire its own popup').toBeTruthy();
 
-        dockResult.proof?.remoteSnapshot?.targetProxy &&
-            (dockResult.proof.remoteSnapshot.targetProxy.computedOpacity = computedOpacity);
+            dockResult.proof?.remoteSnapshot?.targetProxy &&
+                (dockResult.proof.remoteSnapshot.targetProxy.computedOpacity = computedOpacity);
 
-        await expect.poll(() => sourcePopup.isClosed(), {
-            message: 'the converted source vessel must retire after its remote commit',
-            timeout: 15000
-        }).toBe(true);
+            await expect.poll(() => sourcePopup.isClosed(), {
+                message: 'the converted source vessel must retire after its remote commit',
+                timeout: 15000
+            }).toBe(true);
 
-        return {cursorEvidence, dockResult, ownerResult, showCursor, sourcePopup, targetPopup}
+            return {cursorEvidence, dockResult, ownerResult, showCursor, sourcePopup, targetPopup}
+        } finally {
+            page.off('popup', onPopup)
+        }
     }
 
     /**
@@ -2418,6 +2431,14 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors).toEqual([])
     });
 
+    test('an early cross-window refusal reports its cause and releases the popup observer', async ({page, neuralLink}) => {
+        const {app, wsId} = await boot({page, neuralLink});
+        const popupListeners = page.listenerCount('popup');
+        await expect(stageMergedVessel({app, page, wsId, sourceNodeId: 'missing-source'}))
+            .rejects.toThrow('cross-window dock step must name distinct live source and target panes');
+        expect(page.listenerCount('popup')).toBe(popupListeners)
+    });
+
     test('scene 3 — the second window learns to dock: convert-while-dragging + exactly one preview', async ({page, neuralLink}) => {
         const {app, pageErrors, wsId} = await boot({page, neuralLink});
         const
@@ -2669,9 +2690,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         });
         expect(result.proof.phaseOrder).toEqual([
             'documents-adopted',
-            'main-projected',
+            'projections-settled',
             'close-dispatched',
-            'topology-exited'
+            'close-acknowledged'
         ]);
         expect(result.proof.sourceItemIds).toEqual(['metrics', 'commits']);
         expect(result.proof.sourceWindowGone, 'close acknowledgement alone is not topology exit').toBe(true);
@@ -2933,9 +2954,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             });
             expect(returnResult.proof.phaseOrder).toEqual([
                 'documents-adopted',
-                'main-projected',
+                'projections-settled',
                 'close-dispatched',
-                'topology-exited'
+                'close-acknowledged'
             ]);
             expect(returnResult.proof.sourceItemIds).toEqual(['metrics', 'commits']);
             expect(returnResult.proof.sourceWindowGone,

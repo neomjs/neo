@@ -14,28 +14,41 @@ class NativeGestureDriver extends GestureDriver {
     }
 
     /**
-     * @summary Polls one exact cross-window transfer through model adoption and queued projection.
+     * @summary Reads a fresh transfer from Workstation's Group history, then awaits both projections.
+     * A popup uses the engine commit path, so the root's optional native-close receipt is not
+     * transfer authority. It is retained only when it names this same transaction.
      * @param {Object} expected
      * @param {String} expected.sourceWorkspaceId
      * @param {String} expected.targetWorkspaceId
      * @param {Object} [options={}]
+     * @param {String|null} [options.previousTransactionId=null] The row before this gesture's release.
      * @param {Number} [options.attempts=240]
      * @param {Number} [options.delay=16]
      * @returns {Promise<Object|null>}
      * @protected
      */
-    async waitForCrossWindowTransfer(expected, {attempts=240, delay=16}={}) {
+    async waitForCrossWindowTransfer(expected, {attempts=240, delay=16, previousTransactionId=null}={}) {
         let me = this.workspace, driver = this,
             receipt;
 
         for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            receipt = me.lastCrossWindowTransfer;
+            const row = me.workspaceSet.manager.get(me.topologyGroupId)?.history?.current;
 
             if (
-                receipt?.applied === true && receipt.reconciled === true &&
-                receipt.sourceWorkspaceId === expected?.sourceWorkspaceId &&
-                receipt.targetWorkspaceId === expected?.targetWorkspaceId
+                row?.transactionId && row.transactionId !== previousTransactionId &&
+                row.cause === 'dock-transfer' &&
+                row.sourceWorkspaceId === expected?.sourceWorkspaceId &&
+                row.targetWorkspaceId === expected?.targetWorkspaceId
             ) {
+                await driver.trap(Promise.all([me.refreshPromise,
+                    me.getPopupState(row.sourceWorkspaceId)?.host?.refreshPromise,
+                    me.getPopupState(row.targetWorkspaceId)?.host?.refreshPromise]));
+                receipt = me.lastCrossWindowTransfer;
+                if (receipt?.transactionId === row.transactionId) return receipt;
+                const {operation, itemId, nodeId, sourceWorkspaceId, targetWorkspaceId, target} = row;
+                receipt = {applied: true, reconciled: true, transactionId: row.transactionId,
+                    sourceWorkspaceId, targetWorkspaceId,
+                    descriptor: {operation, itemId, nodeId, sourceWorkspaceId, targetWorkspaceId, target}};
                 return receipt
             }
 
@@ -47,7 +60,7 @@ class NativeGestureDriver extends GestureDriver {
 
     /**
      * @summary Scene 3's real-pointer executor: converts a second tear-out while the gesture remains
-     * down, parks that exact OS window over a committed sibling vessel, and releases only after one
+     * down, parks that exact OS window over a committed sibling Workspace, and releases only after one
      * semantic + rendered target claim has settled.
      *
      * The source stays on the ordinary tab-drag path. It first crosses the source workspace boundary
@@ -91,10 +104,10 @@ class NativeGestureDriver extends GestureDriver {
                 return {applied: false, errors: ['cross-window dock step must name distinct live source and target panes']}
             }
             if (
-                !targetState || targetState.committed || targetState.closeRequested ||
+                !targetState?.committed || targetState.closeRequested ||
                 !me.nativeWindows?.getOwner(me.id, targetItemId)
             ) {
-                return {applied: false, errors: ['target vessel is not an available first-dock workspace']}
+                return {applied: false, errors: ['target vessel is not an available committed workspace']}
             }
 
             let pane = me.paneCache[itemId];
@@ -105,7 +118,7 @@ class NativeGestureDriver extends GestureDriver {
 
             try {
                 await driver.trap(Promise.resolve(me.refreshPromise));
-                targetState.participationPromise && await driver.trap(targetState.participationPromise);
+                await driver.trap(Promise.resolve(targetState.host?.refreshPromise));
 
                 let host          = me.getDockHost(),
                     tabs          = host?.down({dockNodeId: sourceNodeId}),
@@ -121,7 +134,7 @@ class NativeGestureDriver extends GestureDriver {
 
                 if (
                     !button || !sortZone || !buttonRect || !sourceWindow?.innerRect ||
-                    !targetWindow?.innerRect || !targetState.participation
+                    !targetWindow?.innerRect || !targetState.host?.participation
                 ) {
                     return {applied: false, errors: ['cross-window dock gesture surfaces are not ready']}
                 }
@@ -264,7 +277,7 @@ class NativeGestureDriver extends GestureDriver {
 
                 dwellDelay > 0 && await driver.trap(driver.timeout(dwellDelay));
 
-                me.lastCrossWindowTransfer = null;
+                const previousTransactionId = me.workspaceSet.manager.get(me.topologyGroupId)?.history?.current?.transactionId;
 
                 await driver.trap(driver.simulateEvent(run, {events: [{
                     targetId: button.id, type: 'mouseup', windowId: button.windowId,
@@ -274,7 +287,7 @@ class NativeGestureDriver extends GestureDriver {
                 let transfer = await driver.trap(driver.waitForCrossWindowTransfer({
                         sourceWorkspaceId: me.constructor.MAIN_WORKSPACE_ID,
                         targetWorkspaceId
-                    }, {attempts})),
+                    }, {attempts, previousTransactionId})),
                     sourceAfter = WorkspaceDocument.clone(me.dockModel),
                     targetAfter = WorkspaceDocument.clone(me.getPopupState(targetWorkspaceId)?.document),
                     retired     = await driver.trap(driver.waitForTearOutVesselRetired(itemId, {attempts})),
@@ -510,7 +523,7 @@ class NativeGestureDriver extends GestureDriver {
                         ...(state.document.nodes?.[nodeId]?.items || Object.keys(state.document.items || {}))
                     ];
 
-                me.lastCrossWindowTransfer = null;
+                const previousTransactionId = me.workspaceSet.manager.get(me.topologyGroupId)?.history?.current?.transactionId;
 
                 await driver.trap(driver.simulateEvent(run, {events: [{
                     targetId: handleId, type: 'mouseup', windowId: button.windowId,
@@ -520,7 +533,7 @@ class NativeGestureDriver extends GestureDriver {
                 let transfer = await driver.trap(driver.waitForCrossWindowTransfer({
                     sourceWorkspaceId: workspaceId,
                     targetWorkspaceId: me.constructor.MAIN_WORKSPACE_ID
-                }, {attempts}));
+                }, {attempts, previousTransactionId}));
 
                 for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
                     if (transfer?.topologyExited === true && !WindowManager.get(sourceWindowId)) break;
@@ -531,7 +544,7 @@ class NativeGestureDriver extends GestureDriver {
                 let mainAfter        = WorkspaceDocument.clone(me.dockModel),
                     targetNodeId     = remoteSnapshot.preview?.target?.nodeId,
                     returnedItems    = mainAfter.nodes?.[targetNodeId]?.items || [],
-                    requiredPhases   = ['documents-adopted', 'main-projected', 'close-dispatched', 'topology-exited'],
+                    requiredPhases   = ['documents-adopted', 'projections-settled', 'close-dispatched', 'close-acknowledged'],
                     phaseOrder       = (transfer?.phases || []).filter(phase => requiredPhases.includes(phase)),
                     sourceWindowGone = !WindowManager.get(sourceWindowId),
                     applied          = transfer?.descriptor?.operation === 'transferNode'
