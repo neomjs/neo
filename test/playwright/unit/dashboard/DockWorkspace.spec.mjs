@@ -3940,7 +3940,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             }
 
             async refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions={}) {
-                this.refreshLog.push(`${document.nodes['side-tabs'].items.join('+')}${refreshOptions.isDockProjectionRetry ? ' (repair)' : ''}`);
+                this.refreshLog.push(`${document ? document.nodes['side-tabs'].items.join('+') : 'null'}${refreshOptions.isDockProjectionRetry ? ' (repair)' : ''}`);
                 this.maxInFlight = Math.max(this.maxInFlight, ++this.inFlight);
 
                 try {
@@ -4084,6 +4084,31 @@ test('the holder contract: a config-assigned document is readable before any ope
             expect(workspace.maxInFlight, 'never two projections over one host').toBe(1);
             expect(workspace.refreshLog, 'the re-projection, then the repair, in line').toEqual(['preview', 'preview', 'preview (repair)']);
             expect(sideItems(workspace)).toEqual(['preview'])
+        });
+
+        test('a clear that lands during a failing refresh is a newer commit too: the repair stands down and the host stays clear', async () => {
+            workspace = Neo.create(RepairTailWorkspace, {dockModel: createDocument()});
+
+            const restore = failOnce(workspace);
+
+            try {
+                // `null` is the holder contract's clear, scheduled through the same funnel as a document —
+                // so it is the newer commit the failed snapshot must not re-project over, and the one value
+                // a field that starts out `null` cannot tell apart from "nothing scheduled yet".
+                const away = workspace.onDockZoneDocumentChange(withoutTerminal()),  // fails its projection
+                      clear = workspace.onDockZoneDocumentChange(null);               // lands while `away` is in flight
+
+                await Promise.all([away, clear]);
+                await workspace.refreshPromise
+            } finally {
+                restore()
+            }
+
+            expect(workspace.failures).toEqual([{isRetry: false, recovery: 'retired-staged'}]);
+            expect(workspace.maxInFlight, 'never two projections over one host').toBe(1);
+            expect(workspace.refreshLog, 'the failed snapshot once, then the clear, and no repair over it').toEqual(['preview', 'null']);
+            expect(workspace.dockModel, 'the committed truth is the clear').toBe(null);
+            expect(workspace.down({dockNodeId: 'side-tabs'}), 'no tabs node of the cleared document survives').toBe(null)
         })
     });
 
