@@ -413,6 +413,9 @@ class Container extends Component {
             case 'NeoInstance': {
                 parent = item.parent;
 
+                // Read before the move re-parents it: a theme the instance only inherited follows it to this container.
+                const inheritsTheme = !item.theme || item.theme === parent?.theme;
+
                 if (parent && parent !== me) {
                     if (removeFromPreviousParent) {
                         parent.remove?.(item, false);
@@ -434,6 +437,7 @@ class Container extends Component {
                 }
 
                 item.set(config);
+                inheritsTheme && (item.theme = me.theme);
                 item.getStateProvider?.()?.createBindings(item);
                 break
             }
