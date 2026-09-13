@@ -10,7 +10,8 @@ import * as core                                                    from '../../
 import PreviewContract                                              from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {test, expect}                                               from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects}             from '../utils/dockGeometry.mjs';
-import {pinToCaptureDisplay, placeNativeWindow, readBrowserSurface} from '../utils/filmStage.mjs';
+import {pinToCaptureDisplay, placeNativeWindow, planSideBySide, readBrowserSurface,
+    readDisplayEnvelope}                                           from '../utils/filmStage.mjs';
 import {isFilmTake}                                                 from '../utils/gpuIntent.mjs';
 
 /**
@@ -1965,35 +1966,18 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             .filter(itemId => itemId === 'metrics'),
         'setup must leave metrics detached from the main document tree').toHaveLength(0);
 
-        const screen = await page.evaluate(() => ({
-            availHeight: globalThis.screen.availHeight,
-            availLeft  : globalThis.screen.availLeft,
-            availTop   : globalThis.screen.availTop,
-            availWidth : globalThis.screen.availWidth
-        }));
+        const
+            screen = await readDisplayEnvelope(page),
+            plan   = planSideBySide(screen);
 
-        expect(screen.availWidth, 'the physical witness needs room for source and target windows')
-            .toBeGreaterThanOrEqual(1200);
-        expect(screen.availHeight).toBeGreaterThanOrEqual(700);
+        // A take fails here rather than skipping: a scene that cannot be staged will not be reshot
+        // tonight, so the refusal must be loud and must carry the display it measured.
+        expect(plan.fits, plan.reason ?? 'the physical witness needs room for source and target windows')
+            .toBe(true);
 
         const
-            gap         = 24,
-            popupWidth  = Math.min(460, Math.floor(screen.availWidth * .32)),
-            mainWidth   = Math.min(1000, screen.availWidth - popupWidth - gap - 60),
-            mainHeight  = Math.min(760, screen.availHeight - 80),
-            popupHeight = Math.min(420, mainHeight - 120),
-            mainBounds  = {
-                height: mainHeight,
-                left  : screen.availLeft + 20,
-                top   : screen.availTop + 40,
-                width : mainWidth
-            },
-            popupBounds = {
-                height: popupHeight,
-                left  : mainBounds.left + mainBounds.width + gap,
-                top   : mainBounds.top + 120,
-                width : popupWidth
-            },
+            mainBounds    = plan.main,
+            popupBounds   = plan.target,
             mainPlacement = await placeNativeWindow(page, mainBounds);
 
         // Do not move the now-discoverable source popup until the worker has consumed the target's
