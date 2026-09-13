@@ -8,8 +8,8 @@ it. None of those bugs shows up the day they are written. They arrive months lat
 restore.
 
 A dock keeps one small JSON document as its truth and treats everything else either as derived from that document or as
-belonging to the moment. This guide is about that document: what it is allowed to contain, the only way it changes, what
-is kept out of it and why, the two kinds of record it is saved as, and what happens when a saved record comes back —
+belonging to the moment. This guide is about that document: what it is allowed to contain, how it changes, what is kept
+out of it and why, the two kinds of record it is saved as, and what happens when a saved record comes back —
 including the record that must not.
 
 What you get is a persistence story you can reason about without reading the engine. If something is in the document, it
@@ -52,16 +52,24 @@ one channel that accepts arbitrary JSON. The same finder guards the projection b
 what projection refuses cannot drift apart.
 
 On top of the fields, the document keeps its invariants. Every reference resolves. Each item appears at most once in the
-tree. A split's sizes match its children, are all positive, and add up to one. An edge's extent sits strictly between zero
-and one. A stack's active item is one of its items. An item is never pinned and auto-hidden at the same time. A document
-that breaks any of these is not a slightly wrong document; it is not a document.
+tree. A split's sizes match its children and add up to one. An edge's extent sits strictly between zero and one. A
+stack's active item is one of its items. An item is never pinned and auto-hidden at the same time. A document that
+breaks any of these is not a slightly wrong document; it is not a document.
 
-## The only way it changes
+## How it changes
 
-Nothing edits the document in place. A change is a semantic operation — move this item into that stack, give this split
-these sizes, activate this tab — and the workspace's reducer applies it to a copy. The copy is normalized, so a split left
-with one child collapses and unreachable nodes disappear, and then it is validated. If anything fails, the reducer returns
-the original document together with the errors. There is no partial write to undo, because nothing was written.
+Nothing edits the document in place. An ordinary change is a semantic operation — move this item into that stack, give
+this split these sizes, activate this tab — and the workspace's reducer applies it to a copy. The copy is normalized,
+so a split left with one child collapses and unreachable nodes disappear, and then it is validated. If anything fails,
+the reducer returns the original document together with the errors. There is no partial write to undo, because nothing
+was written.
+
+The other way in is a whole document. A restore validates the saved record first, then hands the document inside it to
+the workspace in place of the committed one, with no operation involved. The layout restore below works this way, and
+so does a topology restore for a workspace whose shape has changed.
+
+An operation can also ask more than the document does. Resizing a split refuses a share of zero, but a document that
+already holds one is still valid and can be saved.
 
 Every operation also declares what it is able to change, next to the reducer that implements it:
 
@@ -152,7 +160,7 @@ different verbs; [Panes Are Ordinary Components](DockLayoutsPanes.md) covers the
 
 ## Bringing a topology back
 
-A topology restore has more moving parts, and each of them either lands whole or is reported.
+A topology restore has more moving parts, and its result reports some outcomes but not others.
 
 Everything is validated before anything is touched: the topology record, each workspace document inside it, every
 placement hint, the aggregate fingerprint and the collection that holds it. Then captured workspaces are matched to live
@@ -160,14 +168,20 @@ ones by workspace key, and by nothing else — not by shape and not by position.
 
 For each workspace that matches, the restore takes one of two routes. If the captured document has the same shape as the
 live one, a pure planner compares them and produces semantic operations — moves, split sizes, edge extents, auto-hide
-flips, active tabs — and applies them one step at a time, stopping at the first refusal. A size the reducer would refuse is
-skipped rather than planned, and a zone the application has since fixed is reported rather than resized. A workspace whose
-plan fails keeps its live document and is reported with the error. If the shape differs, the captured document is adopted
-as a whole, and the items it no longer contains are reported as displaced.
+flips, active tabs — and applies them one step at a time, stopping at the first refusal. If the shape differs, the
+captured document is adopted as a whole, and the live items it does not contain are listed as displaced.
 
-A captured workspace with no live counterpart becomes an unrestored remainder named by its key, and a live workspace the
-record does not mention is left exactly as it was. Before the result leaves, the whole candidate is checked once more so
-that no item can end up owned by two workspaces.
+Split sizes, edge extents and auto-hide flips are planned only when the reducer would accept them, and the rest are
+dropped without a report. Capture a zero share, or restore toward an edge the application has since made fixed, and
+that step is simply left out: the live value stays, the workspace still counts as restored, and every one of its items
+is listed as restored. So an empty error list with nothing unrestored does not mean every captured value came back;
+compare the restored document with the capture to see what did not.
+
+The result does report plans that fail and keys that do not match. A workspace whose plan fails, or cannot be put in a
+safe order, keeps its live document, and its items are listed as unrestored with the reason. A captured workspace with
+no live counterpart becomes an unrestored remainder named by its key, and a live workspace the record does not mention
+is left exactly as it was and listed as unmatched. Before the result leaves, the whole candidate is checked once more
+so that no item can end up owned by two workspaces.
 
 Windows come last, and on their own schedule. Restoring a topology restores worker-owned truth. A workspace whose window
 does not exist stays headless until a user gesture admits a window for it; restore never spawns a window and never
