@@ -22,7 +22,6 @@ import WorkspaceController        from './WorkspaceController.mjs';
 import Operations                 from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence                from '../../../src/dashboard/dock/model/Persistence.mjs';
 import StateProvider              from '../../../src/state/Provider.mjs';
-import TopologyDiff               from '../../../src/dashboard/dock/model/TopologyDiff.mjs';
 import TourToolbar                from './TourToolbar.mjs';
 import TransactionManager         from '../../../src/manager/Transaction.mjs';
 import WindowManager              from '../../../src/manager/Window.mjs';
@@ -218,12 +217,11 @@ class Workspace extends DockWorkspace {
          */
         stateProvider: {
             module: StateProvider,
-            // The `topology` keys are DERIVED here rather than bound, because there is nothing to
-            // bind to: `dockModel` is a plain field on the dock Workspace, not a reactive config, so
-            // a formatter reading it would never re-run. {@link #syncTopologyState} publishes them
-            // from the two places the document actually arrives. Seeded only so the keys exist before
-            // the first publish; `construct` overwrites both with the measured answer.
-            data  : {topology: {additionalWindows: 0, modified: false}, tour: initialTourState},
+            // `topology.additionalWindows` is DERIVED here: {@link #syncTopologyState} publishes it from
+            // the two places a committed topology arrives, and the seed only makes the key exist before
+            // the first publish. The departure from the shipped arrangement is not derived here — the
+            // engine publishes `dock.perspective.modified` on this same provider.
+            data  : {topology: {additionalWindows: 0}, tour: initialTourState},
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
@@ -411,7 +409,9 @@ class Workspace extends DockWorkspace {
      * @protected
      */
     createTopologyBar() {
-        let me = this;
+        let me        = this,
+            // The state line's two facts: this view's window count and the engine's departure from `shipped`.
+            lineState = data => ({additionalWindows: data.topology.additionalWindows, modified: data.dock.perspective.modified});
 
         return {
             ntype: 'toolbar',
@@ -457,12 +457,12 @@ class Workspace extends DockWorkspace {
             items : [
                 {ntype: 'button', handler: 'saveTopology',  text: 'Save workspace'},
                 {ntype: 'button', handler: 'closeTopology', text: 'Close workspace'},
-                // Handled on the view, like undo and redo above it: the state, the shipped document
-                // and the commit seam all live here. Disabled on the shipped arrangement, reading the
-                // SAME derived key as the readout, so control and line cannot disagree.
+                // Handled on the view, like undo and redo above it: the shipped document and the commit
+                // seam live here. Disabled on the shipped arrangement, reading the SAME engine leaf as
+                // the line below, so control and line cannot disagree.
                 {
                     ntype  : 'button',
-                    bind   : {disabled: data => !data.topology.modified},
+                    bind   : {disabled: data => !data.dock.perspective.modified},
                     handler: () => me.resetTopology(),
                     iconCls: 'fa fa-rotate-left',
                     text   : 'Reset to default'
@@ -472,8 +472,8 @@ class Workspace extends DockWorkspace {
                 {
                     ntype: 'component',
                     bind : {
-                        cls : data => ['workstation-topology-state'].concat(Workspace.topologyStateText(data.topology) ? [] : ['neo-hidden']),
-                        html: data => Workspace.topologyStateText(data.topology)
+                        cls : data => ['workstation-topology-state'].concat(Workspace.topologyStateText(lineState(data)) ? [] : ['neo-hidden']),
+                        html: data => Workspace.topologyStateText(lineState(data))
                     },
                     flex : 'none'
                 }
@@ -505,52 +505,35 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary How the live topology stands against the arrangement the app ships with, as two
-     * independent facts.
+     * @summary How many workspaces stand beside the main one: the multi-window fact the engine does
+     * not publish.
      *
      * @description **The unit is the whole keyed topology, not this window's document.** What gets
      * persisted and restored is {@link #getDockTopologyWorkspaces} — every registered workspace
      * keyed by identity — because the thing a reader expects back when they open the app URL is
-     * their multi-window setup, not one window's panes. So a pane torn out into a second window IS
-     * a departure from the shipped arrangement, which ships exactly one workspace.
+     * their multi-window setup, not one window's panes. Window geometry needs no separate count:
+     * popup placement hints are measured relative to main, so any hint worth comparing already
+     * implies a second workspace.
      *
-     * **These are two facts, not one.** A pane torn into a second window IS a departure from the
-     * shipped arrangement, which ships a single workspace — but it is a different departure from the
-     * named document having changed, and collapsing them loses the half a user can act on. Window
-     * geometry needs no third test: popup placement hints are measured relative to main, so any hint
-     * worth comparing already implies a second workspace.
-     *
-     * Three `modified: false` answers mean **no comparison happened**, never "compared equal": no
-     * workspace registered yet, no main workspace to compare against, or a document the differ
-     * reports errors for. `additionalWindows` is still counted in each case, because it stays
-     * knowable when the comparison does not.
-     * @returns {{additionalWindows: Number, modified: Boolean}}
+     * Whether main left the shipped arrangement is not measured here: the engine compares it with the
+     * declared `shipped` perspective and publishes `dock.perspective.modified`, so a pane torn out
+     * into a second window reads as both a departure and a window.
+     * @returns {{additionalWindows: Number}}
      * @protected
      */
     readTopologyState() {
-        const me                = this,
-              workspaces        = me.getDockTopologyWorkspaces(),
-              keys              = Object.keys(workspaces),
-              main              = workspaces[Workspace.MAIN_WORKSPACE_ID],
-              additionalWindows = keys.filter(key => key !== Workspace.MAIN_WORKSPACE_ID).length;
+        const keys = Object.keys(this.getDockTopologyWorkspaces());
 
-        if (!main) return {additionalWindows, modified: false};
-
-        const diff = TopologyDiff.diffDockDocuments(initialDocument, main);
-
-        return {
-            additionalWindows,
-            modified: !diff.errors.length && Object.keys(diff).some(category =>
-                category !== 'errors' && category !== 'unchanged' && diff[category]?.length)
-        }
+        return {additionalWindows: keys.filter(key => key !== Workspace.MAIN_WORKSPACE_ID).length}
     }
 
     /**
      * @summary The topology bar's state line, or an empty string when there is nothing to say.
      *
      * @description Static and pure so the binding, the spec and any future consumer read one
-     * formatter rather than three phrasings that drift. It composes the two facts
-     * {@link #readTopologyState} measures; it does not re-derive them.
+     * formatter rather than three phrasings that drift. It composes the window count
+     * {@link #readTopologyState} measures with the engine's `dock.perspective.modified`; it derives
+     * neither.
      *
      * **Silence is a state:** the shipped arrangement with no extra windows renders `''` and the
      * component hides, so "this is the product" and "you made this" look different at a glance. The
@@ -685,11 +668,11 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary Publishes the first modified readout once the provider is resolvable.
+     * @summary Publishes the first window count once the provider is resolvable.
      *
      * Boot is the second place a committed topology arrives and the only one the Group's document
-     * setter cannot see: `construct` seeds `dockModel` from a persisted topology the user already
-     * changed, so without this the readout claims "default" on a cold-hydrated custom arrangement.
+     * setter cannot see: `construct` creates the popup workspaces of a persisted topology, so without
+     * this the readout counts none of them until the next commit.
      */
     onConstructed() {
         super.onConstructed();
@@ -697,7 +680,7 @@ class Workspace extends DockWorkspace {
     }
 
     /**
-     * @summary Republishes the modified readout after a Group commit has settled.
+     * @summary Republishes the window count after a Group commit has settled.
      *
      * @description Presentation runs after the queue releases and cannot reject the commit, whereas
      * the participant's document setter runs inside the adopt phase where a throw takes the whole
@@ -705,8 +688,8 @@ class Workspace extends DockWorkspace {
      *
      * It overrides the class method rather than wrapping `registerMainWorkspace`'s `project`
      * callback, because that registration is deliberately `.call()`-able onto a plain dock Workspace.
-     * Undo and redo project through here too, so returning to the shipped arrangement clears the
-     * readout with no path of its own.
+     * Undo and redo project through here too, so a window a commit adds or returns is counted with
+     * no path of its own.
      *
      * @param {Object} context The Group participant's projection context.
      * @returns {Promise} This projection's outcome.
@@ -722,9 +705,8 @@ class Workspace extends DockWorkspace {
     /**
      * @summary Publishes {@link #readTopologyState} for the topology bar's readout.
      *
-     * Both keys are written by path in one call rather than replacing the `topology` object, so a
-     * key added here later cannot be silently dropped by this publisher, and the pair lands as one
-     * update rather than flashing a half-state through the binding.
+     * Written by path rather than by replacing the `topology` object, so a key added beside it later
+     * cannot be silently dropped by this publisher.
      * @protected
      */
     syncTopologyState() {
@@ -732,9 +714,7 @@ class Workspace extends DockWorkspace {
 
         if (me.isDestroyed || !me.getStateProvider()) return;
 
-        const {additionalWindows, modified} = me.readTopologyState();
-
-        me.setState({'topology.additionalWindows': additionalWindows, 'topology.modified': modified})
+        me.setState({'topology.additionalWindows': me.readTopologyState().additionalWindows})
     }
 
     /**

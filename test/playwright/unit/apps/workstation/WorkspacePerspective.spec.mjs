@@ -88,6 +88,46 @@ test('a cold boot from a torn-out topology keeps the saved documents registered 
     }
 });
 
+test('a cold boot after one user commit first reads the shipped perspective, already modified', async () => {
+    const saved = Operations.applyOperation(WorkspaceDocument.clone(initialDocument), {
+        operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]
+    });
+
+    expect(saved.errors).toEqual([]);
+
+    const binding   = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: MAIN}),
+          workspace = Neo.create(Workspace, {
+              initialTopology: {workspaces: {[MAIN]: saved.document}},
+              topologyGroupId: binding.groupId,
+              windowId       : Neo.config.windowId
+          });
+
+    try {
+        const reset = workspace.getController().getReference('topology-toolbar').items.find(item => item.text === 'Reset to default');
+
+        // Read before any await: a bound control's first value is the declared name, never `null` or a
+        // saved record's name, and the departure from `shipped` is already true.
+        expect({state: workspace.getState('dock.perspective'), resetDisabled: reset.disabled})
+            .toEqual({state: {active: 'shipped', modified: true, pending: null}, resetDisabled: false});
+
+        await TransactionManager.write({
+            cause       : 'cold-hydrate',
+            changes     : [{workspaceKey: MAIN, input: saved.document}],
+            cursorAction: 'preserve',
+            descriptor  : {operation: 'hydrateTopology', layoutId: 'default'},
+            groupId     : binding.groupId,
+            provenance  : {source: 'cold-hydrate'}
+        });
+        await workspace.refreshPromise;
+
+        expect(workspace.getState('dock.perspective'), 'the cold-hydrate write keeps both')
+            .toEqual({active: 'shipped', modified: true, pending: null})
+    } finally {
+        workspace.destroy();
+        TransactionManager.retireGroup(binding.groupId)
+    }
+});
+
 test('a captured topology records the shipped perspective as its origin', () => {
     const binding   = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: MAIN}),
           workspace = Neo.create(Workspace, {topologyGroupId: binding.groupId, windowId: Neo.config.windowId});

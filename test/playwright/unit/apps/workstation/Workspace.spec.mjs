@@ -3271,15 +3271,13 @@ test.describe('Workstation topology bar — the view declares it, the controller
         // A materialised toolbar, not the declaration: the count has to survive `toolbar.Base`
         // turning `actions` into buttons and the binding effect running the formatter. Calling the
         // formatter off the config object would exercise the arithmetic and none of the wiring.
-        // The local provider holds no data — the formatters read the Group's own leaf where it
-        // lives — but a component only binds once it can resolve one.
-        // The provider carries `topology` because the bar DECLARES a binding on it — the history
-        // formatters read the Group's own leaf where it lives, but the modified readout is published
-        // state, and a component only binds once it can resolve a provider that holds its key. An
-        // empty one is an incomplete fixture rather than a smaller one.
+        // The provider carries the state line's two keys because the bar DECLARES bindings on them —
+        // the history formatters read the Group's own leaf where it lives, but the readout reads
+        // published state, and a component only binds once it can resolve a provider that holds its
+        // keys. An empty one is an incomplete fixture rather than a smaller one.
         const bar = Neo.create(Toolbar, {
                   ...Workspace.prototype.createTopologyBar.call(host),
-                  stateProvider: {data: {topology: {modified: false}}}
+                  stateProvider: {data: {dock: {perspective: {modified: false}}, topology: {additionalWindows: 0}}}
               }),
               undo = bar.getAction('undo'),
               redo = bar.getAction('redo'),
@@ -3338,7 +3336,7 @@ test.describe('Workstation topology bar — the view declares it, the controller
     })
 });
 
-test.describe('Workstation modified-from-default readout (#18553)', () => {
+test.describe('Workstation topology readout: the window count and the state line (#18553)', () => {
     const MAIN = Workspace.MAIN_WORKSPACE_ID;
 
     /**
@@ -3346,100 +3344,25 @@ test.describe('Workstation modified-from-default readout (#18553)', () => {
      * only the keyed workspaces, so a constructed Workspace would add a Group, a provider and a
      * projection without changing a single answer below.
      * @param {Object} workspaces
-     * @returns {{additionalWindows: Number, modified: Boolean}}
+     * @returns {{additionalWindows: Number}}
      */
     const read = workspaces => Workspace.prototype.readTopologyState.call({
         getDockTopologyWorkspaces: () => workspaces
     });
 
-    /**
-     * The departure half alone, for the cases that are only about the named document.
-     * @param {Object} workspaces
-     * @returns {Boolean}
-     */
-    const answer = workspaces => read(workspaces).modified;
-
-    const drag = descriptor => {
-        const result = Operations.applyOperation(WorkspaceDocument.clone(initialDocument), descriptor);
-
-        expect(result.errors, `the fixture operation must commit: ${JSON.stringify(descriptor)}`).toEqual([]);
-
-        return result.document
-    };
-
-    test('both directions: the shipped arrangement is unmodified, one committed operation is not', () => {
-        // AC-6's first direction. An indicator that is always on is indistinguishable from one that
-        // works, so the negative is asserted against the real shipped document rather than assumed.
-        expect(answer({[MAIN]: WorkspaceDocument.clone(initialDocument)}), 'freshly seeded').toBe(false);
-
-        expect(answer({[MAIN]: drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]})}),
-            'one dragged split boundary').toBe(true);
-
-        expect(answer({[MAIN]: drag({operation: 'moveItem', itemId: 'audit', targetNodeId: 'right-bottom-tabs'})}),
-            'one relocated pane').toBe(true)
-    });
-
-    test('a dragged rail counts, which it could not before the differ reported edge extents', () => {
-        // The shape fingerprint reads this document as identical to the default, and so did
-        // `diffDockDocuments` until `edgeResizes` landed. It is asserted here rather than left to
-        // the differ's own suite because THIS readout is what a user sees, and a rail drag is a
-        // first-class gesture of this workspace — three of its four edges ship `resizable: true`.
-        expect(answer({[MAIN]: drag({operation: 'resizeEdgeZone', edgeZoneId: 'root', edge: 'left', extent: 0.4})}),
-            'the left rail dragged from 0.11 to 0.4').toBe(true)
-    });
-
-    test('returning to the shipped arrangement clears it, which a dirty flag could not', () => {
-        // The property that rules out a boolean set on the first operation: the answer is recomputed
-        // from live state, so a document that has come back to the default reads unmodified no
-        // matter how it got there. Undo drives exactly this transition.
-        const dragged  = drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}),
-              restored = Operations.applyOperation(dragged, {
-                  operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.6, 0.4]
-              });
-
-        expect(restored.errors).toEqual([]);
-        expect(answer({[MAIN]: dragged}),           'modified while away').toBe(true);
-        expect(answer({[MAIN]: restored.document}), 'and clear on return').toBe(false)
-    });
-
-    test('a second window is counted, not folded into the departure it is not', () => {
-        // The two facts are independent and this is the case that separates them. An earlier
-        // revision answered `true` on any extra key BEFORE the differ ran, which cost twice: a user
-        // whose main document matched the default was told they had modified it, and the document
-        // that actually matched was never compared. Reset makes that visible — it commits the
-        // shipped document and deliberately leaves other windows standing, so the collapsed answer
-        // lit up the instant the user pressed it.
+    test('every workspace beside main counts as an additional window', () => {
+        // Whether main left the shipped arrangement is the engine's `dock.perspective.modified`, which
+        // the bar binds directly; the count is the multi-window fact the engine does not publish.
         expect(read({
             [MAIN] : WorkspaceDocument.clone(initialDocument),
             'popup': WorkspaceDocument.clone(initialDocument)
-        }), 'main untouched, one pane living in its own window').toEqual({additionalWindows: 1, modified: false});
-
-        // And the halves compose rather than masking each other: a departure in the named document
-        // is still reported while an extra window stands.
-        expect(read({
-            [MAIN] : drag({operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}),
-            'popup': WorkspaceDocument.clone(initialDocument)
-        }), 'both at once').toEqual({additionalWindows: 1, modified: true})
+        }), 'main untouched, one pane living in its own window').toEqual({additionalWindows: 1})
     });
 
-    test('three silences: unestablished, main-less and uncomparable all read unmodified', () => {
-        // Before any workspace registers there is no answer to give, and lighting the indicator
-        // during boot would report a departure the user has not made.
-        expect(read({}), 'nothing registered yet').toEqual({additionalWindows: 0, modified: false});
-
-        // No main workspace means nothing to compare the shipped document against — but the window
-        // count is a SEPARATE fact that stays knowable, so it is still reported honestly rather than
-        // zeroed along with the comparison that failed.
+    test('the count needs no main workspace', () => {
+        expect(read({}), 'nothing registered yet').toEqual({additionalWindows: 0});
         expect(read({'popup': WorkspaceDocument.clone(initialDocument)}), 'main not registered')
-            .toEqual({additionalWindows: 1, modified: false});
-
-        // `errors` means the comparison did not happen. An indicator that lights up because the
-        // differ failed tells the reader something false about their own layout.
-        const malformed = WorkspaceDocument.clone(initialDocument);
-
-        malformed.nodes['scale-tabs'].type = 'carousel';
-
-        expect(answer({[MAIN]: malformed}), 'a document the differ cannot read').toBe(false)
+            .toEqual({additionalWindows: 1})
     });
 
     test('the state line says both facts, and says nothing on the shipped arrangement', () => {
@@ -3466,8 +3389,52 @@ test.describe('Workstation modified-from-default readout (#18553)', () => {
     })
 });
 
+test.describe('Workstation topology bar reads the engine perspective leaf (#18612)', () => {
+    test('a pin-state change enables Reset and says so, and undo clears both', async () => {
+        // `pinned` is committed item state, so a pin flip alone leaves the shipped arrangement.
+        const MAIN      = Workspace.MAIN_WORKSPACE_ID,
+              binding   = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: MAIN}),
+              workspace = Neo.create(Workspace, {topologyGroupId: binding.groupId, windowId: Neo.config.windowId});
+
+        TransactionManager.setHistoryDepth({groupId: binding.groupId, depth: 5});
+
+        try {
+            const bar   = workspace.getController().getReference('topology-toolbar'),
+                  reset = bar.items.find(item => item.text === 'Reset to default'),
+                  line  = bar.items.find(item => item.cls?.includes('workstation-topology-state')),
+                  read  = () => ({disabled: reset.disabled, text: line.html || ''});
+
+            expect(read(), 'the shipped arrangement: nothing to reset, nothing to say').toEqual({disabled: true, text: ''});
+
+            await workspace.workspaceSet.commit(MAIN, [{operation: 'setItemPinned', itemId: 'commits', pinned: false}]);
+            await workspace.refreshPromise;
+
+            expect(workspace.getState('dock.perspective').modified, 'the engine sees the pin flip').toBe(true);
+            expect(read(), 'and the bar follows it').toEqual({disabled: false, text: 'Modified from default'});
+
+            await TransactionManager.undo({groupId: binding.groupId});
+            await workspace.refreshPromise;
+
+            expect(read(), 'undo returns the shipped arrangement').toEqual({disabled: true, text: ''})
+        } finally {
+            workspace.destroy();
+            TransactionManager.retireGroup(binding.groupId)
+        }
+    })
+});
+
 test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
     const MAIN = Workspace.MAIN_WORKSPACE_ID;
+
+    /**
+     * The engine's published departure from `shipped`, read once this host's projection settles.
+     * @param {Neo.dashboard.dock.Workspace} workspace
+     * @returns {Promise<Boolean>}
+     */
+    const departed = async workspace => {
+        await workspace.refreshPromise;
+        return workspace.getState('dock.perspective').modified
+    };
 
     // `WorkspaceSet.write` refuses without a bound Group, and reset is a Group write by design — so
     // the binding is a precondition of the arm, not scaffolding around it.
@@ -3496,7 +3463,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
                 {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
             ]);
 
-            expect(workspace.readTopologyState().modified, 'departed after one committed operation').toBe(true);
+            expect(await departed(workspace), 'departed after one committed operation').toBe(true);
 
             const result = await workspace.resetTopology();
 
@@ -3512,7 +3479,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             expect(workspace.getDockTopologyWorkspaces()[MAIN].nodes['split-main'].sizes,
                 'the shipped sizes are back').toEqual([0.6, 0.4]);
-            expect(workspace.readTopologyState().modified, 'and the readout clears').toBe(false);
+            expect(await departed(workspace), 'and the readout clears').toBe(false);
 
             // AC-4's mechanism, MEASURED rather than argued. `WorkspaceSet.write` defaults to
             // `cursorAction: 'append'` and `commitDockTopologyWorkspaces` does not override it, so a
@@ -3524,7 +3491,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             expect(workspace.getDockTopologyWorkspaces()[MAIN].nodes['split-main'].sizes,
                 'undo reaches past the reset and returns the arrangement it replaced').toEqual([0.25, 0.75]);
-            expect(workspace.readTopologyState().modified,
+            expect(await departed(workspace),
                 'and the readout follows the undo, because it is a comparison and not a flag').toBe(true)
         } finally {
             workspace.destroy()
@@ -3552,8 +3519,8 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
                 {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]}
             ]);
 
-            expect(workspace.readTopologyState(), 'departed, with one extra window standing')
-                .toEqual({additionalWindows: 1, modified: true});
+            expect(workspace.readTopologyState(), 'one extra window standing').toEqual({additionalWindows: 1});
+            expect(await departed(workspace), 'and main departed').toBe(true);
 
             const result = await workspace.resetTopology();
 
@@ -3566,9 +3533,9 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             // The readout reports the two facts separately: main is back at the shipped arrangement,
             // and one window still stands beside it.
-            expect(workspace.readTopologyState(), 'default arrangement, one window beyond the shipped one')
-                .toEqual({additionalWindows: 1, modified: false});
-            expect(Workspace.topologyStateText(workspace.readTopologyState()))
+            expect(workspace.readTopologyState(), 'one window beyond the shipped one').toEqual({additionalWindows: 1});
+            expect(await departed(workspace), 'main is back at the shipped arrangement').toBe(false);
+            expect(Workspace.topologyStateText({...workspace.readTopologyState(), modified: await departed(workspace)}))
                 .toBe('Default arrangement · 1 additional window')
         } finally {
             workspace.destroy()
@@ -3669,7 +3636,7 @@ test.describe('Workstation reset to the shipped arrangement (#18553)', () => {
 
             await TransactionManager.undo({groupId: workspace.topologyGroupId});
 
-            expect(workspace.readTopologyState().modified, 'undo reaches past the reset here too').toBe(true);
+            expect(await departed(workspace), 'undo reaches past the reset here too').toBe(true);
 
             // THE arm my first repair lacked, and the reason it shipped a worse defect than the one
             // it fixed. Retiring the popup happened OUTSIDE the transaction, so undo rolled main back
