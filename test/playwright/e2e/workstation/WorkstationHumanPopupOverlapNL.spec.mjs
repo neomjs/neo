@@ -666,6 +666,10 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
 
             const liveElement = await popup.locator(`[id="${paneId}"]`).elementHandle();
             expect(liveElement).toBeTruthy();
+            await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'),
+                'one stand-in reserves the held source slot').toHaveCount(1);
+            await expect(popup.locator('.neo-dashboard-dock-vessel-placeholder'),
+                'the first vessel holds the live pane, not another stand-in').toHaveCount(0);
             await page.mouse.up();
             expect(await awaitVesselWindowId(app, workspace.id, TARGET_ITEM_ID, true)).toBe(windowId);
             await awaitPointerSessionIdle(page);
@@ -708,6 +712,10 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
             });
             expect(await liveElement.evaluate(element => element.isConnected &&
                 element === document.getElementById(element.id)), 'the same DOM node moves with its pane').toBe(true);
+            for (const window of [page, popup]) {
+                await expect(window.locator('.neo-dashboard-dock-vessel-placeholder'),
+                    'a committed tear-out leaves no stand-in in either window').toHaveCount(0);
+            }
         } finally {
             await page.mouse.up().catch(() => {});
             await popup?.close().catch(() => {});
@@ -1322,6 +1330,11 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                         await expect(targetPage.locator(`[id="${paneId}"]`)).toHaveCount(1);
                         await expect(targetPage.locator(`[id="${paneId}"]`)).toBeVisible();
                         await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
+
+                        for (const window of [page, targetPage]) {
+                            await expect(window.locator('.neo-dashboard-dock-vessel-placeholder'),
+                                'a committed cross-window drop leaves no stand-in in any surviving window').toHaveCount(0);
+                        }
 
                         const afterRows = await rows(),
                               transfers = afterRows.filter(row => row.itemId === cell.itemId);
