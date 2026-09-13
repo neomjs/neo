@@ -216,7 +216,13 @@ class GridBody extends Component {
          */
         scrollTop_: 0,
         /**
-         * @member {Neo.selection.Model} selectionModel_=null
+         * The selection model this body renders and forwards events for — three states. `null`, the
+         * default: the center body instantiates a {@link Neo.selection.grid.RowModel}, which
+         * `grid.Container` hoists to the View and shares with every body. A model config or instance:
+         * the explicit model, shared the same way. `false`: no selection at all — nothing is
+         * instantiated, no row is ever marked, no selection handler exists. The locked bodies are
+         * created with `false`; the hoist hands them the View's single instance.
+         * @member {Neo.selection.Model|false|null} selectionModel_=null
          * @reactive
          */
         selectionModel_: null,
@@ -698,14 +704,17 @@ class GridBody extends Component {
 
     /**
      * Triggered before the selectionModel config gets changed.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
+     * @param {Neo.selection.Model|false|null} value
+     * @param {Neo.selection.Model|null} oldValue
+     * @returns {Neo.selection.Model|null}
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         // grid.View owns the single model's lifecycle (including destroy on swap); a body only
         // instantiates a config into an instance and holds the shared reference — it never destroys.
-        return ClassSystemUtil.beforeSetInstance(value, RowModel)
+        // `false` is the opt-out: beforeSetInstance defaults every falsy value, so it is kept out of
+        // that call and normalized to null — the one value every reader treats as "no model".
+        return value === false ? null : ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
     /**
@@ -1366,7 +1375,7 @@ class GridBody extends Component {
                 for (let i = 0, len = fields.length; i < len; i++) {
                     let field = fields[i];
                     if (field.name === me.selectedRecordField) {
-                        if (selectionModel.ntype === 'selection-grid-rowmodel') {
+                        if (selectionModel?.ntype === 'selection-grid-rowmodel') {
                             recordId = me.getRecordId(record);
 
                             selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)

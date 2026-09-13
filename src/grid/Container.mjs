@@ -846,7 +846,7 @@ class GridContainer extends BaseContainer {
             if (!me.bodyStart) {
                 me.bodyStart = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
+                    selectionModel: false, // instantiates nothing; applyViewSelectionModel() hands it the View's single model
                     flex          : 'none',
                     gridContainer : me,
                     parentId      : me.view.id,
@@ -871,7 +871,7 @@ class GridContainer extends BaseContainer {
             if (!me.bodyEnd) {
                 me.bodyEnd = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
+                    selectionModel: false, // instantiates nothing; applyViewSelectionModel() hands it the View's single model
                     flex          : 'none',
                     gridContainer : me,
                     parentId      : me.view.id,
@@ -910,25 +910,31 @@ class GridContainer extends BaseContainer {
     /**
      * Establishes the single View-owned SelectionModel: registers it on grid.View (the body
      * orchestrator) and shares the one instance to every body as a render/event delegate, so locked
-     * bodies never carry independent cloned models. Identity-guarded (idempotent + re-entrant-safe);
+     * bodies never carry independent cloned models. `null` is the third state — no selection: the
+     * View drops (and destroys) its model, and every body receives `false`, the value a body keeps as
+     * null instead of instantiating its default. Identity-guarded (idempotent + re-entrant-safe);
      * invoked on sub-grid (re)creation and on any dynamic `body.selectionModel` swap.
      * @param {Neo.selection.grid.BaseModel|null} model
      * @protected
      */
     applyViewSelectionModel(model) {
-        let me = this;
+        let me = this,
+            // what a body receives: the instance, or the opt-out — never null, which a body would default
+            shared = model || false;
 
         // Re-entrancy guard: sharing the model to a body fires Body.afterSetSelectionModel, which calls
         // back here. Without this flag the callbacks re-add the `selectionModel` config during a body's
         // processConfigs and recurse infinitely.
-        if (!model || !me.view || me.applyingViewSelectionModel) return;
+        if (!me.view || me.applyingViewSelectionModel) return;
+
+        model ||= null;
 
         me.applyingViewSelectionModel = true;
 
         me.view.selectionModel      !== model && (me.view.selectionModel      = model);
-        me.body      && me.body.selectionModel      !== model && (me.body.selectionModel      = model);
-        me.bodyStart && me.bodyStart.selectionModel !== model && (me.bodyStart.selectionModel = model);
-        me.bodyEnd   && me.bodyEnd.selectionModel   !== model && (me.bodyEnd.selectionModel   = model);
+        me.body      && me.body.selectionModel      !== model && (me.body.selectionModel      = shared);
+        me.bodyStart && me.bodyStart.selectionModel !== model && (me.bodyStart.selectionModel = shared);
+        me.bodyEnd   && me.bodyEnd.selectionModel   !== model && (me.bodyEnd.selectionModel   = shared);
 
         me.applyingViewSelectionModel = false
     }

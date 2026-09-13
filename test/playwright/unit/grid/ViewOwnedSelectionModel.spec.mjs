@@ -116,3 +116,138 @@ test.describe('Grid View-owned SelectionModel (#12758)', () => {
         expect(sm.view).toBe(grid.view)
     })
 });
+
+/**
+ * The three selection states of a grid: the default (an omitted `selectionModel` → ONE
+ * RowModel, created by the center body, hoisted to the View, shared with every body), an explicit
+ * model config (the same sharing), and NONE (`selectionModel: false` on the body → no model anywhere,
+ * nothing instantiated, no row ever marked, no selection handlers on the View). The locked bodies
+ * instantiate nothing in any state — the hoist hands them the View's single instance.
+ */
+test.describe('Grid selection: default, explicit, none (#18626)', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+
+    const columns = [
+        {dataField: 'col1', text: 'C1', width: 100},
+        {dataField: 'col2', text: 'C2', width: 100, locked: 'end'},
+        {dataField: 'col3', text: 'C3', width: 100, locked: 'start'}
+    ];
+
+    let created, grid, ownConstruct, store;
+
+    const makeGrid = async body => {
+        store = Neo.create(Store, {
+            keyProperty: 'id',
+            data       : [0, 1, 2].map(i => ({id: i, col1: `C1-${i}`, col2: `C2-${i}`, col3: `C3-${i}`})),
+            model      : {fields: [{name: 'id', type: 'Integer'}, {name: 'col1', type: 'String'}, {name: 'col2', type: 'String'}, {name: 'col3', type: 'String'}]}
+        });
+
+        grid = Neo.create(GridContainer, {
+            appName: 'GridViewOwnedSMTest',
+            ...(body ? {body} : {}),
+            columns, height: 400, rowHeight: 40, store, width: 600
+        });
+
+        await grid.initVnode();
+        grid.mounted = true;
+        await grid.timeout(50);
+
+        return grid
+    };
+
+    // the View and the three bodies, in that order
+    const models = g => [g.view.selectionModel, g.body.selectionModel, g.bodyStart.selectionModel, g.bodyEnd.selectionModel];
+
+    // what a registered model leaves on the View: its DOM listeners (scoped to itself) and its wrapper cls
+    const selectionTraces = g => ({
+        listeners : g.view.domListeners.filter(listener => listener.scope?.ntype?.startsWith('selection-')).length,
+        wrapperCls: (g.view.wrapperCls || []).filter(cls => cls.startsWith('neo-selection'))
+    });
+
+    test.beforeEach(() => {
+        // every RowModel any part of the grid instantiates, transient or kept
+        created      = [];
+        ownConstruct = Object.hasOwn(RowModel.prototype, 'construct') ? RowModel.prototype.construct : null;
+
+        const inherited = RowModel.prototype.construct;
+
+        RowModel.prototype.construct = function(...args) {
+            created.push(this);
+            return inherited.apply(this, args)
+        }
+    });
+
+    test.afterEach(async () => {
+        if (ownConstruct) {
+            RowModel.prototype.construct = ownConstruct
+        } else {
+            delete RowModel.prototype.construct
+        }
+
+        await grid?.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+        grid = store = null
+    });
+
+    test('default: an omitted selectionModel instantiates exactly ONE RowModel — the center body\'s, hoisted to the View and shared by the locked bodies', async () => {
+        await makeGrid();
+
+        const [viewModel, ...bodyModels] = models(grid);
+
+        expect(viewModel?.ntype).toBe('selection-grid-rowmodel');
+        expect(bodyModels).toEqual([viewModel, viewModel, viewModel]);
+        expect(viewModel.view).toBe(grid.view);
+        expect(created, 'one instance for the whole grid — the locked bodies clone nothing').toEqual([viewModel])
+    });
+
+    test('explicit: a model config on the body is the one instance everywhere, and no RowModel is created beside it', async () => {
+        await makeGrid({selectionModel: {module: CellModel}});
+
+        const [viewModel, ...bodyModels] = models(grid);
+
+        expect(viewModel?.ntype).toBe('selection-grid-cellmodel');
+        expect(bodyModels).toEqual([viewModel, viewModel, viewModel]);
+        expect(created).toHaveLength(0)
+    });
+
+    test('none: `selectionModel: false` on the body leaves the View and every body without a model — nothing instantiated, no row marked, no selection handler to mark one on a click', async () => {
+        await makeGrid({selectionModel: false});
+
+        expect(models(grid)).toEqual([null, null, null, null]);
+        expect(created, 'the locked bodies instantiate nothing either').toHaveLength(0);
+        expect(grid.body.selectedRows).toEqual([]);
+        expect(grid.body.selectedCells).toEqual([]);
+        expect(selectionTraces(grid)).toEqual({listeners: 0, wrapperCls: []});
+
+        // give the bodies the geometry the harness cannot measure, so their row pools materialize,
+        // then read every rendered row: no mark, no assistive-tech claim
+        const bodies = [grid.bodyStart, grid.body, grid.bodyEnd];
+
+        bodies.forEach(body => body.set({availableRows: 5, availableWidth: 600, containerWidth: 600}));
+        await grid.timeout(20);
+
+        const rows = bodies.flatMap(body => body.items);
+
+        expect(rows.length).toBeGreaterThan(0);
+
+        rows.forEach(row => {
+            expect(row.vdom.cls).not.toContain('neo-selected');
+            expect(row.vdom['aria-selected']).toBeUndefined()
+        })
+    });
+
+    test('a post-construction `false` clears the View and every body and destroys the one model — none is a state the whole hoist honors', async () => {
+        await makeGrid();
+
+        const model = grid.view.selectionModel;
+
+        grid.body.selectionModel = false;
+        await grid.timeout(20);
+
+        expect(models(grid)).toEqual([null, null, null, null]);
+        expect(model.isDestroyed).toBe(true);
+        expect(selectionTraces(grid)).toEqual({listeners: 0, wrapperCls: []});
+        expect(created, 'no replacement model appeared').toEqual([model])
+    })
+});

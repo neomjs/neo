@@ -184,16 +184,18 @@ class View extends Base {
     }
 
     /**
-     * Triggered before the selectionModel config gets changed. Defaults to a RowModel — the same
-     * default the per-body path used, now instantiated once at the grid.View (orchestrator) level.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @returns {Neo.selection.Model}
+     * Triggered before the selectionModel config gets changed. Instantiates a config into the one
+     * instance and keeps every falsy value as `null` — the View never defaults a model itself: the
+     * default RowModel is the center body's, hoisted here by `grid.Container.applyViewSelectionModel()`,
+     * and `null` is the honest state of a grid that selects nothing.
+     * @param {Neo.selection.Model|false|null} value
+     * @param {Neo.selection.Model|null} oldValue
+     * @returns {Neo.selection.Model|null}
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
-        return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : value
+        return value ? ClassSystemUtil.beforeSetInstance(value, RowModel) : null
     }
 
     /**
