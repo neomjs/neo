@@ -110,7 +110,8 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(selectors).toContain('body > .neo-dock-dragproxy.neo-tab-header-toolbar {');
             expect(selectors).toContain('--tab-button-glyph-color: var(--agent-dock-proxy-text)');
             expect(selectors).toContain('--tab-button-text-color : var(--agent-dock-proxy-text)');
-            expect(selectors).toContain('.neo-dock-dragproxy.neo-preview-lang-signal');
+            // the Signal ring nests in the ground rule: as a sibling rule it loses the cascade to `body >`
+            expect(selectors).toMatch(/body > \.neo-dock-dragproxy\.neo-tab-header-toolbar \{[^}]*&\.neo-preview-lang-signal \{/);
             expect(selectors).toContain('background   : var(--agent-dock-proxy-ground)');
             expect(selectors).toContain('border       : 1px solid var(--agent-dock-proxy-border)');
             expect(selectors).toContain('color        : var(--agent-dock-proxy-text)');
