@@ -28,6 +28,14 @@ class Animate extends Base {
      * @protected
      */
     hasFixedItemWidth = false
+    /**
+     * The measurement in flight: every rect read takes the next token, a mode switch takes one too,
+     * and an answer publishes only while its token is still the current one — a read that a newer
+     * read or a switch has overtaken is stale, however late it lands.
+     * @member {Number} measureToken=0
+     * @protected
+     */
+    measureToken = 0
 
     static config = {
         /**
@@ -62,6 +70,13 @@ class Animate extends Base {
          */
         measureItemHeight_: false,
         /**
+         * Read only: the tallest measured item in px while the measured mode is on — `null` before the
+         * first measurement, and in fixed mode. {@link #rowHeight} is the one row height every
+         * geometry consumer reads.
+         * @member {Number|null} measuredRowHeight=null
+         */
+        measuredRowHeight: null,
+        /**
          * Opt-in fluid-width mode: a minimum item width in px. When set while the owner's
          * `itemWidth` is null, the plugin derives the column count from the owner's measured
          * width and writes the fluid per-item width back onto the owner — re-derived on every
@@ -75,12 +90,6 @@ class Animate extends Base {
          * @member {DOMRect|null} ownerRect=null
          */
         ownerRect: null,
-        /**
-         * Read only: the uniform row height in px — the owner's `itemHeight` in fixed mode, the tallest
-         * measured item in measured mode (`null` until the first measurement).
-         * @member {Number|null} rowHeight=null
-         */
-        rowHeight: null,
         /**
          * Read only
          * @member {Number|null} rows=null
@@ -115,6 +124,17 @@ class Animate extends Base {
     }
 
     /**
+     * The uniform row height in px: the owner's LIVE `itemHeight` in fixed mode — a consumer that
+     * changes it keeps its row geometry — and the tallest measured item in measured mode (`null`
+     * until the first measurement).
+     * @returns {Number|null}
+     */
+    get rowHeight() {
+        let me = this;
+        return me.measuresItemHeight ? me.measuredRowHeight : (me.owner.itemHeight || null)
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -127,7 +147,6 @@ class Animate extends Base {
         // the first write lands
         me.hasFixedItemWidth  = !!owner.itemWidth;
         me.hasFixedItemHeight = !!owner.itemHeight;
-        me.rowHeight          = owner.itemHeight || null;
 
         if ((!owner.itemHeight && !me.measureItemHeight) || (!owner.itemWidth && !me.minItemWidth)) {
             console.error('list.plugin.Animate requires a fixed itemHeight or the plugin-level measureItemHeight, and either a fixed itemWidth or the plugin-level minItemWidth', owner)
@@ -305,7 +324,8 @@ class Animate extends Base {
 
         if (me.isConstructed) {
             me.hasFixedItemHeight = !!owner.itemHeight;
-            me.rowHeight          = owner.itemHeight || null;
+            me.measuredRowHeight  = null;
+            me.measureToken++;                              // a read still in flight answers for the old mode
 
             me.ownerRect && me.applyGeometry(me.ownerRect);
             owner.createItems()
@@ -456,19 +476,26 @@ class Animate extends Base {
     }
 
     /**
-     * ONE batched rect read over the rendered items; the tallest becomes {@link #rowHeight}. An equal
-     * measurement changes nothing; a new one re-derives the rows and repositions — a reflow, never a
-     * rebuild. Runs after the items are in the DOM (the settle pass), never inside `createItem`, which
-     * would read 0.
+     * ONE batched rect read over the rendered items; the tallest becomes {@link #measuredRowHeight}.
+     * An equal measurement changes nothing; a new one re-derives the rows and repositions — a reflow,
+     * never a rebuild. Runs after the items are in the DOM (the settle pass), never inside
+     * `createItem`, which would read 0. The answer is a result for the request and the mode that asked:
+     * overtaken by a newer read or a mode switch, it publishes nothing.
      * @protected
      */
     async measureRows() {
         let me      = this,
             {owner} = me,
-            ids     = owner.store.items.map(record => owner.getItemId(owner.getRecordId(record))),
-            rects, rowHeight;
+            token   = ++me.measureToken,
+            ids, rects, rowHeight;
 
-        if (!me.measuresItemHeight || ids.length < 1) {
+        if (!me.measuresItemHeight) {
+            return
+        }
+
+        ids = owner.store.items.map(record => owner.getItemId(owner.getRecordId(record)));
+
+        if (ids.length < 1) {
             return
         }
 
@@ -478,14 +505,14 @@ class Animate extends Base {
             return
         }
 
-        if (me.isDestroyed) {
+        if (me.isDestroyed || token !== me.measureToken || !me.measuresItemHeight) {
             return
         }
 
         rowHeight = Math.ceil(Math.max(0, ...rects.map(rect => rect?.height || 0)));
 
-        if (rowHeight > 0 && rowHeight !== me.rowHeight) {
-            me.rowHeight = rowHeight;
+        if (rowHeight > 0 && rowHeight !== me.measuredRowHeight) {
+            me.measuredRowHeight = rowHeight;
 
             me.ownerRect && me.applyGeometry(me.ownerRect);
             me.repositionItems()

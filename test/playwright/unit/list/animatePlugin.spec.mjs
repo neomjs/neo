@@ -525,6 +525,26 @@ const measuredRects = async function(ids) {
 
 const measuredConfig = () => ({listConfig: {getDomRect: measuredRects, itemHeight: null, itemWidth: 300}, mounted: true, pluginConfig: {measureItemHeight: true}});
 
+// A rect read that does not answer until the test says so — the controlled interleavings: every item
+// read parks its resolver here (the owner's own rect still answers at once), and `answer(i, height)`
+// lets read `i` land with one height for every item, in whatever order the arm chooses.
+const pendingReads = [];
+
+const deferredRects = function(ids) {
+    if (!Array.isArray(ids)) {
+        return Promise.resolve({height: 400, width: 935})
+    }
+
+    return new Promise(resolve => pendingReads.push({count: ids.length, resolve}))
+};
+
+const answer = (index, height) => {
+    const read = pendingReads.at(index);
+    read.resolve(Array.from({length: read.count}, () => ({height, width: 300})))
+};
+
+const deferredConfig = () => ({listConfig: {getDomRect: deferredRects, itemHeight: null, itemWidth: 300}, mounted: true, pluginConfig: {measureItemHeight: true}});
+
 test.describe('Neo.list.plugin.Animate — measured row height', () => {
     test.beforeEach(() => measuredHeights.clear());
 
@@ -568,7 +588,7 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
         });
 
         // the first pass, replayed: no row height yet → hidden, and no height
-        plugin.rowHeight = null;
+        plugin.measuredRowHeight = null;
         const item = list.createItem(list.store.getAt(0), 0);
         expect(item.style.visibility).toBe('hidden');
         expect(item.style.height).toBeUndefined();
@@ -643,6 +663,83 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
 
         expect(plugin.rowHeight).toBe(126);
         itemNodes(list).forEach(node => expect(node.style.height).toBe('126px'));
+
+        list.destroy()
+    });
+
+    test('fixed mode follows a live itemHeight change: 126 → 200 rebuilds 200px items spaced as 200px rows, no mode toggle involved', async () => {
+        const {list, plugin} = await createFixture({listConfig: {itemWidth: 300}});
+
+        expect(transformOf(list, 4)).toBe('translate(10px, 146px)');
+
+        list.itemHeight = 200;
+        list.createItems();
+        await list.timeout(20);
+
+        expect(plugin.rowHeight, 'the row height is the owner\'s live height').toBe(200);
+        itemNodes(list).forEach(node => expect(node.style.height).toBe('200px'));
+        expect(transformOf(list, 4), 'row 1 sits at 10 + 200 + 10').toBe('translate(10px, 220px)');
+
+        plugin.onOwnerResize({rect: {width: 935, height: 400}});
+
+        expect(plugin.rows, 'floor(400 / 200)').toBe(2);
+        expect(transformOf(list, 4)).toBe('translate(10px, 220px)');
+
+        list.destroy()
+    });
+
+    test('a read still pending across a switch to fixed mode publishes nothing when it lands', async () => {
+        pendingReads.length = 0;
+
+        const {list, plugin} = await createFixture(deferredConfig());
+
+        expect(pendingReads.length, 'the settle pass asked for a read').toBeGreaterThan(0);
+        expect(plugin.rowHeight, 'no answer yet').toBeNull();
+
+        list.itemHeight          = 126;
+        plugin.measureItemHeight = false;
+        await list.timeout(60);
+
+        expect(plugin.rowHeight).toBe(126);
+        expect(transformOf(list, 4)).toBe('translate(10px, 146px)');
+
+        pendingReads.forEach((read, index) => answer(index, 180));
+        await list.timeout(30);
+
+        expect(plugin.rowHeight, 'the stale measured answer did not overwrite the fixed height').toBe(126);
+        expect(plugin.measuredRowHeight).toBeNull();
+        expect(transformOf(list, 4), 'row 1 never moved').toBe('translate(10px, 146px)');
+        itemNodes(list).forEach(node => expect(node.style.height).toBe('126px'));
+
+        list.destroy()
+    });
+
+    test('two reads resolving in reverse order: the newer request wins, the older answer is dropped', async () => {
+        pendingReads.length = 0;
+
+        const {list, plugin} = await createFixture(deferredConfig());
+
+        pendingReads.forEach((read, index) => answer(index, 78));
+        await list.timeout(30);
+        expect(plugin.rowHeight, 'the settle reads landed').toBe(78);
+
+        pendingReads.length = 0;
+
+        const older = plugin.measureRows(),
+              newer = plugin.measureRows();
+
+        await list.timeout(10);
+        expect(pendingReads.length).toBe(2);
+
+        answer(1, 180);                                     // the newer read answers first
+        await newer;
+        expect(plugin.rowHeight).toBe(180);
+        expect(transformOf(list, 4)).toBe('translate(10px, 200px)');
+
+        answer(0, 78);                                      // the older read lands late
+        await older;
+        expect(plugin.rowHeight, 'the older answer did not win').toBe(180);
+        expect(transformOf(list, 4)).toBe('translate(10px, 200px)');
 
         list.destroy()
     })
