@@ -1,48 +1,34 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * Whitebox-e2e: the SAME-SCRIPTED-DRAG evidence set for the preview-language switch — the
- * capture a composed specimen board cannot certify. The IDENTICAL committed gesture script
- * (same tab, same path, same park point) is REPLAYED once per scene — four separately
- * replayed-and-cancelled drags, one per captured golden — under the DEFAULT and SIGNAL
- * languages in BOTH color modes: target zone preview + §06 indicator menu + the
- * body-mounted drag proxy, all in frame.
+ * Whitebox-e2e: the preview-language switch over ONE scripted drag. The IDENTICAL committed
+ * gesture (same tab, same path, same park point) is REPLAYED once per scene — four separately
+ * replayed-and-cancelled drags — under the DEFAULT and SIGNAL languages in BOTH color modes, and
+ * each parked scene is READ rather than captured: where the target zone preview, the §06
+ * indicator menu and the body-mounted drag proxy sit, and how each of them paints.
  *
- * Evidence honesty (the demo-surface motion audit's boundary): the four goldens are STATIC
- * post-settle APPEARANCE evidence. Rendered motion is witnessed separately and executably:
- * a positive `animationstart` witness proves the signal hover-lock pulse RUNS with its
- * token duration in normal mode, and the reduced-motion counter-witness proves every
- * animation/transition entry computes 0s under `prefers-reduced-motion: reduce`.
+ * Every scene is compared with scenes read earlier in the same run, so the evidence carries its
+ * own baseline: there is no golden to re-mint, no host whose rendering it encodes, and no
+ * difference between a headed and a headless run.
  *
  * Product truths proven against the running childapp:
- * 1. the language modifier is a pure skin over the identical scripted gesture — same park
- *    point, same active candidate, different rendered language;
- * 2. the drag proxy carries its scope (dock marker + language + NEAREST-ancestor theme) to
- *    its `document.body` mount — the light captures render the projected daylight palette
- *    on every affordance INCLUDING the proxy (the cycle-2 falsified masking path);
+ * 1. the language modifier is a pure skin over the identical scripted gesture — every affordance
+ *    parks in the same place in all four scenes, and the signal language repaints each of them;
+ * 2. the drag proxy carries its scope (dock marker + language + NEAREST-ancestor theme) to its
+ *    `document.body` mount — the light theme repaints every affordance INCLUDING the proxy (the
+ *    cycle-2 falsified masking path);
  * 3. the hover-lock pulse fires with the fast token's duration (positive motion witness);
  * 4. under `prefers-reduced-motion: reduce`, the signal path's motion collapses to 0s
  *    through the token vocabulary (indicator transition AND the hover-lock breath).
  *
- * Determinism: the demo's live seconds clock is FROZEN worker-side for the run — the
- * pane's own `frozenTime` config is set to a constant through the Neural Link fixture
- * (plain JSON possession, no code patching) — and the pane stays fully VISIBLE in every
- * golden. It sits at the editor-zone park point, inside the very affordance cluster the
- * baselines certify, so masking it would paint over the evidence subject; freezing kills
- * the churn without hiding one pixel of it. Baselines refresh ONLY via
- * `--update-snapshots` — a refreshed golden is a reviewed design decision (the PR diff is
- * the review surface).
- *
- * Run: NEO_E2E_PORT=8096 npx playwright test PreviewLanguageDragPairNL -c test/playwright/playwright.config.e2e.mjs --workers=1
+ * Run: NEO_AGENTOS_RUNTIME_ROOT=<a neo-agent-brain checkout> npx playwright test PreviewLanguageDragPairNL -c test/playwright/playwright.config.e2e.mjs
  */
 
-test.describe('Preview design language — the same-scripted-drag capture set (Neural Link)', () => {
+test.describe('Preview design language — one scripted drag, replayed per scene (Neural Link)', () => {
     test.setTimeout(180000);
 
-    test.skip(process.env.NEO_TEST_SKIP_CI === 'true', 'rendered-platform goldens — local harness only');
-
     /**
-     * Boots the demo, connects the bridge, and resolves the ids + zone geometry.
+     * Boots the demo, connects the bridge, and resolves the workspace id + the editor zone center.
      * @param {Object} page
      * @param {Object} neuralLink
      * @returns {Promise<Object>}
@@ -60,34 +46,15 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
 
         expect(host, 'the DemoAWorkspace must exist in the App Worker').toBeTruthy();
 
-        // Freeze the seconds clock for the whole run through the pane's own determinism seam
-        // (`frozenTime` config, plain JSON over the link — no masking, no hot patching). The
-        // pane sits at the editor-zone park point INSIDE the certified affordance cluster —
-        // it must stay fully visible in the goldens, so its churn dies at the source.
-        const clocks  = await app.findInstances({className: 'Neo.examples.dashboard.choreography.ClockPane'}, ['id']);
-        const clockId = (Array.isArray(clocks) ? clocks[0] : clocks)?.id;
-
-        expect(clockId, 'the ClockPane must exist in the App Worker').toBeTruthy();
-        await app.callMethod(clockId, 'set', [{frozenTime: '10:00:00'}]);
-        await page.waitForFunction(() =>
-            document.querySelector('.agentos-dockdemo-clock-time')?.textContent === '10:00:00'
-        , null, {timeout: 10000});
-
         const zoneBoxes = await page.$$eval('.neo-dashboard-dock-tabs', els =>
             els.map(el => { const r = el.getBoundingClientRect(); return {x: r.x, y: r.y, width: r.width, height: r.height} })
         );
         const [editorZone] = [...zoneBoxes].sort((a, b) => a.x - b.x);
 
-        const workspaceBox = await page.$eval('.neo-dashboard', el => {
-            const r = el.getBoundingClientRect();
-            return {x: r.x, y: r.y, width: r.width, height: r.height}
-        });
-
         return {
             app,
             editorCenter: {x: editorZone.x + editorZone.width / 2, y: editorZone.y + editorZone.height / 2},
-            host,
-            workspaceBox
+            host
         }
     }
 
@@ -111,8 +78,21 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         await page.mouse.move(box.x + box.width / 2 + 12, box.y + box.height / 2 + 12, {steps: 4});
         await expect(page.locator('.neo-tab-header-toolbar.neo-is-dragging')).toBeVisible();
         await page.mouse.move(target.x, target.y, {steps: 15});
-        // settle: move stream round-trip + affordance motion (tokens: 280ms) fully landed
-        await page.waitForTimeout(600);
+        // settle on a condition, not a delay: a fixed wait can read the scene before the hover has
+        // reached the park point. Settled means the center indicator has hover-locked inside the
+        // accepted preview covering the park point, and no affordance is still in motion.
+        await expect.poll(() => page.evaluate(({x, y}) => {
+            const inside  = (rect, px, py) => px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.bottom,
+                  preview = [...document.querySelectorAll('.neo-dock-preview-accepted')]
+                      .map(element => element.getBoundingClientRect()).find(rect => inside(rect, x, y)),
+                  locked  = document.querySelector('.neo-dashboard-dock-drop-indicator-center.neo-dashboard-dock-drop-indicator-active')
+                      ?.getBoundingClientRect();
+
+            return Boolean(preview && locked)
+                && inside(preview, locked.left + locked.width / 2, locked.top + locked.height / 2)
+                && [...document.querySelectorAll('.neo-dashboard-dock-drop-indicator, .neo-dashboard-dock-drop-chip, .neo-dock-preview-affordance, .neo-dragproxy')]
+                    .every(element => element.getAnimations().every(animation => animation.playState !== 'running'))
+        }, target), 'the center indicator hover-locks on the park point').toBe(true);
 
         await expect(page.locator('.neo-dashboard-dock-drop-indicators:not(.neo-dashboard-dock-drop-indicators-hidden)'),
             'the indicator layer is visible mid-drag').toBeVisible();
@@ -121,7 +101,7 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
 
     /**
      * Cancels the parked gesture without committing (Escape, then release) and waits for
-     * the affordance teardown so the next capture starts from the resting state.
+     * the affordance teardown so the next scene starts from the resting state.
      * @param {Object} page
      */
     async function cancelTheDrag(page) {
@@ -132,13 +112,57 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         await page.waitForTimeout(400)
     }
 
+    /**
+     * Reads the parked scene as values: the active candidate, the box of every visible affordance,
+     * and the paint of the three surfaces the preview language restyles. Elements are listed in DOM
+     * order, so two readings of the same gesture line up element by element.
+     * @param {Object} page
+     * @returns {Promise<{geometry: Object, paint: Object}>}
+     */
+    function readScene(page) {
+        return page.evaluate(() => {
+            const visible = selector => [...document.querySelectorAll(selector)]
+                      .filter(element => element.checkVisibility({opacityProperty: true, visibilityProperty: true})),
+                  surfaces = {
+                      indicators: visible('.neo-dashboard-dock-drop-indicator, .neo-dashboard-dock-drop-chip'),
+                      preview   : visible('.neo-dock-preview-accepted'),
+                      proxy     : visible('.neo-dock-dragproxy')
+                  },
+                  read     = reader => Object.fromEntries(Object.entries(surfaces).map(([name, elements]) => [name, elements.map(reader)])),
+                  active   = document.querySelector('.neo-dashboard-dock-drop-indicator-active');
+
+            return {
+                geometry: {
+                    active: active && [...active.classList].sort(),
+                    ...read(element => {
+                        const {x, y, width, height} = element.getBoundingClientRect();
+                        return [x, y, width, height].map(Math.round)
+                    })
+                },
+                paint: read(element => {
+                    const {backgroundColor, borderTopColor, boxShadow} = getComputedStyle(element);
+                    return {backgroundColor, borderTopColor, boxShadow}
+                })
+            }
+        })
+    }
+
+    /**
+     * Whether `scene` paints each surface differently from `baseline`, element by element. A surface
+     * with no element on it counts as not repainted, so a missing affordance cannot pass.
+     * @param {Object} scene
+     * @param {Object} baseline
+     * @returns {Object} surface name → Boolean
+     */
+    function repainted(scene, baseline) {
+        return Object.fromEntries(Object.entries(scene.paint).map(([name, paints]) => [name,
+            paints.length > 0 && paints.every((paint, index) => JSON.stringify(paint) !== JSON.stringify(baseline.paint[name][index]))
+        ]))
+    }
+
     test('the identical scripted gesture, replayed per scene: default/signal × dark/light + the pulse witness', async ({page, neuralLink}) => {
-        const {app, editorCenter, host, workspaceBox} = await bootDemo(page, neuralLink);
-        // The clock is frozen worker-side (see bootDemo), so the remaining noise floor is
-        // sub-pixel anti-aliasing on live-gesture frames — a language or palette regression
-        // diffs in the tens of thousands of pixels. NO masks: every certified surface is
-        // fully visible in the baselines.
-        const shot = {clip: workspaceBox, maxDiffPixels: 150};
+        const {app, editorCenter, host} = await bootDemo(page, neuralLink);
+        const everySurface              = {indicators: true, preview: true, proxy: true};
 
         // The positive motion witness arms BEFORE any signal gesture: the hover-lock pulse
         // replays on every re-lock (the -active class toggles), and `animationstart` is
@@ -162,7 +186,9 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         expect(defaultProxyCls, 'the dock ownership marker rides every dock proxy')
             .toContain('neo-dock-dragproxy');
 
-        await expect(page).toHaveScreenshot('drag-pair-default-dark.png', shot);
+        // the scene every later one is compared against
+        const defaultDark = await readScene(page);
+
         await cancelTheDrag(page);
 
         // ── dark / SIGNAL (the language flips WORKER-side, same as an app config would;
@@ -184,7 +210,12 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         expect(signalProxy.signalVar, 'the signal alias resolves ON the body-mounted proxy — no fallback masking')
             .not.toBe('');
 
-        await expect(page).toHaveScreenshot('drag-pair-signal-dark.png', shot);
+        const signalDark = await readScene(page);
+
+        expect(signalDark.geometry, 'the language is a pure skin: every affordance parks where the default one did')
+            .toEqual(defaultDark.geometry);
+        expect(repainted(signalDark, defaultDark), 'dark: the signal language repaints every affordance')
+            .toEqual(everySurface);
 
         // the positive motion witness: parking on the zone center hover-locked the CENTER
         // indicator — the pulse must have RUN, at the fast token's real duration
@@ -205,7 +236,7 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(300);
 
-        // light / SIGNAL — the cycle-2 falsifier scene, now on a live gesture
+        // light / SIGNAL — the cycle-2 falsifier scene, on a live gesture
         await parkTheDrag(page, editorCenter);
 
         const lightProxy = await page.$eval('.neo-dragproxy', el => ({
@@ -218,7 +249,12 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         expect(lightProxy.signalVar, 'the proxy renders the projected daylight pigment')
             .toBe('#0f766e');
 
-        await expect(page).toHaveScreenshot('drag-pair-signal-light.png', shot);
+        const signalLight = await readScene(page);
+
+        expect(signalLight.geometry, 'the theme is a pure skin as well').toEqual(defaultDark.geometry);
+        expect(repainted(signalLight, signalDark), 'signal: the light theme repaints every affordance, the body-mounted proxy included')
+            .toEqual(everySurface);
+
         await cancelTheDrag(page);
 
         // light / DEFAULT
@@ -226,7 +262,15 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         await expect(page.locator('.neo-preview-lang-signal')).toHaveCount(0);
 
         await parkTheDrag(page, editorCenter);
-        await expect(page).toHaveScreenshot('drag-pair-default-light.png', shot);
+
+        const defaultLight = await readScene(page);
+
+        expect(defaultLight.geometry, 'back to the default language, still the same places').toEqual(defaultDark.geometry);
+        expect(repainted(defaultLight, defaultDark), 'default: the light theme repaints every affordance')
+            .toEqual(everySurface);
+        expect(repainted(signalLight, defaultLight), 'light: the signal language repaints every affordance')
+            .toEqual(everySurface);
+
         await cancelTheDrag(page)
     });
 
