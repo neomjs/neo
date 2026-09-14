@@ -58,30 +58,65 @@ const readCanvasPixels = async canvas => (await canvas.screenshot()).toString('b
  */
 const readIdentity = async (app, workspaceId) => {
     const [providers, scalePanes, feedPanes, listedStores, workspace, securityPaneId] = await Promise.all([
-        app.findInstances({className: 'Neo.state.Provider'}, ['id', 'parent.id']),
+        app.findInstances({className: 'Neo.state.Provider'}, ['id', 'parent.id', 'component.id']),
         app.findInstances({className: 'Workstation.view.ScalePane'}, ['id', 'store.id']),
         app.findInstances({className: 'Workstation.view.FeedPane'}, ['id', 'store.id']),
         app.listStores(),
         app.getComponent(workspaceId, ['stateProvider.id']),
         app.callMethod(workspaceId, 'getPaneIdentity', ['security'])
     ]),
-        providerList  = asArray(providers),
-        rootProviders = providerList.filter(provider => !provider.properties?.['parent.id']),
-        scaleList     = asArray(scalePanes),
-        feedList      = asArray(feedPanes),
-        stores        = asArray(listedStores?.stores ?? listedStores),
-        scaleStore    = stores.find(store => store.id?.endsWith('__scale')),
-        feedStore     = stores.find(store => store.id?.endsWith('__feed'));
+        providerList   = asArray(providers),
+        rootProviders  = providerList.filter(provider => !provider.properties?.['parent.id']),
+        // A root Provider that owns a component is the thing this arm guards: one per workspace, kept
+        // across every transformation. A root WITHOUT a component belongs to a manager rather than to
+        // the view tree — `Neo.manager.Transaction` creates exactly one per Group — so it is named by
+        // id at the boot assertion instead of inflating a count the snapshot then compares over time.
+        componentRoots = rootProviders.filter(provider => provider.properties?.['component.id']),
+        scaleList      = asArray(scalePanes),
+        feedList       = asArray(feedPanes),
+        stores         = asArray(listedStores?.stores ?? listedStores),
+        scaleStore     = stores.find(store => store.id?.endsWith('__scale')),
+        feedStore      = stores.find(store => store.id?.endsWith('__feed'));
 
     return {
+        componentRootCount : componentRoots.length,
+        componentRootId    : componentRoots[0]?.id,
         feedPaneId         : feedList[0]?.id,
         feedStoreId        : feedStore?.id ?? feedList[0]?.properties?.['store.id'],
-        rootProviderCount  : rootProviders.length,
-        rootProviderId     : rootProviders[0]?.id,
         scalePaneId        : scaleList[0]?.id,
         scaleStoreId       : scaleStore?.id ?? scaleList[0]?.properties?.['store.id'],
         securityPaneId,
         workspaceProviderId: workspace['stateProvider.id']
+    }
+};
+
+/**
+ * @summary The ids of every root Provider that belongs to no component, paired with the topology
+ * Group's own history Provider id.
+ *
+ * `Neo.manager.Transaction#getProvider` creates one Provider per Group on first read — deliberately
+ * parent-less and component-less, so a popped-out window and its opener read the same `canUndo` /
+ * `canRedo` answer — and retires it with the Group. It is therefore a legitimate second root, and the
+ * honest assertion names it rather than relaxing the count.
+ * @param {Object} app Neural Link fixture app handle.
+ * @param {String} workspaceId Workstation workspace id.
+ * @returns {Promise<{groupProviderId: String, managerRootIds: String[]}>}
+ */
+const readManagerRootProviders = async (app, workspaceId) => {
+    const [providers, workspace, managers] = await Promise.all([
+        app.findInstances({className: 'Neo.state.Provider'}, ['id', 'parent.id', 'component.id']),
+        app.getComponent(workspaceId, ['topologyGroupId']),
+        app.findInstances({className: 'Neo.manager.Transaction'}, ['id'])
+    ]),
+        groupProvider = await app.callMethod(
+            asArray(managers)[0]?.id, 'getProvider', [workspace.topologyGroupId]
+        );
+
+    return {
+        groupProviderId: groupProvider?.id,
+        managerRootIds : asArray(providers)
+            .filter(provider => !provider.properties?.['parent.id'] && !provider.properties?.['component.id'])
+            .map(provider => provider.id)
     }
 };
 
@@ -690,9 +725,13 @@ test.describe('Workstation — dense living-data composition', () => {
             beforeIdentity = await readIdentity(app, workspaceId),
             beforeChrome   = await readTabChromeIdentity(app, workspaceId);
 
-        expect(beforeIdentity.rootProviderCount, 'Workstation owns one root StateProvider').toBe(1);
+        const managerRoots = await readManagerRootProviders(app, workspaceId);
+
+        expect(beforeIdentity.componentRootCount, 'Workstation owns one root StateProvider').toBe(1);
         expect(beforeIdentity.workspaceProviderId, 'the workspace references that one Provider')
-            .toBe(beforeIdentity.rootProviderId);
+            .toBe(beforeIdentity.componentRootId);
+        expect(managerRoots.managerRootIds, 'the only component-less root is the topology Group history Provider')
+            .toEqual([managerRoots.groupProviderId]);
         expect(beforeIdentity.scaleStoreId).toBeTruthy();
         expect(beforeIdentity.feedStoreId).toBeTruthy();
         expect(beforeIdentity.securityPaneId, 'the transformed heavy resident has a stable pane identity').toBeTruthy();
@@ -862,8 +901,17 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(shortGeometry.bottomBand.height).toBeCloseTo(wideGeometry.bottomBand.height, 1);
         expect(shortGeometry.center.width).toBeCloseTo(narrowGeometry.center.width, 1);
         expect(shortGeometry.scale.width).toBeCloseTo(narrowGeometry.scale.width, 1);
-        expect(shortGeometry.scale.height, 'the short desktop keeps a usable primary grid height')
-            .toBeGreaterThanOrEqual(230);
+        // The short desktop's floor is arithmetic, not a borrowed constant. Every band above holds its
+        // rem floor at 600 CSS pixels of viewport, so the center absorbs the WHOLE block-size delta:
+        // the primary grid goes 516 → 216 for a 300-pixel shorter host. A constant carried over from the
+        // 900-tall cases demands 230 out of that 216, and the only way to pay it is to push the bottom
+        // band under the floor this same block asserts it keeps — the two cannot both hold. Stating the
+        // delta keeps the teeth: growing the chrome, or letting a band steal from the center, still fails.
+        expect(shortGeometry.scale.height, 'the short desktop grid absorbs the viewport delta, and nothing else does')
+            .toBeCloseTo(wideGeometry.scale.height
+                - (wideGeometry.dockHost.contentBlockSize - shortGeometry.dockHost.contentBlockSize), 1);
+        expect(shortGeometry.scale.height, 'the primary grid still outsizes the secondary band')
+            .toBeGreaterThan(shortGeometry.bottomBand.height);
         expect(shortGeometry.bottomBand.bottom).toBeLessThanOrEqual(shortGeometry.dockHost.bottom + 1);
         expect(shortGeometry.overflowControls).toBe(1);
 
