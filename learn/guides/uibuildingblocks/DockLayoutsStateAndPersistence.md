@@ -64,9 +64,12 @@ so a split left with one child collapses and unreachable nodes disappear, and th
 the reducer returns the original document together with the errors. There is no partial write to undo, because nothing
 was written.
 
-The other way in is a whole document. A restore validates the saved record first, then hands the document inside it to
-the workspace in place of the committed one, with no operation involved. The layout restore below works this way, and
-so does a topology restore for a workspace whose shape has changed.
+The other way in is a whole document, and the route decides how it arrives. The example's snapshot restore below
+validates the saved record and hands the document inside it straight to the workspace in place of the committed one,
+with no operation involved; a topology restore adopts a captured document the same way when a workspace's shape has
+changed. A Neural Link restore of a saved layout onto a workspace that belongs to a Group validates the record too,
+then sends that document as `applyDocument` — the one operation that carries a whole candidate — through the same
+normalize-and-validate commit as any edit.
 
 An operation can also ask more than the document does. Resizing a split refuses a share of zero, but a document that
 already holds one is still valid and can be saved.
@@ -240,6 +243,7 @@ survives a reload, I do not look at the screen. I look at the document, and the 
 - [Adopting in Your App](DockLayoutsAdoption.md) covers the persistence wrappers, saved perspective records and their
   provenance in code.
 - [Panes Are Ordinary Components](DockLayoutsPanes.md) covers declared arrangements and the published perspective state.
+- [A Pane's Life Across Windows](DockLayoutsWindows.md) follows one pane as it moves between windows.
 - [Dock Layouts: Testing and Debugging](../testing/DockLayoutsTesting.md) covers reading a committed document from a test.
 - [ADR 0029](../../agentos/decisions/0029-docking-design.md) holds the normative contracts: the state-class table, the
   artifact split, and restore semantics into a changed window topology.
