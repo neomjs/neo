@@ -441,8 +441,10 @@ class Container extends Component {
                     }
                 }
 
-                item.set(config);
-                inheritsTheme && (item.theme = me.theme);
+                // Carried inside the existing batch: a separate assignment afterwards would run a second
+                // reactive cycle across the subtree. An explicit `theme` in `config` still wins, as any
+                // other key does.
+                item.set(inheritsTheme ? {theme: me.theme, ...config} : config);
                 item.getStateProvider?.()?.createBindings(item);
                 break
             }

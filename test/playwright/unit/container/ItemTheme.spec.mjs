@@ -193,6 +193,41 @@ test.describe('Neo.container.Base — an adopted instance takes the container\'s
         expect(adoptedPlain.theme, 'adoption: its unthemed sibling inherits').toBe('neo-theme-neo-dark')
     });
 
+    /**
+     * @summary A move retargets what a subtree inherited and leaves what it chose.
+     *
+     * The root and the inheriting child follow the new container; the child holding its own theme is not
+     * part of that inheritance and must survive the move, exactly as it survives the initial adoption.
+     */
+    test('a moved subtree retargets its inherited themes and keeps the explicit one', () => {
+        const dark  = Neo.create(Container, {appName, theme: 'neo-theme-neo-dark'}),
+              light = Neo.create(Container, {appName, theme: 'neo-theme-neo-light'});
+
+        try {
+            const moved = Neo.create(Container, {
+                appName,
+                items: [{module: Component, theme: 'neo-theme-light'}, {module: Component}]
+            });
+
+            light.add(moved);
+
+            const [explicitChild, inheritingChild] = moved.items;
+
+            expect(moved.theme, 'the root inherits from its first container').toBe('neo-theme-neo-light');
+            expect(inheritingChild.theme, 'and so does the unthemed child').toBe('neo-theme-neo-light');
+            expect(explicitChild.theme, 'the explicit child carried its own from the start').toBe('neo-theme-light');
+
+            dark.add(moved);
+
+            expect(moved.theme, 'the move retargets the inherited root').toBe('neo-theme-neo-dark');
+            expect(inheritingChild.theme, 'and the inheriting child follows it').toBe('neo-theme-neo-dark');
+            expect(explicitChild.theme, 'while the explicit child keeps its own').toBe('neo-theme-light')
+        } finally {
+            dark.destroy();
+            light.destroy()
+        }
+    });
+
     test('an adopted instance carrying its own theme keeps it', () => {
         container = Neo.create(Container, {appName, theme: 'neo-theme-neo-dark'});
 
