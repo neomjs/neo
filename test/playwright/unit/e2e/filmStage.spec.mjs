@@ -63,3 +63,30 @@ test('the gap belongs to the caller, and widening it moves the target further ri
     expect(narrow.target.left - (narrow.main.left + narrow.main.width)).toBe(24);
     expect(wide.target.left   - (wide.main.left   + wide.main.width)).toBe(120)
 });
+
+test('a gap too wide for the display is refused rather than returned as a negative width', () => {
+    // @neo-gpt-emmy's reproduction. The envelope clears BOTH floors, so the gate passes, and the
+    // arithmetic then subtracts the caller's gap into a main width of -44 while the verdict still
+    // says it fitted. Clearing the envelope floors is not the same as the arrangement fitting.
+    const plan = planSideBySide({availHeight: 700, availLeft: 0, availTop: 0, availWidth: 1200}, {gap: 800});
+
+    expect(plan.fits, 'an impossible arrangement is refused, not returned').toBe(false);
+    expect(plan.main).toBeNull();
+    expect(plan.target).toBeNull();
+    expect(plan.reason, 'the refusal names the gap that caused it').toContain('800px gap');
+    expect(plan.reason, 'and the measurement that failed').toContain('main width')
+});
+
+test('a gap that still leaves usable rects is honoured, so the guard refuses only the impossible', () => {
+    const {fits, main, target} = planSideBySide(
+        {availHeight: 700, availLeft: 0, availTop: 0, availWidth: 1200},
+        {gap: 200}
+    );
+
+    expect(fits).toBe(true);
+    expect(main.width,    'every returned rect is usable').toBeGreaterThan(0);
+    expect(main.height).toBeGreaterThan(0);
+    expect(target.width).toBeGreaterThan(0);
+    expect(target.height).toBeGreaterThan(0);
+    expect(main.left + main.width, 'and they are still apart').toBeLessThanOrEqual(target.left)
+});

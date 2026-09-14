@@ -267,7 +267,9 @@ export function readDisplayEnvelope(page) {
  * fit" without the number sends the next reader to measure it again by hand.
  * @param {Object} envelope From {@link readDisplayEnvelope}.
  * @param {Object} [options]
- * @param {Number} [options.gap=24] Horizontal pixels between the two windows.
+ * @param {Number} [options.gap=24] Horizontal pixels between the two windows. The floors gate the
+ *     envelope, not this: a gap wide enough to consume the main window is refused with a reason
+ *     naming it, rather than returned as a negative width.
  * @param {Number} [options.minHeight=700] Envelope height below which the arrangement is refused.
  * @param {Number} [options.minWidth=1200] Envelope width below which the arrangement is refused.
  * @returns {Object} `{fits, main, reason, target}`; `main`/`target` are null when `fits` is false.
@@ -297,15 +299,33 @@ export function planSideBySide(envelope, {gap=24, minHeight=700, minWidth=1200}=
             width : mainWidth
         };
 
-    return {
-        fits  : true,
-        main,
-        reason: null,
-        target: {
-            height: targetHeight,
-            left  : main.left + main.width + gap,
-            top   : main.top + 120,
-            width : targetWidth
+    const target = {
+        height: targetHeight,
+        left  : main.left + main.width + gap,
+        top   : main.top + 120,
+        width : targetWidth
+    };
+
+    // The floors above gate the ENVELOPE; they say nothing about the arrangement the caller asked
+    // for inside it. A gap wide enough eats the main window — `1200x700` with `gap: 800` yields a
+    // main width of -44 — so the computed rectangles are checked rather than assumed. A verdict
+    // that says `fits` has to hand back rectangles a window can actually occupy.
+    const invalid = [
+        ['main width',    main.width],
+        ['main height',   main.height],
+        ['target width',  target.width],
+        ['target height', target.height]
+    ].filter(([, value]) => value <= 0);
+
+    if (invalid.length) {
+        return {
+            fits  : false,
+            main  : null,
+            reason: `a ${gap}px gap leaves no usable arrangement on a ${availWidth}×${availHeight} ` +
+                `display: ${invalid.map(([name, value]) => `${name} ${value}`).join(', ')}`,
+            target: null
         }
     }
+
+    return {fits: true, main, reason: null, target}
 }
