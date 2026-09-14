@@ -79,10 +79,12 @@ resources/content/
 !/dist/parse5.mjs
 !/dist/marked.mjs
 !/dist/mermaid.mjs
-# `src/util/HighlightJs.mjs` imports the minified highlight bundle at runtime. Re-include the directory,
-# exclude its contents, re-include the one file — the `/dist/*` shape above, one level down.
+# `src/util/HighlightJs.mjs` imports one of these two bundles, chosen by its public `debug` config, so both
+# ship. Re-include the directory, exclude its contents, re-include each file — the `/dist/*` shape above,
+# one level down.
 !/dist/highlight/
 /dist/highlight/*
+!/dist/highlight/highlight.custom.js
 !/dist/highlight/highlight.custom.min.js
 /docs/output
 /tmp

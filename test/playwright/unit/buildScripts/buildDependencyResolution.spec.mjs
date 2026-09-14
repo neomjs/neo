@@ -180,8 +180,8 @@ test.describe('the shipped browser bundles stay reachable from the entry points 
     });
 
     test('the highlight bundle, a directory outside the registry, is still built by the aggregate and admits the tier', () => {
-        // `src/util/HighlightJs.mjs` imports `dist/highlight/highlight.custom.min.js` at runtime, so a
-        // runner that skips it renders no guide with a code fence — while every other arm stays green.
+        // `src/util/HighlightJs.mjs` imports its bundle from `dist/highlight/` at runtime, so a runner
+        // that skips it renders no guide with a code fence — while every other arm stays green.
         const workflow = fs.readFileSync(new URL('../../../../.github/workflows/classify-test-scope.yml', import.meta.url), 'utf8'),
               keys     = workflow.match(/e2eScriptKeys\s*=\s*\[([^\]]*)\]/)?.[1] ?? '';
 
