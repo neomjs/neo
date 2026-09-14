@@ -198,7 +198,7 @@ handed the transition and decides for itself: a form disables its fields, a grid
 view keeps scrolling and selecting as normal. When a pane takes that responsibility the engine writes no inert
 attribute at all.
 
-Only the second branch is demonstrated above. No pane in the standalone example implements the lock hook — its one
+Only the fallback branch is demonstrated above. No pane in the standalone example implements the lock hook — its one
 custom pane implements the *reload* contract instead — so what the page showed is the engine's fallback: exactly one
 inert subtree, applied because nothing claimed the responsibility. The delegating branch is read from the policy
 source, not observed here. The shape worth carrying away survives either way: locking is never merely cosmetic, because
