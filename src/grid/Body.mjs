@@ -704,7 +704,11 @@ class GridBody extends Component {
             if (me.vnode) {
                 const rendered = retired.filter(row => row.vnode);
 
-                rendered.length && Neo.applyDeltas(me.windowId, rendered.map(row => ({action: 'removeNode', id: row.vdom.id})))
+                rendered.length && Neo.applyDeltas(me.windowId, rendered.map(row => ({action: 'removeNode', id: row.vdom.id}))).catch(reason => {
+                    // A closed window took the rows with it
+                    reason?.code !== 'NEO_DEAD_PORT' && reason?.name !== 'PortDisconnectedError' &&
+                        console.error('grid.Body: retired row removal failed', {reason, windowId: me.windowId})
+                })
             }
 
             retired.forEach(row => row.destroy());
