@@ -125,7 +125,7 @@ class View extends Base {
      */
     get rowSelectionModel() {
         let {selectionModel} = this;
-        return selectionModel?.ntype?.includes('row') ? selectionModel : null
+        return selectionModel?.selectsRows ? selectionModel : null
     }
 
     /**
@@ -134,7 +134,7 @@ class View extends Base {
      */
     get selectedCells() {
         let {selectionModel} = this;
-        return selectionModel?.ntype?.includes('cell') ? selectionModel.items : []
+        return selectionModel?.selectsCells ? selectionModel.items : []
     }
 
     /**

@@ -473,6 +473,7 @@ test.describe('Grid selection: a cell click as the DOM delivers it', () => {
             clickCell(grid.body, 1, 'col1');
             await grid.timeout(20);
             expect(model.isSelected(cellId), `${module.name} selects the clicked cell`).toBe(true);
+            expect(grid.view.selectedCells, `${module.name} hands the View the cell to paint`).toEqual([cellId]);
 
             clickCell(grid.body, 1, 'col1');
             await grid.timeout(20);
@@ -496,5 +497,110 @@ test.describe('Grid selection: a cell click as the DOM delivers it', () => {
         clickCell(grid.bodyStart, 'r2', 'col3');
         await grid.timeout(20);
         expect(flushedRows(grid), 'the next click moves it in every body').toEqual([['r2'], ['r2'], ['r2']])
+    });
+
+    test('a combined row model under a selected-record field writes the flag its cell click intends: select, move within the row, clear', async () => {
+        for (const module of [CellRowModel, CellColumnRowModel]) {
+            store = createStore();
+            grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag', selectionModel: {module}}});
+
+            await renderRows(grid);
+
+            const model = grid.view.selectionModel,
+                  cell  = dataField => grid.view.getLogicalCellId(store.get(1), dataField);
+
+            clickCell(grid.body, 1, 'col1');
+            await grid.timeout(20);
+
+            expect(store.get(1).flag, `${module.name} sets the record flag`).toBe(true);
+            expect(grid.view.selectedRows, `${module.name} follows the flag`).toEqual([1]);
+            expect(paintedRows(grid), `${module.name} paints the row in every body`).toEqual([[1], [1], [1]]);
+
+            clickCell(grid.body, 1, 'col5');
+            await grid.timeout(20);
+
+            expect(store.get(1).flag, `${module.name}: another cell in the same row keeps the flag`).toBe(true);
+            expect(grid.view.selectedRows, `${module.name}: and the row`).toEqual([1]);
+            expect(model.items, `${module.name}: the cell moves`).toEqual([cell('col5')]);
+
+            clickCell(grid.body, 1, 'col5');
+            await grid.timeout(20);
+
+            expect(store.get(1).flag, `${module.name}: clicking the selected cell clears the flag`).toBe(false);
+            expect(grid.view.selectedRows, `${module.name}: and the row`).toEqual([]);
+            expect(model.items, `${module.name}: and the cell`).toEqual([]);
+            expect(model.selectedColumns, `${module.name}: and any column`).toEqual([]);
+            expect(paintedRows(grid)).toEqual([[], [], []]);
+
+            grid.destroy();
+            store.destroy()
+        }
+    });
+
+    test('RowModel under a selected-record field keeps toggling the flag by row', async () => {
+        store = createStore();
+        grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag'}});
+
+        await renderRows(grid);
+
+        const model = grid.view.selectionModel;
+
+        model.onRowClick({record: store.get(1), data: {path: []}});
+        await grid.timeout(20);
+
+        expect(store.get(1).flag, 'the first row click sets the flag').toBe(true);
+        expect(grid.view.selectedRows).toEqual([1]);
+
+        model.onRowClick({record: store.get(1), data: {path: []}});
+        await grid.timeout(20);
+
+        expect(store.get(1).flag, 'a second click on the same row clears it').toBe(false);
+        expect(grid.view.selectedRows).toEqual([])
+    });
+
+    test('arrow navigation starts from the selected cell\'s record, keyed by business id or by internal id', async () => {
+        for (const useInternalId of [false, true]) {
+            store = createStore();
+            grid  = await createGrid(store, {useInternalId, viewConfig: {selectionModel: {module: CellModel}}});
+
+            await renderRows(grid);
+
+            const model = grid.view.selectionModel;
+
+            clickCell(grid.body, grid.body.getRecordId(store.get(1)), 'col1');
+            await grid.timeout(20);
+
+            model.onNavKeyRow(1);
+            await grid.timeout(20);
+
+            expect(model.items, `useInternalId ${useInternalId}: one row down from the clicked cell`)
+                .toEqual([grid.view.getLogicalCellId(store.get(2), 'col1')]);
+
+            grid.destroy();
+            store.destroy()
+        }
+    })
+});
+
+test.describe('Grid selection: a repaint is typed by its caller, not parsed from the id', () => {
+    let grid, store;
+
+    test.afterEach(async () => {
+        await grid?.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+        grid = store = null
+    });
+
+    test('a record key containing `__` repaints as a row in every body', async () => {
+        store = createStore([], i => `r__${i}`);
+        grid  = await createGrid(store);
+
+        await renderRows(grid);
+
+        grid.view.selectionModel.selectRow('r__1');
+        await grid.timeout(20);
+
+        expect(paintedRows(grid), 'every body paints the row').toEqual([['r__1'], ['r__1'], ['r__1']])
     })
 });

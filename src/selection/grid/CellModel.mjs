@@ -20,7 +20,12 @@ class CellModel extends BaseModel {
          * @member {String} cls='neo-selection-cellmodel'
          * @protected
          */
-        cls: 'neo-selection-cellmodel'
+        cls: 'neo-selection-cellmodel',
+        /**
+         * @member {Boolean} selectsCells=true
+         * @protected
+         */
+        selectsCells: true
     }
 
     /**
@@ -51,34 +56,32 @@ class CellModel extends BaseModel {
     }
 
     /**
-     * Resolves a record from a logical cell ID.
+     * Resolves a record from a logical cell ID, through the lookup a DOM event takes, so an integer key resolves too.
      * @param {String} logicalId
      * @returns {Neo.data.Record|null}
      */
     getRecord(logicalId) {
-        let me        = this,
-            {view}    = me,
-            {store}   = view,
-            dataField = view.getDataField(logicalId),
-            // logicalId format: recordId__dataField
-            recordId  = logicalId.substring(0, logicalId.length - dataField.length - 2);
-
-        return store.get(recordId)
+        return this.view.getRecordFromLogicalId(logicalId)
     }
 
     /**
+     * Toggles the clicked cell. A model that {@link #selectsColumns} toggles the cell's column with it.
      * @param {Object} data
      */
     onCellClick(data) {
         let me                  = this,
             {view}              = me,
-            {dataField, record} = data;
+            {dataField, record} = data,
+            logicalId;
 
         // The single View-owned model listens once on the gridContainer, so each cell click is
         // processed exactly once regardless of which body fired it.
 
         if (record && dataField) {
-            me.toggleSelection(view.getLogicalCellId(record, dataField))
+            logicalId = view.getLogicalCellId(record, dataField);
+
+            me.selectsColumns && me.setSelectedColumns(me.isSelected(logicalId) ? [] : [dataField]);
+            me.toggleSelection(logicalId)
         }
     }
 
@@ -111,6 +114,7 @@ class CellModel extends BaseModel {
     }
 
     /**
+     * Moves the cell selection `step` columns along. A model that {@link #selectsColumns} moves the column with it.
      * @param {Number} step
      */
     onNavKeyColumn(step) {
@@ -118,6 +122,8 @@ class CellModel extends BaseModel {
             {dataFields, view} = me,
             {store}            = view,
             currentColumn, currentIndex, newIndex, record;
+
+        me.selectsColumns && me.stepSelectedColumn(step);
 
         if (me.hasSelection()) {
             currentColumn = view.getDataField(me.items[0]);

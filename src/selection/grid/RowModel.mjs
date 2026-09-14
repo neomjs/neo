@@ -20,7 +20,12 @@ class RowModel extends BaseModel {
          * @member {String} cls='neo-selection-rowmodel'
          * @protected
          */
-        cls: 'neo-selection-rowmodel'
+        cls: 'neo-selection-rowmodel',
+        /**
+         * @member {Boolean} selectsRows=true
+         * @protected
+         */
+        selectsRows: true
     }
 
     /**
@@ -144,33 +149,6 @@ class RowModel extends BaseModel {
         ]);
 
         super.unregister()
-    }
-
-    /**
-     * @param {Record} record
-     */
-    updateAnnotations(record) {
-        let me               = this,
-            {view}           = me,
-            {store}          = view,
-            recordId         = view.getRecordId(record),
-            isSelected       = me.isSelectedRow(recordId),
-            annotationsField = view.selectedRecordField;
-
-        if (me.singleSelect) {
-            if (isSelected) {
-                record[annotationsField] = false
-            } else {
-                me.selectedRows.forEach(recordId => {
-                    // We can use setSilent(), since the last change will trigger a view update
-                    store.get(recordId).setSilent({[annotationsField]: false})
-                });
-
-                record[annotationsField] = true
-            }
-        } else {
-            record[annotationsField] = !record[annotationsField]
-        }
     }
 }
 
