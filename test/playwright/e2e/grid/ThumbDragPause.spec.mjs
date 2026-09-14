@@ -62,6 +62,22 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
         // "pinning held throughout" from "pinning dropped and re-engaged on the next scroll event".
         await page.evaluate(() => {
             window.__PIN_SAMPLES = [];
+            window.__PIN_MARKS   = [];
+            window.__PIN_DELTAS  = [];
+
+            // #18439 probe: when each delta batch reached the main thread, what it targeted, and the
+            // scrollTop its meta pinned. `update` fires before the batch applies, in the same task.
+            window.Neo?.main?.DeltaUpdates?.on('update', data => {
+                const deltas = Array.isArray(data.deltas) ? data.deltas : [data.deltas],
+                      meta   = Object.values(data.meta || {}).find(entry => entry?.scrollTop !== undefined);
+
+                window.__PIN_DELTAS.push({
+                    t   : performance.now(),
+                    n   : deltas.length,
+                    id  : String(deltas[0]?.id || '').slice(0, 40),
+                    meta: meta ? Math.round(meta.scrollTop) : null
+                })
+            });
 
             const read = () => {
                 const body = document.querySelector('.neo-grid-body');
@@ -71,20 +87,27 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
                           wrapper     = document.querySelector('.neo-grid-view'),
                           wrapperRect = wrapper.getBoundingClientRect();
 
-                    let painted = false;
+                    let painted = false,
+                        band    = null;
 
                     if (rows.length > 0) {
                         const rowsTop    = Math.min(...rows.map(row => row.getBoundingClientRect().top)),
                               rowsBottom = Math.max(...rows.map(row => row.getBoundingClientRect().bottom));
 
                         painted = rowsBottom > wrapperRect.top && rowsTop < wrapperRect.bottom;
+                        band    = `${Math.round(rowsTop - wrapperRect.top)}..${Math.round(rowsBottom - wrapperRect.top)}`
                     }
+
+                    // #18439 probe: the pinning addon's own state beside the paint reading.
+                    const pin = window.Neo?.main?.addon?.GridRowScrollPinning?.registrations?.values().next().value;
 
                     window.__PIN_SAMPLES.push({
                         t        : performance.now(),
                         offset   : body.style.getPropertyValue('--grid-row-pin-offset') || '',
                         rowCount : rows.length,
                         painted,
+                        band,
+                        pin      : pin ? {w: Math.round(pin.workerScrollTop), a: pin.isPinningActive, d: pin.isThumbDragging} : null,
                         scrollTop: wrapper.scrollTop
                     })
                 }
@@ -100,10 +123,11 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
         // as `scrollTop` stuck at 0 through a full press-and-drag. `GridRowScrollPinning` binds
         // `mousedown` to the scrollbar NODE, so dispatching there sets `isThumbDragging` exactly as a
         // real press does, and it makes the pause provably event-free rather than merely still.
-        const jump = () => page.evaluate(() => {
+        const jump = label => page.evaluate(label => {
             const wrapper = document.querySelector('.neo-grid-view');
+            window.__PIN_MARKS.push({label, t: performance.now()});
             wrapper.scrollTop = wrapper.scrollTop + 120000
-        });
+        }, label);
 
         await page.evaluate(() => {
             const scrollbar = document.querySelector('.neo-grid-vertical-scrollbar'),
@@ -116,7 +140,7 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
 
         // --- Engage the pin BEFORE the pause, and prove it engaged. This is the ordering the
         // --- earlier revision got wrong; without it the pause lands on a pin that never existed.
-        await jump();
+        await jump('engage');
         await page.waitForTimeout(120);
 
         const engagement = await page.evaluate(() => {
@@ -150,7 +174,7 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
         // earlier revision of this spec asserted exactly there and was green against a mutation that
         // cleared `isThumbDragging` outright. Letting the worker settle first is what un-latches it,
         // and only then does the next jump actually ask whether the thumb is still held.
-        await jump();
+        await jump('resume');
 
         const settled = await page.evaluate(async () => {
             const body  = document.querySelector('.neo-grid-body'),
@@ -174,12 +198,14 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
         // The question the whole spec exists to ask: with the latch cleared, is the thumb STILL held?
         // If the pause dropped that state this jump cannot engage the pin and the pooled rows leave
         // the viewport while the worker chases a 120k-pixel move nothing is holding.
-        await jump();
+        await jump('final');
         await page.waitForTimeout(400);
 
         const afterDrag = await page.evaluate(() => {
             cancelAnimationFrame(window.__PIN_RAF);
             return {
+                deltas   : window.__PIN_DELTAS,
+                marks    : window.__PIN_MARKS,
                 samples  : window.__PIN_SAMPLES,
                 scrollTop: document.querySelector('.neo-grid-view').scrollTop
             }
@@ -219,6 +245,17 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
         // pushed clean out of the viewport while the worker chases a jump nothing is holding.
         const blankFrames = [...pauseSamples, ...postSamples].filter(sample => !sample.painted);
 
+        // #18439 probe: name every reading by the last event before it, and log the batch sequence
+        // on passing runs too, so a green repetition can be compared with a red one.
+        const marks    = [...afterDrag.marks, {label: 'pause', t: pauseStart}, {label: 'pauseEnd', t: pauseEnd}, {label: 'caughtUp', t: catchUpEnd}]
+                  .sort((a, b) => a.t - b.t),
+              since    = t => {
+                  const mark = marks.filter(entry => entry.t <= t).pop();
+                  return mark ? `${mark.label}+${Math.round(t - mark.t)}` : `start+${Math.round(t)}`
+              },
+              deltaLog = afterDrag.deltas.filter(entry => entry.t > pauseEnd).slice(0, 40)
+                  .map(entry => `${since(entry.t)} n=${entry.n} id=${entry.id} meta=${entry.meta}`).join('; ');
+
         // `painted` is false through two structurally different branches — `rowCount === 0`, meaning
         // no rows in the DOM at all, versus rows present but outside the wrapper band, the pooled
         // case above. They predict different relationships to machine speed, so a bare count cannot
@@ -233,8 +270,15 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
                 byRowCount[sample.rowCount] = (byRowCount[sample.rowCount] || 0) + 1
             });
 
-            return ` — rowCount→frames ${JSON.stringify(byRowCount)}, spanning ${Math.round(Math.max(...times) - Math.min(...times))}ms`
+            const frames = blankFrames.slice(0, 12).map(sample =>
+                `${since(sample.t)} off=${sample.offset || '-'} top=${sample.scrollTop} band=${sample.band} pin=${JSON.stringify(sample.pin)}`
+            ).join('; ');
+
+            return ` — rowCount→frames ${JSON.stringify(byRowCount)}, spanning ${Math.round(Math.max(...times) - Math.min(...times))}ms` +
+                ` | blank: ${frames} | deltas: ${deltaLog}`
         };
+
+        console.log(`[18439-probe] blank=${blankFrames.length} marks=${marks.map(mark => `${mark.label}@${Math.round(mark.t)}`).join(',')} | deltas: ${deltaLog}`);
 
         expect(blankFrames.length, `no frame blanked during or after the pause${blankFrames.length ? blankDetail() : ''}`).toBe(0)
     })
