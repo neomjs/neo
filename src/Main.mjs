@@ -438,17 +438,18 @@ class Main extends core.Base {
     }
 
     /**
-     * Imports one main thread addon module. A `WS/` name addresses the consuming workspace's own addons: the
-     * unbuilt tree keeps them three levels above the engine's `src/`, while `dist/esm` emits them into the
-     * engine's `main/addon/`, beside its own. Both specifiers stay literal, so webpack still resolves each
-     * as a context of its own.
+     * Imports one main thread addon module. A `WS/` name addresses the consuming workspace's own addons. An
+     * engine running from its installed package finds them at the workspace root, three levels above its `src/`.
+     * Only an emitted `dist/esm` engine shares a tree with them, in its own `main/addon/`. `environment` alone
+     * cannot tell the two apart: a `dist/esm` config still runs from the package when its page loads the
+     * MicroLoader there. Both specifiers stay literal, so webpack still resolves each as a context of its own.
      * @param {String} name
      * @returns {Promise<Object>}
      */
     importAddonModule(name) {
         let isWorkspaceAddon = name.startsWith('WS/');
 
-        if (isWorkspaceAddon && Neo.config.environment !== 'dist/esm') {
+        if (isWorkspaceAddon && (Neo.config.environment !== 'dist/esm' || import.meta.url.includes('/node_modules/neo.mjs/'))) {
             return import(`../../../src/main/addon/${name.substring(3)}.mjs`)
         }
 
