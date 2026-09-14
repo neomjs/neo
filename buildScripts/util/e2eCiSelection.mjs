@@ -41,11 +41,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
-    // Named individually because both siblings in `e2e/portal` are excluded below. Neither of their
-    // causes reaches this one: they fail hosted on live previews and content routing, and this arm
-    // needs neither — it boots the portal root and reads `document.body`'s theme class. The sidebar
-    // arm of `LearnLinkRoutingNL` already shows the portal itself booting on a hosted runner.
-    'test/playwright/e2e/portal/StoredThemeBoot.spec.mjs',
+    'test/playwright/e2e/portal',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs'
 ];
@@ -58,28 +54,9 @@ export const RUN_PATHS = [
  */
 export const EXCLUSIONS = [{
     path  : 'test/playwright/e2e/rendering/LivePreviewMultiWindow.spec.mjs',
-    kind  : 'partial',
-    reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. It does NOT cover everything: 3 of the 4 DEV arms, which need no build, also failed hosted while all 4 pass locally — so a build step alone would not return this file to the tier. Those 3 die on `.neo-code-live-preview` never becoming visible, and all 3 are the arms that visit `#/learn/benefits/body/FormsEngine`; the one Dev arm that never leaves the home route passes',
-    owner : 'this tier for the Dist half; @neo-opus-ada for the 3 unexplained Dev arms'
-}, {
-    path  : 'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
-    // `observed`, not `cause`: what is established is the BEHAVIOUR, not why it happens. Marking
-    // this `cause` would repeat, on the entry being diagnosed, the exact overclaim `partial` was
-    // added to stop on the entry beside it.
-    kind  : 'observed',
-    reason: 'on a hosted runner the click routes and the content has not followed within 30s — the trace shows the hash at the destination and the source `h1` still in place, with no console error and no failed request. Bounded deliberately: 30s is the longest window measured, so a slower-still arrival is not excluded, only a budget in the range anyone would wait; the sibling sidebar arm passes on the same runner',
-    owner : '@neo-opus-ada — #18422 holds the measurement; the arm is correct and the divergence is not'
-}, {
-    path  : 'test/playwright/e2e/portal/LearnMermaidRender.spec.mjs',
-    // `observed`, not `cause`: the PRECONDITION does not hold on a hosted runner. The arm now keys
-    // that precondition on an INSTANTIATED Monaco editor being visible, which is the same observable
-    // the neighbouring `LivePreviewMultiWindow` entry already measures failing hosted — an editor
-    // exists only inside a live preview. So the two entries are one condition rather than two
-    // plausibly-related ones, and they share a single return trigger. What is still NOT established
-    // is WHY live previews do not come up hosted, which is why this stays `observed`.
-    kind  : 'observed',
-    reason: 'the arm asserts its own precondition — an instantiated, visible Monaco editor, since the defect it guards is mermaid\'s UMD `define` reaching a loader that is BUSY resolving a module — and hosted, live previews do not become visible, so it would fail at the precondition rather than at the behaviour. That is the assertion working: `define.amd` is true on every portal route including the ones that render perfectly, so an arm keyed on the loader merely EXISTING passes hosted while proving nothing. Red-first was verified LOCALLY in both directions against base `87e3786673`: repointing only `main/addon/Mermaid.mjs` back at `node_modules` turns the live-preview arm red at 0/1 diagrams while the no-editor control stays green at 2/2, and restoring it returns both to green',
-    owner : '@neo-opus-ada — #18568 owns the fix this arm guards; returning it to the tier is the same trigger as the `LivePreviewMultiWindow` entry above, which #18427 is measuring'
+    kind  : 'cause',
+    reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. The 4 Dev arms pass hosted; the 3 that visit `#/learn/benefits/body/FormsEngine` had failed because its code fences waited on a highlight bundle this job did not build',
+    owner : 'this tier — the Dist half needs a production build this job does not run'
 }];
 
 /**
