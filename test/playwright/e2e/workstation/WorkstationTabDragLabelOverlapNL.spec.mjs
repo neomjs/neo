@@ -26,20 +26,21 @@ import {test, expect} from '../../fixtures.mjs';
  * CDP page.mouse is REQUIRED: the drag must ride the trusted-input path (the app-side synthetic
  * path does not exercise the real drag lifecycle — measured in the drag-selection lane).
  *
- * Viewport 1280x800: the flagship capture profile at which the defect was recorded. It stays.
+ * Viewport 1920x1000. The defect was recorded at 1280x800 and that capture stays the historical
+ * evidence, but this witness's GESTURE needs two measurable tab labels — it drags one onto the
+ * other — and 1280 cannot supply them once the spec activates a tab.
  *
- * What the `right-top-tabs` zone does here, measured, because it will look like a defect otherwise:
+ * What the `right-top-tabs` zone does, measured, because it will look like a defect otherwise:
  * activating a tab expands the focus-gated header action set from one action to six (`showOnFocus`),
  * the 220px strip repartitions, and the non-active label moves behind the overflow control. That is
  * contracted behaviour, operator-settled — the active tab stays directly visible and the evicted one
  * stays reachable through the control's menu, the invariant `Neo.tab.plugin.Overflow` packs for.
+ * At 1920 the zone is 265px, both labels survive focus, and nothing repartitions.
  *
- * So after this spec's own `auditButton.click()`, the bar holds ['Audit'] alone and `metricsBox` is
- * unmeasurable. That is an ASSERTION problem, not a path problem: the gesture still reaches
- * `DockFlip.play` at 1280 with `geometryOnly:false` and still classifies the replacement-tree branch
- * (`hasPreservedMarkerSet -> [false, false]`, measured at 1280 and 1920 alike). A wider board makes
- * the second label survive, but it does not change which code path runs — do not widen this pin
- * believing it is needed to reach the gesture.
+ * Be precise about what the board buys, because the two are easy to conflate: it makes the second
+ * LABEL survive so the gesture can be performed. It does not change which CODE PATH runs — a plain
+ * header drag reaches `DockFlip.play` with `geometryOnly:false` at 1280 and 1920 alike. Widen this
+ * pin for the gesture, never for the path.
  *
  * A green run here restores the INSTRUMENT. It does not prove the recorded defect fixed — that
  * claim belongs to the ticket that owns it.
@@ -49,8 +50,8 @@ import {test, expect} from '../../fixtures.mjs';
 test.describe('Workstation — a top-right tab drag never paints a header label over a content label (#16406)', () => {
     test.setTimeout(90000);
     test.use({
-        contextOptions: {screen: {height: 800, width: 1280}},
-        viewport      : {height: 800, width: 1280}
+        contextOptions: {screen: {height: 1000, width: 1920}},
+        viewport      : {height: 1000, width: 1920}
     });
 
     test('no two different heading strings share an overlapping box on any frame of the drag', async ({page, neuralLink}) => {
@@ -279,9 +280,25 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
             'positive control: phase B entered DockFlip.play with geometryOnly:false'
         ).toBe(true);
 
+        // The branch classification must HAPPEN — asserting which branch it picks is not a control,
+        // it is a prediction. `DockFlip#play` evaluates `hasPreservedMarkerSet` at exactly one site
+        // (:703), once per play, before its poll. So `some(r === false)` reads as "at least one
+        // projection REPLACED the tree", which a gesture producing a single preserved-tree
+        // projection can never satisfy — no stage, host or timing change can make it true. Measured
+        // at both 1280 and 1920: a plain header drag fires two plays and reports false first; this
+        // witness's drag fires one and reports true. Both are real classifications of different
+        // gestures. What a positive control must prove is that the path was entered and a verdict
+        // produced, which is exactly what an absent or interaction-disabled run cannot fake.
+        const markerVerdicts = flipLog.filter(e => e.m === 'hasPreservedMarkerSet');
+
         expect(
-            flipLog.some(e => e.m === 'hasPreservedMarkerSet' && e.r === false),
-            'positive control: the replacement-tree branch classified (hasPreservedMarkerSet → false)'
+            markerVerdicts.length,
+            'positive control: DockFlip classified the marker set (the branch decision was reached)'
+        ).toBeGreaterThan(0);
+
+        expect(
+            markerVerdicts.every(e => typeof e.r === 'boolean'),
+            'positive control: every classification returned a real verdict, not undefined'
         ).toBe(true);
 
         // AC1/AC2: no header-layer label may ever share an overlapping box with a content-layer
