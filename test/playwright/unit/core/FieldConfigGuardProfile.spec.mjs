@@ -34,10 +34,13 @@ test.afterAll(() => {
 /**
  * `Neo.create` runs `assertFieldsShadowNoConfig()` on every instance, right after `new`. The guard
  * refuses an edge case but sits on the hottest path the engine has: a nested component tree and a
- * grid construct every node through it. This profile pins its cost against the construction it
+ * grid construct every node through it. This profile reports its cost against the construction it
  * guards — interleaved samples with the guard live and stubbed, then the guard alone on the exact
- * after-new shapes it inspects. Its loop runs over the instance's own class fields; a config is a
- * prototype member and one hash probe, so the cost follows fields, never the size of `static config`.
+ * after-new shapes it inspects — and gates on how often it runs per instance, on its share of one
+ * instance, and on relations measured in the same run. A whole-construction timing ratio moves further
+ * with a shared runner's scheduling than the guard ever could, so it is reported, never asserted. Its
+ * loop runs over the instance's own class fields; a config is a prototype member and one hash probe,
+ * so the cost follows fields, never the size of `static config`.
  */
 const
     appName = 'FieldConfigGuardProfileTest',
@@ -106,20 +109,38 @@ const constructGrid = () => {
 
 /**
  * Interleaved samples of one construction with the guard live and stubbed; the arm that runs first
- * alternates per pair, so neither arm always pays for the other's garbage.
+ * alternates per pair, so neither arm always pays for the other's garbage. The first construction
+ * also counts the guard's calls against the distinct instances it registers, a tap that never runs
+ * through the guard.
  * @param {Function} construct Returns its own teardown
- * @returns {{liveMs: Number, stubbedMs: Number, overhead: Number, instances: Number}}
+ * @returns {{liveMs: Number, stubbedMs: Number, overhead: Number, instances: Number, guardCalls: Number}}
  */
 const profile = construct => {
-    const live = [], stubbed = [];
+    const {Instance} = Neo.manager,
+          live       = [],
+          register   = Instance.register,
+          registered = new Set(),
+          stubbed    = [];
 
-    let instances = 0;
+    let guardCalls = 0, teardown;
 
     core.Base.prototype.assertFieldsShadowNoConfig = function() {
-        instances++;
+        guardCalls++;
         return guard.call(this)
     };
-    construct()();
+    Instance.register = function(item) {
+        registered.add(item);
+        return register.call(this, item)
+    };
+
+    try {
+        teardown = construct()
+    } finally {
+        delete Instance.register;
+        core.Base.prototype.assertFieldsShadowNoConfig = guard
+    }
+
+    teardown();
     construct()();
 
     for (let i = 0; i < 12; i++) {
@@ -137,7 +158,7 @@ const profile = construct => {
 
     const liveMs = median(live), stubbedMs = median(stubbed);
 
-    return {liveMs, stubbedMs, overhead: liveMs / stubbedMs - 1, instances: instances / 2}
+    return {liveMs, stubbedMs, overhead: liveMs / stubbedMs - 1, instances: registered.size, guardCalls}
 };
 
 /**
@@ -193,7 +214,7 @@ test.describe.serial('FieldConfigGuardProfile', () => {
         core.Base.prototype.assertFieldsShadowNoConfig = guard
     });
 
-    test('a nested toolbar tree constructs at the same cost with the guard live and stubbed', async () => {
+    test('a nested toolbar tree runs the guard once per instance it creates', async () => {
         expect(typeof guard).toBe('function');
 
         const tree = profile(constructTree);
@@ -202,21 +223,20 @@ test.describe.serial('FieldConfigGuardProfile', () => {
 
         await report('tree', {...tree, overhead: pct(tree.overhead), usPerInstance: usPerInstance.tree.toFixed(1)});
 
-        // Measured between −0.06 % and 1.4 % on 361 to 1201 instances: sampling noise either way.
-        // The ceiling is where a regression would show in an app, not where the guard is today.
-        expect(tree.overhead, 'the guard must stay invisible against tree construction').toBeLessThan(0.1)
+        // A count a runner cannot move: a guard that runs twice, or not at all, changes it exactly.
+        expect(tree.instances, 'the tree registers the instances it creates').toBeGreaterThan(0);
+        expect(tree.guardCalls, 'the guard runs once per instance the tree creates').toBe(tree.instances)
     });
 
-    test('a grid — instances carrying up to a hundred configs — constructs at the same cost with the guard live and stubbed', async () => {
+    test('a grid — instances carrying up to a hundred configs — runs the guard once per instance it creates', async () => {
         const grid = profile(constructGrid);
 
         usPerInstance.grid = grid.stubbedMs * 1000 / grid.instances;
 
         await report('grid', {...grid, overhead: pct(grid.overhead), usPerInstance: usPerInstance.grid.toFixed(1)});
 
-        // 44 instances per grid; measured at 1.0 % creation-only and 0.07 % through initVnode with the
-        // arm order alternating — the arithmetic bound of 44 calls is 0.1 %.
-        expect(grid.overhead, 'the guard must stay invisible against grid construction').toBeLessThan(0.1)
+        expect(grid.instances, 'the grid registers the instances it creates').toBeGreaterThan(0);
+        expect(grid.guardCalls, 'the guard runs once per instance the grid creates').toBe(grid.instances)
     });
 
     test('the guard alone follows own fields, never the size of static config', async () => {
@@ -246,8 +266,9 @@ test.describe.serial('FieldConfigGuardProfile', () => {
         // 5 configs over 30 fields cost ~840 ns — about 27 ns per own field, nothing per config.
         expect(buttonNs / (usPerInstance.tree * 1000), 'the guard as a share of one tree instance').toBeLessThan(0.01);
         expect(gridNs   / (usPerInstance.grid * 1000), 'the guard as a share of one grid instance').toBeLessThan(0.01);
-        expect(synthetic.manyConfigsFewFields.ns,  '200 configs over 4 fields').toBeLessThan(1000);
-        expect(synthetic.manyConfigsManyFields.ns, '200 configs over 30 fields').toBeLessThan(5000);
+        // Relations within one run, so the runner's speed cancels: own fields price the guard, configs do not.
+        expect(synthetic.manyConfigsFewFields.ns,  'at the same config count, 4 own fields cost less than 30')
+            .toBeLessThan(synthetic.manyConfigsManyFields.ns);
         expect(synthetic.manyConfigsFewFields.ns,  'configs do not price the guard; fields do')
             .toBeLessThan(synthetic.fewConfigsManyFields.ns)
     });
