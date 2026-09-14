@@ -29,13 +29,13 @@ const AMD_SHIM = '__neoMermaidNoAmd';
  * @summary Bundles mermaid so its UMD wrappers cannot register into another AMD loader.
  *
  * @description
- * `main.addon.MonacoEditor` installs Monaco's AMD loader, and the portal preloads that addon, so a
- * global `define` is live on every route. Mermaid's published chunks carry vendored UMD wrappers —
- * `fastdom` among them — which branch on `typeof define` and hand it an ANONYMOUS factory. Monaco's
- * loader refuses that with `Can only have one anonymous define call per script file`, the library
- * never finishes loading, and every diagram on the page fails.
+ * Mermaid's published chunks carry vendored UMD wrappers — `fastdom` among them — which branch on
+ * `typeof define` and hand any global AMD loader an ANONYMOUS factory. The loader refuses that with
+ * `Can only have one anonymous define call per script file`, the library never finishes loading, and
+ * every diagram on the page fails. Monaco's AMD distribution put such a loader on every portal
+ * route; a consumer's page can carry its own.
  *
- * Checking `define.amd` does not save those wrappers: Monaco's `define` HAS `.amd`, so the guarded
+ * Checking `define.amd` does not save those wrappers: a loader's `define` HAS `.amd`, so the guarded
  * majority take the AMD branch exactly like the unguarded pair does.
  *
  * Bundling from the package entry rather than copying `dist/` is what makes this durable. esbuild
@@ -71,8 +71,8 @@ const build = async () => {
 
         // The guard, and it runs on the ARTIFACT rather than on the intent. A future mermaid version
         // can introduce a wrapper shape the substitution misses, and the failure mode is silent:
-        // diagrams keep working everywhere Monaco is absent, so the tier stays green and only a
-        // route with a live editor breaks. Refusing the build is the only place that is cheap to see.
+        // diagrams keep working on every page without an AMD loader, so the tier stays green and only
+        // a page that carries one breaks. Refusing the build is the only place that is cheap to see.
         const emitted = fs.readFileSync(outfile, 'utf8'),
               hits    = emitted.match(/\btypeof define\b|[^\w.]define\s*\(/g) || [];
 

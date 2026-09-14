@@ -35,10 +35,9 @@ class Mermaid extends Base {
         /**
          * OUR build of mermaid, not the published one.
          *
-         * `main.addon.MonacoEditor` installs Monaco's AMD loader and the portal preloads that addon,
-         * so a global `define` is live on every route. Mermaid's published chunks carry vendored UMD
-         * wrappers — `fastdom` among them — which hand that loader an ANONYMOUS factory and get
-         * refused with `Can only have one anonymous define call per script file`.
+         * Mermaid's published chunks carry vendored UMD wrappers — `fastdom` among them — which hand
+         * any global AMD loader an ANONYMOUS factory and get refused with `Can only have one anonymous
+         * define call per script file`. Monaco's AMD distribution put such a loader on every portal route.
          *
          * Switching the entry from the UMD bundle to the published ESM one removed the registration
          * at LOAD time and left it at first RENDER, because the 30 KB entry lazily imports 206

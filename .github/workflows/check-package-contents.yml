@@ -14,6 +14,7 @@ on:
       - 'buildScripts/util/check-package-contents.mjs'
       - 'buildScripts/build/parse5.mjs'
       - 'buildScripts/build/marked.mjs'
+      - 'buildScripts/build/monaco.mjs'
       - '.github/workflows/check-package-contents.yml'
   push:
     branches: [dev]
@@ -23,6 +24,7 @@ on:
       - 'buildScripts/util/check-package-contents.mjs'
       - 'buildScripts/build/parse5.mjs'
       - 'buildScripts/build/marked.mjs'
+      - 'buildScripts/build/monaco.mjs'
       - '.github/workflows/check-package-contents.yml'
 
 concurrency:

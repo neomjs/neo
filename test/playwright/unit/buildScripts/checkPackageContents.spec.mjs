@@ -22,6 +22,8 @@ import {REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-cont
  * Read from the registry; whether it names the files the loader requests is `unit/util/HighlightJs.spec.mjs`'s question.
  */
 const HIGHLIGHT_BUNDLES = REQUIRED_ENTRIES.map(rule => rule.path).filter(entry => entry.startsWith('dist/highlight/'));
+/** The same shape for Monaco's build; whether it names the files the addon requests is `component/wrapper/MonacoEditor.spec.mjs`'s question. */
+const MONACO_BUNDLE = REQUIRED_ENTRIES.map(rule => rule.path).filter(entry => entry.startsWith('dist/monaco/'));
 
 /**
  * Every shipped bundle's packed path, minus the one an arm deliberately omits.
@@ -34,7 +36,8 @@ const HIGHLIGHT_BUNDLES = REQUIRED_ENTRIES.map(rule => rule.path).filter(entry =
  */
 const shippedExcept = omit => [
     ...BROWSER_BUNDLES.filter(name => name !== omit).map(name => `dist/${name}.mjs`),
-    ...(omit === 'highlight' ? [] : HIGHLIGHT_BUNDLES)
+    ...(omit === 'highlight' ? [] : HIGHLIGHT_BUNDLES),
+    ...(omit === 'monaco' ? [] : MONACO_BUNDLE)
 ];
 
 test.describe('check-package-contents — fires on private state, not on the tracked carve-out', () => {
@@ -238,6 +241,17 @@ test.describe('check-package-contents — a required entry cannot be silently dr
         expect(include).toBeGreaterThan(-1);
         expect(exclude).toBeGreaterThan(include);
         HIGHLIGHT_BUNDLES.forEach(entry => expect(lines.indexOf(`!/${entry}`), entry).toBeGreaterThan(exclude))
+    });
+
+    test('the Monaco build ships its whole directory, which the per-name arms above cannot see', () => {
+        // Every file the build emits is loaded, so unlike highlight nothing inside is excluded again:
+        // re-including the directory after `/dist/*` is the whole rule.
+        const lines = fs.readFileSync(new URL('../../../../.npmignore', import.meta.url), 'utf8').split('\n').map(line => line.trim());
+
+        expect(MONACO_BUNDLE.length, 'the registry names the Monaco files').toBeGreaterThan(0);
+        expect(findMissingEntries(shippedExcept('monaco')).map(entry => entry.path)).toEqual(MONACO_BUNDLE);
+        expect(lines.indexOf('!/dist/monaco/')).toBeGreaterThan(lines.indexOf('/dist/*'));
+        expect(lines.filter(line => line.startsWith('/dist/monaco/')), 'nothing inside is excluded again').toEqual([])
     });
 
     test('every required entry carries a reason, because the failure message is the whole product', () => {

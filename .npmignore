@@ -79,6 +79,9 @@ resources/content/
 !/dist/parse5.mjs
 !/dist/marked.mjs
 !/dist/mermaid.mjs
+# `main.addon.MonacoEditor` loads every file in this directory: the editor, its stylesheet and font, and
+# its workers. monaco-editor and esbuild are both devDependencies.
+!/dist/monaco/
 # `src/util/HighlightJs.mjs` imports one of these two bundles, chosen by its public `debug` config, so both
 # ship. Re-include the directory, exclude its contents, re-include each file — the `/dist/*` shape above,
 # one level down.

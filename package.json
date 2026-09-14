@@ -23,9 +23,10 @@
         "build-highlightjs"                    : "node ./buildScripts/build/highlightJs.mjs",
         "build-themes"                         : "node ./buildScripts/build/themes.mjs -f",
         "build-threads"                        : "node ./buildScripts/webpack/buildThreads.mjs -f",
-        "bundle-browser-deps"                  : "npm run bundle-parse5 && npm run bundle-marked && npm run bundle-mermaid && npm run build-highlightjs",
+        "bundle-browser-deps"                  : "npm run bundle-parse5 && npm run bundle-marked && npm run bundle-mermaid && npm run bundle-monaco && npm run build-highlightjs",
         "bundle-marked"                        : "node ./buildScripts/build/marked.mjs",
         "bundle-mermaid"                       : "node ./buildScripts/build/mermaid.mjs",
+        "bundle-monaco"                        : "node ./buildScripts/build/monaco.mjs",
         "bundle-parse5"                        : "node ./buildScripts/build/parse5.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-engine-brain-boundary"          : "node ./buildScripts/util/check-engine-brain-boundary.mjs",
@@ -137,6 +138,9 @@
     "overrides": {
         "gray-matter": {
             "js-yaml": "^3.15.2"
+        },
+        "monaco-editor": {
+            "dompurify": "^3.4.13"
         }
     },
     "funding": {
