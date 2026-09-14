@@ -97,15 +97,11 @@ const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
 
 export const test = base.extend({
     /**
-     * @summary Fails a test whose page received a mirrored worker error or threw, unless the test
-     * named that error first.
+     * @summary Fails a test whose page received a mirrored worker error or an uncaught page error,
+     * unless the test named it with `workerErrors.expect(RegExp)` (non-global).
      *
-     * A worker error that a component catches and logs fails nothing else, so without this reader it
-     * ships with every check green. The mirror puts such lines on the page; this fixture reads them
-     * for every test that imports `test` from here, and needs no Brain checkout.
-     *
-     * A test that raises an error on purpose names it with a non-global RegExp, and can wait for it
-     * through `lines`.
+     * A worker error that a component catches and logs fails nothing else; this reads the mirrored
+     * lines for every test that imports `test` from here. `lines` lets a test wait for its own error.
      */
     workerErrors: [async ({page}, use) => {
         const expected = [],

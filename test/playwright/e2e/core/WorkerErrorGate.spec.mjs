@@ -1,16 +1,9 @@
 import {expect, test} from '../../fixtures.mjs';
 
 /**
- * `fixtures.mjs#workerErrors` has two outcomes for each of its two sources, and each arm below
- * produces exactly one of them.
- *
- * `test.fail()` marks the arms whose test must fail, so Playwright reports them green only when the
- * gate actually failed them. Each rests on a passing arm for the same source: that arm proves a
- * provoked error really reaches the gate, so an expected failure cannot come from a channel that
- * delivered nothing.
- *
- * The worker trigger is page-only and benign. App-worker `loadModule` of a path that does not exist
- * logs at `error` level and returns a receipt instead of throwing, and the receipt proves it ran.
+ * `fixtures.mjs#workerErrors`, one arm per outcome and source. The `test.fail()` arms pass only when
+ * the gate failed them, and each sits beside a passing arm proving its error reaches the gate. The
+ * worker trigger is benign: App-worker `loadModule` of a missing path logs and returns a receipt.
  */
 const APP = '/examples/stateProvider/multiWindow/index.html';
 
