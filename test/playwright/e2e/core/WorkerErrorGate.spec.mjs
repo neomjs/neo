@@ -64,7 +64,7 @@ test.describe('the worker error gate', () => {
     });
 
     test('a page error the test names passes', async ({page, workerErrors}) => {
-        workerErrors.expect(/^pageerror: worker error gate: page probe$/);
+        workerErrors.expect(/^pageerror: worker error gate: page probe(\n|$)/);
 
         await provokePageError(page, workerErrors)
     });

@@ -111,7 +111,8 @@ export const test = base.extend({
             message.type() === 'error' && MIRRORED_WORKER_ERROR.test(message.text()) && seen.push(message.text())
         });
 
-        page.on('pageerror', error => seen.push(`pageerror: ${error.message}`));
+        // The stack frames follow the message, as on a mirrored worker line, so a CI failure names its source
+        page.on('pageerror', ({message, stack}) => seen.push([`pageerror: ${message}`, ...(stack?.split('\n').slice(1) || [])].join('\n')));
 
         await use({
             expect: pattern => expected.push(pattern),
@@ -533,7 +534,7 @@ export const test = base.extend({
                     /**
                      * Drives one complete Engine-owned Mouse gesture and returns its physical
                      * lifecycle receipt. This fixture calls the raw Engine RPC directly so Engine
-                     * whitebox coverage does not depend on the blocked Brain MCP tool (#204).
+                     * whitebox coverage does not depend on the Brain MCP tool.
                      * @param {Object} request The `drive_drag` request object.
                      * @returns {Promise<Object>}
                      */
