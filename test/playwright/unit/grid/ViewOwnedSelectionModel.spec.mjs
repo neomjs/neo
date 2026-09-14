@@ -50,12 +50,13 @@ const columns = [
     {dataField: 'col5', text: 'C5', width: 100}
 ];
 
-// `flag` stands in for the selected-record field a View can be told to follow
-const createStore = (flagged = []) => Neo.create(Store, {
+// `flag` stands in for the selected-record field a View can be told to follow; `key` maps a row index to its
+// business key, an Integer unless it returns strings
+const createStore = (flagged = [], key = i => i) => Neo.create(Store, {
     keyProperty: 'id',
-    data       : [0, 1, 2, 3, 4].map(i => ({id: i, flag: flagged.includes(i), col1: `C1-${i}`, col2: `C2-${i}`, col3: `C3-${i}`, col4: `C4-${i}`, col5: `C5-${i}`})),
+    data       : [0, 1, 2, 3, 4].map(i => ({id: key(i), flag: flagged.includes(i), col1: `C1-${i}`, col2: `C2-${i}`, col3: `C3-${i}`, col4: `C4-${i}`, col5: `C5-${i}`})),
     model      : {fields: [
-        {name: 'id', type: 'Integer'}, {name: 'flag', type: 'Boolean'},
+        {name: 'id', type: Neo.isString(key(0)) ? 'String' : 'Integer'}, {name: 'flag', type: 'Boolean'},
         ...['col1', 'col2', 'col3', 'col4', 'col5'].map(name => ({name, type: 'String'}))
     ]}
 });
@@ -435,5 +436,65 @@ test.describe('Grid selection: the View follows the store and owns the lifecycle
 
         expect(model.isDestroyed).toBe(true);
         expect(Neo.manager.Instance.getById(model.id), 'gone from the instance manager').toBeFalsy()
+    })
+});
+
+test.describe('Grid selection: a cell click as the DOM delivers it', () => {
+    let grid, store;
+
+    // a cell click as the DOM delivers it to a body: its dataset carries the field and the record id, as strings
+    const clickCell = (body, recordId, dataField) => body.onCellClick({
+        currentTarget: body.getRow(body.store.get(recordId)).getCellId(dataField),
+        path         : [{data: {field: dataField, recordId: String(recordId)}}]
+    });
+
+    // the record ids each body has rendered as selected: the flushed vnode, which a silent VDOM write does not reach
+    const flushedRows = grid => bodiesOf(grid).map(body =>
+        body.items.filter(row => row.vnode?.className?.includes('neo-selected')).map(row => row.record?.id).sort()
+    );
+
+    test.afterEach(async () => {
+        await grid?.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+        grid = store = null
+    });
+
+    test('a cell model resolves an integer key from the string dataset id: the click selects the cell, a second click clears it', async () => {
+        for (const module of [CellModel, CellRowModel]) {
+            store = createStore();
+            grid  = await createGrid(store, {viewConfig: {selectionModel: {module}}});
+
+            await renderRows(grid);
+
+            const model  = grid.view.selectionModel,
+                  cellId = grid.view.getLogicalCellId(store.get(1), 'col1');
+
+            clickCell(grid.body, 1, 'col1');
+            await grid.timeout(20);
+            expect(model.isSelected(cellId), `${module.name} selects the clicked cell`).toBe(true);
+
+            clickCell(grid.body, 1, 'col1');
+            await grid.timeout(20);
+            expect(model.isSelected(cellId), `${module.name} clears it on the second click`).toBe(false);
+
+            grid.destroy();
+            store.destroy()
+        }
+    });
+
+    test('the combined model renders the clicked record\'s row in every body, and moves it with the next click', async () => {
+        store = createStore([], i => `r${i}`);
+        grid  = await createGrid(store, {viewConfig: {selectionModel: {module: CellColumnRowModel}}});
+
+        await renderRows(grid);
+
+        clickCell(grid.body, 'r1', 'col1');
+        await grid.timeout(20);
+        expect(flushedRows(grid), 'start, center and end all render the row').toEqual([['r1'], ['r1'], ['r1']]);
+
+        clickCell(grid.bodyStart, 'r2', 'col3');
+        await grid.timeout(20);
+        expect(flushedRows(grid), 'the next click moves it in every body').toEqual([['r2'], ['r2'], ['r2']])
     })
 });

@@ -86,7 +86,8 @@ const paintedColumns = (grid, cls) => [...new Set(grid.body.items.flatMap(row =>
 ))].sort();
 
 /**
- * A cell click as the DOM delivers it to a body: the cell's id, and a path carrying its field and record.
+ * A cell click as the DOM delivers it to a body: the cell's id, and a path whose dataset carries the field and
+ * the record id. A dataset holds strings only, so the integer key arrives as one.
  * @param {Neo.grid.Container} grid
  * @param {Number} recordId
  * @param {String} dataField
@@ -96,7 +97,7 @@ const clickCell = (grid, recordId, dataField) => {
 
     grid.body.onCellClick({
         currentTarget: row.getCellId(dataField),
-        path         : [{data: {field: dataField, recordId}}]
+        path         : [{data: {field: dataField, recordId: String(recordId)}}]
     })
 };
 

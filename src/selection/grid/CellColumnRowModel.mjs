@@ -29,7 +29,8 @@ class CellColumnRowModel extends CellRowModel {
     }
 
     /**
-     * Selects the clicked cell's column, or clears it when that cell is the one already selected.
+     * Selects the clicked cell's column, or clears it when that cell is the one already selected. `CellRowModel`
+     * writes the row selection silently and only the clicked cell's body updates, so the row is flushed in every body.
      * @param {Object} data
      */
     onCellClick(data) {
@@ -40,7 +41,9 @@ class CellColumnRowModel extends CellRowModel {
             me.setSelectedColumns(me.isSelected(me.view.getLogicalCellId(record, dataField)) ? [] : [dataField])
         }
 
-        super.onCellClick(data)
+        super.onCellClick(data);
+
+        record && me.view.bodies.forEach(body => body.getRow(record)?.update())
     }
 
     /**
