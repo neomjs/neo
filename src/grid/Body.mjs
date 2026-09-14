@@ -3,6 +3,7 @@ import Collection      from '../collection/Base.mjs';
 import Performance     from '../util/Performance.mjs';
 import Row             from './Row.mjs';
 import VDomUtil        from '../util/VDom.mjs';
+import VNodeUtil       from '../util/VNode.mjs';
 import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
 /**
@@ -695,10 +696,19 @@ class GridBody extends Component {
         } else if (delta < 0) {
             // Self-Healing: Destroy excess rows to free memory and VDOM overhead.
             // This restores performance if the buffer is reduced after being large.
-            for (i = current - 1; i >= needed; i--) {
-                me.items[i].destroy();
-                me.items.pop()
+            const retired = me.items.splice(needed);
+
+            // A retired row sends no update of its own, so its DOM node and the reference in the stored vnode
+            // leave together. Otherwise an ancestor update landing before this body's next one walks the stored
+            // vnode strictly (`util.VNode#createMap`) and fails on the destroyed row.
+            if (me.vnode) {
+                const rendered = retired.filter(row => row.vnode);
+
+                rendered.length && Neo.applyDeltas(me.windowId, rendered.map(row => ({action: 'removeNode', id: row.vdom.id})))
             }
+
+            retired.forEach(row => row.destroy());
+            me.vnode && VNodeUtil.pruneRetiredReferences(me.vnode)
         }
 
         // Fixed-DOM-Order Strategy:
