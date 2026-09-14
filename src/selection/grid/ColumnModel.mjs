@@ -20,7 +20,12 @@ class ColumnModel extends BaseModel {
          * @member {String} cls='neo-selection-columnmodel'
          * @protected
          */
-        cls: 'neo-selection-columnmodel'
+        cls: 'neo-selection-columnmodel',
+        /**
+         * @member {Boolean} selectsColumns=true
+         * @protected
+         */
+        selectsColumns: true
     }
 
     /**

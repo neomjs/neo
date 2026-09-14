@@ -20,7 +20,12 @@ class CellRowModel extends CellModel {
          * @member {String} cls='neo-selection-cellrowmodel'
          * @protected
          */
-        cls: 'neo-selection-cellrowmodel'
+        cls: 'neo-selection-cellrowmodel',
+        /**
+         * @member {Boolean} selectsRows=true
+         * @protected
+         */
+        selectsRows: true
     }
 
     /**

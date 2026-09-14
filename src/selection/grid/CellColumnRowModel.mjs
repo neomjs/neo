@@ -25,33 +25,25 @@ class CellColumnRowModel extends CellRowModel {
          * @member {String} selectedColumnCellCls='selected-column-cell'
          * @protected
          */
-        selectedColumnCellCls: 'selected-column-cell'
+        selectedColumnCellCls: 'selected-column-cell',
+        /**
+         * @member {Boolean} selectsColumns=true
+         * @protected
+         */
+        selectsColumns: true
     }
 
     /**
-     * Selects the clicked cell's column, or clears it when that cell is the one already selected. `CellRowModel`
-     * writes the row selection silently and only the clicked cell's body updates, so the row is flushed in every body.
+     * `CellRowModel` writes the row selection silently and only the clicked cell's body updates, so the row is
+     * flushed in every body.
      * @param {Object} data
      */
     onCellClick(data) {
-        let me                  = this,
-            {dataField, record} = data;
-
-        if (dataField && record) {
-            me.setSelectedColumns(me.isSelected(me.view.getLogicalCellId(record, dataField)) ? [] : [dataField])
-        }
+        let {record} = data;
 
         super.onCellClick(data);
 
-        record && me.view.bodies.forEach(body => body.getRow(record)?.update())
-    }
-
-    /**
-     * @param {Number} step
-     */
-    onNavKeyColumn(step) {
-        this.stepSelectedColumn(step);
-        super.onNavKeyColumn(step)
+        record && this.view.bodies.forEach(body => body.getRow(record)?.update())
     }
 }
 

@@ -40,7 +40,26 @@ class BaseModel extends Model {
             clone         : 'shallow',
             cloneOnGet    : 'none',
             value         : []
-        }
+        },
+        /**
+         * True for a model that selects cells: the View hands it the cell ids to paint.
+         * @member {Boolean} selectsCells=false
+         * @protected
+         */
+        selectsCells: false,
+        /**
+         * True for a model that selects columns. A cell model that does toggles the clicked cell's column with
+         * the cell, and steps it with arrow navigation.
+         * @member {Boolean} selectsColumns=false
+         * @protected
+         */
+        selectsColumns: false,
+        /**
+         * True for a model that selects rows: the View paints its rows and follows `selectedRecordField` through it.
+         * @member {Boolean} selectsRows=false
+         * @protected
+         */
+        selectsRows: false
     }
 
     /**
@@ -52,120 +71,142 @@ class BaseModel extends Model {
     }
 
     /**
-     * Updates the visual state (selection class) of specific rows or cells without triggering a full Body update.
+     * Updates the visual state (selection class) of specific rows without triggering a full Body update.
      *
      * This method implements the **Granular Update** strategy:
-     * 1.  It iterates over the provided items (logical cell IDs or record IDs).
+     * 1.  It iterates over the provided record IDs.
      * 2.  It resolves the corresponding `Neo.grid.Row` component.
-     * 3.  It inspects the **current VDOM state** of the target node (row or cell).
+     * 3.  It inspects the **current VDOM state** of the row.
      * 4.  It ONLY mutates the VDOM and triggers `row.update()` if the selection state has actually changed.
      *
      * This ensures O(1) performance for selection operations, regardless of grid size, and eliminates redundant VDOM traffic.
+     * Each caller knows whether it holds record IDs or logical cell IDs, so cells take {@link #updateCells} and no ID is
+     * parsed for its kind: a record key containing `__` is still a row.
      *
-     * @param {Object[]|String[]} items - Array of Record IDs (for RowModel) or Logical Cell IDs (for CellModel).
+     * @param {Number|String|Number[]|String[]} recordIds
      * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
      */
-    updateRows(items, silent=false) {
-        if (!items || items.length === 0) return;
+    updateRows(recordIds, silent=false) {
+        if (!recordIds || recordIds.length === 0) return;
 
-        if (!Array.isArray(items)) {
-            items = [items]
+        if (!Array.isArray(recordIds)) {
+            recordIds = [recordIds]
         }
 
-        // The single View-owned model spans bodyStart/body/bodyEnd directly: each record/cell is
+        // The single View-owned model spans bodyStart/body/bodyEnd directly: each record is
         // toggled in every body that renders it.
-        this.view.bodies.forEach(body => this.updateBodyRows(body, items, silent))
+        this.view.bodies.forEach(body => this.updateBodyRows(body, recordIds, silent))
     }
 
     /**
-     * Granular per-body selection-state update — the body-scoped half of {@link #updateRows}.
+     * Granular per-body row selection-state update — the body-scoped half of {@link #updateRows}.
      *
-     * Resolves each Record ID / Logical Cell ID to its `Neo.grid.Row` within the given body and
-     * toggles the selection class only when the state actually changed (O(1) VDOM traffic). The single
-     * View-owned model invokes this for each body, replacing the former per-body model fan-out.
+     * Resolves each Record ID to its `Neo.grid.Row` within the given body and toggles the selection class
+     * only when the state actually changed (O(1) VDOM traffic). The single View-owned model invokes this
+     * for each body, replacing the former per-body model fan-out.
      *
      * @param {Neo.grid.Body} body
-     * @param {Object[]|String[]} items - Array of Record IDs (RowModel) or Logical Cell IDs (CellModel).
+     * @param {Number[]|String[]} recordIds
      * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
      */
-    updateBodyRows(body, items, silent=false) {
+    updateBodyRows(body, recordIds, silent=false) {
         let me        = this,
             {store}   = body,
             processed = new Set();
 
-        items.forEach(item => {
+        recordIds.forEach(recordId => {
             let hasChanged = false,
-                isCell     = item.toString().includes('__'),
-                recordId, row;
+                record, row;
 
-            if (isCell) {
-                // item is a logical ID: recordId__dataField
-                // We resolve the record to find the row.
-                let record = body.getRecordFromLogicalId(item);
+            if (!processed.has(recordId)) {
+                processed.add(recordId);
+                record = store.get(recordId);
+
                 if (record) {
                     row = body.getRow(record);
 
-                    if (row && !processed.has(item)) {
-                        processed.add(item); // Process each logical cell only once per batch
+                    if (row) {
+                        let isSelected    = me.isSelectedRow(recordId),
+                            alreadySelect = row.vdom.cls?.includes(me.selectedCls);
 
-                        // Find the cell node in the row's VDOM
-                        let dataField     = body.getDataField(item),
-                            cellNode      = row.vdom.cn.find(n => n.data?.field === dataField),
-                            shouldSelect  = me.isSelected(item),
-                            alreadySelect = cellNode?.cls?.includes(me.selectedCls);
+                        if (isSelected !== alreadySelect) {
+                            // Mutate VDOM directly: Toggle selection class on the row
+                            NeoArray[isSelected ? 'add' : 'remove'](row.vdom.cls, me.selectedCls);
 
-                        if (cellNode && shouldSelect !== alreadySelect) {
-                            // Mutate VDOM directly: Toggle selection class
-                            NeoArray[shouldSelect ? 'add' : 'remove'](cellNode.cls, me.selectedCls);
-
-                            if (shouldSelect) {
-                                cellNode['aria-selected'] = true
+                            if (isSelected) {
+                                row.vdom['aria-selected'] = true
                             } else {
-                                delete cellNode['aria-selected']
+                                delete row.vdom['aria-selected']
                             }
 
                             hasChanged = true
                         }
 
-                        // We must trigger the update on the row to flush the VDOM change
                         if (hasChanged && !silent) {
                             row.update()
                         }
                     }
                 }
-            } else {
-                // item is a recordId (RowModel)
-                recordId = item;
+            }
+        })
+    }
 
-                if (!processed.has(recordId)) {
-                    processed.add(recordId);
-                    let record = store.get(recordId);
+    /**
+     * The cell half of {@link #updateRows}: the same granular update for logical cell IDs (`recordId__dataField`).
+     * @param {String|String[]} logicalIds
+     * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
+     */
+    updateCells(logicalIds, silent=false) {
+        if (!logicalIds || logicalIds.length === 0) return;
 
-                    if (record) {
-                        row = body.getRow(record);
+        if (!Array.isArray(logicalIds)) {
+            logicalIds = [logicalIds]
+        }
 
-                        if (row) {
-                            let isSelected    = me.isSelectedRow(recordId),
-                                alreadySelect = row.vdom.cls?.includes(me.selectedCls);
+        this.view.bodies.forEach(body => this.updateBodyCells(body, logicalIds, silent))
+    }
 
-                            if (isSelected !== alreadySelect) {
-                                // Mutate VDOM directly: Toggle selection class on the row
-                                NeoArray[isSelected ? 'add' : 'remove'](row.vdom.cls, me.selectedCls);
+    /**
+     * The body-scoped half of {@link #updateCells}: resolves each logical cell ID to its row within the given
+     * body, and toggles the cell's selection class only when the state actually changed.
+     * @param {Neo.grid.Body} body
+     * @param {String[]} logicalIds
+     * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
+     */
+    updateBodyCells(body, logicalIds, silent=false) {
+        let me        = this,
+            processed = new Set();
 
-                                if (isSelected) {
-                                    row.vdom['aria-selected'] = true
-                                } else {
-                                    delete row.vdom['aria-selected']
-                                }
+        logicalIds.forEach(logicalId => {
+            let hasChanged = false,
+                record     = body.getRecordFromLogicalId(logicalId),
+                row        = record && body.getRow(record);
 
-                                hasChanged = true
-                            }
+            if (row && !processed.has(logicalId)) {
+                processed.add(logicalId); // Process each logical cell only once per batch
 
-                            if (hasChanged && !silent) {
-                                row.update()
-                            }
-                        }
+                // Find the cell node in the row's VDOM
+                let dataField     = body.getDataField(logicalId),
+                    cellNode      = row.vdom.cn.find(n => n.data?.field === dataField),
+                    shouldSelect  = me.isSelected(logicalId),
+                    alreadySelect = cellNode?.cls?.includes(me.selectedCls);
+
+                if (cellNode && shouldSelect !== alreadySelect) {
+                    // Mutate VDOM directly: Toggle selection class
+                    NeoArray[shouldSelect ? 'add' : 'remove'](cellNode.cls, me.selectedCls);
+
+                    if (shouldSelect) {
+                        cellNode['aria-selected'] = true
+                    } else {
+                        delete cellNode['aria-selected']
                     }
+
+                    hasChanged = true
+                }
+
+                // We must trigger the update on the row to flush the VDOM change
+                if (hasChanged && !silent) {
+                    row.update()
                 }
             }
         })
@@ -185,7 +226,7 @@ class BaseModel extends Model {
         me.view.silentSelect = false;
 
         if (!silent) {
-            me.updateRows(item)
+            me.updateCells(item)
         }
     }
 
@@ -201,7 +242,7 @@ class BaseModel extends Model {
         super.deselectAll(silent, itemCollection);
         me.view.silentSelect = false;
 
-        me.updateRows(items)
+        me.updateCells(items)
     }
 
     /**
@@ -216,7 +257,7 @@ class BaseModel extends Model {
         super.select(items, itemCollection, selectedCls);
         me.view.silentSelect = false;
 
-        me.updateRows(items)
+        me.updateCells(items)
     }
 
     /**
@@ -461,6 +502,35 @@ class BaseModel extends Model {
         }
 
         super.unregister()
+    }
+
+    /**
+     * Toggles the record's `selectedRecordField` flag, and the View selects the row from it. On the base, so the
+     * cell-row models inherit it along with {@link #hasAnnotations}.
+     * @param {Record} record
+     */
+    updateAnnotations(record) {
+        let me               = this,
+            {view}           = me,
+            {store}          = view,
+            recordId         = view.getRecordId(record),
+            isSelected       = me.isSelectedRow(recordId),
+            annotationsField = view.selectedRecordField;
+
+        if (me.singleSelect) {
+            if (isSelected) {
+                record[annotationsField] = false
+            } else {
+                me.selectedRows.forEach(recordId => {
+                    // We can use setSilent(), since the last change will trigger a view update
+                    store.get(recordId).setSilent({[annotationsField]: false})
+                });
+
+                record[annotationsField] = true
+            }
+        } else {
+            record[annotationsField] = !record[annotationsField]
+        }
     }
 
     /**
