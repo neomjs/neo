@@ -74,10 +74,6 @@ const EXTERNAL_INIT_CALL = /(?<!(?<![$\w])super)\.initAsync\s*(\?\.)?\s*\(/;
 // Same token-boundary requirement — `notthis._initPromise` is not owner-internal access.
 const INIT_PROMISE_REACH_IN = /(?<!(?<![$\w])this)\._initPromise/;
 
-// The declaration form itself. Removed from a line before classification rather than exempting the
-// whole line — see `violationLabel`. Global, so it is only ever used with `replace`, never `test`.
-const DECLARATION = /async\s+initAsync\s*\([^)]*\)/g;
-
 // The permanent regex falsifiers: every syntax variant that MUST flag, and every legitimate form
 // that MUST pass. A future pattern change that un-catches a variant fails here — the tree can be
 // at zero while the regex is wrong, and this is the test that knows.
@@ -98,7 +94,11 @@ const MUST_FLAG = [
     'async initAsync() { await service._initPromise; }',
     // Identifiers that merely END in the exempt receiver's characters.
     'await mysuper.initAsync();',
-    'await notthis._initPromise;'
+    'await notthis._initPromise;',
+    // Forbidden operations inside a PARAMETER DEFAULT — the hole the signature strip opened while
+    // closing the whole-line one. Two different declaration exemptions, both swallowing these.
+    'async initAsync(value = service.initAsync()) {}',
+    'async initAsync(value = service._initPromise) {}'
 ];
 
 const MUST_PASS = [
@@ -166,19 +166,19 @@ function violationLabel(line) {
         return null
     }
 
-    // A declaration is the contract, so it is REMOVED from the line rather than exempting the line.
-    // The whole-line exemption this replaces read `line.includes('async initAsync(')` and therefore
-    // waved through `async initAsync() { await service.initAsync(); }` — the declaration made the
-    // line legitimate while a separate external call sat on it, which is the operation the guard
-    // exists to catch. Stripping keeps a bare declaration passing and leaves everything else on the
-    // line visible to the patterns.
-    const code = line.replace(DECLARATION, '');
-
-    if (EXTERNAL_INIT_CALL.test(code)) {
+    // A bare declaration needs NO suppression, and that is the whole repair. Both patterns require
+    // a MEMBER ACCESS — `.initAsync(` and `._initPromise` — while `async initAsync() {` has no
+    // receiver, so neither can match it. Every exemption written to protect the declaration has
+    // therefore protected nothing and swallowed something: first the whole-line
+    // `includes('async initAsync(')`, which waved through a separate call sharing the line; then a
+    // signature strip, which took parameter defaults with it
+    // (`async initAsync(value = service.initAsync()) {}`). Suppressing nothing is both narrower and
+    // less code, and the fixtures below pin all three forms.
+    if (EXTERNAL_INIT_CALL.test(line)) {
         return 'external-initAsync'
     }
 
-    if (INIT_PROMISE_REACH_IN.test(code)) {
+    if (INIT_PROMISE_REACH_IN.test(line)) {
         return 'initPromise-reach-in'
     }
 
