@@ -185,13 +185,23 @@ function violationLabel(line) {
     return null
 }
 
+let scanCache = null;
+
 /**
- * @summary Scans every root for violations of one label class.
- * @param {String} label
- * @returns {String[]} `file:line [label]: source` entries
+ * @summary Reads every scanned tree ONCE and buckets the findings by label.
+ *
+ * The two label arms used to call a per-label scan, and each walk re-read every `.mjs` file under
+ * all five roots — so the guard read the whole tree twice to answer two questions it could answer
+ * in one pass. That is thousands of synchronous reads inside a worker that shares a machine with
+ * the rest of the suite, spent on nothing.
+ * @returns {Object} Label → `file:line [label]: source` entries.
  */
-function scanFor(label) {
-    const violations = [];
+function scanAll() {
+    if (scanCache) {
+        return scanCache
+    }
+
+    const violations = {'external-initAsync': [], 'initPromise-reach-in': []};
 
     for (const root of SCAN_ROOTS) {
         for (const file of collectMjsFiles(path.join(repoRoot, root))) {
@@ -202,14 +212,27 @@ function scanFor(label) {
             }
 
             fs.readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
-                if (violationLabel(line) === label) {
-                    violations.push(`${relative}:${index + 1} [${label}]: ${line.trim()}`)
+                const label = violationLabel(line);
+
+                if (label) {
+                    violations[label].push(`${relative}:${index + 1} [${label}]: ${line.trim()}`)
                 }
             })
         }
     }
 
+    scanCache = violations;
+
     return violations
+}
+
+/**
+ * @summary The findings for one label class.
+ * @param {String} label
+ * @returns {String[]} `file:line [label]: source` entries
+ */
+function scanFor(label) {
+    return scanAll()[label]
 }
 
 test.describe('core.Base init/ready contract guard', () => {
