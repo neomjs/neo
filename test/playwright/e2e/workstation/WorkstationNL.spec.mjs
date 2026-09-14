@@ -177,6 +177,35 @@ const readRevealPinStyle = locator => locator.evaluate(element => {
     }
 });
 
+/** The chrome fields both headers must share, leaving out the surface, which they do not. */
+const box = ({background, backgroundImage, boxShadow, ...rest}) => rest;
+
+/**
+ * @summary The header's own box and decoration, read as values rather than captured as pixels.
+ *
+ * This is what a golden of the header held that the action and title readouts do not: the bar itself.
+ * Pass `closestHeader` to read it from a button inside one, which is how the inline side is reached
+ * while the pane is still docked.
+ * @param {Object}  locator
+ * @param {Boolean} [closestHeader=false]
+ * @returns {Promise<Object>}
+ */
+const readHeaderChrome = (locator, closestHeader=false) => locator.evaluate((node, useClosest) => {
+    const element = useClosest ? node.closest('.neo-tab-header-toolbar') : node,
+          rect    = element.getBoundingClientRect(),
+          style   = getComputedStyle(element);
+
+    return {
+        background     : style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        border         : style.border,
+        borderRadius   : style.borderRadius,
+        boxShadow      : style.boxShadow,
+        height         : Math.round(rect.height),
+        padding        : style.padding
+    }
+}, closestHeader);
+
 /** @summary Reads active inline-tab title geometry and typography from its real button. */
 const readInlineTitleChrome = button => button.evaluate(node => {
     const
@@ -2296,7 +2325,10 @@ test.describe('Workstation — dense living-data composition', () => {
 
             const
                 inlineAction = await readRevealPinStyle(locator),
-                inlineTitle  = await readInlineTitleChrome(page.locator(`#${chrome.buttons.commits}`));
+                inlineTitle  = await readInlineTitleChrome(page.locator(`#${chrome.buttons.commits}`)),
+                // Read while the pane is still docked: once it rails, the inline header is gone and the
+                // reveal preview has nothing left to be compared against.
+                inlineHeader = await readHeaderChrome(page.locator(`#${chrome.buttons.commits}`), true);
 
             await locator.click();
             await expect.poll(async () => {
@@ -2346,9 +2378,16 @@ test.describe('Workstation — dense living-data composition', () => {
             expect(enabled.glyphColor, `${theme} paints a legible glyph`).not.toBe('rgba(0, 0, 0, 0)');
             expect(enabled.backgroundColor, `${theme} does not regress to the blue primary CTA`)
                 .not.toBe('rgb(67, 93, 177)');
-            await expect(header).toHaveScreenshot(`workstation-reveal-pin-${theme}-enabled.png`, {
-                animations: 'disabled'
-            });
+            const revealHeader = await readHeaderChrome(header);
+
+            // Box and geometry must match the inline header the preview imitates. Ground and divider are
+            // deliberately left out: this preview paints its own, the dock example's leaves them to its
+            // overlay, and pinning either colour here would rot on every theme edit. The gradient is
+            // asserted because its presence, not its value, is what separates a band from a preview.
+            expect(box(revealHeader), `${theme} reveal and inline headers share box and geometry`)
+                .toEqual(box(inlineHeader));
+            expect(revealHeader.backgroundImage, `${theme} the preview carries no band gradient`).toBe('none');
+            expect(inlineHeader.backgroundImage, `${theme} which the inline header does`).not.toBe('none');
 
             const restoreId = await restore.getAttribute('id');
 
@@ -2362,9 +2401,8 @@ test.describe('Workstation — dense living-data composition', () => {
             expect(disabled.opacity, `${theme} disabled state remains visible`).toBeGreaterThan(0);
             expect(disabled.opacity, `${theme} disabled state differs from enabled`).toBeLessThan(enabled.opacity);
             expect(disabled.glyphColor, `${theme} disabled glyph remains painted`).not.toBe('rgba(0, 0, 0, 0)');
-            await expect(header).toHaveScreenshot(`workstation-reveal-pin-${theme}-disabled.png`, {
-                animations: 'disabled'
-            });
+            expect(await readHeaderChrome(header), `${theme} disabling the action leaves the header itself untouched`)
+                .toEqual(revealHeader);
 
             await app.setProperties(restoreId, {disabled: false});
             await restore.click();

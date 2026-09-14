@@ -144,6 +144,39 @@ const readRevealPinStyle = locator => locator.evaluate(element => {
     }
 });
 
+/**
+ * @summary The header's own box and decoration, read as values rather than captured as pixels.
+ *
+ * This is what a golden of the header held that the action and title readouts above do not: the bar
+ * itself. Pass `closestHeader` to read it from a button inside one, which is how the inline side is
+ * reached while the pane is still docked.
+ * @param {Object}  locator
+ * @param {Boolean} [closestHeader=false]
+ * @returns {Promise<Object>}
+ */
+/** The chrome fields both headers must share, with the surface the overlay owns left out. */
+const box = ({background, backgroundImage, boxShadow, ...rest}) => rest;
+
+/** Whether a header paints a surface of its own, by colour, gradient or divider. */
+const paints = ({background, backgroundImage, boxShadow}) =>
+    background !== 'rgba(0, 0, 0, 0)' || backgroundImage !== 'none' || boxShadow !== 'none';
+
+const readHeaderChrome = (locator, closestHeader=false) => locator.evaluate((node, useClosest) => {
+    const element = useClosest ? node.closest('.neo-tab-header-toolbar') : node,
+          box     = element.getBoundingClientRect(),
+          style   = getComputedStyle(element);
+
+    return {
+        background     : style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        border         : style.border,
+        borderRadius   : style.borderRadius,
+        boxShadow      : style.boxShadow,
+        height         : Math.round(box.height),
+        padding        : style.padding
+    }
+}, closestHeader);
+
 test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
     test.setTimeout(90000);
     test.use({ viewport: { width: 1600, height: 900 } });
@@ -278,7 +311,10 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
                 pinAction       = await app.callMethod(inspectorTabsId, 'getAction', ['pin']),
                 pinButton       = page.locator(`#${pinAction.id}`),
                 inlineAction    = await readRevealPinStyle(pinButton),
-                inlineTitle     = await readInlineTitleChrome(page.locator(`#${inspectorButtonId}`));
+                inlineTitle     = await readInlineTitleChrome(page.locator(`#${inspectorButtonId}`)),
+                // Read while the pane is still docked: once it rails, the inline header is gone and the
+                // reveal preview has nothing left to be compared against.
+                inlineHeader    = await readHeaderChrome(page.locator(`#${inspectorButtonId}`), true);
 
             await expect(pinButton).toHaveAttribute('aria-label', 'unpin');
             await expect(pinButton.locator('.neo-button-glyph')).toHaveClass(/fa-thumbtack-slash/);
@@ -313,7 +349,15 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
             expect(enabled.glyphColor, `${theme} paints a legible glyph`).not.toBe('rgba(0, 0, 0, 0)');
             expect(enabled.backgroundColor, `${theme} does not regress to the blue primary CTA`)
                 .not.toBe('rgb(67, 93, 177)');
-            await expect(header).toHaveScreenshot(`reveal-pin-${theme}-enabled.png`, {animations: 'disabled'});
+            const revealHeader = await readHeaderChrome(header);
+
+            // Box and geometry must match the inline header the preview imitates. The surface is
+            // deliberately not part of that: the overlay paints its own ground, so the header inside it
+            // carries no background and no divider, while the inline one carries both.
+            expect(box(revealHeader), `${theme} reveal and inline headers share box and geometry`)
+                .toEqual(box(inlineHeader));
+            expect(paints(revealHeader), `${theme} the reveal header leaves its surface to the overlay`).toBe(false);
+            expect(paints(inlineHeader), `${theme} while the inline header paints its own`).toBe(true);
 
             const restoreId = await restore.getAttribute('id');
 
@@ -327,7 +371,8 @@ test.describe('Dock pin/collapse round-trip (Neural Link)', () => {
             expect(disabled.opacity, `${theme} disabled state remains visible`).toBeGreaterThan(0);
             expect(disabled.opacity, `${theme} disabled state differs from enabled`).toBeLessThan(enabled.opacity);
             expect(disabled.glyphColor, `${theme} disabled glyph remains painted`).not.toBe('rgba(0, 0, 0, 0)');
-            await expect(header).toHaveScreenshot(`reveal-pin-${theme}-disabled.png`, {animations: 'disabled'})
+            expect(await readHeaderChrome(header), `${theme} disabling the action leaves the header itself untouched`)
+                .toEqual(revealHeader)
         })
     }
 });
