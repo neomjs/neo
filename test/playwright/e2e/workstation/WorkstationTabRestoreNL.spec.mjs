@@ -114,14 +114,20 @@ test.describe('Workstation — a tab dragged out of its group is not restored in
         // caught up" means, and it is the condition the drop needs in order to resolve a target zone.
         // DOM-only readiness is not sufficient — a button can paint, and even be draggable, while the
         // workspace is still projecting, and the release then commits nothing.
+        // Scoped to the dock's own tab containers, because the edge-rail reveal overlay renders a real
+        // `tab.header.Toolbar` of its own: an unscoped `.neo-tab-header-toolbar` count reads those two
+        // hidden overlays as tab bars, so the projection never appears to catch up. The poll returns
+        // both sides as text, so a mismatch names them instead of reporting a bare `false`.
         await expect.poll(async () => {
             const doc       = (await app.getDockTopology(wsId)).document,
-                  tabsNodes = Object.values(doc?.nodes || {}).filter(node => node.type === 'tabs').length,
-                  bars      = await page.locator('.neo-tab-header-toolbar').count();
+                  committed = Object.values(doc?.nodes || {}).filter(node => node.type === 'tabs').length,
+                  rendered  = await page.locator('.neo-dashboard-dock-tabs > .neo-tab-header-toolbar').count();
 
-            return tabsNodes > 0 && bars === tabsNodes
-        }, {message: 'every committed tabs node must have a rendered header before the gesture', timeout: 60000})
-            .toBe(true);
+            return `${rendered} rendered / ${committed} committed`
+        }, {
+            message: 'the dock must render one header per committed tabs node before the gesture',
+            timeout: 60000
+        }).toMatch(/^([1-9]\d*) rendered \/ \1 committed$/);
 
 
         const before = await readTabs(page),
