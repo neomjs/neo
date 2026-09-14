@@ -95,6 +95,7 @@ class DomAccess extends Base {
                 'syncModalMask',
                 'transferCanvasToWorker',
                 'trapFocus',
+                'unalign',
                 'waitForAnimation',
                 'windowScrollTo'
             ]
@@ -1048,6 +1049,31 @@ class DomAccess extends Base {
     }
 
     /**
+     * Stops keeping an alignment in sync: releases the observers it registered and drops its zone class.
+     * Shared by {@link #syncAligns}, for a subject or target that left the document, and {@link #unalign},
+     * for a subject that stays.
+     * @param {Object} align A registered alignment
+     * @protected
+     */
+    removeAligned(align) {
+        const
+            me                                           = this,
+            {_alignResizeObserver}                       = me,
+            {constrainToElement, subject, targetElement} = align;
+
+        // `align.offsetParent` is the TARGET's layout parent (null when the target is position:fixed or the
+        // body/root) — never observed in that case, and unobserve(null) throws just like observe(null).
+        _alignResizeObserver.unobserve(subject);
+        align.offsetParent && _alignResizeObserver.unobserve(align.offsetParent);
+        targetElement && _alignResizeObserver.unobserve(targetElement);
+        constrainToElement && _alignResizeObserver.unobserve(constrainToElement);
+
+        subject.classList.remove(`neo-aligned-${align.result?.position}`);
+
+        me._aligns.delete(align.id)
+    }
+
+    /**
      * Resets any DOM sizing configs to the last externally configured value.
      *
      * This is used during aligning to release any constraints applied by a previous alignment.
@@ -1310,24 +1336,7 @@ class DomAccess extends Base {
                     Neo.worker.App.setConfigs({ id: align.id, hidden: true })
                 }
 
-                const
-                    {_alignResizeObserver} = me,
-                    {constrainToElement}   = align;
-
-                // Stop observing the align elements. `align.offsetParent` is the TARGET's layout parent
-                // (null when the target is position:fixed or the body/root) — never observed in that case,
-                // and unobserve(null) throws just like observe(null).
-                _alignResizeObserver.unobserve(align.subject);
-                align.offsetParent && _alignResizeObserver.unobserve(align.offsetParent);
-                targetElement && _alignResizeObserver.unobserve(targetElement);
-                if (constrainToElement) {
-                    _alignResizeObserver.unobserve(constrainToElement)
-                }
-
-                // Clear the last aligned class.
-                align.subject.classList.remove(`neo-aligned-${align.result?.position}`);
-
-                _aligns.delete(align.id)
+                me.removeAligned(align)
             }
         })
     }
@@ -1433,6 +1442,37 @@ class DomAccess extends Base {
             subject.appendChild(bottomFocusTrap)
         } else {
             subject.removeEventListener('focusin', onTrappedFocusMovement)
+        }
+    }
+
+    /**
+     * Releases a subject from alignment and gives back what {@link #align} wrote to it.
+     *
+     * {@link #syncAligns} only releases a subject that left the document. One that stays — a component
+     * that stops floating — would keep its transform and zone class, and be aligned again by the next
+     * resize or scroll.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} [data.style={}] The subject's own `left`, `top` and `transform`, restored in place of
+     * the values alignment wrote
+     */
+    unalign({id, style={}}) {
+        const
+            me      = this,
+            align   = me._aligns?.get(id),
+            subject = me.getElement(id);
+
+        align && me.removeAligned(align);
+
+        if (subject) {
+            // the registered spec carries the owner's configured sizing
+            align && me.resetDimensions(align);
+
+            Object.assign(subject.style, {
+                left     : style.left      ?? '',
+                top      : style.top       ?? '',
+                transform: style.transform ?? ''
+            })
         }
     }
 
