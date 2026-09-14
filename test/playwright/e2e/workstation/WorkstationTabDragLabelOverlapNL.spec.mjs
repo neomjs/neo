@@ -169,11 +169,16 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
             })()
         }), {durationMs: 4500});
 
-        // The gesture, two phases in one sampling window:
-        // A) sort swap — drag the Audit header left past the Metrics button's center, hold, release.
-        // B) content excursion — drag the Audit header DOWN ~140px into the content layer, hold,
-        //    return to the strip, release. The excursion is the gesture that crosses the
-        //    header/content layer boundary the defect lives on.
+        // The gesture: a sort swap — drag the Audit header left past the Metrics button's center,
+        // hold, release.
+        //
+        // A second phase used to follow, dragging the header DOWN ~140px on the stated claim that
+        // it crossed into the content layer. It crossed nothing. Measured across six admitting runs
+        // with the second window partitioned against the sampler's own clock: the dragged header's
+        // y held its strip baseline for every one of ~440 frames, and the with-phase and without-
+        // phase arms were identical in crossings, box extents and flip log — only the canary moved.
+        // A tab header drag is confined to its sort zone, so no vertical excursion is available to
+        // this gesture, and no control could have witnessed one.
         const startX  = auditBox.x + auditBox.width / 2,
               startY  = auditBox.y + auditBox.height / 2,
               targetX = metricsBox.x + metricsBox.width / 2 - 8;
@@ -187,19 +192,6 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
         await page.mouse.up();
 
         await page.waitForTimeout(400);
-
-        const auditBoxB = await page.locator('.neo-tab-header-button', {hasText: 'Audit'}).first().boundingBox(),
-              bx        = auditBoxB.x + auditBoxB.width / 2,
-              by        = auditBoxB.y + auditBoxB.height / 2;
-
-        await page.mouse.move(bx, by);
-        await page.mouse.down();
-        await page.mouse.move(bx + 6, by + 40, {steps: 4});
-        await page.mouse.move(bx + 10, by + 140, {steps: 10});
-        await page.waitForTimeout(300);
-        await page.mouse.move(bx, by + 20, {steps: 6});
-        await page.mouse.move(bx, by, {steps: 2});
-        await page.mouse.up();
 
         const samples = await sampling;
 
@@ -264,9 +256,9 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
         // exact gesture signature fails the witness even when no overlap is sampled — an
         // interaction-disabled run (e.g. pointer-events:none on the headers) is thereby red, not
         // vacuously green.
-        expect(canary.mousedown, 'interference canary: exactly the two gesture presses').toBe(2);
-        expect(canary.mouseup,   'interference canary: exactly the two gesture releases').toBe(2);
-        expect(canary.mousemove, 'interference canary: the gesture move stream fired').toBeGreaterThanOrEqual(20);
+        expect(canary.mousedown, 'interference canary: exactly the one gesture press').toBe(1);
+        expect(canary.mouseup,   'interference canary: exactly the one gesture release').toBe(1);
+        expect(canary.mousemove, 'interference canary: the gesture move stream fired').toBeGreaterThanOrEqual(15);
 
         expect(
             sameLayer.length,
@@ -277,7 +269,7 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
 
         expect(
             playOptions.some(o => o.geometryOnly === false),
-            'positive control: phase B entered DockFlip.play with geometryOnly:false'
+            'positive control: the drag entered DockFlip.play with geometryOnly:false'
         ).toBe(true);
 
         // The branch classification must HAPPEN — asserting which branch it picks is not a control,
