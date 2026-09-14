@@ -206,9 +206,9 @@ class Worker extends Base {
     }
 
     /**
-     * Intercepts console output, mirroring errors onto the main thread
-     * ({@link #forwardErrorToMainThread}) and forwarding everything to the Neural Link when one is
-     * attached.
+     * Intercepts console output, uncaught errors and unhandled rejections, mirroring errors onto the
+     * main thread ({@link #forwardErrorToMainThread}) and forwarding console output and uncaught
+     * errors to the Neural Link when one is attached.
      *
      * The `Neo.ai?.Client` lookup stays a lazy check rather than becoming an App-worker branch: only
      * the App worker constructs a client today, so it is App-only in effect — but making it
@@ -299,7 +299,14 @@ class Worker extends Base {
             }
 
             return false
-        }
+        };
+
+        // A rejection nobody handles reaches neither the interceptor above nor `onerror`: the browser
+        // reports it to this worker's own inspector. `Neo.mjs` marks the rejections it expects as
+        // handled, so only the ones it lets through are mirrored.
+        globalThis.addEventListener?.('unhandledrejection', event => {
+            event.defaultPrevented || me.forwardErrorToMainThread(event.reason?.stack || String(event.reason))
+        })
     }
 
     /**
