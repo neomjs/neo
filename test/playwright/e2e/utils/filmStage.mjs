@@ -267,12 +267,17 @@ export function readDisplayEnvelope(page) {
  * fit" without the number sends the next reader to measure it again by hand.
  * @param {Object} envelope From {@link readDisplayEnvelope}.
  * @param {Object} [options]
- * @param {Number} [options.gap=24] Horizontal pixels between the two windows. The floors gate the
- *     envelope, not this: a gap wide enough to consume the main window is refused with a reason
- *     naming it, rather than returned as a negative width.
+ * @param {Number} [options.gap=24] Horizontal pixels between the two windows. **Supported domain:
+ *     finite and non-negative.** The floors gate the envelope, not this, so a gap wide enough to
+ *     consume the main window is still inside the domain and is refused with a reason naming it,
+ *     rather than returned as a negative width. A NEGATIVE gap is OUTSIDE the domain and is not
+ *     rejected: it pulls the target back across the main window, so the verdict would report `fits`
+ *     for two rectangles that overlap. Measured at `-1` on a 1200×700 envelope, a one-pixel overlap.
  * @param {Number} [options.minHeight=700] Envelope height below which the arrangement is refused.
  * @param {Number} [options.minWidth=1200] Envelope width below which the arrangement is refused.
  * @returns {Object} `{fits, main, reason, target}`; `main`/`target` are null when `fits` is false.
+ *     Within the supported gap domain, a `fits: true` verdict guarantees both rectangles are
+ *     positive, non-overlapping, and inside the envelope they were planned against.
  */
 export function planSideBySide(envelope, {gap=24, minHeight=700, minWidth=1200}={}) {
     const {availHeight, availLeft, availTop, availWidth} = envelope;
