@@ -413,9 +413,16 @@ export function planBeside(source, target, envelope, {gap=40}={}) {
  * @param {import('@playwright/test').Page} sourcePage Already-placed source window.
  * @param {import('@playwright/test').Page} targetPage Window to move.
  * @param {Object} [options]
+ * @param {Object} [options.envelope=null] Declared stage, shaped like {@link readDisplayEnvelope}'s
+ * result. Supply it when the page runs an emulated viewport: the envelope is otherwise read from the
+ * page, and an emulated page reports a stage its real windows do not occupy, so the fit test is
+ * skipped rather than run against fiction. This is also the extension point for a caller that needs
+ * to name a specific display, since `window.screen` describes only the one a window already sits on.
  * @param {Number} [options.gap=40] Pixels between source and target.
  * @param {Number} [options.settleAttempts=20] Polls of the product's own placement before CDP.
- * @returns {Promise<Object>} `{bounds, fits, moved, reason}`.
+ * @returns {Promise<Object>} `{bounds, fits, moved, reason, stageTrusted}`. `stageTrusted` is false
+ * when no envelope was declared and the page was emulated — the arrangement was then proven by
+ * measuring it rather than by a fit test.
  */
 export async function placeBesideSource(sourcePage, targetPage, {envelope=null, gap=40, settleAttempts=20}={}) {
     await targetPage.waitForURL(url => url.protocol !== 'about:', {timeout: 30000});
