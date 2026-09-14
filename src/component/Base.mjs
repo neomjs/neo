@@ -119,9 +119,9 @@ class Component extends Abstract {
          * True to mount this component into the viewport outside of the document flow.
          *
          * Runtime-capable: flipping it on a live component moves it in and out of the fixed-position
-         * layer through `neo-floating`, and re-aligns it while mounted. It does NOT change which node
-         * owns the component in the DOM — `parentId` is the config that roots a component elsewhere
-         * (`document.body`, typically), and the two are set together by callers that need both.
+         * layer through `neo-floating` — aligned on the way in and released on the way out while mounted.
+         * It does NOT change which node owns the component in the DOM: `parentId` is the config that
+         * roots a component elsewhere (`document.body`, typically), and callers that need both set both.
          * @member {Boolean} floating_=false
          * @reactive
          */
@@ -531,7 +531,21 @@ class Component extends Abstract {
 
             me.toggleCls('neo-floating', value);
 
-            value && me.mounted && me.alignTo()
+            if (me.mounted) {
+                if (value) {
+                    me.alignTo()
+                } else {
+                    // `align()` wrote a transform and position into the element and registered it for
+                    // resyncs. A subject that stays in the document is released by nothing else.
+                    const {left, top, transform} = me.vdom.style || {};
+
+                    Neo.main.DomAccess.unalign({
+                        id      : me.id,
+                        style   : {left: addUnits(left), top: addUnits(top), transform},
+                        windowId: me.windowId
+                    })
+                }
+            }
         }
     }
 
