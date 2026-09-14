@@ -41,7 +41,9 @@ export const RUN_PATHS = [
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/grid',
-    'test/playwright/e2e/portal',
+    // Named individually because `LearnMermaidRender` in the same directory stays excluded below.
+    'test/playwright/e2e/portal/LearnLinkRoutingNL.spec.mjs',
+    'test/playwright/e2e/portal/StoredThemeBoot.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs'
 ];
@@ -57,6 +59,13 @@ export const EXCLUSIONS = [{
     kind  : 'cause',
     reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. The 4 Dev arms pass hosted; the 3 that visit `#/learn/benefits/body/FormsEngine` had failed because its code fences waited on a highlight bundle this job did not build',
     owner : 'this tier — the Dist half needs a production build this job does not run'
+}, {
+    path  : 'test/playwright/e2e/portal/LearnMermaidRender.spec.mjs',
+    // `observed`: one arm's cause is established and fixed here; the other arm's count matches the
+    // double render named in `reason`, but it passed once on a branch run, so intermittency is open.
+    kind  : 'observed',
+    reason: 'the live-preview arm failed at its precondition because the page\'s code fences waited on a highlight bundle this job did not build, which the bundle step now provides. The diagram-only arm counts four SVGs for the two mermaid fences in DockLayouts.md, the double render tracked in #18675',
+    owner : '@neo-opus-ada — returns to the tier when #18675 lands'
 }];
 
 /**
