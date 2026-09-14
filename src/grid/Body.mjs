@@ -1062,8 +1062,11 @@ class GridBody extends Component {
             return record
         }
 
-        // Check if nodeId is a recordId (internalId or PK)
-        record = me.store.get(nodeId);
+        // Check if nodeId is a recordId (internalId or PK). A DOM dataset delivers every id as a string,
+        // so an integer-keyed store gets its number back.
+        record = me.store.get(nodeId) ||
+            (me.store.getKeyType()?.startsWith('int') && /^-?\d+$/.test(nodeId) ? me.store.get(Number(nodeId)) : null);
+
         if (record) return record;
 
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
@@ -1092,16 +1095,9 @@ class GridBody extends Component {
      * @returns {Neo.data.Model|null}
      */
     getRecordFromLogicalId(logicalId) {
-        let me = this,
-            dataField = me.getDataField(logicalId),
-            recordId = logicalId.substring(0, logicalId.length - dataField.length - 2),
-            record = me.getRecord(recordId); // Uses the new robust getRecord()
+        let dataField = this.getDataField(logicalId);
 
-        if (!record) {
-            record = me.store.get(parseInt(recordId))
-        }
-
-        return record
+        return this.getRecord(logicalId.substring(0, logicalId.length - dataField.length - 2))
     }
 
     /**

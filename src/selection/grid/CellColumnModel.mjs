@@ -29,24 +29,15 @@ class CellColumnModel extends CellModel {
     }
 
     /**
+     * Selects the clicked cell's column, or clears it when that cell is the one already selected.
      * @param {Object} data
      */
     onCellClick(data) {
-        let me        = this,
-            {view}    = me,
-            cellId    = data.data.currentTarget,
-            dataField = cellId && view.getDataField(cellId),
-            newSelection;
+        let me                  = this,
+            {dataField, record} = data;
 
-        if (dataField) {
-            newSelection = me.isSelected(cellId) ? [] : [dataField];
-
-            if (!Neo.isEqual(me.selectedColumns, newSelection)) {
-                me.selectedColumns = newSelection;
-                view.createViewData() // Flush
-            } else {
-                view.createViewData(true) // Silent
-            }
+        if (dataField && record) {
+            me.setSelectedColumns(me.isSelected(me.view.getLogicalCellId(record, dataField)) ? [] : [dataField])
         }
 
         super.onCellClick(data)
@@ -56,47 +47,8 @@ class CellColumnModel extends CellModel {
      * @param {Number} step
      */
     onNavKeyColumn(step) {
-        let me                 = this,
-            {dataFields, view} = me,
-            currentColumn, index;
-
-        if (me.hasSelection()) {
-            currentColumn = me.selectedColumns[0]
-        } else {
-            currentColumn = dataFields[0]
-        }
-
-        index = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
-
-        while (index < 0) {
-            index += dataFields.length
-        }
-
-        me.selectedColumns = [dataFields[index]];
-
-        view.createViewData();
-
+        this.stepSelectedColumn(step);
         super.onNavKeyColumn(step)
-    }
-
-    /**
-     * @returns {Object}
-     */
-    toJSON() {
-        return {
-            ...super.toJSON(),
-            selectedColumnCellCls: this.selectedColumnCellCls
-        }
-    }
-
-    /**
-     *
-     */
-    unregister() {
-        this.selectedColumns = [];
-        this.view.createViewData();
-
-        super.unregister()
     }
 }
 
