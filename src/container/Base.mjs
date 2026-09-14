@@ -303,8 +303,13 @@ class Container extends Component {
         // resolves its theme with the full precedence — the config's own theme, itemDefaults, the
         // class default, then this container's; stamping this theme onto the config here would
         // pre-empt the first three, since `itemDefaults` only fill what is absent.
+        //
+        // An item still holding the replaced theme was inheriting it; any other theme is the item's
+        // own, and overwriting it would make an adopted subtree disagree with a config-built one.
         value && this.items?.forEach(item => {
-            if (!Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
+            const inherited = !item.theme || item.theme === oldValue;
+
+            if (inherited && !Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
                 item.theme = value
             }
         })
@@ -413,6 +418,9 @@ class Container extends Component {
             case 'NeoInstance': {
                 parent = item.parent;
 
+                // Read before the move re-parents it: a theme the instance only inherited follows it to this container.
+                const inheritsTheme = !item.theme || item.theme === parent?.theme;
+
                 if (parent && parent !== me) {
                     if (removeFromPreviousParent) {
                         parent.remove?.(item, false);
@@ -433,7 +441,10 @@ class Container extends Component {
                     }
                 }
 
-                item.set(config);
+                // Carried inside the existing batch: a separate assignment afterwards would run a second
+                // reactive cycle across the subtree. An explicit `theme` in `config` still wins, as any
+                // other key does.
+                item.set(inheritsTheme ? {theme: me.theme, ...config} : config);
                 item.getStateProvider?.()?.createBindings(item);
                 break
             }
