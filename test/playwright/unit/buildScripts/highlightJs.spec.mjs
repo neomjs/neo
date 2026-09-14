@@ -129,3 +129,17 @@ test.describe('highlightJs — the clone target is one argument, not a shell str
         ).toEqual([])
     });
 });
+
+test.describe('highlightJs — a failed build ends the process non-zero', () => {
+    test('the catch in main() exits with a failure status instead of returning', () => {
+        // `build-all` and `bundle-browser-deps` gate on this exit code. A catch that only logged let a
+        // runner skip the bundle behind a green step, and every guide with a code fence stopped rendering.
+        const
+            source  = readFileSync('buildScripts/build/highlightJs.mjs', 'utf8'),
+            main    = source.slice(source.indexOf('async function main')),
+            handler = /\} catch \(error\) \{[\s\S]*?\n    \}/.exec(main)?.[0] ?? '';
+
+        expect(handler, 'the catch in main() must be findable — the arm is void if the shape moved').toBeTruthy();
+        expect(handler).toMatch(/process\.exit\(1\)/)
+    })
+});

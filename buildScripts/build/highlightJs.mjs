@@ -132,8 +132,9 @@ async function main() {
         console.log(`Custom highlight.js bundle created at: ${outputFile}`);
         console.log(`Minified highlight.js bundle created at: ${minOutputFile}`);
     } catch (error) {
+        // The temporary directory stays for inspection; the exit code is what `build-all` and `bundle-browser-deps` gate on.
         console.error(`Error building highlight.js bundle: ${error}`);
-        // In case of error, leave the temporary directory for inspection
+        process.exit(1)
     }
 }
 

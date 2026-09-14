@@ -16,6 +16,9 @@ import {BROWSER_BUNDLES} from '../../../../buildScripts/util/browserBundles.mjs'
  * private state — so "flag everything under the prefix" and "flag nothing under the prefix" are both
  * wrong, and the boundary between them is exactly where the original `.npmignore` defect lived.
  */
+/** Outside BROWSER_BUNDLES: a directory's file, not a `dist/<name>.mjs`, so its coupling is asserted below. */
+const HIGHLIGHT_BUNDLE = 'dist/highlight/highlight.custom.min.js';
+
 /**
  * Every shipped bundle's packed path, minus the one an arm deliberately omits.
  *
@@ -25,7 +28,10 @@ import {BROWSER_BUNDLES} from '../../../../buildScripts/util/browserBundles.mjs'
  * @param {String} [omit] Bundle name to leave out of the packed set.
  * @returns {String[]}
  */
-const shippedExcept = omit => BROWSER_BUNDLES.filter(name => name !== omit).map(name => `dist/${name}.mjs`);
+const shippedExcept = omit => [
+    ...BROWSER_BUNDLES.filter(name => name !== omit).map(name => `dist/${name}.mjs`),
+    ...(omit === 'highlight' ? [] : [HIGHLIGHT_BUNDLE])
+];
 
 test.describe('check-package-contents — fires on private state, not on the tracked carve-out', () => {
     let findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput;
@@ -213,6 +219,18 @@ test.describe('check-package-contents — a required entry cannot be silently dr
               lines  = ignore.split('\n').map(line => line.trim());
 
         expect(BROWSER_BUNDLES.filter(name => !lines.includes(`!/dist/${name}.mjs`))).toEqual([])
+    });
+
+    test('the highlight bundle ships from its subdirectory, which the per-name arms above cannot see', () => {
+        // `/dist/*` excludes the `highlight` directory itself, so the file ships only if the directory
+        // is re-included, its contents excluded, and the one file re-included — in that order.
+        const ignore = fs.readFileSync(new URL('../../../../.npmignore', import.meta.url), 'utf8'),
+              lines  = ignore.split('\n').map(line => line.trim()),
+              at     = ['!/dist/highlight/', '/dist/highlight/*', `!/${HIGHLIGHT_BUNDLE}`].map(rule => lines.indexOf(rule));
+
+        expect(findMissingEntries(shippedExcept('highlight')).map(entry => entry.path)).toEqual([HIGHLIGHT_BUNDLE]);
+        expect(at.every(index => index > -1)).toBe(true);
+        expect(at).toEqual([...at].sort((a, b) => a - b))
     });
 
     test('every required entry carries a reason, because the failure message is the whole product', () => {
