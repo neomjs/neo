@@ -63,10 +63,20 @@ const EXEMPT_FILES = new Set([
 // are the same double-run bug without an `await` keyword in front. Syntax-tolerant: optional
 // chaining (`.initAsync?.()`) and whitespace variants evaded the first, exact-literal shape of
 // this pattern — the fixture self-test below pins every variant permanently.
-const EXTERNAL_INIT_CALL = /(?<!super)\.initAsync\s*(\?\.)?\s*\(/;
+//
+// The receiver exemption is a TOKEN, not a suffix. A bare `(?<!super)` recognises any identifier
+// ENDING in those characters, so `mysuper.initAsync()` — an ordinary external call on an unrelated
+// object — read as the legitimate `super` chain and passed. The inner `(?<![$\w])` demands a token
+// boundary before the keyword, so only the real receiver is exempt.
+const EXTERNAL_INIT_CALL = /(?<!(?<![$\w])super)\.initAsync\s*(\?\.)?\s*\(/;
 
 // Any `X._initPromise` where X is not `this`: reads, writes, and null-resets are all reach-ins.
-const INIT_PROMISE_REACH_IN = /(?<!this)\._initPromise/;
+// Same token-boundary requirement — `notthis._initPromise` is not owner-internal access.
+const INIT_PROMISE_REACH_IN = /(?<!(?<![$\w])this)\._initPromise/;
+
+// The declaration form itself. Removed from a line before classification rather than exempting the
+// whole line — see `violationLabel`. Global, so it is only ever used with `replace`, never `test`.
+const DECLARATION = /async\s+initAsync\s*\([^)]*\)/g;
 
 // The permanent regex falsifiers: every syntax variant that MUST flag, and every legitimate form
 // that MUST pass. A future pattern change that un-catches a variant fails here — the tree can be
@@ -80,7 +90,15 @@ const MUST_FLAG = [
     'if (LifecycleService._initPromise) {',
     'await LifecycleService._initPromise;',
     'GraphService._initPromise = null;',
-    'if (service?._initPromise) {'
+    'if (service?._initPromise) {',
+    // Forbidden operations sharing a line with legitimate syntax. A clean corpus cannot falsify an
+    // EXEMPTION — only a case that sits inside one can, which is why these are fixtures and not a
+    // tree scan. Supplied by a reviewer probe run against the classifier's exact head.
+    'async initAsync() { await service.initAsync(); }',
+    'async initAsync() { await service._initPromise; }',
+    // Identifiers that merely END in the exempt receiver's characters.
+    'await mysuper.initAsync();',
+    'await notthis._initPromise;'
 ];
 
 const MUST_PASS = [
@@ -89,7 +107,11 @@ const MUST_PASS = [
     '// await myInstance.initAsync() would double-run the boot',
     ' * Calling it externally (e.g. `await myInstance.initAsync()`) duplicates init.',
     'await this._initPromise;',
-    'this._initPromise = (async () => {'
+    'this._initPromise = (async () => {',
+    // The legitimate counterpart of the two combined-line flags above: a declaration whose body
+    // carries only the sanctioned `super` chain must stay clean, or the repair would have traded
+    // a blind spot for a false positive on the one form the contract requires.
+    'async initAsync() { await super.initAsync(); }'
 ];
 
 /**
@@ -139,17 +161,24 @@ function isCommentLine(line) {
  * @returns {String|null} 'external-initAsync' | 'initPromise-reach-in' | null
  */
 function violationLabel(line) {
-    // definitions (`async initAsync()`) and `super.initAsync()` chains are the contract,
-    // not violations; comment prose is documentation
-    if (isCommentLine(line) || line.includes('async initAsync(')) {
+    // comment prose is documentation — Base's own warning cites the anti-pattern verbatim
+    if (isCommentLine(line)) {
         return null
     }
 
-    if (EXTERNAL_INIT_CALL.test(line)) {
+    // A declaration is the contract, so it is REMOVED from the line rather than exempting the line.
+    // The whole-line exemption this replaces read `line.includes('async initAsync(')` and therefore
+    // waved through `async initAsync() { await service.initAsync(); }` — the declaration made the
+    // line legitimate while a separate external call sat on it, which is the operation the guard
+    // exists to catch. Stripping keeps a bare declaration passing and leaves everything else on the
+    // line visible to the patterns.
+    const code = line.replace(DECLARATION, '');
+
+    if (EXTERNAL_INIT_CALL.test(code)) {
         return 'external-initAsync'
     }
 
-    if (INIT_PROMISE_REACH_IN.test(line)) {
+    if (INIT_PROMISE_REACH_IN.test(code)) {
         return 'initPromise-reach-in'
     }
 
