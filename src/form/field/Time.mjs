@@ -88,6 +88,13 @@ class Time extends Picker {
     }
 
     /**
+     * Internal flag: a value picked in the list must not re-select that list item, which would scroll
+     * and focus the very item the user just clicked
+     * @member {Boolean} preventListSelect=false
+     */
+    preventListSelect = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -185,17 +192,16 @@ class Time extends Picker {
      * Triggered after the value config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @param {Boolean} [preventListSelect=false]
      * @protected
      */
-    afterSetValue(value, oldValue, preventListSelect=false) {
+    afterSetValue(value, oldValue) {
         super.afterSetValue(value, oldValue);
 
         let me = this;
 
         me.getTrigger('time').value = value;
 
-        if (me.pickerIsMounted && !preventListSelect) {
+        if (me.pickerIsMounted && !me.preventListSelect) {
             me.selectCurrentListItem(true)
         }
     }
@@ -314,14 +320,16 @@ class Time extends Picker {
 
     /**
      * Transforms AM / PM based times into a 24h format.
-     * E.g. "08:00 AM" => "08:00"
+     * E.g. "08:00 AM" => "08:00". A value that does not parse as a time is no time, and returns null.
      * @param {String|null} value
      * @protected
      * @returns {String|null}
      */
     formatTime(value) {
         if (value) {
-            return this.valueFormat.format(new Date(`November 23, 2019  ${value}`))
+            const date = new Date(`November 23, 2019  ${value}`);
+
+            return isNaN(date) ? null : this.valueFormat.format(date)
         }
 
         return value
@@ -359,20 +367,20 @@ class Time extends Picker {
     }
 
     /**
+     * Assigns the picked item through the value config, so subscribers and two-way bindings receive it
+     * and re-picking the current time is no change at all
      * @param {Object} data
      * @param {Object} data.record
      */
     onListItemClick(data) {
-        let me       = this,
-            {record} = data,
-            oldValue = me.value,
-            {value}  = record;
+        let me = this;
 
-        if (me.value !== value) {
-            value = me.formatTime(value);
+        me.preventListSelect = true;
 
-            me._value = value;
-            me.afterSetValue(value, oldValue, true) // prevent the list from getting selected / focused
+        try {
+            me.value = data.record.value
+        } finally {
+            me.preventListSelect = false
         }
     }
 
@@ -408,7 +416,15 @@ class Time extends Picker {
     selectCurrentListItem(preventFocus=false) {
         let me     = this,
             {list} = me,
-            id     = list.getItemId(me.value);
+            id;
+
+        // An empty field has no current item, and the list cannot build an item id for one
+        if (!me.value) {
+            list.selectionModel.deselectAll();
+            return
+        }
+
+        id = list.getItemId(me.value);
 
         list.selectionModel.select(id);
 
