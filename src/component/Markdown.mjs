@@ -336,8 +336,13 @@ class Markdown extends Component {
 
             // 4. Restore protected blocks (in reverse order to handle nesting if any, though regex usually handles top-level)
             // Note: Simple loop is fine as tokens are unique strings
+            // The replacement is a FUNCTION, not the string itself. A string replacement gives the
+            // restored code special meaning: `$&`, `` $` ``, `$'` and `$n` are substitution patterns,
+            // so a guide authoring the inline code `` `$` `` restores as "insert everything before
+            // the match" and splices the whole preceding document back in. A function replacement is
+            // returned verbatim, which is the only thing this loop ever meant.
             placeholders.forEach(item => {
-                content = content.replace(item.token, item.value);
+                content = content.replace(item.token, () => item.value);
             });
         }
 
@@ -521,8 +526,11 @@ class Markdown extends Component {
 
         replacements = await Promise.all(replacementPromises);
 
+        // Same reason as the ticket-restore loop above: highlighted HTML is arbitrary text, and a
+        // string replacement would read `$&`, `` $` ``, `$'` or `$n` inside it as substitution
+        // patterns rather than as content. Nothing here has ever wanted that.
         replacements.forEach(replacement => {
-            updatedContent = updatedContent.replace(replacement.token, replacement.after)
+            updatedContent = updatedContent.replace(replacement.token, () => replacement.after)
         });
 
         return updatedContent
