@@ -67,13 +67,6 @@ class DashboardSortZone extends SortZone {
      * @protected
      */
     isRemoteDragging = false
-    /**
-     * `owner.items` as the drag started. `indexMap` values index into this array, so the expanded layout
-     * still resolves every slot after a window drag has moved the dragged item out of `owner.items`.
-     * @member {Neo.component.Base[]} ownerItems=[]
-     * @protected
-     */
-    ownerItems = []
 
     /**
      * @param {Object} config
