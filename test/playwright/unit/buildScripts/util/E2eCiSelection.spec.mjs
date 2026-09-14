@@ -79,10 +79,7 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
         add('core/B.spec.mjs');
         add('dashboard/C.spec.mjs');
         add('grid/D.spec.mjs');
-        // Named, not `portal/E.spec.mjs`, because `RUN_PATHS` names this file rather than its
-        // directory — `portal/Outside.spec.mjs` below is still outside the run set, which is what
-        // that arm needs.
-        add('portal/StoredThemeBoot.spec.mjs');
+        add('portal/E.spec.mjs');
         add('rendering/InputModalityMultiWindow.spec.mjs');
         add('rendering/ViewTransitionReveal.spec.mjs');
 
@@ -110,7 +107,7 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
         expect(before.executed, 'the fixture selects every RUN_PATHS spec').toBe(RUN_PATHS.length);
         expect(beforeStated,    'and reports their complement').toBe(before.total - before.executed);
 
-        addSpec('portal/Outside.spec.mjs');
+        addSpec('rendering/Outside.spec.mjs');
 
         const after = populations(root), afterStated = stated(summary(root));
 

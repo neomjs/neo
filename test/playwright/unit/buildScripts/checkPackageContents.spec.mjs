@@ -1,6 +1,7 @@
-import fs                from 'node:fs';
-import {test, expect}    from '@playwright/test';
-import {BROWSER_BUNDLES} from '../../../../buildScripts/util/browserBundles.mjs';
+import fs                 from 'node:fs';
+import {test, expect}     from '@playwright/test';
+import {BROWSER_BUNDLES}  from '../../../../buildScripts/util/browserBundles.mjs';
+import {REQUIRED_ENTRIES} from '../../../../buildScripts/util/check-package-contents.mjs';
 
 /**
  * The check's value is entirely in WHICH packed paths it fires on, so the assertions are the two
@@ -17,6 +18,12 @@ import {BROWSER_BUNDLES} from '../../../../buildScripts/util/browserBundles.mjs'
  * wrong, and the boundary between them is exactly where the original `.npmignore` defect lived.
  */
 /**
+ * Outside BROWSER_BUNDLES: a directory's files, not `dist/<name>.mjs`, so their coupling is asserted below.
+ * Read from the registry; whether it names the files the loader requests is `unit/util/HighlightJs.spec.mjs`'s question.
+ */
+const HIGHLIGHT_BUNDLES = REQUIRED_ENTRIES.map(rule => rule.path).filter(entry => entry.startsWith('dist/highlight/'));
+
+/**
  * Every shipped bundle's packed path, minus the one an arm deliberately omits.
  *
  * Written as an exclusion rather than a literal list because the arms below assert "EXACTLY this
@@ -25,7 +32,10 @@ import {BROWSER_BUNDLES} from '../../../../buildScripts/util/browserBundles.mjs'
  * @param {String} [omit] Bundle name to leave out of the packed set.
  * @returns {String[]}
  */
-const shippedExcept = omit => BROWSER_BUNDLES.filter(name => name !== omit).map(name => `dist/${name}.mjs`);
+const shippedExcept = omit => [
+    ...BROWSER_BUNDLES.filter(name => name !== omit).map(name => `dist/${name}.mjs`),
+    ...(omit === 'highlight' ? [] : HIGHLIGHT_BUNDLES)
+];
 
 test.describe('check-package-contents — fires on private state, not on the tracked carve-out', () => {
     let findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput;
@@ -213,6 +223,21 @@ test.describe('check-package-contents — a required entry cannot be silently dr
               lines  = ignore.split('\n').map(line => line.trim());
 
         expect(BROWSER_BUNDLES.filter(name => !lines.includes(`!/dist/${name}.mjs`))).toEqual([])
+    });
+
+    test('the highlight bundles ship from their subdirectory, which the per-name arms above cannot see', () => {
+        // `/dist/*` excludes the `highlight` directory itself, so a file ships only if the directory is
+        // re-included, its contents excluded, and that file re-included after the exclusion.
+        const ignore  = fs.readFileSync(new URL('../../../../.npmignore', import.meta.url), 'utf8'),
+              lines   = ignore.split('\n').map(line => line.trim()),
+              include = lines.indexOf('!/dist/highlight/'),
+              exclude = lines.indexOf('/dist/highlight/*');
+
+        expect(HIGHLIGHT_BUNDLES.length, 'the registry names the highlight bundles').toBeGreaterThan(0);
+        expect(findMissingEntries(shippedExcept('highlight')).map(entry => entry.path)).toEqual(HIGHLIGHT_BUNDLES);
+        expect(include).toBeGreaterThan(-1);
+        expect(exclude).toBeGreaterThan(include);
+        HIGHLIGHT_BUNDLES.forEach(entry => expect(lines.indexOf(`!/${entry}`), entry).toBeGreaterThan(exclude))
     });
 
     test('every required entry carries a reason, because the failure message is the whole product', () => {

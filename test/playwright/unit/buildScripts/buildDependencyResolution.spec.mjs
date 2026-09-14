@@ -177,5 +177,15 @@ test.describe('the shipped browser bundles stay reachable from the entry points 
 
         expect(keys, 'e2eScriptKeys must be findable — the arm is void if the shape moved').toBeTruthy();
         expect(BROWSER_BUNDLES.filter(name => !keys.includes(`'bundle-${name}'`))).toEqual([])
+    });
+
+    test('the highlight bundle, a directory outside the registry, is still built by the aggregate and admits the tier', () => {
+        // `src/util/HighlightJs.mjs` imports its bundle from `dist/highlight/` at runtime, so a runner
+        // that skips it renders no guide with a code fence — while every other arm stays green.
+        const workflow = fs.readFileSync(new URL('../../../../.github/workflows/classify-test-scope.yml', import.meta.url), 'utf8'),
+              keys     = workflow.match(/e2eScriptKeys\s*=\s*\[([^\]]*)\]/)?.[1] ?? '';
+
+        expect(packageJson.scripts['bundle-browser-deps']).toContain('npm run build-highlightjs');
+        expect(keys).toContain(`'build-highlightjs'`)
     })
 });

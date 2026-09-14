@@ -101,7 +101,11 @@ export const REQUIRED_ENTRIES = [
     {
         path: 'dist/mermaid.mjs',
         why : 'main.addon.Mermaid imports this bundle by relative path, and a consumer cannot rebuild it: mermaid and esbuild are both devDependencies. It is also not interchangeable with the published package — the build substitutes the `define` identifier across mermaid\'s dependency graph, because vendored UMD wrappers inside it hand an ANONYMOUS factory to any global AMD loader, and main.addon.MonacoEditor installs one. Shipping the upstream file instead would fail to render every diagram on a page that also carries an editor. It is the largest required entry at ~3.3 MiB, which its producer prints on every build; main.addon.Mermaid sets useLazyLoading, so nothing fetches it until a page contains a diagram.'
-    }
+    },
+    ...['highlight.custom.js', 'highlight.custom.min.js'].map(file => ({
+        path: `dist/highlight/${file}`,
+        why : 'src/util/HighlightJs.mjs imports one of these two bundles, chosen by its public `debug` config, for every code fence component.Markdown renders — so both ship, or one value of that config cannot load in an installed engine. A consumer cannot rebuild either: their producer clones highlight.js from GitHub and installs that repository\'s devDependencies.'
+    }))
 ];
 
 /**
