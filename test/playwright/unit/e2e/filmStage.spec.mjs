@@ -1,5 +1,5 @@
-import {expect, test}                             from '@playwright/test';
-import {planBeside, planSideBySide, rectsOverlap} from '../../e2e/utils/filmStage.mjs';
+import {expect, test}                                                from '@playwright/test';
+import {placeBesideSource, planBeside, planSideBySide, rectsOverlap} from '../../e2e/utils/filmStage.mjs';
 
 /**
  * @summary Unit coverage for the side-by-side stage planner.
@@ -168,4 +168,59 @@ test('a planned target never overlaps the source it was planned beside', () => {
         expect(plan.fits, `gap ${gap}`).toBe(true);
         expect(rectsOverlap(source, plan.bounds), `gap ${gap} must leave them apart`).toBe(false)
     })
+});
+
+/**
+ * A page stub is enough for the no-move path, which by contract reaches no CDP session: it polls the
+ * observable rects, judges them, and answers. Driving it with real windows would prove the same
+ * thing slower and only where a display exists.
+ */
+const stubPage = ({rect, emulated = false}) => ({
+    evaluate      : async () => ({
+        devicePixelRatio: 1,
+        inner           : {height: rect.height, width: rect.width, x: rect.left, y: rect.top},
+        outer           : {height: rect.height, width: rect.width},
+        root            : null
+    }),
+    viewportSize  : () => emulated ? {height: 720, width: 760} : null,
+    waitForTimeout: async () => {},
+    waitForURL    : async () => {}
+});
+
+// @neo-gpt-emmy's review probe, kept at her exact numbers. The source and target already miss each
+// other, so the no-move path answered before consulting the envelope the caller declared — and
+// called a target reaching x=1420 a fit on an 800-wide stage.
+const apartSource = {height: 700, left: 20, top: 0, width: 760},
+      apartTarget = {height: 500, left: 820, top: 0, width: 600};
+
+test('a target parked outside a declared envelope is refused, even though the windows are apart', async () => {
+    const verdict = await placeBesideSource(
+        stubPage({rect: apartSource}),
+        stubPage({rect: apartTarget}),
+        {envelope: {availHeight: 720, availLeft: 0, availTop: 0, availWidth: 800}}
+    );
+
+    expect(verdict.fits, 'a target reaching x=1420 does not fit an 800-wide stage').toBe(false);
+    expect(verdict.moved).toBe(false);
+    expect(verdict.reason, 'the refusal names what it measured').toContain('800×720')
+});
+
+test('the same arrangement on a stage that can hold it is kept untouched and reported trusted', async () => {
+    const verdict = await placeBesideSource(
+        stubPage({rect: apartSource}),
+        stubPage({rect: apartTarget}),
+        {envelope: {availHeight: 900, availLeft: 0, availTop: 0, availWidth: 1600}}
+    );
+
+    expect(verdict).toMatchObject({fits: true, moved: false, stageTrusted: true})
+});
+
+test('an emulated page with no declared envelope reports its containment as unproven', async () => {
+    const verdict = await placeBesideSource(
+        stubPage({emulated: true, rect: apartSource}),
+        stubPage({emulated: true, rect: apartTarget})
+    );
+
+    expect(verdict, 'apart is measured, but no envelope could be established to contain them')
+        .toMatchObject({fits: true, moved: false, stageTrusted: false})
 });
