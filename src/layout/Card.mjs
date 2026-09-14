@@ -133,7 +133,8 @@ class Card extends Base {
             items = container.items;
             len   = items.length;
 
-            if (!items[value]) {
+            // An empty container has nothing to activate yet: the index applies to the cards added later
+            if (len && !items[value]) {
                 Neo.error('Trying to activate a non existing card', value, items)
             }
 
