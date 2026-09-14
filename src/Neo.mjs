@@ -1250,8 +1250,9 @@ Neo.assignDefaults(Neo.config, DefaultConfig);
 
 if (typeof globalThis.addEventListener === 'function') {
     // Browsers and Workers
+    // Teardown outcomes nobody has to handle: a destroyed instance, and a reply lost to a closed port.
     globalThis.addEventListener('unhandledrejection', e => {
-        if (e.reason === Neo.isDestroyed) {
+        if (e.reason === Neo.isDestroyed || e.reason?.name === 'PortDisconnectedError') {
             e.preventDefault()
         }
     })
@@ -1262,7 +1263,7 @@ if (typeof globalThis.addEventListener === 'function') {
     const originalEmit = process.emit;
 
     process.emit = function(name, data, ...args) {
-        if (name === 'unhandledRejection' && data === Neo.isDestroyed) {
+        if (name === 'unhandledRejection' && (data === Neo.isDestroyed || data?.name === 'PortDisconnectedError')) {
             return true
         }
 

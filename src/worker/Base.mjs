@@ -467,7 +467,7 @@ class Worker extends Base {
         Object.entries(me.promises).forEach(([id, promise]) => {
             if (promise.portEntry === portEntry) {
                 delete me.promises[id];
-                promise.reject(new Error(`Worker port disconnected before reply: ${portEntry.id}`))
+                promise.reject(Object.assign(new Error(`Worker port disconnected before reply: ${portEntry.id}`), {name: 'PortDisconnectedError'}))
             }
         });
 
