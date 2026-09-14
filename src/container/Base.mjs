@@ -303,8 +303,13 @@ class Container extends Component {
         // resolves its theme with the full precedence — the config's own theme, itemDefaults, the
         // class default, then this container's; stamping this theme onto the config here would
         // pre-empt the first three, since `itemDefaults` only fill what is absent.
+        //
+        // An item still holding the replaced theme was inheriting it; any other theme is the item's
+        // own, and overwriting it would make an adopted subtree disagree with a config-built one.
         value && this.items?.forEach(item => {
-            if (!Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
+            const inherited = !item.theme || item.theme === oldValue;
+
+            if (inherited && !Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
                 item.theme = value
             }
         })

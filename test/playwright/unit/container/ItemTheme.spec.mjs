@@ -157,6 +157,42 @@ test.describe('Neo.container.Base — an adopted instance takes the container\'s
         expect(adopted.items[0].theme).toBe('neo-theme-neo-light')
     });
 
+    /**
+     * @summary Adoption must agree with config construction about a child that carries its own theme.
+     *
+     * Built from configs, an explicitly themed child survives a differently themed ancestor, because
+     * `createItem` resolves each item's own theme first. Adopting the same subtree hands the root a
+     * theme, and the live cascade must not treat that as permission to overwrite what the child chose.
+     */
+    test('an adopted subtree keeps a child\'s own theme, exactly as config construction does', () => {
+        container = Neo.create(Container, {
+            appName,
+            theme: 'neo-theme-neo-dark',
+            items: [{
+                module: Container,
+                items : [{module: Component, theme: 'neo-theme-neo-light'}, {module: Component}]
+            }]
+        });
+
+        const [builtLight, builtPlain] = container.items[0].items;
+
+        expect(builtLight.theme, 'config construction: the explicit child theme').toBe('neo-theme-neo-light');
+        expect(builtPlain.theme, 'config construction: its unthemed sibling').toBe('neo-theme-neo-dark');
+
+        const adopted = Neo.create(Container, {
+            appName,
+            items: [{module: Component, theme: 'neo-theme-neo-light'}, {module: Component}]
+        });
+
+        container.add(adopted);
+
+        const [adoptedLight, adoptedPlain] = adopted.items;
+
+        expect(adopted.theme, 'the adopted root inherits').toBe('neo-theme-neo-dark');
+        expect(adoptedLight.theme, 'adoption: the explicit child theme survives too').toBe('neo-theme-neo-light');
+        expect(adoptedPlain.theme, 'adoption: its unthemed sibling inherits').toBe('neo-theme-neo-dark')
+    });
+
     test('an adopted instance carrying its own theme keeps it', () => {
         container = Neo.create(Container, {appName, theme: 'neo-theme-neo-dark'});
 
