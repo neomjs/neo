@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary The sensor dispatch-target discrimination witnesses (real DOM, real bubbling).

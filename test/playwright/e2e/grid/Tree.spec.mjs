@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 test.describe('Tree Grid E2E', () => {
     test.beforeEach(async ({ page }) => {

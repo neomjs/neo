@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary Validates the core interactions of the Big Data TreeGrid example.

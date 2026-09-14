@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * Proves `Neo.worker.Base#forwardErrorToMainThread` reaches the page from a NON-App SharedWorker.
@@ -24,8 +24,11 @@ import {test, expect} from '@playwright/test';
 const APP = '/examples/stateProvider/multiWindow/index.html';
 
 test.describe('SharedWorker error mirror — beyond the App worker', () => {
-    test('a Data-worker error reaches the page console, and names its worker', async ({page}) => {
+    test('a Data-worker error reaches the page console, and names its worker', async ({page, workerErrors}) => {
         const mirrored = [];
+
+        // Raised on purpose, so named for the gate in `fixtures.mjs`.
+        workerErrors.expect(/^Data Worker: Failed to load module no\/such\/module\/at\/all/);
 
         page.on('console', message => {
             message.type() === 'error' && message.text().includes('Worker:') && mirrored.push(message.text())

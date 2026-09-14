@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * Guards both directions of `Neo.worker.Base#forwardErrorToMainThread` for the App worker: a healthy
@@ -60,9 +60,12 @@ test.describe('App Worker error mirror', () => {
         expect(mirrored, 'a clean boot mirrors nothing').toEqual([])
     });
 
-    test('an unhandled rejection in the App worker reaches the page console', async ({page}) => {
+    test('an unhandled rejection in the App worker reaches the page console', async ({page, workerErrors}) => {
         const probe    = 'neo-worker-mirror unhandled rejection probe',
               mirrored = [];
+
+        // Raised on purpose, so named for the gate in `fixtures.mjs`.
+        workerErrors.expect(/^App Worker: Error: neo-worker-mirror unhandled rejection probe/);
 
         page.on('console', message => {
             message.type() === 'error' && message.text().includes(probe) && mirrored.push(message.text())

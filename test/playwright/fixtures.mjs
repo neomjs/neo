@@ -89,7 +89,44 @@ export function loadNeuralLinkModules(env = process.env) {
     return neuralLinkModulesPromise
 }
 
+/**
+ * A line `Neo.worker.Base#forwardErrorToMainThread` mirrors into the page console: `<Name> Worker: …`.
+ * @type {RegExp}
+ */
+const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
+
 export const test = base.extend({
+    /**
+     * @summary Fails a test whose page received a mirrored worker error or threw, unless the test
+     * named that error first.
+     *
+     * A worker error that a component catches and logs fails nothing else, so without this reader it
+     * ships with every check green. The mirror puts such lines on the page; this fixture reads them
+     * for every test that imports `test` from here, and needs no Brain checkout.
+     *
+     * A test that raises an error on purpose names it with a non-global RegExp, and can wait for it
+     * through `lines`.
+     */
+    workerErrors: [async ({page}, use) => {
+        const expected = [],
+              seen     = [];
+
+        page.on('console', message => {
+            message.type() === 'error' && MIRRORED_WORKER_ERROR.test(message.text()) && seen.push(message.text())
+        });
+
+        page.on('pageerror', error => seen.push(`pageerror: ${error.message}`));
+
+        await use({
+            expect: pattern => expected.push(pattern),
+            get lines() {
+                return [...seen]
+            }
+        });
+
+        expect(seen.filter(line => !expected.some(pattern => pattern.test(line))),
+            'no worker error reached the page console, and the page threw nothing').toEqual([])
+    }, {auto: true}],
     /**
      * @warning The `neo` fixture uses legacy Remote Method Access (RMA).
      * It is retained for environments where the Neural Link is unavailable

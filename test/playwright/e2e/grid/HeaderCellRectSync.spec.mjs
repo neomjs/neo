@@ -98,7 +98,6 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
 
     test('repeated back-and-forth drag keeps every header rect locked to its cell rect', async ({ page }) => {
         await page.goto('/examples/grid/lockedColumns/');
-        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
         await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
         await page.waitForTimeout(600);

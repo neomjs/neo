@@ -59,7 +59,6 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the drag affordan
     for (const presentation of PRESENTATIONS) {
         test(`the held gesture keeps the splitter's resolved paint — ${presentation.name}, ${HOST.name}`, async ({neo, page}) => {
             await page.goto(HOST.url);
-            page.on('pageerror', error => console.error('BROWSER JS ERROR:', error.message));
 
             const splitter = page.locator(HOST.ready).first();
             await expect(splitter, 'the host must render a splitter to drag').toBeVisible({timeout: 60000});
