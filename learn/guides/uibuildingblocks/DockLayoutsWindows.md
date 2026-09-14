@@ -21,7 +21,7 @@ embody, and none of the stations below exist — the design record's state-class
 case, and so is this guide. This guide follows one pane through
 every station of that life: out through a tear-out, into a window that becomes a participant in a shared topology,
 through the lease that decides what happens when that window dies young, through the mid-gesture parking that keeps a
-half-finished drag alive, back home by three different roads, and across a reload that puts the whole arrangement
+half-finished drag alive, back home by four different roads, and across a reload that puts the whole arrangement
 back. The gesture that starts the journey is told in
 [Dock Layouts](DockLayouts.md) and is not repeated here; the render target you owe as
 an adopter is told in [Adopting in Your App](DockLayoutsAdoption.md). This is the part
@@ -82,7 +82,7 @@ flowchart TD
     Release["the window dies or is closed<br/>the binding is released, the lease starts running"]:::decision
     Retain["your host answers: retained<br/>the participant stays, the pane parks headless"]:::truth
     Retire["your host answers: retired<br/>the item re-trees home, the vessel document goes"]:::truth
-    Return["three roads home — Undo, Reset, Show here<br/>the same instance embodies again, ~360 ms after the document"]:::window
+    Return["four roads home — Undo, Reset, Show here, the stack dragged back<br/>the same instance embodies again, ~360 ms after the document"]:::window
     Reload["warm reload rebinds the same lineage — same objects, same history<br/>cold reload: a new heap restores the keyed documents headless — new instances, windows by gesture"]:::truth
 
     Home --> Terminal
@@ -238,9 +238,9 @@ engine and the products keep their policy. Platform behaviour across browsers an
 catalogued, with verdicts and receipts, in the [Tear-Out Portability Matrix](../specificfeatures/TearOutPortabilityMatrix.md);
 this guide explains the mechanism and does not repeat the rows.
 
-## Station five: three roads home, and the read that fooled two of us
+## Station five: four roads home, and the read that fooled two of us
 
-A pane comes home by one of three roads, and they differ in what they do to the arrangement.
+A pane comes home by one of four roads, and they differ in what they do to the arrangement.
 
 **Undo** is the Group's. A tear-out is one history row; undoing it returns the pane to the exact document state
 before the detach, through the same participant protocol, and the vessel's projection releases the instance the main
@@ -259,7 +259,20 @@ same reason it is at the lease's end.
 document unchanged. It is the road a user takes when the browser has decided it will not give them another popup, and
 it is why retention is worth the bookkeeping.
 
-All three share one physical fact that fooled two maintainers on the same day, and the guide would be dishonest to
+**The whole stack, dragged back** is the road walked with the pointer, and it carries a vessel's stack home as one
+unit. A workspace opts in with `enableStackDrag` in its projection options — the Workstation's popup workspace always
+does, and Demo B arms it on its popup workspace and nowhere else — and the adapter then decorates exactly one header
+with a runtime-only grip: the active tab of the document's stack root. The stack root is what
+`WorkspaceDocument.resolveStackRoot` reads as the center child of the vessel's edge-zone root, never the root itself,
+and a document that cannot prove one offers no grip. Dragging the grip carries every pane under that node, and the drop
+commits one `transferNode` from the vessel's document into the target's. The participation owner accepts nothing
+looser: inside one document a grouped move is the model's `moveNode`, so it declines rather than turn one operation
+into another; a node that is not the source's resolved stack root never transfers; and a pair that cannot be published
+leaves the source with its panes. On the Workstation the receipt for this road reads in a fixed order — documents
+adopted, projections settled, close dispatched, close acknowledged — so the emptied vessel closes itself only after
+the main document holds its panes, each with the instance id it left with.
+
+All four share one physical fact that fooled two maintainers on the same day, and the guide would be dishonest to
 skip it. When a pane comes home, the *document* moves first and the *component* follows. On the Workstation the
 committed document lists the pane in the main workspace about thirty milliseconds after the Reset click; the popup's
 projection empties twenty milliseconds after that; and the live instance is embodied in the main window — `windowId`
