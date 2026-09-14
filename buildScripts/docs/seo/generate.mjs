@@ -106,6 +106,7 @@ const PRIORITIES = new Map([
     ['guides/uibuildingblocks/DockLayoutsStateAndPersistence', 0.8],
     ['guides/uibuildingblocks/DockLayoutsStyling'     , 0.8],
     ['guides/uibuildingblocks/DockLayoutsMechanics'   , 0.8],
+    ['guides/uibuildingblocks/DockLayoutsFeatures'    , 0.8],
     ['guides/uibuildingblocks/DockLayoutsPanes'       , 0.8],
     ['guides/uibuildingblocks/DockLayoutsWindows'     , 0.8],
     ['guides/testing/DockLayoutsTesting'              , 0.8],

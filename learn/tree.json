@@ -78,6 +78,7 @@
             {"name": "Dock Layouts: A Pane's Life Across Windows",     "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsWindows"},
             {"name": "Dock Layouts: Styling and Action Chrome",        "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsStyling"},
             {"name": "Dock Layouts: How a Gesture Becomes One Commit", "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsMechanics"},
+            {"name": "Dock Layouts: What Users Can Do",                "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsFeatures"},
             {"name": "Fragments",                                      "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Fragments"},
             {"name": "Custom Components",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/CustomComponents"},
             {"name": "Working with VDom",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/WorkingWithVDom"},
