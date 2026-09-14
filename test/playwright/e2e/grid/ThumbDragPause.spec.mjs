@@ -74,7 +74,7 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
                 window.__PIN_DELTAS.push({
                     t   : performance.now(),
                     n   : deltas.length,
-                    id  : String(deltas[0]?.id || '').slice(0, 40),
+                    id  : deltas.length === 1 ? JSON.stringify(deltas[0]).slice(0, 160) : String(deltas[0]?.id || '').slice(0, 40),
                     meta: meta ? Math.round(meta.scrollTop) : null
                 })
             });
