@@ -26,15 +26,35 @@ import {test, expect} from '../../fixtures.mjs';
  * CDP page.mouse is REQUIRED: the drag must ride the trusted-input path (the app-side synthetic
  * path does not exercise the real drag lifecycle — measured in the drag-selection lane).
  *
- * Viewport 1280x800: the flagship capture profile at which the defect was recorded.
+ * Viewport 1920x1000, and the reason is the whole of it. The defect was recorded at 1280x800, and
+ * that capture stays the historical evidence — but this witness needs TWO tab labels measurable
+ * before it can drag one onto the other, and at 1280 the `right-top-tabs` zone is 220px wide. Once
+ * the container takes focus the header action set expands from one action to six (actions are
+ * focus-gated by `showOnFocus`), the strip repartitions, and the non-active label moves behind the
+ * overflow control. That is contracted behaviour, not a regression: the active tab stays directly
+ * visible and the evicted one stays reachable through the control's menu, which is the invariant
+ * `Neo.tab.plugin.Overflow` packs for and which the operator settled.
+ *
+ * Measured on this zone, after focus settles:
+ *
+ *   1280 -> bar 220px, labels ['Audit'],            overflow control present, menu reaches Metrics
+ *   1600 -> bar 221px, labels ['Audit']
+ *   1920 -> bar 265px, labels ['Metrics','Audit'],  no overflow control, nothing repartitions
+ *
+ * So 1920 is the narrowest measured board on which this witness's own precondition is legitimate
+ * rather than lucky. Do not shrink it back to match the capture profile: that removes the second
+ * label and the spec dies in its precondition instead of reaching the gesture.
+ *
+ * A green run here restores the INSTRUMENT. It does not prove the recorded defect fixed — that
+ * claim belongs to the ticket that owns it.
  *
  * Run: NEO_E2E_PORT=8117 npx playwright test workstation/WorkstationTabDragLabelOverlapNL -c test/playwright/playwright.config.e2e.mjs --workers=1 --headed
  */
 test.describe('Workstation — a top-right tab drag never paints a header label over a content label (#16406)', () => {
     test.setTimeout(90000);
     test.use({
-        contextOptions: {screen: {height: 800, width: 1280}},
-        viewport      : {height: 800, width: 1280}
+        contextOptions: {screen: {height: 1000, width: 1920}},
+        viewport      : {height: 1000, width: 1920}
     });
 
     test('no two different heading strings share an overlapping box on any frame of the drag', async ({page, neuralLink}) => {
@@ -49,8 +69,25 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
         await auditButton.click();
         await page.waitForSelector('.workstation-resident-kicker:has-text("EVIDENCE CHAIN")', {timeout: 10000});
 
+        const metricsButton = page.locator('.neo-tab-header-button', {hasText: 'Metrics'}).first();
+
+        // The EVIDENCE CHAIN kicker is NOT the header's settle point. Activating Audit re-partitions
+        // the strip, and measured over four runs the bar held only ['Audit'] at the kicker once,
+        // reaching ['Metrics','Audit'] 160ms later; the other three were already settled. Reading
+        // immediately therefore samples a pre-settle strip about one run in four — which is the
+        // intermittency this witness was dying of, and why the same probe disagreed with itself.
+        //
+        // This waits on the observable the assertion depends on rather than on a chosen duration,
+        // and it is not tolerating churn: the repartition is contracted behaviour, so settling is
+        // the state the witness is entitled to measure.
+        await expect.poll(async () => Boolean(await metricsButton.boundingBox()), {
+            message  : 'the Metrics tab header button must reach a measurable box once focus settles',
+            timeout  : 5000,
+            intervals: [50, 50, 100, 200]
+        }).toBe(true);
+
         const auditBox   = await auditButton.boundingBox(),
-              metricsBox = await page.locator('.neo-tab-header-button', {hasText: 'Metrics'}).first().boundingBox();
+              metricsBox = await metricsButton.boundingBox();
 
         expect(auditBox,   'the Audit tab header button must be visible').toBeTruthy();
         expect(metricsBox, 'the Metrics tab header button must be visible').toBeTruthy();
