@@ -236,3 +236,101 @@ export async function placeNativeWindow(page, requested) {
         await session.detach()
     }
 }
+
+/**
+ * @summary Reads the display envelope a window sits on — the stage, never the window itself.
+ *
+ * Deliberately separate from {@link readBrowserSurface}, which answers where this window is and how
+ * big it is. Fusing the two is what lets a caller measure a real window against an imaginary stage:
+ * Playwright reports `screen.avail*` at the emulated viewport size while CDP places windows at real
+ * display coordinates, so the same object would carry one honest half and one fictional half.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>} `{availHeight, availLeft, availTop, availWidth}`
+ */
+export function readDisplayEnvelope(page) {
+    return page.evaluate(() => ({
+        availHeight: globalThis.screen.availHeight,
+        availLeft  : globalThis.screen.availLeft,
+        availTop   : globalThis.screen.availTop,
+        availWidth : globalThis.screen.availWidth
+    }))
+}
+
+/**
+ * @summary Plans two non-overlapping windows side by side inside a measured display envelope.
+ *
+ * Returns a verdict instead of throwing or skipping, because the callers want opposite reactions to
+ * the same refusal: a film take should fail loudly on a display that cannot hold the arrangement,
+ * an ordinary journey should skip and say why. The caller spends the verdict —
+ * `test.skip(!plan.fits, plan.reason)` or `expect(plan.fits, plan.reason).toBe(true)` — so neither
+ * semantic is imposed on the other. A refusal always names the measured display, since "it did not
+ * fit" without the number sends the next reader to measure it again by hand.
+ * @param {Object} envelope From {@link readDisplayEnvelope}.
+ * @param {Object} [options]
+ * @param {Number} [options.gap=24] Horizontal pixels between the two windows. **Supported domain:
+ *     finite and non-negative.** The floors gate the envelope, not this, so a gap wide enough to
+ *     consume the main window is still inside the domain and is refused with a reason naming it,
+ *     rather than returned as a negative width. A NEGATIVE gap is OUTSIDE the domain and is not
+ *     rejected: it pulls the target back across the main window, so the verdict would report `fits`
+ *     for two rectangles that overlap. Measured at `-1` on a 1200×700 envelope, a one-pixel overlap.
+ * @param {Number} [options.minHeight=700] Envelope height below which the arrangement is refused.
+ * @param {Number} [options.minWidth=1200] Envelope width below which the arrangement is refused.
+ * @returns {Object} `{fits, main, reason, target}`; `main`/`target` are null when `fits` is false.
+ *     Within the supported gap domain, a `fits: true` verdict guarantees both rectangles are
+ *     positive, non-overlapping, and inside the envelope they were planned against.
+ */
+export function planSideBySide(envelope, {gap=24, minHeight=700, minWidth=1200}={}) {
+    const {availHeight, availLeft, availTop, availWidth} = envelope;
+
+    if (availWidth < minWidth || availHeight < minHeight) {
+        return {
+            fits  : false,
+            main  : null,
+            reason: `the measured display is ${availWidth}×${availHeight}, below the ` +
+                `${minWidth}×${minHeight} that two real windows need to sit side by side`,
+            target: null
+        }
+    }
+
+    const
+        targetWidth  = Math.min(460, Math.floor(availWidth * .32)),
+        mainWidth    = Math.min(1000, availWidth - targetWidth - gap - 60),
+        mainHeight   = Math.min(760, availHeight - 80),
+        targetHeight = Math.min(420, mainHeight - 120),
+        main         = {
+            height: mainHeight,
+            left  : availLeft + 20,
+            top   : availTop + 40,
+            width : mainWidth
+        };
+
+    const target = {
+        height: targetHeight,
+        left  : main.left + main.width + gap,
+        top   : main.top + 120,
+        width : targetWidth
+    };
+
+    // The floors above gate the ENVELOPE; they say nothing about the arrangement the caller asked
+    // for inside it. A gap wide enough eats the main window — `1200x700` with `gap: 800` yields a
+    // main width of -44 — so the computed rectangles are checked rather than assumed. A verdict
+    // that says `fits` has to hand back rectangles a window can actually occupy.
+    const invalid = [
+        ['main width',    main.width],
+        ['main height',   main.height],
+        ['target width',  target.width],
+        ['target height', target.height]
+    ].filter(([, value]) => value <= 0);
+
+    if (invalid.length) {
+        return {
+            fits  : false,
+            main  : null,
+            reason: `a ${gap}px gap leaves no usable arrangement on a ${availWidth}×${availHeight} ` +
+                `display: ${invalid.map(([name, value]) => `${name} ${value}`).join(', ')}`,
+            target: null
+        }
+    }
+
+    return {fits: true, main, reason: null, target}
+}
