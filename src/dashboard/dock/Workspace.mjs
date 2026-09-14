@@ -2341,7 +2341,7 @@ class Workspace extends Container {
      * `waitForOverflowProjection` (an overflow-readiness wait), and `retainTopology` (a
      * host-forced stable-topology admission, winning over the commit's own value when present).
      * Every other returned key is DISCARDED: the projection identity — `host`, `nextConfig`,
-     * `placeholders`, the merged `preserveItemIds`, `resolveItem`, `shellIndex`, `geometryOnly` —
+     * `placeholders`, the merged `preserveItemIds`, `resolveItem`, `prepareItem`, `shellIndex`, `geometryOnly` —
      * is class-owned and mechanically unreachable from this hook. The default contributes
      * nothing.
      * @param {Object|null} document The committed document this refresh projects.
@@ -2802,19 +2802,12 @@ class Workspace extends Container {
                 ...(me.enableDockTearOutLifecycle ? (me.tearOutHandlers?.heldPaneIds?.() || []) : []),
                 ...(refreshOptions.preserveItemIds || [])
             ])],
-            resolveItem    : itemId => {
-                const item = document?.items?.[itemId];
-
-                return LayoutAdapter.decorateProjectedItem(
-                    me.publishPaneContract(itemId, me.resolveProjectedPane(itemId, item)),
-                    itemId,
-                    item,
-                    {
-                        nodeId: tabInsertDescriptor?.tabsNodeId,
-                        tabInsertDescriptor
-                    }
-                )
-            },
+            prepareItem: (pane, itemId, context) => LayoutAdapter.decorateProjectedItem(
+                pane, itemId, document.items[itemId], {...context, tabInsertDescriptor}
+            ),
+            resolveItem: itemId => me.publishPaneContract(
+                itemId, me.resolveProjectedPane(itemId, document.items[itemId])
+            ),
             retainTopology: forcedRetainTopology ?? retainTopology,
             shellIndex    : me.dockShellIndex,
             waitForOverflowProjection

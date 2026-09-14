@@ -164,6 +164,81 @@ class PlainWorkspace extends DockWorkspace {
     }
 }
 
+/** @summary A transferable single-stack host using the ordinary projection pipeline. */
+class StackWorkspace extends PlainWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.StackWorkspace'
+    }
+
+    /** @summary Enables the adapter's existing whole-stack affordance. @returns {Object} */
+    getDockProjectionOptions() {
+        return {...super.getDockProjectionOptions(), enableStackDrag: true}
+    }
+
+    /** @summary Supplies a consumer-authored header for the retention control. @param {String} itemId @returns {Object} */
+    resolvePane(itemId) {
+        return {ntype: 'component', header: {text: `Authored ${itemId}`, iconCls: 'fa fa-code'}}
+    }
+}
+
+for (const retainTopology of [false, true]) {
+    test(`stack grips follow retained pane headers across arrival and selection (retain=${retainTopology})`, async () => {
+        const document = {
+            schema: 'neo.dock.zone.v1', root: 'vessel',
+            items : {editor: {reference: 'Editor', title: 'Editor'}},
+            nodes : {
+                vessel: {type: 'edge-zone', zones: {center: {nodeId: 'stack'}}},
+                stack : {type: 'tabs', items: ['editor'], activeItemId: 'editor'}
+            }
+        }, authoredHeader = {text: 'Authored editor', iconCls: 'fa fa-code'},
+            host = Neo.create(StackWorkspace, {dockModel: document});
+
+        const tabs  = () => host.down({dockNodeId: 'stack'}),
+              grips = () => tabs().getTabButtons().map(button =>
+            (Array.isArray(button.text) ? button.text : []).filter(node =>
+                node?.cls?.includes('neo-dock-stack-handle')).map(node => node.id));
+
+        try {
+            await host.ready();
+            expect(grips(), 'the initial projection supplies the positive control').toEqual([['neo-dock-stack-handle-editor']]);
+            expect(tabs().getTabButtons()[0].text[0].text).toBe(authoredHeader.text);
+            const editor = tabs().getCardContainer().items[0],
+                  next   = structuredClone(document);
+
+            next.items.preview = {reference: 'Preview', title: 'Preview'};
+            next.nodes.stack.items.push('preview');
+            next.nodes.stack.activeItemId = 'preview';
+            host.setSilent({dockModel: next});
+            await host.refreshDockWorkspace(null, next, {retainTopology});
+
+            expect(grips(), 'only the newly active pane presents a grip').toEqual([[], ['neo-dock-stack-handle-preview']]);
+            expect(tabs().getCardContainer().items[0]).toBe(editor);
+
+            const selected = structuredClone(next);
+            selected.nodes.stack.activeItemId = 'editor';
+            host.setSilent({dockModel: selected});
+            await host.refreshDockWorkspace(null, selected, {retainTopology});
+
+            expect(grips(), 'selection transfers the sole grip without stacking decorations')
+                .toEqual([['neo-dock-stack-handle-editor'], []]);
+            await host.refreshDockWorkspace(null, selected, {retainTopology});
+            expect(grips(), 'a repair pass over the same projection is idempotent')
+                .toEqual([['neo-dock-stack-handle-editor'], []]);
+
+            const options = host.getDockProjectionOptions.bind(host);
+            host.getDockProjectionOptions = () => ({...options(), enableStackDrag: false});
+            await host.refreshDockWorkspace(null, selected, {retainTopology});
+            expect(grips(), 'removing the opt-in restores ordinary headers').toEqual([[], []]);
+            expect(tabs().getTabBar().sortZone.dockGroupNodeId).toBeNull();
+            expect(editor.header, 'the consumer header survives projection and materialization')
+                .toEqual({...authoredHeader, dockItemId: 'editor'});
+            expect(tabs().getCardContainer().items[0]).toBe(editor)
+        } finally {
+            host.destroy()
+        }
+    })
+}
+
 /**
  * The mistake this guard exists for: the tear-out lifecycle on, and `getDockProjectionOptions`
  * replaced rather than extended. Every real host writes this shape by accident, because returning
@@ -461,6 +536,7 @@ Neo.setupClass(HandWrittenFlagWorkspace);
 Neo.setupClass(NoLifecycleWorkspace);
 Neo.setupClass(KeptOptInsWorkspace);
 Neo.setupClass(PlainWorkspace);
+Neo.setupClass(StackWorkspace);
 Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
@@ -3598,6 +3674,7 @@ test('the holder contract: a config-assigned document is readable before any ope
             onProjectionStaged       : staged,
             placeholders             : new Map([['x', 'hostile']]),
             preserveItemIds          : ['hostile-item'],
+            prepareItem              : hostileFn,
             resolveItem              : hostileFn,
             retainTopology           : true,
             shellIndex               : 99,
@@ -3630,7 +3707,8 @@ test('the holder contract: a config-assigned document is readable before any ope
         expect(captured.nextConfig.cls).not.toContain('hostile');
         expect(captured.placeholders.get('x')).toBeUndefined();
         expect(captured.preserveItemIds).not.toContain('hostile-item');
-        expect(captured.resolveItem).not.toBe(hostileFn)
+        expect(captured.resolveItem).not.toBe(hostileFn);
+        expect(captured.prepareItem).not.toBe(hostileFn)
     });
 
     test('the post-refresh hook is awaited and receives the outcome and the play promise', async () => {

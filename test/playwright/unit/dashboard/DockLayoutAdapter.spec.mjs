@@ -714,6 +714,23 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         }
     });
 
+    test('a bare live pane keeps its synthesized title when the stack grip retires', () => {
+        const pane = Neo.create(Component), item = {title: 'Bare pane'};
+        let tabs;
+
+        try {
+            expect(Object.hasOwn(pane, 'header')).toBe(false);
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item, {stackHandle: true});
+            DockLayoutAdapter.decorateProjectedItem(pane, 'bare', item);
+            expect(pane.header, 'the default title outlives the transient grip').toEqual({text: 'Bare pane'});
+            tabs = Neo.create(TabContainer, {items: [pane]});
+            expect(tabs.getTabAtIndex(0).text, 'the same pane remains labelled in a fresh tab container').toBe('Bare pane')
+        } finally {
+            tabs?.destroy();
+            pane.isDestroyed || pane.destroy()
+        }
+    });
+
     test('projects the documented edge-zone root model through the dashboard adapter', () => {
         let result = DockLayoutAdapter.project(createEdgeZoneModel(), {
                 resolveComponentRef: reference => ({

@@ -598,6 +598,7 @@ class VesselWorkspace extends DockWorkspace {
     async registerVesselWorkspaceTarget({app, itemId, windowId}) {
         const state = this.getPopupState(VesselWorkspace.vesselWorkspaceId(itemId));
         if (!state?.host || !app?.mainView) return null;
+        state.itemId = itemId;
         if (state.windowId === windowId && state.host.parent === app.mainView) {
             await state.mountPromise;
             return state
@@ -748,6 +749,11 @@ class VesselWorkspace extends DockWorkspace {
                 reconciled   : false, closeRequested: false, topologyExited: false
             };
             const source = me.getPopupState(sourceWorkspaceId), target = me.getPopupState(targetWorkspaceId);
+            if (descriptor.operation === 'transferNode' && targetWorkspaceId === VesselWorkspace.MAIN_WORKSPACE_ID
+                && source && !Object.keys(source.document.items).length) {
+                const viewport = source.app?.mainView;
+                viewport && !viewport.isDestroyed && viewport.addCls('workstation-vessel-departing')
+            }
             await Promise.all([me.refreshPromise, source?.host?.refreshPromise, target?.host?.refreshPromise]);
             receipt.reconciled = true;
             receipt.phases.push('projections-settled');
@@ -1372,7 +1378,7 @@ class VesselWorkspace extends DockWorkspace {
         }
         const workspaceId = vessel.workspaceKey ?? VesselWorkspace.vesselWorkspaceId(itemId);
         const existing    = me.getPopupState(workspaceId);
-        let   state       = existing;
+        let   state       = existing, committed = false;
         try {
             if (!me.tearOutHandlers.capturePane(itemId)) throw new Error(`No live pane for ${itemId}`);
             if (!state) {
@@ -1381,9 +1387,12 @@ class VesselWorkspace extends DockWorkspace {
             await me.workspaceSet.transfer({
                 operation        : 'transferItem', itemId, sourceWorkspaceId: VesselWorkspace.MAIN_WORKSPACE_ID,
                 targetWorkspaceId: workspaceId,
-                target           : {operation: 'addTab', tabsNodeId: VesselWorkspace.vesselTabsNodeId(itemId)}
+                target           : {
+                    operation: 'restoreTab', tabsNodeId: VesselWorkspace.vesselTabsNodeId(itemId),
+                    home     : {parentId: state.document.root, slot: 'center'}
+                }
             }, {provenance: {origin: 'human'}});
-            state.committed = true;
+            state.committed = committed = true;
             me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.id, itemId) || null);
             const connection = me.nativeWindows?.getOwner(me.id, itemId);
             if (connection?.windowId) await me.registerVesselWorkspaceTarget({
@@ -1391,7 +1400,6 @@ class VesselWorkspace extends DockWorkspace {
             });
             return true
         } catch (error) {
-            const committed = state?.committed === true;
             me.lastCrossWindowTransfer = {applied: committed, errors: [error?.message ?? String(error)]};
             if (!existing && !committed) {
                 try {

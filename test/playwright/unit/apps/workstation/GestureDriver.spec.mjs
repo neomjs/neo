@@ -19,6 +19,27 @@ const down = {targetId: 'source-tab', windowId: 'source-window', type: 'mousedow
     options: {buttons: 1, clientX: 50, clientY: 60}},
       up = {...down, type: 'mouseup', options: {...down.options, buttons: 0}};
 
+test('vessel survival reads a bound provisional connection or committed owner, never a headless owner', async () => {
+    const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+    let   connection                     = {windowId: 'live-vessel'}, owner = null;
+    const driver                         = Neo.create(NativeGestureDriver, {workspace: {
+        id: 'vessel-survival', nativeWindows: {getConnection: () => connection, getOwner: () => owner}
+    }});
+
+    try {
+        await expect(driver.waitForTearOutVessel('pane', {attempts: 0})).resolves.toBe(true);
+        owner = connection;
+        connection = null;
+        await expect(driver.waitForTearOutVessel('pane', {attempts: 0})).resolves.toBe(true);
+        owner = {windowId: 0};
+        await expect(driver.waitForTearOutVessel('pane', {attempts: 0})).resolves.toBe(true);
+        owner = {windowId: null};
+        await expect(driver.waitForTearOutVessel('pane', {attempts: 0})).resolves.toBe(false)
+    } finally {
+        driver.destroy()
+    }
+});
+
 test('normal construction stays driver-free; explicit calls reach one registered lazy owner', async () => {
     const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           service   = Neo.create(InstanceService);
@@ -229,17 +250,17 @@ test.describe('cross-window target admission', () => {
         test(name, async () => {
             const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
             const {default: WindowManager}       = await import('../../../../../src/manager/Window.mjs');
-            const sourceWindowId = 'gesture-admission-source', targetWindowId = 'gesture-admission-target',
+            const sourceWindowId                 = 'gesture-admission-source', targetWindowId = 'gesture-admission-target',
                   state = {committed: true, windowId: targetWindowId, host: {participation: {}}},
                   calls = [], sortZone = {},
                   button = {id: 'gesture-admission-tab', windowId: sourceWindowId,
                       getDomRect: async () => [{x: 100, y: 100, width: 40, height: 20}]},
                   workspace = {constructor: Workspace, id: 'gesture-admission-workspace',
-                      dockModel: {items: {commits: {}}, nodes: {source: {type: 'tabs', items: ['commits']}}},
-                      getDockHost: () => ({down: () => ({getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
+                      dockModel    : {items: {commits: {}}, nodes: {source: {type: 'tabs', items: ['commits']}}},
+                      getDockHost  : () => ({down: () => ({getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
                       getPopupState: () => missing ? null : state,
                       nativeWindows: {getOwner: () => ({windowId: targetWindowId}), clearConnection() {}},
-                      paneCache: {commits: {}}},
+                      paneCache    : {commits: {}}},
                   driver = Neo.create(NativeGestureDriver, {workspace});
 
             mutate(state);

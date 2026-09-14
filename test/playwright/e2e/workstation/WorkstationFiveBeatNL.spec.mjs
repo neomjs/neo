@@ -39,7 +39,7 @@ import {isFilmTake}                                                 from '../uti
  *
  * Scene 1, the showcase witness, and Scene 5 run twice per spec with structural equality. Scene 5's
  * determinism contract is the uninterrupted full journey twice, with identical clock-free beat
- * logs and a zero-residue reload between takes. The film's recording pipeline replays the same
+ * logs and an explicit topology reset before reload between takes. The film's recording pipeline replays the same
  * app-owned drives headed, so a surface fix re-runs the spec instead of re-recording a one-shot
  * video.
  *
@@ -2432,7 +2432,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     });
 
     test('an early cross-window refusal reports its cause and releases the popup observer', async ({page, neuralLink}) => {
-        const {app, wsId} = await boot({page, neuralLink});
+        const {app, wsId}    = await boot({page, neuralLink});
         const popupListeners = page.listenerCount('popup');
         await expect(stageMergedVessel({app, page, wsId, sourceNodeId: 'missing-source'}))
             .rejects.toThrow('cross-window dock step must name distinct live source and target panes');
@@ -2647,6 +2647,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const samples = await departingSamples;
 
+        expect(result.errors, JSON.stringify(result.proof)).toEqual([]);
+
         console.log('[departing-witness]', JSON.stringify({count: samples.length, first: samples[0], last: samples.at(-1)}));
 
         expect(samples.length, 'the departing overlay must render during the close window').toBeGreaterThan(0);
@@ -2762,7 +2764,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(commitsBefore, 'commits must be one live pane before it crosses a window').toBeTruthy();
 
             if (openingDocuments.length) {
-                expect(opening, 'reload must restore pristine worker truth before the second take')
+                expect(opening, 'the explicit reset survives reload before the second take')
                     .toEqual(openingDocuments[0])
             } else {
                 openingDocuments.push(opening)
@@ -2923,9 +2925,13 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                     moveDelay : filmPace.moveDelay ?? 16,
                     showCursor: filmPace.showCursor ?? false
                 }
-            ]);
+            ]).catch(async error => {
+                const root = await app.getComponent(wsId, ['lastCrossWindowTransfer', 'windowId']);
+                throw new Error(JSON.stringify({error: error.message, root, sourceClosed: targetPopup.isClosed()}))
+            });
 
             expect(returnResult.errors, JSON.stringify({
+                sourceArm       : returnResult.proof?.sourceArm,
                 closeReceipt    : returnResult.proof?.closeReceipt,
                 phaseOrder      : returnResult.proof?.phaseOrder,
                 remoteSnapshot  : returnResult.proof?.remoteSnapshot,
@@ -2993,7 +2999,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(heartbeatAtClose, 'the feed must advance without resetting during the journey')
                 .toBeGreaterThan(heartbeatAtOpen);
             expect(livePopupsAtClose,
-                'physical vessel topology must be empty before the zero-residue reload').toEqual([]);
+                'physical vessel topology must be empty before Reset').toEqual([]);
             expect(ctx.pageErrors, 'the uninterrupted journey must be browser-error-free').toEqual([]);
 
             beatLog.push({
@@ -3006,6 +3012,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             logs.push(beatLog);
 
             if (run < journeyRuns - 1) {
+                const reset = await app.callMethod(wsId, 'resetTopology', []);
+                expect(reset.errors).toEqual([]);
+                expect(reset.reset, 'Reset restores the shipped topology for the next take').toBe(true);
                 await page.reload()
             }
 

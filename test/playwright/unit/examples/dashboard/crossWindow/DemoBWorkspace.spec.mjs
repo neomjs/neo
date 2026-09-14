@@ -1703,7 +1703,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             const mainTabs = findTabs(workspace.projectDockModel(), 'workbench-tabs');
 
             expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
-            expect(mainTabs.items[0].header).toBeUndefined();
+            expect(mainTabs.items[0].header, 'the default label survives while the popup-only grip retires')
+                .toEqual({text: 'Workbench'});
 
             popupTabs.listeners.dockStackDragTerminal({
                 itemId: 'workbench', outcome: 'committed', groupNodeId: 'popup-tabs'
