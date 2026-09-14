@@ -79,8 +79,7 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
         add('core/B.spec.mjs');
         add('dashboard/C.spec.mjs');
         add('grid/D.spec.mjs');
-        add('portal/LearnLinkRoutingNL.spec.mjs');
-        add('portal/StoredThemeBoot.spec.mjs');
+        add('portal/E.spec.mjs');
         add('rendering/InputModalityMultiWindow.spec.mjs');
         add('rendering/ViewTransitionReveal.spec.mjs');
 
