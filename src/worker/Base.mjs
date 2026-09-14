@@ -59,6 +59,13 @@ class Worker extends Base {
      */
     channelPorts = null
     /**
+     * Only needed for SharedWorkers: the windows whose port this worker retired, newest last and capped at 16, so a
+     * reply that can no longer reach one of them reads as that window's departure rather than a lost reply.
+     * @member {Set<String>|null} departedWindowIds=null
+     * @protected
+     */
+    departedWindowIds = null
+    /**
      * Only needed for SharedWorkers
      * @member {Boolean} isConnected=false
      * @protected
@@ -91,6 +98,7 @@ class Worker extends Base {
 
         Object.assign(me, {
             channelPorts     : {},
+            departedWindowIds: new Set(),
             isSharedWorker   : gt.toString() === '[object SharedWorkerGlobalScope]',
             ports            : [],
             promises         : {},
@@ -463,6 +471,14 @@ class Worker extends Base {
         me.ports.splice(index, 1);
         portEntry.port.onmessage = null;
         portEntry.port.close?.();
+
+        if (portEntry.windowId) {
+            const {departedWindowIds} = me;
+
+            departedWindowIds.delete(portEntry.windowId);
+            departedWindowIds.add(portEntry.windowId);
+            departedWindowIds.size > 16 && departedWindowIds.delete(departedWindowIds.values().next().value)
+        }
 
         Object.entries(me.promises).forEach(([id, promise]) => {
             if (promise.portEntry === portEntry) {

@@ -350,7 +350,8 @@ class RemoteMethodAccess extends Base {
      * path — an escaped exception here makes replies vanish and wedges the caller-side promise
      * forever (`isVdomUpdating` stuck `true`, `vnode: null`, blank app, zero errors).
      * The failure is logged with its full routing context instead, so the update watchdog and
-     * the console make the loss diagnosable.
+     * the console make the loss diagnosable. A reply to a window whose port this worker retired is not logged: that
+     * window disconnected before its answer could reach it.
      * @param {Object} msg The original message object
      * @param {Object} opts The reply options (action, data, replyId, routing keys)
      * @param {Array|null} [transfer=null] An optional array of Transferable objects
@@ -372,7 +373,7 @@ class RemoteMethodAccess extends Base {
             return
         }
 
-        if (!message) {
+        if (!message && !this.departedWindowIds?.has(opts.windowId)) {
             console.error('[RemoteMethodAccess] Reply not routable (no live port) — the caller-side promise will not settle', {
                 destination: msg.origin,
                 port       : opts.port,

@@ -195,6 +195,42 @@ test.describe('Worker reply loss on null port lookup (#12958)', () => {
         expect(errors[0][1].replyId).toBe('q-7')
     });
 
+    test('a reply to a window whose port this worker retired is its departure, not a logged loss', () => {
+        const
+            captured  = createCapturingPort(),
+            portEntry = {
+                appNames: new Set(['DepartedApp']),
+                id      : 'port-departed',
+                port    : captured.port,
+                windowId: 'win-departed'
+            },
+            worker        = createSharedWorker([portEntry]),
+            errors        = [],
+            originalError = console.error;
+
+        Neo.ns('Test.Unit.Worker.ReplyLossRemote', true).answer = () => ({ok: true});
+        worker.onDisconnect({appName: 'DepartedApp', windowId: 'win-departed'}, portEntry);
+        console.error = (...args) => errors.push(args);
+
+        try {
+            // No source port: this is how an App request reaches the VDom worker, over their direct channel
+            ['win-departed', 'win-unknown'].forEach((windowId, index) => worker.onMessage({data: {
+                action         : 'remoteMethod',
+                id             : `q-channel-${index}`,
+                origin         : 'app',
+                remoteClassName: 'Test.Unit.Worker.ReplyLossRemote',
+                remoteMethod   : 'answer',
+                windowId
+            }}))
+        } finally {
+            console.error = originalError
+        }
+
+        expect(captured.sent, 'the departed window receives nothing').toHaveLength(0);
+        expect(errors.map(([, context]) => context.windowId), 'a window this worker never knew still reads as a loss')
+            .toEqual(['win-unknown'])
+    });
+
     test('resolve(): a live route still delivers the reply (no regression)', () => {
         const {port, sent} = createCapturingPort();
         const worker       = createSharedWorker([
@@ -334,7 +370,9 @@ test.describe('SharedWorker source-port lifecycle (#15906)', () => {
             }, portEntry)
         }
 
-        expect(worker.ports).toHaveLength(0)
+        expect(worker.ports).toHaveLength(0);
+        expect(worker.departedWindowIds.size, 'the departed-window record keeps the newest 16 and no more').toBe(16);
+        expect(worker.departedWindowIds.has('win-999') && !worker.departedWindowIds.has('win-0'), 'the oldest is the one evicted').toBe(true)
     });
 
     test('a replacement with identical routing keys cannot complete an old async connect', async () => {
