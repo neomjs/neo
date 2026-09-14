@@ -429,19 +429,30 @@ class Main extends core.Base {
      * @returns {Boolean}
      */
     async importAddon(data) {
-        let {name} = data,
-            module;
-
-        if (name.startsWith('WS/')) {
-            module = await import(`../../../src/main/addon/${name.substring(3)}.mjs`)
-        } else {
-            module = await import(`./main/addon/${name}.mjs`)
-        }
+        let module = await this.importAddonModule(data.name);
 
         this.registerAddon(module.default);
         await this.timeout(20); // Wait until remotes are registered
 
         return true
+    }
+
+    /**
+     * Imports one main thread addon module. A `WS/` name addresses the consuming workspace's own addons: the
+     * unbuilt tree keeps them three levels above the engine's `src/`, while `dist/esm` emits them into the
+     * engine's `main/addon/`, beside its own. Both specifiers stay literal, so webpack still resolves each
+     * as a context of its own.
+     * @param {String} name
+     * @returns {Promise<Object>}
+     */
+    importAddonModule(name) {
+        let isWorkspaceAddon = name.startsWith('WS/');
+
+        if (isWorkspaceAddon && Neo.config.environment !== 'dist/esm') {
+            return import(`../../../src/main/addon/${name.substring(3)}.mjs`)
+        }
+
+        return import(`./main/addon/${isWorkspaceAddon ? name.substring(3) : name}.mjs`)
     }
 
     /**
@@ -502,11 +513,7 @@ class Main extends core.Base {
         }
 
         mainThreadAddons.forEach(addon => {
-            if (addon.startsWith('WS/')) {
-                imports.push(import(`../../../src/main/addon/${addon.substring(3)}.mjs`))
-            } else {
-                imports.push(import(`./main/addon/${addon}.mjs`))
-            }
+            imports.push(me.importAddonModule(addon))
         });
 
         modules = await Promise.all(imports);
