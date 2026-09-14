@@ -116,10 +116,16 @@ class Component extends Abstract {
          */
         dropZoneConfig: null,
         /**
-         * True to mount this component into the viewport outside of the document flow
-         * @member {Boolean} floating
+         * True to mount this component into the viewport outside of the document flow.
+         *
+         * Runtime-capable: flipping it on a live component moves it in and out of the fixed-position
+         * layer through `neo-floating`, and re-aligns it while mounted. It does NOT change which node
+         * owns the component in the DOM — `parentId` is the config that roots a component elsewhere
+         * (`document.body`, typically), and the two are set together by callers that need both.
+         * @member {Boolean} floating_=false
+         * @reactive
          */
-        floating: false,
+        floating_: false,
         /**
          * Internal flag which will get set to true on mount
          * @member {Boolean} hasBeenMounted=false
@@ -500,6 +506,32 @@ class Component extends Abstract {
                     ...me.dropZoneConfig
                 })
             })
+        }
+    }
+
+    /**
+     * Triggered after the floating config got changed
+     *
+     * `getBaseClass()` already contributes `neo-floating` to every `cls` write, which covers the
+     * component that is born floating. What it cannot do is notice a flip: nothing writes `cls` when
+     * only `floating` changes, so the config and the rendered class used to diverge silently — the
+     * component reported `floating: true` and kept `position: static`. Toggling here is that write.
+     *
+     * Aligning but not focusing is deliberate. `afterSetMounted` does both because a floating widget
+     * *appearing* is a popup, and a popup takes the caret with it. A component that was already on
+     * screen and merely changed how it is positioned is not that event, and pulling focus out of
+     * whatever the user was typing in would be a surprise the caller never asked for.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetFloating(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.toggleCls('neo-floating', value);
+
+            value && me.mounted && me.alignTo()
         }
     }
 
