@@ -62,6 +62,12 @@ class MainContainer extends Viewport {
                 labelWidth: 70,
                 listeners : {change: 'changeIsOnlineFilter'},
                 style     : {marginLeft: '50px'}
+            }, {
+                module    : CheckBox,
+                labelText : 'Measured rows',
+                labelWidth: 110,
+                listeners : {change: 'changeMeasureItemHeight'},
+                style     : {marginLeft: '20px'}
             }]
         }, {
             module    : TextField,
