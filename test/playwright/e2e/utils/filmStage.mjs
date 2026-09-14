@@ -334,3 +334,194 @@ export function planSideBySide(envelope, {gap=24, minHeight=700, minWidth=1200}=
 
     return {fits: true, main, reason: null, target}
 }
+
+/**
+ * @summary Reports whether two window rects share any area.
+ *
+ * Separate from the planners because "are these already apart" is the question a caller asks BEFORE
+ * deciding to move anything, and the cheapest correct answer to a placement request is often to
+ * leave the windows where the product put them.
+ * @param {Object} first `{height, left, top, width}`.
+ * @param {Object} second `{height, left, top, width}`.
+ * @returns {Boolean}
+ */
+export function rectsOverlap(first, second) {
+    return first.left < second.left + second.width
+        && first.left + first.width > second.left
+        && first.top  < second.top  + second.height
+        && first.top  + first.height > second.top
+}
+
+/**
+ * @summary Plans a target window beside an already-placed source, inside a measured envelope.
+ *
+ * Distinct from {@link planSideBySide}, which arranges BOTH windows from the envelope alone. Here
+ * the source is already somewhere the product or the operator put it, and only the target may move.
+ * Four slots are tried in order — right, left, below, above — and the first fitting entirely inside
+ * the envelope wins, so a target never lands half off the display.
+ *
+ * Returns a verdict for the same reason the other planner does: whether an impossible stage is a
+ * failure or a skip belongs to the caller. Note the source's `width` must be its OUTER width; a
+ * viewport width omits the window chrome and plans the target on top of its own source.
+ * @param {Object} source Already-placed source rect, `{height, left, top, width}`, outer.
+ * @param {Object} target Target size, `{height, width}`.
+ * @param {Object} envelope From {@link readDisplayEnvelope}.
+ * @param {Object} [options]
+ * @param {Number} [options.gap=40] Pixels between source and target. **Supported domain: finite and
+ *     non-negative.** A gap wide enough that no slot fits is inside the domain and is refused with a
+ *     reason naming the measurement. A NEGATIVE gap is OUTSIDE the domain and is not rejected here:
+ *     it would plan the target overlapping the source, which every slot test would still call a fit
+ *     because the envelope, not the source, is what a slot is measured against.
+ * @returns {Object} `{bounds, fits, reason}`; `bounds` is null when `fits` is false.
+ */
+export function planBeside(source, target, envelope, {gap=40}={}) {
+    const
+        {availHeight, availLeft, availTop, availWidth} = envelope,
+        point                                          = [
+            {left: source.left + source.width + gap, top: source.top},
+            {left: source.left - target.width  - gap, top: source.top},
+            {left: source.left, top: source.top + source.height + gap},
+            {left: source.left, top: source.top - target.height  - gap}
+        ].find(candidate => candidate.left >= availLeft
+            && candidate.top >= availTop
+            && candidate.left + target.width  <= availLeft + availWidth
+            && candidate.top  + target.height <= availTop  + availHeight);
+
+    if (!point) {
+        return {
+            bounds: null,
+            fits  : false,
+            reason: `no slot beside the source fits on a ${availWidth}×${availHeight} display: ` +
+                `a ${source.width}×${source.height} source at ${source.left},${source.top} leaves ` +
+                `nowhere for a ${target.width}×${target.height} target with a ${gap}px gap`
+        }
+    }
+
+    return {
+        bounds: {height: target.height, left: point.left, top: point.top, width: target.width},
+        fits  : true,
+        reason: null
+    }
+}
+
+/**
+ * @summary Puts a target window beside an already-placed source, and proves it landed apart.
+ *
+ * The product's own placement gets first refusal: headed browsers honour the app's request once the
+ * popup connects, so this polls the observable rects first and moves NOTHING when the two windows
+ * already miss each other. Only a genuinely overlapping stage reaches CDP.
+ *
+ * Returns a verdict rather than throwing, so an impossible display is never discovered halfway
+ * through a gesture — the caller decides whether that is a failure or a skip. A `moved: false`
+ * verdict means the windows were already apart and nothing was touched.
+ * @param {import('@playwright/test').Page} sourcePage Already-placed source window.
+ * @param {import('@playwright/test').Page} targetPage Window to move.
+ * @param {Object} [options]
+ * @param {Object} [options.envelope=null] Declared stage, shaped like {@link readDisplayEnvelope}'s
+ * result. Supply it when the page runs an emulated viewport: the envelope is otherwise read from the
+ * page, and an emulated page reports a stage its real windows do not occupy, so the fit test is
+ * skipped rather than run against fiction. This is also the extension point for a caller that needs
+ * to name a specific display, since `window.screen` describes only the one a window already sits on.
+ * @param {Number} [options.gap=40] Pixels between source and target. Same domain as
+ * {@link planBeside}: finite and non-negative.
+ * @param {Number} [options.settleAttempts=20] Polls of the product's own placement before CDP.
+ * @returns {Promise<Object>} `{bounds, fits, moved, reason, stageTrusted}`.
+ *
+ * **What a `fits: true` verdict does and does not guarantee.** It always means the two windows do
+ * not overlap — that is measured, never inferred from the request. It means the target also sits
+ * inside the display envelope ONLY when `stageTrusted` is true. With `stageTrusted: false` no
+ * envelope could be established (an emulated page, no declared `envelope`), so containment is
+ * unproven and a caller that needs it must declare one. A `moved: false` verdict reports the
+ * product's own placement under exactly the same terms.
+ */
+export async function placeBesideSource(sourcePage, targetPage, {envelope=null, gap=40, settleAttempts=20}={}) {
+    await targetPage.waitForURL(url => url.protocol !== 'about:', {timeout: 30000});
+
+    const outerRect = async page => {
+        const surface = await readBrowserSurface(page);
+
+        return {
+            height: surface.outer.height,
+            left  : surface.inner.x,
+            top   : surface.inner.y,
+            width : surface.outer.width
+        }
+    };
+
+    // `screenX`/`screenY` stay real under viewport emulation while `screen.avail*` reports the
+    // emulated size. Reading the envelope from an emulated page therefore measures a real window
+    // against a stage that does not exist, which is the failure this module exists to prevent —
+    // so the envelope is trusted only when the caller declares one or the page is unemulated.
+    //
+    // Decided BEFORE any verdict, including the no-move one. Deciding it after the settle loop let
+    // that loop answer `fits: true, stageTrusted: true` for two windows that merely miss each other,
+    // without ever consulting the envelope the caller declared — a verdict claiming a stage it had
+    // not checked, which is this module's own defect turned inward.
+    const
+        emulated = Boolean((await readBrowserSurface(sourcePage)).emulatedViewport),
+        stage    = envelope ?? (emulated ? null : await readDisplayEnvelope(sourcePage)),
+        // Three-valued on purpose: `null` is "cannot be established", NOT "yes". Collapsing it into
+        // a boolean is what turns an unprovable containment into a claimed one.
+        insideStage = rect => stage
+            ? rect.left >= stage.availLeft
+                && rect.top  >= stage.availTop
+                && rect.left + rect.width  <= stage.availLeft + stage.availWidth
+                && rect.top  + rect.height <= stage.availTop  + stage.availHeight
+            : null;
+
+    for (let attempt = 0; attempt < settleAttempts; attempt++) {
+        const [source, target] = await Promise.all([outerRect(sourcePage), outerRect(targetPage)]);
+
+        // Apart is necessary but not sufficient. A target the product parked off the declared stage
+        // is not an arrangement worth keeping, so only a containment that is true or unknowable
+        // takes the no-move path; a known-outside target falls through to be placed.
+        if (!rectsOverlap(source, target) && insideStage(target) !== false) {
+            return {bounds: target, fits: true, moved: false, reason: null, stageTrusted: Boolean(stage)}
+        }
+
+        await targetPage.waitForTimeout(25)
+    }
+
+    const [source, target] = await Promise.all([outerRect(sourcePage), outerRect(targetPage)]);
+
+    let bounds;
+
+    if (stage) {
+        const plan = planBeside(source, target, stage, {gap});
+
+        if (!plan.fits) {
+            return {...plan, moved: false, stageTrusted: true}
+        }
+
+        bounds = plan.bounds
+    } else {
+        // No trustworthy envelope: skip the fit test rather than run it against fiction, and place
+        // beside the source. The non-overlap poll below is the receipt either way — it measures the
+        // arrangement the caller actually asked for instead of inferring it from a request.
+        bounds = {
+            height: target.height,
+            left  : source.left + source.width + gap,
+            top   : source.top,
+            width : target.width
+        }
+    }
+
+    await placeNativeWindow(targetPage, bounds);
+
+    // The landing poll inside placeNativeWindow proves the window reached its REQUESTED origin. It
+    // cannot prove the arrangement, which is what the caller actually asked for, so the goal itself
+    // is the last assertion rather than an inference from the request.
+    await expect.poll(async () => {
+        const [nowSource, nowTarget] = await Promise.all([
+            outerRect(sourcePage), outerRect(targetPage)
+        ]);
+
+        return rectsOverlap(nowSource, nowTarget)
+    }, {
+        message  : 'the staged windows must end up physically non-overlapping',
+        timeout  : 5000,
+        intervals: [25, 50, 100]
+    }).toBe(false);
+
+    return {bounds, fits: true, moved: true, reason: null, stageTrusted: Boolean(stage)}
+}

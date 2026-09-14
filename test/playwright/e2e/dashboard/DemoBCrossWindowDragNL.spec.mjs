@@ -1,4 +1,5 @@
 import {test, expect}        from '../../fixtures.mjs';
+import {placeBesideSource}   from '../utils/filmStage.mjs';
 import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
 
 /**
@@ -17,113 +18,6 @@ async function publishObservedGeometry(page, message) {
     }).toBe(true);
 
     await page.evaluate(() => globalThis.Neo.main.addon.WindowPosition.publishGeometry())
-}
-
-/**
- * @summary Chrome-automation physical-window adapter. Product browsers honor the app-owned
- * placement request; automation can ignore it, so CDP moves only the real top-level vessel.
- * Dock semantics, pointer events, previews and commits remain entirely Neo-owned.
- * @param {import('@playwright/test').Page} page
- * @param {import('@playwright/test').Page} popup
- */
-async function placePopupOutsideSource(page, popup) {
-    await popup.waitForURL(url => url.protocol !== 'about:', {timeout: 30000});
-
-    const readRect = target => target.evaluate(() => ({
-        height: globalThis.outerHeight,
-        width : globalThis.outerWidth,
-        x     : globalThis.screenX,
-        y     : globalThis.screenY
-    }));
-
-    // Product/headed browsers honor the app's own placement after the popup connects. Give that
-    // bounded observable path first authority; only an actually-overlapping stage needs CDP.
-    for (let attempt = 0; attempt < 20; attempt++) {
-        let [source, target] = await Promise.all([readRect(page), readRect(popup)]),
-            overlaps         = source.x < target.x + target.width && source.x + source.width > target.x
-                && source.y < target.y + target.height && source.y + source.height > target.y;
-
-        if (!overlaps) return;
-
-        await page.waitForTimeout(25)
-    }
-
-    const popupCdp    = await page.context().newCDPSession(popup),
-          popupWindow = await popupCdp.send('Browser.getWindowForTarget'),
-          sourceStage = await page.evaluate(() => ({
-              availHeight: globalThis.screen.availHeight,
-              availLeft  : globalThis.screen.availLeft,
-              availTop   : globalThis.screen.availTop,
-              availWidth : globalThis.screen.availWidth,
-              height     : globalThis.outerHeight,
-              left       : globalThis.screenX,
-              top        : globalThis.screenY,
-              width      : globalThis.outerWidth
-          })),
-          targetHeight = popupWindow.bounds.height,
-          targetWidth  = popupWindow.bounds.width,
-          gap          = 40,
-          candidates   = [{
-              left: sourceStage.left + sourceStage.width + gap,
-              top : sourceStage.top
-          }, {
-              left: sourceStage.left - targetWidth - gap,
-              top : sourceStage.top
-          }, {
-              left: sourceStage.left,
-              top : sourceStage.top + sourceStage.height + gap
-          }, {
-              left: sourceStage.left,
-              top : sourceStage.top - targetHeight - gap
-          }],
-          point = candidates.find(candidate => candidate.left >= sourceStage.availLeft
-              && candidate.top >= sourceStage.availTop
-              && candidate.left + targetWidth <= sourceStage.availLeft + sourceStage.availWidth
-              && candidate.top + targetHeight <= sourceStage.availTop + sourceStage.availHeight);
-
-    if (!point) {
-        throw new Error('the headed screen cannot place the target popup outside the source window')
-    }
-
-    const requested = {
-        height: targetHeight,
-        ...point,
-        width : targetWidth
-    };
-
-    await popupCdp.send('Browser.setWindowBounds', {
-        bounds: {
-            ...requested,
-            windowState: 'normal'
-        },
-        windowId: popupWindow.windowId
-    });
-
-    await expect.poll(async () => {
-        const observed = await readRect(popup);
-
-        return Math.max(Math.abs(observed.x - requested.left), Math.abs(observed.y - requested.top))
-    }, {
-        message  : 'the CDP adapter must move the real target window before publishing geometry',
-        timeout  : 5000,
-        intervals: [25, 50, 100]
-    }).toBeLessThanOrEqual(80);
-
-    await expect.poll(async () => {
-        const [source, target] = await Promise.all([readRect(page), readRect(popup)]);
-
-        return source.x < target.x + target.width && source.x + source.width > target.x
-            && source.y < target.y + target.height && source.y + source.height > target.y
-    }, {
-        message  : 'the CDP adapter must leave two physically non-overlapping top-level windows',
-        timeout  : 5000,
-        intervals: [25, 50, 100]
-    }).toBe(false);
-
-    // CDP does not guarantee the page's native resize/movement events in this automation profile.
-    // Publish the observed target-realm snapshot so the product readiness gate still consumes its
-    // ordinary manager.Window authority rather than test-owned requested coordinates.
-    await publishObservedGeometry(popup, 'the target popup must install its geometry publisher')
 }
 
 /**
@@ -326,7 +220,10 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         // even though headed/product browsers honor the app-owned placement path. Move the REAL
         // popup target through CDP so Neo's screen-space Window manager observes two physical,
         // non-overlapping rectangles; no dock semantics or gesture events ride this adapter.
-        await placePopupOutsideSource(page, popup);
+        const placement = await placeBesideSource(page, popup);
+
+        expect(placement.fits, placement.reason ?? 'the popup must be placeable outside the source')
+            .toBe(true);
 
         const tearOutPopup = await waitForTearOutPopup(popupPages);
 
@@ -522,7 +419,10 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
               }, {parkObservationMs: 1800, roundTrip: true}]),
               targetPopup = await targetPromise;
 
-        await placePopupOutsideSource(page, targetPopup);
+        const placement = await placeBesideSource(page, targetPopup);
+
+        expect(placement.fits, placement.reason ?? 'the target popup must be placeable outside the source')
+            .toBe(true);
 
         let tearOutPopup;
 
@@ -771,7 +671,10 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             value && value !== 'undefined' && popupErrors.push(value)
         });
 
-        await placePopupOutsideSource(page, popup);
+        const placement = await placeBesideSource(page, popup);
+
+        expect(placement.fits, placement.reason ?? 'the popup must be placeable outside the source')
+            .toBe(true);
 
         const tearOutPopup = await waitForTearOutPopup(popupPages);
 
