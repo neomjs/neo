@@ -571,9 +571,20 @@ resolution, chrome or policy. If it is none of those, it probably belongs in a d
 
 ## Where to go next
 
-- **Part 2 — The Mechanics**: what runs under a drag, a claim, a vessel, a return.
-- **Part 3 — The Feature Set**: perspectives, auto-hide rails, grouped drag, overflow, keyboard.
-- **Part 4 — Panes Are Ordinary Components**: state providers, stores, controllers and layouts inside your panes.
+- [How a Gesture Becomes One Commit](DockLayoutsMechanics.md) — what runs under a resize, a tab move and an Escape,
+  and why a gesture commits once or not at all.
+- [What Users Can Do](DockLayoutsFeatures.md) — perspectives, auto-hide rails, overflow, maximize, locks and the
+  keyboard, each offered only where the model will honor it.
+- [Panes Are Ordinary Components](DockLayoutsPanes.md) — the stores, controllers and shared state inside your panes,
+  owned the way any component's are.
+- [State, Operations and Persistence](DockLayoutsStateAndPersistence.md) — the one document a layout is, what never
+  enters it, and how a layout and a topology come back.
+- [A Pane's Life Across Windows](DockLayoutsWindows.md) — tear-out, the whole-stack return, and what a reload brings
+  back.
+- [Styling, Themes and Action Chrome](DockLayoutsStyling.md) — every surface a docked workspace paints, including the
+  ones in another window.
+- [Testing and Debugging](../testing/DockLayoutsTesting.md) — which test tier can see which dock fact.
+- [Your First Dock Layout](../../tutorials/DockLayoutsFirstLayout.md) — the same decisions, built one step at a time.
 - **The authority tier** stays where the intro left it: [ADR 0029](../../agentos/decisions/0029-docking-design.md)
   decides; [`DockZoneModel.md`](../../agentos/DockZoneModel.md) is the model contract of record; this series
   explains.
