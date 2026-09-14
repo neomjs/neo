@@ -245,16 +245,6 @@ class View extends Base {
     }
 
     /**
-     * Re-projects every body from the committed selection — the seam the column-selecting models
-     * call after a swap or a column toggle.
-     * @param {Boolean} [silent=false]
-     * @param {Boolean} [force=false]
-     */
-    createViewData(silent=false, force=false) {
-        this.bodies.forEach(body => body.createViewData(silent, force))
-    }
-
-    /**
      * Retires the model the View owns and stops following the store; a body's destruction never
      * touches the model.
      * @param {...*} args

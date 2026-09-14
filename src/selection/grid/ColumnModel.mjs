@@ -58,25 +58,12 @@ class ColumnModel extends BaseModel {
     }
 
     /**
+     * The View-owned model hears each click once, from whichever body received it.
      * @param {Object} data
+     * @param {String} data.dataField
      */
-    onCellClick(data) {
-        let me        = this,
-            {view}    = me,
-            cellId    = data.data.currentTarget,
-            dataField = cellId && view.getDataField(cellId);
-
-        // In a multi-body architecture, ensure we only toggle the state once per click
-        // by restricting the state mutation to the specific body that fired the event.
-        if (data.body && data.body !== view) {
-            return
-        }
-
-        if (dataField) {
-            me.selectedColumns = me.isSelectedColumn(dataField) ? [] : [dataField];
-
-            view.createViewData()
-        }
+    onCellClick({dataField}) {
+        dataField && this.setSelectedColumns(this.isSelectedColumn(dataField) ? [] : [dataField])
     }
 
     /**
@@ -97,28 +84,7 @@ class ColumnModel extends BaseModel {
      * @param {Number} step
      */
     onNavKeyColumn(step) {
-        let me                 = this,
-            {dataFields, view} = me,
-            currentColumn, currentIndex, index;
-
-        if (me.hasSelection()) {
-            currentColumn = me.selectedColumns[0]
-        } else {
-            currentColumn = dataFields[0]
-        }
-
-        currentIndex = dataFields.indexOf(currentColumn);
-        index        = (currentIndex + step) % dataFields.length;
-
-        while (index < 0) {
-            index += dataFields.length
-        }
-
-        me.selectedColumns = [dataFields[index]];
-
-        view.createViewData();
-
-        view.parent.scrollByColumns(currentIndex, step)
+        this.view.parent.scrollByColumns(this.stepSelectedColumn(step), step)
     }
 
     /**
@@ -139,11 +105,7 @@ class ColumnModel extends BaseModel {
      *
      */
     unregister() {
-        let me         = this,
-            {id, view} = me;
-
-        me.selectedColumns = [];
-        me.view.createViewData();
+        let {id, view} = this;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},

@@ -87,6 +87,12 @@ const renderRows = async grid => {
 // the record ids each body paints as selected, in body order
 const paintedRows = grid => bodiesOf(grid).map(body => body.items.filter(row => row.vdom.cls?.includes('neo-selected')).map(row => row.record?.id).sort());
 
+// the dataFields each body paints as column-selected, in body order; `neo-selected` is the column cell cls
+// of a model that declares none, like ColumnModel — passed in, since the arms read it after the model is gone
+const paintedColumns = (grid, cls = 'neo-selected') => bodiesOf(grid).map(body => [...new Set(body.items.flatMap(row =>
+    (row.vdom.cn || []).filter(cell => cell.cls?.includes(cls)).map(cell => cell.data?.field)
+))].sort());
+
 // No `NEO_TEST_SKIP_CI` guard anywhere in this file: nothing here needs a browser, and a guarded arm is
 // green in the unit CI job by not running.
 test.describe('Grid View-owned SelectionModel (#12758)', () => {
@@ -375,25 +381,43 @@ test.describe('Grid selection: the View follows the store and owns the lifecycle
         expect(model.view).toBe(grid.view)
     });
 
-    test('a column-selecting model swaps out cleanly: the View re-projects the bodies it orchestrates', async () => {
+    test('a column-selecting model swaps out cleanly: no body keeps a column painted', async () => {
         store = createStore();
         grid  = await createGrid(store);
 
         await renderRows(grid);
 
-        const painted = bodiesOf(grid).map(() => 0);
-
-        bodiesOf(grid).forEach((body, index) => {
-            const original = body.createViewData;
-            body.createViewData = function(...args) { painted[index]++; return original.apply(this, args) }
-        });
-
         grid.view.selectionModel = {module: ColumnModel};
         await grid.timeout(20);
 
-        expect(() => { grid.view.selectionModel = null }, 'ColumnModel.unregister re-projects through the View').not.toThrow();
+        // one column per body: col3 renders in bodyStart, col1 in body, col2 in bodyEnd
+        grid.view.selectionModel.setSelectedColumns(['col1', 'col2', 'col3']);
+        await grid.timeout(20);
+
+        expect(paintedColumns(grid), 'precondition: each body paints its selected column').toEqual([['col3'], ['col1'], ['col2']]);
+
+        expect(() => { grid.view.selectionModel = null }, 'ColumnModel.unregister runs through the View').not.toThrow();
+        await grid.timeout(20);
+
         expect(grid.view.selectionModel).toBeNull();
-        expect(painted.every(count => count > 0), 'every body re-projected').toBe(true)
+        expect(paintedColumns(grid), 'no body keeps a column highlight for a model that is gone').toEqual([[], [], []])
+    });
+
+    test('a row-selecting model swaps out cleanly: no body keeps a row painted', async () => {
+        store = createStore();
+        grid  = await createGrid(store);
+
+        await renderRows(grid);
+
+        grid.view.selectionModel.selectRow(1);
+        await grid.timeout(20);
+
+        expect(paintedRows(grid), 'precondition: every body paints the selected row').toEqual([[1], [1], [1]]);
+
+        grid.view.selectionModel = null;
+        await grid.timeout(20);
+
+        expect(paintedRows(grid), 'no body keeps a row highlight for a model that is gone').toEqual([[], [], []])
     });
 
     test('destroying the grid destroys the one model; removing a locked body does not', async () => {

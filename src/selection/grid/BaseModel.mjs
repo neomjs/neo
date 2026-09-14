@@ -382,6 +382,47 @@ class BaseModel extends Model {
     }
 
     /**
+     * Replaces the column selection and repaints only the cells whose column changed state.
+     *
+     * A row paints the column class when its content is created, and `grid.Body#createViewData` skips
+     * every row whose record and index are unchanged — so assigning `selectedColumns` and re-projecting
+     * never reached a cell, and clearing it left the class painted.
+     * @param {String[]} dataFields
+     * @param {Boolean} [silent=false] true to mutate the VDOM without updating the rows
+     * @returns {Boolean} true if the selection changed
+     */
+    setSelectedColumns(dataFields, silent=false) {
+        let me       = this,
+            previous = [...me.selectedColumns];
+
+        if (Neo.isEqual(previous, dataFields)) {
+            return false
+        }
+
+        me.selectedColumns = dataFields;
+        me.updateColumns(NeoArray.union(previous, dataFields), silent);
+
+        return true
+    }
+
+    /**
+     * Moves the column selection `step` columns along, wrapping at either end. With no column selected
+     * it starts from the first one.
+     * @param {Number} step
+     * @returns {Number} The index of the column the selection moved from
+     */
+    stepSelectedColumn(step) {
+        let me           = this,
+            {dataFields} = me,
+            count        = dataFields.length,
+            fromIndex    = dataFields.indexOf(me.selectedColumns[0] ?? dataFields[0]);
+
+        me.setSelectedColumns([dataFields[((fromIndex + step) % count + count) % count]]);
+
+        return fromIndex
+    }
+
+    /**
      * @param {Number|String} recordId
      * @param {Boolean}       [silent=false]
      */
@@ -395,8 +436,9 @@ class BaseModel extends Model {
     toJSON() {
         return {
             ...super.toJSON(),
-            selectedColumns: this.selectedColumns,
-            selectedRows   : this.selectedRows
+            selectedColumnCellCls: this.selectedColumnCellCls,
+            selectedColumns      : this.selectedColumns,
+            selectedRows         : this.selectedRows
         }
     }
 
@@ -404,14 +446,52 @@ class BaseModel extends Model {
      *
      */
     unregister() {
-        let me        = this,
-            countRows = me.selectedRows.length;
+        let me      = this,
+            columns = [...me.selectedColumns],
+            rows    = [...me.selectedRows];
 
-        me.selectedRows = [];
+        me.selectedColumns = [];
+        me.selectedRows    = [];
 
-        countRows > 0 && me.view.bodies.forEach(body => body.createViewData());
+        // Repaint what was cleared, granularly: re-projecting the bodies skips every row whose record is
+        // unchanged. A view that is being destroyed has nothing left to repaint.
+        if (!me.view.isDestroying) {
+            columns.length > 0 && me.updateColumns(columns);
+            rows.length    > 0 && me.updateRows(rows)
+        }
 
         super.unregister()
+    }
+
+    /**
+     * Granular column repaint, the column half of {@link #updateRows}: toggles the column class on the
+     * given columns' cells in every rendered row of every body, and updates only the rows that changed.
+     * @param {String[]} dataFields
+     * @param {Boolean} [silent=false] true to mutate the VDOM without updating the rows
+     */
+    updateColumns(dataFields, silent=false) {
+        let me  = this,
+            cls = me.selectedColumnCellCls || 'neo-selected';
+
+        me.view.bodies.forEach(body => {
+            body.items?.forEach(row => {
+                let hasChanged = false;
+
+                row.vdom.cn?.forEach(cell => {
+                    const
+                        field       = cell.data?.field,
+                        shouldPaint = me.isSelectedColumn(field);
+
+                    if (dataFields.includes(field) && shouldPaint !== Boolean(cell.cls?.includes(cls))) {
+                        cell.cls ??= [];
+                        NeoArray.toggle(cell.cls, cls, shouldPaint);
+                        hasChanged = true
+                    }
+                });
+
+                hasChanged && !silent && row.update()
+            })
+        })
     }
 }
 
