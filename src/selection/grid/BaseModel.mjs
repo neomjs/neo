@@ -505,31 +505,32 @@ class BaseModel extends Model {
     }
 
     /**
-     * Toggles the record's `selectedRecordField` flag, and the View selects the row from it. On the base, so the
-     * cell-row models inherit it along with {@link #hasAnnotations}.
+     * Writes the record's `selectedRecordField` flag, and the View selects the row from it. On the base, so the
+     * cell-row models inherit it along with {@link #hasAnnotations}. Without `selected` it toggles, as a row click
+     * does; a cell-row model passes the state its cell click intends, so moving within a selected row keeps it.
      * @param {Record} record
+     * @param {Boolean} [selected] the state to write, instead of toggling
      */
-    updateAnnotations(record) {
+    updateAnnotations(record, selected) {
         let me               = this,
             {view}           = me,
             {store}          = view,
             recordId         = view.getRecordId(record),
-            isSelected       = me.isSelectedRow(recordId),
             annotationsField = view.selectedRecordField;
 
         if (me.singleSelect) {
-            if (isSelected) {
+            if (!(selected ?? !me.isSelectedRow(recordId))) {
                 record[annotationsField] = false
             } else {
-                me.selectedRows.forEach(recordId => {
+                me.selectedRows.forEach(id => {
                     // We can use setSilent(), since the last change will trigger a view update
-                    store.get(recordId).setSilent({[annotationsField]: false})
+                    id !== recordId && store.get(id).setSilent({[annotationsField]: false})
                 });
 
                 record[annotationsField] = true
             }
         } else {
-            record[annotationsField] = !record[annotationsField]
+            record[annotationsField] = selected ?? !record[annotationsField]
         }
     }
 

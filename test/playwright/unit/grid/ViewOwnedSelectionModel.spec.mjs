@@ -499,12 +499,15 @@ test.describe('Grid selection: a cell click as the DOM delivers it', () => {
         expect(flushedRows(grid), 'the next click moves it in every body').toEqual([['r2'], ['r2'], ['r2']])
     });
 
-    test('a combined row model clicked under a selected-record field sets the flag, and every body paints the row', async () => {
+    test('a combined row model under a selected-record field writes the flag its cell click intends: select, move within the row, clear', async () => {
         for (const module of [CellRowModel, CellColumnRowModel]) {
             store = createStore();
             grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag', selectionModel: {module}}});
 
             await renderRows(grid);
+
+            const model = grid.view.selectionModel,
+                  cell  = dataField => grid.view.getLogicalCellId(store.get(1), dataField);
 
             clickCell(grid.body, 1, 'col1');
             await grid.timeout(20);
@@ -513,9 +516,46 @@ test.describe('Grid selection: a cell click as the DOM delivers it', () => {
             expect(grid.view.selectedRows, `${module.name} follows the flag`).toEqual([1]);
             expect(paintedRows(grid), `${module.name} paints the row in every body`).toEqual([[1], [1], [1]]);
 
+            clickCell(grid.body, 1, 'col5');
+            await grid.timeout(20);
+
+            expect(store.get(1).flag, `${module.name}: another cell in the same row keeps the flag`).toBe(true);
+            expect(grid.view.selectedRows, `${module.name}: and the row`).toEqual([1]);
+            expect(model.items, `${module.name}: the cell moves`).toEqual([cell('col5')]);
+
+            clickCell(grid.body, 1, 'col5');
+            await grid.timeout(20);
+
+            expect(store.get(1).flag, `${module.name}: clicking the selected cell clears the flag`).toBe(false);
+            expect(grid.view.selectedRows, `${module.name}: and the row`).toEqual([]);
+            expect(model.items, `${module.name}: and the cell`).toEqual([]);
+            expect(model.selectedColumns, `${module.name}: and any column`).toEqual([]);
+            expect(paintedRows(grid)).toEqual([[], [], []]);
+
             grid.destroy();
             store.destroy()
         }
+    });
+
+    test('RowModel under a selected-record field keeps toggling the flag by row', async () => {
+        store = createStore();
+        grid  = await createGrid(store, {viewConfig: {selectedRecordField: 'flag'}});
+
+        await renderRows(grid);
+
+        const model = grid.view.selectionModel;
+
+        model.onRowClick({record: store.get(1), data: {path: []}});
+        await grid.timeout(20);
+
+        expect(store.get(1).flag, 'the first row click sets the flag').toBe(true);
+        expect(grid.view.selectedRows).toEqual([1]);
+
+        model.onRowClick({record: store.get(1), data: {path: []}});
+        await grid.timeout(20);
+
+        expect(store.get(1).flag, 'a second click on the same row clears it').toBe(false);
+        expect(grid.view.selectedRows).toEqual([])
     });
 
     test('arrow navigation starts from the selected cell\'s record, keyed by business id or by internal id', async () => {

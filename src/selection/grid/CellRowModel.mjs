@@ -41,7 +41,7 @@ class CellRowModel extends CellModel {
             logicalId = view.getLogicalCellId(record, dataField);
 
             if (me.hasAnnotations(record)) {
-                me.updateAnnotations(record)
+                me.updateAnnotations(record, !me.isSelected(logicalId))
             } else {
                 me[me.isSelected(logicalId) ? 'deselectRow' : 'selectRow'](view.getRecordId(record), true)
             }
