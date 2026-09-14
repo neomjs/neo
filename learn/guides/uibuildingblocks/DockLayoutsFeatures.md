@@ -13,50 +13,55 @@ learning as a whole: once you know that the same boundary sits behind resizing, 
 perspectives, you can predict what any of them will do to a pane your application cares about — including the ones you
 write yourself.
 
-This guide is the tour of that landed surface, organized by what a user is trying to accomplish. Every claim below was
-read off a running page: the standalone dock example in a 1024 × 768 viewport, driven by real clicks and real keystrokes,
-with the committed document read between every step. Where the engine refused something, the refusal is quoted. Where a
-capability has a limit, the limit is stated next to it rather than left for you to discover in production.
+This guide is the tour of that landed surface, organized by what a user is trying to accomplish. It mixes two kinds of
+statement, and it marks which is which rather than letting you guess. Some passages report a **journey run on a page**:
+the standalone dock example in a 1024 × 768 viewport, driven by real clicks, with the committed document read between
+every step — those carry their measurements, and where the engine refused something the refusal is quoted verbatim.
+The rest **explains the current contract from its source**, for behavior that a single example page cannot exercise:
+the cross-window and keyboard outcomes, and pane-side contracts no example pane implements. Both are accurate; only the
+first is evidence. Where a capability has a limit, the limit is stated next to it rather than left for you to discover
+in production.
 
 ## The one boundary every feature crosses
 
 ```mermaid
 flowchart TD
-    Action["A user action<br/>pointer, keyboard, or an agent's tool call"] --> Family{"Which feature family"}
-    Family -->|"resize a split or an edge band"| Geometry["resizeSplit · resizeEdgeZone"]
-    Family -->|"reorder, move, activate or close a tab"| Tabs["addTab · moveItem · setActiveItem · closeItem"]
-    Family -->|"get a pane out of the way"| Rail["setItemAutoHidden · setItemPinned"]
-    Family -->|"freeze a pane"| Lock["setItemLocked"]
-    Family -->|"send a pane to another window"| Across["detachItem · transferItem"]
-    Family -->|"maximize, reveal, preview, drag"| Transient["No operation at all"]
-    Geometry --> Reducer["The reducer decides<br/>commit whole, or refuse whole"]
-    Tabs --> Reducer
-    Rail --> Reducer
-    Lock --> Reducer
-    Across --> Reducer
-    Reducer -->|"refused"| Kept["The document you had<br/>is the document you keep"]
-    Reducer -->|"committed"| Doc["One committed document"]
-    Doc --> Projection["Projection keeps the live panes"]
-    Transient --> Runtime["Per-window runtime state<br/>dies with its window, never persisted"]
-    Projection --> Header["Header actions re-derive from published truth"]
+    Action["A user action:<br/>pointer, key,<br/>or tool call"] --> Lane{"Changes<br/>lasting truth?"}
+    Lane -->|"yes"| Reducer["The reducer decides:<br/>commit or refuse,<br/>never half"]
+    Lane -->|"no"| Runtime["Per-window state:<br/>maximize, reveal,<br/>previews"]
+    Reducer -->|"refused"| Kept["You keep the<br/>document<br/>you had"]
+    Reducer -->|"committed"| Doc["One committed<br/>document"]
+    Doc --> Projection["The projection<br/>keeps live panes"]
+    Doc --> Capture["Capturable:<br/>save it,<br/>restore it later"]
+    Projection --> Header["Header actions<br/>re-derive from<br/>published truth"]
     Runtime --> Header
 ```
 
 Two lanes, and the difference between them is the single most useful thing to hold in your head.
 
-The left lane changes lasting truth. A resize, a tab move, an auto-hide, a lock: each one becomes a small semantic
-descriptor, the reducer validates it against the committed document, and either the whole thing lands or nothing does.
-Saving, restoring and named arrangements all work on that document, so anything in this lane survives a reload and can
-be captured, diffed and replayed.
+The left lane changes lasting truth. Each feature in it becomes one small semantic descriptor — `resizeSplit` and
+`resizeEdgeZone` for the two resize affordances, `addTab`, `moveItem`, `setActiveItem` and `closeItem` for the tab
+outcomes, `setItemAutoHidden` and `setItemPinned` for the auto-hide round trip, `setItemLocked` for freezing a pane,
+`detachItem` and `transferItem` for the cross-window ones — and the reducer validates that descriptor against the
+committed document before either the whole thing lands or nothing does.
+
+**Committed is not the same as saved, and conflating the two is the most expensive mistake available here.** A commit
+makes state *capturable*: the document now holds it, so it can be diffed, replayed, captured into a named arrangement,
+or written to storage. It does not make it durable. Nothing in the engine writes to storage on your behalf — the
+standalone example persists its layouts because *it* captures a snapshot and restores that collection at boot, in its
+own code. A workspace that never saves has a perfectly valid committed document that is gone at reload, and that is not
+a defect. [State, Operations and Persistence](DockLayoutsStateAndPersistence.md) covers the capture, save and restore
+steps that turn a committed document into one that comes back.
 
 The right lane changes only what this window is currently showing. A maximized node, a revealed rail pane, a drag
-preview, a drop indicator: none of them touch the document, none of them persist, and a second window showing the same
-workspace never learns they happened. That is deliberate. A user maximizing a pane to read it is not redesigning their
-workspace, and a layout that came back maximized because someone squinted at a log once would be a bug, not a feature.
+preview, a drop indicator: none of them touch the document, none of them can be captured, and a second window showing
+the same workspace never learns they happened. That is deliberate. A user maximizing a pane to read it is not
+redesigning their workspace, and a layout that came back maximized because someone squinted at a log once would be a
+bug, not a feature.
 
 The practical payoff for your own application: you never have to ask "will this affordance dirty the layout?" The
-answer is structural. If it went through the reducer, it is in the document and it will come back. If it did not, it is
-gone at reload, by design.
+answer is structural. If it went through the reducer, it is in the document, and whether it comes back is then your
+persistence decision. If it did not, there is nothing to save and nothing to decide.
 
 ## Give a pane more room
 
@@ -184,11 +189,16 @@ the same wall, because the wall is in the model rather than in the chrome. If yo
 where a pane can hold something irreversible — a running deployment, a live trading view, a half-submitted form — that
 distinction is the entire point.
 
-What "locked" means *inside* the pane is yours. A pane that implements the lock contract is handed the transition and
-decides for itself: a form disables its fields, a grid turns off cell editing, a read-only view keeps scrolling and
-selecting as normal. When a pane takes that responsibility the engine writes no inert attribute at all. When it does
-not — as with the plain example panes, where exactly one inert subtree appeared — the engine applies the blunt
-instrument so that "locked" is never merely cosmetic. Both halves are demonstrated on the same page.
+What "locked" means *inside* the pane is yours. Per the current contract, a pane that implements the lock hook is
+handed the transition and decides for itself: a form disables its fields, a grid turns off cell editing, a read-only
+view keeps scrolling and selecting as normal. When a pane takes that responsibility the engine writes no inert
+attribute at all.
+
+Only the second branch is demonstrated above. No pane in the standalone example implements the lock hook — its one
+custom pane implements the *reload* contract instead — so what the page showed is the engine's fallback: exactly one
+inert subtree, applied because nothing claimed the responsibility. The delegating branch is read from the policy
+source, not observed here. The shape worth carrying away survives either way: locking is never merely cosmetic, because
+a pane that declines to define it still gets the blunt instrument.
 
 ## Name an arrangement, and mean it
 
@@ -273,14 +283,22 @@ There is a second reason this path matters even for pointer-first applications. 
 definition, so the command path can acquire a window in situations where a drag-driven acquisition is refused by the
 platform. The accessibility path is also the most reliable path.
 
-## What is proven today, and what is trajectory
+## What was demonstrated, what is contract, and what is not claimed
 
-Proven on a running page, and the basis of everything above: split and edge resizing with live preview and `Escape`
-cancellation; tab reordering, cross-zone moves, and overflow that survives re-projection; auto-hide with rails,
-transient reveals and pinning; locking with model-enforced refusal and delegable pane semantics; maximize as pure
-presentation; declared perspectives with a modified readout and baseline reset; the focus-gated inline action rail with
-availability-gated pop-out and reload; keyboard commands with outcome-derived announcements; and the cross-window
-journey covered by its own guide.
+**Demonstrated on the page, with the numbers quoted above:** the focus-gated inline action rail, including a pop-out
+action correctly absent where no runtime can produce a vessel; the auto-hide round trip end to end — flag, rail,
+transient reveal at the committed extent, pin back to the same home; locking's structural half, with the model refusing
+the close outright; a split resize committing its new size vector and touching nothing else; maximize painting the
+workspace and `Escape` restoring it with the document byte-identical; and a perspective switch replacing the whole
+document, item flags included.
+
+**Explained from the current source rather than demonstrated here**, because one example page in one window cannot
+exercise them: the keyboard command surface and its outcome-derived announcements; the cross-window detach and transfer
+outcomes; live resize preview and mid-gesture `Escape` cancellation; tab reordering and cross-zone moves as pointer
+gestures, and overflow identity across a re-projection; and the delegating half of the lock contract, which needs a
+pane that implements the hook. These are the contracts the engine states for itself; treat them as accurate
+descriptions awaiting your own receipt, not as things this guide watched happen. The cross-window family has its own
+guide, which does follow it on a running page.
 
 Deliberately not claimed: hover-reveal is available but off, and it is off because the accessible default matters more
 than the flourish. Item flags are part of an arrangement rather than a layer above it, so a perspective switch replaces
