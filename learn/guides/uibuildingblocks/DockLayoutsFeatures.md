@@ -137,7 +137,11 @@ dropped over a different zone, one `moveItem` commits the pane into its new stac
 the cross-zone case and no parallel bookkeeping — the same drag lifecycle produces both outcomes, which is why a
 cancelled cross-zone drag behaves exactly like a cancelled reorder.
 
-**Overflow** is what happens when a stack holds more tabs than its header is wide. The overflowing tabs collapse behind
+**Overflow** is what happens when a header cannot show everything it holds. Reach for it when a stack has many tabs,
+but know that tabs are not the only claimant: a header's tab strip and its action row draw on **one width budget**, so
+a narrow zone whose actions have just appeared can overflow with very few tabs. What moves behind the overflow control
+in that case is decided by the header's partitioning, not by the dock — worth measuring on your own narrowest zone
+rather than assuming, if your layout puts a busy header in a small column. The overflowing entries collapse behind
 a menu control that sits first in the header's action row, and the dock's contribution is subtler than the menu: across
 a re-projection, the overflow control's identity is preserved and the reconciler waits for the header to finish
 repartitioning before it declares the projection settled. Without that wait, a layout change while tabs are
