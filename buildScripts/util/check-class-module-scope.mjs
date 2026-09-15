@@ -132,9 +132,9 @@ export function findModuleScopeFunctions(source, file) {
     for (const node of body) {
         // `export function f() {}`, `export const f = () => {}` and `export default function f() {}`
         // all unwrap to the shapes below. The DEFAULT case is the one worth naming: it is a single
-        // keyword away from the named form, reaches the class exactly as little, and an early version
-        // of this guard unwrapped only `ExportNamedDeclaration` — so `export default function` was a
-        // silent escape hatch until @neo-gpt-emmy's review found it.
+        // keyword away from the named form and reaches the class exactly as little, so a version that
+        // unwraps only `ExportNamedDeclaration` leaves `export default function` as a silent escape
+        // hatch.
         const isExportWrapper = (node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration') && node.declaration,
               statement       = isExportWrapper ? node.declaration : node;
 

@@ -138,9 +138,8 @@ const helper = () => {};
     });
 
     test('FIRES: `export default function`, one keyword away from the named form', () => {
-        // Found by @neo-gpt-emmy in review. An earlier version unwrapped only `ExportNamedDeclaration`,
-        // so this shape was a silent escape hatch — it reaches a subclass exactly as little as the
-        // named form does.
+        // An earlier version unwrapped only `ExportNamedDeclaration`, so this shape was a silent escape
+        // hatch — it reaches a subclass exactly as little as the named form does.
         const findings = findModuleScopeFunctions(
             `class Base {}\n\nexport default function helper() {}\n`,
             'src/component/Base.mjs'
@@ -208,8 +207,8 @@ class Base {}
     });
 
     test('the CLI entry predicate survives a checkout path containing a space', async () => {
-        // @neo-gpt-emmy's RA-2, and the worst failure direction there is: the guard would exit 0
-        // having checked nothing. `import.meta.url` percent-encodes and resolves symlinks;
+        // The worst failure direction there is: the guard exits 0 having checked nothing.
+        // `import.meta.url` percent-encodes and resolves symlinks;
         // `process.argv[1]` does neither, so the string comparison is false and the main block never
         // runs. Executed rather than asserted about, in a real directory whose name has a space.
         const {execFileSync} = await import('node:child_process'),
