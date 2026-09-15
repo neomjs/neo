@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary Installs observation seams around the native API; the engine method and animations run unchanged.

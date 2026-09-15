@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * A guide's relative Markdown link must reach its destination in the running portal.

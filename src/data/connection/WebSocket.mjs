@@ -102,8 +102,11 @@ class Socket extends Base {
                 })
             }
         } else {
-            console.error('Max reconnection attempts reached');
-            me.fire('reconnect_failed')
+            const failure = {handled: false};
+
+            // An owner that reports the failure its own way marks it handled; otherwise it is an error
+            me.fire('reconnectFailed', failure);
+            failure.handled || console.error('Max reconnection attempts reached')
         }
     }
 

@@ -199,7 +199,7 @@ class DashboardSortZone extends SortZone {
                 continue
             }
 
-            let item = me.owner.items[mappedIndex];
+            let item = me.ownerItems[mappedIndex];
 
             if (item === me.dragPlaceholder || item === me.dragComponent) {
                 continue
@@ -580,6 +580,7 @@ class DashboardSortZone extends SortZone {
             dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
             dragProxyConfig        : me.getDragProxyConfig(),
             indexMap,
+            ownerItems             : [...owner.items],
             ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
             reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
             sortableItems,

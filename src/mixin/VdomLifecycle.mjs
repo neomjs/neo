@@ -384,7 +384,8 @@ class VdomLifecycle extends Base {
             // first (no parked promise), so a genuinely silent failure still logs rather than
             // vanishing — the symptom otherwise surfaces minutes later as "the DOM stopped
             // following". Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
-            VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
+            // A window that disconnected mid-flight settles the flight with `PortDisconnectedError`: teardown, not a failure.
+            err?.name === 'PortDisconnectedError' || VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
 
             VDomUpdate.rejectCallbacks(me.id, err);
 
@@ -941,11 +942,11 @@ class VdomLifecycle extends Base {
             ComponentManager.registerWrapperNode(vnode.id, me)
         }
 
-        // A flight collected before a child was retired silently lands still naming that child by
-        // reference, and nothing else does any more. Pruned here, at the landing boundary, so the
-        // strict walkers below never resolve it — without this the whole flight fails on a child
-        // that is already gone, and every transaction awaiting the flight fails with it.
-        VNodeUtil.pruneRetiredReferences(me.vnode);
+        // A flight collected before a child retired lands naming it by reference, over the DOM node
+        // it left in place. Unlinked here, so the strict walkers below never resolve the name (which
+        // fails the flight and every transaction awaiting it), while the node stays for the next
+        // update to remove.
+        VNodeUtil.unlinkRetiredReferences(me.vnode);
 
         let vnodeMap           = VNodeUtil.createMap(me.vnode),
             childComponentsSet = new Set(childComponents);

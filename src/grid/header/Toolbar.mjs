@@ -375,6 +375,11 @@ class Toolbar extends BaseToolbar {
             len             = items.length,
             item, rects, width;
 
+        // `body` resolves nothing once the grid is gone, as a late resize delivery can find it
+        if (!body) {
+            return
+        }
+
         for (; i < len; i++) {
             if (me.isMeasuredWidth(items[i])) {
                 hasDynamicWidth = true;

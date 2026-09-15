@@ -59,6 +59,13 @@ class Worker extends Base {
      */
     channelPorts = null
     /**
+     * Only needed for SharedWorkers: the windows whose port this worker retired, newest last and capped at 16, so a
+     * reply that can no longer reach one of them reads as that window's departure rather than a lost reply.
+     * @member {Set<String>|null} departedWindowIds=null
+     * @protected
+     */
+    departedWindowIds = null
+    /**
      * Only needed for SharedWorkers
      * @member {Boolean} isConnected=false
      * @protected
@@ -91,6 +98,7 @@ class Worker extends Base {
 
         Object.assign(me, {
             channelPorts     : {},
+            departedWindowIds: new Set(),
             isSharedWorker   : gt.toString() === '[object SharedWorkerGlobalScope]',
             ports            : [],
             promises         : {},
@@ -206,9 +214,9 @@ class Worker extends Base {
     }
 
     /**
-     * Intercepts console output, mirroring errors onto the main thread
-     * ({@link #forwardErrorToMainThread}) and forwarding everything to the Neural Link when one is
-     * attached.
+     * Intercepts console output, uncaught errors and unhandled rejections, mirroring errors onto the
+     * main thread ({@link #forwardErrorToMainThread}) and forwarding console output and uncaught
+     * errors to the Neural Link when one is attached.
      *
      * The `Neo.ai?.Client` lookup stays a lazy check rather than becoming an App-worker branch: only
      * the App worker constructs a client today, so it is App-only in effect — but making it
@@ -299,7 +307,14 @@ class Worker extends Base {
             }
 
             return false
-        }
+        };
+
+        // A rejection nobody handles reaches neither the interceptor above nor `onerror`: the browser
+        // reports it to this worker's own inspector. `Neo.mjs` marks the rejections it expects as
+        // handled, so only the ones it lets through are mirrored.
+        globalThis.addEventListener?.('unhandledrejection', event => {
+            event.defaultPrevented || me.forwardErrorToMainThread(event.reason?.stack || String(event.reason))
+        })
     }
 
     /**
@@ -457,10 +472,22 @@ class Worker extends Base {
         portEntry.port.onmessage = null;
         portEntry.port.close?.();
 
+        if (portEntry.windowId) {
+            const {departedWindowIds} = me;
+
+            departedWindowIds.delete(portEntry.windowId);
+            departedWindowIds.add(portEntry.windowId);
+            departedWindowIds.size > 16 && departedWindowIds.delete(departedWindowIds.values().next().value)
+        }
+
+        // A channel request has no port of its own, yet its reply still routes through the window it renders for,
+        // so that window's last port settles it too
+        const windowGone = portEntry.windowId && !me.ports.some(entry => entry.windowId === portEntry.windowId);
+
         Object.entries(me.promises).forEach(([id, promise]) => {
-            if (promise.portEntry === portEntry) {
+            if (promise.portEntry === portEntry || (windowGone && !promise.portEntry && promise.windowId === portEntry.windowId)) {
                 delete me.promises[id];
-                promise.reject(new Error(`Worker port disconnected before reply: ${portEntry.id}`))
+                promise.reject(Object.assign(new Error(`Worker port disconnected before reply: ${portEntry.id}`), {name: 'PortDisconnectedError'}))
             }
         });
 
@@ -647,7 +674,8 @@ class Worker extends Base {
                 me.promises[msgId] = {
                     portEntry: message.port ? me.getPort({id: message.port}) : null,
                     reject,
-                    resolve
+                    resolve,
+                    windowId : opts.windowId ?? null
                 }
             }
         })

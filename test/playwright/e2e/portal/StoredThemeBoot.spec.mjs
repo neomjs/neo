@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * A stored `portalTheme` preference must reach the whole page, not one half of it.

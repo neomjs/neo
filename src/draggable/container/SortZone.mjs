@@ -99,6 +99,13 @@ class SortZone extends DragZone {
          */
         itemRects: null,
         /**
+         * `owner.items` as the drag started. `indexMap` values index into this array, so every slot still
+         * resolves after the dragged item has left `owner.items`, as it does when a window drag starts.
+         * @member {Neo.component.Base[]|null} ownerItems=null
+         * @protected
+         */
+        ownerItems: null,
+        /**
          * @member {Array|null} itemStyles=null
          * @protected
          */
@@ -862,6 +869,7 @@ class SortZone extends DragZone {
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
                 lastIntersectionRatio  : 1,
+                ownerItems             : [...owner.items],
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 scrollLeft             : owner.scrollLeft || 0, // absolute owner scroll; subclasses snapshot itemRects in owner-content space

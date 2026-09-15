@@ -563,7 +563,7 @@ class App extends Base {
         try {
             windowData = await Neo.Main.getWindowData({windowId})
         } catch (e) {
-            console.error('onConnect: getWindowData failed', e)
+            e?.name === 'PortDisconnectedError' || console.error('onConnect: getWindowData failed', e)
         }
 
         if (!me.isCurrentPort(sourcePort, {appName, windowId})) {

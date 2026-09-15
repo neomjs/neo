@@ -858,6 +858,7 @@ test.describe('Neo.draggable.dashboard.SortZone expanded-layout flex distributio
         zone.adjustItemRectsToParent = true;
         zone.indexMap                = Object.fromEntries(itemRects.map((_, i) => [i, i]));
         zone.itemRects               = itemRects;
+        zone.ownerItems              = [...zone.owner.items];
         zone.ownerRect               = {
             x     : 0,
             y     : 0,
@@ -900,6 +901,26 @@ test.describe('Neo.draggable.dashboard.SortZone expanded-layout flex distributio
 
         expect(mainSizes(rects, 'vertical')).toEqual([100, 100]);
         expect(rects.every(({style}) => Number.isFinite(parseFloat(style.top)))).toBe(true);
+
+        zone.destroy()
+    });
+
+    test('every slot still resolves after a window drag has moved the dragged item out of owner.items', () => {
+        // `Container#onDragBoundaryExit` re-parents the dragged widget into its popup before
+        // `startWindowDrag` lays out the rest, so the live `owner.items` is one shorter than the drag
+        // that built `indexMap`: each later slot shifted, and the last read past the end.
+        const zone = layoutZone({flexValues: [1, 1, 1]});
+
+        // A live drag always has a placeholder. Without one, the skip for it would match the
+        // `undefined` a stale index reads, and hide the defect this arm exists for.
+        zone.dragPlaceholder = {id: 'placeholder'};
+        zone.dragComponent   = zone.owner.items[0];
+        zone.owner.items.splice(0, 1);
+
+        const rects = zone.calculateExpandedLayout();
+
+        expect(rects.map(({item}) => item.id)).toEqual(['i1', 'i2']);
+        expect(mainSizes(rects)).toEqual([150, 150]);
 
         zone.destroy()
     });

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * Row pinning must survive a thumb drag that STOPS MOVING while the button is still held.

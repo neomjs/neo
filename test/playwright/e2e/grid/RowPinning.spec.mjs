@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => {
     test.use({ viewport: { width: 1920, height: 1080 } });

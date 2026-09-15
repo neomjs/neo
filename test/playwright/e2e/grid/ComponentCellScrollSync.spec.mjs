@@ -20,7 +20,7 @@
  * @see Neo.grid.View#syncBodies
  * @see Neo.grid.column.Component
  */
-import {expect, test} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 test.describe('Grid component cells across a scroll', () => {
     /**

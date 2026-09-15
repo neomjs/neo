@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * A window that connects to an already-running SharedWorker receives the App worker's remote methods.

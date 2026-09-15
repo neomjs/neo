@@ -373,6 +373,32 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         expect(structureChanges.length).toBe(0);
     });
 
+    test('a shrinking pool leaves its stored vnode walkable, and the body\'s next update removes the retired rows', async () => {
+        // An ancestor update that lands before the body's own walks the stored vnode strictly
+        const {default: VNodeUtil} = await import('../../../../src/util/VNode.mjs'),
+              body                 = grid.body,
+              rowIds               = body.items.map(row => row.vdom.id),
+              removed              = [],
+              {applyDeltas}        = Neo;
+
+        Neo.applyDeltas = async (windowId, deltas) => {
+            [deltas].flat().forEach(delta => delta.action === 'removeNode' && removed.push(delta.id))
+        };
+
+        try {
+            body.set({availableHeight: 120});
+
+            expect(body.items.length, 'the pool shrank').toBeLessThan(rowIds.length);
+            expect(() => VNodeUtil.createMap(body.vnode), 'read at once, before the body\'s update lands').not.toThrow();
+
+            await body.promiseUpdate()
+        } finally {
+            Neo.applyDeltas = applyDeltas
+        }
+
+        expect(removed, 'the update removes each retired row').toEqual(rowIds.slice(body.items.length))
+    });
+
     test('#17536: a cleared pool row stops CLAIMING the record it no longer holds', async () => {
         // Staged worker VDOM only. Nothing here asserts painted DOM, and this arm must not be
         // reused as if it did: the clear path stages under `silent: true` and never flushes.

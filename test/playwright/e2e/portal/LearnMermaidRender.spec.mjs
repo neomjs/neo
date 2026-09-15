@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * A guide's ```mermaid fence must reach the reader as an SVG, on a route where Monaco is BUSY.

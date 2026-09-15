@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * Guards the silence of `Neo.worker.App#forwardErrorToMainThread`.
@@ -17,14 +17,9 @@ import {test, expect} from '@playwright/test';
  * - no `useAiClient` — the mirror lives inside the console interceptor that also feeds the Neural
  *   Link client, and it must not require one. Most consumers have no Brain checkout and no bridge.
  *
- * ⚠️ **This does NOT prove the mirror fires.** It asserts an absence, so a mirror that never ran
- * would pass it. The presence half was verified by hand — the topology-bar defect reinstated on a
- * local branch produced `App Worker: initVnode error util.VDom.getVdom: Component not found for id:
- * neo-component-34` in the page console of a SharedWorker app — but no page-only trigger for a
- * worker error exists yet: the App-Worker remote manifest exposes none, and `destroyNeoInstance`
- * correctly routes through `parent.remove()`. Until such a trigger exists the gate that would fail a
- * test on a mirrored error is deliberately NOT shipped, because its own failure path could not be
- * exercised in CI.
+ * **The second arm is the presence half.** A rejection nobody handles reaches neither the console
+ * interceptor nor `onerror`, so it has its own forward and its own witness: a page-only `loadModule`
+ * of a module whose evaluation rejects, with the receipt proving the App worker ran it.
  */
 
 /** SharedWorker mode, and no AI client — the two properties this arm needs. See the class docblock. */
@@ -53,5 +48,30 @@ test.describe('App Worker error mirror', () => {
         expect(config.aiClient,      'and must not need the Neural Link client').toBe(false);
 
         expect(mirrored, 'a clean boot mirrors nothing').toEqual([])
+    });
+
+    test('an unhandled rejection in the App worker reaches the page console', async ({page, workerErrors}) => {
+        // Only the mirror writes the worker's name in front, so a browser forwarding its own
+        // "Uncaught (in promise)" line cannot match.
+        const probe = /^App Worker: Error: neo-worker-mirror unhandled rejection probe/;
+
+        workerErrors.expect(probe);
+
+        await page.goto(APP);
+        await expect(page.locator('.neo-viewport').first()).toBeVisible();
+
+        const receipt = await page.evaluate(() => Neo.worker.Manager.promiseMessage('app', {
+            action         : 'remoteMethod',
+            remoteClassName: 'Neo.worker.App',
+            remoteMethod   : 'loadModule',
+            data           : [{path: 'data:text/javascript,' + encodeURIComponent('Promise.reject(new Error("neo-worker-mirror unhandled rejection probe"))')}]
+        }));
+
+        expect(receipt?.data?.success, 'the module loaded inside the App worker').toBe(true);
+
+        await expect.poll(() => workerErrors.lines.some(line => probe.test(line)), {
+            message: 'the unhandled rejection must reach the page console',
+            timeout: 5000
+        }).toBe(true)
     })
 });

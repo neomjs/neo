@@ -89,7 +89,54 @@ export function loadNeuralLinkModules(env = process.env) {
     return neuralLinkModulesPromise
 }
 
+/**
+ * A line `Neo.worker.Base#forwardErrorToMainThread` mirrors into the page console: `<Name> Worker: …`.
+ * @type {RegExp}
+ */
+const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
+
 export const test = base.extend({
+    /**
+     * @summary Fails a test whose page received a worker error or an uncaught page error, unless the
+     * test named it with `workerErrors.expect(RegExp)` (non-global).
+     *
+     * A worker error that a component catches and logs fails nothing else; this reads it for every test
+     * that imports `test` from here, by both channels it reaches the page: a SharedWorker's mirrored
+     * line, and a dedicated worker's own console. `lines` lets a test wait for its own error.
+     */
+    workerErrors: [async ({page}, use) => {
+        const expected = [],
+              seen     = [];
+
+        page.on('console', message => {
+            const text   = message.text(),
+                  worker = message.worker();
+
+            if (message.type() === 'error') {
+                if (worker) {
+                    // Named from its script the way the mirror names a shared one (`…/App.mjs` → `App Worker: `), so a waiver reads in either mode
+                    const prefix = worker.url().split('/').pop().split('.')[0] + ' Worker: ';
+
+                    seen.push(text.startsWith(prefix) ? text : prefix + text)
+                } else if (MIRRORED_WORKER_ERROR.test(text)) {
+                    seen.push(text)
+                }
+            }
+        });
+
+        // The stack frames follow the message, as on a mirrored worker line, so a CI failure names its source
+        page.on('pageerror', ({message, stack}) => seen.push([`pageerror: ${message}`, ...(stack?.split('\n').slice(1) || [])].join('\n')));
+
+        await use({
+            expect: pattern => expected.push(pattern),
+            get lines() {
+                return [...seen]
+            }
+        });
+
+        expect(seen.filter(line => !expected.some(pattern => pattern.test(line))),
+            'no worker error reached the page console, and the page threw nothing').toEqual([])
+    }, {auto: true}],
     /**
      * @warning The `neo` fixture uses legacy Remote Method Access (RMA).
      * It is retained for environments where the Neural Link is unavailable
@@ -500,7 +547,7 @@ export const test = base.extend({
                     /**
                      * Drives one complete Engine-owned Mouse gesture and returns its physical
                      * lifecycle receipt. This fixture calls the raw Engine RPC directly so Engine
-                     * whitebox coverage does not depend on the blocked Brain MCP tool (#204).
+                     * whitebox coverage does not depend on the Brain MCP tool.
                      * @param {Object} request The `drive_drag` request object.
                      * @returns {Promise<Object>}
                      */

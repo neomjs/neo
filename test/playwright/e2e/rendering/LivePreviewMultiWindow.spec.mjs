@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 // Use matrix testing over environments
 const environments = [

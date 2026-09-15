@@ -1352,8 +1352,8 @@ class Component extends Abstract {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me                 = this,
-            {parent, parentId} = me,
+        let me                            = this,
+            {id, parent, parentId, vnode} = me,
             parentVdom;
 
         me.revertFocus();
@@ -1394,6 +1394,10 @@ class Component extends Abstract {
         VDomUpdate.triggerPostUpdates(me.id);
 
         super.destroy();
+
+        // The parent's stored vnode must stop naming a component the registry no longer knows, while the
+        // DOM node stays until the parent's next update removes it: kept as the vnode it last rendered
+        updateParentVdom && parent?.vnode && VNodeUtil.unlinkRetiredReferences(parent.vnode, {[id]: vnode});
 
         // We do want to prevent delayed calls after a component instance got destroyed.
         me.onFocusLeave = Neo.emptyFn;
