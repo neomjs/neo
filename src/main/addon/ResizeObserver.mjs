@@ -37,7 +37,9 @@ import DomEvents from '../DomEvents.mjs';
  * 2. While `document.hidden` with registered targets, a slow poll compares each target's
  *    border-box against the last dispatched size (layout computes without paint) and feeds
  *    synthetic entries through the exact same dispatch pipeline — covering boxes that change
- *    while the native observer cannot fire at all. The poll arms on `document.hidden` ONLY:
+ *    while the native observer cannot fire at all. A hidden page's own timers can wait a
+ *    minute, so the App Worker's `hiddenTick` message drives the poll and the dispatch skips
+ *    the dam. The poll arms on `document.hidden` ONLY:
  *    an occluded-but-not-hidden window keeps just the timer arm (deliveries the native
  *    observer still makes flush without frames) — a named residual, not full coverage.
  *
@@ -143,6 +145,8 @@ class NeoResizeObserver extends Base {
         me.#boundVisibilityChange = me.onVisibilityChange.bind(me);
         document.addEventListener('visibilitychange', me.#boundVisibilityChange);
 
+        Neo.worker.Manager.on('message:hiddenTick', me.onHiddenTick, me);
+
         // A document can already be hidden at addon construction time (e.g. an embedded
         // pane booting in the background) — sync once instead of waiting for a flip.
         me.syncPollState()
@@ -168,11 +172,16 @@ class NeoResizeObserver extends Base {
     /**
      * Arms the dispatch race for the pending queue: rAF for vsync coalescing on rendering
      * documents, a timer fallback for documents that will never service a frame. Whichever
-     * fires first dispatches and disarms the other.
+     * fires first dispatches and disarms the other. A hidden document dispatches at once.
      * @protected
      */
     armDispatch() {
         let me = this;
+
+        if (document.hidden) {
+            me.dispatchResizeEvents();
+            return
+        }
 
         if (!me.#rAFId) {
             me.#rAFId = requestAnimationFrame(() => {
@@ -297,7 +306,17 @@ class NeoResizeObserver extends Base {
 
         me.#boundVisibilityChange && document.removeEventListener('visibilitychange', me.#boundVisibilityChange);
 
+        Neo.worker.Manager.un('message:hiddenTick', me.onHiddenTick, me);
+
         super.destroy()
+    }
+
+    /**
+     * Polls on the App Worker's `hiddenTick`. A visible document is left to the native observer.
+     * @protected
+     */
+    onHiddenTick() {
+        document.hidden && this.pollHiddenTargets()
     }
 
     /**

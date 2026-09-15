@@ -329,6 +329,7 @@ class Main extends core.Base {
             {screen} = win;
 
         return {
+            hidden         : win.document.hidden, // a window can connect hidden and never flip
             innerHeight    : win.innerHeight,
             innerWidth     : win.innerWidth,
             mozInnerScreenX: win.mozInnerScreenX, // Firefox specific

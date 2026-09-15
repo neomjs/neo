@@ -1,5 +1,6 @@
 import Neo             from '../Neo.mjs';
 import Base            from './Base.mjs';
+import HiddenTick      from './HiddenTick.mjs';
 import Application     from '../controller/Application.mjs';
 import InstanceManager from '../manager/Instance.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
@@ -298,6 +299,11 @@ class App extends Base {
     windowAddons = {}
 
     /**
+     * @member {Neo.worker.HiddenTick} hiddenTick=new HiddenTick(this) Synced by onConnect() and onVisibilityChange()
+     */
+    hiddenTick = new HiddenTick(this)
+
+    /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
      * @param {String} name
      * @param {String} windowId
@@ -570,6 +576,8 @@ class App extends Base {
             return
         }
 
+        windowData && me.hiddenTick.sync({hidden: windowData.hidden, windowId});
+
         me.fire('connect', {appName, windowData, windowId})
     }
 
@@ -734,6 +742,7 @@ class App extends Base {
      * @param {Number}  msg.data.windowId
      */
     onVisibilityChange(msg) {
+        this.hiddenTick.sync(msg.data);
         Neo.apps[msg.data.windowId]?.fire('visibilitychange', msg.data)
     }
 
