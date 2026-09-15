@@ -480,8 +480,12 @@ class Worker extends Base {
             departedWindowIds.size > 16 && departedWindowIds.delete(departedWindowIds.values().next().value)
         }
 
+        // A channel request has no port of its own, yet its reply still routes through the window it renders for,
+        // so that window's last port settles it too
+        const windowGone = portEntry.windowId && !me.ports.some(entry => entry.windowId === portEntry.windowId);
+
         Object.entries(me.promises).forEach(([id, promise]) => {
-            if (promise.portEntry === portEntry) {
+            if (promise.portEntry === portEntry || (windowGone && !promise.portEntry && promise.windowId === portEntry.windowId)) {
                 delete me.promises[id];
                 promise.reject(Object.assign(new Error(`Worker port disconnected before reply: ${portEntry.id}`), {name: 'PortDisconnectedError'}))
             }
@@ -670,7 +674,8 @@ class Worker extends Base {
                 me.promises[msgId] = {
                     portEntry: message.port ? me.getPort({id: message.port}) : null,
                     reject,
-                    resolve
+                    resolve,
+                    windowId : opts.windowId ?? null
                 }
             }
         })

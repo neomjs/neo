@@ -375,7 +375,8 @@ class VdomLifecycle extends Base {
             // first (no parked promise), so a genuinely silent failure still logs rather than
             // vanishing — the symptom otherwise surfaces minutes later as "the DOM stopped
             // following". Rejected updates do NOT adopt a vnode, so the next cycle re-diffs cleanly.
-            VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
+            // A window that disconnected mid-flight settles the flight with `PortDisconnectedError`: teardown, not a failure.
+            err?.name === 'PortDisconnectedError' || VDomUpdate.hasPromiseCallbacks(me.id) || console.error('vdom update failed', me.id, err);
 
             VDomUpdate.rejectCallbacks(me.id, err);
 

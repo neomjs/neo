@@ -150,4 +150,41 @@ test.describe('VdomLifecycle destroy cancellation boundary', () => {
             parent?.destroy?.()
         }
     });
+
+    /**
+     * A window that closes mid-flight rejects the flight with `PortDisconnectedError` (`worker.Base#removePort`):
+     * teardown, so the flight releases like any failed one but reports nothing.
+     */
+    test('a flight whose window disconnected settles quietly, while any other unawaited failure still logs', async () => {
+        const realUpdateBatch = VdomHelper.updateBatch,
+              realError       = console.error,
+              logged          = [],
+              component       = Neo.create(Component, {appName, id: 'vdc-window-gone', html: 'gen1'});
+
+        const flightFailing = async error => {
+            VdomHelper.updateBatch = () => Promise.reject(error);
+            component.update();
+            await new Promise(resolve => setTimeout(resolve, 20))
+        };
+
+        try {
+            await component.initVnode(true);
+            component.mounted = true;
+
+            console.error = (...args) => logged.push(args[0]);
+
+            await flightFailing(Object.assign(new Error('Worker port disconnected before reply'), {name: 'PortDisconnectedError'}));
+
+            expect(component.isVdomUpdating, 'the flight released').toBe(false);
+            expect(logged, 'a closed window is not a failure to report').toEqual([]);
+
+            await flightFailing(new Error('any other failure'));
+
+            expect(logged, 'which any other failure still is').toEqual(['vdom update failed'])
+        } finally {
+            VdomHelper.updateBatch = realUpdateBatch;
+            console.error          = realError;
+            component.destroy()
+        }
+    });
 });

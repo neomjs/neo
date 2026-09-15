@@ -231,6 +231,90 @@ test.describe('Worker reply loss on null port lookup (#12958)', () => {
             .toEqual(['win-unknown'])
     });
 
+    /**
+     * Settles within a tick or reports that it did not, so an unsettled caller fails fast instead of hanging.
+     * @param {Promise} promise
+     * @returns {Promise<String>} 'resolved', the rejection's name, or 'pending'
+     */
+    const settlement = promise => Promise.race([
+        promise.then(() => 'resolved', error => error?.name || 'rejected'),
+        new Promise(resolve => setTimeout(() => resolve('pending'), 50))
+    ]);
+
+    /**
+     * An App and a VDom worker sharing one window, joined by the direct channel the App uses for VDom
+     * requests: a request over it carries no port entry, only the `windowId` of the window it renders for.
+     * @param {String} windowId
+     * @returns {Object}
+     */
+    const createChannelPair = windowId => {
+        const
+            appWindow  = createCapturingPort(),
+            vdomWindow = createCapturingPort(),
+            app        = createSharedWorker([{appNames: new Set(['ChannelApp']), id: `app-${windowId}`,  port: appWindow.port,  windowId}]),
+            vdom       = createSharedWorker([{appNames: new Set(['ChannelApp']), id: `vdom-${windowId}`, port: vdomWindow.port, windowId}]),
+            inFlight   = [];
+
+        app.channelPorts.vdom = {postMessage: message => inFlight.push(message)};
+        Neo.ns('Test.Unit.Worker.ChannelRemote', true).updateBatch = () => ({deltas: []});
+
+        const pending = app.generateRemote({className: 'Test.Unit.Worker.ChannelRemote', origin: 'vdom'}, 'updateBatch')({
+            appName: 'ChannelApp',
+            updates: {},
+            windowId
+        });
+
+        return {app, inFlight, pending, vdom, vdomWindow}
+    };
+
+    test('a channel request whose window disconnects settles its caller, and its reply is not reported as lost', async () => {
+        const
+            {app, inFlight, pending, vdom} = createChannelPair('win-channel'),
+            [request]                      = inFlight,
+            errors                         = [],
+            originalError                  = console.error;
+
+        expect(inFlight, 'the request left over the channel').toHaveLength(1);
+
+        // The window closes while the request is in flight: both workers retire its port
+        app .onDisconnect({appName: 'ChannelApp', windowId: 'win-channel'}, app.ports[0]);
+        vdom.onDisconnect({appName: 'ChannelApp', windowId: 'win-channel'}, vdom.ports[0]);
+
+        console.error = (...args) => errors.push(args);
+
+        try {
+            vdom.onMessage({data: request})
+        } finally {
+            console.error = originalError
+        }
+
+        expect(await settlement(pending), 'the caller is settled through the port-retirement contract').toBe('PortDisconnectedError');
+        expect(app.promises[request.id], 'and its pending entry is gone').toBeUndefined();
+        expect(errors, 'the reply its window can no longer receive is not reported as a loss').toEqual([])
+    });
+
+    test('a channel request whose window stays connected is still answered, whatever other windows do', async () => {
+        const
+            {app, inFlight, pending, vdom, vdomWindow} = createChannelPair('win-live'),
+            [request]                                  = inFlight,
+            other                                      = {appNames: new Set(['ChannelApp']), id: 'app-win-other', port: createCapturingPort().port, windowId: 'win-other'};
+
+        app.ports.push(other);
+        app.onDisconnect({appName: 'ChannelApp', windowId: 'win-other'}, other);
+
+        expect(await settlement(pending), 'another window leaving does not settle this request').toBe('pending');
+
+        vdom.onMessage({data: request});
+
+        const [reply] = vdomWindow.sent;
+
+        expect(reply?.replyId, 'the reply routes through the live window').toBe(request.id);
+
+        app.onMessage({data: reply});
+
+        expect(await settlement(pending)).toBe('resolved')
+    });
+
     test('resolve(): a live route still delivers the reply (no regression)', () => {
         const {port, sent} = createCapturingPort();
         const worker       = createSharedWorker([
