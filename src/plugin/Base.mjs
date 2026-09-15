@@ -49,6 +49,11 @@ class Plugin extends Base {
             }, me, {once: true})
         }
 
+        // Deliberately NOT `{once: true}`, unlike `constructed` six lines up. Bounding this was
+        // measured and reverted: `component/SplitterHeavyContent` remounts on purpose and went red
+        // with `compareAttributes` reading `aria-colcount` off undefined, so a plugin re-applying on
+        // remount is load-bearing for vdom structure. A duplicate-registration problem in an
+        // override is the override's to make idempotent, not this subscription's to bound.
         if (owner.mounted) {
             me.onOwnerMounted();
         } else {
