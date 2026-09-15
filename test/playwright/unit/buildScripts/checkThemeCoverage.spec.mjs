@@ -4,7 +4,7 @@ import os             from 'os';
 import path           from 'path';
 
 /**
- * The baselined theme-coverage guard (ticket-ref-ok: the spec pins the ticket's enforcement AC —
+ * The baselined theme-coverage guard (the spec pins the enforcement AC —
  * a guard that fails when a src/ package newly reaches zero theme coverage, with the known
  * zero-coverage packages baselined and justified).
  *

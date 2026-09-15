@@ -29,8 +29,8 @@ process.env.NEO_E2E_PORT = String(PORT);
  * - **Popup blocking is NOT controlled yet**: Playwright's default launch args include
  *   `--disable-popup-blocking`, and NO current probe manages blocking state — every acquisition
  *   receipt is measured under blocking-disabled conditions. Blocking-controlled acquisition
- *   cells are future matrix-contract child work (ticket-ref-ok: #15243 is the open 7×3
- *   contract authority this runner serves) and will need their own launch configuration.
+ *   cells are future matrix-contract child work tracked by #15243 [not-ticket-ref: the open 7×3
+ *   contract authority this runner serves], and will need their own launch configuration.
  */
 export default defineConfig({
     testDir  : './e2e',

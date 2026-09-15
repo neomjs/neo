@@ -6,8 +6,8 @@ import {fileURLToPath}  from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * The standalone-dock invariant, demonstrated (ticket-ref-ok: the spec pins the ticket's
- * standalone-proof AC and its mutation control).
+ * The standalone-dock invariant, demonstrated: the spec pins the standalone-proof AC and its
+ * mutation control.
  *
  * A dashboard dropped into a host with ZERO application dock CSS must render fully themed in
  * every shipped dashboard theme. The host is `examples/dashboard/dock` — it carries no app
@@ -221,8 +221,9 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
 });
 
 /**
- * The relocated-example palette boundary (ticket-ref-ok: #17573): Demo A and Demo B must
- * render from an example-owned theme file, never from the Fleet Manager's Viewport sheet.
+ * The relocated-example palette boundary, whose enforcement AC is #17573 [not-ticket-ref: the
+ * authority for this boundary]: Demo A and Demo B must render from an example-owned theme file,
+ * never from the Fleet Manager's Viewport sheet.
  *
  * The positive matrix observes both the worker-owned workspace instance and browser paint under
  * both primary themes. The mutation cell replaces only the new palette sheet with an empty 200

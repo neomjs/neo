@@ -16,15 +16,16 @@ const scriptRoot = path.resolve(__dirname, '../..');
 export const DEFAULT_SCAN_PATHS = ['ai', 'src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
 export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 
-// Inline relief valve for a genuinely load-bearing comment ref (judgment-call escape, not a blanket bypass).
+// The retired bare marker. Kept as a constant only so the failure message can name what NOT to write.
+// It was honoured here while the published guard had no typed equivalent for a deliberate ref:
+// rejecting it then would have blocked at pre-commit every ref with nowhere to go. `neo-agent-skills`
+// 0.1.6 added that equivalent, so the condition this exception rested on is gone, and honouring a
+// marker CI rejects is now itself the divergence.
 export const ESCAPE_MARKER = 'ticket-ref-ok';
 
-// The typed escape the published `neo-agent-skills` guard requires, accepted here IN ADDITION to
-// ESCAPE_MARKER so the two stop disagreeing on the same line. They say different things and both are
-// needed: the legacy bare marker asserts "this ref is deliberate", while the typed form asserts
-// "this is not a ref at all" — and a hex colour can only be described truthfully by the second.
-// Nothing is removed. Rejecting the bare form here would block at pre-commit every deliberate ref
-// that has no typed equivalent upstream, which is a policy question rather than a lint repair.
+// The two typed escapes the published guard accepts, mirrored here so the two agree line for line.
+// One says "this is not a ref at all" (a colour); the other says "this ref is deliberate". Both are
+// scoped to the token they follow, never the line.
 //
 // Both patterns mirror the published guard rather than paraphrasing it, because the ONLY thing this
 // change buys is the two agreeing. The escape is scoped to the annotated colour token and requires a
@@ -32,6 +33,7 @@ export const ESCAPE_MARKER = 'ticket-ref-ok';
 // line stays visible, and a marker sitting in a string literal never reaches comment scope at all.
 export const CSS_COLOR_ESCAPE_PATTERN  = /#(?:\d{3}|\d{4}|\d{6}|\d{8})['"`]?\s*\[not-ticket-ref:\s*css-color\]/gi;
 export const CSS_COLOR_CONTEXT_PATTERN = /(?:\bCSS\s+color\b|\b(?:background(?:-?color)?|border(?:-?color)?|color|fill(?:style)?|stroke(?:style)?)_?\s*(?::|=)\s*['"`]?)\s*$/i;
+export const REF_ESCAPE_PATTERN         = /#(\d+)['"`)\]]{0,3}\s*\[not-ticket-ref:(?!\s*css-color\s*\])\s*[^\]\s][^\]]*\]/g;
 
 /**
  * @summary Blanks the colour literals a typed escape annotates, leaving everything else scannable.
@@ -50,6 +52,28 @@ export function withEscapedColorsRemoved(comment) {
         if (CSS_COLOR_CONTEXT_PATTERN.test(comment.slice(Math.max(0, match.index - 48), match.index))) {
             out = out.slice(0, match.index) + ' '.repeat(match[0].length) + out.slice(match.index + match[0].length)
         }
+    }
+
+    return out
+}
+
+/**
+ * @summary Blanks a numeric ref token that carries a typed escape with a stated reason.
+ * @description Blanking the token rather than skipping the line is what keeps this from becoming the
+ * whole-line bypass the bare marker was: a second, unannotated ref on the same line stays visible.
+ * `css-color` is excluded, so a colour marker cannot relabel a short ticket — that case belongs to
+ * `withEscapedColorsRemoved`, which requires colour context the ref form deliberately does not.
+ * @param {String} comment
+ * @returns {String}
+ */
+export function withEscapedRefsRemoved(comment) {
+    let out = comment;
+
+    REF_ESCAPE_PATTERN.lastIndex = 0;
+
+    // Reversed, so an earlier replacement cannot shift a later match's index.
+    for (const match of [...comment.matchAll(REF_ESCAPE_PATTERN)].reverse()) {
+        out = out.slice(0, match.index) + ' '.repeat(match[0].length) + out.slice(match.index + match[0].length)
     }
 
     return out
@@ -209,11 +233,11 @@ export function findTicketRefs(content) {
     lines.forEach((line, index) => {
         const comment = extractComment(line, state);
 
-        if (!comment || line.includes(ESCAPE_MARKER)) {
+        if (!comment) {
             return
         }
 
-        if (TICKET_PATTERNS.some(re => re.test(withHtmlEntitiesRemoved(withColorsRemoved(withEscapedColorsRemoved(comment)))))) {
+        if (TICKET_PATTERNS.some(re => re.test(withHtmlEntitiesRemoved(withColorsRemoved(withEscapedRefsRemoved(withEscapedColorsRemoved(comment))))))) {
             hits.push({line: index + 1, text: line.trim()})
         }
     });
@@ -381,10 +405,10 @@ function main() {
             violations.forEach(v => console.error('  ' + v));
             console.error('\nDurable comments/JSDoc must describe behavior, not cite tracking refs — tickets, Epics, Discussions, or ADRs (they rot when the');
             console.error('referenced item closes/renames). Move the ref to the PR body / commit subject, or — only if genuinely');
-            console.error(`load-bearing — add a "${ESCAPE_MARKER}: <reason>" marker on the line.`);
+            console.error('load-bearing — put a typed marker directly after the ref: "#1234 [not-ticket-ref: <reason>]".');
             console.error('If the match is not a tracking ref at all — an all-numeric hex colour is the common case —');
-            console.error('use the typed form instead: "[not-ticket-ref: css-color]". It says what is true, and the');
-            console.error('published neo-agent-skills guard that runs in CI accepts it while rejecting the bare marker.');
+            console.error('name the kind: "[not-ticket-ref: css-color]". Either form binds to the token it follows and');
+            console.error(`needs a non-blank reason. The bare "${ESCAPE_MARKER}" marker is retired: CI rejects it.`);
         }
         process.exit(1);
     }
