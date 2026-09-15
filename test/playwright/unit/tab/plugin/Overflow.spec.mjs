@@ -1663,3 +1663,59 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
         expect(recapture, 'a batch containing a real tab still recaptures').toBe(true)
     })
 });
+
+/**
+ * `plugin.Base` subscribes `mounted` unbounded on purpose — a plugin re-applying on remount is
+ * load-bearing for vdom structure elsewhere — so `onOwnerMounted` runs again on every remount and
+ * must re-register rather than duplicate. `releaseOwnerSubscriptions` carries that.
+ *
+ * This arm exists because the DOM listener was the registration that got missed. The seven
+ * `Observable` subscriptions were found through duplicate-handler console warnings;
+ * `manager.DomEvent` is not `Observable`, so the eighth warned about nothing and was never in the
+ * population. **The warning was the symptom, not the census** — so the census is asserted here
+ * instead, against the real plugin rather than a synthetic one.
+ */
+test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers every registration', () => {
+    let Overflow;
+
+    test.beforeAll(async () => {
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
+    });
+
+    test('a remount releases the DOM listener as well as the seven Observable subscriptions', () => {
+        const released = [],
+              added    = [];
+
+        const plugin = Neo.create(Overflow, {
+            appName: 'NeoTabPluginOverflowTest',
+            owner  : {
+                id                : 'owner-release', mounted: true, windowId: 1, items: [],
+                getActionItems    : () => [], getTabButtons() { return this.items },
+                getTheme          : function () { return this.theme },
+                getDomRect        : async () => ({height: 0, width: 0, x: 0, y: 0}),
+                add               : () => ({}),
+                addDomListeners   : value => { added.push(...[value].flat()) },
+                removeDomListeners: value => { released.push(...[value].flat()) },
+                fire              : () => {}, on: () => {}, un: () => {}, remove: () => {},
+                up                : () => ({activeIndex: 0})
+            }
+        });
+
+        plugin.control = null;
+
+        // The constructor already ran `onOwnerMounted` against a mounted owner, so clear what that
+        // first mount recorded: this arm is about what the SECOND one does.
+        added.length = released.length = 0;
+
+        plugin.onOwnerMounted();
+
+        const domEvents = entry => Object.keys(entry).filter(key => key !== 'scope');
+
+        expect(added.flatMap(domEvents), 'a remount registers exactly one DOM event').toEqual(['resize']);
+        expect(released.flatMap(domEvents),
+            'and released that same event first — an empty array here means the release list has drifted from the registration list'
+        ).toEqual(['resize']);
+
+        plugin.destroy()
+    })
+});

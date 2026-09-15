@@ -79,6 +79,71 @@ test.describe('Neo.plugin.Base — the owner-mounted contract', () => {
         owner.destroy()
     });
 
+    test('a DOM listener must be released too — the registration nothing warns about', () => {
+        const owner = createOwner({mounted: false});
+
+        class DomListening extends Plugin {
+            static config = {className: 'Neo.plugin.MountContractDomListener'}
+
+            onOwnerMounted() {
+                const me = this;
+
+                me.owner.removeDomListeners([{resize: me.onResize, scope: me}]);
+                me.owner.addDomListeners(   [{resize: me.onResize, scope: me}])
+            }
+
+            onResize() {}
+        }
+
+        Neo.setupClass(DomListening);
+
+        const plugin = Neo.create(DomListening, {owner});
+
+        owner.mounted = true;
+        expect(owner.domListeners.length, 'one mount registers one listener').toBe(1);
+
+        owner.mounted = false;
+        owner.mounted = true;
+
+        // `mixin/DomEvents#addDomListeners` is a bare push with no dedupe, so without the release
+        // this is 2 after two mounts — and `manager.DomEvent` is not `Observable`, so nothing warns.
+        // That silence is why this registration was missed when the seven Observable ones were fixed.
+        expect(owner.domListeners.length, 'and a remount re-registers rather than accumulating').toBe(1);
+
+        plugin.destroy();
+        owner.destroy()
+    });
+
+    test('CONTROL: without the release, the same shape accumulates — so the arm above can fail', () => {
+        const owner = createOwner({mounted: false});
+
+        class Accumulating extends Plugin {
+            static config = {className: 'Neo.plugin.MountContractDomAccumulator'}
+
+            onOwnerMounted() {
+                const me = this;
+
+                me.owner.addDomListeners([{resize: me.onResize, scope: me}])
+            }
+
+            onResize() {}
+        }
+
+        Neo.setupClass(Accumulating);
+
+        const plugin = Neo.create(Accumulating, {owner});
+
+        owner.mounted = true;
+        owner.mounted = false;
+        owner.mounted = true;
+
+        // The defect, reproduced deliberately: two mounts, two identical entries, no warning.
+        expect(owner.domListeners.length, 'the unreleased shape really does grow').toBe(2);
+
+        plugin.destroy();
+        owner.destroy()
+    });
+
     test('a repeatable mount callback must re-register, not duplicate — the obligation the contract creates', () => {
         const owner = createOwner({mounted: false});
 
