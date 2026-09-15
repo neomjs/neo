@@ -1,7 +1,7 @@
 @use "design-tokens/all";
 @use "../motion" as *;
 
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --neo-background-color: var(--sem-color-bg-neutral-default);
     --neo-color           : var(--sem-color-text-neutral-default);
     // The platform-level light/dark hint for THIS theme, declared rather than derived from the

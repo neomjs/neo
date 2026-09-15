@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --neo-app-content-sections-bg             : #fff;
     --neo-app-content-sections-btn-bg         : #fff;
     --neo-app-content-sections-btn-disabled-bg: lightgray;

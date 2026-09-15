@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-calendar-yearcomponent
+:where(.neo-theme-neo-dark) { // .neo-calendar-yearcomponent
     --c-y-cell-border-color     : var(--sem-color-border-default);
     --c-y-cell-color            : var(--sem-color-text-neutral-default);
     --c-y-month-color           : var(--sem-color-text-neutral-default);

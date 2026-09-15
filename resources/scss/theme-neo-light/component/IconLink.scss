@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --icon-link-color          : var(--sem-color-text-primary-default);
     --icon-link-font-size      : inherit;
     --icon-link-hover-color    : var(--sem-color-fg-primary-highlighted);

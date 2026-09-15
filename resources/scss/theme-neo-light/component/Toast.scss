@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-toast
+:where(.neo-theme-neo-light) { // .neo-toast
     --toast-background-color        : lightblue;
     --toast-color                   : #083741;
     --toast-danger-background-color : #e6adad;

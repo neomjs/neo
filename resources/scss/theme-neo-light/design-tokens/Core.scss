@@ -1,6 +1,6 @@
 @use "sass:color";
 
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --black                        : #000000;
     --borderradius-0               : 0px;
     --borderradius-4               : 4px;

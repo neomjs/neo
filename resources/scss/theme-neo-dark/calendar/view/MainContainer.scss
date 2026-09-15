@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-calendar-maincontainer
+:where(.neo-theme-neo-dark) { // .neo-calendar-maincontainer
     --calendar-border-color              : var(--sem-color-border-default);
 
     --event-blue-background-color        : rgba(  0,  80, 181, 0.3);

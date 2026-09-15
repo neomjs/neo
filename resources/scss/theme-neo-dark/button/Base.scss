@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     // .neo-button – Styles that will be inherited by ALL button styles
     --button-height                             : var(--cmp-button-height);
     --button-margin                             : var(--cmp-button-gap);

@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-viewport
+:where(.neo-theme-neo-dark) { // .neo-viewport
     --portal-bg-main            : var(--sem-color-bg-neutral-default);
     --portal-headline-primary   : var(--sem-color-text-primary-default);
     --portal-scrollbar-thumb    : var(--sem-color-surface-primary-default);

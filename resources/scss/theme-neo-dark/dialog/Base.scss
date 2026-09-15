@@ -1,3 +1,8 @@
+// Stays at theme-root weight (0,2,0) deliberately: unlike every other neo value sheet, this one
+// nests a STRUCTURAL rule — `.neo-dialog .neo-header-toolbar .neo-button` sets background-color,
+// height and min-width — which must keep outranking the equal-weight button rules in `src/`.
+// Dropping it to :where() would change paint. The structural half belongs in `src/` per the
+// guide's structure-vs-skin rule; until it moves there, weight is what holds it.
 :root .neo-theme-neo-dark { // .neo-dialog
     --dialog-border-color                : var(--purple-800);
     --dialog-box-shadow                  : 0 5px 10px rgba(17, 20, 28, .85);

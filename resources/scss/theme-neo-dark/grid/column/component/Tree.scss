@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --tree-indent               : 16px;
     --tree-toggle-icon-collapsed: "\f054";
     --tree-toggle-icon-expanded : "\f078";

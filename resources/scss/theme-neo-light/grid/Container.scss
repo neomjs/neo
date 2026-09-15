@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-grid-container
+:where(.neo-theme-neo-light) { // .neo-grid-container
     --grid-container-border-color              : #ddd;
     --grid-container-cell-background-color     : #fff;
     --grid-container-cell-background-color-even: #f2f2f2;

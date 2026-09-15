@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     // App-owned daylight palette: Workstation is its own theme authority.
     --workstation-ground   : #f2f5f9;
     --workstation-panel    : #ffffff;

@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --hljs-line-numbers-background-color: #0d1117;
     --hljs-line-numbers-border-right    : 1px solid #30363d;
     --hljs-line-numbers-color           : #484f58;

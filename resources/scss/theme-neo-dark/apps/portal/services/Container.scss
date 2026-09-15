@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .portal-services-component
+:where(.neo-theme-neo-dark) { // .portal-services-component
     --portal-services-card-hover-border: var(--sem-color-border-focus);
     --portal-services-card-hover-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
     --portal-services-glass-background : rgba(0, 0, 0, 0.6);

@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     // Example-owned daylight palette. It mirrors the dark layer's semantic vocabulary while
     // remaining independent from every product app's tokens and future palette changes.
     --dashboard-example-ground   : #f2f5f9;

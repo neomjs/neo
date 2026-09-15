@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-dateselector
+:where(.neo-theme-neo-dark) { // .neo-dateselector
     --dateselector-background-color              : rgba(0,0,0,0.5);
     --dateselector-border-color                  : var(--sem-color-border-default);
     --dateselector-cell-background-color         : var(--sem-color-surface-neutral-default);

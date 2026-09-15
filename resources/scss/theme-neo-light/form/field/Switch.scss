@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-switchfield
+:where(.neo-theme-neo-light) { // .neo-switchfield
     --switchfield-bordercolor-focused: #57B2EF;
     --switchfield-borderwidth-focused: 4px;
     --switchfield-color-knob         : #fff;
