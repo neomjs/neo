@@ -114,6 +114,16 @@ test.describe('Demo-A drop-indicator menu: the real-pointer §06 journey (Neural
 
         const editorCenter = {x: editorZone.x + editorZone.width / 2, y: editorZone.y + editorZone.height / 2};
 
+        // Both are read once, before the gesture: the indicator overlay is object-permanent, and the
+        // arrangement root is read from the document rather than hardcoded — an edge-drop replaces
+        // `dockModel.root` with the wrapping split, so a literal would name the previous root.
+        const indicators   = await app.findInstances({ntype: 'dashboard-dock-drop-indicators'}, ['id']);
+        const indicatorsId = Array.isArray(indicators) ? indicators[0]?.id : indicators?.id;
+        const rootNodeId   = (await app.getComponent(wsId, ['dockModel'])).dockModel.root;
+
+        expect(indicatorsId, 'the indicator overlay resolves before the drag').toBeTruthy();
+        expect(rootNodeId,   'the document names its arrangement root').toBeTruthy();
+
         const identity = await page.evaluate(() => {
             const elements = {
                 editorPane    : document.querySelector('.agentos-dockdemo-pane-editor'),
@@ -157,28 +167,45 @@ test.describe('Demo-A drop-indicator menu: the real-pointer §06 journey (Neural
         await expect(page.locator('.neo-dashboard-dock-drop-indicators:not(.neo-dashboard-dock-drop-indicators-hidden)'),
             'the indicator layer is visible mid-drag').toBeVisible();
 
-        // over the CENTER zone the hovered node IS the chips' root target → cross only (5),
-        // by design: duplicate affordances add noise, not options
-        const crossOnly = await page.locator('.neo-dashboard-dock-drop-indicator:not(.neo-dashboard-dock-drop-indicator-off), .neo-dashboard-dock-drop-chip:not(.neo-dashboard-dock-drop-indicator-off)').count();
+        const litCount = () => page.locator('.neo-dashboard-dock-drop-indicator:not(.neo-dashboard-dock-drop-indicator-off), .neo-dashboard-dock-drop-chip:not(.neo-dashboard-dock-drop-indicator-off)').count();
 
-        expect(crossOnly, 'over the root-coincident zone: the 5-position cross, chips omitted').toBe(5);
+        // Both tabs zones sit INSIDE the arrangement root (an edge-zone holding editor-tabs at
+        // center and side-tabs at right), so neither is the chips' boundary and the full §06
+        // grammar lights over both. The counts cannot tell the two hovers apart — the TARGETS can,
+        // and that is the grammar's actual claim: the cross re-aims at whatever is hovered while
+        // the chips keep docking against the arrangement.
+        const menuTargets = async () => {
+            const set = (await app.getComponent(indicatorsId, ['candidateSet'])).candidateSet;
 
-        // over the NON-root preview zone the full grammar lights: cross + container chips
+            return {
+                chipTargets: [...new Set(set.root?.chips.map(chip => chip.preview.target.nodeId) ?? [])],
+                crossTarget: set.zone.nodeId
+            }
+        };
+
+        expect(await litCount(), 'over the editor zone: the full §06 menu — 5-position cross + 4 container chips').toBe(9);
+
+        const overEditor = await menuTargets();
+
+        expect(overEditor.crossTarget, 'the cross aims at the hovered zone').toBe('editor-tabs');
+        expect(overEditor.chipTargets, 'the chips dock against the arrangement, not the hovered zone').toEqual([rootNodeId]);
+
+        // over the preview zone the same grammar lights, and ONLY the cross has moved
         await page.mouse.move(previewZone.x + previewZone.width / 2, previewZone.y + previewZone.height / 2, {steps: 8});
         await page.waitForTimeout(300);
 
-        const fullMenu = await page.locator('.neo-dashboard-dock-drop-indicator:not(.neo-dashboard-dock-drop-indicator-off), .neo-dashboard-dock-drop-chip:not(.neo-dashboard-dock-drop-indicator-off)').count();
+        expect(await litCount(), 'over the preview zone: the same nine — the menu does not gain or lose options').toBe(9);
 
-        expect(fullMenu, 'over a non-root zone: the full §06 menu — 5-position cross + 4 container chips').toBe(9);
+        const overPreview = await menuTargets();
+
+        expect(overPreview.crossTarget, 'the cross followed the pointer to the other zone').toBe('side-tabs');
+        expect(overPreview.chipTargets, 'the chips did not follow — they are the arrangement affordance').toEqual([rootNodeId]);
 
         // return to the editor zone for the journey's target steps
         await page.mouse.move(editorCenter.x, editorCenter.y, {steps: 8});
         await page.waitForTimeout(300);
 
         // engine truth: the pointer sits on the CENTER indicator → the active candidate is the tab-merge
-        const indicators   = await app.findInstances({ntype: 'dashboard-dock-drop-indicators'}, ['id']);
-        const indicatorsId = Array.isArray(indicators) ? indicators[0]?.id : indicators?.id;
-
         let active = (await app.getComponent(indicatorsId, ['activeCandidate'])).activeCandidate;
 
         expect(active?.position).toBe('center');
@@ -200,7 +227,13 @@ test.describe('Demo-A drop-indicator menu: the real-pointer §06 journey (Neural
 
         previewBox = await page.$eval('.neo-dock-preview > *', el => ({w: parseFloat(el.style.width), h: parseFloat(el.style.height)}));
 
-        expect(previewBox.h, 'the edge-bottom preview is the band, not the zone').toBeLessThan(editorZone.height / 2);
+        // The re-targeted preview is the SPLIT REGION the drop would create, which at the default
+        // 0.5 ratio is half the zone — bounded on both sides on purpose. The upper bound is what
+        // proves it re-targeted away from the whole-zone `tab-into` preview above; the lower bound
+        // is what stops a collapsed or zero-height preview from reading as a successful re-target.
+        expect(previewBox.h, 'the edge-bottom preview is no longer the whole zone').toBeLessThan(editorZone.height - 4);
+        expect(previewBox.h, 'the edge-bottom preview is the split region the drop would create')
+            .toBeGreaterThan(editorZone.height / 4);
 
         // 3. release ON the bottom indicator: exactly that candidate commits
         await page.mouse.up();
