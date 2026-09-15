@@ -80,10 +80,10 @@ const generatedDefault = member => {
  * @summary What `generateDocsJson.mjs:357-359` publishes as the description.
  *
  * `item.description = marked.parse(item.description)` runs over EVERY item, and it runs **before** the
- * member-default block. So the shipped description is rendered markdown with HTML entities escaped,
- * not the raw doclet string — a leaked array fragment publishes as `<p>&#39;beta&#39;]</p>`, not as
- * `'beta']`. Asserting the raw string certifies a value the build then transforms, which is the same
- * layer error as asserting the parser's `defaultvalue`.
+ * member-default block. So the shipped description is rendered markdown wrapped in a paragraph, with
+ * every apostrophe replaced by its numeric HTML entity — not the raw doclet string. Asserting the raw
+ * string certifies a value the build then transforms, which is the same layer error as asserting the
+ * parser's `defaultvalue`. The arms below carry the exact published output.
  *
  * @param {Object} member
  * @returns {String|null}
