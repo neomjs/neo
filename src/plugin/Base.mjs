@@ -49,10 +49,15 @@ class Plugin extends Base {
             }, me, {once: true})
         }
 
+        // `{once: true}` for the same reason `constructed` carries it six lines up, and because
+        // without it the two branches disagreed: a plugin built AFTER its owner mounted took the
+        // fast path and never re-ran, while one built before re-ran on every remount. Both
+        // overrides in the tree register listeners and observers, so the re-run was not a contract
+        // anyone relied on — it duplicated seven `tab.plugin.Overflow` registrations per remount.
         if (owner.mounted) {
             me.onOwnerMounted();
         } else {
-            owner.on('mounted', me.onOwnerMounted, me);
+            owner.on('mounted', me.onOwnerMounted, me, {once: true});
         }
     }
 
