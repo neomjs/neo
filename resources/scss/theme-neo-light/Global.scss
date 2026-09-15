@@ -1,7 +1,7 @@
 @use "../../../resources/scss/theme-neo-light/design-tokens/_all.scss";
 @use "../motion" as *;
 
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --neo-background-color: #fafafa;
     --neo-color           : #000;
     // The platform-level light/dark hint for THIS theme, declared rather than derived from the

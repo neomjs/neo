@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --sem-borderradius-large                                                 : var(--borderradius-8);
     --sem-borderradius-medium                                                : var(--borderradius-4);
     --sem-borderradius-none                                                  : var(--borderradius-0);

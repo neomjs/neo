@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --icon-link-color          : var(--sem-color-text-primary-default);
     --icon-link-font-size      : inherit;
     --icon-link-hover-color    : var(--purple-200);

@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-grid-container
+:where(.neo-theme-neo-dark) { // .neo-grid-container
     --grid-container-border-color              : var(--purple-800);
     --grid-container-cell-background-color     : var(--sem-color-surface-neutral-default);
     --grid-container-cell-background-color-even: var(--purple-950);

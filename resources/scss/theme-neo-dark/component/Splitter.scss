@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-splitter
+:where(.neo-theme-neo-dark) { // .neo-splitter
     --splitter-background-color : var(--gray-800);
     --splitter-border           : none;
     --splitter-border-radius    : 5px;

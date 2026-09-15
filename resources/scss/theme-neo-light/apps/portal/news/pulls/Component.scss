@@ -2,7 +2,7 @@
 // semantics (purple/red) stay distinct from the tickets view's state vars through the `--portal-pr-*`
 // token NAMES rather than through selector scoping — a name cannot collide the way a shared
 // `--state-*` var could, and it survives being read from a structural rule.
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --portal-pr-badge-background-color          : #eff1f3;
     --portal-pr-badge-border                    : 1px solid rgba(0, 0, 0, 0.1);
     --portal-pr-badge-color                     : #24292f;

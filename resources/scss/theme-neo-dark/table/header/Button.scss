@@ -1,6 +1,6 @@
 @use "sass:color";
 
-:root .neo-theme-neo-dark { // .neo-table-header-button
+:where(.neo-theme-neo-dark) { // .neo-table-header-button
     --table-header-button-background-color       : var(--sem-color-surface-neutral-highlighted);
     --table-header-button-background-image       : none;
     --table-header-button-color                  : var(--sem-color-text-neutral-default);

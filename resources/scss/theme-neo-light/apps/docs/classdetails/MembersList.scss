@@ -1,6 +1,6 @@
 @use "sass:color";
 
-:root .neo-theme-neo-light { // .docs-classhierarchy-memberslist
+:where(.neo-theme-neo-light) { // .docs-classhierarchy-memberslist
     --docs-classhierarchy-memberslist-background-color : #bbb;
     --docs-memberlist-group-header-background-color    : steelblue;
     --docs-memberlist-group-header-color               : #fff;

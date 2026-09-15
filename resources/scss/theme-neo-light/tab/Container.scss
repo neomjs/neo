@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-tab-container
+:where(.neo-theme-neo-light) { // .neo-tab-container
     --tab-container-content-border                 : 1px solid #ddd;
     --tab-header-action-background-color-active   : var(--sem-color-surface-neutral-active);
     --tab-header-action-background-color-hover    : var(--sem-color-surface-neutral-hover);

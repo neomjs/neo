@@ -320,7 +320,7 @@ The engine's value sheets therefore declare at `:where(.neo-theme-neo-dark)` wei
 }
 ```
 
-Families move to this weight one at a time, each measured before it moves, because a sheet's own rules may have relied on outranking an equal-weight structure rule. While a family still declares at theme-root weight, project into it with more specificity than the engine sheet — an element-scoped rule such as `body:has(.myapp-viewport) .neo-tooltip` — rather than relying on load order.
+Every neo value sheet declares at this weight, with one deliberate exception: `dialog/Base.scss` nests a structural rule that must keep outranking the equal-weight button rules in `src/`, and says so in the file. Project into the dialog family with more specificity than the engine sheet — an element-scoped rule such as `body:has(.myapp-viewport) .neo-dialog` — rather than relying on load order; everywhere else, theme-root weight is enough.
 
 Which families have moved is a property of the tree, not of this sentence: `grep -rl ':where(.neo-theme-neo-dark)' resources/scss/theme-neo-dark` answers it, and stays right without an edit here.
 

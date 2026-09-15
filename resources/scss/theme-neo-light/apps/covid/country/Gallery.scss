@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light { // .neo-gallery.covid-country-gallery
+:where(.neo-theme-neo-light) { // .neo-gallery.covid-country-gallery
     --covid-gallery-background-color             : #fff;
     --covid-gallery-border-color                 : #ddd;
     --covid-gallery-item-border-color            : rgba(73,120,184,.5);

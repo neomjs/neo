@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     // App-owned palette: Workstation is its own theme authority.
     --workstation-ground   : #0b0e13;
     --workstation-panel    : #141a23;

@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     // Example-owned palette: the relocated dashboard demos are standalone theme authorities.
     // Values intentionally preserve their shipped FM-era appearance, but ownership is local —
     // product palette drift must never silently restyle a copyable engine example.

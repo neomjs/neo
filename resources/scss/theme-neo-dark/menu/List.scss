@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-menu-list
+:where(.neo-theme-neo-dark) { // .neo-menu-list
     --menu-list-background-color              : var(--sem-color-surface-neutral-default);
     --menu-list-border-color                  : var(--sem-color-border-default);
     --menu-list-item-background-color         : inherit;

@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark { // .neo-tab-header-button
+:where(.neo-theme-neo-dark) { // .neo-tab-header-button
     --tab-button-background-color               : var(--cmp-tab-unselected-bg-default);
     --tab-button-background-color-active        : var(--cmp-tab-unselected-bg-active);
     --tab-button-background-color-disabled      : transparent;

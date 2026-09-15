@@ -1,4 +1,4 @@
-:root .neo-theme-neo-dark {
+:where(.neo-theme-neo-dark) {
     --grid-footer-toolbar-background-color: var(--purple-900);
     --grid-footer-toolbar-color           : var(--sem-color-text-neutral-default);
     --grid-footer-toolbar-padding         : 4px 10px;

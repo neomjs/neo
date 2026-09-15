@@ -1,4 +1,4 @@
-:root .neo-theme-neo-light {
+:where(.neo-theme-neo-light) {
     --status-badge-align-items                      : center;
     --status-badge-font-size                        : 11px;
     --status-badge-font-family                      : var(--neo-font-family);
