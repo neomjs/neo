@@ -1,0 +1,51 @@
+name: Class Module Scope Lint
+
+# CI mirror of the `lint-staged` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      # The invariant is scanned ⊆ watched. The guard walks every `src/**/*.mjs`, so every one of them
+      # must re-run it; a filter narrower than the scan lets the introducing PR land ungated and turns
+      # the NEXT unrelated run red — late, misattributed enforcement.
+      - 'src/**/*.mjs'
+      # The baseline is an INPUT to the verdict, so editing it must re-run the check. Otherwise a
+      # helper can be blessed by editing the record of what exists, with nothing re-reading reality.
+      - 'buildScripts/util/check-class-module-scope-baseline.json'
+      - 'buildScripts/util/check-class-module-scope.mjs'
+      - '.github/workflows/class-module-scope-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'src/**/*.mjs'
+      - 'buildScripts/util/check-class-module-scope-baseline.json'
+      - 'buildScripts/util/check-class-module-scope.mjs'
+      - '.github/workflows/class-module-scope-lint.yml'
+
+concurrency:
+  group: class-module-scope-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # The guard discovers through the parse tree rather than a regex — deliberately, because the
+      # census that motivated #18064 used a line-anchored grep and could not see `export function f()`
+      # or an arrow with a rest parameter. That choice is what makes acorn a dependency here, the same
+      # way `fixed-sleep-lint.yml` resolves it. Install cost is not mergeable wall-clock, and `test.yml`
+      # already runs `npm ci`, so registry flakiness was priced into the merge gate long before this.
+      - name: Install dependencies (acorn — the guard's parser)
+        run: npm ci --ignore-scripts
+
+      - name: Keep class logic where a subclass, a mixin or Neo.overwrites can reach it
+        run: node ./buildScripts/util/check-class-module-scope.mjs

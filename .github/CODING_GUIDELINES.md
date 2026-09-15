@@ -65,6 +65,11 @@ Neo.tab.header.Button
 * (17) `ntype` is using lower-case syntax as well.
 
 ## 4. Anatomy of a neo class / JS module
+
+Between the imports and the class there are `import`s, constants and lookup tables — and nothing else.
+Behaviour lives on the class, because module scope is not reachable by a subclass, a mixin or
+`Neo.overwrites`: see [§8 Class methods](#8-class-methods).
+
 ```javascript
 import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
@@ -379,6 +384,26 @@ like nested item arrays or complex objects (e.g. style). Each of those item star
 do get sorted chronologically as well.
 
 ## 8. Class methods
+
+**Logic belongs on the class, never at module scope beside it.** A helper that "does not need `this`"
+is the one every other codebase teaches you to lift out of the class. Do not lift it here.
+
+Neo is built for extension: developers subclass, mix in, and replace class logic through
+`Neo.overwrites`. Every one of those seams reaches a **method**. None of them can reach a function at
+module scope — it is invisible to a subclass, invisible to a mixin's consumer, invisible to
+`Neo.overwrites`, and invisible to the Neural Link's `get_method_source`. Lifting a helper out of the
+class does not tidy it; it removes an override seam and fragments the class's reading order.
+
+So a helper becomes an instance method, a `static` method, or a getter — or, when it genuinely belongs
+to no class, its own module under `src/util/**` consumed by import.
+
+`import`s, constants and lookup tables stay at module scope: nobody overrides data.
+
+`buildScripts/util/check-class-module-scope.mjs` enforces this over `src/**/*.mjs`, gated on the file
+declaring a class. Existing helpers are recorded in its baseline and migrate as their files are next
+touched; a new one fails `lint-staged` and CI. The baseline records debt being paid down — it is not
+a place to put new debt.
+
 ```javascript
 
 /**

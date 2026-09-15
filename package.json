@@ -29,6 +29,7 @@
         "bundle-monaco"                        : "node ./buildScripts/build/monaco.mjs",
         "bundle-parse5"                        : "node ./buildScripts/build/parse5.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
+        "check-class-module-scope"             : "node ./buildScripts/util/check-class-module-scope.mjs",
         "check-engine-brain-boundary"          : "node ./buildScripts/util/check-engine-brain-boundary.mjs",
         "check-examples-body-only"             : "node ./buildScripts/util/check-examples-body-only.mjs",
         "check-file-sizes"                     : "node ./buildScripts/util/check-file-sizes.mjs",
@@ -164,6 +165,9 @@
         ],
         "{buildScripts,src}/**/*.mjs": [
             "node ./buildScripts/util/check-engine-brain-boundary.mjs"
+        ],
+        "src/**/*.mjs": [
+            "node ./buildScripts/util/check-class-module-scope.mjs"
         ],
         "resources/scss/**/*.scss": [
             "node ./buildScripts/util/check-theme-coverage.mjs",
