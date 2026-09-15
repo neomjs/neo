@@ -22,6 +22,7 @@ In the long run, we are planning to convert as many of the rules as possible int
 9. data.Model fields
 10. Misc
 11. JSDoc type expressions
+12. Compact JSDoc blocks
 
 
 ## 1. General rules
@@ -523,3 +524,45 @@ name from `@param`, `@returns`, `@member`, or `@property`. The lint currently sc
 `src`, `ai`, `examples`, `apps`, and `docs/app`. `buildScripts` and `test` remain outside the CI scope because
 they are not consumed by the docs app today; extend the scope only with a ticket that also updates the relevant
 fixtures.
+
+
+## 12. Compact JSDoc blocks
+
+A one-line JSDoc block is **permitted only for the three forms below**. Everything else expands to a multiline
+block. Valid JavaScript and a successful JSDoc run do not imply correct metadata: the failures here are silent —
+nothing errors, the docs build stays green, and a default or an access tag simply stops existing.
+
+Verified against the production doclet pipeline (`buildScripts/docs/docletPipeline/`) plus `generateDocsJson`'s
+member block, one-line compared against its multiline control in every row. `check-jsdoc-types.mjs` does not
+cover any of this — it validates type expressions, not preservation of defaults, descriptions or access.
+
+| Form | Outcome | Use |
+| --- | --- | --- |
+| `/** @member {String} name='neo' */` | Identical to multiline | Compact is fine |
+| `/** @member {Object\|null} data=null */` | Identical to multiline | Compact is fine |
+| `/** @member {Number} size=3 The size */` | Identical to multiline — default `3`, description `The size` | Compact is fine |
+| `/** @member {String[]} cls=['a','b'] */` | **Generated default becomes empty** | MUST expand |
+| `/** @member {Object} opts={a:1} */` | **Generated default becomes empty** | MUST expand |
+| `/** @member {Number} count=0 @protected */` | **`@protected` becomes description text; the access tag is LOST** | MUST expand — one tag per line |
+
+**Why array and object defaults must expand.** `generateDocsJson` re-extracts an array/object default from the
+comment text between `=` and the next newline. A one-line block has no next newline, so `indexOf` returns `-1`,
+`substr(0, -1)` returns the empty string, and the member documents with no default at all.
+
+**Why a second tag must expand.** JSDoc reads everything after the first tag's value as that tag's description,
+so `@protected` on the same line becomes the string `@protected` in the description and the member documents as
+public.
+
+### The comma-space leak, which is NOT about compact blocks
+
+```javascript
+/** @member {String[]} baseCls=['neo-switchfield', 'neo-checkboxfield'] */
+```
+
+A space after a comma inside an array or object default truncates the parsed default at the comma and leaks the
+remainder into the **description** — `defaultvalue: "['neo-switchfield',"`, `description: "'neo-checkboxfield']"`.
+This happens in the multiline form too, so it is a property of the default's punctuation rather than of the
+block's shape. Write array and object defaults **without a space after the comma**, whichever block form you use.
+
+`test/playwright/unit/buildScripts/docletCompactJsdoc.spec.mjs` pins every row of this section against the
+production pipeline, each compact form beside its multiline control.
