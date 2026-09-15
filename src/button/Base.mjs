@@ -325,12 +325,7 @@ class Button extends Component {
      * @protected
      */
     afterSetIconPosition(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray.remove(cls, 'icon-' + oldValue);
-        NeoArray.add(cls, 'icon-' + value);
-
-        this.cls = cls
+        this.removeAddCls('icon-' + oldValue, 'icon-' + value)
     }
 
     /**
