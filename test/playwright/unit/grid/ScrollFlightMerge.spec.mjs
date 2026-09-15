@@ -29,9 +29,9 @@ import VdomHelper      from '../../../../src/vdom/Helper.mjs';
  * treats every row outside it as clean and prunes it.
  *
  * `ScrollManager#onContainerScroll` sets the body's `isScrolling` before it syncs the bodies, which is
- * this order. On a hosted runner it blanked #18439's paint frames: the View's `scrollTop` meta arrived
- * with only the body's class, and the rows followed with the next unmerged repaint. Here no later
- * repaint comes, so a pruned row keeps a stored vnode for the index it showed before the scroll.
+ * this order. On a hosted runner it blanked frames during a thumb drag: the View's `scrollTop` meta
+ * arrived with only the body's class, and the rows followed with the next unmerged repaint. Here no
+ * later repaint comes, so a pruned row keeps a stored vnode for the index it showed before the scroll.
  */
 test.describe('grid.View scroll repaint with a merged body update', () => {
     test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
