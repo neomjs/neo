@@ -878,9 +878,13 @@ class VesselWorkspace extends DockWorkspace {
     /**
      * Maps both commit shapes onto the reconciler's fast paths — engine surfaces pass the semantic
      * descriptor, this host's own paths pass their options object. The geometry admission is the
-     * ENGINE's now: it derives `geometryOnly` from the operation's declared change class, so this
-     * override adds only the one thing the engine cannot see — an explicit `geometryOnly` on this
-     * host's own options-object commits. Either way it is an admission REQUEST for the in-place
+     * ENGINE's now: it derives `geometryOnly` from the operation's declared change class, and so is
+     * the item-only admission: an `itemFlags` commit writes one flag on one item, so the engine
+     * answers `retainTopology` and this override ADDS to that answer rather than replacing it.
+     * Writing either key unconditionally overwrote the engine's `true` with `false`, which is how a
+     * lock click here kept taking the staged transaction. What is left is genuinely this host's: an
+     * explicit `geometryOnly` on its options-object commits, and `detachItem` / `transferNode`,
+     * which carry no change class the engine could read. Either way it is an admission REQUEST for the in-place
      * projection path, never a claim that the topology is stable: the reconciler validates it,
      * falls back to the staged transaction on any structural delta, and `DockFlip` is told the
      * resulting `landedInPlace`, not this request. `detachItem` / `transferNode` admit the
@@ -900,7 +904,7 @@ class VesselWorkspace extends DockWorkspace {
 
         return {
             geometryOnly  : geometryOnly === true || base.geometryOnly === true,
-            retainTopology: operation === 'detachItem' || operation === 'transferNode',
+            retainTopology: base.retainTopology === true || operation === 'detachItem' || operation === 'transferNode',
             ...(Array.isArray(preserveItemIds) && preserveItemIds.length > 0 ? {preserveItemIds} : {})
         }
     }
