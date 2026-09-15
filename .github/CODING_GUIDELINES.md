@@ -528,9 +528,11 @@ fixtures.
 
 ## 12. Compact JSDoc blocks
 
-A one-line JSDoc block is **permitted only for the three forms below**. Everything else expands to a multiline
-block. Valid JavaScript and a successful JSDoc run do not imply correct metadata: the failures here are silent —
-nothing errors, the docs build stays green, and a default or an access tag simply stops existing.
+A one-line JSDoc block is **permitted only for the three forms below, and only when the default contains no
+whitespace** — see "Inline defaults" at the end of this section, which binds the multiline form equally.
+Everything else expands to a multiline block. Valid JavaScript and a successful JSDoc run do not imply correct
+metadata: the failures here are silent — nothing errors, the docs build stays green, and a default or an access
+tag simply stops existing.
 
 Verified against the production doclet pipeline (`buildScripts/docs/docletPipeline/`) plus `generateDocsJson`'s
 member block, one-line compared against its multiline control in every row. `check-jsdoc-types.mjs` does not
@@ -553,16 +555,37 @@ comment text between `=` and the next newline. A one-line block has no next newl
 so `@protected` on the same line becomes the string `@protected` in the description and the member documents as
 public.
 
-### The comma-space leak, which is NOT about compact blocks
+### Inline defaults, which is NOT about compact blocks
+
+Two rules below apply to **every** `@member` in the repository, in the multiline form the guidelines already
+prescribe. Neither is a compact-block property.
+
+**1. An inline default truncates at the first whitespace, and the remainder becomes the description.**
 
 ```javascript
-/** @member {String[]} baseCls=['neo-switchfield', 'neo-checkboxfield'] */
+/** @member {String} greeting='hello world' */   // default: "'hello"   description: "world'"
+/** @member {Object} opts={a: 1} */              // default: "{a:"      description: "1}"
+/** @member {String[]} pair=['one two'] */       // default: "['one"    description: "two']"
 ```
 
-A space after a comma inside an array or object default truncates the parsed default at the comma and leaks the
-remainder into the **description** — `defaultvalue: "['neo-switchfield',"`, `description: "'neo-checkboxfield']"`.
-This happens in the multiline form too, so it is a property of the default's punctuation rather than of the
-block's shape. Write array and object defaults **without a space after the comma**, whichever block form you use.
+No comma is involved in any of those — a plain string with a space truncates identically. So write inline
+defaults **without whitespace** (`['a','b']`, `{a:1}`), whichever block form you use.
+
+**2. A trailing `]` is eaten.** JSDoc's optional-parameter syntax is `[name=default]`, so a value whose last
+character is `]` has it consumed as that marker's close: `=['a','b']` parses as `['a','b'` . Object braces are
+unaffected. `generateDocsJson` re-extracts array and object defaults from the comment text, which repairs the
+**default** in the multiline form — it does not repair the **description**, so a leaked remainder ships.
+
+**When the value must contain whitespace, give `@default` its own line.** It preserves the value exactly,
+including arrays and objects with spaces, and leaves the description empty:
+
+```javascript
+/**
+ * @member {String} greeting
+ * @default 'hello world'
+ */
+```
 
 `test/playwright/unit/buildScripts/docletCompactJsdoc.spec.mjs` pins every row of this section against the
-production pipeline, each compact form beside its multiline control.
+production pipeline, each compact form beside its multiline control, asserting the complete metadata rather
+than only that the two layouts agree — two doclets that have both lost their default are equal to each other.
