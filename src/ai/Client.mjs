@@ -162,12 +162,12 @@ class Client extends Base {
             me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
                 serverAddress: url.toString(),
                 listeners    : {
-                    close           : me.onSocketClose,
-                    error           : me.onSocketError,
-                    message         : me.onSocketMessage,
-                    open            : me.onSocketOpen,
-                    reconnect_failed: me.onSocketReconnectFailed,
-                    scope           : me
+                    close          : me.onSocketClose,
+                    error          : me.onSocketError,
+                    message        : me.onSocketMessage,
+                    open           : me.onSocketOpen,
+                    reconnectFailed: me.onSocketReconnectFailed,
+                    scope          : me
                 }
             })
         } catch (e) {

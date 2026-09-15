@@ -28,7 +28,7 @@ DetachedSocket = Neo.setupClass(DetachedSocket);
 
 /**
  * @summary `attemptReconnect` gives up after `maxReconnectAttempts`. An owner that reports that its own way marks the
- * `reconnect_failed` payload handled; any failure left unhandled is an error, whether or not someone listened.
+ * `reconnectFailed` payload handled; any failure left unhandled is an error, whether or not someone listened.
  */
 test.describe('Neo.data.connection.WebSocket', () => {
     let errors, realError;
@@ -51,7 +51,7 @@ test.describe('Neo.data.connection.WebSocket', () => {
     test('an owner that marks the final reconnect failure handled is left to report it', async () => {
         let failures = 0;
 
-        const socket = Neo.create(DetachedSocket, {listeners: {reconnect_failed: failure => {failures++; failure.handled = true}}});
+        const socket = Neo.create(DetachedSocket, {listeners: {reconnectFailed: failure => {failures++; failure.handled = true}}});
 
         await exhaust(socket);
 
@@ -62,7 +62,7 @@ test.describe('Neo.data.connection.WebSocket', () => {
     });
 
     test('a final reconnect failure nobody marks handled is an error, whether or not someone listened', async () => {
-        const listened  = Neo.create(DetachedSocket, {listeners: {reconnect_failed: () => {}}}),
+        const listened  = Neo.create(DetachedSocket, {listeners: {reconnectFailed: () => {}}}),
               unwatched = Neo.create(DetachedSocket);
 
         await exhaust(listened);
