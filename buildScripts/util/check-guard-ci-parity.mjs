@@ -14,10 +14,11 @@
  * convention mechanical so the next unmirrored guard fails on arrival instead of being discovered
  * by someone whose merge needed `--no-verify`.
  *
- * ## Why this reports a DEFECT, where `lint-retry-bounds` reports `unclassified`
+ * ## Why this reports a DEFECT rather than `unclassified`
  *
- * Its sibling deliberately never says "unbounded", because its discovery patterns have a larger
- * false-positive family than true-positive set, and a guard that cries wolf gets suppressed.
+ * A guard that infers its population from syntax should never assert a defect: its discovery
+ * patterns carry a larger false-positive family than true-positive set, and a guard that cries wolf
+ * gets suppressed.
  *
  * This guard is the opposite case and the distinction matters. The population is **exact**: it is
  * read from `package.json`'s `lint-staged` config, not inferred from syntax. A guard listed there
@@ -82,9 +83,9 @@ const
  * @summary Every surface whose contents can change this lint's verdict — the SSOT its CI workflow's
  * path filter must cover.
  *
- * Exported so the sibling `scanned ⊆ watched` spec takes it as authority rather than a hand-copied
- * duplicate: widening what this predicate reads widens this array in the same edit, and an unwidened
- * workflow filter then fails that spec without anyone remembering to update a registry.
+ * Exported so `check-guard-ci-parity.spec.mjs` takes it as authority for that filter rather than a
+ * hand-copied duplicate: widening what this predicate reads widens this array in the same edit, and
+ * an unwidened workflow filter then fails that spec without anyone remembering to update a registry.
  *
  * That is the `scanned ⊆ watched` invariant, and this lint is subject to it like any other — which
  * is how it should be, since a guard exempting itself from a coverage rule is the joke it exists to
@@ -495,8 +496,7 @@ function runLint() {
     return {exitCode: 1}
 }
 
-// Import-safe, per the house pattern in `lint-retry-bounds.mjs` and `lint-config-template-ssot.mjs`:
-// the sibling `scanned ⊆ watched` spec imports SCAN_SURFACE from this module, and a bare
+// Import-safe: `check-guard-ci-parity.spec.mjs` imports SCAN_SURFACE from this module, and a bare
 // `process.exit()` at module scope would terminate the test process on import.
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     process.exit(runLint().exitCode)

@@ -1,9 +1,12 @@
 import {test, expect}  from '@playwright/test';
 import {spawnSync}     from 'node:child_process';
 import fs              from 'fs-extra';
+import * as yaml       from 'js-yaml';
 import os              from 'node:os';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
+
+import {SCAN_SURFACE}  from '../../../../../buildScripts/util/check-guard-ci-parity.mjs';
 
 const
     __dirname  = path.dirname(fileURLToPath(import.meta.url)),
@@ -11,7 +14,52 @@ const
     REPO_ROOT  = path.resolve(__dirname, '../../../../..'),
     LINT       = path.join(REPO_ROOT, 'buildScripts/util/check-guard-ci-parity.mjs'),
     REGISTRY   = path.join(REPO_ROOT, 'buildScripts/util/check-guard-ci-parity-registry.json'),
-    SELF_REL   = 'buildScripts/util/check-guard-ci-parity.mjs';
+    SELF_REL   = 'buildScripts/util/check-guard-ci-parity.mjs',
+    MIRROR_REL = '.github/workflows/guard-ci-parity-lint.yml';
+
+/**
+ * @summary Which verdict inputs a workflow's `pull_request` path filter fails to watch.
+ *
+ * The guard's verdict changes when any of its inputs changes, so a CI mirror whose filter misses one
+ * lets that change merge unexamined. Globs are sampled rather than compared as strings, because a
+ * filter of `.github/**` watches `.github/workflows/**` without spelling it. A `pull_request` trigger
+ * with no `paths` key runs on every change and watches everything by construction; a workflow with
+ * no `pull_request` trigger watches nothing. An unsupported glob shape throws instead of sampling as
+ * a literal, so widening the surface cannot pass this check vacuously.
+ *
+ * @param {Object}   workflow parsed workflow YAML
+ * @param {String[]} inputs   surface entries plus the files the verdict is reproduced from
+ * @returns {String[]} the inputs no filter pattern matches, in input order
+ */
+function unwatchedInputs(workflow, inputs) {
+    const triggers = workflow.on ?? workflow[true];
+
+    if (!triggers || !Object.hasOwn(triggers, 'pull_request')) {
+        return [...inputs]
+    }
+
+    const patterns = triggers.pull_request?.paths;
+
+    if (!patterns) {
+        return []
+    }
+
+    return inputs.filter(input => {
+        let samples = [input];
+
+        if (input.includes('*')) {
+            if (!/^[^*]+\/\*\*$/.test(input)) {
+                throw new Error(`unsupported SCAN_SURFACE glob shape: ${input}`)
+            }
+
+            const base = input.slice(0, -3);
+
+            samples = [`${base}/specimen.yml`, `${base}/specimen.yaml`]
+        }
+
+        return !samples.every(sample => patterns.some(pattern => path.matchesGlob(sample, pattern)))
+    })
+}
 
 /**
  * @summary Proves the guard-CI-parity lint actually fails, and fails for the stated reason.
@@ -156,6 +204,35 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
         expect(fs.readFileSync(path.join(REPO_ROOT, '.husky/pre-commit'), 'utf8').trim())
             .toMatch(/npx lint-staged$/)
+    });
+
+    test('the CI mirror watches every SCAN_SURFACE input, this guard, and its own workflow', () => {
+        const
+            workflow = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
+            inputs   = [...SCAN_SURFACE, SELF_REL, MIRROR_REL];
+
+        expect(SCAN_SURFACE.length, 'the imported surface must not be empty').toBeGreaterThan(0);
+        expect(unwatchedInputs(workflow, inputs), `${MIRROR_REL} must watch every input that can change the verdict`)
+            .toEqual([])
+    });
+
+    test('RED: a mirror filter that drops a SCAN_SURFACE input is reported, and the input NAMED', () => {
+        const
+            inputs  = [...SCAN_SURFACE, SELF_REL, MIRROR_REL],
+            without = pattern => {
+                const
+                    workflow = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
+                    triggers = workflow.on ?? workflow[true];
+
+                triggers.pull_request.paths = triggers.pull_request.paths.filter(entry => entry !== pattern);
+
+                return workflow
+            };
+
+        // A literal, and then the harder shape: dropping the glob must unwatch both the sampled surface
+        // entry and this mirror's own file, which only the glob was covering.
+        expect(unwatchedInputs(without('package.json'), inputs)).toEqual(['package.json']);
+        expect(unwatchedInputs(without('.github/workflows/**'), inputs)).toEqual(['.github/workflows/**', MIRROR_REL])
     });
 
     test('RED: an unmirrored guard missing from the registry fails, and is NAMED', () => {
