@@ -73,16 +73,17 @@ async function resolveAddon(environment, name, engine=REPO_ROOT) {
 }
 
 /**
- * @summary Hands `Neo.Main` an addon whose async init outlasts any fixed delay, and reports whether that
- * init had finished when `importAddon` resolved.
+ * @summary Hands `Neo.Main` a real `main.addon.Base` whose remote registration is delayed and whose
+ * library files never load, and reports what had happened when `importAddon` resolved.
  *
- * An addon that loads external files — Monaco, Mermaid, AmCharts — resolves `initAsync` only once the
- * browser has fetched and parsed them, which is exactly the case a 20 ms sleep cannot cover. The caller
- * is an app worker that will use the addon's remote proxy the moment this promise settles.
- * @param {Number} delay how long the addon's `initAsync` takes, in ms
- * @returns {Promise<{initFinished: Boolean}>}
+ * The two states this separates: registration, which is a round trip no fixed delay bounds and which the
+ * caller's proxy depends on, and full readiness, which a lazily loading addon may never reach.
+ * `main.addon.Base#initAsync` awaits `super.initAsync()` — resolving `remotesReady` — and only then its
+ * `#loadFilesPromise`, so the correct gate answers with `registered: true` while `isReady` is still false.
+ * @param {Number} delay how long the addon's `initRemote` takes, in ms
+ * @returns {Promise<{registered: Boolean, isReady: Boolean, resolved: Boolean}>}
  */
-async function importSlowAddon(delay) {
+async function importLazyAddon(delay) {
     const script = `
         import Neo from '${REPO_ROOT}/src/Neo.mjs';
         import * as core from '${REPO_ROOT}/src/core/_export.mjs';
@@ -115,29 +116,37 @@ async function importSlowAddon(delay) {
         delete Neo.main.DomAccess;
         delete Neo.worker.Manager;
 
-        const {default: Main} = await import('${REPO_ROOT}/src/Main.mjs');
+        const {default: Main}    = await import('${REPO_ROOT}/src/Main.mjs');
+        const {default: AddonBase} = await import('${REPO_ROOT}/src/main/addon/Base.mjs');
 
-        let initFinished = false;
+        let registered = false;
 
-        class SlowAddon extends Neo.core.Base {
-            static config = {className: 'Neo.main.addon.SlowProbe'}
+        class LazyAddon extends AddonBase {
+            static config = {
+                className     : 'Neo.main.addon.LazyProbe',
+                // The files never load, so \`isReady\` never turns true: the readiness gate would hang here
+                useLazyLoading: true
+            }
 
-            async initAsync() {
+            async initRemote() {
                 await new Promise(resolve => setTimeout(resolve, ${delay}));
-                initFinished = true;
-                await super.initAsync()
+                registered = true;
+                await super.initRemote()
             }
         }
 
-        Neo.setupClass(SlowAddon);
+        Neo.setupClass(LazyAddon);
 
         // onDomContentLoaded never fires in this stub, so its registry has to exist before an addon lands in it
         Main.addon             = {};
-        Main.importAddonModule = async () => ({default: SlowAddon});
+        Main.importAddonModule = async () => ({default: LazyAddon});
 
-        await Main.importAddon({name: 'SlowProbe'});
+        const resolved = await Promise.race([
+            Main.importAddon({name: 'LazyProbe'}).then(() => true),
+            new Promise(resolve => setTimeout(() => resolve(false), ${delay} + 2000))
+        ]);
 
-        console.log('PROBE ' + JSON.stringify({initFinished}))
+        console.log('PROBE ' + JSON.stringify({registered, isReady: Neo.main.addon.LazyProbe?.isReady === true, resolved}))
     `;
 
     const {stdout} = await execFileAsync(process.execPath, ['--preserve-symlinks', '--input-type=module', '-e', script], {cwd: REPO_ROOT});
@@ -185,11 +194,17 @@ test.describe('Neo.Main addon resolution', () => {
         }
     });
 
-    test('importAddon resolves only after the addon it created has finished its async init', async () => {
-        // 60 ms outlasts the 20 ms sleep this replaced, so the two states are distinguishable
-        expect((await importSlowAddon(60)).initFinished, 'a slow addon is registered before the caller continues').toBe(true);
+    test('importAddon waits for the addon to register its remotes, and not for it to be ready', async () => {
+        // 60 ms outlasts the 20 ms sleep this replaced, so registration and elapsed time are distinguishable
+        const slow = await importLazyAddon(60);
 
-        // The control: an addon that needs no time at all reports the same, so the arm above is not reading a delay
-        expect((await importSlowAddon(0)).initFinished, 'and so is an instant one').toBe(true)
+        expect(slow.resolved,   'the import resolves, though this addon is never ready').toBe(true);
+        expect(slow.registered, 'and only once the addon has registered its remotes').toBe(true);
+        expect(slow.isReady,    'which is a weaker gate than readiness: its files never load').toBe(false);
+
+        // The control: an addon registering instantly reports the same three, so the arm reads state, not a delay
+        const instant = await importLazyAddon(0);
+
+        expect(instant, 'an instantly registering addon reports the same').toEqual(slow)
     })
 });

@@ -431,9 +431,12 @@ class Main extends core.Base {
     async importAddon(data) {
         let module = await this.importAddonModule(data.name);
 
-        // The calling worker holds a proxy for this addon only once its remotes are registered, and an addon
-        // that loads external files (Monaco, Mermaid, AmCharts) reaches that well past any fixed delay.
-        // `onDomContentLoaded` waits on the same promise, for the same reason.
+        // The calling worker holds a proxy for this addon only once its remotes are registered, and that
+        // registration is a round trip to the worker (`core.Base#initRemote`), which no fixed delay bounds.
+        // It is NOT full readiness: `main.addon.Base#initAsync` registers first and awaits its library files
+        // after, so a lazily loading addon answers here while `isReady` is still false — which is the
+        // contract, since the caller wants the proxy, not the library. `onDomContentLoaded` waits on the
+        // same promise for the same reason.
         await this.registerAddon(module.default).remotesReady();
 
         return true
