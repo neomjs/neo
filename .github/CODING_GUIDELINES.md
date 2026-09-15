@@ -568,8 +568,15 @@ prescribe. Neither is a compact-block property.
 /** @member {String[]} pair=['one two'] */       // default: "['one"    description: "two']"
 ```
 
-No comma is involved in any of those — a plain string with a space truncates identically. So write inline
-defaults **without whitespace** (`['a','b']`, `{a:1}`), whichever block form you use.
+No comma is involved in any of those — a plain string with a space truncates identically.
+
+**Two kinds of whitespace, and only one of them is yours to delete.**
+
+- **Formatting whitespace** — after a comma, after an object's colon — carries no meaning. Remove it:
+  `['a', 'b']` → `['a','b']`, `{a: 1}` → `{a:1}`. The value is unchanged.
+- **Whitespace inside a string literal** — `'hello world'`, `['one two']` — **is part of the value**.
+  Deleting it silently documents a different default than the code has, which is worse than the
+  truncation it was meant to avoid. Never "fix" a truncation by editing the literal.
 
 **2. A trailing `]` is eaten.** JSDoc's optional-parameter syntax is `[name=default]`, so a value whose last
 character is `]` has it consumed as that marker's close: `=['a','b']` parses as `['a','b'` . Object braces are
@@ -606,8 +613,24 @@ So an array or object default has exactly one correct form, and all three proper
 - **whitespace-free** — otherwise the value truncates and the remainder leaks into the description
 - **multiline block** — a one-line block has no newline after `=`, so the default generates empty
 
-An array or object default containing whitespace cannot be expressed correctly in any form. Remove the
-whitespace.
+### The unsupported form, stated so nobody "fixes" it by changing the value
+
+An **array or object whose literal content contains whitespace** — `['one two']`, `{label: 'a b'}` — has
+**no correct form**:
+
+| attempt | result |
+|---|---|
+| inline, as authored | truncates at the space; remainder leaks into the description |
+| delete the inner space | documents a **different value** than the code has |
+| separate `@default` | publishes `/**` |
+
+Do not pick one. Document the member without an inline default and describe the value in prose, or give
+the class a named constant and point at it. The one thing that must not happen is editing the literal to
+satisfy the parser — a wrong default that looks right outlives every truncation, because nothing about it
+reads as broken.
+
+(A **String** whose value contains whitespace is the exception that does have a form: `@default` on its
+own line, above.)
 
 `test/playwright/unit/buildScripts/docletCompactJsdoc.spec.mjs` pins every row of this section against the
 production pipeline, each compact form beside its multiline control, asserting the complete metadata rather

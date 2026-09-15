@@ -1,8 +1,9 @@
-import {test, expect} from '@playwright/test';
-import {marked}       from 'marked';
-import fs             from 'node:fs';
-import os             from 'node:os';
-import path           from 'node:path';
+import {test, expect}           from '@playwright/test';
+import {marked}                 from 'marked';
+import fs                       from 'node:fs';
+import os                       from 'node:os';
+import path                     from 'node:path';
+import {publishedMemberDefault} from '../../../../buildScripts/docs/docletPipeline/memberDefaults.mjs';
 
 /**
  * Compact JSDoc was proposed to reduce visual bulk around simple declarations. Valid JavaScript and a
@@ -51,32 +52,6 @@ const CASES = {
 let doclets;
 
 /**
- * @summary The member-default stage from `generateDocsJson.mjs`, replicated line-for-line.
- *
- * Asserting the parser's `defaultvalue` certifies a value the generator then OVERWRITES — which is
- * the failure class this whole file exists for: a valid parse is not correct metadata. For an array
- * or object type the generator re-extracts from the comment text between `=` and the next newline.
- * That repairs the `]` the parser drops, empties a one-line block, and — when there is no `=` at all —
- * takes `indexOf`'s `-1` plus one as zero and publishes the opening comment marker.
- *
- * @param {Object} member
- * @returns {*} What the docs build would publish as this member's default.
- */
-const generatedDefault = member => {
-    if (member.defaultvalue && member.type?.names) {
-        const type = member.type.names[0].toLowerCase();
-
-        if (type.indexOf('array') > -1 || type.indexOf('object') > -1) {
-            let value = member.comment.substr(member.comment.indexOf('=') + 1);
-
-            return value.substr(0, value.indexOf('\n'))
-        }
-    }
-
-    return member.defaultvalue
-};
-
-/**
  * @summary What `generateDocsJson.mjs:357-359` publishes as the description.
  *
  * `item.description = marked.parse(item.description)` runs over EVERY item, and it runs **before** the
@@ -106,7 +81,7 @@ const reported = name => {
         hasDefault  : member ? ('defaultvalue' in member) : false,
         access      : member?.access       ?? null,
         defaultvalue: member?.defaultvalue ?? null,
-        generated   : member ? generatedDefault(member)   : null,
+        generated   : member ? publishedMemberDefault(member) : null,
         description : member?.description  ?? null,
         type        : member?.type?.names  ?? null
     }
