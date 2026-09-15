@@ -22,6 +22,7 @@ In the long run, we are planning to convert as many of the rules as possible int
 9. data.Model fields
 10. Misc
 11. JSDoc type expressions
+12. Compact JSDoc blocks
 
 
 ## 1. General rules
@@ -523,3 +524,114 @@ name from `@param`, `@returns`, `@member`, or `@property`. The lint currently sc
 `src`, `ai`, `examples`, `apps`, and `docs/app`. `buildScripts` and `test` remain outside the CI scope because
 they are not consumed by the docs app today; extend the scope only with a ticket that also updates the relevant
 fixtures.
+
+
+## 12. Compact JSDoc blocks
+
+A one-line JSDoc block is **permitted only for the three forms below, and only when the default contains no
+whitespace** — see "Inline defaults" at the end of this section, which binds the multiline form equally.
+Everything else expands to a multiline block. Valid JavaScript and a successful JSDoc run do not imply correct
+metadata: the failures here are silent — nothing errors, the docs build stays green, and a default or an access
+tag simply stops existing.
+
+Verified against the production doclet pipeline (`buildScripts/docs/docletPipeline/`) plus `generateDocsJson`'s
+member block, one-line compared against its multiline control in every row. `check-jsdoc-types.mjs` does not
+cover any of this — it validates type expressions, not preservation of defaults, descriptions or access.
+
+| Form | Outcome | Use |
+| --- | --- | --- |
+| `/** @member {String} name='neo' */` | Identical to multiline | Compact is fine |
+| `/** @member {Object\|null} data=null */` | Identical to multiline | Compact is fine |
+| `/** @member {Number} size=3 The size */` | Identical to multiline — default `3`, description `The size` | Compact is fine |
+| `/** @member {String[]} cls=['a','b'] */` | **Generated default becomes empty** | MUST expand |
+| `/** @member {Object} opts={a:1} */` | **Generated default becomes empty** | MUST expand |
+| `/** @member {Number} count=0 @protected */` | **`@protected` becomes description text; the access tag is LOST** | MUST expand — one tag per line |
+
+**Why array and object defaults must expand.** `generateDocsJson` re-extracts an array/object default from the
+comment text between `=` and the next newline. A one-line block has no next newline, so `indexOf` returns `-1`,
+`substr(0, -1)` returns the empty string, and the member documents with no default at all.
+
+**Why a second tag must expand.** JSDoc reads everything after the first tag's value as that tag's description,
+so `@protected` on the same line becomes the string `@protected` in the description and the member documents as
+public.
+
+### Inline defaults, which is NOT about compact blocks
+
+Two rules below apply to **every** `@member` in the repository, in the multiline form the guidelines already
+prescribe. Neither is a compact-block property.
+
+**1. An inline default truncates at the first whitespace, and the remainder becomes the description.**
+
+```javascript
+/** @member {String} greeting='hello world' */   // default: "'hello"   description: "world'"
+/** @member {Object} opts={a: 1} */              // default: "{a:"      description: "1}"
+/** @member {String[]} pair=['one two'] */       // default: "['one"    description: "two']"
+```
+
+No comma is involved in any of those — a plain string with a space truncates identically.
+
+**Two kinds of whitespace, and only one of them is yours to delete.**
+
+- **Formatting whitespace** — after a comma, after an object's colon — carries no meaning. Remove it:
+  `['a', 'b']` → `['a','b']`, `{a: 1}` → `{a:1}`. The value is unchanged.
+- **Whitespace inside a string literal** — `'hello world'`, `['one two']` — **is part of the value**.
+  Deleting it silently documents a different default than the code has, which is worse than the
+  truncation it was meant to avoid. Never "fix" a truncation by editing the literal.
+
+**2. A trailing `]` is eaten.** JSDoc's optional-parameter syntax is `[name=default]`, so a value whose last
+character is `]` has it consumed as that marker's close: `=['a','b']` parses as `['a','b'` . Object braces are
+unaffected. `generateDocsJson` re-extracts array and object defaults from the comment text, which repairs the
+**default** in the multiline form — it does not repair the **description**, so a leaked remainder ships.
+It ships *rendered*: `generateDocsJson` runs `marked.parse` over every description before the member
+block, so `pair=['one two']` publishes `<p>two&#39;]</p>` as that member's documentation.
+
+**For a String whose value must contain whitespace, give `@default` its own line.** A String default is
+not re-extracted by the generator, so it survives exactly, and the description stays empty:
+
+```javascript
+/**
+ * @member {String} greeting
+ * @default 'hello world'
+ */
+```
+
+**Never do that for an array or object — it publishes `/**` as the default.** The form parses perfectly,
+which is precisely why it is dangerous. For an array/object type the generator re-extracts from the
+comment text between `=` and the next newline; a separate `@default` line contains no `=`, so `indexOf`
+returns `-1`, `-1 + 1` is `0`, and the extraction starts at the comment's first character and stops at
+the first newline — the opening `/**`.
+
+So an array or object default has exactly one correct form, and all three properties are load-bearing:
+
+```javascript
+/**
+ * @member {String[]} pair=['a','b']     ← inline (the generator needs the `=`),
+ */                                      ← whitespace-free, and in a MULTILINE block
+```
+
+- **inline `name=value`** — a separate `@default` has no `=` and publishes `/**`
+- **whitespace-free** — otherwise the value truncates and the remainder leaks into the description
+- **multiline block** — a one-line block has no newline after `=`, so the default generates empty
+
+### The unsupported form, stated so nobody "fixes" it by changing the value
+
+An **array or object whose literal content contains whitespace** — `['one two']`, `{label: 'a b'}` — has
+**no correct form**:
+
+| attempt | result |
+|---|---|
+| inline, as authored | truncates at the space; remainder leaks into the description |
+| delete the inner space | documents a **different value** than the code has |
+| separate `@default` | publishes `/**` |
+
+Do not pick one. Document the member without an inline default and describe the value in prose, or give
+the class a named constant and point at it. The one thing that must not happen is editing the literal to
+satisfy the parser — a wrong default that looks right outlives every truncation, because nothing about it
+reads as broken.
+
+(A **String** whose value contains whitespace is the exception that does have a form: `@default` on its
+own line, above.)
+
+`test/playwright/unit/buildScripts/docletCompactJsdoc.spec.mjs` pins every row of this section against the
+production pipeline, each compact form beside its multiline control, asserting the complete metadata rather
+than only that the two layouts agree — two doclets that have both lost their default are equal to each other.

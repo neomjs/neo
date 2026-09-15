@@ -1,7 +1,8 @@
-import fs                 from 'fs-extra';
-import {parse, writeJSON} from './docletPipeline/index.mjs';
-import {marked}           from 'marked';
-import path               from 'path';
+import fs                           from 'fs-extra';
+import {parse, writeJSON}           from './docletPipeline/index.mjs';
+import {publishedMemberDefault}     from './docletPipeline/memberDefaults.mjs';
+import {marked}                     from 'marked';
+import path                         from 'path';
 import {getNamespace, setNamespace} from './namespaceTree.mjs';
 
 console.log('Starting JSDoc documentation generation...');
@@ -371,16 +372,7 @@ parse(options)
                     item.meta.lineno += item.comment.split('\n').length;
                 }
 
-                if (item.defaultvalue && item.type?.names) {
-                    const type = item.type.names[0].toLowerCase();
-
-                    if (type.indexOf('array') > -1 || type.indexOf('object') > -1) {
-                        let defaultValue = item.comment.substr(item.comment.indexOf('=') + 1);
-                        defaultValue = defaultValue.substr(0, defaultValue.indexOf('\n'));
-                        defaultValue.trim();
-                        item.defaultvalue = defaultValue;
-                    }
-                }
+                item.defaultvalue = publishedMemberDefault(item);
             }
 
             if (item.memberof === 'module:Neo.config') {
