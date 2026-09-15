@@ -512,11 +512,12 @@ test.describe('FileUpload default XHR transport', () => {
 });
 
 /**
- * `afterSetState` advertises that it keeps `neo-field-empty` in step with whether the field holds
- * anything. The statement meant to do that never executed, so the invariant was really distributed
- * across `clear()`, `onInputValueChange()` and `afterSetDocument()` — and only `clear()` ever added
- * the class back. These arms hold the method to what it claims, so a later path that clears `file`
- * and `document` inherits a working sync instead of a comment.
+ * `afterSetState` owns the re-sync of `neo-field-empty` against whether the field holds anything —
+ * an invariant its `@summary` now records, because until this change nothing but an unexecuted
+ * statement claimed it. The sync was really distributed across `clear()`, `onInputValueChange()`
+ * and `afterSetDocument()`, and only `clear()` ever added the class back. These arms hold the
+ * method to what it documents, so a later path that clears `file` and `document` inherits a
+ * working sync rather than a sentence.
  *
  * Both sync arms fail before the repair: nothing outside `clear()` adds the class, and nothing
  * removes it once it is wrongly present. The third arm pins the assignment count instead of the
@@ -582,7 +583,8 @@ test.describe('FileUpload#afterSetState — the neo-field-empty sync', () => {
 
         field.state = 'not-downloadable';
 
-        expect(assignments).toBe(2);
+        expect(assignments, 'one assignment from validate(), one from the state-class swap — a ' +
+            'third means the swap was split across two cls writes').toBe(2);
         expect(field.cls).toContain('neo-file-upload-state-not-downloadable');
         expect(field.cls).not.toContain('neo-file-upload-state-ready');
 
