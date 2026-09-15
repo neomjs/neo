@@ -357,17 +357,19 @@ class GridContainer extends BaseContainer {
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
             resizeParams   = {componentId: me.id, id: me.id, windowId},
             // Both calls are fire-and-forget, so an unhandled rejection is the only way either can fail. A window
-            // closing mid-call is expected and silent; anything else is a defect and still reports.
+            // closing mid-call is expected and silent; anything else is a defect and still reports. The optional
+            // call below is not defensiveness: the real remote proxy returns `promiseMessage()`, while a stubbed
+            // addon returns nothing — and with no promise there is no rejection for this handler to take.
             onFailure      = reason => {
                 reason !== Neo.isDestroyed && reason?.code !== 'NEO_DEAD_PORT' &&
                     console.error('grid.Container: ResizeObserver call failed', {reason, id: me.id, windowId})
             };
 
         if (mounted) {
-            ResizeObserver.register(resizeParams).catch(onFailure);
+            ResizeObserver.register(resizeParams)?.catch(onFailure);
             await me.passSizeToBody()
         } else {
-            ResizeObserver.unregister(resizeParams).catch(onFailure)
+            ResizeObserver.unregister(resizeParams)?.catch(onFailure)
         }
     }
 
