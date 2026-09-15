@@ -372,6 +372,13 @@ class Overflow extends Plugin {
         let me      = this,
             {owner} = me;
 
+        // `plugin.Base` subscribes `mounted` unbounded on purpose — a plugin re-applying on remount
+        // is load-bearing for vdom structure elsewhere — so this method runs again on every remount
+        // and must be idempotent. Without the removals below the same seven handlers registered a
+        // second time per remount, and `Observable` reported each one; tear-out and popup-over-popup
+        // remount constantly, which is why the dock specs surfaced it and ordinary specs did not.
+        me.releaseOwnerSubscriptions();
+
         me.projectAsAction && me.createActionControl();
         owner.addDomListeners([{resize: me.onResize, scope: me}]);
         // Re-run on activation too: selecting a hidden tab flips activeIndex, and active-never-hidden must
@@ -387,6 +394,30 @@ class Overflow extends Plugin {
         owner.on('actionVisibilityChange', me.onActionVisibilityChange, me);
         me.getTabContainer()?.on('moveTo', me.onTabSetChange, me);
         me.project(true)
+    }
+
+    /**
+     * @summary Removes every owner subscription `onOwnerMounted` adds, so re-running it re-registers
+     * rather than duplicates.
+     *
+     * Paired with the registrations by hand rather than derived: `Observable#un` matches on
+     * handler + scope, so a list that drifts from its counterpart silently leaves a duplicate
+     * behind — the exact defect this exists to prevent. Keep the two in step.
+     * @protected
+     */
+    releaseOwnerSubscriptions() {
+        let me           = this,
+            {owner}      = me,
+            tabContainer = me.getTabContainer();
+
+        owner.un('insert',                 me.onTabSetChange,            me);
+        owner.un('remove',                 me.onTabSetChange,            me);
+        owner.un('actionsChange',          me.onActionSetChange,         me);
+        owner.un('actionGeometryChange',   me.onActionGeometryChange,    me);
+        owner.un('actionVisibilityChange', me.onActionVisibilityChange,  me);
+
+        tabContainer?.un('activeIndexChange', me.onActiveIndexChange, me);
+        tabContainer?.un('moveTo',            me.onTabSetChange,      me)
     }
 
     /**

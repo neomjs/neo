@@ -49,15 +49,15 @@ class Plugin extends Base {
             }, me, {once: true})
         }
 
-        // `{once: true}` for the same reason `constructed` carries it six lines up, and because
-        // without it the two branches disagreed: a plugin built AFTER its owner mounted took the
-        // fast path and never re-ran, while one built before re-ran on every remount. Both
-        // overrides in the tree register listeners and observers, so the re-run was not a contract
-        // anyone relied on — it duplicated seven `tab.plugin.Overflow` registrations per remount.
+        // Deliberately NOT `{once: true}`, unlike `constructed` six lines up. Bounding this was
+        // measured and reverted: `component/SplitterHeavyContent` remounts on purpose and went red
+        // with `compareAttributes` reading `aria-colcount` off undefined, so a plugin re-applying on
+        // remount is load-bearing for vdom structure. A duplicate-registration problem in an
+        // override is the override's to make idempotent, not this subscription's to bound.
         if (owner.mounted) {
             me.onOwnerMounted();
         } else {
-            owner.on('mounted', me.onOwnerMounted, me, {once: true});
+            owner.on('mounted', me.onOwnerMounted, me);
         }
     }
 

@@ -14,77 +14,50 @@ import Plugin         from '../../../../src/plugin/Base.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 /**
- * `plugin.Base`'s constructor answers the same question twice and used to answer it differently.
+ * `plugin.Base` subscribes `constructed` with `{once: true}` and `mounted` without it. The asymmetry
+ * is deliberate and these arms pin it, because bounding `mounted` was tried and measured wrong:
+ * `component/SplitterHeavyContent` remounts on purpose and went red with `vdom.Helper` reading
+ * `aria-colcount` off `undefined`. A plugin re-applying on remount is load-bearing for vdom
+ * structure, so the repeat is a contract rather than an accident.
  *
- * `constructed` is bounded — an `isConstructed` fast path, and `{once: true}` on the subscription —
- * because a component is constructed once. `mounted` had the fast path and NO bound, so whether a
- * plugin re-ran `onOwnerMounted` on a remount depended on which branch it took at construction:
- * a plugin built after its owner mounted never re-ran, one built before re-ran on every mount.
- *
- * Both overrides in the tree — `tab/plugin/Overflow` and `list/plugin/Animate` — are written as
- * one-time setup, registering listeners and observers. So the re-run was not a contract anyone
- * relied on; it was a coin flip on construction order, and it duplicated seven `tab.plugin.Overflow`
- * registrations per remount in a tear-out.
- *
- * These arms pin both branches to the same answer.
+ * What that leaves is an obligation on the OVERRIDE: `onOwnerMounted` runs again on every remount,
+ * so it must re-register rather than duplicate. `tab/plugin/Overflow` carries that obligation with
+ * `releaseOwnerSubscriptions`, and the arm below is the one that fails if the two lists drift.
  */
 function createOwner(cfg = {}) {
     return Neo.create(Component, {appName: 'NeoPluginMountContractTest', ...cfg})
 }
 
-/** @returns {Object} a plugin class counting its own mount callbacks */
-function counterPlugin() {
-    let calls = 0;
-
-    class Counting extends Plugin {
-        static config = {className: 'Neo.plugin.MountContractCounter'}
-        onOwnerMounted() { calls++ }
-    }
-
-    Neo.setupClass(Counting);
-
-    return {Counting, count: () => calls}
-}
-
 test.describe('Neo.plugin.Base — the owner-mounted contract', () => {
-    test('a plugin constructed BEFORE the mount runs its mount callback once, not once per mount', () => {
-        const owner             = createOwner({mounted: false}),
-              {Counting, count} = counterPlugin(),
-              plugin            = Neo.create(Counting, {owner});
+    test('the mount callback re-runs on every mount, because remount re-application is load-bearing', () => {
+        let calls = 0;
 
-        expect(count(), 'not mounted yet, so nothing has run').toBe(0);
+        class Counting extends Plugin {
+            static config = {className: 'Neo.plugin.MountContractCounter'}
+            onOwnerMounted() { calls++ }
+        }
+
+        Neo.setupClass(Counting);
+
+        const owner  = createOwner({mounted: false}),
+              plugin = Neo.create(Counting, {owner});
+
+        expect(calls, 'not mounted yet').toBe(0);
 
         owner.mounted = true;
-        expect(count(), 'the first mount runs it').toBe(1);
+        expect(calls, 'the first mount runs it').toBe(1);
 
         owner.mounted = false;
         owner.mounted = true;
 
-        // Before the fix this was 2: the subscription carried no `{once: true}`, so every remount
-        // re-entered the callback and re-registered whatever it registers.
-        expect(count(), 'a remount must NOT re-enter it').toBe(1);
+        // `{once: true}` here would read as tidier and breaks remount consumers — measured, not assumed.
+        expect(calls, 'and a remount runs it AGAIN, deliberately').toBe(2);
 
         plugin.destroy();
         owner.destroy()
     });
 
-    test('a plugin constructed AFTER the mount agrees with it — the two branches answer the same', () => {
-        const owner             = createOwner({mounted: true}),
-              {Counting, count} = counterPlugin(),
-              plugin            = Neo.create(Counting, {owner});
-
-        expect(count(), 'the already-mounted fast path runs it immediately').toBe(1);
-
-        owner.mounted = false;
-        owner.mounted = true;
-
-        expect(count(), 'and it stays at one, which is what the other branch now also does').toBe(1);
-
-        plugin.destroy();
-        owner.destroy()
-    });
-
-    test('the constructed callback stays bounded, so this change did not widen the other half', () => {
+    test('the constructed callback stays bounded, which is the half that IS once', () => {
         let calls = 0;
 
         class CountingConstructed extends Plugin {
@@ -101,6 +74,42 @@ test.describe('Neo.plugin.Base — the owner-mounted contract', () => {
 
         owner.fire('constructed', {});
         expect(calls, 'and a second constructed event cannot re-enter it').toBe(1);
+
+        plugin.destroy();
+        owner.destroy()
+    });
+
+    test('a repeatable mount callback must re-register, not duplicate — the obligation the contract creates', () => {
+        const owner = createOwner({mounted: false});
+
+        let handled = 0;
+
+        class Subscribing extends Plugin {
+            static config = {className: 'Neo.plugin.MountContractSubscriber'}
+
+            onOwnerMounted() {
+                const me = this;
+
+                // The shape `tab/plugin/Overflow` uses: release first, then register.
+                me.owner.un('customEvent', me.onCustomEvent, me);
+                me.owner.on('customEvent', me.onCustomEvent, me)
+            }
+
+            onCustomEvent() { handled++ }
+        }
+
+        Neo.setupClass(Subscribing);
+
+        const plugin = Neo.create(Subscribing, {owner});
+
+        owner.mounted = true;
+        owner.mounted = false;
+        owner.mounted = true;
+
+        owner.fire('customEvent', {});
+
+        // Without the release, two mounts leave two identical handlers and one event is handled twice.
+        expect(handled, 'one event reaches the handler once, after two mounts').toBe(1);
 
         plugin.destroy();
         owner.destroy()
