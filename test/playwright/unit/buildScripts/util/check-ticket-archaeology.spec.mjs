@@ -70,6 +70,31 @@ test.describe('check-ticket-archaeology guard', () => {
      * one would block every deliberate ref that has no typed equivalent upstream — a policy change,
      * not a lint repair — and asserting only the typed one would let that regress unnoticed.
      */
+    /**
+     * A numeric HTML entity is `&` `#` digits `;`, and the digits are a codepoint. This guard's length
+     * rule cannot see `&#39;`, but it does see `&#8212;` and `&#8217;` — the em dash and right quote a
+     * comment describing rendered markup carries most often — so the two guards disagreed about the
+     * same line until both carried the exclusion.
+     */
+    test('a numeric HTML entity is a codepoint, and the exclusion hides nothing beside it', () => {
+        const comment = inner => `/**\n * ${inner}\n */`;
+
+        expect(findTicketRefs(comment('renders &#8212; between the columns')),
+            'the em dash entity is not ticket 8212').toEqual([]);
+
+        expect(findTicketRefs(comment('publishes as &#8217;beta&#8217;')),
+            'two entities on one line read the same way').toEqual([]);
+
+        expect(findTicketRefs(comment('see #16553 — it publishes as &#8212; here')),
+            'an entity cannot hide a real ref beside it').toHaveLength(1);
+
+        expect(findTicketRefs(comment('the hex form &#x27; needs no exemption')),
+            'control: a hex entity never matched the length rule to begin with').toEqual([]);
+
+        expect(findTicketRefs(comment('see #8212 for the entity work')),
+            'control: the same digits without entity syntax stay a ticket').toHaveLength(1)
+    });
+
     test('accepts the typed escape and the bare marker, and neither is a blanket bypass', () => {
         const comment = inner => `/**\n * ${inner}\n */`;
 

@@ -55,6 +55,21 @@ export function withEscapedColorsRemoved(comment) {
     return out
 }
 
+// A numeric HTML entity is `&` `#` digits `;`, and the digits are a codepoint. The `&` immediately
+// before the `#` is the whole discriminator — no context, no typed marker. Blanked like an annotated
+// colour so a genuine ref on the same line still fires. The length rule below reaches `&#8212;` and
+// `&#8217;`, the em dash and right quote a comment describing rendered markup carries most often.
+export const HTML_ENTITY_PATTERN = /&#\d+;/g;
+
+/**
+ * @summary Blanks numeric HTML entities, leaving everything else on the line scannable.
+ * @param {String} comment
+ * @returns {String}
+ */
+export function withHtmlEntitiesRemoved(comment) {
+    return comment.replace(HTML_ENTITY_PATTERN, match => ' '.repeat(match.length))
+}
+
 // Decay-prone tracking anchors that must not live in durable source comments. The named forms catch
 // the prose variants.
 //
@@ -168,7 +183,7 @@ export function findTicketRefs(content) {
             return
         }
 
-        if (TICKET_PATTERNS.some(re => re.test(withEscapedColorsRemoved(comment)))) {
+        if (TICKET_PATTERNS.some(re => re.test(withHtmlEntitiesRemoved(withEscapedColorsRemoved(comment))))) {
             hits.push({line: index + 1, text: line.trim()})
         }
     });
