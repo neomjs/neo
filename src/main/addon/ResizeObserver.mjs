@@ -61,8 +61,8 @@ class NeoResizeObserver extends Base {
         /**
          * Poll cadence in ms for hidden documents, where the native observer cannot deliver
          * at all. Browsers throttle hidden-page timers (typically to 1Hz, intensively to
-         * 1/min), so the effective cadence is a floor, not a promise — the App Worker's
-         * `hiddenTick` keeps the poll on time, this interval covers any window it does not tick.
+         * 1/min), so the effective cadence is a floor, not a promise — convergence degrades
+         * gracefully, it never dies.
          * @member {Number} hiddenPollInterval=1000
          */
         hiddenPollInterval: 1000,
@@ -172,8 +172,7 @@ class NeoResizeObserver extends Base {
     /**
      * Arms the dispatch race for the pending queue: rAF for vsync coalescing on rendering
      * documents, a timer fallback for documents that will never service a frame. Whichever
-     * fires first dispatches and disarms the other. A hidden document dispatches at once:
-     * no frame will come, and its timers can wait a minute.
+     * fires first dispatches and disarms the other. A hidden document dispatches at once.
      * @protected
      */
     armDispatch() {
@@ -313,9 +312,7 @@ class NeoResizeObserver extends Base {
     }
 
     /**
-     * Runs a hidden poll pass for the App Worker's `hiddenTick`, a message that arrives on time where
-     * this addon's own interval can wait a minute. A tick reaching a visible document does nothing:
-     * the native observer owns it.
+     * Polls on the App Worker's `hiddenTick`. A visible document is left to the native observer.
      * @protected
      */
     onHiddenTick() {

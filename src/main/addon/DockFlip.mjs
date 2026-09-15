@@ -45,10 +45,9 @@ const MOTION_EPSILON_POSITION = 0.5,
  *    the wait where no frame comes, degrading motion to the instant path while correctness
  *    and liveness hold.
  * Pre-repair, a raw `requestAnimationFrame` await wedged every awaiting consumer forever
- * (witnessed: the workstation tour preamble hung inside `refreshDockWorkspace`). The same two
- * layers govern the ResizeObserver addon — a timer-raced dam for occluded windows, and for
- * hidden documents a worker-driven poll that dispatches without waiting: paint-gated carriers
- * need a paint-independent arm, and in a hidden document that arm cannot be an in-page timer.
+ * (witnessed: the workstation tour preamble hung inside `refreshDockWorkspace`). Same law as
+ * the ResizeObserver addon's timer-raced dispatch dam + hidden poll: paint-gated carriers
+ * need a paint-independent arm.
  * @class Neo.main.addon.DockFlip
  * @extends Neo.main.addon.Base
  */

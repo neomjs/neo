@@ -299,12 +299,9 @@ class App extends Base {
     windowAddons = {}
 
     /**
-     * Ticks each hidden window, whose own timers the browser can throttle to a wake per minute.
-     * Driven by `onConnect()` and `onVisibilityChange()`.
-     * @member {Neo.worker.HiddenTick} hiddenTick
-     * @protected
+     * @member {Neo.worker.HiddenTick} hiddenTick=new HiddenTick(this) Synced by onConnect() and onVisibilityChange()
      */
-    hiddenTick = new HiddenTick({worker: this})
+    hiddenTick = new HiddenTick(this)
 
     /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet

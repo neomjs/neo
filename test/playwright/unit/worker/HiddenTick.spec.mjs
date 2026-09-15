@@ -55,7 +55,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test('a hidden report starts one interval per window, and a repeated report does not stack a second', () => {
-        ticker = new HiddenTick({worker: createWorker(['w1', 'w2'])});
+        ticker = new HiddenTick(createWorker(['w1', 'w2']));
 
         ticker.sync({hidden: true, windowId: 'w1'});
 
@@ -69,7 +69,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test('a visible report stops that window and leaves the others ticking', () => {
-        ticker = new HiddenTick({worker: createWorker(['w1', 'w2'])});
+        ticker = new HiddenTick(createWorker(['w1', 'w2']));
 
         ticker.sync({hidden: true, windowId: 'w1'});
         ticker.sync({hidden: true, windowId: 'w2'});
@@ -79,7 +79,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test('ticks keep arriving on the interval, through the window\'s own port', async () => {
-        ticker = new HiddenTick({interval: 10, worker: createWorker(['w1', 'w2'])});
+        ticker = new HiddenTick(createWorker(['w1', 'w2']), 10);
 
         ticker.sync({hidden: true, windowId: 'w2'});
 
@@ -92,7 +92,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test('a window whose port is gone stops ticking, and no other window receives its tick', () => {
-        ticker = new HiddenTick({worker: createWorker(['w-other'])});
+        ticker = new HiddenTick(createWorker(['w-other']));
 
         ticker.sync({hidden: true, windowId: 'w-gone'});
         ticker.tick('w-gone');
@@ -105,7 +105,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     test('retiring one of a window\'s two ports is not a departure: the tick goes through the port left', () => {
         const worker = createWorker(['w1', 'w1']);
 
-        ticker = new HiddenTick({worker});
+        ticker = new HiddenTick(worker);
         ticker.sync({hidden: true, windowId: 'w1'});
 
         // removePort records w1 as departed although w1 still holds a port, so a departure check would stop it here
