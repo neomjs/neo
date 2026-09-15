@@ -140,6 +140,23 @@ class Focus extends CoreBase {
     }
 
     /**
+     * A focusout raised while the engine removed a node carries that node's id as `data.removedNodeId`.
+     * When that node is the root of a floating component which is shown again by the time the leave
+     * comes due, the leave belongs to the removed mount: a floating component requests focus whenever
+     * it mounts (`component.Base#afterSetMounted`), so its new mount reports its own focus, and
+     * delivering the old leave would dismiss it.
+     * @param {Object} opts
+     * @param {Object} opts.data dom event infos
+     * @returns {Boolean}
+     * @protected
+     */
+    isRemovedFloatingShownAgain({data}) {
+        let component = data.removedNodeId && Neo.getComponent(data.removedNodeId);
+
+        return !!(component?.floating && !component.hidden)
+    }
+
+    /**
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
@@ -172,7 +189,7 @@ class Focus extends CoreBase {
         me.timeout(me.maxFocusInOutGap).then(() => {
             // Identity, not just recency: a newer focusout must not satisfy this check on an older
             // one's behalf and deliver `opts` raised against a mount that has since been replaced.
-            if (me.lastFocusOutDate === date && date > me.lastFocusInDate) {
+            if (me.lastFocusOutDate === date && date > me.lastFocusInDate && !me.isRemovedFloatingShownAgain(opts)) {
                 me.focusLeave(opts)
             }
         })

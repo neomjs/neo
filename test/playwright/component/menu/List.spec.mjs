@@ -103,19 +103,19 @@ function levelCounts(page) {
     return page.evaluate(() => window.__menuLevelCounts)
 }
 
+test.beforeEach(async ({page}) => {
+    await page.goto('test/playwright/component/apps/empty-viewport/index.html');
+    await page.waitForSelector('#component-test-viewport', {state: 'attached'})
+});
+
+test.afterEach(async ({page}) => {
+    if (menuId) {
+        await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), menuId);
+        menuId = null
+    }
+});
+
 test.describe('Neo.menu.List leaf-click cascade', () => {
-    test.beforeEach(async ({page}) => {
-        await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport', {state: 'attached'})
-    });
-
-    test.afterEach(async ({page}) => {
-        if (menuId) {
-            await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), menuId);
-            menuId = null
-        }
-    });
-
     test('a leaf click takes every level down together, with no ancestor left standing', async ({page}) => {
         menuId = await createMenu(page);
 
@@ -139,5 +139,32 @@ test.describe('Neo.menu.List leaf-click cascade', () => {
         // The policy gate governs the dismissal as a whole, so the tree never moves off three.
         await expect(page.locator('.neo-menu-list')).toHaveCount(3);
         expect(await levelCounts(page)).toEqual([3])
+    })
+});
+
+test.describe('Neo.menu.List focus across a reopen', () => {
+    test('a menu shown again inside the focus gap stays open', async ({page}) => {
+        menuId = await createMenu(page);
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+
+        // The delays span manager.Focus's 50 ms gap, so the leave the removal raised comes due while
+        // the new mount stands
+        for (const delay of [0, 15, 30, 45]) {
+            await page.evaluate(async ({id, delay}) => {
+                await Neo.worker.App.setConfigs({id, hidden: true});
+
+                while (document.getElementById(id)) {
+                    await new Promise(resolve => setTimeout(resolve, 1))
+                }
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+                await Neo.worker.App.setConfigs({id, hidden: false})
+            }, {id: menuId, delay});
+
+            // A dismissal cannot be polled for: the menu stands until the leave lands, so wait out the gap
+            await page.waitForTimeout(300);
+
+            expect(await page.evaluate(id => !!document.getElementById(id), menuId), `shown again ${delay} ms after removal`).toBe(true)
+        }
     })
 });

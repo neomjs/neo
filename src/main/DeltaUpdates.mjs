@@ -96,6 +96,14 @@ class DeltaUpdates extends Base {
      * @protected
      */
     pendingLayoutHeals = null
+    /**
+     * The id of the node {@link #removeNode} is removing, for the duration of its `remove()` call. A
+     * browser that blurs a removed node fires `focusout` synchronously inside that call, and
+     * `Neo.main.DomEvents` stamps the event with this id.
+     * @member {String|null} removingNodeId=null
+     * @protected
+     */
+    removingNodeId = null
 
     /**
      * @param {Object} config
@@ -772,7 +780,9 @@ class DeltaUpdates extends Base {
         const node = DomAccess.getElement(id);
 
         if (node) {
+            this.removingNodeId = id;
             node.remove();
+            this.removingNodeId = null
         }
         // Potentially a vtype: 'text' node or a Fragment (wrapped between 2 comments)
         else if (parentId) {
