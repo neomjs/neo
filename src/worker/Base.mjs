@@ -399,6 +399,24 @@ class Worker extends Base {
     }
 
     /**
+     * @summary Whether this worker recently retired the port of a window, so a call that cannot reach it is that
+     * window's departure rather than a defect.
+     *
+     * Answers at the instant `promiseMessage()` rejects, because `removePort()` records the departure before
+     * `onDisconnect()` fires its event — anything a consumer learns from that event is already later. It is the
+     * discriminator for `code: 'NEO_DEAD_PORT'` when the caller must tell an expected teardown from a real failure
+     * and has only a `windowId`.
+     *
+     * Bounded to the most recent departures, so it answers "did this call just lose its window" and not "has this
+     * window ever departed".
+     * @param {String} windowId
+     * @returns {Boolean}
+     */
+    isWindowDeparted(windowId) {
+        return Boolean(windowId) && this.departedWindowIds.has(windowId)
+    }
+
+    /**
      * Only relevant for SharedWorkers
      * @param {Object} data
      * @param {String} data.appName
