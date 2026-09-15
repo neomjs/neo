@@ -3,6 +3,7 @@ import Collection      from '../collection/Base.mjs';
 import Performance     from '../util/Performance.mjs';
 import Row             from './Row.mjs';
 import VDomUtil        from '../util/VDom.mjs';
+import VNodeUtil       from '../util/VNode.mjs';
 import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
 /**
@@ -695,11 +696,19 @@ class GridBody extends Component {
         } else if (delta < 0) {
             // Self-Healing: Destroy excess rows to free memory and VDOM overhead.
             // This restores performance if the buffer is reduced after being large.
+            const retired = {};
+
             for (i = current - 1; i >= needed; i--) {
-                // Retired from this body's render tree, whose next update removes the row's DOM node
-                me.items[i].destroy(true, true);
-                me.items.pop()
+                const row = me.items.pop();
+
+                retired[row.id] = row.vnode;
+                row.destroy()
             }
+
+            // The whole contraction leaves the stored vnode in one walk, each row kept as the vnode it
+            // last rendered, so this body's next update removes their DOM nodes. No row edits the vdom
+            // itself: the `cn` rebuild below drops every retired reference anyway.
+            me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
         }
 
         // Fixed-DOM-Order Strategy:
