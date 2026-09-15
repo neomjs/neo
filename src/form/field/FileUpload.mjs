@@ -704,7 +704,12 @@ class FileUpload extends Field {
     }
 
     /**
-     * Triggered after the state config got changed
+     * @summary Re-derives the widget's presentation from the new state, and keeps
+     * `neo-field-empty` in step with whether the field actually holds a file or document.
+     *
+     * That class has three other writers — `clear()` adds it, `onInputValueChange()` and
+     * `afterSetDocument()` remove it — so this is the only re-sync available to a path that
+     * changes `file` or `document` without touching `cls` itself.
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -774,7 +779,7 @@ class FileUpload extends Field {
 
         NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
         NeoArray.add(cls, 'neo-file-upload-state-' + value);
-        NeoArray[me.file || me.document ? 'remove' : 'add', 'neo-field-empty'];
+        NeoArray.toggle(cls, 'neo-field-empty', !me.file && !me.document);
         me.cls = cls;
     }
 

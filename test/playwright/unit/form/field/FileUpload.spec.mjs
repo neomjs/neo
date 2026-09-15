@@ -510,3 +510,85 @@ test.describe('FileUpload default XHR transport', () => {
         field.destroy()
     });
 });
+
+/**
+ * `afterSetState` owns the re-sync of `neo-field-empty` against whether the field holds anything —
+ * an invariant its `@summary` now records, because until this change nothing but an unexecuted
+ * statement claimed it. The sync was really distributed across `clear()`, `onInputValueChange()`
+ * and `afterSetDocument()`, and only `clear()` ever added the class back. These arms hold the
+ * method to what it documents, so a later path that clears `file` and `document` inherits a
+ * working sync rather than a sentence.
+ *
+ * Both sync arms fail before the repair: nothing outside `clear()` adds the class, and nothing
+ * removes it once it is wrongly present. The third arm pins the assignment count instead of the
+ * class set — `validate()` contributes one and the swap contributes the other, so a repair that
+ * reached for `toggleCls()` would show up here as a third rather than as a passing class set.
+ */
+test.describe('FileUpload#afterSetState — the neo-field-empty sync', () => {
+    test('a state change with neither file nor document marks the field empty', () => {
+        const field = Neo.create(FileUpload, {
+            appName  : 'TestApp',
+            uploadUrl: '/upload'
+        });
+
+        field.removeCls('neo-field-empty');
+
+        expect(field.file).toBeFalsy();
+        expect(field.document).toBeNull();
+        expect(field.cls).not.toContain('neo-field-empty');
+
+        field.state = 'not-downloadable';
+
+        expect(field.cls).toContain('neo-field-empty');
+
+        field.destroy()
+    });
+
+    test('a state change while a document is held leaves the field unmarked', () => {
+        const field = Neo.create(FileUpload, {
+            appName  : 'TestApp',
+            uploadUrl: '/upload'
+        });
+
+        field.document = {fileName: 'held.pdf', id: 17, size: 2048, status: 'AVAILABLE'};
+
+        expect(field.cls).not.toContain('neo-field-empty');
+
+        field.addCls('neo-field-empty');
+        field.state = 'downloadable';
+
+        expect(field.cls).not.toContain('neo-field-empty');
+
+        field.destroy()
+    });
+
+    test('the repair adds no cls assignment — validate() already contributes the second', () => {
+        const field = Neo.create(FileUpload, {
+            appName  : 'TestApp',
+            uploadUrl: '/upload'
+        });
+
+        let assignments = 0;
+
+        Object.defineProperty(field, 'cls', {
+            configurable: true,
+            get() {
+                return Object.getPrototypeOf(field).__lookupGetter__('cls').call(field)
+            },
+            set(value) {
+                assignments++;
+                Object.getPrototypeOf(field).__lookupSetter__('cls').call(field, value)
+            }
+        });
+
+        field.state = 'not-downloadable';
+
+        expect(assignments, 'one assignment from validate(), one from the state-class swap — a ' +
+            'third means the swap was split across two cls writes').toBe(2);
+        expect(field.cls).toContain('neo-file-upload-state-not-downloadable');
+        expect(field.cls).not.toContain('neo-file-upload-state-ready');
+
+        delete field.cls;
+        field.destroy()
+    });
+});
