@@ -1,8 +1,8 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary Witness for the cold-start dragZoneId registry repair (ticket-ref-ok: the spec
- * pins the ticket's AC2/AC3 witnesses — the ref binds the witness to its acceptance criteria).
+ * @summary Witness for the cold-start dragZoneId registry repair: the spec pins the AC2 and AC3
+ * witnesses, binding each to the behaviour it accepts.
  *
  * Pre-repair, EVERY drag:start forwarded with `dragZoneId: null` — the app-side handshake
  * (draggable/DragZone.mjs dragStart → setConfigs) was the only writer, so the gesture-opening

@@ -55,10 +55,13 @@ test.describe('check-ticket-archaeology guard', () => {
         expect(hits).toEqual([])
     });
 
-    test('honors the inline escape marker on a genuinely load-bearing line', () => {
-        const hits = findTicketRefs('// keep this ref — see #12345 ticket-ref-ok: pins a retired-primitive successor');
+    test('the typed marker covers a load-bearing ref; the bare one no longer does', () => {
+        expect(findTicketRefs('// keep this ref — see #12345 [not-ticket-ref: pins a retired-primitive successor]'),
+            'a typed marker on the ref token excuses a deliberate reference').toEqual([]);
 
-        expect(hits).toEqual([])
+        expect(findTicketRefs('// keep this ref — see #12345 ticket-ref-ok: pins a retired-primitive successor'),
+            'the bare marker is retired: the published guard rejects it, so honouring it here is the divergence'
+        ).toHaveLength(1)
     });
 
     /**
@@ -138,8 +141,14 @@ test.describe('check-ticket-archaeology guard', () => {
         expect(findTicketRefs(comment("backgroundColor_='#000000' [NOT-TICKET-REF:css-color]")),
             'the typed escape is case-insensitive and tolerates a missing space').toEqual([]);
 
+        expect(findTicketRefs(comment('@see #12345 [not-ticket-ref: load-bearing] — the ticket this implements')),
+            'the typed marker covers a deliberate ref, which is what 0.1.6 added upstream').toEqual([]);
+
         expect(findTicketRefs(comment('@see #12345 — the ticket this implements ticket-ref-ok: load-bearing')),
-            'the bare marker still covers a deliberate ref').toEqual([]);
+            'the bare marker is retired here, because upstream rejects it').toHaveLength(1);
+
+        expect(findTicketRefs(comment('@see #12345 [not-ticket-ref: ]')),
+            'an empty reason declares nothing and fails closed, as upstream does').toHaveLength(1);
 
         // The three that must still fire. Without them this test would pass against a guard that
         // detects nothing at all, which is the failure an escape-only assertion cannot see.
@@ -154,8 +163,12 @@ test.describe('check-ticket-archaeology guard', () => {
         expect(findTicketRefs(comment('@see #12345 — the ticket this implements')),
             'a real ref with no escape still fires').toHaveLength(1);
 
+        // This arm asserted the opposite until 0.1.6. Its REASONING was right and its premise moved:
+        // rejecting a free-reason marker was the safe side only while upstream had no typed
+        // equivalent for a deliberate ref. Upstream now accepts one, so rejecting it here IS the
+        // divergence the arm was defending against.
         expect(findTicketRefs(comment('@see #12345 [not-ticket-ref: whatever]')),
-            'an unrecognised kind is NOT a bypass — accepting it here would pass the hook and fail CI, the same divergence reversed').toHaveLength(1)
+            'a free-text reason is accepted on a ref, matching neo-agent-skills 0.1.6').toEqual([])
     });
 
     /**
@@ -176,7 +189,15 @@ test.describe('check-ticket-archaeology guard', () => {
         // The other side of the same boundary: scoping must not stop the escape working at all.
         expect(findTicketRefs("// backgroundColor_='#000000' [not-ticket-ref: css-color]"),
             'an annotated colour alone is still excused'
-        ).toEqual([])
+        ).toEqual([]);
+
+        expect(findTicketRefs('// ticket #12345 beside #16538 [not-ticket-ref: implementing ticket]'),
+            'a ref marker excuses its own token only, never the row'
+        ).toHaveLength(1);
+
+        expect(findTicketRefs('// see #12345 and some words [not-ticket-ref: nope]'),
+            'prose between the token and the marker breaks the binding: adjacency is what makes it a declaration'
+        ).toHaveLength(1)
     });
 
     test('flags the named Epic / Discussion / ADR prose forms in comments', () => {

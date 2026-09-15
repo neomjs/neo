@@ -1,9 +1,9 @@
 import {test, expect} from '@playwright/test';
 
 /**
- * A splitter drag whose path crosses an iframe (ticket-ref-ok: the spec pins #17883's enforcement
- * AC — the gesture must complete and terminate when the pointer passes over a nested browsing
- * context).
+ * A splitter drag whose path crosses an iframe. The enforcement AC this pins lives in
+ * #17883 [not-ticket-ref: authority], and reads: the gesture must complete and terminate when the
+ * pointer passes over a nested browsing context.
  *
  * **Why this arm is hit-tested and cannot be an EventSimulator one.** The defect is a hit-testing
  * outcome: once the cursor is over an iframe, `mousemove`/`mouseup` are delivered to the CHILD

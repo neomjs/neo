@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 
 /**
- * What a drop-preview region actually RENDERS, per edge (ticket-ref-ok: this is the enforcement AC
+ * What a drop-preview region actually RENDERS, per edge (this is the enforcement AC
  * for the left/right region-preview defect — the four edges must be visually equal, uniform border
  * included; the cut side is a stamped class, never a thicker edge).
  *
