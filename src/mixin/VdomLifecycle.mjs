@@ -39,6 +39,13 @@ class VdomLifecycle extends Base {
          */
         autoMount: false,
         /**
+         * True for one update cycle: the owner changed descendants silently within its `updateDepth`, so the
+         * cycle ships that subtree whole instead of sparse, even when children merge into it. Reset at collection.
+         * @member {Boolean} denseUpdate=false
+         * @protected
+         */
+        denseUpdate: false,
+        /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating_=false
          * @protected
@@ -270,7 +277,8 @@ class VdomLifecycle extends Base {
                 // - Depth 1 (Teleportation): Pass ids=null to force disjoint/pruned payload.
                 // - Depth > 1 (Hybrid): Pass ids=mergedChildIds to enable Sparse Tree generation (pruning clean siblings).
                 //   Note: Depth -1 (Full Tree) ignores ids and is always Dense.
-                const ids = component.updateDepth !== 1 ? mergedChildIds : null;
+                // - `denseUpdate`: the owner changed descendants silently, so nothing within its depth is clean.
+                const ids = component.updateDepth !== 1 && !component.denseUpdate ? mergedChildIds : null;
 
                 // We pass null as the second arg to respect the component's configured updateDepth.
                 updates[componentId] = component.getVdomUpdatePayload(ids, null);
@@ -472,8 +480,9 @@ class VdomLifecycle extends Base {
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true);
 
-        // Reset the updateDepth to the default value for the next update cycle
+        // Reset the updateDepth and denseUpdate to their defaults for the next update cycle
         me._updateDepth = me.constructor.config.updateDepth;
+        me.denseUpdate  = false;
 
         return opts
     }

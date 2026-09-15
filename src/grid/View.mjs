@@ -420,6 +420,9 @@ class View extends Base {
         // distance, which pulls unrelated pending child updates into the scroll cycle and destabilises
         // the TreeGrid. The bound has to stay finite.
         me.updateDepth = ROW_DISTANCE + me.maxCellDepth;
+
+        // The rows changed silently, so a body update merging into this cycle must not make it sparse
+        me.denseUpdate = true;
         me.update()
     }
 }
