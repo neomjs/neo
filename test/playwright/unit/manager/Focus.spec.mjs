@@ -293,4 +293,71 @@ test.describe('Neo.manager.Focus', () => {
         // runs at all.
         expect(leaves).toEqual(['focus-stale-other']);
     });
+
+    /**
+     * @summary A root menu that held focus when the engine removed its DOM, still holding that menuFocus.
+     * @param {String} id
+     * @param {Boolean} floating
+     * @returns {Neo.menu.List}
+     */
+    function createDismissedMenu(id, floating) {
+        const menu = Neo.create(MenuList, {appName, floating, id, isRoot: true, parentId: 'document.body'});
+
+        menu.alignTo       = Neo.emptyFn;
+        menu.focus         = Neo.emptyFn;
+        menu.initDomEvents = Neo.emptyFn;
+
+        menu._mounted  = true;
+        menu.menuFocus = true;
+        menu._hidden   = true;
+
+        return menu
+    }
+
+    test('the leave of a removed floating menu does not dismiss the menu once it is shown again', async () => {
+        const menu = createDismissedMenu('focus-reopened-menu', true);
+
+        components = [menu];
+
+        FocusManager.onFocusout({
+            componentPath: [menu.id],
+            data         : {path: [{id: menu.id}], relatedTarget: null, removedNodeId: menu.id}
+        });
+
+        // The reopen lands inside the gap, before the reopened menu's own focusin
+        menu._hidden = false;
+
+        await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2);
+
+        expect(menu.menuFocus).toBe(true);
+        expect(menu.mounted).toBe(true)
+    });
+
+    test('a removed menu that stays hidden, focus leaving a shown menu, and a non-floating remount all still dismiss', async () => {
+        const cases = [
+            {id: 'focus-hidden-menu',       floating: true,  hiddenAtDue: true,  removed: true},
+            {id: 'focus-left-menu',         floating: true,  hiddenAtDue: false, removed: false},
+            {id: 'focus-non-floating-menu', floating: false, hiddenAtDue: false, removed: true}
+        ];
+
+        components = [];
+
+        // One case at a time: a newer focusout supersedes a pending one
+        for (const {id, floating, hiddenAtDue, removed} of cases) {
+            const menu = createDismissedMenu(id, floating);
+
+            components.push(menu);
+
+            FocusManager.onFocusout({
+                componentPath: [id],
+                data         : {path: [{id}], relatedTarget: null, ...removed && {removedNodeId: id}}
+            });
+
+            menu._hidden = hiddenAtDue;
+
+            await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2)
+        }
+
+        expect(components.map(menu => [menu.id, menu.menuFocus])).toEqual(cases.map(({id}) => [id, false]))
+    });
 });

@@ -519,10 +519,19 @@ class DomEvents extends Base {
     }
 
     /**
+     * A focusout raised while `Neo.main.DeltaUpdates` removes a node carries that node's id as
+     * `removedNodeId`, so the app worker can tell the leave of a removed mount from a leave to elsewhere.
      * @param {FocusEvent} event
      */
     onFocusOut(event) {
-        this.sendMessageToApp(this.getEventData(event))
+        let data             = this.getEventData(event),
+            {removingNodeId} = Neo.main.DeltaUpdates;
+
+        if (removingNodeId) {
+            data.removedNodeId = removingNodeId
+        }
+
+        this.sendMessageToApp(data)
     }
 
     /**
