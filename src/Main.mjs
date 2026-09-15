@@ -431,8 +431,10 @@ class Main extends core.Base {
     async importAddon(data) {
         let module = await this.importAddonModule(data.name);
 
-        this.registerAddon(module.default);
-        await this.timeout(20); // Wait until remotes are registered
+        // The calling worker holds a proxy for this addon only once its remotes are registered, and an addon
+        // that loads external files (Monaco, Mermaid, AmCharts) reaches that well past any fixed delay.
+        // `onDomContentLoaded` waits on the same promise, for the same reason.
+        await this.registerAddon(module.default).remotesReady();
 
         return true
     }

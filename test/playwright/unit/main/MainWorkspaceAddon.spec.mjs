@@ -72,6 +72,79 @@ async function resolveAddon(environment, name, engine=REPO_ROOT) {
     return JSON.parse(stdout.split('\n').find(line => line.startsWith('PROBE ')).substring(6))
 }
 
+/**
+ * @summary Hands `Neo.Main` an addon whose async init outlasts any fixed delay, and reports whether that
+ * init had finished when `importAddon` resolved.
+ *
+ * An addon that loads external files — Monaco, Mermaid, AmCharts — resolves `initAsync` only once the
+ * browser has fetched and parsed them, which is exactly the case a 20 ms sleep cannot cover. The caller
+ * is an app worker that will use the addon's remote proxy the moment this promise settles.
+ * @param {Number} delay how long the addon's `initAsync` takes, in ms
+ * @returns {Promise<{initFinished: Boolean}>}
+ */
+async function importSlowAddon(delay) {
+    const script = `
+        import Neo from '${REPO_ROOT}/src/Neo.mjs';
+        import * as core from '${REPO_ROOT}/src/core/_export.mjs';
+        import {setup} from '${REPO_ROOT}/test/playwright/setup.mjs';
+
+        setup({mockMain: false, neoConfig: {unitTestMode: true}});
+
+        globalThis.document = {
+            readyState         : 'loading',
+            hidden             : false,
+            visibilityState    : 'visible',
+            addEventListener   : () => {},
+            removeEventListener: () => {},
+            getElementById     : () => null,
+            querySelector      : () => null,
+            createElement      : () => ({addEventListener: () => {}, classList: {add: () => {}, remove: () => {}}}),
+            body               : {addEventListener: () => {}, classList: {add: () => {}, remove: () => {}}},
+            documentElement    : {classList: {add: () => {}, remove: () => {}}}
+        };
+        globalThis.window              = globalThis;
+        globalThis.addEventListener    = () => {};
+        globalThis.removeEventListener = () => {};
+        globalThis.location            = {};
+        globalThis.screen              = {orientation: {}};
+        globalThis.matchMedia          = () => ({matches: false, addEventListener: () => {}, removeEventListener: () => {}});
+        globalThis.Worker              = class {};
+        globalThis.SharedWorker        = class {};
+
+        Neo.insideWorker = true;
+        delete Neo.main.DomAccess;
+        delete Neo.worker.Manager;
+
+        const {default: Main} = await import('${REPO_ROOT}/src/Main.mjs');
+
+        let initFinished = false;
+
+        class SlowAddon extends Neo.core.Base {
+            static config = {className: 'Neo.main.addon.SlowProbe'}
+
+            async initAsync() {
+                await new Promise(resolve => setTimeout(resolve, ${delay}));
+                initFinished = true;
+                await super.initAsync()
+            }
+        }
+
+        Neo.setupClass(SlowAddon);
+
+        // onDomContentLoaded never fires in this stub, so its registry has to exist before an addon lands in it
+        Main.addon             = {};
+        Main.importAddonModule = async () => ({default: SlowAddon});
+
+        await Main.importAddon({name: 'SlowProbe'});
+
+        console.log('PROBE ' + JSON.stringify({initFinished}))
+    `;
+
+    const {stdout} = await execFileAsync(process.execPath, ['--preserve-symlinks', '--input-type=module', '-e', script], {cwd: REPO_ROOT});
+
+    return JSON.parse(stdout.split('\n').find(line => line.startsWith('PROBE ')).substring(6))
+}
+
 test.describe('Neo.Main addon resolution', () => {
     test('dist/esm resolves a WS/ addon inside its own tree, where the build emitted it beside the engine addons', async () => {
         const {code, message} = await resolveAddon('dist/esm', `WS/${ADDON}`);
@@ -110,5 +183,13 @@ test.describe('Neo.Main addon resolution', () => {
 
             expect(message, environment).toContain(path.join(REPO_ROOT, 'src/main/addon', `${ADDON}.mjs`))
         }
+    });
+
+    test('importAddon resolves only after the addon it created has finished its async init', async () => {
+        // 60 ms outlasts the 20 ms sleep this replaced, so the two states are distinguishable
+        expect((await importSlowAddon(60)).initFinished, 'a slow addon is registered before the caller continues').toBe(true);
+
+        // The control: an addon that needs no time at all reports the same, so the arm above is not reading a delay
+        expect((await importSlowAddon(0)).initFinished, 'and so is an instant one').toBe(true)
     })
 });
