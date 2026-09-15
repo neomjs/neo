@@ -28,9 +28,13 @@
  * two kinds are not the same thing:
  *
  * - `pending`  — ordinary sweep work; a later batch removes the entry.
- * - `exempt`   — blocked on a decision, with the ticket that owns it. Without this distinction a
- *                blocked file reads as unfinished work forever and nobody can tell whether the
- *                sweep is done.
+ * - `exempt`   — the move was attempted, measured, and costs more than it buys; the entry carries
+ *                the measurement that settled it. Without this distinction a settled file reads as
+ *                unfinished work forever and nobody can tell whether the sweep is done — and a
+ *                reader who mistakes it for an open question spends a cycle re-asking it. The two
+ *                dialog entries earned theirs the expensive way: the refactor was built, the
+ *                emitted CSS compared across all 618 files, and the verdict falsified twice in
+ *                Chromium before it held.
  *
  * A baselined file whose block count DROPS fails too. That is deliberate: it forces the batch that
  * cleans a file to shrink the baseline in the same commit, so the record cannot rot into a list of
@@ -236,6 +240,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 
     console.log(
         `✓ theme value files declare variables only — ${pending} file(s) pending sweep, ` +
-        `${exempt} exempt pending a decision.`
+        `${exempt} exempt by measurement.`
     )
 }
