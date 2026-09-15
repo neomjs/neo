@@ -27,10 +27,11 @@ const originalDocument         = globalThis.document,
       originalRaf              = globalThis.requestAnimationFrame,
       originalCaf              = globalThis.cancelAnimationFrame;
 
-let hiddenState = false,
-    roCallback  = null,
-    rafQueue    = new Map(),
-    rafSequence = 0,
+let hiddenState      = false,
+    managerListeners = [],
+    roCallback       = null,
+    rafQueue         = new Map(),
+    rafSequence      = 0,
     sentMessages;
 
 const documentRef = new EventTarget();
@@ -85,6 +86,13 @@ function serviceFrame() {
 function setHidden(value) {
     hiddenState = value;
     documentRef.dispatchEvent(new Event('visibilitychange'))
+}
+
+// What `Neo.worker.Manager#onWorkerMessage` does with the App Worker's tick: fire `message:hiddenTick`.
+function sendHiddenTick() {
+    managerListeners
+        .filter(listener => listener.name === 'message:hiddenTick')
+        .forEach(({fn, scope}) => fn.call(scope, {action: 'hiddenTick', windowId: 1}))
 }
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -170,7 +178,7 @@ const {default: AddonClass} = await import('../../../../../src/main/addon/Resize
  * every geometry-dependent consumer at its last known box. These specs pin the two guards:
  * the dispatch race (rAF vs timer — first one opens the dam, no duplicates) and the hidden
  * poll (synthetic entries for boxes the native observer cannot report, through the same
- * dispatch pipeline).
+ * dispatch pipeline, driven by the App Worker's tick and dispatched without waiting on the dam).
  */
 test.describe('Neo.main.addon.ResizeObserver — rendering-starvation contract', () => {
     let addon;
@@ -199,12 +207,22 @@ test.describe('Neo.main.addon.ResizeObserver — rendering-starvation contract',
 
         nodeMap.clear();
         rafQueue.clear();
-        hiddenState  = false;
-        sentMessages = [];
+        hiddenState      = false;
+        managerListeners = [];
+        sentMessages     = [];
 
         Neo.worker.Manager ??= {};
         Neo.worker.Manager.sendMessage = (destination, message) => {
             sentMessages.push({destination, message})
+        };
+
+        // The Observable pair the addon calls, matching removeListener on name, fn and scope
+        Neo.worker.Manager.on = (name, fn, scope) => {
+            managerListeners.push({name, fn, scope})
+        };
+
+        Neo.worker.Manager.un = (name, fn, scope) => {
+            managerListeners = managerListeners.filter(l => !(l.name === name && l.fn === fn && l.scope === scope))
         };
 
         addon = Neo.create(AddonClass, {
@@ -281,7 +299,7 @@ test.describe('Neo.main.addon.ResizeObserver — rendering-starvation contract',
         await addon.register({componentId: 'component-1', id: 'target-1'});
 
         // No native entry ever fires (observe() scheduled a rendering step that will not come)
-        await wait(200); // > hiddenPollInterval + starvedFlushDelay
+        await wait(200); // > hiddenPollInterval: the fallback poll delivers while no tick arrives
 
         expect(resizeMessages().length).toBe(1);
         expect(resizeMessages()[0].message.data.borderBoxSize).toEqual({blockSize: 550, inlineSize: 388})
@@ -346,6 +364,47 @@ test.describe('Neo.main.addon.ResizeObserver — rendering-starvation contract',
         await wait(200); // poll re-armed: the moved box is now its business
         expect(resizeMessages().length).toBe(2);
         expect(resizeMessages()[1].message.data.borderBoxSize).toEqual({blockSize: 550, inlineSize: 226})
+    });
+
+    test('hidden tick: a worker tick polls and dispatches inside the tick, arming neither dam arm', async () => {
+        setHidden(true);
+
+        const node = makeNode('target-1', 388, 550);
+
+        await addon.register({componentId: 'component-1', id: 'target-1'});
+        await wait(200);
+        expect(resizeMessages().length).toBe(1);
+
+        // Nothing awaited between tick and assertion: in a hidden document a timer can wait a minute
+        node.offsetWidth = 226;
+        sendHiddenTick();
+
+        expect(resizeMessages().length).toBe(2);
+        expect(resizeMessages()[1].message.data.borderBoxSize).toEqual({blockSize: 550, inlineSize: 226});
+        expect(rafQueue.size).toBe(0)
+    });
+
+    test('hidden tick: a tick reaching a visible document leaves the native observer in charge', async () => {
+        const node = makeNode('target-1', 300, 200);
+
+        await addon.register({componentId: 'component-1', id: 'target-1'});
+
+        node.offsetWidth = 226;
+        sendHiddenTick(); // e.g. sent just before the window reported itself visible
+
+        await wait(120); // > starvedFlushDelay: a queued entry would have flushed by now
+        expect(resizeMessages().length).toBe(0)
+    });
+
+    test('hidden tick: destroy unsubscribes, so a destroyed addon is never polled', () => {
+        const destroyed = addon;
+
+        expect(managerListeners.filter(l => l.name === 'message:hiddenTick' && l.scope === destroyed).length).toBe(1);
+
+        destroyed.destroy();
+        expect(managerListeners.filter(l => l.scope === destroyed).length).toBe(0);
+
+        addon = Neo.create(AddonClass, {hiddenPollInterval: 60, starvedFlushDelay: 40, windowId: 1}) // for afterEach
     });
 
     test('unregister: drops the baseline and stops the poll with the last target', async () => {
