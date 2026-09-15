@@ -575,6 +575,8 @@ defaults **without whitespace** (`['a','b']`, `{a:1}`), whichever block form you
 character is `]` has it consumed as that marker's close: `=['a','b']` parses as `['a','b'` . Object braces are
 unaffected. `generateDocsJson` re-extracts array and object defaults from the comment text, which repairs the
 **default** in the multiline form — it does not repair the **description**, so a leaked remainder ships.
+It ships *rendered*: `generateDocsJson` runs `marked.parse` over every description before the member
+block, so `pair=['one two']` publishes `<p>two&#39;]</p>` as that member's documentation.
 
 **For a String whose value must contain whitespace, give `@default` its own line.** A String default is
 not re-extracted by the generator, so it survives exactly, and the description stays empty:
