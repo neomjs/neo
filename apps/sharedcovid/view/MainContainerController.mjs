@@ -571,7 +571,7 @@ class MainContainerController extends ComponentController {
             logo       = me.getReference('logo'),
             logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps/covid/',
             themeLight = button.text === 'Theme Light',
-            buttonText, cls, iconCls, mapView, mapViewStyle, theme;
+            buttonText, iconCls, mapView, mapViewStyle, theme;
 
         if (me.connectedApps.includes('SharedCovidMap')) {
             mapView = me.getMainView('SharedCovidMap').items[0].items[0]
@@ -597,16 +597,11 @@ class MainContainerController extends ComponentController {
         [component.appName, ...me.connectedApps].forEach(appName => {
             component = me.getMainView(appName);
 
-            cls = [...component.cls];
-
             component.cls.forEach(item => {
-                if (item.includes('neo-theme')) {
-                    NeoArray.remove(cls, item)
-                }
+                item.includes('neo-theme') && component.removeCls(item)
             });
 
-            NeoArray.add(cls, theme);
-            component.cls = cls
+            component.addCls(theme)
         });
 
         button.set({iconCls, text: buttonText});
