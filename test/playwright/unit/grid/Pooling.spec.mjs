@@ -373,9 +373,8 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         expect(structureChanges.length).toBe(0);
     });
 
-    test('a shrinking pool takes its retired rows out of the DOM and the stored vnode at once', async () => {
-        // `createRowPool` destroys excess rows without an update of their own. An ancestor update that lands
-        // before this body's next one walks the stored vnode strictly, so a leftover reference fails its flight.
+    test('a shrinking pool leaves its stored vnode walkable, and the body\'s next update removes the retired rows', async () => {
+        // An ancestor update that lands before the body's own walks the stored vnode strictly
         const {default: VNodeUtil} = await import('../../../../src/util/VNode.mjs'),
               body                 = grid.body,
               rowIds               = body.items.map(row => row.vdom.id),
@@ -387,48 +386,17 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         };
 
         try {
-            body.set({availableHeight: 120})
+            body.set({availableHeight: 120});
+
+            expect(body.items.length, 'the pool shrank').toBeLessThan(rowIds.length);
+            expect(() => VNodeUtil.createMap(body.vnode), 'read at once, before the body\'s update lands').not.toThrow();
+
+            await body.promiseUpdate()
         } finally {
             Neo.applyDeltas = applyDeltas
         }
 
-        expect(body.items.length, 'the pool shrank').toBeLessThan(rowIds.length);
-        expect(removed, 'each retired row leaves the DOM').toEqual(rowIds.slice(body.items.length));
-        // Read at once, before the body's own update can land and replace the stored vnode.
-        expect(() => VNodeUtil.createMap(body.vnode)).not.toThrow()
-    });
-
-    test('a retired row removal into a closed window settles silently', async () => {
-        const unhandled     = [],
-              consoleErrors = [],
-              onUnhandled   = reason => unhandled.push(reason),
-              {applyDeltas} = Neo,
-              originalError = console.error;
-
-        let dispatched = 0;
-
-        // The removal rejects the way `worker.Base#promiseMessage` does for a window that has closed
-        Neo.applyDeltas = (windowId, deltas) => [deltas].flat().some(delta => delta.action === 'removeNode')
-            ? (dispatched++, Promise.reject(Object.assign(new Error('no live port — a window closed?'), {code: 'NEO_DEAD_PORT'})))
-            : applyDeltas(windowId, deltas);
-
-        process.on('unhandledRejection', onUnhandled);
-        console.error = (...args) => consoleErrors.push(args);
-
-        try {
-            grid.body.set({availableHeight: 120});
-            Neo.applyDeltas = applyDeltas;
-            // Node rules a rejection unhandled a macrotask after the microtasks drain
-            await new Promise(resolve => setTimeout(resolve, 50))
-        } finally {
-            Neo.applyDeltas = applyDeltas;
-            process.off('unhandledRejection', onUnhandled);
-            console.error = originalError
-        }
-
-        expect(dispatched,    'the removal was sent').toBe(1);
-        expect(unhandled,     'a closed window is an expected outcome, not an uncaught rejection').toEqual([]);
-        expect(consoleErrors, 'and not an error to report').toEqual([])
+        expect(removed, 'the update removes each retired row').toEqual(rowIds.slice(body.items.length))
     });
 
     test('#17536: a cleared pool row stops CLAIMING the record it no longer holds', async () => {

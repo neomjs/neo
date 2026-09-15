@@ -16,12 +16,12 @@ import VNode            from '../../../../src/util/VNode.mjs';
 /**
  * @summary A stored vnode names each child component by a `{componentId}` reference, and every
  * walker resolves such references through the component registry — strictly, because a reference
- * to nothing is a broken tree. The one tree allowed to carry a stale reference is a flight's
- * returned vnode: collected while the child was alive, landing after the child was retired. The
- * landing boundary prunes those before the strict walkers see them.
+ * to nothing is a broken tree. A reference goes stale in a parent's stored vnode when its child
+ * retires, and in a flight's returned vnode collected while the child was alive. Both places unlink
+ * it, keeping the node the DOM still holds.
  */
 test.describe('Neo.util.VNode', () => {
-    test('pruneRetiredReferences drops a reference whose component left the registry and keeps the rest', () => {
+    test('unlinkRetiredReferences keeps a retired component\'s node unnamed, and every live reference as it is', () => {
         const live = Neo.create(Component, {id: 'vnode-util-live'}),
               gone = Neo.create(Component, {id: 'vnode-util-gone'});
 
@@ -29,31 +29,38 @@ test.describe('Neo.util.VNode', () => {
 
         expect(ComponentManager.get('vnode-util-gone'), 'the retired component is out of the registry').toBeFalsy();
 
-        const tree = {
-            id        : 'vnode-util-root',
-            childNodes: [
-                {componentId: 'vnode-util-live'},
-                {componentId: 'vnode-util-gone'},
-                {
-                    id        : 'vnode-util-wrapper',
-                    childNodes: [{componentId: 'vnode-util-gone'}, {id: 'vnode-util-leaf', childNodes: []}]
-                }
-            ]
-        };
+        // What the retiring component last rendered, naming a child that retired before it
+        const rendered = {id: 'vnode-util-gone', nodeName: 'div', childNodes: [{componentId: 'vnode-util-gone-child'}]},
+              tree     = {
+                  id        : 'vnode-util-root',
+                  childNodes: [
+                      {componentId: 'vnode-util-live'},
+                      {componentId: 'vnode-util-gone'},
+                      {
+                          id        : 'vnode-util-wrapper',
+                          childNodes: [{componentId: 'vnode-util-other', id: 'vnode-util-other-wrapper'}, {id: 'vnode-util-leaf', childNodes: []}]
+                      }
+                  ]
+              };
 
         try {
-            expect(VNode.pruneRetiredReferences(tree), 'both stale references are counted').toBe(2);
-
-            expect(tree.childNodes.map(node => node.componentId || node.id)).toEqual(['vnode-util-live', 'vnode-util-wrapper']);
-            expect(tree.childNodes[1].childNodes.map(node => node.id)).toEqual(['vnode-util-leaf']);
+            expect(VNode.unlinkRetiredReferences(tree, {'vnode-util-gone': rendered}), 'every stale reference is counted, nested ones included').toBe(3);
 
             // A live reference is kept as a reference — the walk never descends into another
             // component's stored vnode, which is that component's own to keep clean.
             expect(tree.childNodes[0]).toEqual({componentId: 'vnode-util-live'});
 
-            // The strict walkers stay strict: the pruned tree maps without touching the registry for
-            // anything that is gone, and an unpruned stale reference still throws.
-            expect([...VNode.createMap(tree).keys()]).toContain('vnode-util-leaf');
+            expect(tree.childNodes[1], 'the retiring component\'s node stays as it rendered it').toEqual({
+                id        : 'vnode-util-gone',
+                nodeName  : 'div',
+                childNodes: [{id: 'vnode-util-gone-child'}]
+            });
+
+            expect(tree.childNodes[2].childNodes[0], 'with no rendered vnode to hand, the node keeps its reference\'s DOM id').toEqual({id: 'vnode-util-other-wrapper'});
+
+            // The strict walkers stay strict: the unlinked tree maps without touching the registry for
+            // anything that is gone, and a stale reference left in place still throws.
+            expect([...VNode.createMap(tree).keys()]).toEqual(expect.arrayContaining(['vnode-util-gone', 'vnode-util-gone-child', 'vnode-util-other-wrapper', 'vnode-util-leaf']));
             expect(() => VNode.getVnode({componentId: 'vnode-util-gone'})).toThrow('Component not found for id: vnode-util-gone')
         } finally {
             live.destroy()

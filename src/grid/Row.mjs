@@ -602,9 +602,10 @@ class Row extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} [updateParentVdom=false]
+     * @param {Boolean} [silent=false]
      */
-    destroy() {
+    destroy(updateParentVdom=false, silent=false) {
         let me = this;
 
         if (me.components) {
@@ -613,7 +614,7 @@ class Row extends Component {
             }
         }
 
-        super.destroy()
+        super.destroy(updateParentVdom, silent)
     }
 
     /**

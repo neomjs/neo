@@ -78,18 +78,93 @@ test.describe('VdomLifecycle Race Condition', () => {
         createdComponentIds = [];
     });
 
+    test('a child removed silently leaves the stored vnode walkable, and the next update removes its DOM node', async () => {
+        const removed = [];
+
+        Neo.applyDeltas = async (windowId, deltas) => {
+            [deltas].flat().forEach(delta => delta.action === 'removeNode' && removed.push(delta.id))
+        };
+
+        const
+            containerId = getUniqueId('silent-retire-container'),
+            leaverId    = getUniqueId('silent-retire-leaver'),
+            keeperId    = getUniqueId('silent-retire-keeper');
+
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(RaceContainer, {
+            appName,
+            id   : containerId,
+            items: [
+                {module: RaceChildComponent, id: leaverId, hidden: false},
+                {module: RaceChildComponent, id: keeperId, hidden: false}
+            ]
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+        await container.promiseUpdate();
+
+        removed.length = 0;
+        container.removeAt(0, true, true);
+
+        expect(Neo.getComponent(leaverId), 'the leaver is retired').toBeFalsy();
+        expect(() => VNodeUtil.createMap(container.vnode), 'before any update, the stored vnode still walks').not.toThrow();
+        expect(VNodeUtil.createMap(container.vnode).has(keeperId), 'the surviving child is still mapped').toBe(true);
+        expect(removed, 'a silent removal leaves the DOM to the next update').toEqual([]);
+
+        await container.promiseUpdate();
+
+        expect(removed, 'which removes the leaver\'s DOM node').toEqual([leaverId])
+    });
+
+    test('a child taking a silently removed child\'s id before the next update is diffed against the DOM node it finds', async () => {
+        const structural = [];
+
+        Neo.applyDeltas = async (windowId, deltas) => {
+            [deltas].flat().forEach(delta => ['insertNode', 'moveNode', 'removeNode'].includes(delta.action) && structural.push(delta))
+        };
+
+        const
+            containerId = getUniqueId('silent-reuse-container'),
+            childId     = getUniqueId('silent-reuse-child'),
+            // A fixed inner id, the way a grid row names its cells
+            childConfig = html => ({module: RaceChildComponent, id: childId, hidden: false, vdom: {cls: ['child'], cn: [{tag: 'span', id: `${childId}__label`, html}]}});
+
+        createdComponentIds.push(containerId);
+
+        const container = Neo.create(RaceContainer, {appName, id: containerId, items: [childConfig('first')]});
+
+        await container.initVnode(true);
+        container.mounted = true;
+        await container.promiseUpdate();
+
+        structural.length = 0;
+        container.removeAt(0, true, true);
+        container.add(childConfig('second'), true);
+
+        await container.promiseUpdate();
+
+        expect(structural, 'nothing inserted over the node already there, nor removed from under the newcomer').toEqual([]);
+        expect(Neo.getComponent(childId).mounted, 'the newcomer is mounted on that node').toBe(true)
+    });
+
     /**
      * A child retired silently — destroyed without an update of its own, the way a projection
-     * transaction retires a leaver's tab button — leaves no vdom, no DOM node and no reference in
-     * its parent's stored vnode. One carrier remains: a parent flight that collected its payload
-     * while the child was alive and lands after the destroy still names the child by reference.
+     * transaction retires a leaver's tab button — leaves its DOM node to its parent's next update.
+     * A parent flight that collected its payload while the child was alive and lands after the
+     * destroy still names the child by reference, and must neither fail on it nor drop its node.
      *
      * The in-process helper answers in microtasks, so the destroy below could never fall between
      * collection and landing on its own; one macrotask of latency is the smallest honest stand-in
      * for the worker round trip the real app pays.
      */
-    test('a child retired while its parent flight is in the air does not fail that flight', async () => {
-        Neo.applyDeltas = async () => {};
+    test('a child retired while its parent flight is in the air does not fail that flight, and the next update removes its DOM node', async () => {
+        const removed = [];
+
+        Neo.applyDeltas = async (windowId, deltas) => {
+            [deltas].flat().forEach(delta => delta.action === 'removeNode' && removed.push(delta.id))
+        };
 
         const
             containerId = getUniqueId('race-retire-container'),
@@ -136,8 +211,13 @@ test.describe('VdomLifecycle Race Condition', () => {
             await flight;
 
             expect(container.isVdomUpdating).toBe(false);
-            expect(JSON.stringify(container.vnode), 'the adopted vnode names no retired child').not.toContain(leaverId);
-            expect(VNodeUtil.createMap(container.vnode).has(keeperId), 'the surviving child is still mapped').toBe(true)
+            expect(JSON.stringify(container.vnode), 'the adopted vnode names no retired child').not.toContain(`"componentId":"${leaverId}"`);
+            expect(VNodeUtil.createMap(container.vnode).has(keeperId), 'the surviving child is still mapped').toBe(true);
+            expect(removed, 'the flight collected the leaver alive, so its DOM node is still there').toEqual([]);
+
+            await container.promiseUpdate();
+
+            expect(removed, 'and the next update removes it').toEqual([leaverId])
         } finally {
             VdomHelper.updateBatch = originalUpdateBatch
         }

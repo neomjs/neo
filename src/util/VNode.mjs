@@ -47,36 +47,32 @@ class VNode extends Base {
     }
 
     /**
-     * Removes, in place, every `{componentId}` reference whose component has left the registry from a
-     * flight's RETURNED vnode tree, before the tree is adopted and walked. A child retired silently —
-     * destroyed without an update of its own — takes its vdom, its DOM node and its place in its
-     * parent's stored vnode with it; the one tree that can still name it is a flight collected while
-     * it was alive and landing after. The walkers here resolve references strictly, so this runs once
-     * at the landing boundary and only over the tree's own inline nodes: a live reference is kept as a
-     * reference, never followed — the stored vnode behind it is that component's own to keep clean.
+     * Unlinks, in place, every `{componentId}` reference whose component has left the registry. The DOM node such a
+     * component rendered stays until an update diffs it away, so the tree mirroring that DOM keeps it: as the vnode
+     * the component last rendered when `retired` holds it, otherwise as a bare node with its id. The strict walkers
+     * then never resolve a name the registry no longer knows, and the next update removes the node, or diffs a new
+     * component with the same id against it. Only the tree's own inline nodes are walked: a live reference is kept,
+     * never followed, since the stored vnode behind it is that component's own to keep clean.
      * @param {Object} vnode
-     * @returns {Number} The number of references removed
+     * @param {Object} [retired={}] The vnode a retiring component last rendered, keyed by its id
+     * @returns {Number} The number of references unlinked
      */
-    static pruneRetiredReferences(vnode) {
+    static unlinkRetiredReferences(vnode, retired={}) {
         let childNodes = vnode?.childNodes,
-            removed    = 0;
+            unlinked   = 0;
 
-        if (childNodes) {
-            for (let i = childNodes.length - 1; i >= 0; i--) {
-                const child = childNodes[i];
-
-                if (child?.componentId) {
-                    if (!ComponentManager.get(child.componentId)) {
-                        childNodes.splice(i, 1);
-                        removed++
-                    }
-                } else {
-                    removed += VNode.pruneRetiredReferences(child)
-                }
+        childNodes?.forEach((child, index) => {
+            if (child?.componentId && !ComponentManager.get(child.componentId)) {
+                child = childNodes[index] = retired[child.componentId] || {id: child.id || child.componentId};
+                unlinked++
             }
-        }
 
-        return removed
+            if (!child?.componentId) {
+                unlinked += VNode.unlinkRetiredReferences(child, retired)
+            }
+        });
+
+        return unlinked
     }
 
     /**
