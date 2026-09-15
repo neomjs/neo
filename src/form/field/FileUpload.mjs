@@ -774,7 +774,7 @@ class FileUpload extends Field {
 
         NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
         NeoArray.add(cls, 'neo-file-upload-state-' + value);
-        NeoArray[me.file || me.document ? 'remove' : 'add', 'neo-field-empty'];
+        NeoArray.toggle(cls, 'neo-field-empty', !me.file && !me.document);
         me.cls = cls;
     }
 
