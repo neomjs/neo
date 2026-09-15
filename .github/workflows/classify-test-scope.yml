@@ -172,9 +172,9 @@ jobs:
                       // `webServer.command` runs `server-start`. Naming the children matters —
                       // `bundle-browser-deps` can keep its text while what it delegates to changes.
                       // The children track `buildScripts/util/browserBundles.mjs`, which a unit arm
-                      // holds to this list because YAML cannot import it — plus `build-highlightjs`,
-                      // whose output is a directory rather than a `dist/<name>.mjs` file.
-                      e2eScriptKeys = ['build-highlightjs', 'bundle-browser-deps', 'bundle-marked', 'bundle-mermaid', 'bundle-parse5', 'server-start'];
+                      // holds to this list because YAML cannot import it — plus `build-highlightjs` and
+                      // `bundle-monaco`, whose outputs are directories rather than `dist/<name>.mjs` files.
+                      e2eScriptKeys = ['build-highlightjs', 'bundle-browser-deps', 'bundle-marked', 'bundle-mermaid', 'bundle-monaco', 'bundle-parse5', 'server-start'];
 
                 // Fork PRs: the head SHA exists only in the fork repo, so the head content read
                 // must follow the fork's coordinates — the base half stays on the PR target repo.

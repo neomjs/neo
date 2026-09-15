@@ -3,15 +3,15 @@ import {test, expect} from '@playwright/test';
 /**
  * A guide's ```mermaid fence must reach the reader as an SVG, on a route where Monaco is BUSY.
  *
- * The portal preloads `main.addon.MonacoEditor`, so Monaco's AMD loader is live on every route and
- * a global `define` exists app-wide. Mermaid's published chunks carry vendored UMD wrappers —
- * `fastdom` among them — which hand that loader an ANONYMOUS factory and get refused with
- * `Can only have one anonymous define call per script file`. Checking `define.amd` does not save
- * them: Monaco's `define` HAS `.amd`, so the guarded majority take the AMD branch too.
+ * The portal preloads `main.addon.MonacoEditor`, which put Monaco's AMD loader and a global `define`
+ * on every route while it loaded Monaco's AMD distribution. Mermaid's published chunks carry vendored
+ * UMD wrappers — `fastdom` among them — which hand such a loader an ANONYMOUS factory and get refused
+ * with `Can only have one anonymous define call per script file`. Checking `define.amd` does not save
+ * them: the loader's `define` HAS `.amd`, so the guarded majority take the AMD branch too.
  *
  * ⚠️ **`define.amd === true` is NOT the discriminator, and believing it was is what let the
- * previous version of this arm pass while the defect shipped.** It is true on every portal route,
- * including the ones that render perfectly. The collision needs the loader to be *resolving a
+ * previous version of this arm pass while the defect shipped.** It was true on every portal route,
+ * including the ones that rendered perfectly. The collision needs the loader to be *resolving a
  * module* when a chunk arrives, which only happens where a live preview instantiates an editor —
  * so the route pair below is the assertion, and `MONACO_EDITOR` is what makes it one.
  *
@@ -33,7 +33,7 @@ import {test, expect} from '@playwright/test';
  *
  * ⚠️ Not `typeof window.monaco === 'object'`, and not `typeof window.require === 'function'`.
  * @neo-opus-grace measured both across the two routes and **both are identical on the route that
- * renders fine**: Monaco's modules load everywhere the portal does. They are `define.amd` one layer
+ * renders fine**: Monaco's modules load everywhere the portal does. `define.amd` was one layer
  * further in — necessary, never sufficient. What separates the routes is an editor having been
  * *created*: measured 0 on the control and 2 on the reproducer.
  *

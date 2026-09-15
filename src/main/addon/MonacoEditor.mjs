@@ -31,9 +31,11 @@ class MonacoEditor extends Base {
             'updateOptions'
         ],
         /**
-         * @member {String} libraryBasePath='../../node_modules/monaco-editor/min/vs'
+         * The engine's Monaco build from `buildScripts/build/monaco.mjs`: the editor, its stylesheet and
+         * font, and its workers.
+         * @member {String} libraryBasePath=Neo.config.basePath+'dist/monaco'
          */
-        libraryBasePath: Neo.config.basePath + 'node_modules/monaco-editor/min/vs',
+        libraryBasePath: Neo.config.basePath + 'dist/monaco',
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -106,6 +108,30 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * @summary Maps the label of a worker Monaco starts onto that worker's bundle in the build.
+     * The labels of the language services are their language ids; every other label runs the
+     * generic editor worker.
+     * @param {String} moduleId Always `'workerMain.js'`
+     * @param {String} label
+     * @returns {String}
+     */
+    getWorkerUrl(moduleId, label) {
+        let worker = {
+            css       : 'css',
+            handlebars: 'html',
+            html      : 'html',
+            javascript: 'ts',
+            json      : 'json',
+            less      : 'css',
+            razor     : 'html',
+            scss      : 'css',
+            typescript: 'ts'
+        }[label] || 'editor';
+
+        return `${this.libraryBasePath}/${worker}.worker.mjs`
+    }
+
+    /**
      * Changing the size of the parent container will only get honored when re-triggering an editor layout
      * @param {Object} data
      * @param {String} data.id
@@ -115,30 +141,24 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * @summary Awaits Monaco's AMD entry, including its NLS, stylesheet and worker configuration.
-     * Loading editor.main.js as a script only registers its module; addon readiness requires the
-     * AMD factory to finish. The entry owns its version-specific dependency and asset filenames.
+     * @summary Imports the Monaco build with its stylesheet, after pointing Monaco at the build's workers.
+     * The module namespace becomes the `monaco` global this addon calls. Monaco's own `globalAPI` flag
+     * would publish only the core API, without language namespaces such as `monaco.typescript`.
      * @returns {Promise<void>}
      */
     async loadFiles() {
         let me   = this,
-            path = me.libraryBasePath;
+            path = new URL(me.libraryBasePath, document.baseURI).href;
 
-        if (typeof window.require?.config !== 'function') {
-            try {
-                await DomAccess.loadScript(path + '/loader.js')
-            } catch (error) {
-                throw new Error(`Monaco AMD loader failed: ${path}/loader.js`, {cause: error})
-            }
-        }
+        globalThis.MonacoEnvironment = {getWorkerUrl: me.getWorkerUrl.bind(me)};
 
-        window.require.config({paths: {vs: path}});
-
-        await new Promise((resolve, reject) => {
-            window.require(['vs/editor/editor.main'], () => resolve(), error => {
-                reject(new Error(`Monaco editor module failed: ${path}/editor/editor.main.js`, {cause: error}))
+        [globalThis.monaco] = await Promise.all([
+            // Resolved against the document like the stylesheet, and left alone by webpack
+            import(/* webpackIgnore: true */ `${path}/editor.mjs`),
+            DomAccess.loadStylesheet(`${path}/editor.css`).catch(error => {
+                throw new Error(`Monaco stylesheet failed: ${path}/editor.css`, {cause: error})
             })
-        })
+        ])
     }
 
     /**

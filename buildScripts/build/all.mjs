@@ -144,6 +144,10 @@ if (programOpts.info) {
         childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/mermaid.mjs`], cpOpts);
         childProcess.status && process.exit(childProcess.status);
 
+        console.log(chalk.blue('Bundling Monaco...'));
+        childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/monaco.mjs`], cpOpts);
+        childProcess.status && process.exit(childProcess.status);
+
         console.log(chalk.blue('Bundling highlight.js...'));
         childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/highlightJs.mjs`], cpOpts);
         childProcess.status && process.exit(childProcess.status);

@@ -1,9 +1,10 @@
-import {test, expect} from '@playwright/test';
+import {createRequire} from 'node:module';
+import {test, expect}  from '@playwright/test';
 
 /**
- * @summary Exercises the installed Monaco distribution through the real Neo wrapper, App Worker,
- * AMD loader and main addon. A held network response makes loading-versus-destruction deterministic;
- * the response is released unchanged, and no editor or loader implementation is substituted.
+ * @summary Exercises the engine's Monaco build through the real Neo wrapper, App Worker and main addon.
+ * A held network response makes loading-versus-destruction deterministic; the response is released
+ * unchanged, and no editor implementation is substituted.
  */
 const FIXTURE_URL = 'test/playwright/component/apps/monaco-editor/index.html';
 const EDITOR_ID   = 'monaco-test-editor';
@@ -11,6 +12,22 @@ const HOST_ID     = 'monaco-test-viewport';
 
 /** Mirrors `component.wrapper.MonacoEditor#editorThemes`; the browser is the only importer of the class. */
 const EDITOR_THEMES = ['hc-black', 'hc-light', 'vs', 'vs-dark'];
+
+/** A Monaco asset, from the engine's build or from the installed package that build replaces. */
+const MONACO_ASSET = /\/(dist\/monaco|node_modules\/monaco-editor)\//;
+
+/**
+ * The DOMPurify npm resolves for monaco-editor, which `package-lock.json` records and Dependabot audits.
+ * Read through DOMPurify's public `version`, resolved from monaco-editor's own directory.
+ */
+const NPM_SANITIZER = createRequire(new URL('../../../../node_modules/monaco-editor/package.json', import.meta.url))('dompurify').version;
+
+/**
+ * The version DOMPurify's factory assigns to itself, `DOMPurify.version = '…'` followed by
+ * `DOMPurify.removed = []`, in plain or minified code. Code rather than the license banner, which
+ * Monaco's minified AMD chunks do not carry.
+ */
+const SANITIZER_VERSION = /\.version\s*=\s*["'](\d+\.\d+\.\d+)["']\s*[,;]\s*[\w$]+\.removed\s*=\s*\[\]/g;
 
 /**
  * @summary Reads the App Worker's native component observation surface.
@@ -36,7 +53,7 @@ const expectEditor = async page => {
               editor = addon?.map?.[id];
 
         return !!(addon?.isReady && editor?.getModel())
-    }, EDITOR_ID), {message: 'the real Monaco AMD module and native editor become ready', timeout: 20000}).toBe(true);
+    }, EDITOR_ID), {message: 'the Monaco build and a native editor become ready', timeout: 20000}).toBe(true);
 
     await expect(page.locator(`#${EDITOR_ID} .monaco-editor`)).toBeVisible()
 };
@@ -74,7 +91,7 @@ const destroyEditor = async page => {
     await expect(page.locator(`#${EDITOR_ID}`)).toHaveCount(0)
 };
 
-test.describe('Monaco wrapper against the installed browser distribution', () => {
+test.describe('Monaco wrapper against the engine\'s Monaco build', () => {
     let pageErrors = [], monacoRequests = [], monacoResponses = [];
 
     test.beforeEach(async ({page}) => {
@@ -84,10 +101,10 @@ test.describe('Monaco wrapper against the installed browser distribution', () =>
 
         page.on('pageerror', error => pageErrors.push(error.message));
         page.on('request', request => {
-            if (request.url().includes('/node_modules/monaco-editor/')) monacoRequests.push(request.url())
+            if (MONACO_ASSET.test(request.url())) monacoRequests.push(request.url())
         });
         page.on('response', response => {
-            if (response.url().includes('/node_modules/monaco-editor/')) {
+            if (MONACO_ASSET.test(response.url())) {
                 monacoResponses.push({url: response.url(), status: response.status(), type: response.headers()['content-type']})
             }
         })
@@ -98,7 +115,7 @@ test.describe('Monaco wrapper against the installed browser distribution', () =>
         expect(monacoResponses.filter(response => response.status >= 400), 'all requested Monaco assets exist').toEqual([])
     });
 
-    test('boots the AMD module, its stylesheet and the initial editor before reporting mounted', async ({page}) => {
+    test('boots the Monaco build, its stylesheet and the initial editor before reporting mounted', async ({page}) => {
         await page.goto(FIXTURE_URL);
         await expectEditor(page);
         await expect.poll(async () => (await readConfigs(page, HOST_ID, ['mountReceipts']))[0]).toEqual(['initial']);
@@ -120,10 +137,68 @@ test.describe('Monaco wrapper against the installed browser distribution', () =>
             return worker.getSyntacticDiagnostics(model.uri.toString())
         }, EDITOR_ID);
 
-        expect(diagnostics, 'the installed language worker reads the live editor model').toEqual([]);
-        await expect.poll(() => monacoResponses.find(response => response.url.endsWith('/editor/editor.main.css'))?.type)
+        expect(diagnostics, 'the build\'s language worker reads the live editor model').toEqual([]);
+
+        // Only the TypeScript worker starts above, so the bundle every other label maps to is fetched.
+        expect(await page.evaluate(labels => Promise.all(labels.map(async label =>
+            `${label} ${(await fetch(Neo.main.addon.MonacoEditor.getWorkerUrl('workerMain.js', label))).status}`
+        )), ['css', 'editorWorkerService', 'html', 'json', 'typescript']))
+            .toEqual(['css 200', 'editorWorkerService 200', 'html 200', 'json 200', 'typescript 200']);
+
+        await expect.poll(() => monacoResponses.find(response => response.url.endsWith('/dist/monaco/editor.css'))?.type)
             .toContain('text/css');
-        expect(monacoRequests.some(url => url.endsWith('/editor/editor.main.nls.js')), 'the retired NLS file is never requested').toBe(false)
+        expect(monacoRequests.filter(url => url.includes('/node_modules/monaco-editor/')), 'nothing loads from the installed package').toEqual([])
+    });
+
+    test('the editor executes the DOMPurify npm resolves for monaco-editor, not the copy Monaco embeds', async ({page}) => {
+        // Read from the scripts the browser received. A dependency override alone moves the lockfile
+        // and leaves the embedded copy running, and this is the arm that tells the two apart.
+        const scripts  = [],
+              executed = new Set();
+
+        page.on('response', response => {
+            MONACO_ASSET.test(response.url()) && response.headers()['content-type']?.includes('javascript') && scripts.push(response)
+        });
+
+        await page.goto(FIXTURE_URL);
+        await expectEditor(page);
+
+        for (const script of scripts) {
+            for (const [, version] of (await script.text()).matchAll(SANITIZER_VERSION)) {
+                executed.add(version)
+            }
+        }
+
+        expect([...executed]).toEqual([NPM_SANITIZER])
+    });
+
+    test('HTML in hover markdown renders through the sanitizer, without its handlers or script links', async ({page}) => {
+        await page.goto(FIXTURE_URL);
+        await expectEditor(page);
+
+        await page.evaluate(id => {
+            const editor = Neo.main.addon.MonacoEditor.map[id];
+
+            monaco.languages.registerHoverProvider('javascript', {
+                provideHover: () => ({contents: [{
+                    supportHtml: true,
+                    value      : '<b>sanitized</b><img src="x" onerror="globalThis.monacoHoverBreach = 1"> [link](javascript:globalThis.monacoHoverBreach=2)'
+                }]})
+            });
+
+            editor.focus();
+            editor.setPosition({lineNumber: 1, column: 8});
+            editor.trigger('test', 'editor.action.showHover', {})
+        }, EDITOR_ID);
+
+        const hover = page.locator('.monaco-hover').filter({has: page.locator('b', {hasText: 'sanitized'})});
+
+        await expect(hover, 'the HTML reaches the hover as markup, not as text').toBeVisible();
+        expect(await hover.evaluate(node => ({
+            breach     : globalThis.monacoHoverBreach ?? null,
+            handlers   : node.querySelectorAll('[onerror]').length,
+            scriptLinks: [...node.querySelectorAll('a')].filter(link => /javascript:/i.test(`${link.getAttribute('href')} ${link.dataset.href}`)).length
+        }))).toEqual({breach: null, handlers: 0, scriptLinks: 0})
     });
 
     test('reactive wrapper configs reach public Monaco value, language, theme and option APIs', async ({page}) => {
@@ -202,7 +277,7 @@ test.describe('Monaco wrapper against the installed browser distribution', () =>
         const gate    = new Promise(resolve => { release = resolve }),
               blocked = new Promise(resolve => { entered = resolve });
 
-        await page.route('**/node_modules/monaco-editor/min/vs/editor/editor.main.js', async route => {
+        await page.route('**/dist/monaco/editor.mjs', async route => {
             entered();
             await gate;
             await route.continue()
@@ -308,13 +383,11 @@ test.describe('Monaco wrapper against the installed browser distribution', () =>
         await page.goto('apps/portal/index.html#home', {waitUntil: 'domcontentloaded'});
         await expect(page.locator('.portal-main-content')).toBeVisible({timeout: 20000});
 
-        // Home can paint while the addon's deferred preload still fails. Readiness is the missing
-        // boundary: a visible Portal shell alone did not observe the obsolete NLS request.
+        // Home can paint while the addon's deferred preload still fails, so readiness is the boundary.
         await expect.poll(() => page.evaluate(() => !!globalThis.Neo?.main?.addon?.MonacoEditor?.isReady),
-            {message: 'Portal Monaco preload completes through the real AMD module', timeout: 20000}).toBe(true);
+            {message: 'Portal Monaco preload completes through the Monaco build', timeout: 20000}).toBe(true);
         expect(await page.evaluate(() => typeof globalThis.monaco?.editor?.create)).toBe('function');
-        await expect.poll(() => monacoResponses.find(response => response.url.endsWith('/editor/editor.main.css'))?.type)
-            .toContain('text/css');
-        expect(monacoRequests.some(url => url.endsWith('/editor/editor.main.nls.js'))).toBe(false)
+        await expect.poll(() => monacoResponses.find(response => response.url.endsWith('/dist/monaco/editor.css'))?.type)
+            .toContain('text/css')
     });
 });
