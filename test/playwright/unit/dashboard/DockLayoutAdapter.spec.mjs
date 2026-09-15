@@ -24,6 +24,7 @@ import TabOverflowPlugin from '../../../../src/tab/plugin/Overflow.mjs';
 class MountableMenuList extends Neo.core.Base {
     static config = {
         className: 'Test.Unit.Dashboard.DockLayoutAdapter.MountableMenuList',
+        hidden_  : true,
         mounted_ : false
     }
 }

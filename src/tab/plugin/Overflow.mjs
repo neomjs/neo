@@ -974,7 +974,8 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Queues a projection while the generated menu owns a clickable visible/hidden partition.
+     * Queues a projection while the generated menu owns a clickable visible/hidden partition: from the moment
+     * it is shown, since `mounted` follows the insert that `button.Base#toggleMenu` starts synchronously.
      * @param {Boolean} recapture
      * @returns {Boolean} True when the current projection must stop.
      * @protected
@@ -985,7 +986,7 @@ class Overflow extends Plugin {
 
         me.observeMenuListLifecycle(menuList);
 
-        if (!menuList?.mounted) return false;
+        if (!menuList || (menuList.hidden && !menuList.mounted)) return false;
 
         me.menuProjectionQueued = true;
         me.menuRecaptureQueued  = me.menuRecaptureQueued || recapture;

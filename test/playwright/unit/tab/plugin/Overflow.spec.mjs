@@ -94,6 +94,8 @@ MountableControl = Neo.setupClass(MountableControl);
 class MountableMenuList extends Neo.core.Base {
     static config = {
         className: 'Test.Unit.Tab.Plugin.Overflow.MountableMenuList',
+        // Starts hidden, like the menu button.Base creates
+        hidden_  : true,
         items_   : null,
         mounted_ : false
     }
@@ -484,6 +486,52 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(projections).toEqual([true]);
         expect(plugin.menuProjectionQueued).toBe(false);
         expect(plugin.menuRecaptureQueued).toBe(false);
+
+        menuList.destroy();
+        plugin.destroy()
+    });
+
+    test('a projection that lands while the menu is shown but not yet mounted parks instead of rewriting the opening menu', async () => {
+        let release,
+            callCount = 0;
+
+        const
+            gate   = new Promise(resolve => {release = resolve}),
+            splits = [];
+
+        const plugin = createPlugin(async ids => {
+            callCount++;
+            if (callCount === 1) { await gate }
+            return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]
+        });
+
+        plugin.applySplit = (...args) => splits.push(args);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // button.Base#toggleMenu shows the menu synchronously while the construct-time measure is awaited;
+        // its mount lands only after the insert, so the menu is open but not yet mounted
+        const menuList = Neo.create(MountableMenuList, {items: [{text: 'Agents', handler() {}}]});
+
+        plugin.control  = {alignTo() {}, destroy() {}, iconCls: 'fa fa-ellipsis', menuList, mounted: true};
+        menuList.hidden = false;
+
+        release();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(plugin.menuProjectionQueued, 'the measured pass parks behind the opening menu').toBe(true);
+        expect(splits, 'the parked pass touches neither the header partition nor the menu').toEqual([]);
+
+        // The menu mounts, then closes: toggleMenu hides it before its unmount lands
+        menuList.mounted = true;
+        menuList.hidden  = true;
+        menuList.mounted = false;
+
+        await plugin.whenProjectionIdle();
+
+        expect(splits.length, 'the drained pass applies once the menu is gone').toBe(1);
+        expect(plugin.menuProjectionQueued).toBe(false);
 
         menuList.destroy();
         plugin.destroy()
