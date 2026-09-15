@@ -403,6 +403,10 @@ class Overflow extends Plugin {
      * Paired with the registrations by hand rather than derived: `Observable#un` matches on
      * handler + scope, so a list that drifts from its counterpart silently leaves a duplicate
      * behind — the exact defect this exists to prevent. Keep the two in step.
+     *
+     * Every registration `onOwnerMounted` makes is released here, INCLUDING the DOM listener.
+     * `createActionControl` is the one exception and needs none: it returns early when the control
+     * already exists, so it is idempotent on its own.
      * @protected
      */
     releaseOwnerSubscriptions() {
@@ -417,7 +421,14 @@ class Overflow extends Plugin {
         owner.un('actionVisibilityChange', me.onActionVisibilityChange,  me);
 
         tabContainer?.un('activeIndexChange', me.onActiveIndexChange, me);
-        tabContainer?.un('moveTo',            me.onTabSetChange,      me)
+        tabContainer?.un('moveTo',            me.onTabSetChange,      me);
+
+        // The DOM listener belongs here for the same reason and was missed for a different one:
+        // `manager.DomEvent` is not `Observable`, so a duplicate produces no console warning, and
+        // the console was how the other seven were found. `addDomListeners` is a bare push with no
+        // dedupe, so without this N remounts leave N identical `resize` entries and `onResize` —
+        // which runs `project()` and measures DOM — fires N times per resize.
+        owner.removeDomListeners([{resize: me.onResize, scope: me}])
     }
 
     /**
