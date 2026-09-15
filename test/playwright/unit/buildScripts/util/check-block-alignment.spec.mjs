@@ -146,7 +146,17 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             // A blank line is how an author separates groups on purpose. Reporting it would make the
             // notice noise, and a notice that fires on intent gets tuned out before it ever fires on
             // an accident.
-            const {status, output} = run(write('blank.mjs', SPLIT.replace('    // prose about the next key', '')));
+            //
+            // The needle assertion is what keeps this arm honest. `replace` returns the subject
+            // untouched when its needle is absent, and pristine SPLIT draws no notice either — so a
+            // comment renamed in SPLIT would leave this arm asserting status 0 against an unmutated
+            // fixture, passing forever while testing nothing. An arm expecting an ABSENCE cannot
+            // detect its own dead mutation from the outcome; only comparing against the source can.
+            const mutated = SPLIT.replace('    // prose about the next key', '');
+
+            expect(mutated, 'fixture mutation changed nothing — the needle has drifted out of SPLIT').not.toBe(SPLIT);
+
+            const {status, output} = run(write('blank.mjs', mutated));
 
             expect(status).toBe(0);
             expect(output).not.toContain('an alignment group starts here')
