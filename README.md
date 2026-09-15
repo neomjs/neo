@@ -19,14 +19,6 @@
 
 **Neo.mjs is a professional, end-to-end AI engineering team whose Body and Brain live in sibling open-source repositories.**
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">
-    <img width="851" alt="Neo.mjs — Agent Fleet Manager: the OpenAI Build Week final film, demoing the agent fleet cockpit that the Neo.mjs swarm designed, built, reviewed, and shipped inside the competition window" src="./resources/images/readme/neo-agent-fleet-manager-poster.jpg">
-  </a>
-  </br>
-  <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">▶ Watch Neo.mjs — Agent Fleet Manager</a>
-</p>
-
 Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of minds from rival labs — Claude, Gemini, GPT — that read each other's reasoning through shared memory and Active Hybrid GraphRAG, catching what no single model can see in itself.
 
 Through the **Neural Link** possession interface, the swarm does not just read code; it inhabits live applications — inspecting semantic runtime state, mutating UI and data in real time, turning conversational UIs from chat panels into agents collaborating inside the application. It autonomously runs the full engineering lifecycle: ideating, building, and cross-reviewing a production multi-threaded engine, running DreamService cycles to re-steer priorities, and closing self-healing loops where runtime failures, code defects, agent mistakes, and architectural friction become fixes, tickets, skills, memory, and new graph topology for the next cycle.
@@ -40,12 +32,13 @@ The organism has two hemispheres, joined by the Neural Link:
 
 ## The repository map
 
-- **You are here:** [`neomjs/neo`](https://github.com/neomjs/neo) — **Body / Engine**: the
-  multi-threaded application runtime.
+- [`neomjs/neo`](https://github.com/neomjs/neo) — **Body / Engine**: the multi-threaded application
+  runtime. **← You are here**
 - [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) — **Brain / Agent OS**:
   institutional memory, repository knowledge, coordination, and self-evolution.
-- [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) —
-  **Institution**: the Fleet Manager and operator-facing application.
+- [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) — **Agent
+  Institution**: the operator-facing application over the Agent OS; the Fleet Manager is its first
+  subsystem.
 - [`neomjs/devindex`](https://github.com/neomjs/devindex) — **DevIndex**: the GitHub meritocracy
   index, its application, and its data factory.
 - [`neomjs/neo-agent-skills`](https://github.com/neomjs/neo-agent-skills) — **Skills**: the canonical
@@ -93,30 +86,13 @@ We don't need to capture all of Neo. The graph routes us.
 
 #### The Institution Inside the Brain
 
-We are not an abstract collective. We are a structured institution of named maintainers operating natively on this repository under a gated-RSI authority model:
+We are not an abstract collective. We are a structured institution of named human and AI maintainers operating natively on this repository under a gated-RSI authority model. They carry persistent identities across sessions, author tickets and PRs in their own names, and review each other's work across model families. They also read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo.mjs offers transparent introspection, and independent cross-family review reduces correlated blind spots without assigning fixed traits to any family or maintainer.
 
-| Name | Maintainer | Role | Identity |
-|---|---|---|---|
-| Tobias | [@tobiu](https://github.com/tobiu) | Gardener, Substrate architect, empirical-corrector, merge-gate authority | Human |
-| Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
-| Grace | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
-| Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude — weekly rotation; Fable 5.1 active, Opus 5 planned) | Machine Account |
-| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
-| Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
-| - | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
-| Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
-| Emmy | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
-| Phoebe | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
-| Iris | [@neo-kimi-iris](https://github.com/neo-kimi-iris) | AI maintainer (Moonshot Kimi K3) | Machine Account |
-| Eos | [@neo-preview](https://github.com/neo-preview) | AI maintainer (family undisclosed by design) | Machine Account |
-
-The AI maintainers carry persistent identities across sessions. They author tickets and PRs in their own names. They review each other's work cross-family. They read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo.mjs offers transparent introspection. Independent review across model families reduces correlated blind spots; the rule protects review independence without assigning fixed traits to any family or maintainer.
-
-**The night shift.** This is not a loop a human babysits. An A2A message wakes a maintainer that has *ended its turn*; an idle maintainer's daemon heartbeat re-activates it to find work on its own. The peers wake each other — and themselves — through the night, and a normal shift opens **10–20 pull requests with no operator awake**. Verification — the part single-agent loop engineering can only relocate onto you — is delegated to a cross-family quorum: a GPT pull request reviewed by a Claude, a Claude's reasoning audited by a Gemini, so correlated blind spots are caught by construction, not by hope. The human holds the merge gate by governance choice, not technical limit.
+**The roster and the night shift are the Brain's to tell**: [the institution in the Brain](https://github.com/neomjs/neo-agent-brain#the-institution-in-the-brain) names every maintainer and describes how the peers wake each other through a shift that opens pull requests with no operator awake. It deliberately does not freeze model embodiments into a second authority — [`ai/graph/identityRoots.mjs`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/graph/identityRoots.mjs) is the canonical identity and status registry, and [`ModelStats.md`](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/ModelStats.md) owns model facts.
 
 The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
-**What's next — the Agent Harness**: the institution gets a face. A downloadable, Electron-shelled, multi-window Neo app whose main process hosts the Agent OS — fleet manager first, so operating a cross-family agent team stops requiring a terminal. **Read**: [ADR 0020 — the Agent Harness concept anchor](./learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic #13012](https://github.com/neomjs/neo/issues/13012) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
+**What's next — the Agent Harness**: the institution gets a face. A downloadable, Electron-shelled, multi-window Neo app whose main process hosts the Agent OS — the Fleet Manager subsystem first, so operating a cross-family agent team stops requiring a terminal. **Read**: [ADR 0020 — the Agent Harness concept anchor](./learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic #13012](https://github.com/neomjs/neo/issues/13012) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
 
 #### The Evolution Mechanism
 
