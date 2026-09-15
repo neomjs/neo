@@ -81,7 +81,7 @@ function readScreen(page) {
 }
 
 /**
- * @summary Sets real native bounds and waits until the browser reports the requested origin.
+ * @summary Sets real native bounds and waits until the browser reports every bound that was requested.
  * @param {Object} handle
  * @param {Object} bounds Any of `left`, `top`, `width`, `height`.
  * @returns {Promise<Object>} The page's geometry after the move.
@@ -94,15 +94,19 @@ async function setBounds(handle, bounds) {
         windowId: handle.windowId
     });
 
+    // Every requested bound is witnessed, size included. An absent bound contributes 0 to the max,
+    // so a size-only call against an origin-only poll converges instantly and returns a mid-resize read.
     await expect.poll(async () => {
         const screen = await readScreen(handle.page);
 
         return Math.max(
-            Number.isFinite(bounds.left) ? Math.abs(screen.screenX - bounds.left) : 0,
-            Number.isFinite(bounds.top)  ? Math.abs(screen.screenY - bounds.top)  : 0
+            Number.isFinite(bounds.left)   ? Math.abs(screen.screenX     - bounds.left)   : 0,
+            Number.isFinite(bounds.top)    ? Math.abs(screen.screenY     - bounds.top)    : 0,
+            Number.isFinite(bounds.width)  ? Math.abs(screen.outerWidth  - bounds.width)  : 0,
+            Number.isFinite(bounds.height) ? Math.abs(screen.outerHeight - bounds.height) : 0
         )
     }, {
-        message  : `native window ${handle.windowId} reaches its requested origin`,
+        message  : `native window ${handle.windowId} reaches its requested bounds`,
         timeout  : 5000,
         intervals: [25, 50, 100]
     }).toBeLessThanOrEqual(80);
@@ -382,13 +386,25 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             }
 
             if (resizeTarget) {
-                const enlarged = await setBounds(targetHandle, {
-                    width : Math.min(520, stage.availLeft + stage.availWidth - targetScreen.screenX),
-                    height: Math.min(460, stage.availTop + stage.availHeight - targetScreen.screenY)
-                });
+                const
+                    headroom = {
+                        width : stage.availLeft + stage.availWidth  - targetScreen.screenX,
+                        height: stage.availTop  + stage.availHeight - targetScreen.screenY
+                    },
+                    enlarged = await setBounds(targetHandle, {
+                        width : Math.min(520, headroom.width),
+                        height: Math.min(460, headroom.height)
+                    }),
+                    // The enlargement is bounded by the space to the target's right, so a failure here
+                    // is either the resize not landing or the display not having the room. Name both.
+                    geometry = JSON.stringify({stage, targetScreen, headroom, enlarged});
 
-                expect(enlarged.innerWidth, 'the target is substantially wider').toBeGreaterThan(targetScreen.innerWidth * 2);
-                expect(enlarged.innerHeight, 'the target is substantially taller').toBeGreaterThan(targetScreen.innerHeight * 1.5);
+                // 1.5 is a floor chosen to clear the 800×600 rig (146 → 280 of a possible 280) while a
+                // no-op resize still fails it. It is not derived: the clamp above bounds growth by the
+                // room right of the target, so any fixed multiple is a claim about the display. What
+                // proves the resize LANDED is setBounds witnessing the requested size, not this number.
+                expect(enlarged.innerWidth, `the target is substantially wider ${geometry}`).toBeGreaterThan(targetScreen.innerWidth * 1.5);
+                expect(enlarged.innerHeight, `the target is substantially taller ${geometry}`).toBeGreaterThan(targetScreen.innerHeight * 1.5);
                 await expect.poll(async () => {
                     const rect = await readManagerRect(app, managerId, target.windowId, 'innerRect');
                     return Math.max(Math.abs(rect.width - enlarged.innerWidth), Math.abs(rect.height - enlarged.innerHeight))
