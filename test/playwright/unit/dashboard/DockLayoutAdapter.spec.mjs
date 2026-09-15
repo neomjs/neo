@@ -1319,13 +1319,14 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                     if (callCount === 1) { await gate }
                     return ids[0] === 'header-live' ? [{width: 1000}] : [{width: 10}, {width: 10}]
                 },
-                add            : () => ({}),
-                addDomListeners: () => {},
-                fire           : (name, data) => listeners[name]?.(data),
-                on             : () => {},
-                un             : () => {},
-                remove         : () => {},
-                up             : () => ({activeIndex: 0})
+                add               : () => ({}),
+                addDomListeners   : () => {},
+                removeDomListeners: () => {},
+                fire              : (name, data) => listeners[name]?.(data),
+                on                : () => {},
+                un                : () => {},
+                remove            : () => {},
+                up                : () => ({activeIndex: 0})
             };
 
         MotionSignal.activeMotions.clear();

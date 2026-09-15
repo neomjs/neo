@@ -139,15 +139,16 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 items,
                 getActionItems: () => [],
                 getTabButtons() { return this.items },
-                getTheme       : function () { return this.theme },
+                getTheme          : function () { return this.theme },
                 getDomRect,
-                add            : () => ({}),
-                addDomListeners: () => {},
+                add               : () => ({}),
+                addDomListeners   : () => {},
+                removeDomListeners: () => {},
                 fire,
-                on             : () => {},
-                un             : () => {},
-                remove         : () => {},
-                up             : () => ({activeIndex: 0})
+                on                : () => {},
+                un                : () => {},
+                remove            : () => {},
+                up                : () => ({activeIndex: 0})
             }
         });
 
@@ -1249,6 +1250,7 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
                 getTheme() { return this.theme },
                 add            : () => ({}),
                 addDomListeners() {},
+                removeDomListeners() {},
                 on() {},
                 un() {},
                 remove() {},
@@ -1545,19 +1547,20 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
         const parent = Object.assign({activeIndex: 0}, mkBus()),
               plugin = Neo.create(Overflow, {
                   owner: Object.assign({
-                      id             : 'wired-owner',
-                      appName        : 'test-app',
-                      mounted        : true,
-                      theme          : 'neo-theme-neo-dark',
-                      windowId       : 1,
-                      items          : [{id: 'b1'}, {id: 'b2'}],
+                      id                : 'wired-owner',
+                      appName           : 'test-app',
+                      mounted           : true,
+                      theme             : 'neo-theme-neo-dark',
+                      windowId          : 1,
+                      items             : [{id: 'b1'}, {id: 'b2'}],
                       parent,
-                      getTheme       : function () { return this.theme },
-                      getDomRect     : async ids => ids[0] === 'wired-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
-                      add            : () => ({}),
-                      addDomListeners: () => {},
-                      remove         : () => {},
-                      up             : () => parent
+                      getTheme          : function () { return this.theme },
+                      getDomRect        : async ids => ids[0] === 'wired-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
+                      add               : () => ({}),
+                      addDomListeners   : () => {},
+                      removeDomListeners: () => {},
+                      remove            : () => {},
+                      up                : () => parent
                   }, mkBus())
               });
 
