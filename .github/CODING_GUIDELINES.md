@@ -66,6 +66,11 @@ Neo.tab.header.Button
 * (17) `ntype` is using lower-case syntax as well.
 
 ## 4. Anatomy of a neo class / JS module
+
+Between the imports and the class there are `import`s, constants and lookup tables — and nothing else.
+Behaviour lives on the class, because module scope is not reachable by a subclass, a mixin or
+`Neo.overwrites`: see [§8 Class methods](#8-class-methods).
+
 ```javascript
 import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
@@ -380,6 +385,34 @@ like nested item arrays or complex objects (e.g. style). Each of those item star
 do get sorted chronologically as well.
 
 ## 8. Class methods
+
+**Logic belongs on the class, never at module scope beside it.** A helper that "does not need `this`"
+is the one every other codebase teaches you to lift out of the class. Do not lift it here.
+
+Neo is built for extension: developers subclass, mix in, and replace class logic through
+`Neo.overwrites`. Every one of those seams reaches a **method**. None of them can reach a function at
+module scope — it is invisible to a subclass, invisible to a mixin's consumer, invisible to
+`Neo.overwrites`, and invisible to the Neural Link's `get_method_source`. Lifting a helper out of the
+class does not tidy it; it removes an override seam and fragments the class's reading order.
+
+So a helper becomes an instance method, a `static` method, or a getter — or, when it genuinely belongs
+to no class, its own module under `src/util/**` consumed by import.
+
+`import`s, constants and lookup tables stay at module scope: nobody overrides data.
+
+`buildScripts/util/check-class-module-scope.mjs` enforces this over `src/**/*.mjs`, gated on the file
+declaring a class. A new helper fails `lint-staged` and CI. The baseline records debt being paid down —
+it is not a place to put new debt.
+
+**What "migrate on next touch" does and does not mean.** A baselined entry is a prompt to move the
+helper onto the class the next time its file is opened — not an obligation to move it regardless of
+what it is. The guard answers one question (*is this a function binding at module scope beside a
+class?*) and deliberately does not answer the other (*is it a helper that escaped the class, or the
+module's own exported API?*). `src/functional/util/html.mjs`'s `html` is the second kind: a tagged
+template that IS the module's public entry point, which happens to sit beside the class it constructs.
+Moving it onto that class would be a regression, so it stays baselined. When the two readings differ,
+say which one applies in the PR that touches the file; the baseline row is the record either way.
+
 ```javascript
 
 /**
