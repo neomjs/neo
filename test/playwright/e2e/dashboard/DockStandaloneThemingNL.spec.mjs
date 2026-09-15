@@ -221,9 +221,9 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
 });
 
 /**
- * The relocated-example palette boundary, whose enforcement AC is #17573 [not-ticket-ref: the
- * authority for this boundary]: Demo A and Demo B must render from an example-owned theme file,
- * never from the Fleet Manager's Viewport sheet.
+ * The relocated-example palette boundary, whose enforcement AC is #17573 [not-ticket-ref: authority].
+ * Demo A and Demo B must render from an example-owned theme file, never from the Fleet Manager's
+ * Viewport sheet.
  *
  * The positive matrix observes both the worker-owned workspace instance and browser paint under
  * both primary themes. The mutation cell replaces only the new palette sheet with an empty 200
