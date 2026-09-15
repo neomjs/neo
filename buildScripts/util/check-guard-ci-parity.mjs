@@ -255,12 +255,12 @@ function hasDevPullRequestGate(workflow) {
         typeof pullRequest !== 'object' ||
         Object.hasOwn(pullRequest, 'branches-ignore') ||
         Object.hasOwn(pullRequest, 'paths-ignore') ||
-        // An allowlist is exactly as conditional as the ignore form: a PR whose files fall outside
-        // it never runs the workflow, so the workflow cannot prevent a `--no-verify` merge — which
-        // is the whole eligibility bar. Rejecting one and accepting the other was an asymmetry
-        // inside a dimension this guard already reasons about: `on.paths` is discounted as NAMING
-        // evidence a few lines down, while the same filter was credited as GATING.
-        Object.hasOwn(pullRequest, 'paths') ||
+        // A `paths` ALLOWLIST is deliberately not rejected here, where `paths-ignore` is. Treating
+        // the two as one dimension reads every correctly-mirrored guard in this repo as unmirrored,
+        // because the house convention scopes each lint workflow to the files its guard scans — the
+        // pre-commit mirror the convention is named for carries one. The allowlist is conditional,
+        // so eligibility for it is not free; it is an alignment question, and until that predicate
+        // exists an allowlist is credited rather than reported as eight false defects.
         Object.hasOwn(pullRequest, 'types')
     ) {
         return false

@@ -1,0 +1,44 @@
+name: Guard CI Parity
+
+# CI mirror of the .husky/pre-commit check-guard-ci-parity guard, so `git commit --no-verify` cannot
+# bypass it at the merge-gate. The guard asserts that every OTHER lint-staged guard is invoked by
+# some workflow, which makes this file the one that closes its own loop: without it the parity
+# checker would be the single unmirrored guard in a repo it certifies as fully mirrored.
+#
+# The trigger list is the guard's own SCAN_SURFACE, and must stay equal to it. Anything the guard
+# reads but this does not watch is a verdict that can go stale between merges — a lint-staged entry
+# added in a PR that touches none of these paths would never face the gate.
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'package.json'
+      - '.husky/pre-commit'
+      - '.github/workflows/**'
+      - 'buildScripts/util/check-guard-ci-parity.mjs'
+      - 'buildScripts/util/check-guard-ci-parity-registry.json'
+
+concurrency:
+  group: guard-ci-parity-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # The guard parses workflow YAML with js-yaml (a declared dependency). --ignore-scripts skips
+      # the postinstall we do not need — only node_modules must be present.
+      - name: Install dependencies (js-yaml)
+        run: npm ci --ignore-scripts
+
+      - name: Lint hook-CI guard parity
+        run: node buildScripts/util/check-guard-ci-parity.mjs
