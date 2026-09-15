@@ -331,6 +331,17 @@ class DomEvent extends Base {
 
     /**
      * Mounts local domEvent listeners for a given component
+     *
+     * Every caller reaches this after a delay — `updateDomListeners()` defers 50ms, `mixin.DomEvents`
+     * 150ms — so the window can close between the decision to mount and this. `component.mounted`
+     * cannot report that: the App Worker's model outlives its window's port and stays `true`. The
+     * check therefore belongs HERE, at the single point both schedulers funnel through, rather than
+     * at each of them; a third scheduler inherits it instead of having to remember it.
+     *
+     * Failing toward mounting is deliberate. A worker without the predicate behaves exactly as it did
+     * before this guard existed — absence must never silently skip a mount, which is the opposite
+     * direction from a release guard, where absence must never skip the release.
+     *
      * @param {Neo.component.Base} component
      * @protected
      */
@@ -338,6 +349,10 @@ class DomEvent extends Base {
         let me          = this,
             listeners   = me.items[component.id],
             localEvents = [];
+
+        if (Neo.currentWorker?.isWindowDeparted?.(component.windowId)) {
+            return
+        }
 
         if (listeners) {
             Object.entries(listeners).forEach(([eventName, value]) => {
@@ -577,8 +592,11 @@ class DomEvent extends Base {
                 }
 
                 me.mountTimeouts[component.id] = setTimeout(() => {
-                    me.mountDomListeners(component);
-                    delete me.mountTimeouts[component.id]
+                    // Freed before the work, not after: the slot describes a PENDING mount, and a
+                    // mount that declines to run still ends the pending state.
+                    delete me.mountTimeouts[component.id];
+
+                    me.mountDomListeners(component)
                 }, 50)
             }
         } else {
