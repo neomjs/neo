@@ -83,7 +83,11 @@ test.describe('TreeGrid Big Data E2E', () => {
         // The child is FOUND by position — that is what "newly revealed below the folder" means — and
         // then pinned to its record before anything else happens. Position is how you locate it once;
         // identity is what every later step must use.
-        const revealed = folderRow.locator('+ .neo-grid-row');
+        const revealed    = folderRow.locator('+ .neo-grid-row'),
+              folderLevel = Number(await folderRow.getAttribute('aria-level'));
+
+        // The toggle's class can land before the rows it reveals: pin only once the row below the folder is its child
+        await expect(revealed).toHaveAttribute('aria-level', String(folderLevel + 1));
         await expect(revealed).toBeVisible();
 
         const childId  = await revealed.getAttribute('data-record-id');
