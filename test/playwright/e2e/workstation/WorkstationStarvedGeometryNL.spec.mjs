@@ -31,8 +31,9 @@ import { test, expect } from '../../fixtures.mjs';
  *      carrier (pre-fix it holds at the boot count forever);
  *   3. control legs — the Feed grid keeps painting fresh rows throughout (the ingestion
  *      stream is geometry-independent and must never trade against the geometry stream), and
- *      the rig itself is asserted live (hidden document, frames requested but never serviced)
- *      so a broken rig fails the run instead of green-washing it.
+ *      the rig itself is asserted live (hidden document, targets observed through the silent
+ *      stub, frames still black-holed at the end) so a broken rig fails the run instead of
+ *      green-washing it.
  *
  * All settlement is bounded expect.poll on state — no fixed-delay sleeps. No locator actions:
  * with rAF black-holed, actionability stability checks would hang; the spec drives the page
@@ -68,13 +69,16 @@ test.describe('Workstation rendering starvation: grid geometry still converges (
         await page.addInitScript(() => {
             // The starvation rig — installed before any app script runs:
             // no native deliveries, no serviced frames, a hidden document.
+            window.__starvedObserveCalls  = 0;
+            window.__starvedFrameRequests = 0;
+
             window.ResizeObserver = class {
-                observe() {}
+                observe() {
+                    window.__starvedObserveCalls++
+                }
                 unobserve() {}
                 disconnect() {}
             };
-
-            window.__starvedFrameRequests = 0;
 
             window.requestAnimationFrame = () => {
                 window.__starvedFrameRequests++;
@@ -203,9 +207,22 @@ test.describe('Workstation rendering starvation: grid geometry still converges (
             { message: 'the feed grid keeps painting fresh rows throughout', timeout: 10000 }
         ).toBe(true);
 
-        // RIG CONTROL, closing: frames were requested but never serviced — the run really
-        // happened under starvation (a rig failure must fail the spec, not green-wash it).
-        const frameRequests = await page.evaluate(() => window.__starvedFrameRequests);
-        expect(frameRequests).toBeGreaterThan(0)
+        // RIG CONTROL, closing: the app registered its targets with the silent observer, and
+        // requestAnimationFrame is still the black hole — the run really happened under starvation
+        // (a rig failure must fail the spec, not green-wash it). The app's own frame requests cannot
+        // witness this: a hidden document dispatches without asking for a frame.
+        const rigAtEnd = await page.evaluate(() => {
+            const before = window.__starvedFrameRequests;
+
+            requestAnimationFrame(() => {});
+
+            return {
+                framesBlackHoled: window.__starvedFrameRequests === before + 1,
+                observeCalls    : window.__starvedObserveCalls
+            }
+        });
+
+        expect(rigAtEnd.observeCalls, 'the app observed its targets through the silent stub').toBeGreaterThan(0);
+        expect(rigAtEnd.framesBlackHoled, 'requestAnimationFrame is still the rig\'s black hole').toBe(true)
     });
 });
