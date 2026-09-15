@@ -1806,6 +1806,19 @@ class Component extends Abstract {
      */
 
     /**
+     * Swap classes on the vdomRoot inside a single vdom update.
+     * You can pass single items or an array of items to remove or to add.
+     * @param {String|String[]} removeItems
+     * @param {String|String[]} addItems
+     */
+    removeAddCls(removeItems, addItems) {
+        let {cls} = this;
+
+        NeoArray.removeAdd(cls, removeItems, addItems);
+        this.cls = cls
+    }
+
+    /**
      * Remove a cls from the vdomRoot
      * @param {String} value
      */

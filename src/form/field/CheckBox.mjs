@@ -327,12 +327,7 @@ class CheckBox extends Field {
      * @protected
      */
     afterSetLabelPosition(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.remove(cls, 'neo-label-' + oldValue);
-        NeoArray.add(   cls, 'neo-label-' + value);
-        me.cls = cls
+        this.removeAddCls('neo-label-' + oldValue, 'neo-label-' + value)
     }
 
     /**
