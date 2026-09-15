@@ -10,11 +10,14 @@ import { test, expect } from '../../fixtures.mjs';
  * survives — the browser cannot tie the programmatic focus back to the originating pointer gesture. The fix
  * makes modality an explicit contract: `DomAccess.focus` stamps `neo-focus-pointer` immediately before
  * `node.focus()` (atomic, no flash), which suppresses the ring; the class self-clears on blur or the first
- * keydown, so a pointer→keyboard switch WITHOUT a blur restores the intentional keyboard ring.
+ * keydown, so a pointer→keyboard switch WITHOUT a blur restores the intentional keyboard ring. The click keeps
+ * its mousedown default, so a pointer gesture reaches the View natively and the stamp follows one round trip
+ * later; the arm therefore WAITS for the stamp instead of requiring it in the same read as the focus.
  *
  * This asserts the observable contract the unit suite cannot reach, against REBUILT themes (a stale-CSS run
- * false-greened the prior receipt): per-body View ownership, the atomic pointer stamp + no ring, the positive
- * keyboard ring after the modality switch, blur cleanup, and preventScroll at a genuinely non-zero offset.
+ * false-greened the prior receipt): per-body View ownership, the eventual pointer stamp with no ring at either
+ * sampled point, the positive keyboard ring after the modality switch, blur cleanup, and scroll stability
+ * across the focus transfer at the fixture's natural offset.
  */
 test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring (#15195)', () => {
     test.setTimeout(90000);
@@ -59,7 +62,9 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
 
         // AC-1 + AC-2 (ownership + pointer stamp + no ring): a pointer row-click in EACH physical body resolves
         // to ONE View-owned focus state. The browser focuses the View on mousedown and the worker's
-        // `neo-focus-pointer` stamp follows one round trip later, so the ring is asserted absent on both sides.
+        // `neo-focus-pointer` stamp follows one round trip later, so the stamp is WAITED for rather than read
+        // alongside the focus. The outline is sampled at both points; neither sample is guaranteed to land
+        // before the stamp, so what this bounds is the ring — never the gap, and never a stale stamp.
         for (const [region, bodyId] of regions) {
             const row = page.locator(`#${bodyId} .neo-grid-row`).first();
             await expect(row, `${region} exposes a visible row`).toBeVisible();
