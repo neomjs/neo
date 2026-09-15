@@ -806,12 +806,16 @@ class Overflow extends Plugin {
                 })
             }
         } catch (error) {
-            // getDomRect losing a race with teardown (owner unmounting mid-measure) is the ONE expected
-            // failure: it must neither reject a fire-and-forget handler nor skip the drain below, and the
-            // finally-released latch lets the NEXT event re-project (rejected→success self-heal). But a throw
-            // against a LIVE owner is a programming defect — surface it rather than swallow it silently (a
-            // blanket catch would hide real bugs behind a "just a teardown race" assumption).
-            if (owner.mounted) {
+            // getDomRect losing a race with teardown is the ONE expected failure: it must neither reject a
+            // fire-and-forget handler nor skip the drain below, and the finally-released latch lets the NEXT
+            // event re-project (rejected→success self-heal). But a throw against a LIVE owner is a programming
+            // defect — surface it rather than swallow it silently (a blanket catch would hide real bugs behind
+            // a "just a teardown race" assumption).
+            //
+            // `mounted` alone cannot make that call: it is App-Worker state, while the failure is a window's
+            // port going away, and a component stays mounted after its window closes. Both forms of departure
+            // are asked for — the owner unmounting here, and its window retiring its port elsewhere.
+            if (owner.mounted && !Neo.currentWorker.isWindowDeparted(owner.windowId)) {
                 console.error('Neo.tab.plugin.Overflow: project() threw against a live owner', error)
             }
         } finally {

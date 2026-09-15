@@ -355,13 +355,19 @@ class GridContainer extends BaseContainer {
         let me             = this,
             {windowId}     = me,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {componentId: me.id, id: me.id, windowId};
+            resizeParams   = {componentId: me.id, id: me.id, windowId},
+            // Both calls are fire-and-forget, so an unhandled rejection is the only way either can fail. A window
+            // closing mid-call is expected and silent; anything else is a defect and still reports.
+            onFailure      = reason => {
+                reason !== Neo.isDestroyed && reason?.code !== 'NEO_DEAD_PORT' &&
+                    console.error('grid.Container: ResizeObserver call failed', {reason, id: me.id, windowId})
+            };
 
         if (mounted) {
-            ResizeObserver.register(resizeParams);
+            ResizeObserver.register(resizeParams).catch(onFailure);
             await me.passSizeToBody()
         } else {
-            ResizeObserver.unregister(resizeParams)
+            ResizeObserver.unregister(resizeParams).catch(onFailure)
         }
     }
 
