@@ -815,7 +815,9 @@ class Overflow extends Plugin {
             // `mounted` alone cannot make that call: it is App-Worker state, while the failure is a window's
             // port going away, and a component stays mounted after its window closes. Both forms of departure
             // are asked for — the owner unmounting here, and its window retiring its port elsewhere.
-            if (owner.mounted && !Neo.currentWorker.isWindowDeparted(owner.windowId)) {
+            // Optional CALL, and the direction matters: a worker that cannot answer must not silence a defect.
+            // `undefined` is falsy, so an environment without the predicate reports exactly as it did before.
+            if (owner.mounted && !Neo.currentWorker?.isWindowDeparted?.(owner.windowId)) {
                 console.error('Neo.tab.plugin.Overflow: project() threw against a live owner', error)
             }
         } finally {

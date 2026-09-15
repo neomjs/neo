@@ -130,9 +130,11 @@ class DomEvent extends Base {
 
         // Fire-and-forget, so an unhandled rejection is the only way this can fail. A window closing between the
         // addon lookup and the call is expected and silent; anything else is a defect and still reports.
-        // Optional call, not defensiveness: the real remote proxy returns `promiseMessage()`, while a stubbed addon
-        // returns nothing — and with no promise there is no rejection for this handler to take.
-        ResizeObserver.register({componentId: component.id, id: targetId, windowId})?.catch(reason => {
+        // Wrapped rather than called with `?.`: the real remote proxy returns `promiseMessage()`, while a stubbed
+        // addon returns `undefined` in one harness and a plain non-thenable in another. `Promise.resolve` covers
+        // all three without awaiting, so the fire-and-forget timing is unchanged and a non-promise simply never
+        // rejects — which is the correct outcome, not a swallowed one.
+        Promise.resolve(ResizeObserver.register({componentId: component.id, id: targetId, windowId})).catch(reason => {
             reason !== Neo.isDestroyed && reason?.code !== 'NEO_DEAD_PORT' &&
                 console.error('manager.DomEvent: ResizeObserver registration failed', {reason, targetId, windowId})
         })

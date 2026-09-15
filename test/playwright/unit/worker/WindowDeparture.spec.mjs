@@ -109,6 +109,17 @@ test.describe('Neo.worker.Base#isWindowDeparted', () => {
         expect(worker.isWindowDeparted('')).toBe(false)
     });
 
+    test('a worker that cannot answer must not silence a defect — absence reads as "not departed"', () => {
+        // Consumers call this optionally, because `Neo.currentWorker` is a stub in some harnesses and carried no
+        // such method before this ticket. The direction of that fallback is the contract: an environment that
+        // cannot answer has to REPORT, never suppress. I shipped this the wrong way round first — the guard threw,
+        // its catch swallowed the throw, and the arm proving a live-owner defect still surfaces went silent.
+        const absent = {};
+
+        expect(Boolean(absent.isWindowDeparted?.('win-a'))).toBe(false);
+        expect(Boolean(undefined?.isWindowDeparted?.('win-a'))).toBe(false)
+    });
+
     test('the record is bounded to the 16 most recent departures', () => {
         for (let i = 0; i < 17; i++) {
             worker.removePort(addPort(worker, `win-${i}`))
