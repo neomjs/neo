@@ -130,11 +130,24 @@ export function findModuleScopeFunctions(source, file) {
     const findings = [];
 
     for (const node of body) {
-        // `export function f() {}` / `export const f = () => {}` unwrap to the same shapes below.
-        const statement = node.type === 'ExportNamedDeclaration' && node.declaration ? node.declaration : node;
+        // `export function f() {}`, `export const f = () => {}` and `export default function f() {}`
+        // all unwrap to the shapes below. The DEFAULT case is the one worth naming: it is a single
+        // keyword away from the named form, reaches the class exactly as little, and an early version
+        // of this guard unwrapped only `ExportNamedDeclaration` — so `export default function` was a
+        // silent escape hatch until @neo-gpt-emmy's review found it.
+        const isExportWrapper = (node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration') && node.declaration,
+              statement       = isExportWrapper ? node.declaration : node;
 
-        if (statement.type === 'FunctionDeclaration' && statement.id) {
-            findings.push({file, name: statement.id.name, line: statement.loc.start.line});
+        if (statement.type === 'FunctionDeclaration') {
+            // An anonymous `export default function () {}` still binds a function at module scope; it
+            // is keyed as `default` so the baseline has a stable identity for it.
+            findings.push({file, name: statement.id?.name ?? 'default', line: statement.loc.start.line});
+            continue
+        }
+
+        // `export default () => {}` — no declaration to unwrap, the function IS the exported expression.
+        if (node.type === 'ExportDefaultDeclaration' && isFunctionValue(node.declaration)) {
+            findings.push({file, name: 'default', line: node.loc.start.line});
             continue
         }
 
@@ -232,7 +245,13 @@ export function describeAddedHelpers(added, findings) {
         .map(entry => `  ${entry.file}:${entry.line} declares ${entry.name}() at module scope`)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// `import.meta.url === `file://${process.argv[1]}`` is WRONG, and wrong in the worst direction: it
+// percent-encodes (a checkout path containing a space yields `%20` on one side and a raw space on the
+// other) and it does not resolve symlinks, so the comparison is false and this block never runs — the
+// guard exits 0 having checked nothing. A gate that passes because it did not execute is the exact
+// failure this file exists to prevent. Six sibling guards already use the form below; three still use
+// the string form and inherit the defect.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     const files = execFileSync('git', ['ls-files', ...SCAN_ROOTS], {cwd: ROOT, encoding: 'utf8'})
         .split('\n')
         .filter(file => file.endsWith('.mjs'));

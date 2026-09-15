@@ -400,9 +400,17 @@ to no class, its own module under `src/util/**` consumed by import.
 `import`s, constants and lookup tables stay at module scope: nobody overrides data.
 
 `buildScripts/util/check-class-module-scope.mjs` enforces this over `src/**/*.mjs`, gated on the file
-declaring a class. Existing helpers are recorded in its baseline and migrate as their files are next
-touched; a new one fails `lint-staged` and CI. The baseline records debt being paid down — it is not
-a place to put new debt.
+declaring a class. A new helper fails `lint-staged` and CI. The baseline records debt being paid down —
+it is not a place to put new debt.
+
+**What "migrate on next touch" does and does not mean.** A baselined entry is a prompt to move the
+helper onto the class the next time its file is opened — not an obligation to move it regardless of
+what it is. The guard answers one question (*is this a function binding at module scope beside a
+class?*) and deliberately does not answer the other (*is it a helper that escaped the class, or the
+module's own exported API?*). `src/functional/util/html.mjs`'s `html` is the second kind: a tagged
+template that IS the module's public entry point, which happens to sit beside the class it constructs.
+Moving it onto that class would be a regression, so it stays baselined. When the two readings differ,
+say which one applies in the PR that touches the file; the baseline row is the record either way.
 
 ```javascript
 

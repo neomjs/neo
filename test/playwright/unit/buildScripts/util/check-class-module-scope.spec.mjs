@@ -137,6 +137,32 @@ const helper = () => {};
         )).toEqual([])
     });
 
+    test('FIRES: `export default function`, one keyword away from the named form', () => {
+        // Found by @neo-gpt-emmy in review. An earlier version unwrapped only `ExportNamedDeclaration`,
+        // so this shape was a silent escape hatch — it reaches a subclass exactly as little as the
+        // named form does.
+        const findings = findModuleScopeFunctions(
+            `class Base {}\n\nexport default function helper() {}\n`,
+            'src/component/Base.mjs'
+        );
+
+        expect(findings).toHaveLength(1);
+        expect(findings[0].name).toBe('helper')
+    });
+
+    test('FIRES: an anonymous default-exported function, keyed as `default`', () => {
+        // Both shapes bind a function at module scope. The key has to be stable for the baseline, so
+        // an anonymous one is recorded as `default` rather than skipped for lacking an id.
+        expect(findModuleScopeFunctions(`class Base {}\nexport default function () {}\n`, 'src/a.mjs')[0]?.name).toBe('default');
+        expect(findModuleScopeFunctions(`class Base {}\nexport default () => {};\n`,      'src/b.mjs')[0]?.name).toBe('default')
+    });
+
+    test('PASSES: `export default class`, which is a class and not a helper', () => {
+        // Non-vacuity for the two arms above: widening to ExportDefaultDeclaration must not convict
+        // every default export.
+        expect(findModuleScopeFunctions(`export default class Base {}\n`, 'src/util/Rectangle.mjs')).toEqual([])
+    });
+
     test('PASSES: the Neo.setupClass export', () => {
         expect(findModuleScopeFunctions(
             `class Base {}
@@ -179,6 +205,44 @@ class Base {}
         expect(added).toEqual([]);
         expect(burnedDown).toHaveLength(1);
         expect(burnedDown[0].name).toBe('reconcile')
+    });
+
+    test('the CLI entry predicate survives a checkout path containing a space', async () => {
+        // @neo-gpt-emmy's RA-2, and the worst failure direction there is: the guard would exit 0
+        // having checked nothing. `import.meta.url` percent-encodes and resolves symlinks;
+        // `process.argv[1]` does neither, so the string comparison is false and the main block never
+        // runs. Executed rather than asserted about, in a real directory whose name has a space.
+        const {execFileSync} = await import('node:child_process'),
+              fsMod          = await import('node:fs'),
+              osMod          = await import('node:os'),
+              pathMod        = await import('node:path');
+
+        // realpath the tmpdir first: on macOS `/tmp` is a symlink to `/private/tmp`, which makes BOTH
+        // predicates false and would hide the difference this arm exists to show.
+        const base   = fsMod.mkdtempSync(pathMod.join(fsMod.realpathSync(osMod.tmpdir()), 'neo-entry-')),
+              spaced = pathMod.join(base, 'has space'),
+              probe  = pathMod.join(spaced, 'probe.mjs');
+
+        fsMod.mkdirSync(spaced);
+        fsMod.writeFileSync(probe, [
+            `import path            from 'node:path';`,
+            `import {fileURLToPath} from 'node:url';`,
+            `const fragile = import.meta.url === \`file://\${process.argv[1]}\`;`,
+            `const robust  = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);`,
+            `console.log(JSON.stringify({fragile, robust}));`
+        ].join('\n'));
+
+        try {
+            const observed = JSON.parse(execFileSync(process.execPath, [probe], {encoding: 'utf8'}).trim());
+
+            // NEGATIVE control: the form this guard originally copied does not fire here.
+            expect(observed.fragile, 'the `file://` string form misses a space-containing path').toBe(false);
+
+            // POSITIVE control: the form this guard now uses does.
+            expect(observed.robust, 'the resolve/fileURLToPath form fires').toBe(true)
+        } finally {
+            fsMod.rmSync(base, {recursive: true, force: true})
+        }
     });
 
     test('the report names a file, a line and the helper', () => {
