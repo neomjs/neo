@@ -97,18 +97,31 @@ const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
 
 export const test = base.extend({
     /**
-     * @summary Fails a test whose page received a mirrored worker error or an uncaught page error,
-     * unless the test named it with `workerErrors.expect(RegExp)` (non-global).
+     * @summary Fails a test whose page received a worker error or an uncaught page error, unless the
+     * test named it with `workerErrors.expect(RegExp)` (non-global).
      *
-     * A worker error that a component catches and logs fails nothing else; this reads the mirrored
-     * lines for every test that imports `test` from here. `lines` lets a test wait for its own error.
+     * A worker error that a component catches and logs fails nothing else; this reads it for every test
+     * that imports `test` from here, by both channels it reaches the page: a SharedWorker's mirrored
+     * line, and a dedicated worker's own console. `lines` lets a test wait for its own error.
      */
     workerErrors: [async ({page}, use) => {
         const expected = [],
               seen     = [];
 
         page.on('console', message => {
-            message.type() === 'error' && MIRRORED_WORKER_ERROR.test(message.text()) && seen.push(message.text())
+            const text   = message.text(),
+                  worker = message.worker();
+
+            if (message.type() === 'error') {
+                if (worker) {
+                    // Named from its script the way the mirror names a shared one (`…/App.mjs` → `App Worker: `), so a waiver reads in either mode
+                    const prefix = worker.url().split('/').pop().split('.')[0] + ' Worker: ';
+
+                    seen.push(text.startsWith(prefix) ? text : prefix + text)
+                } else if (MIRRORED_WORKER_ERROR.test(text)) {
+                    seen.push(text)
+                }
+            }
         });
 
         // The stack frames follow the message, as on a mirrored worker line, so a CI failure names its source
