@@ -2,11 +2,11 @@
     {
         "file": "resources/scss/theme-neo-dark/dialog/Base.scss",
         "blocks": 3,
-        "reason": "exempt #18145 — see the neo-light entry; same rule, same blocker."
+        "reason": "exempt, settled — see the neo-light entry; same rule, same verdict."
     },
     {
         "file": "resources/scss/theme-neo-light/dialog/Base.scss",
         "blocks": 3,
-        "reason": "exempt #18145 — of the 15 button background states in resources/scss/src/button/Base.scss, the structural rule outweighs 12; the other 3 (ghost/secondary/tertiary :active) win on !important and need no token. Tokenising the 12 would close an open extension point. Measurement: #18145."
+        "reason": "exempt, settled — of the 15 button background states in resources/scss/src/button/Base.scss, the structural rule at (0,4,0) outweighs 12; the other 3 (ghost/secondary/tertiary :active) win on !important and need no token. Tokenising the 12 would close an open extension point: a future button variant would stop applying inside dialog headers with nothing failing. Built and measured in PR #18264 — a per-file emitted-CSS diff called it clean while classic hover, active and disabled were dead, and Chromium falsified two earlier readings of the same entry."
     }
 ]
