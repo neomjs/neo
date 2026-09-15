@@ -71,6 +71,36 @@ test.describe('check-ticket-archaeology guard', () => {
      * not a lint repair — and asserting only the typed one would let that regress unnoticed.
      */
     /**
+     * Colour syntax is enough on its own, which is what retires the annotation this guard used to
+     * demand. The published guard carries the identical rule, so the two agree line for line; a bare
+     * number in prose stays a ref, because nothing tells a six-digit colour from a six-digit ticket.
+     */
+    test('colour syntax and a leading zero excuse a number, and prose does not', () => {
+        const comment = inner => `/**\n * ${inner}\n */`;
+
+        expect(findTicketRefs(comment("backgroundColor_='#123456'")),
+            'a quoted camelCase colour assignment needs no marker').toEqual([]);
+
+        expect(findTicketRefs(comment('borderColor="#111111"')),
+            'six digits with no leading zero and no letter: syntax is the only discriminator').toEqual([]);
+
+        expect(findTicketRefs(comment('CSS color #123456 for the ring')),
+            'the prose form of colour context counts too').toEqual([]);
+
+        expect(findTicketRefs(comment('defaults to #000000')),
+            'a leading zero is never a ticket, with or without colour syntax').toEqual([]);
+
+        expect(findTicketRefs(comment('a bare #123456 in prose')),
+            'CONTROL: without colour syntax the same number stays a ref').toHaveLength(1);
+
+        expect(findTicketRefs(comment("issue='#9473' — see #16538")),
+            'CONTROL: a quoted assignment that is not colour syntax launders nothing').toHaveLength(1);
+
+        expect(findTicketRefs(comment("backgroundColor_='#123456' — and see #16538")),
+            'CONTROL: an excused colour cannot hide a real ref on the same line').toHaveLength(1)
+    });
+
+    /**
      * A numeric HTML entity is `&` `#` digits `;`, and the digits are a codepoint. This guard's length
      * rule cannot see `&#39;`, but it does see `&#8212;` and `&#8217;` — the em dash and right quote a
      * comment describing rendered markup carries most often — so the two guards disagreed about the
@@ -98,6 +128,10 @@ test.describe('check-ticket-archaeology guard', () => {
     test('accepts the typed escape and the bare marker, and neither is a blanket bypass', () => {
         const comment = inner => `/**\n * ${inner}\n */`;
 
+        // Both still pass, and after the colour-context rule they pass for two reasons rather than
+        // one: the escape AND the syntax. They stay asserted so a consumer still carrying the marker
+        // never reds, which is what lets the two engine escapes come out in a later commit instead of
+        // this one.
         expect(findTicketRefs(comment("backgroundColor_='#000000' [not-ticket-ref: css-color]")),
             'a typed escape naming a known kind is accepted').toEqual([]);
 
@@ -109,13 +143,18 @@ test.describe('check-ticket-archaeology guard', () => {
 
         // The three that must still fire. Without them this test would pass against a guard that
         // detects nothing at all, which is the failure an escape-only assertion cannot see.
-        expect(findTicketRefs(comment("backgroundColor_='#000000'")),
-            'an all-numeric hex with no escape still fires — the escape is what makes it pass, not the pattern').toHaveLength(1);
+        //
+        // Their subjects changed with the colour-context rule: an annotated colour is now excused by
+        // its own syntax, so a colour can no longer witness "the pattern still detects" or "an unknown
+        // kind is not a bypass" — both would pass for a reason that has nothing to do with the escape.
+        // A bare number in prose and a real ref carry those two jobs instead.
+        expect(findTicketRefs(comment('a bare #123456 in prose')),
+            'the pattern still detects: a colour-length number outside colour syntax is a ref').toHaveLength(1);
 
         expect(findTicketRefs(comment('@see #12345 — the ticket this implements')),
             'a real ref with no escape still fires').toHaveLength(1);
 
-        expect(findTicketRefs(comment("backgroundColor_='#000000' [not-ticket-ref: whatever]")),
+        expect(findTicketRefs(comment('@see #12345 [not-ticket-ref: whatever]')),
             'an unrecognised kind is NOT a bypass — accepting it here would pass the hook and fail CI, the same divergence reversed').toHaveLength(1)
     });
 

@@ -55,6 +55,36 @@ export function withEscapedColorsRemoved(comment) {
     return out
 }
 
+// Colour syntax is enough on its own: a colour-length number DIRECTLY after `color:`,
+// `backgroundColor_=`, `fillStyle=` or `CSS color` is a colour, marker or not. The published guard
+// carries the same rule (neomjs/neo-agent-skills#68), and the two must agree line for line. A bare
+// `#123456` in prose still reports, because nothing tells it from a six-digit ticket.
+export const CSS_COLOR_VALUE_PATTERN = /#(?:\d{3}|\d{4}|\d{6}|\d{8})(?![A-Za-z0-9_])/g;
+
+// A number with a leading zero is never a ticket in any tracker we use, so it needs no context at all.
+export const LEADING_ZERO_PATTERN = /#0\d*(?![A-Za-z0-9_])/g;
+
+/**
+ * @summary Blanks colour-length numbers that sit directly after colour syntax, and any number with a
+ * leading zero, leaving everything else on the line scannable.
+ * @param {String} comment
+ * @returns {String}
+ */
+export function withColorsRemoved(comment) {
+    let out = comment;
+
+    CSS_COLOR_VALUE_PATTERN.lastIndex = 0;
+
+    // Reversed, so an earlier replacement cannot shift a later match's index.
+    for (const match of [...comment.matchAll(CSS_COLOR_VALUE_PATTERN)].reverse()) {
+        if (CSS_COLOR_CONTEXT_PATTERN.test(comment.slice(Math.max(0, match.index - 48), match.index))) {
+            out = out.slice(0, match.index) + ' '.repeat(match[0].length) + out.slice(match.index + match[0].length)
+        }
+    }
+
+    return out.replace(LEADING_ZERO_PATTERN, match => ' '.repeat(match.length))
+}
+
 // A numeric HTML entity is `&` `#` digits `;`, and the digits are a codepoint. The `&` immediately
 // before the `#` is the whole discriminator — no context, no typed marker. Blanked like an annotated
 // colour so a genuine ref on the same line still fires. The length rule below reaches `&#8212;` and
@@ -183,7 +213,7 @@ export function findTicketRefs(content) {
             return
         }
 
-        if (TICKET_PATTERNS.some(re => re.test(withHtmlEntitiesRemoved(withEscapedColorsRemoved(comment))))) {
+        if (TICKET_PATTERNS.some(re => re.test(withHtmlEntitiesRemoved(withColorsRemoved(withEscapedColorsRemoved(comment)))))) {
             hits.push({line: index + 1, text: line.trim()})
         }
     });
