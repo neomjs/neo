@@ -3355,6 +3355,36 @@ test.describe('getRefreshOptions — the geometry admission is the ENGINE\'s, no
         expect(refreshOptionsFor({operation: 'moveItem', preserveItemIds: ['editor']}),
             'and a commit-scoped park still rides along')
             .toEqual({geometryOnly: false, retainTopology: false, preserveItemIds: ['editor']})
+    });
+
+    /**
+     * The other half of the same delegation. `retainTopology` was the last key this override still
+     * wrote unconditionally, so the engine's `itemFlags` answer — one boolean on one item, node tree
+     * byte-identical — was overwritten with `false`, and a lock click in this host took the full
+     * staged transaction that every other host had already stopped taking.
+     *
+     * The admission is a REQUEST, not a claim: the reconciler validates it and falls back to the
+     * staged path on any structural delta, which is what keeps a railed item honest rather than a
+     * pre-check in this method.
+     */
+    test('an itemFlags commit inherits the engine\'s in-place admission instead of being overwritten', () => {
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'metrics', locked: true}),
+            'a lock writes one flag on one item, so the engine admits the item-only path and the host must not veto it')
+            .toEqual({geometryOnly: false, retainTopology: true});
+
+        // The discriminating half, mirroring the geometry arm above: with the engine contributing
+        // nothing, a host still carrying its own operation list would answer `true` from that list.
+        expect(refreshOptionsFor({operation: 'setItemLocked', itemId: 'metrics', locked: true}, true),
+            'with the engine neutered the host has no itemFlags answer of its own')
+            .toEqual({geometryOnly: false, retainTopology: false});
+
+        expect(refreshOptionsFor({operation: 'detachItem'}, true),
+            'the two operations that ARE this host\'s still answer without the engine')
+            .toEqual({geometryOnly: false, retainTopology: true});
+
+        expect(refreshOptionsFor({operation: 'transferNode'}, true),
+            'both of them, not just the first')
+            .toEqual({geometryOnly: false, retainTopology: true})
     })
 });
 
