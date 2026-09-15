@@ -206,6 +206,81 @@ class Base {}
         expect(burnedDown[0].name).toBe('reconcile')
     });
 
+    test('CLI: the REAL guard, in a real checkout whose path contains a space', async () => {
+        // The previous version of this arm wrote a standalone probe containing COPIES of the two
+        // predicate expressions. It asserted a transcription, not the guard: reverting the real
+        // entry condition would not have failed it. This runs `check-class-module-scope.mjs` itself,
+        // from a git checkout whose directory name contains a space, and asserts its exit status.
+        const {spawnSync}     = await import('node:child_process'),
+              fsMod           = await import('node:fs'),
+              osMod           = await import('node:os'),
+              pathMod         = await import('node:path'),
+              {fileURLToPath} = await import('node:url');
+
+        // realpath the tmpdir: on macOS `/tmp` is a symlink to `/private/tmp`, and a symlinked path
+        // fails the entry predicate for a DIFFERENT reason than a space does — which would make this
+        // arm green for the wrong cause.
+        const base     = fsMod.mkdtempSync(pathMod.join(fsMod.realpathSync(osMod.tmpdir()), 'neo-cli-')),
+              repoRoot = pathMod.resolve(fileURLToPath(import.meta.url), '../../../../../..'),
+              fixture  = pathMod.join(base, 'has space', 'repo'),
+              guardDir = pathMod.join(fixture, 'buildScripts', 'util'),
+              baseline = pathMod.join(guardDir, 'check-class-module-scope-baseline.json'),
+              guard    = pathMod.join(guardDir, 'check-class-module-scope.mjs');
+
+        const run = () => spawnSync(process.execPath, [guard], {cwd: fixture, encoding: 'utf8'});
+
+        try {
+            fsMod.mkdirSync(guardDir, {recursive: true});
+            fsMod.mkdirSync(pathMod.join(fixture, 'src'), {recursive: true});
+
+            // The guard under test, byte-for-byte — not a reimplementation.
+            fsMod.copyFileSync(pathMod.join(repoRoot, 'buildScripts/util/check-class-module-scope.mjs'), guard);
+            fsMod.writeFileSync(baseline, '[]\n');
+            fsMod.writeFileSync(
+                pathMod.join(fixture, 'src', 'Probe.mjs'),
+                'class Probe {}\nfunction plantedHelper() { return 1 }\n\nexport default plantedHelper;\n'
+            );
+            // acorn, resolved from the real install rather than vendored into the fixture.
+            fsMod.symlinkSync(pathMod.join(repoRoot, 'node_modules'), pathMod.join(fixture, 'node_modules'));
+
+            // The guard discovers through `git ls-files`, so the fixture must be a real index. No
+            // commit is needed — `git add` populates it.
+            spawnSync('git', ['init', '-q', '.'], {cwd: fixture, encoding: 'utf8'});
+            spawnSync('git', ['add', '-A'],       {cwd: fixture, encoding: 'utf8'});
+
+            const violation = run();
+
+            expect(violation.status, 'a planted helper fails from a space-containing path').toBe(1);
+            expect(violation.stderr).toContain('src/Probe.mjs');
+            expect(violation.stderr).toContain('plantedHelper');
+
+            // Clean control: the same guard, same path, with the helper baselined.
+            fsMod.writeFileSync(baseline, JSON.stringify([{file: 'src/Probe.mjs', name: 'plantedHelper', count: 1}]) + '\n');
+
+            const clean = run();
+
+            expect(clean.status, 'a baselined helper passes from the same path').toBe(0);
+            expect(clean.stdout).toContain('OK');
+
+            // NEGATIVE control, and the reason this arm exists: revert the entry predicate to the
+            // `file://` string form and the guard stops running at all — exit 0, no output, nothing
+            // checked. This is what the previous copied-expression arm could not detect.
+            fsMod.writeFileSync(baseline, '[]\n');
+            fsMod.writeFileSync(guard, fsMod.readFileSync(guard, 'utf8').replace(
+                'if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {',
+                'if (import.meta.url === `file://${process.argv[1]}`) {'
+            ));
+
+            const reverted = run();
+
+            expect(reverted.status, 'the fragile predicate exits 0').toBe(0);
+            expect(reverted.stdout.trim(), 'and prints nothing — the guard never ran').toBe('');
+            expect(reverted.stderr.trim()).toBe('')
+        } finally {
+            fsMod.rmSync(base, {recursive: true, force: true})
+        }
+    });
+
     test('the CLI entry predicate survives a checkout path containing a space', async () => {
         // The worst failure direction there is: the guard exits 0 having checked nothing.
         // `import.meta.url` percent-encodes and resolves symlinks;
