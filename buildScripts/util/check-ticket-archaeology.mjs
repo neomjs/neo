@@ -57,8 +57,8 @@ export function withEscapedColorsRemoved(comment) {
 
 // Colour syntax is enough on its own: a colour-length number DIRECTLY after `color:`,
 // `backgroundColor_=`, `fillStyle=` or `CSS color` is a colour, marker or not. The published guard
-// carries the same rule (neomjs/neo-agent-skills#68), and the two must agree line for line. A bare
-// `#123456` in prose still reports, because nothing tells it from a six-digit ticket.
+// carries the same rule, and the two must agree line for line. A bare six-digit number in prose
+// still reports, because nothing tells it from a ticket.
 export const CSS_COLOR_VALUE_PATTERN = /#(?:\d{3}|\d{4}|\d{6}|\d{8})(?![A-Za-z0-9_])/g;
 
 // A number with a leading zero is never a ticket in any tracker we use, so it needs no context at all.
@@ -87,8 +87,8 @@ export function withColorsRemoved(comment) {
 
 // A numeric HTML entity is `&` `#` digits `;`, and the digits are a codepoint. The `&` immediately
 // before the `#` is the whole discriminator — no context, no typed marker. Blanked like an annotated
-// colour so a genuine ref on the same line still fires. The length rule below reaches `&#8212;` and
-// `&#8217;`, the em dash and right quote a comment describing rendered markup carries most often.
+// colour so a genuine ref on the same line still fires. The length rule below reaches the four-digit
+// entities for an em dash and a right quote, which rendered-markup comments carry most often.
 export const HTML_ENTITY_PATTERN = /&#\d+;/g;
 
 /**

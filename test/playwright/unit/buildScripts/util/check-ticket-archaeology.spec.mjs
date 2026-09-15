@@ -102,9 +102,9 @@ test.describe('check-ticket-archaeology guard', () => {
 
     /**
      * A numeric HTML entity is `&` `#` digits `;`, and the digits are a codepoint. This guard's length
-     * rule cannot see `&#39;`, but it does see `&#8212;` and `&#8217;` — the em dash and right quote a
-     * comment describing rendered markup carries most often — so the two guards disagreed about the
-     * same line until both carried the exclusion.
+     * rule cannot see a two-digit entity, but it does see the four-digit em dash and right quote — the
+     * pair a comment describing rendered markup carries most often — so the two guards disagreed about
+     * the same line until both carried the exclusion.
      */
     test('a numeric HTML entity is a codepoint, and the exclusion hides nothing beside it', () => {
         const comment = inner => `/**\n * ${inner}\n */`;
