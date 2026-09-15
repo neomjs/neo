@@ -399,6 +399,20 @@ class Worker extends Base {
     }
 
     /**
+     * @summary Whether a rejection is a window going away rather than a defect.
+     *
+     * One condition, two typed shapes, and a caller that knows only one will report the other as a failure:
+     * `promiseMessage()` rejects with `code: 'NEO_DEAD_PORT'` when the port is already gone at call time, while
+     * `removePort()` rejects everything still in flight with `name: 'PortDisconnectedError'`. `Neo.isDestroyed` is
+     * the same class for an instance that went first.
+     * @param {*} reason
+     * @returns {Boolean}
+     */
+    isExpectedTeardown(reason) {
+        return reason === Neo.isDestroyed || reason?.code === 'NEO_DEAD_PORT' || reason?.name === 'PortDisconnectedError'
+    }
+
+    /**
      * @summary Whether this worker recently retired the port of a window, so a call that cannot reach it is that
      * window's departure rather than a defect.
      *

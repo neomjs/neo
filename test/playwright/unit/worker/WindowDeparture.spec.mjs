@@ -109,6 +109,22 @@ test.describe('Neo.worker.Base#isWindowDeparted', () => {
         expect(worker.isWindowDeparted('')).toBe(false)
     });
 
+    test('both typed teardown shapes are excused, because one condition rejects two ways', () => {
+        // `promiseMessage()` rejects with code NEO_DEAD_PORT when the port is already gone at call time;
+        // `removePort()` rejects everything still IN FLIGHT with name PortDisconnectedError. Handling only the
+        // first turned a previously-silent unhandled rejection into a console.error and red three e2e arms —
+        // a guard that knows one of two shapes reports the other as a defect.
+        expect(worker.isExpectedTeardown(Object.assign(new Error('gone'), {code: 'NEO_DEAD_PORT'}))).toBe(true);
+        expect(worker.isExpectedTeardown(Object.assign(new Error('in flight'), {name: 'PortDisconnectedError'}))).toBe(true);
+        expect(worker.isExpectedTeardown(Neo.isDestroyed)).toBe(true)
+    });
+
+    test('a real failure is still a failure', () => {
+        expect(worker.isExpectedTeardown(new TypeError('cannot read properties of null'))).toBe(false);
+        expect(worker.isExpectedTeardown(Object.assign(new Error('other'), {code: 'SOMETHING_ELSE'}))).toBe(false);
+        expect(worker.isExpectedTeardown(undefined)).toBe(false)
+    });
+
     test('a worker that cannot answer must not silence a defect — absence reads as "not departed"', () => {
         // Consumers call this optionally, because `Neo.currentWorker` is a stub in some harnesses and carried no
         // such method before this ticket. The direction of that fallback is the contract: an environment that

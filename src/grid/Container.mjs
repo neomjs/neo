@@ -362,7 +362,7 @@ class GridContainer extends BaseContainer {
             // returns `undefined` in one harness and a plain non-thenable in another. `Promise.resolve` covers all
             // three without awaiting, so the fire-and-forget timing is unchanged.
             onFailure      = reason => {
-                reason !== Neo.isDestroyed && reason?.code !== 'NEO_DEAD_PORT' &&
+                Neo.currentWorker?.isExpectedTeardown?.(reason) ||
                     console.error('grid.Container: ResizeObserver call failed', {reason, id: me.id, windowId})
             };
 

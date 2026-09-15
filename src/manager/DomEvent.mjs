@@ -135,7 +135,7 @@ class DomEvent extends Base {
         // all three without awaiting, so the fire-and-forget timing is unchanged and a non-promise simply never
         // rejects — which is the correct outcome, not a swallowed one.
         Promise.resolve(ResizeObserver.register({componentId: component.id, id: targetId, windowId})).catch(reason => {
-            reason !== Neo.isDestroyed && reason?.code !== 'NEO_DEAD_PORT' &&
+            Neo.currentWorker?.isExpectedTeardown?.(reason) ||
                 console.error('manager.DomEvent: ResizeObserver registration failed', {reason, targetId, windowId})
         })
     }
