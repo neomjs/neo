@@ -271,6 +271,7 @@ class VdomLifecycle extends Base {
                 // causing it to be acknowledged/cleared without actually being updated.
                 if (mergedChildIds) {
                     componentMergedChildren.set(componentId, mergedChildIds);
+                    VDomUpdate.markMergedCollected(componentId, mergedChildIds)
                 }
 
                 // Generate payload for this component.

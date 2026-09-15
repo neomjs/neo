@@ -206,7 +206,8 @@ class VDomUpdate extends Collection {
 
         if (item && processedChildIds) {
             for (const childId of processedChildIds) {
-                if (item.children.has(childId)) {
+                // Only the entry this flight collected: a child that merged again in the air holds a newer one
+                if (item.children.get(childId)?.collected) {
                     me.executePromiseCallbacks(childId, ...callbackData);
                     item.children.delete(childId)
                 }
@@ -494,6 +495,25 @@ class VDomUpdate extends Collection {
                 'See https://github.com/neomjs/neo/issues/12946'
             )
         }, me.watchdogThreshold))
+    }
+
+    /**
+     * Marks the merge registrations a flight collected, so its landing clears exactly those.
+     * A child that merges again while the flight is in the air replaces its entry with an
+     * unmarked one, which the next cycle collects.
+     * @param {String}      ownerId  The `id` of the component owning the flight.
+     * @param {Set<String>} childIds The merged children (and bridges) the flight collected.
+     */
+    markMergedCollected(ownerId, childIds) {
+        const children = this.mergedCallbackMap.get(ownerId)?.children;
+
+        children && childIds.forEach(childId => {
+            const entry = children.get(childId);
+
+            if (entry) {
+                entry.collected = true
+            }
+        })
     }
 
     /**

@@ -368,4 +368,61 @@ test.describe('Asymmetric VDOM Merging', () => {
         expect(insertDelta).toBeTruthy();
         expect(insertDelta.vnode.id).toBe(newChild.vdom.id);
     });
+
+    /**
+     * Scenario 7: A child that merged into the parent's update before collection, and merges again while
+     * that update is in the air. Landing clears every child the flight processed, by id, so the second
+     * merge has to survive it, or the child's newer change waits for an update nothing schedules.
+     */
+    test('Re-merge in flight: a child merging again while the parent flies still ships its newer change', async () => {
+        container = Neo.create(MockContainer, {
+            appName,
+            id   : 'parent-' + testRun,
+            items: [{module: MockComponent, id: 'child-' + testRun, text: 'first'}]
+        });
+
+        await container.initVnode(true);
+        container.mounted = true;
+
+        const child               = container.items[0],
+              originalUpdateBatch = VdomHelper.updateBatch,
+              deltas              = [];
+
+        // One worker round trip of latency, so the second merge lands while the first flight is in the air
+        VdomHelper.updateBatch = async function(data) {
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            const result = await originalUpdateBatch.call(this, data);
+
+            deltas.push(...(result?.deltas || []));
+            return result
+        };
+
+        try {
+            // First merge, before collection
+            container.setSilent({style: {color: 'red'}});
+            child.setSilent({text: 'merged before'});
+
+            const flight = container.promiseUpdate();
+
+            await new Promise(resolve => setTimeout(resolve, 5));
+            expect(container.isVdomUpdating, 'the parent flight is in the air').toBe(true);
+
+            // Second merge, into the update queued behind it, with a promise on the newer change
+            container.setSilent({style: {color: 'blue'}});
+            child.setSilent({text: 'merged in flight'});
+
+            const newerShipped = () => deltas.some(delta => delta.id === child.id && delta.textContent === 'merged in flight'),
+                  settled      = child.promiseUpdate().then(newerShipped);
+
+            await flight;
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(container.isVdomUpdating || container.needsVdomUpdate, 'nothing is left queued').toBe(false);
+            expect(newerShipped(), 'the newer change shipped').toBe(true);
+            expect(await settled, 'and its promise settled only after that').toBe(true)
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch
+        }
+    });
 });
