@@ -162,11 +162,12 @@ class Client extends Base {
             me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
                 serverAddress: url.toString(),
                 listeners    : {
-                    close  : me.onSocketClose,
-                    error  : me.onSocketError,
-                    message: me.onSocketMessage,
-                    open   : me.onSocketOpen,
-                    scope  : me
+                    close           : me.onSocketClose,
+                    error           : me.onSocketError,
+                    message         : me.onSocketMessage,
+                    open            : me.onSocketOpen,
+                    reconnect_failed: me.onSocketReconnectFailed,
+                    scope           : me
                 }
             })
         } catch (e) {
@@ -361,6 +362,17 @@ class Client extends Base {
      */
     onSocketError(event) {
         console.warn('Neo.ai.Client: WebSocket Error', event)
+    }
+
+    /**
+     * @summary The bridge stayed unreachable through every reconnect attempt: the same ordinary state
+     * {@link #onSocketError} reports for anyone not running a Neural Link bridge, so a warning here too.
+     * @param {Object}  failure
+     * @param {Boolean} failure.handled Set, so the socket does not report it as an error
+     */
+    onSocketReconnectFailed(failure) {
+        console.warn('Neo.ai.Client: the Neural Link bridge stayed unreachable, reconnecting stopped');
+        failure.handled = true
     }
 
     /**
