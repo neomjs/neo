@@ -50,15 +50,47 @@ const CASES = {
 let doclets;
 
 /**
+ * @summary The member-default stage from `generateDocsJson.mjs`, replicated line-for-line.
+ *
+ * Asserting the parser's `defaultvalue` certifies a value the generator then OVERWRITES — which is
+ * the failure class this whole file exists for: a valid parse is not correct metadata. For an array
+ * or object type the generator re-extracts from the comment text between `=` and the next newline.
+ * That repairs the `]` the parser drops, empties a one-line block, and — when there is no `=` at all —
+ * takes `indexOf`'s `-1` plus one as zero and publishes the opening comment marker.
+ *
+ * @param {Object} member
+ * @returns {*} What the docs build would publish as this member's default.
+ */
+const generatedDefault = member => {
+    if (member.defaultvalue && member.type?.names) {
+        const type = member.type.names[0].toLowerCase();
+
+        if (type.indexOf('array') > -1 || type.indexOf('object') > -1) {
+            let value = member.comment.substr(member.comment.indexOf('=') + 1);
+
+            return value.substr(0, value.indexOf('\n'))
+        }
+    }
+
+    return member.defaultvalue
+};
+
+/**
  * @param {String} name The documented member's name.
- * @returns {Object} `{defaultvalue, description, access, type}` as the pipeline reports them.
+ * @returns {Object} `{hasDefault, access, defaultvalue, generated, description, type}`.
  */
 const reported = name => {
     const member = doclets.find(doclet => doclet.kind === 'member' && doclet.name === name);
 
     return {
+        // PRESENCE, separately from value. `defaultvalue ?? null` cannot tell a documented `=null`
+        // from a member carrying no default at all, so a regression that deletes the key satisfies
+        // every value assertion. Measured: `=null` yields the key holding null; no default yields no
+        // key — so the discriminator is real rather than assumed.
+        hasDefault  : member ? ('defaultvalue' in member) : false,
         access      : member?.access       ?? null,
         defaultvalue: member?.defaultvalue ?? null,
+        generated   : member ? generatedDefault(member)   : null,
         description : member?.description  ?? null,
         type        : member?.type?.names  ?? null
     }
@@ -109,10 +141,13 @@ test.describe('compact JSDoc — what the production doclet pipeline preserves',
     test('SUPPORTED: a null default is identical one-line and multiline, with its type intact', () => {
         const compact = reported('nullCompact');
 
-        // The type assertion is the load-bearing one. `null === null` is satisfied by a doclet that
-        // lost BOTH its default and its type, so equality alone cannot see that regression.
+        // PRESENCE first. `toBeNull()` plus a type check is still satisfied by a doclet whose
+        // `defaultvalue` key was deleted outright — the value reads null either way. Only the key
+        // tells a documented `=null` apart from a member with no default at all.
+        expect(compact.hasDefault, 'the default is present, not merely null-valued').toBe(true);
         expect(compact.type).toEqual(['Object', 'null']);
         expect(compact.defaultvalue).toBeNull();
+        expect(compact.generated).toBeNull();
         expect(compact).toEqual(reported('nullMultiline'))
     });
 
@@ -129,18 +164,20 @@ test.describe('compact JSDoc — what the production doclet pipeline preserves',
         const arr = reported('arrTightCompact'),
               obj = reported('objTightCompact');
 
-        // The closing `]` is GONE, in both layouts. JSDoc's optional-parameter syntax is
-        // `[name=default]`, so a value whose last character is `]` has it consumed as that marker's
-        // close. `{a:1}` keeps both braces because no such syntax claims them. This is why the arm
-        // asserts the measured string rather than the authored one — and why asserting only
-        // `toEqual(multiline)` hid it: both layouts are damaged identically.
+        // At the PARSER the closing `]` is gone in both layouts: JSDoc's optional-parameter syntax is
+        // `[name=default]`, so a value ending in `]` has it consumed as that marker's close. `{a:1}`
+        // keeps its braces because no syntax claims them.
         expect(arr.defaultvalue).toBe(`['alpha','beta'`);
-        expect(arr.description).toBeNull();
-        expect(arr).toEqual(reported('arrTightMultiline'));
-
         expect(obj.defaultvalue).toBe(`{a:1}`);
-        expect(obj.description).toBeNull();
-        expect(obj).toEqual(reported('objTightMultiline'))
+
+        // At the GENERATOR the multiline form is repaired — re-extraction from the comment restores
+        // the bracket. THIS is what ships, and it is why the multiline inline form is the supported
+        // one for arrays and objects.
+        expect(reported('arrTightMultiline').generated).toBe(`['alpha','beta']`);
+        expect(reported('objTightMultiline').generated).toBe(`{a:1}`);
+
+        expect(arr.description).toBeNull();
+        expect(obj.description).toBeNull()
     });
 
     test('FORBIDDEN: a second tag on one line becomes description text and the access is LOST', () => {
@@ -150,16 +187,14 @@ test.describe('compact JSDoc — what the production doclet pipeline preserves',
         expect(reported('taggedCompact').description).toContain('@protected')
     });
 
-    test('FORBIDDEN: a one-line array default empties the GENERATED default', () => {
-        // `generateDocsJson` re-extracts array/object defaults from the comment text between `=` and
-        // the next newline, and a one-line block HAS no next newline. `indexOf` returns -1 and
-        // `substr(0, -1)` is the empty string.
+    test('FORBIDDEN: a one-line array or object default empties the GENERATED default', () => {
+        // Run through the real generator stage rather than a copied substring expression. A one-line
+        // block has no newline after `=`, so `indexOf` returns -1 and `substr(0, -1)` is empty — the
+        // member documents with no default while the PARSER still reports one, which is exactly the
+        // divergence an equality-only or parser-only assertion cannot see.
         expect(reported('arrTightCompact').defaultvalue).not.toBeNull();
-
-        const comment = CASES.arrTightCompact;
-        let   value   = comment.substr(comment.indexOf('=') + 1);
-
-        expect(value.substr(0, value.indexOf('\n')), 'a one-line array default generates as empty').toBe('')
+        expect(reported('arrTightCompact').generated, 'a one-line array generates empty').toBe('');
+        expect(reported('objTightCompact').generated, 'a one-line object generates empty').toBe('')
     });
 
     test('THE REAL RULE: an inline default truncates at the first WHITESPACE — no comma required', () => {
@@ -189,21 +224,33 @@ test.describe('compact JSDoc — what the production doclet pipeline preserves',
         expect(reported('objTightMultiline').description).toBeNull()
     });
 
-    test('THE ESCAPE HATCH: a separate @default line preserves whitespace the inline form destroys', () => {
-        // Same values that truncate above, written as their own tag, survive intact — including the
-        // array and object forms. This is what an author with a whitespace-bearing default must use.
-        const str = reported('defaultTagStr'),
-              arr = reported('defaultTagArr'),
+    test('THE ESCAPE HATCH is STRING-ONLY: a separate @default preserves whitespace a String cannot express inline', () => {
+        const str = reported('defaultTagStr');
+
+        expect(str.type).toEqual(['String']);
+        expect(str.hasDefault).toBe(true);
+        expect(str.defaultvalue).toBe(`'hello world'`);
+        expect(str.generated, 'a String default is not re-extracted, so it survives').toBe(`'hello world'`);
+        expect(str.description).toBeNull()
+    });
+
+    test('THE TRAP: a separate @default on an array or object publishes `/**` as the default', () => {
+        // This arm exists because an earlier version of §12 recommended exactly this form. It parses
+        // perfectly — and that is the trap, because the generator then overwrites it.
+        //
+        // For an array/object type the generator re-extracts from the comment between `=` and the next
+        // newline. A separate `@default` line contains NO `=`, so `indexOf` returns -1, `-1 + 1` is 0,
+        // and `substr(0)` takes the comment from its first character — up to the first newline, which
+        // is the opening `/**`.
+        const arr = reported('defaultTagArr'),
               obj = reported('defaultTagObj');
 
-        expect(str.defaultvalue).toBe(`'hello world'`);
-        expect(str.description).toBeNull();
-        expect(str.type).toEqual(['String']);
-
+        // The parser is entirely happy. Certifying here is what made the wrong rule look verified.
         expect(arr.defaultvalue).toBe(`['alpha', 'beta']`);
-        expect(arr.description).toBeNull();
-
         expect(obj.defaultvalue).toBe(`{a: 1}`);
-        expect(obj.description).toBeNull()
+
+        // What actually ships.
+        expect(arr.generated, 'the array default publishes as the comment marker').toBe('/**');
+        expect(obj.generated, 'the object default publishes as the comment marker').toBe('/**')
     })
 });

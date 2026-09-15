@@ -576,8 +576,8 @@ character is `]` has it consumed as that marker's close: `=['a','b']` parses as 
 unaffected. `generateDocsJson` re-extracts array and object defaults from the comment text, which repairs the
 **default** in the multiline form — it does not repair the **description**, so a leaked remainder ships.
 
-**When the value must contain whitespace, give `@default` its own line.** It preserves the value exactly,
-including arrays and objects with spaces, and leaves the description empty:
+**For a String whose value must contain whitespace, give `@default` its own line.** A String default is
+not re-extracted by the generator, so it survives exactly, and the description stays empty:
 
 ```javascript
 /**
@@ -585,6 +585,27 @@ including arrays and objects with spaces, and leaves the description empty:
  * @default 'hello world'
  */
 ```
+
+**Never do that for an array or object — it publishes `/**` as the default.** The form parses perfectly,
+which is precisely why it is dangerous. For an array/object type the generator re-extracts from the
+comment text between `=` and the next newline; a separate `@default` line contains no `=`, so `indexOf`
+returns `-1`, `-1 + 1` is `0`, and the extraction starts at the comment's first character and stops at
+the first newline — the opening `/**`.
+
+So an array or object default has exactly one correct form, and all three properties are load-bearing:
+
+```javascript
+/**
+ * @member {String[]} pair=['a','b']     ← inline (the generator needs the `=`),
+ */                                      ← whitespace-free, and in a MULTILINE block
+```
+
+- **inline `name=value`** — a separate `@default` has no `=` and publishes `/**`
+- **whitespace-free** — otherwise the value truncates and the remainder leaks into the description
+- **multiline block** — a one-line block has no newline after `=`, so the default generates empty
+
+An array or object default containing whitespace cannot be expressed correctly in any form. Remove the
+whitespace.
 
 `test/playwright/unit/buildScripts/docletCompactJsdoc.spec.mjs` pins every row of this section against the
 production pipeline, each compact form beside its multiline control, asserting the complete metadata rather
