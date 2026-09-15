@@ -19,7 +19,7 @@ import {test, expect}  from '@playwright/test';
  * hardcoded roots.
  *
  * BOUNDS: this asserts the build produces a tree whose every import resolves. It does NOT boot the
- * output in a browser — see the ticket's AC-4, which remains open for the headless boot arm.
+ * output; `e2e/core/DistEsmWorkspaceBoot.spec.mjs` builds the packed engine and boots what it emits.
  *
  * @see https://github.com/neomjs/neo/issues/17921
  */
