@@ -20,7 +20,7 @@ import process    from 'node:process';
  *
  * It runs pre-push rather than pre-commit for a mechanical reason: the account lives in the commit
  * message (the file is gone, so it cannot live in the file), and at pre-commit time the message does
- * not exist yet. Any guard reading commit messages needs the same hook for the same reason.
+ * not exist yet.
  */
 
 const

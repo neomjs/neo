@@ -20,10 +20,8 @@ name: Spec Retirement Lint
 # adding only this job to the ruleset would leave eighteen false headers standing beside one true one.
 #
 # The other pre-push guard (check-branch-discipline) is hook-only and has no CI mirror at all, so this
-# is still strictly more coverage than the siblings — just not the gate the first draft of this comment
-# claimed. Read from `.husky/pre-push` rather than recalled: an earlier revision of this sentence also
-# counted a guard that runs in a different repository, which made the coverage claim above overstate
-# itself by one.
+# is still strictly more coverage than the sibling — just not the gate the first draft of this comment
+# claimed.
 
 on:
   pull_request:
