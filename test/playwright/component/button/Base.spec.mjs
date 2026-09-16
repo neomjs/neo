@@ -271,4 +271,48 @@ test.describe('Neo.button.Base', () => {
 
         expect(withAttribute).toEqual(classOnly);
     });
+
+    /**
+     * Opening a button's menu hands focus to it, so the arrow keys work without anything focusing an item first.
+     * The arms press no key and call no `focus()` between opening and ArrowDown: that gap is the contract.
+     */
+    for (const how of ['click', 'Enter', 'Space']) {
+        test(`a menu opened by ${how} takes focus, so ArrowDown moves right away`, async ({page}) => {
+            const result = await page.evaluate((config) => {
+                return Neo.worker.App.createNeoInstance(config);
+            }, {
+                importPath: '../button/Base.mjs',
+                ntype     : 'button',
+                parentId  : 'component-test-viewport',
+                text      : 'Actions',
+                menu      : [{text: 'One'}, {text: 'Two'}, {text: 'Three'}]
+            });
+
+            if (!result.success) {
+                throw new Error(`Component creation failed: ${result.error.message}`);
+            }
+
+            buttonId = result.id;
+
+            const button      = page.locator(`#${buttonId}`),
+                  focusedItem = () => page.evaluate(() => {
+                      const node = document.activeElement;
+
+                      return node?.closest('.neo-menu-list') ? node.textContent.trim() : null
+                  });
+
+            if (how === 'click') {
+                await button.click();
+            } else {
+                await button.focus();
+                await page.keyboard.press(how);
+            }
+
+            await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+            await expect.poll(focusedItem, 'focus is on the first item once the menu opens').toBe('One');
+
+            await page.keyboard.press('ArrowDown');
+            await expect.poll(focusedItem, 'the key moved it').toBe('Two');
+        });
+    }
 });
