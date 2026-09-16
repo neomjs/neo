@@ -608,6 +608,18 @@ class DomEvents extends Base {
                 event.preventDefault()
             }
 
+            // A grid editor sits in grid.View's scroll area, and a key its input does not consume scrolls the View,
+            // recycling the pooled row the editor is embodied in. PageUp/PageDown never move a single-line caret;
+            // Home/End scroll under macOS key bindings and move the caret everywhere else. Bindings follow the host
+            // OS, which `navigator.platform` reports even where the user agent is emulated.
+            if (
+                tagName === 'INPUT' &&
+                (['PageDown', 'PageUp'].includes(event.key) || ['End', 'Home'].includes(event.key) && /Mac/.test(navigator.platform)) &&
+                me.testPathInclusion(event, ['neo-grid-editor'])
+            ) {
+                event.preventDefault()
+            }
+
             // Arrows drive roving / efficiency focus within a neo-selection region and may not scroll the
             // page. The app still receives the keydown (sendMessageToApp above) — this only suppresses the
             // browser's scroll default. Space is intentionally NOT suppressed here: native interactive

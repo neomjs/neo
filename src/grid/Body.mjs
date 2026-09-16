@@ -1193,17 +1193,29 @@ class GridBody extends Component {
 
 
     /**
+     * Whether a DOM event happened inside a cell editor (`neo-grid-editor`, the class the Main thread and the
+     * selection models also key on). Such a pointer event belongs to the editor: it neither focuses the View nor
+     * reaches cell or row listeners, so a click in the input places the caret instead of selecting a cell.
+     * @param {Object} data
+     * @param {Object[]} data.path
+     * @returns {Boolean}
+     */
+    isEditorEvent({path}) {
+        return path.some(node => node.cls?.includes('neo-grid-editor'))
+    }
+
+    /**
      * @param {Object} data
      */
     onCellClick(data) {
-        this.fireCellEvent(data, 'cellClick')
+        !this.isEditorEvent(data) && this.fireCellEvent(data, 'cellClick')
     }
 
     /**
      * @param {Object} data
      */
     onCellDoubleClick(data) {
-        this.fireCellEvent(data, 'cellDoubleClick')
+        !this.isEditorEvent(data) && this.fireCellEvent(data, 'cellDoubleClick')
     }
 
     /**
@@ -1220,6 +1232,10 @@ class GridBody extends Component {
         let me     = this,
             {view} = me.gridContainer;
 
+        if (me.isEditorEvent(data)) {
+            return
+        }
+
         // Focus the View, not this physical body: a row activation in ANY body resolves to one
         // View-owned focus state (bodies are render/event delegates). preventScroll keeps the
         // row-click from moving the scroll position; the View's `keys` still catch Up/Down from here.
@@ -1232,7 +1248,7 @@ class GridBody extends Component {
      * @param {Object} data
      */
     onRowDoubleClick(data) {
-        this.fireRowEvent(data, 'rowDoubleClick')
+        !this.isEditorEvent(data) && this.fireRowEvent(data, 'rowDoubleClick')
     }
 
 
