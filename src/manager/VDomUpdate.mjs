@@ -185,6 +185,19 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Marks the promise callbacks parked for a component as claimed by the flight that just collected its payload —
+     * the rule {@link #markMergedCollected} applies to merged children, applied to promises. A success settles only
+     * claimed entries, because a request parked after this point describes a change the payload does not carry.
+     * The entries stay in {@link #promiseCallbackMap}, so every rejection path still reaches all of them.
+     * @param {String} ownerId The `id` of the component whose payload was collected.
+     */
+    claimPromiseCallbacks(ownerId) {
+        this.promiseCallbackMap.get(ownerId)?.forEach(entry => {
+            entry.claimed = true
+        })
+    }
+
+    /**
      * Executes all callbacks associated with a completed VDOM update for a given `ownerId`.
      * This method first processes callbacks for any children that were merged into this
      * update cycle, then executes the callbacks for the `ownerId` itself.
@@ -236,8 +249,9 @@ class VDomUpdate extends Collection {
     }
 
     /**
-     * A helper method that invokes all registered promise callbacks for a given
-     * component ID and then clears them from the queue.
+     * Resolves the promise callbacks a successful flight claimed at payload collection and clears them. A callback
+     * parked after the claim stays parked: it describes a change this flight did not carry, and settles with the
+     * flight that does.
      * @param {String} ownerId The `id` of the component.
      * @param {Object} [data]  Optional data to pass to the callbacks.
      */
@@ -246,10 +260,14 @@ class VDomUpdate extends Collection {
             callbacks = me.promiseCallbackMap.get(ownerId);
 
         if (callbacks) {
+            let unclaimed = callbacks.filter(entry => !entry.claimed);
+
+            // The map is updated before anything settles, so a request made while settling parks on the new list
+            unclaimed.length ? me.promiseCallbackMap.set(ownerId, unclaimed) : me.promiseCallbackMap.delete(ownerId);
+
             for (let i = 0, len = callbacks.length; i < len; i++) {
-                callbacks[i].resolve?.(data)
+                callbacks[i].claimed && callbacks[i].resolve?.(data)
             }
-            me.promiseCallbackMap.delete(ownerId);
         }
     }
 

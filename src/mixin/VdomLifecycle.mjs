@@ -269,9 +269,17 @@ class VdomLifecycle extends Base {
                 // Snapshot the merged children we are about to process.
                 // This prevents race conditions where a child merges *after* collection but *before* resolution,
                 // causing it to be acknowledged/cleared without actually being updated.
+                // The same rule for promises: what is parked NOW is what this payload carries, so this flight settles
+                // exactly that. A promiseUpdate() arriving afterwards describes a change this payload does not hold,
+                // and waits for the flight that does — the one `needsVdomUpdate` triggers. A merged child is claimed
+                // where it is marked collected, because a child skipped below for having no vnode yet is still expanded
+                // into this payload.
+                VDomUpdate.claimPromiseCallbacks(componentId);
+
                 if (mergedChildIds) {
                     componentMergedChildren.set(componentId, mergedChildIds);
-                    VDomUpdate.markMergedCollected(componentId, mergedChildIds)
+                    VDomUpdate.markMergedCollected(componentId, mergedChildIds);
+                    mergedChildIds.forEach(childId => VDomUpdate.claimPromiseCallbacks(childId))
                 }
 
                 // Generate payload for this component.
@@ -640,6 +648,9 @@ class VdomLifecycle extends Base {
                 me._needsVdomUpdate = false;
                 me.afterSetNeedsVdomUpdate?.(false, true);
 
+                // The first render collects here, exactly as a flight does in collectPayloads()
+                VDomUpdate.claimPromiseCallbacks(me.id);
+
                 const data = await Promise.resolve(Neo.vdom.Helper.create({
                     appName    : me.appName,
                     autoMount,
@@ -848,6 +859,16 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Renders this component's current vdom and settles once that render has landed in the DOM.
+     *
+     * The guarantee is about the caller's own change: a render already in the air has collected its payload, so a
+     * change made after that point — and this promise with it — belongs to the next one, and the promise settles
+     * with that. A component that is not mounted yet is the exception: the render that mounts it settles every
+     * promise parked on it, including one asked for after that render collected.
+     *
+     * The guarantee is a success-path one. A failing flight rejects every promise parked on the components it
+     * covers, including one asked for after its payload was collected, whose change it did not carry. Destroying
+     * the component rejects whatever is still parked.
      * @returns {Promise<any>}
      */
     promiseUpdate() {
@@ -889,7 +910,8 @@ class VdomLifecycle extends Base {
         VDomUpdate.executePreUpdates(me.id);
 
         if (me.needsVdomUpdate) {
-            // any new promise callbacks will get picked up by the next update cycle
+            // This cycle settled what it claimed at payload collection. A promise registered after that point is
+            // still parked, describing a change only this next cycle carries — which is what settles it.
             me.update()
         }
     }
