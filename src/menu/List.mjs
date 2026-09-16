@@ -522,6 +522,24 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Hides this submenu and puts focus back on the item that opened it.
+     *
+     * Focus moves first, while this level is still mounted, so it travels between two items of the same menu
+     * cascade and never leaves it — leaving would dismiss the whole cascade. A root menu has nothing to leave.
+     */
+    leaveSubMenu() {
+        let me           = this,
+            {parentMenu} = me,
+            {target}     = me.align || {};
+
+        if (parentMenu) {
+            // showSubMenu() aligns a submenu to the item that opened it, so its target is that item's node id
+            Neo.isString(target) && parentMenu.focus(target);
+            parentMenu.hideSubMenu()
+        }
+    }
+
+    /**
      * @summary Returns the top level of this cascade.
      * @returns {Neo.menu.List}
      */
@@ -771,10 +789,17 @@ class List extends BaseList {
     }
 
     /**
+     * Escape leaves a submenu for the item that opened it, and dismisses a floating root.
      * @param {Object} data
      */
     onKeyDownEscape(data) {
-        this.floating && this.unmount()
+        let me = this;
+
+        if (me.parentMenu) {
+            me.leaveSubMenu()
+        } else {
+            me.floating && me.unmount()
+        }
     }
 
     /**

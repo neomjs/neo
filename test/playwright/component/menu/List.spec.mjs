@@ -313,6 +313,142 @@ test.describe('Neo.menu.List pointer rest', () => {
     })
 });
 
+test.describe('Neo.menu.List keyboard cascade', () => {
+    /**
+     * @summary Returns the text of the menu item holding browser focus, or null.
+     * @param {Object} page
+     * @returns {Promise<String|null>}
+     */
+    function focusedItem(page) {
+        return page.evaluate(() => document.activeElement?.closest('.neo-list-item')?.textContent.trim() ?? null)
+    }
+
+    /**
+     * @summary Creates the menu and puts focus on its first item, `Open`.
+     * @param {Object} page
+     * @returns {Promise<Object>} The menu levels locator
+     */
+    async function createFocusedMenu(page) {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page);
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+        await expect.poll(() => focusedItem(page)).toBe('Open');
+
+        return menus
+    }
+
+    test('Right and Left walk two levels down and back up, with focus on the expected item at every step', async ({page}) => {
+        const menus = await createFocusedMenu(page);
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(menus).toHaveCount(2);
+        await expect.poll(() => focusedItem(page)).toBe('Details');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(menus).toHaveCount(3);
+        await expect.poll(() => focusedItem(page)).toBe('Copy name');
+
+        await page.keyboard.press('ArrowLeft');
+        await expect(menus).toHaveCount(2);
+        await expect.poll(() => focusedItem(page)).toBe('Details');
+
+        await page.keyboard.press('ArrowLeft');
+        await expect(menus).toHaveCount(1);
+        await expect.poll(() => focusedItem(page)).toBe('Inspect')
+    });
+
+    test('Right on a leaf, Left in the root, and Down onto a parent show nothing', async ({page}) => {
+        const menus = await createFocusedMenu(page);
+
+        await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('ArrowLeft');
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        // Absence cannot be polled for: outlast a show, then read
+        await page.waitForTimeout(400);
+
+        await expect(menus).toHaveCount(1);
+        expect(await focusedItem(page)).toBe('Inspect')
+    });
+
+    test('Escape in a submenu hides only that level and focuses its parent item; in the root it dismisses', async ({page}) => {
+        const menus = await createFocusedMenu(page);
+
+        // Opened with Enter, not Right, so this arm witnesses Escape alone
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+        await page.keyboard.press('Enter');
+        await expect(menus).toHaveCount(2);
+        await expect.poll(() => focusedItem(page)).toBe('Details');
+
+        await page.keyboard.press('Escape');
+        await expect(menus).toHaveCount(1);
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        await page.keyboard.press('Escape');
+        await expect(menus).toHaveCount(0)
+    });
+
+    test('Space on an embedded menu\'s item scrolls nothing', async ({page}) => {
+        // Embedded, not floating: a fixed-position menu never reaches the page's scroller, so it cannot fail this
+        menuId = await createMenu(page, {floating: false});
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+
+        // CONTROL: the page must be able to scroll, or an unscrolled page proves nothing. The harness pins `html`
+        // to the viewport, so `body` becomes the scroller.
+        const scrollable = await page.evaluate(() => {
+            const {body} = document;
+
+            body.style.height   = '100%';
+            body.style.overflow = 'auto';
+            document.getElementById('component-test-viewport').style.minHeight = '5000px';
+
+            body.scrollTop = 10;
+
+            const moved = body.scrollTop;
+
+            body.scrollTop = 0;
+
+            return moved
+        });
+
+        expect(scrollable).toBe(10);
+
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+        await page.keyboard.press('Space');
+
+        // A scroll lands within a frame or two; outlast it before reading
+        await page.waitForTimeout(300);
+
+        expect(await page.evaluate(() => document.body.scrollTop)).toBe(0)
+    });
+
+    test('Space on a parent enters its submenu, and Space on a leaf dismisses like Enter', async ({page}) => {
+        const menus = await createFocusedMenu(page);
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        await page.keyboard.press('Space');
+        await expect(menus).toHaveCount(2);
+        await expect.poll(() => focusedItem(page)).toBe('Details');
+
+        await page.keyboard.press('Space');
+        await expect(menus).toHaveCount(3);
+        await expect.poll(() => focusedItem(page)).toBe('Copy name');
+
+        await page.keyboard.press('Space');
+        await expect(menus).toHaveCount(0)
+    })
+});
+
 test.describe('Neo.menu.List focus across a reopen', () => {
     test('a menu shown again inside the focus gap stays open', async ({page}) => {
         menuId = await createMenu(page);
