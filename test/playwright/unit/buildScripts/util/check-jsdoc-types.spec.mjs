@@ -58,21 +58,27 @@ test.describe('check-jsdoc-types guard', () => {
         expect(extractType([scalar], 0, scalar.indexOf('{'))).toBe('String')
     });
 
-    test('inScope covers the authored-source surface (src/ai/examples/apps/docs-app), broader than the docs build', () => {
+    test('inScope covers the authored-source surface (src/examples/apps/docs-app), broader than the docs build', () => {
         expect(inScope('src/dashboard/DockZoneModel.mjs')).toBe(true);
-        expect(inScope('ai/WriteGuard.mjs')).toBe(true);
         expect(inScope('examples/dashboard/dock/MainContainer.mjs')).toBe(true);
         expect(inScope('docs/app/view/Main.mjs')).toBe(true);
         expect(inScope('apps/portal/view/Main.mjs')).toBe(true);
         expect(inScope('apps/ai/view/Main.mjs')).toBe(true); // ALL apps, not only docs-build-configured ones
 
-        // out of scope: build scripts, tests, underscore aggregators, the config overlays, non-.mjs
+        // out of scope: build scripts, tests, underscore aggregators, non-.mjs
         expect(inScope('buildScripts/util/check-jsdoc-types.mjs')).toBe(false);
         expect(inScope('test/playwright/unit/foo.spec.mjs')).toBe(false);
         expect(inScope('src/core/_export.mjs')).toBe(false);
-        expect(inScope('ai/config.mjs')).toBe(false);
-        expect(inScope('ai/mcp/server/memory-core/config.mjs')).toBe(false);
         expect(inScope('README.md')).toBe(false)
+    });
+
+    test('an untracked root is out of scope, so the guard cannot claim a surface CI never checks out', () => {
+        // `ai/` is pre-split residue: a set-up tree has it, a fresh clone does not, and `git ls-files ai`
+        // is 0 in both. A workflow `paths:` filter selects tracked files only, so no filter could ever
+        // watch it — the guard would read files locally that its mirror cannot see. Kept as a named
+        // negative rather than deleted, so removing it from the surface stays a decision with a witness.
+        expect(inScope('ai/WriteGuard.mjs')).toBe(false);
+        expect(inScope('ai/config.mjs')).toBe(false)
     })
 });
 

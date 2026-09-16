@@ -32,10 +32,19 @@ const TYPE_TAG = /@(param|returns?|type|property|prop|typedef|yields?|throws|exc
 // The authored-source surface the team writes JSDoc in — intentionally BROADER than the docs build's
 // current parse set (which only covers configured apps): an unparseable type is a defect anywhere, even
 // where `generate-docs-json` does not yet reach (an unconfigured app/example becomes a build break the
-// moment it is wired in). Excludes underscore-prefixed aggregators, node_modules/dist, and the machine-
-// local config overlays.
-const DEFAULT_DIRS = ['src', 'ai', 'examples', 'apps', 'docs/app'];
-const EXCLUDE      = /(^|\/)_|\/node_modules\/|\/dist\/|(^|\/)ai\/config\.mjs$|(^|\/)ai\/mcp\/server\/[^/]+\/config\.mjs$/;
+// moment it is wired in). Excludes underscore-prefixed aggregators and node_modules/dist.
+//
+// Every member must be TRACKED — `git ls-files <member>` returns a non-zero count. A root whose files
+// are all gitignored is unreachable by any workflow `paths:` filter, so the mirror cannot watch what
+// this guard reads and the two verdicts stop being comparable. It fails silently here rather than
+// loudly: `collectDefaultFiles` tolerates `find`'s non-zero exit, so an untracked root costs no error
+// and the guard simply reports a scope it does not have. The sibling alignment spec pins the rule.
+const DEFAULT_DIRS = ['src', 'examples', 'apps', 'docs/app'];
+const EXCLUDE      = /(^|\/)_|\/node_modules\/|\/dist\//;
+
+// The same surface as globs, the form a workflow `paths:` filter takes — DERIVED from the roots above
+// so an edit to one cannot leave the other behind. `**/*.mjs` is exactly what the `find` selects.
+export const SCAN_SURFACE = Object.freeze(DEFAULT_DIRS.map(dir => `${dir}/**/*.mjs`));
 
 /**
  * @summary Reads the balanced `{type}` starting at `braceStart` on line `i`, spanning continuation lines.

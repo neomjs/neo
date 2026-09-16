@@ -260,8 +260,11 @@ function hasDevPullRequestGate(workflow) {
         // the two as one dimension reads every correctly-mirrored guard in this repo as unmirrored,
         // because the house convention scopes each lint workflow to the files its guard scans — the
         // pre-commit mirror the convention is named for carries one. The allowlist is conditional,
-        // so eligibility for it is not free; it is an alignment question, and until that predicate
-        // exists an allowlist is credited rather than reported as eight false defects.
+        // so eligibility for it is not free; it is an alignment question, and it is answered one
+        // layer out rather than here: the sibling alignment spec holds every guard in
+        // `mirroredGuards()` to `scan ∩ tracked ⊆ paths`, so a filter narrower than the surface it
+        // credits reds there with the uncovered member named. Rejecting it HERE would report the
+        // convention itself as the defect.
         Object.hasOwn(pullRequest, 'types')
     ) {
         return false
@@ -386,6 +389,32 @@ function workflowExecutions() {
  */
 function mirrorsOf(script, workflows) {
     return workflows.filter(({executed}) => executed.has(script)).map(({file}) => file)
+}
+
+/**
+ * @summary Every `lint-staged` guard that a workflow actually runs, with the workflows that run it.
+ *
+ * Exported so the scan-surface alignment spec inherits this population instead of deriving a second
+ * one. The two questions are adjacent — *is a guard mirrored at all* and *does its mirror's filter
+ * cover what it reads* — and a spec that re-implemented the first would answer the second about a
+ * different set of guards than this lint governs, which is the failure mode of every hand-copied
+ * population.
+ *
+ * Registry `clientOnly` rows are excluded, and that is the load-bearing part: an accepted client-only
+ * guard has no workflow, so it has no filter to align, while a guard that GAINS a mirror enters the
+ * alignment population in the same edit — no list anywhere needs updating for that to happen.
+ *
+ * @returns {Object[]} `{script, mirrors:String[]}`, in `discoverGuards()` order
+ */
+export function mirroredGuards() {
+    const
+        workflows = workflowExecutions(),
+        accepted  = new Set(Object.keys(readRegistry().clientOnly || {}));
+
+    return discoverGuards()
+        .filter(script => !accepted.has(script))
+        .map(script => ({script, mirrors: mirrorsOf(script, workflows)}))
+        .filter(({mirrors}) => mirrors.length > 0)
 }
 
 /**

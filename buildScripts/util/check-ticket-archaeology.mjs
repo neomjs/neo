@@ -24,6 +24,13 @@ const scriptRoot = path.resolve(__dirname, '../..');
 export const DEFAULT_SCAN_PATHS = ['src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
 export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 
+// The same surface as globs, which is the form a workflow `paths:` filter takes — DERIVED, never
+// restated, so the two cannot drift apart in an edit that touches only one. A root expands to
+// `**/*.mjs` because that is exactly what the `find` below selects under it.
+export const SCAN_SURFACE = Object.freeze(
+    DEFAULT_SCAN_PATHS.map(scanPath => scanPath.endsWith('.mjs') ? scanPath : `${scanPath}/**/*.mjs`)
+);
+
 // The retired bare marker. Kept as a constant only so the failure message can name what NOT to write.
 // It was honoured here while the published guard had no typed equivalent for a deliberate ref:
 // rejecting it then would have blocked at pre-commit every ref with nowhere to go. `neo-agent-skills`
