@@ -274,6 +274,11 @@ class VdomLifecycle extends Base {
                     VDomUpdate.markMergedCollected(componentId, mergedChildIds)
                 }
 
+                // The same rule for this component's own promises: what is parked NOW is what this payload carries,
+                // so this flight settles exactly that. A promiseUpdate() arriving afterwards describes a change this
+                // payload does not hold, and waits for the flight that does — the one `needsVdomUpdate` triggers.
+                VDomUpdate.claimPromiseCallbacks(componentId);
+
                 // Generate payload for this component.
                 // - Depth 1 (Teleportation): Pass ids=null to force disjoint/pruned payload.
                 // - Depth > 1 (Hybrid): Pass ids=mergedChildIds to enable Sparse Tree generation (pruning clean siblings).
@@ -848,6 +853,11 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Renders this component's current vdom and settles once that render has landed in the DOM.
+     *
+     * The guarantee is about the caller's own change: a render already in the air has collected its payload, so a
+     * change made after that point — and this promise with it — belongs to the next one, and the promise settles
+     * with that. A rejection means the flight carrying the change failed, or the component was destroyed first.
      * @returns {Promise<any>}
      */
     promiseUpdate() {
@@ -889,7 +899,8 @@ class VdomLifecycle extends Base {
         VDomUpdate.executePreUpdates(me.id);
 
         if (me.needsVdomUpdate) {
-            // any new promise callbacks will get picked up by the next update cycle
+            // This cycle settled what it claimed at payload collection. A promise registered after that point is
+            // still parked, describing a change only this next cycle carries — which is what settles it.
             me.update()
         }
     }

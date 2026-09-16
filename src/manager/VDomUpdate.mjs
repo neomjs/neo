@@ -146,6 +146,17 @@ class VDomUpdate extends Collection {
      * @protected
      */
     promiseCallbackMap = null;
+    /**
+     * The promise callbacks a flight took ownership of when it collected its payload, keyed the same way as
+     * {@link #promiseCallbackMap}. A flight settles exactly these: a request that arrives after the collection
+     * is not in the payload, so it stays parked and settles with the flight that carries it.
+     *
+     * The structure is: `Map<'component-id', [{resolve, reject}, ...]>`
+     *
+     * @member {Map|null} claimedCallbackMap=null
+     * @protected
+     */
+    claimedCallbackMap = null;
 
     /**
      * Initializes the manager's internal collections and maps.
@@ -157,6 +168,7 @@ class VDomUpdate extends Collection {
 
         const me = this;
 
+        me.claimedCallbackMap = new Map();
         me.inFlightUpdateMap  = new Map();
         me.mergedCallbackMap  = Neo.create(Collection, {keyProperty: 'ownerId'});
         me.postUpdateQueueMap = Neo.create(Collection, {keyProperty: 'ownerId'});
@@ -182,6 +194,24 @@ class VDomUpdate extends Collection {
         }
 
         me.promiseCallbackMap.get(ownerId).push({resolve, reject})
+    }
+
+    /**
+     * Takes ownership of the promise callbacks parked for a component, on behalf of the flight that just collected
+     * its payload. Only what is claimed here settles with that flight; a request arriving afterwards is not in the
+     * payload, so it stays parked for the flight that carries it — the same rule
+     * {@link #markMergedCollected} applies to merged children.
+     * @param {String} ownerId The `id` of the component whose payload was collected.
+     */
+    claimPromiseCallbacks(ownerId) {
+        let me      = this,
+            parked  = me.promiseCallbackMap.get(ownerId),
+            claimed = me.claimedCallbackMap.get(ownerId);
+
+        if (parked) {
+            me.claimedCallbackMap.set(ownerId, claimed ? claimed.concat(parked) : parked);
+            me.promiseCallbackMap.delete(ownerId)
+        }
     }
 
     /**
@@ -243,13 +273,10 @@ class VDomUpdate extends Collection {
      */
     executePromiseCallbacks(ownerId, data) {
         let me        = this,
-            callbacks = me.promiseCallbackMap.get(ownerId);
+            callbacks = me.takeCallbacks(ownerId);
 
-        if (callbacks) {
-            for (let i = 0, len = callbacks.length; i < len; i++) {
-                callbacks[i].resolve?.(data)
-            }
-            me.promiseCallbackMap.delete(ownerId);
+        for (let i = 0, len = callbacks.length; i < len; i++) {
+            callbacks[i].resolve?.(data)
         }
     }
 
@@ -260,15 +287,12 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId The `id` of the component whose flight failed.
      * @param {*}       error   The error to reject the parked promises with.
      */
-    rejectPromiseCallbacks(ownerId, error) {
+    rejectPromiseCallbacks(ownerId, error, includeParked=false) {
         let me        = this,
-            callbacks = me.promiseCallbackMap.get(ownerId);
+            callbacks = me.takeCallbacks(ownerId, includeParked);
 
-        if (callbacks) {
-            for (let i = 0, len = callbacks.length; i < len; i++) {
-                callbacks[i].reject?.(error)
-            }
-            me.promiseCallbackMap.delete(ownerId)
+        for (let i = 0, len = callbacks.length; i < len; i++) {
+            callbacks[i].reject?.(error)
         }
     }
 
@@ -276,32 +300,56 @@ class VDomUpdate extends Collection {
      * Rejects the promise callbacks for a failed update flight — the error-path twin of
      * {@link #executeCallbacks}. A failed flight has no `processedChildIds` (nothing was
      * applied), so every child merged into `ownerId` is rejected alongside the owner.
-     * @param {String} ownerId The `id` of the component whose update flight failed.
-     * @param {*}       error   The error to reject the parked promises with.
+     * @param {String}   ownerId         The `id` of the component whose update flight failed.
+     * @param {*}        error           The error to reject the parked promises with.
+     * @param {Boolean} [includeParked=false] True also rejects requests that arrived after the flight collected its
+     * payload. A failed flight leaves those to the retry its catch triggers; a component being destroyed has no such
+     * retry, so its call passes true.
      */
-    rejectCallbacks(ownerId, error) {
+    rejectCallbacks(ownerId, error, includeParked=false) {
         let me   = this,
             item = me.mergedCallbackMap.get(ownerId);
 
         if (item) {
             for (const childId of item.children.keys()) {
-                me.rejectPromiseCallbacks(childId, error)
+                me.rejectPromiseCallbacks(childId, error, includeParked)
             }
             me.mergedCallbackMap.remove(ownerId)
         }
 
-        me.rejectPromiseCallbacks(ownerId, error)
+        me.rejectPromiseCallbacks(ownerId, error, includeParked)
     }
 
     /**
-     * Whether any promise callbacks are currently parked for the given `ownerId`. Used by the
+     * Whether any promise callbacks are parked or claimed for the given `ownerId`. Used by the
      * update catch to distinguish a genuinely fire-and-forget failure (which must log, since
      * nothing else surfaces it) from one whose attached promise will reject.
      * @param {String}  ownerId The component `id`.
      * @returns {Boolean}
      */
     hasPromiseCallbacks(ownerId) {
-        return this.promiseCallbackMap.has(ownerId)
+        let me = this;
+
+        return me.promiseCallbackMap.has(ownerId) || me.claimedCallbackMap.has(ownerId)
+    }
+
+    /**
+     * Removes and returns the settlement pairs a flight is about to settle: what it claimed at payload collection,
+     * and — for a component going away, where nothing will carry a later request — what is still parked.
+     * @param {String}   ownerId         The component `id`.
+     * @param {Boolean} [includeParked=false] True also takes requests that arrived after the claim.
+     * @returns {Object[]} The `{resolve, reject}` pairs, in registration order.
+     * @protected
+     */
+    takeCallbacks(ownerId, includeParked=false) {
+        let me      = this,
+            claimed = me.claimedCallbackMap.get(ownerId) || [],
+            parked  = includeParked && me.promiseCallbackMap.get(ownerId) || [];
+
+        me.claimedCallbackMap.delete(ownerId);
+        includeParked && me.promiseCallbackMap.delete(ownerId);
+
+        return claimed.concat(parked)
     }
 
     /**
