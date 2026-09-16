@@ -195,14 +195,41 @@ test.describe('Neo.menu.List pointer rest', () => {
     }];
 
     /**
+     * @summary Measures the named rows inside ONE page task.
+     *
+     * Two `boundingBox()` calls are two round-trips: they can straddle a change, and a row that leaves
+     * between them answers `null` — which then surfaces as a property read on `null` two lines later
+     * rather than as a statement about the menu. One task measures every row against one layout state, and
+     * a row that is not there says so, with the menu count that explains it.
+     * @param {Object} page
+     * @param {String[]} texts
+     * @returns {Promise<Object[]>} Per text, `{text, x, y, width, height}` or `{text, missing: true, menus}`
+     */
+    function measureRows(page, texts) {
+        return page.evaluate(names => names.map(text => {
+            const row = [...document.querySelectorAll('.neo-list-item')].find(item => item.textContent.trim() === text);
+
+            if (!row) {
+                return {text, missing: true, menus: document.querySelectorAll('.neo-menu-list').length}
+            }
+
+            const {height, width, x, y} = row.getBoundingClientRect();
+
+            return {height, text, width, x, y}
+        }), texts)
+    }
+
+    /**
      * @summary Moves the pointer from `Share` to the third submenu row in small steps, recording each row entered.
      * @param {Object} page
      * @returns {Promise<String[]>} The texts of the rows the pointer entered, in order
      */
     async function travelDiagonally(page) {
-        const
-            share = await page.getByText('Share', {exact: true}).boundingBox(),
-            print = await page.getByText('Print', {exact: true}).boundingBox();
+        const [share, print] = await measureRows(page, ['Share', 'Print']);
+
+        [share, print].forEach(row => {
+            expect(row.missing, `${row.text} is not in the DOM; ${row.menus} menu(s) present`).toBeUndefined()
+        });
 
         await page.mouse.move(share.x + share.width / 2, share.y + share.height / 2);
 
