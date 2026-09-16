@@ -25,6 +25,15 @@ globalThis.window   = new EventTarget();
 
 Neo.worker.Manager.on ??= () => {};
 
+// A worker runs many spec files in one process, and `setup.mjs` installs its remotes with `??=`, so whatever this
+// file leaves under `Neo.main` is what every later spec gets — a real `DomAccess`, over a `document` restored below,
+// throws in the next component that focuses. Captured here and put back in afterAll, with document and window.
+const replacedRemotes = {
+    DeltaUpdates: Neo.main.DeltaUpdates,
+    DomAccess   : Neo.main.DomAccess,
+    DomEvents   : Neo.main.DomEvents
+};
+
 delete Neo.main.DomAccess;
 
 const {default: DomAccess}    = await import('../../../../src/main/DomAccess.mjs'),
@@ -46,7 +55,11 @@ test.describe('Neo.main.DomEvents', () => {
         DomEvents.sendMessageToApp = originalSend;
 
         globalThis.document = originalDocument;
-        globalThis.window   = originalWindow
+        globalThis.window   = originalWindow;
+
+        Object.entries(replacedRemotes).forEach(([key, value]) => {
+            value === undefined ? delete Neo.main[key] : Neo.main[key] = value
+        })
     });
 
     test('a focusout fired inside removeNode names the removed node, and one fired elsewhere does not', () => {
