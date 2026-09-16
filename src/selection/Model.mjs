@@ -144,7 +144,7 @@ class Model extends Base {
             NeoArray.remove(itemCollection, item);
 
             if (!silent) {
-                view.update();
+                !view.silentSelect && view.update();
 
                 view.parent?.onDeselect?.(); // grid.Container & table.Container
                 view.onDeselect?.();
@@ -172,7 +172,9 @@ class Model extends Base {
                 me.deselect(item, true)
             });
 
-            if (!silent && items.length > 0) {
+            // Emptiness is already decided by the branch above: nothing selected fires `noChange` instead. What is
+            // left to ask is whether the view renders its own selection — a grid repaints the cells it changed.
+            if (!silent && !view.silentSelect) {
                 view.update()
             }
 

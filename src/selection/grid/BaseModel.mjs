@@ -221,9 +221,7 @@ class BaseModel extends Model {
     deselect(item, silent, itemCollection, selectedCls) {
         let me = this;
 
-        me.view.silentSelect = true;
-        super.deselect(item, silent, itemCollection, selectedCls);
-        me.view.silentSelect = false;
+        me.silently(() => super.deselect(item, silent, itemCollection, selectedCls));
 
         if (!silent) {
             me.updateCells(item)
@@ -238,9 +236,7 @@ class BaseModel extends Model {
         let me    = this,
             items = [...itemCollection || me.items]; // Capture items before they are removed
 
-        me.view.silentSelect = true;
-        super.deselectAll(silent, itemCollection);
-        me.view.silentSelect = false;
+        me.silently(() => super.deselectAll(silent, itemCollection));
 
         me.updateCells(items)
     }
@@ -253,9 +249,7 @@ class BaseModel extends Model {
     select(items, itemCollection, selectedCls) {
         let me = this;
 
-        me.view.silentSelect = true;
-        super.select(items, itemCollection, selectedCls);
-        me.view.silentSelect = false;
+        me.silently(() => super.select(items, itemCollection, selectedCls));
 
         me.updateCells(items)
     }
@@ -404,6 +398,27 @@ class BaseModel extends Model {
         // grid.View registers as the single model's `view`; with one View-owned model there are no
         // sibling per-body models to adopt state from (the former multi-body Peer State Adoption).
         super.register(component)
+    }
+
+    /**
+     * Runs a base selection change with `view.silentSelect` set: the grid repaints selected cells and rows itself, so
+     * the base model must not update the whole View. The previous value is restored rather than reset, because the
+     * changes nest — a single-select `select()` runs `deselectAll()` first — and a reset inside would re-enable the
+     * View update for the rest of the outer change.
+     * @param {Function} fn
+     * @protected
+     */
+    silently(fn) {
+        let {view}         = this,
+            {silentSelect} = view;
+
+        view.silentSelect = true;
+
+        try {
+            fn()
+        } finally {
+            view.silentSelect = silentSelect
+        }
     }
 
     /**

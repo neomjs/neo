@@ -55,6 +55,7 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
                 get     : dataField => globalColumns.find(col => col.dataField === dataField) || null,
                 getCount: () => globalColumns.length
             },
+            getPlugin : () => null,
             isTreeGrid: false
         };
 

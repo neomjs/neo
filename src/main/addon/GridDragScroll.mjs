@@ -250,8 +250,8 @@ class GridDragScroll extends Base {
         }
 
         // Replicate the check from ScrollManager: ignore if clicking on a draggable element
-        // We check for 'neo-draggable' class on the path
-        if (path.some(el => el.classList?.contains('neo-draggable'))) {
+        // We check for 'neo-draggable' class on the path. A press inside a cell editor selects text in its input.
+        if (path.some(el => el.classList?.contains('neo-draggable') || el.classList?.contains('neo-grid-editor'))) {
             return
         }
 

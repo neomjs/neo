@@ -34,6 +34,8 @@ import NeoArray  from '../util/Array.mjs';
  * -   **Cell Rendering:** Generates the VDOM for all cells in the row based on the columns config.
  * -   **Granular Updates:** When a bound record changes, only this specific Row instance updates its VDOM, avoiding a full Grid re-render.
  * -   **Component Management:** Manages the lifecycle of cell components (e.g., Sparklines, Widgets) defined in `Neo.grid.column.Component`.
+ * -   **Edit Projection:** Embeds the editor of `Neo.grid.plugin.CellEditing`'s active session into the cell rendering that
+ *     session's record and column, on every render — the Row, not the plugin, decides where an edit is visible.
  *
  * @class Neo.grid.Row
  * @extends Neo.component.Base
@@ -142,14 +144,15 @@ class Row extends Component {
      * @returns {Object} VDOM object for the cell
      */
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
-        let me                     = this,
-            {colspanField, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache,
-            cellCls                = ['neo-grid-cell'],
-            colspan                = record[colspanField],
-            {dataField}            = column,
-            recordId               = gridBody.getRecordId(record),
-            logicalCellId          = gridBody.getLogicalCellId(record, dataField),
-            fieldValue             = record.get(dataField),
+        let {colspanField, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
+
+        let me            = this,
+            cellCls       = ['neo-grid-cell'],
+            colspan       = record[colspanField],
+            {dataField}   = column,
+            recordId      = gridBody.getRecordId(record),
+            logicalCellId = gridBody.getLogicalCellId(record, dataField),
+            fieldValue    = record.get(dataField),
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -298,6 +301,18 @@ class Row extends Component {
             cellConfig.cn = rendererOutput
         }
 
+        // The cell of the active edit embeds its editor instead of the value. The editor's parent follows the Row
+        // rendering it, so a pool rebinding that drops the cell unmounts the editor, and the next render embeds it again.
+        if (cache.editSession?.dataField === dataField && cache.editSession.recordId === recordId) {
+            let {editor} = cache.editSession;
+
+            editor.parentId !== me.id && (editor.parentId = me.id);
+
+            delete cellConfig.html;
+            delete cellConfig.text;
+            cellConfig.cn = [editor.createVdomReference()]
+        }
+
         return cellConfig
     }
 
@@ -360,7 +375,8 @@ class Row extends Component {
             selectionModel = view?.selectionModel ?? null,
             recordId       = gridBody.getRecordId(record),
             countColumns   = columns.getCount(),
-            cache          = {colspanField, columnPositions, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+            editSession    = gridContainer.getPlugin('grid-cell-editing')?.session ?? null,
+            cache          = {colspanField, columnPositions, editSession, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2

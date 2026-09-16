@@ -372,7 +372,7 @@
  "Neo.grid.header.Wrapper": "Neo.container.Base",
  "Neo.grid.header.plugin.Resizable": "Neo.plugin.Resizable",
  "Neo.grid.plugin.AnimateRows": "Neo.plugin.Base",
- "Neo.grid.plugin.CellEditing": "Neo.table.plugin.CellEditing",
+ "Neo.grid.plugin.CellEditing": "Neo.plugin.Base",
  "Neo.layout.Base": "Neo.core.Base",
  "Neo.layout.Card": "Neo.layout.Base",
  "Neo.layout.Cube": "Neo.layout.Card",

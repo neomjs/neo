@@ -41,6 +41,19 @@ class Column extends Base {
          */
         dataField_: null,
         /**
+         * True lets `Neo.grid.plugin.CellEditing` edit this column's cells. Turning it off while one of them is
+         * being edited cancels that edit.
+         * @member {Boolean} editable_=false
+         * @reactive
+         */
+        editable_: false,
+        /**
+         * The field config a cell editor is created from, e.g. `{module: NumberField, maxValue: 100}`.
+         * `null` edits with a `Neo.form.field.Text`.
+         * @member {Object|null} editor=null
+         */
+        editor: null,
+        /**
          * @member {String} hideMode_='removeDom'
          */
         hideMode_: 'removeDom',
@@ -114,6 +127,17 @@ class Column extends Base {
             if (button) {
                 button.dataField = value
             }
+        }
+    }
+
+    /**
+     * Triggered after the editable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetEditable(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.parent?.onColumnEditableChange(this)
         }
     }
 

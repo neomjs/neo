@@ -1036,6 +1036,15 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered by `grid.column.Base#afterSetEditable`. The cell editing plugin, when present, ends an edit its
+     * column no longer allows.
+     * @param {Neo.grid.column.Base} column
+     */
+    onColumnEditableChange(column) {
+        this.getPlugin('grid-cell-editing')?.onColumnEditableChange(column)
+    }
+
+    /**
      * Triggered by `grid.column.Base#afterSetLocked`
      * Re-sorts the internal columns collection, the header items, and triggers a layout refresh.
      * @param {Neo.grid.column.Base} column
