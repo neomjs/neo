@@ -32,8 +32,10 @@ class Component extends Manager {
     /**
      * The same reverse shape as `childMap`, for the OWNER rather than the render parent.
      * Keys are `parentComponent` ids, values are Sets of component ids.
-     * The two disagree only while something holds a component outside its owner's node — a drag proxy is
-     * the one case in the engine today — and `getOwnedChildren()` is where they are read together.
+     * The two disagree for every component rendered outside its owner's node: a button's menu (rendered at
+     * `document.body`), an open submenu (rendered under the app's main view), the tab overflow control and
+     * Markdown-injected components for as long as they exist, and a drag proxy's content for as long as the drag
+     * lasts. `getOwnedChildren()` is where the two are read together.
      * @member {Map<String, Set<String>>} ownerMap=new Map()
      */
     ownerMap = new Map()
@@ -131,6 +133,11 @@ class Component extends Manager {
      * Returns the first component which matches the config-selector moving down the component items tree.
      * Use returnFirstMatch=false to get an array of all matching items instead.
      * If no match is found, returns null in case returnFirstMatch === true, otherwise an empty Array.
+     *
+     * The tree is the OWNERSHIP tree, the one `component.Abstract#parent` walks upwards: besides the components
+     * a node renders, it descends into the ones it owns but renders elsewhere — a button's menu, an open
+     * submenu, the content of a drag proxy — so a lookup from an owner finds what it owns wherever it is drawn.
+     * Each component is returned once, however many ways the walk reaches it.
      * @param {Neo.component.Base|String} component
      * @param {Object|String|null} config
      * @param {Boolean} returnFirstMatch=true
@@ -141,13 +148,6 @@ class Component extends Manager {
             component = this.getById(component);
         }
 
-        let me          = this,
-            matchArray  = [],
-            returnValue = null,
-            i           = 0,
-            returnArray = [],
-            childItems, configArray, configLength, len;
-
         if (Neo.isString(config)) {
             config = {
                 ntype: config
@@ -156,41 +156,7 @@ class Component extends Manager {
             config = {}
         }
 
-        configArray  = Object.entries(config);
-        configLength = configArray.length;
-
-        configArray.forEach(([key, value]) => {
-            if ((component[key] === value)
-                || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value)))
-            {
-                matchArray.push(true)
-            }
-        });
-
-        if (matchArray.length === configLength) {
-            if (returnFirstMatch) {
-                return component
-            }
-
-            returnArray.push(component)
-        }
-
-        childItems = me.getOwnedChildren(component);
-        len        = childItems.length;
-
-        for (; i < len; i++) {
-            returnValue = me.down(childItems[i], config, returnFirstMatch);
-
-            if (returnFirstMatch) {
-                if (returnValue !== null) {
-                    return returnValue
-                }
-            } else if (returnValue.length > 0) {
-                returnArray.push(...returnValue)
-            }
-        }
-
-        return returnFirstMatch ? null: returnArray
+        return this.walkDown(component, Object.entries(config), returnFirstMatch, new Set())
     }
 
     /**
@@ -318,40 +284,6 @@ class Component extends Manager {
     }
 
     /**
-     * @summary Returns the direct children a component OWNS: the ones it renders, plus the ones a proxy holds for it.
-     *
-     * `getDirectChildren()` answers the render question — who sits inside this node — and DOM consumers depend on
-     * that exact meaning (`mixin.VdomLifecycle` unmounts by it). Ownership is the wider question, and the two
-     * differ for exactly as long as a drag lasts: `draggable.DragProxyContainer` roots the dragged component at
-     * `document.body` and keeps the container it came from as `parentComponent`, so the render parent and the
-     * owner are two different components. `component.Abstract#parent` already ranks them owner-first; this is
-     * the same ranking, walked downwards.
-     *
-     * A component reachable both ways is returned once.
-     * @param {Neo.component.Base} component
-     * @returns {Neo.component.Base[]}
-     */
-    getOwnedChildren(component) {
-        let me       = this,
-            children = me.getDirectChildren(component.id),
-            ownedIds = me.ownerMap.size && me.ownerMap.get(component.id);
-
-        // `ownerMap` is empty in most apps and small in the rest — seven assignments of `parentComponent`
-        // exist in the engine — so the size check keeps the common walk at one Map read per node
-        if (ownedIds) {
-            const rendered = new Set(children.map(child => child.id));
-
-            ownedIds.forEach(id => {
-                const owned = !rendered.has(id) && me.get(id);
-
-                owned && children.push(owned)
-            })
-        }
-
-        return children
-    }
-
-    /**
      * Returns the distance between a child and a parent component
      * @param {String} childId
      * @param {String} parentId
@@ -455,6 +387,40 @@ class Component extends Manager {
         }, root);
 
         return result
+    }
+
+    /**
+     * @summary Returns the direct children a component OWNS: the ones it renders, plus the ones it owns but renders elsewhere.
+     *
+     * `getDirectChildren()` answers the render question — who sits inside this node — and DOM consumers depend on
+     * that exact meaning (`mixin.VdomLifecycle` unmounts by it). Ownership is the wider question. The two differ
+     * for every component drawn outside its owner's node: a button's menu at `document.body` and an open submenu
+     * under the app's main view for their whole life, a drag proxy's content for the length of the drag.
+     * `component.Abstract#parent` already ranks them owner-first; this is the same ranking, walked downwards.
+     *
+     * A component reachable both ways from THIS node is returned once. Across a whole walk, where the same
+     * component can hang under two different keys, `walkDown()` owns the dedupe.
+     * @param {Neo.component.Base} component
+     * @returns {Neo.component.Base[]}
+     */
+    getOwnedChildren(component) {
+        let me       = this,
+            children = me.getDirectChildren(component.id),
+            ownedIds = me.ownerMap.size && me.ownerMap.get(component.id);
+
+        // `ownerMap` holds only components with a `parentComponent`, so it is small, and empty in an app without
+        // menus, overflow controls or a drag in flight: the size check keeps that walk at one Map read per node
+        if (ownedIds) {
+            const rendered = new Set(children.map(child => child.id));
+
+            ownedIds.forEach(id => {
+                const owned = !rendered.has(id) && me.get(id);
+
+                owned && children.push(owned)
+            })
+        }
+
+        return children
     }
 
     /**
@@ -608,6 +574,14 @@ class Component extends Manager {
     }
 
     /**
+     * @param {String} wrapperId
+     * @param {Neo.component.Base} component
+     */
+    registerWrapperNode(wrapperId, component) {
+        this.wrapperNodes.set(wrapperId, component)
+    }
+
+    /**
      * Removes one id from a reverse index, dropping the bucket when it empties.
      * @param {Map<String, Set<String>>} index
      * @param {String} key
@@ -621,14 +595,6 @@ class Component extends Manager {
             set.delete(id);
             set.size === 0 && index.delete(key)
         }
-    }
-
-    /**
-     * @param {String} wrapperId
-     * @param {Neo.component.Base} component
-     */
-    registerWrapperNode(wrapperId, component) {
-        this.wrapperNodes.set(wrapperId, component)
     }
 
     /**
@@ -685,14 +651,19 @@ class Component extends Manager {
         configArray  = Object.entries(config);
         configLength = configArray.length;
 
-        // `parent` prefers the OWNER over the render parent, which is the only way out of a drag proxy:
-        // it roots the dragged component at `document.body`, so a `parentId` walk leaves the owning tree
+        // `parent` prefers the OWNER over the render parent, so a menu, a submenu or a drag proxy's content walks
+        // up through the component that owns it rather than the node that draws it. The visited set ends a
+        // `parentComponent` cycle, which the owner link makes expressible
+        const visited = new Set();
+
         while (component) {
             component = component.parent;
 
-            if (!component) {
+            if (!component || visited.has(component.id)) {
                 return returnFirstMatch ? null : returnArray
             }
+
+            visited.add(component.id);
 
             matchArray = [];
 
@@ -710,6 +681,74 @@ class Component extends Manager {
                 returnArray.push(component)
             }
         }
+    }
+
+    /**
+     * @summary The recursion behind `down()`, remembering every component the walk has visited.
+     *
+     * A component can sit in both reverse indexes under DIFFERENT keys: `menu.List` renders an open submenu under
+     * the app's main view while its owner sits deeper below that same view, so a walk from the main view meets
+     * the submenu once through each index. One visited set for the whole walk returns it once, and ends a
+     * `parentComponent` cycle instead of recursing through it.
+     * @param {Neo.component.Base} component
+     * @param {Array[]} configArray The selector's `Object.entries()`
+     * @param {Boolean} returnFirstMatch
+     * @param {Set<String>} visited The ids this walk has already expanded
+     * @returns {Neo.component.Base|Neo.component.Base[]|null}
+     * @protected
+     */
+    walkDown(component, configArray, returnFirstMatch, visited) {
+        let me           = this,
+            configLength = configArray.length,
+            matchArray   = [],
+            returnValue  = null,
+            i            = 0,
+            returnArray  = [],
+            childItems, len;
+
+        // Only a component with an owner can be reached twice — once through the node that renders it, once through
+        // the one that owns it — and only an owner link can close a cycle, since the render tree has one parent per
+        // node. So only those are remembered: a walk through an app without owned components pays nothing for it
+        if (me.ownerMap.size && component.parentComponent) {
+            if (visited.has(component.id)) {
+                return returnFirstMatch ? null : returnArray
+            }
+
+            visited.add(component.id)
+        }
+
+        configArray.forEach(([key, value]) => {
+            if ((component[key] === value)
+                || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value)))
+            {
+                matchArray.push(true)
+            }
+        });
+
+        if (matchArray.length === configLength) {
+            if (returnFirstMatch) {
+                return component
+            }
+
+            returnArray.push(component)
+        }
+
+        childItems = me.getOwnedChildren(component);
+        len        = childItems.length;
+
+        for (; i < len; i++) {
+            returnValue = me.walkDown(childItems[i], configArray, returnFirstMatch, visited);
+
+            if (returnFirstMatch) {
+                if (returnValue !== null) {
+                    return returnValue
+                }
+            } else if (returnValue.length > 0) {
+                returnArray.push(...returnValue)
+            }
+        }
+
+        return returnFirstMatch ? null: returnArray
     }
 }
 

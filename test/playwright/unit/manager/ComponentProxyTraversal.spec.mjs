@@ -106,3 +106,52 @@ test.describe('Neo.manager.Component traversal across a drag proxy', () => {
         stranger.destroy()
     })
 });
+
+/**
+ * @summary A component rendered by one node and owned by ANOTHER node inside the same walk.
+ *
+ * Not a drag: the shape `menu.List` ships for every open submenu — rendered under the app's main view, owned
+ * by the component that opened it, which itself sits below that main view. Both indexes hold it, under two
+ * different keys, for as long as it exists. A dedupe scoped to the node being expanded sees each key alone
+ * and returns it twice; only a walk that remembers what it already visited returns it once.
+ */
+test.describe('Neo.manager.Component traversal across two keys', () => {
+    let owned, root;
+
+    test.afterEach(() => {
+        owned?.destroy();
+        root?.destroy();
+        owned = root = null
+    });
+
+    test('a component rendered under the root and owned by its descendant is returned once, and still reached from its owner', () => {
+        root = Neo.create(Container, {
+            appName,
+            parentId: 'document.body',
+            items   : [{module: Container, items: [{module: Component, reference: 'opener'}]}]
+        });
+
+        const opener = root.down({reference: 'opener'});
+
+        owned = Neo.create(Component, {appName, parentComponent: opener, parentId: root.id, reference: 'owned'});
+
+        const ids = ComponentManager.down(root, {appName}, false).map(component => component.id);
+
+        expect(ids.filter(id => id === owned.id), 'one visit, although both indexes hold it').toHaveLength(1);
+        expect(new Set(ids).size, 'no component is visited twice').toBe(ids.length);
+        expect(opener.down({reference: 'owned'}), 'its owner still reaches it').toBe(owned)
+    });
+
+    test('a parentComponent cycle ends both walks', () => {
+        root = Neo.create(Container, {appName, parentId: 'document.body', items: []});
+        owned = Neo.create(Component, {appName, parentComponent: root, parentId: 'document.body'});
+
+        // Closes the loop the other way: pathological, but the owner index makes it expressible
+        root.parentComponent = owned;
+
+        expect(ComponentManager.down(root, {reference: 'nothing'}), 'down() terminates').toBeNull();
+        expect(owned.up({reference: 'nothing'}), 'up() terminates').toBeNull();
+
+        root.parentComponent = null
+    })
+});
