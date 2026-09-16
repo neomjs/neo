@@ -143,14 +143,20 @@ test.describe('Neo.menu.List leaf-click cascade', () => {
 });
 
 test.describe('Neo.menu.List parent click', () => {
-    test('a second click on a parent hides the submenu its first click showed', async ({page}) => {
-        menuId = await createMenu(page);
+    test('without hover, a rest shows nothing, and a second click on a parent hides the submenu its first click showed', async ({page}) => {
+        menuId = await createMenu(page, {showSubMenuOnHover: false});
 
         const
             inspect = page.getByText('Inspect', {exact: true}),
             menus   = page.locator('.neo-menu-list');
 
         await expect(menus).toHaveCount(1);
+        await inspect.hover();
+
+        // Absence cannot be polled for: outlast the default rest delay, then read
+        await page.waitForTimeout(400);
+        await expect(menus).toHaveCount(1);
+
         await inspect.click();
         await expect(menus).toHaveCount(2);
 
@@ -162,6 +168,148 @@ test.describe('Neo.menu.List parent click', () => {
         await page.waitForTimeout(300);
 
         expect(await levelCounts(page)).toEqual([2, 1])
+    })
+});
+
+test.describe('Neo.menu.List pointer rest', () => {
+    /**
+     * @summary A parent over three siblings, whose submenu has three rows.
+     *
+     * The shape the diagonal arm needs: the submenu aligns to its parent's top, so the path from `Share` to the
+     * third submenu row descends while still inside the root menu, across `Rename`.
+     * @type {Object[]}
+     */
+    const restItems = [{
+        id   : 'share',
+        items: [{id: 'email', text: 'Email'}, {id: 'link', text: 'Copy link'}, {id: 'print', text: 'Print'}],
+        text : 'Share'
+    }, {
+        id  : 'rename',
+        text: 'Rename'
+    }, {
+        id  : 'duplicate',
+        text: 'Duplicate'
+    }, {
+        id  : 'delete',
+        text: 'Delete'
+    }];
+
+    /**
+     * @summary Moves the pointer from `Share` to the third submenu row in small steps, recording each row entered.
+     * @param {Object} page
+     * @returns {Promise<String[]>} The texts of the rows the pointer entered, in order
+     */
+    async function travelDiagonally(page) {
+        const
+            share = await page.getByText('Share', {exact: true}).boundingBox(),
+            print = await page.getByText('Print', {exact: true}).boundingBox();
+
+        await page.mouse.move(share.x + share.width / 2, share.y + share.height / 2);
+
+        await page.evaluate(() => {
+            window.__enteredRows = [];
+
+            document.addEventListener('mouseover', ({target}) => {
+                const text = target.closest?.('.neo-list-item')?.textContent.trim();
+
+                text && window.__enteredRows.at(-1) !== text && window.__enteredRows.push(text)
+            }, true)
+        });
+
+        await page.mouse.move(print.x + print.width / 2, print.y + print.height / 2, {steps: 20});
+
+        return page.evaluate(() => window.__enteredRows)
+    }
+
+    test('resting on a parent previews its submenu without selecting it or moving focus', async ({page}) => {
+        menuId = await createMenu(page, {items: restItems});
+
+        const
+            menus = page.locator('.neo-menu-list'),
+            share = page.locator('.neo-list-item', {has: page.getByText('Share', {exact: true})});
+
+        await expect(menus).toHaveCount(1);
+        await expect.poll(() => page.evaluate(() => document.activeElement?.closest('.neo-menu-list')?.id)).toBe(menuId);
+
+        const focused = await page.evaluate(() => document.activeElement.id);
+
+        await share.hover();
+
+        await expect(menus).toHaveCount(2);
+        await expect(share).toHaveAttribute('aria-expanded', 'true');
+        await expect(share).not.toHaveClass(/neo-selected/);
+        expect(await page.evaluate(() => document.activeElement.id)).toBe(focused)
+    });
+
+    test('resting on a leaf hides the submenu showing for its sibling', async ({page}) => {
+        menuId = await createMenu(page, {items: restItems});
+
+        const menus = page.locator('.neo-menu-list');
+
+        await page.getByText('Share', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+
+        await page.getByText('Rename', {exact: true}).hover();
+        await expect(menus).toHaveCount(1)
+    });
+
+    test('a diagonal path into the submenu keeps it showing, although it crosses a sibling', async ({page}) => {
+        menuId = await createMenu(page, {items: restItems});
+
+        const menus = page.locator('.neo-menu-list');
+
+        await page.getByText('Share', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+
+        // The witness that the path really crosses a sibling, without which staying open proves nothing
+        expect(await travelDiagonally(page)).toContain('Rename');
+
+        // A switch lands once the delay elapses, so outlast it before reading
+        await page.waitForTimeout(400);
+        await expect(menus).toHaveCount(2)
+    });
+
+    test('CONTROL: the same path closes the submenu when a rest counts on enter', async ({page}) => {
+        menuId = await createMenu(page, {items: restItems, subMenuHoverDelay: 0});
+
+        const menus = page.locator('.neo-menu-list');
+
+        await page.getByText('Share', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+
+        expect(await travelDiagonally(page)).toContain('Rename');
+        await expect(menus).toHaveCount(1)
+    });
+
+    test('a click on the parent of a preview never closes it', async ({page}) => {
+        menuId = await createMenu(page, {items: restItems});
+
+        const
+            menus = page.locator('.neo-menu-list'),
+            share = page.getByText('Share', {exact: true});
+
+        await share.hover();
+        await expect(menus).toHaveCount(2);
+
+        // Counted per removal, not per level count: a toggle's close and the selection's reopen land in one
+        // worker task, and a count read once per mutation batch reads 2 on both sides of them
+        await page.evaluate(() => {
+            window.__menuRemovals = 0;
+
+            new MutationObserver(records => records.forEach(({removedNodes}) => {
+                removedNodes.forEach(node => {
+                    node.classList?.contains('neo-menu-list') && window.__menuRemovals++
+                })
+            })).observe(document.body, {childList: true, subtree: true})
+        });
+
+        await share.click();
+
+        // Outlast the rest delay before reading, so a late close is inside the window too
+        await page.waitForTimeout(400);
+
+        await expect(menus).toHaveCount(2);
+        expect(await page.evaluate(() => window.__menuRemovals)).toBe(0)
     })
 });
 

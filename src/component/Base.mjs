@@ -127,6 +127,13 @@ class Component extends Abstract {
          */
         floating_: false,
         /**
+         * A floating component that mounts moves focus into its first focusable item: a popup takes the caret
+         * with it. False mounts it without taking focus, for a surface that only previews content, like a submenu
+         * shown because the pointer rests on its parent item.
+         * @member {Boolean} focusOnMount=true
+         */
+        focusOnMount: true,
+        /**
          * Internal flag which will get set to true on mount
          * @member {Boolean} hasBeenMounted=false
          * @protected
@@ -765,7 +772,7 @@ class Component extends Abstract {
                     me.alignTo();
 
                     // Focus will be pushed into the first input field or other focusable item
-                    me.focus(me.id, true)
+                    me.focusOnMount && me.focus(me.id, true)
                 }
 
                 me.fire('mounted', me.id);

@@ -122,8 +122,8 @@ class List extends Component {
          *
          * The rule needs a single source because it is consumed twice, in two different languages —
          * as a CSS `:not()` selector handed to `Neo.main.addon.Navigator` (see `afterSetMounted`), and
-         * as a class check inside `Neo.selection.ListModel`'s click delegate, which cannot parse a
-         * selector. Both were hardcoded literals until a third concept needed adding and revealed that
+         * as the class check in `getInteractiveItemIndex()`, which pointer delegates call because they
+         * cannot parse a selector. Both were hardcoded literals until a third concept needed adding and revealed that
          * editing one and missing the other yields a row that is unclickable but still arrow-navigable.
          *
          * **Read at construct time.** The navigator selector is built once, behind `hasNavigator`, and
@@ -737,9 +737,30 @@ class List extends Component {
     }
 
     /**
+     * @summary Returns the event-path index of the first item a pointer may act on.
+     *
+     * The class check behind `getNavigableItemSelector()`, for DOM listener delegates, which cannot parse a
+     * selector yet (TODO parse delegate selectors). Every pointer consumer — the selection model's click, a
+     * menu's hover — calls it, so all of them exclude the same items.
+     * @param {Object[]} path The DOM event path
+     * @returns {Number|undefined}
+     */
+    getInteractiveItemIndex(path) {
+        const {itemCls, nonInteractiveItemCls} = this;
+
+        for (let i = 0, {length} = path; i < length; i++) {
+            const {cls} = path[i];
+
+            if (cls.includes(itemCls) && !nonInteractiveItemCls.some(name => cls.includes(name))) {
+                return i
+            }
+        }
+    }
+
+    /**
      * Builds the CSS selector matching every item a pointer or an arrow key may land on.
      *
-     * The single source for the rule `Neo.selection.ListModel` re-evaluates per click event. Both
+     * The selector form of the rule `getInteractiveItemIndex()` evaluates per pointer event. Both
      * derive from `nonInteractiveItemCls`, so a subclass adding a non-interactive concept — a menu
      * separator, say — is excluded from clicking and navigation by one declaration instead of two
      * hand-kept copies.
