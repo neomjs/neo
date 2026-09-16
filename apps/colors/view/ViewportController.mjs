@@ -98,16 +98,10 @@ class ViewportController extends Controller {
 
     /**
      * @summary Lifecycle method, called after the controller's component is constructed.
-     * @description Resolves the widget references, then triggers the initial data load for the widgets.
-     * The references resolve here, while every widget still sits in the Viewport's component tree: a drag hosts
-     * its panel in a `DragProxyContainer`, and a torn-out widget leaves the tree for good, and a lookup from the
-     * Viewport finds neither. Once cached, a reference keeps reaching the same instance wherever it moves.
+     * @description Triggers the initial data load for the widgets.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
-
-        ['bar-chart', 'grid', 'pie-chart'].forEach(name => this.getReference(name));
-
         this.updateWidgets()
     }
 

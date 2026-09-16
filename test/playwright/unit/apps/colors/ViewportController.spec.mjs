@@ -142,9 +142,10 @@ test.describe('Colors ViewportController resume across a drag', () => {
 
         hostInDragProxy(dashboard, gridPanel);
 
-        // The state the failure needs: alive (destroy unregisters), and no longer findable from the Viewport
-        expect(Neo.getComponent(grid.id)).toBe(grid);
-        expect(viewport.down({reference: 'grid'})).toBeNull();
+        // Nothing was resolved before the drag: the controller asks for the first time WHILE the proxy holds
+        // the panel, which is the state this app's ~1-in-3 CI red was measured in
+        expect(controller.references.grid).toBeUndefined();
+        expect(viewport.down({reference: 'grid'}), 'the owner reaches what the proxy holds for it').toBe(grid);
 
         releaseReads();
 
@@ -152,18 +153,16 @@ test.describe('Colors ViewportController resume across a drag', () => {
 
         expect(controller.getReference('grid')).toBe(grid);
         expect(grid.store.first().columnA).toBe(`answer-${readCount}`);
-        expect(controller.getReference('bar-chart').chartData).toEqual([{color: `#00000${readCount}`, count: 10}]);
-
-        // What carried it: the references were resolved while the widgets were still in the tree
-        expect(Object.hasOwn(controller.references, 'grid')).toBe(true)
+        expect(controller.getReference('bar-chart').chartData).toEqual([{color: `#00000${readCount}`, count: 10}])
     });
 
-    test('CONTROL: without the cached references the same resume finds nothing and returns instead of throwing', async () => {
+    test('CONTROL: a widget that is gone leaves the resume returning instead of throwing', async () => {
         const {controller, dashboard, gridPanel} = createViewport();
 
-        hostInDragProxy(dashboard, gridPanel);
-
-        // The pre-fix state: nothing was resolved while the widgets were still reachable
+        // Not a drag: the panel is destroyed, so no owner holds the grid and the lookup has nothing to find.
+        // Without this arm, "the resume survives a missing widget" would rest on the drag case alone, where
+        // the widget is never actually missing
+        dashboard.remove(gridPanel, true);
         ['bar-chart', 'grid', 'pie-chart'].forEach(name => delete controller.references[name]);
 
         const resumed = controller.updateWidgets();

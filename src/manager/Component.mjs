@@ -30,6 +30,15 @@ class Component extends Manager {
     childMap = new Map()
 
     /**
+     * The same reverse shape as `childMap`, for the OWNER rather than the render parent.
+     * Keys are `parentComponent` ids, values are Sets of component ids.
+     * The two disagree only while something holds a component outside its owner's node — a drag proxy is
+     * the one case in the engine today — and `getOwnedChildren()` is where they are read together.
+     * @member {Map<String, Set<String>>} ownerMap=new Map()
+     */
+    ownerMap = new Map()
+
+    /**
      * @member {Map} wrapperNodes=new Map()
      */
     wrapperNodes = new Map()
@@ -44,6 +53,24 @@ class Component extends Manager {
 
         Neo.first        = me.getFirst.bind(me); // alias
         Neo.getComponent = me.get     .bind(me)  // alias
+    }
+
+    /**
+     * Adds one id to a reverse index, creating the bucket when it is the first entry.
+     * @param {Map<String, Set<String>>} index
+     * @param {String} key
+     * @param {String} id
+     * @protected
+     */
+    addToIndex(index, key, id) {
+        let set = index.get(key);
+
+        if (!set) {
+            set = new Set();
+            index.set(key, set)
+        }
+
+        set.add(id)
     }
 
     /**
@@ -148,7 +175,7 @@ class Component extends Manager {
             returnArray.push(component)
         }
 
-        childItems = me.getDirectChildren(component.id);
+        childItems = me.getOwnedChildren(component);
         len        = childItems.length;
 
         for (; i < len; i++) {
@@ -269,8 +296,8 @@ class Component extends Manager {
     getDirectChildren(parentId) {
         if (!parentId) return [];
 
-        let me   = this,
-            ids  = me.childMap.get(parentId),
+        let me  = this,
+            ids = me.childMap.get(parentId),
             children;
 
         if (!ids) return [];
@@ -286,6 +313,40 @@ class Component extends Manager {
                 ids.delete(id)
             }
         });
+
+        return children
+    }
+
+    /**
+     * @summary Returns the direct children a component OWNS: the ones it renders, plus the ones a proxy holds for it.
+     *
+     * `getDirectChildren()` answers the render question — who sits inside this node — and DOM consumers depend on
+     * that exact meaning (`mixin.VdomLifecycle` unmounts by it). Ownership is the wider question, and the two
+     * differ for exactly as long as a drag lasts: `draggable.DragProxyContainer` roots the dragged component at
+     * `document.body` and keeps the container it came from as `parentComponent`, so the render parent and the
+     * owner are two different components. `component.Abstract#parent` already ranks them owner-first; this is
+     * the same ranking, walked downwards.
+     *
+     * A component reachable both ways is returned once.
+     * @param {Neo.component.Base} component
+     * @returns {Neo.component.Base[]}
+     */
+    getOwnedChildren(component) {
+        let me       = this,
+            children = me.getDirectChildren(component.id),
+            ownedIds = me.ownerMap.size && me.ownerMap.get(component.id);
+
+        // `ownerMap` is empty in most apps and small in the rest — seven assignments of `parentComponent`
+        // exist in the engine — so the size check keeps the common walk at one Map read per node
+        if (ownedIds) {
+            const rendered = new Set(children.map(child => child.id));
+
+            ownedIds.forEach(id => {
+                const owned = !rendered.has(id) && me.get(id);
+
+                owned && children.push(owned)
+            })
+        }
 
         return children
     }
@@ -507,36 +568,29 @@ class Component extends Manager {
     }
 
     /**
+     * Keeps the `ownerMap` in step with a component's `parentComponent` config, the way `onParentIdChange()`
+     * keeps the `childMap` in step with `parentId`.
+     * @param {Neo.component.Base} component
+     * @param {Neo.component.Base|null} oldParentComponent
+     */
+    onParentComponentChange(component, oldParentComponent) {
+        let me = this;
+
+        oldParentComponent && me.removeFromIndex(me.ownerMap, oldParentComponent.id, component.id);
+        component.parentComponent && me.addToIndex(me.ownerMap, component.parentComponent.id, component.id)
+    }
+
+    /**
      * Updates the `childMap` when a component's `parentId` config changes.
      * Maintains the integrity of the reverse parent-child index.
      * @param {Neo.component.Base} component
      * @param {String|null} oldParentId
      */
     onParentIdChange(component, oldParentId) {
-        let me          = this,
-            newParentId = component.parentId,
-            set;
+        let me = this;
 
-        // Remove from old parent's set
-        if (oldParentId) {
-            set = me.childMap.get(oldParentId);
-            if (set) {
-                set.delete(component.id);
-                if (set.size === 0) {
-                    me.childMap.delete(oldParentId)
-                }
-            }
-        }
-
-        // Add to new parent's set
-        if (newParentId) {
-            set = me.childMap.get(newParentId);
-            if (!set) {
-                set = new Set();
-                me.childMap.set(newParentId, set)
-            }
-            set.add(component.id)
-        }
+        oldParentId && me.removeFromIndex(me.childMap, oldParentId, component.id);
+        component.parentId && me.addToIndex(me.childMap, component.parentId, component.id)
     }
 
     /**
@@ -546,17 +600,26 @@ class Component extends Manager {
     register(item) {
         super.register(item);
 
-        const {id, parentId} = item;
+        let me                              = this,
+            {id, parentComponent, parentId} = item;
 
-        if (parentId) {
-            let me  = this,
-                set = me.childMap.get(parentId);
+        parentId        && me.addToIndex(me.childMap, parentId,           id);
+        parentComponent && me.addToIndex(me.ownerMap, parentComponent.id, id)
+    }
 
-            if (!set) {
-                set = new Set();
-                me.childMap.set(parentId, set)
-            }
-            set.add(id)
+    /**
+     * Removes one id from a reverse index, dropping the bucket when it empties.
+     * @param {Map<String, Set<String>>} index
+     * @param {String} key
+     * @param {String} id
+     * @protected
+     */
+    removeFromIndex(index, key, id) {
+        const set = index.get(key);
+
+        if (set) {
+            set.delete(id);
+            set.size === 0 && index.delete(key)
         }
     }
 
@@ -583,23 +646,14 @@ class Component extends Manager {
             }
 
             if (component) {
-                const {id, parentId, vdom} = component;
+                const {id, parentComponent, parentId, vdom} = component;
 
                 if (vdom && id !== vdom.id) {
                     me.wrapperNodes.delete(vdom.id)
                 }
 
-                if (parentId) {
-                    let set = me.childMap.get(parentId);
-
-                    if (set) {
-                        set.delete(id);
-
-                        if (set.size === 0) {
-                            me.childMap.delete(parentId)
-                        }
-                    }
-                }
+                parentId        && me.removeFromIndex(me.childMap, parentId,           id);
+                parentComponent && me.removeFromIndex(me.ownerMap, parentComponent.id, id)
             }
         }
 
@@ -631,8 +685,10 @@ class Component extends Manager {
         configArray  = Object.entries(config);
         configLength = configArray.length;
 
-        while (component?.parentId) {
-            component = this.get(component.parentId);
+        // `parent` prefers the OWNER over the render parent, which is the only way out of a drag proxy:
+        // it roots the dragged component at `document.body`, so a `parentId` walk leaves the owning tree
+        while (component) {
+            component = component.parent;
 
             if (!component) {
                 return returnFirstMatch ? null : returnArray

@@ -261,6 +261,16 @@ class Abstract extends Base {
     }
 
     /**
+     * Triggered after the parentComponent config got changed
+     * @param {Neo.component.Base|null} value
+     * @param {Neo.component.Base|null} oldValue
+     * @protected
+     */
+    afterSetParentComponent(value, oldValue) {
+        ComponentManager.onParentComponentChange(this, oldValue)
+    }
+
+    /**
      * Triggered after the parentId config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -442,7 +452,7 @@ class Abstract extends Base {
      * @param {Object} data
      */
     onScrollCapture(data) {
-        let me    = this,
+        let me = this,
             vnode;
 
         if (me.vnode) {
