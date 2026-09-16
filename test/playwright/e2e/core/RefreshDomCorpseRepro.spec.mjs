@@ -88,7 +88,7 @@ test.describe('Wholesale container refresh — destroyed child DOM removal', () 
         });
         await page.waitForTimeout(800);
 
-        // Refresh #1 (the tuck analogue): generation-1 mounts via removeAll+add, nested one level.
+        // Refresh #1 [not-ticket-ref: ordinal label, not a ticket] (the tuck analogue): generation-1 mounts via removeAll+add, nested one level.
         await app.callMethod('corpse-host-two-refresh', 'removeAll', []);
         await app.callMethod('corpse-host-two-refresh', 'add', [[
             { ntype: 'container', items: [{ html: 'gen1-alpha', ntype: 'component' }] }
@@ -97,7 +97,7 @@ test.describe('Wholesale container refresh — destroyed child DOM removal', () 
 
         expect(await countMarker(page, 'gen1-alpha'), 'refresh #1 must mount generation-1').toBeGreaterThan(0);
 
-        // Refresh #2 (the pin analogue): wholesale replacement again.
+        // Refresh #2 [not-ticket-ref: ordinal label, not a ticket] (the pin analogue): wholesale replacement again.
         await app.callMethod('corpse-host-two-refresh', 'removeAll', []);
         await app.callMethod('corpse-host-two-refresh', 'add', [[
             { html: 'gen2-alpha', ntype: 'component' }
@@ -130,7 +130,7 @@ test.describe('Wholesale container refresh — destroyed child DOM removal', () 
         });
         await page.waitForTimeout(800);
 
-        // Refresh #1 (tuck analogue): keep the stable sibling, swap the workspace container.
+        // Refresh #1 [not-ticket-ref: ordinal label, not a ticket] (tuck analogue): keep the stable sibling, swap the workspace container.
         await app.callMethod('corpse-host-stable-prefix', 'removeAll', []);
         await app.callMethod('corpse-host-stable-prefix', 'add', [[
             { html: 'stable-prefix', ntype: 'component' },
@@ -140,7 +140,7 @@ test.describe('Wholesale container refresh — destroyed child DOM removal', () 
 
         expect(await countMarker(page, 'gen1-alpha'), 'refresh #1 must mount generation-1').toBeGreaterThan(0);
 
-        // Refresh #2 (pin analogue): same shape, generation-2 content — gen-1's nested branch must go.
+        // Refresh #2 [not-ticket-ref: ordinal label, not a ticket] (pin analogue): same shape, generation-2 content — gen-1's nested branch must go.
         await app.callMethod('corpse-host-stable-prefix', 'removeAll', []);
         await app.callMethod('corpse-host-stable-prefix', 'add', [[
             { html: 'stable-prefix', ntype: 'component' },
@@ -173,7 +173,7 @@ test.describe('Wholesale container refresh — destroyed child DOM removal', () 
         });
         await page.waitForTimeout(800);
 
-        // Refresh #1 mounts generation-1 with an addressable nested grandchild.
+        // Refresh #1 [not-ticket-ref: ordinal label, not a ticket] mounts generation-1 with an addressable nested grandchild.
         await app.callMethod('corpse-host-self-update', 'removeAll', []);
         await app.callMethod('corpse-host-self-update', 'add', [[
             { html: 'stable-prefix', ntype: 'component' },
@@ -190,7 +190,7 @@ test.describe('Wholesale container refresh — destroyed child DOM removal', () 
         // same-burst interleaving is the load-bearing condition per the dock-flow bisection).
         await app.setProperties('gen1-touchable', { html: 'gen1-alpha-touched' });
 
-        // Refresh #2 races the in-flight child update: the branch must still be removed.
+        // Refresh #2 [not-ticket-ref: ordinal label, not a ticket] races the in-flight child update: the branch must still be removed.
         await app.callMethod('corpse-host-self-update', 'removeAll', []);
         await app.callMethod('corpse-host-self-update', 'add', [[
             { html: 'stable-prefix', ntype: 'component' },

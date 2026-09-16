@@ -16,9 +16,9 @@ import * as sass                   from 'sass';
  * winning specificity, and the promotion this guard protects did exactly that: both apps had been
  * carrying a higher-specificity `min-width: 0` to escape a tie with the theme's 48px button floor,
  * and lifting the paint engine-side without also outranking the theme would have handed every
- * consumer the empty-pill regression those app rules existed to prevent. @neo-gpt-emmy caught it
- * in review on [PR 17524](https://github.com/neomjs/neo/pull/17524); the compiled arm below is
- * the oracle that would have caught it here.
+ * consumer the empty-pill regression those app rules existed to prevent. That was caught by a
+ * reader rather than by a test, which is the gap the compiled arm below closes: it is the oracle
+ * that would have caught it here.
  *
  * The compilation is done in-process rather than read from `dist/`: CI never runs `build-themes`,
  * so a `dist/`-reading guard would find no files, match nothing, and report green.

@@ -6,7 +6,7 @@ import {assessDevReferenceAuthority, detectStaleBranch} from './branchFreshness.
 import {assessMergedPullRequestPush}                    from './mergedPullRequestPush.mjs';
 
 /**
- * Pre-push branch-discipline check (#11133). ticket-ref-ok: implementing ticket
+ * Pre-push branch-discipline check (#11133 [not-ticket-ref: the ticket this guard implements])
  *
  * Catches the 2026-05-10 empirical 5-PR pattern where feature branches accumulated
  * `chore(data): ...` sync-pipeline commits. PR diffs then showed hundreds of files /
@@ -53,7 +53,7 @@ import {assessMergedPullRequestPush}                    from './mergedPullReques
  * existing `feedback_branch_from_origin_dev_explicitly` discipline. Discipline-only
  * enforcement failed empirically; mechanical gate is load-bearing.
  *
- * @see #11133 — the ticket this script implements (ticket-ref-ok: implementing ticket)
+ * @see #11133 [not-ticket-ref: the ticket this script implements]
  * @see buildScripts/util/branchFreshness.mjs — the branch-freshness / revert-trap predicate,
  *      the sister pre-push pattern wired into the check below
  * @see buildScripts/util/check-chore-sync.mjs — pre-commit sibling that enforces the

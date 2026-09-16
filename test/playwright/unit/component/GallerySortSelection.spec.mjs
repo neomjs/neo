@@ -225,7 +225,7 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
 
             const after = itemNode('item-2');
 
-            // Identical restoration, both axes — the contract Cycle-1 RA1 asked for.
+            // Identical restoration, both axes — a sort must restore selection on BOTH, not one.
             expect(after.cls).toEqual(expect.arrayContaining(before.cls));
             expect(after['aria-selected']).toBe(before.aria);
         });
