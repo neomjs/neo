@@ -67,7 +67,7 @@ test.describe('App Worker error mirror', () => {
             data           : [{path: 'data:text/javascript,' + encodeURIComponent('Promise.reject(new Error("neo-worker-mirror unhandled rejection probe"))')}]
         }));
 
-        expect(receipt?.data?.success, 'the module loaded inside the App worker').toBe(true);
+        expect(receipt?.success, 'the module loaded inside the App worker').toBe(true);
 
         await expect.poll(() => workerErrors.lines.some(line => probe.test(line)), {
             message: 'the unhandled rejection must reach the page console',

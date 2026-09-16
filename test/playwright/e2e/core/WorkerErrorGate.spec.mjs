@@ -45,8 +45,7 @@ async function provokeAppWorkerError(page, workerErrors, {app, shared}) {
         data           : [{path: 'no/such/module/at/all'}]
     }));
 
-    // A SharedWorker answers with the message envelope, a dedicated worker with its data
-    expect((receipt?.data ?? receipt)?.success, 'the load ran and failed, which is the point').toBe(false);
+    expect(receipt?.success, 'the load ran and failed, which is the point').toBe(false);
 
     await expect.poll(() => workerErrors.lines.length, {message: 'the worker error reached the gate', timeout: 5000})
         .toBeGreaterThan(0)
