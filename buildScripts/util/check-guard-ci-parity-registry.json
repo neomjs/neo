@@ -5,7 +5,7 @@
         "reason": "REQUIRED. Why this guard has no CI mirror TODAY. Not 'because it doesn't' — the cost or blocker that keeps it client-only.",
         "witness": "REQUIRED. The measurement or artifact that substantiates the reason. An entry without one is a suppression, not an acceptance.",
         "baselineAtIntroduction": 6,
-        "outOfScope": "Only `lint-staged` carriers are governed here. A `buildScripts/util/check-*.mjs` script that no lint-staged glob invokes — this guard included — has its own coverage question and is NOT covered by an entry below. Recorded so the boundary is explicit rather than implied by omission."
+        "outOfScope": "Only `lint-staged` carriers are governed here. A `buildScripts/util/check-*.mjs` script that no lint-staged glob invokes has its own coverage question and is NOT covered by an entry below. Recorded so the boundary is explicit rather than implied by omission."
     },
     "clientOnly": {
         "buildScripts/util/check-block-alignment.mjs": {

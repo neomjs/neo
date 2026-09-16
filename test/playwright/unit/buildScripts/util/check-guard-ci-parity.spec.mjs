@@ -17,15 +17,62 @@ const
     SELF_REL   = 'buildScripts/util/check-guard-ci-parity.mjs',
     MIRROR_REL = '.github/workflows/guard-ci-parity-lint.yml';
 
+// Every file whose change can move the verdict. Both carriers are held to this one list, so a surface
+// that grows a member reds whichever carrier stops covering it.
+const VERDICT_INPUTS = [...SCAN_SURFACE, SELF_REL, MIRROR_REL];
+
+/**
+ * @summary The concrete paths that stand in for one verdict input when it is matched against a filter.
+ *
+ * Globs are sampled rather than compared as strings, because a filter of `.github/**` watches
+ * `.github/workflows/**` without spelling it. An unsupported glob shape throws instead of sampling as
+ * a literal, so widening the surface cannot pass a coverage check vacuously.
+ *
+ * @param {String} input a surface entry or a literal path
+ * @returns {String[]}
+ */
+function samplesOf(input) {
+    if (!input.includes('*')) {
+        return [input]
+    }
+
+    if (!/^[^*]+\/\*\*$/.test(input)) {
+        throw new Error(`unsupported SCAN_SURFACE glob shape: ${input}`)
+    }
+
+    const base = input.slice(0, -3);
+
+    return [`${base}/specimen.yml`, `${base}/specimen.yaml`]
+}
+
+/**
+ * @summary Which verdict inputs a set of glob patterns fails to cover.
+ * @param {String[]} patterns
+ * @param {String[]} inputs
+ * @returns {String[]} the inputs some sample of which no pattern matches, in input order
+ */
+function uncoveredInputs(patterns, inputs) {
+    return inputs.filter(input => !samplesOf(input).every(sample => patterns.some(pattern => path.matchesGlob(sample, pattern))))
+}
+
+/**
+ * @summary The committed `lint-staged` glob whose command runs this guard.
+ * @returns {String|undefined}
+ */
+function carrierPattern() {
+    const pkg = fs.readJsonSync(path.join(REPO_ROOT, 'package.json'));
+
+    return Object.entries(pkg['lint-staged']).find(([, commands]) => {
+        return [commands].flat().some(command => `${command}`.includes(SELF_REL))
+    })?.[0]
+}
+
 /**
  * @summary Which verdict inputs a workflow's `pull_request` path filter fails to watch.
  *
  * The guard's verdict changes when any of its inputs changes, so a CI mirror whose filter misses one
- * lets that change merge unexamined. Globs are sampled rather than compared as strings, because a
- * filter of `.github/**` watches `.github/workflows/**` without spelling it. A `pull_request` trigger
- * with no `paths` key runs on every change and watches everything by construction; a workflow with
- * no `pull_request` trigger watches nothing. An unsupported glob shape throws instead of sampling as
- * a literal, so widening the surface cannot pass this check vacuously.
+ * lets that change merge unexamined. A `pull_request` trigger with no `paths` key runs on every change
+ * and watches everything by construction; a workflow with no `pull_request` trigger watches nothing.
  *
  * @param {Object}   workflow parsed workflow YAML
  * @param {String[]} inputs   surface entries plus the files the verdict is reproduced from
@@ -40,25 +87,7 @@ function unwatchedInputs(workflow, inputs) {
 
     const patterns = triggers.pull_request?.paths;
 
-    if (!patterns) {
-        return []
-    }
-
-    return inputs.filter(input => {
-        let samples = [input];
-
-        if (input.includes('*')) {
-            if (!/^[^*]+\/\*\*$/.test(input)) {
-                throw new Error(`unsupported SCAN_SURFACE glob shape: ${input}`)
-            }
-
-            const base = input.slice(0, -3);
-
-            samples = [`${base}/specimen.yml`, `${base}/specimen.yaml`]
-        }
-
-        return !samples.every(sample => patterns.some(pattern => path.matchesGlob(sample, pattern)))
-    })
+    return patterns ? uncoveredInputs(patterns, inputs) : []
 }
 
 /**
@@ -180,45 +209,36 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
         expect(output).toMatch(/\[lint-guard-ci-parity\] OK/)
     });
 
-    test('the commit-time carrier covers both workflow suffixes and every local authority', () => {
-        const
-            pkg     = fs.readJsonSync(path.join(REPO_ROOT, 'package.json')),
-            carrier = Object.entries(pkg['lint-staged']).find(([, commands]) => {
-                return [commands].flat().some(command => `${command}`.includes(SELF_REL))
-            });
+    test('the commit-time carrier triggers on every SCAN_SURFACE input, this guard, and its mirror', () => {
+        const pattern = carrierPattern();
 
-        expect(carrier, 'package.json must retain the local parity-guard carrier').toBeTruthy();
-
-        const [pattern] = carrier;
-
-        [
-            'package.json',
-            '.husky/pre-commit',
-            '.github/workflows/specimen.yml',
-            '.github/workflows/specimen.yaml',
-            SELF_REL,
-            'buildScripts/util/check-guard-ci-parity-registry.json'
-        ].forEach(source => {
-            expect(path.matchesGlob(source, pattern), `${source} must trigger the local carrier`).toBe(true)
-        });
+        expect(pattern, 'package.json must retain the local parity-guard carrier').toBeTruthy();
+        expect(uncoveredInputs([pattern], VERDICT_INPUTS), 'the local carrier must trigger on every input that can change the verdict')
+            .toEqual([]);
 
         expect(fs.readFileSync(path.join(REPO_ROOT, '.husky/pre-commit'), 'utf8').trim())
             .toMatch(/npx lint-staged$/)
     });
 
+    test('RED: a carrier glob that drops a SCAN_SURFACE input is reported, and the input NAMED', () => {
+        const pattern = carrierPattern();
+
+        // A literal, and then the glob, whose removal must also uncover the mirror workflow it was covering.
+        expect(uncoveredInputs([pattern.replace('.husky/pre-commit,', '')], VERDICT_INPUTS)).toEqual(['.husky/pre-commit']);
+        expect(uncoveredInputs([pattern.replace('.github/workflows/**,', '')], VERDICT_INPUTS)).toEqual(['.github/workflows/**', MIRROR_REL])
+    });
+
     test('the CI mirror watches every SCAN_SURFACE input, this guard, and its own workflow', () => {
-        const
-            workflow = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
-            inputs   = [...SCAN_SURFACE, SELF_REL, MIRROR_REL];
+        const workflow = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8'));
 
         expect(SCAN_SURFACE.length, 'the imported surface must not be empty').toBeGreaterThan(0);
-        expect(unwatchedInputs(workflow, inputs), `${MIRROR_REL} must watch every input that can change the verdict`)
+        expect(unwatchedInputs(workflow, VERDICT_INPUTS), `${MIRROR_REL} must watch every input that can change the verdict`)
             .toEqual([])
     });
 
     test('RED: a mirror filter that drops a SCAN_SURFACE input is reported, and the input NAMED', () => {
         const
-            inputs  = [...SCAN_SURFACE, SELF_REL, MIRROR_REL],
+            inputs  = VERDICT_INPUTS,
             without = pattern => {
                 const
                     workflow = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
