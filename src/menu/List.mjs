@@ -360,6 +360,32 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Starts a rest on one of this menu's items: the pointer entered it, or the keyboard moved onto it.
+     *
+     * One timer for both, so the last rest wins whichever input started it, and either cancels the other's
+     * pending one. The configs are read from the root menu, so a whole cascade follows one switch.
+     * @param {String} nodeId
+     * @protected
+     */
+    startRest(nodeId) {
+        let me                                      = this,
+            {showSubMenuOnHover, subMenuHoverDelay} = me.getRootMenu();
+
+        me.cancelRest();
+
+        if (showSubMenuOnHover) {
+            if (subMenuHoverDelay > 0) {
+                me.restTimeoutId = setTimeout(() => {
+                    me.restTimeoutId = null;
+                    me.onItemRest(nodeId)
+                }, subMenuHoverDelay)
+            } else {
+                me.onItemRest(nodeId)
+            }
+        }
+    }
+
+    /**
      * Renders a `separator` record as a rule rather than a command.
      *
      * The class is what the stylesheet paints and what `nonInteractiveItemCls` excludes, so this and
@@ -641,6 +667,26 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Keyboard navigation between this menu's items rests on the item focus landed on.
+     *
+     * `manager.Focus` fires this on the closest component the two paths SHARE, which for an item-to-item move
+     * is this menu. Arrowing between siblings therefore previews the new item's submenu and drops the one the
+     * old item was showing — while `ArrowRight` moving focus INTO a submenu shares an ancestor of both menus
+     * instead, and never reaches this method. The submenu it just opened stays open without a guard here.
+     * @param {Object} data
+     * @param {Object[]} data.path Dom node infos of the focused element upwards
+     * @param {Object[]} data.oldPath
+     * @protected
+     */
+    onFocusMove(data) {
+        let me      = this,
+            {path}  = data,
+            itemIdx = me.getInteractiveItemIndex(path);
+
+        Neo.isNumber(itemIdx) && me.startRest(path[itemIdx].id)
+    }
+
+    /**
      * Adds or removes one retained `mousedown` config on the owning app main view.
      * @param {Boolean} attach
      * @protected
@@ -670,21 +716,7 @@ class List extends BaseList {
      * @protected
      */
     onItemMouseEnter({currentTarget}) {
-        let me                                      = this,
-            {showSubMenuOnHover, subMenuHoverDelay} = me.getRootMenu();
-
-        me.cancelRest();
-
-        if (showSubMenuOnHover) {
-            if (subMenuHoverDelay > 0) {
-                me.restTimeoutId = setTimeout(() => {
-                    me.restTimeoutId = null;
-                    me.onItemRest(currentTarget)
-                }, subMenuHoverDelay)
-            } else {
-                me.onItemRest(currentTarget)
-            }
-        }
+        this.startRest(currentTarget)
     }
 
     /**
