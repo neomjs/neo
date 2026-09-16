@@ -56,7 +56,13 @@ test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', 
             windowId: 3
         });
 
-        expect(DragCoordinator.sortZones.size).toBe(0);
+        // Asked of this target, not of the registry's size. `DragCoordinator.sortZones` is a process-global and
+        // the unit project runs `fullyParallel` across four workers, so "the map is empty" is a claim about every
+        // other spec sharing the worker — true or false by scheduling. "No group holds this target" is the same
+        // defect with none of the coupling: a target that registered without a sortGroup appears in exactly one.
+        const registered = [...DragCoordinator.sortZones.values()].some(byWindow => [...byWindow.values()].includes(target));
+
+        expect(registered, 'a target without a sortGroup is in no group').toBe(false);
 
         target.destroy()
     });
