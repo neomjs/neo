@@ -49,7 +49,7 @@ class Pull extends Model {
             name: 'path', // "resources/content/pulls/chunk-N/pr-1234.md"
             type: 'String'
         }, {
-            name: 'title', // e.g. "fix(build): bypass hooks for data sync commits (#11590 [not-ticket-ref: illustrative PR-title sample])"
+            name: 'title', // e.g. "fix(build): bypass hooks for data sync commits (#11590)" [not-ticket-ref: illustrative PR-title sample]
             type: 'String'
         }, {
             // Computed field for TreeList display
