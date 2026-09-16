@@ -77,10 +77,10 @@ class Viewport extends BaseViewport {
      * @param {Object} data
      */
     editButtonHandler(data) {
-        let me       = this,
-            button   = data.component,
+        let me                                 = this,
+            button                             = data.component,
             {appName, dialog, theme, windowId} = me,
-            {record} = button;
+            {record}                           = button;
 
         if (!dialog) {
             import('./EditUserDialog.mjs').then(module => {
@@ -119,7 +119,7 @@ class Viewport extends BaseViewport {
                 windowId
             }));
 
-        me.body.updateDepth = -1;
+        tableContainer.body.updateDepth = -1;
 
         return button.createVdomReference()
     }

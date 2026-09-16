@@ -75,13 +75,12 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
 
         fs.mkdirSync(path.join(e2e, 'workstation'), {recursive: true});
 
-        add('colors/A.spec.mjs');
-        add('core/B.spec.mjs');
-        add('dashboard/C.spec.mjs');
-        add('grid/D.spec.mjs');
-        add('portal/E.spec.mjs');
-        add('rendering/InputModalityMultiWindow.spec.mjs');
-        add('rendering/ViewTransitionReveal.spec.mjs');
+        // One spec per entry: the named file itself, or one inside the named directory
+        RUN_PATHS.forEach(runPath => {
+            const relative = path.relative('test/playwright/e2e', runPath);
+
+            add(relative.endsWith('.spec.mjs') ? relative : path.join(relative, 'Selected.spec.mjs'))
+        });
 
         return {root, addSpec: add}
     };
