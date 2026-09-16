@@ -112,6 +112,7 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * Gives up activation and ends an open edit without writing it.
      * @param {Array} args
      */
     destroy(...args) {
@@ -122,8 +123,15 @@ class CellEditing extends Plugin {
         owner.un('cellDoubleClick', me.onCellDoubleClick, me);
         keys && !keys.isDestroyed && keys.removeKeys(me.getViewKeys());
 
-        me.session = null;
-        session && me.destroyEditor(session.editor);
+        // A grid being destroyed takes the editor's cell with it, and its store and bodies are already gone, so
+        // there is nothing left to render against. A plugin destroyed on its own leaves a Row that lives on, and
+        // an input nothing owns would stay in its cell until an unrelated render replaced it: cancel repaints it.
+        if (owner.isDestroying) {
+            me.session = null;
+            session && me.destroyEditor(session.editor)
+        } else {
+            me.cancelEdit()
+        }
 
         super.destroy(...args)
     }
