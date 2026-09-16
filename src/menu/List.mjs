@@ -277,14 +277,22 @@ class List extends BaseList {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me       = this,
-            {target} = me.align || {};
+        let me           = this,
+            {parentMenu} = me,
+            {target}     = me.align || {};
 
         if (oldValue !== undefined) {
             me.isRoot && me.floating && me.syncOutsidePointerListener(value);
 
-            // showSubMenu() aligns a submenu to the item that opened it, so its target is that item's node id
-            Neo.isString(target) && me.parentMenu?.setItemExpanded(target, value)
+            if (parentMenu) {
+                // A level can unmount itself, on Escape for one, without its parent's hideSubMenu()
+                if (!value && parentMenu.activeSubMenu === me) {
+                    parentMenu.activeSubMenu = null
+                }
+
+                // showSubMenu() aligns a submenu to the item that opened it, so its target is that item's node id
+                Neo.isString(target) && parentMenu.setItemExpanded(target, value)
+            }
         }
     }
 

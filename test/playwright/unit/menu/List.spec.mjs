@@ -482,6 +482,28 @@ test.describe('Neo.menu.List pointer rest', () => {
         }
     });
 
+    test('a submenu that unmounts itself stops being its parent\'s active submenu, so a rest shows it again', () => {
+        const {root, parentId} = createMountedRoot({subMenuHoverDelay: 0});
+
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        const submenu = root.activeSubMenu;
+
+        submenu._mounted = true;
+
+        // Escape inside a submenu unmounts that level alone, without going through the parent's hideSubMenu()
+        submenu.onKeyDownEscape();
+
+        expect(root.activeSubMenu).toBe(null);
+
+        let mounts = 0;
+
+        submenu.initVnode = () => {mounts++};
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        expect(mounts).toBe(1)
+    });
+
     test('Enter on the parent of a preview keeps it showing and enters it', () => {
         const {root, parentId} = createMountedRoot({subMenuHoverDelay: 0});
 
