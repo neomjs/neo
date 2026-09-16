@@ -319,9 +319,9 @@ export function findSurvivingSubjects(specPath, treePaths) {
  * @returns {Array<{spec: String, subjects: String[]}>} Unnamed survivors, in encounter order.
  */
 export function unaccountedSurvivors(specs, treePaths, message, deletedPaths = []) {
-    // RA-3: the ACCOUNT must name the survivor, so only the account payloads are searched. Matching
-    // the whole body let a path in the headline, a rationale, or a `Refs:` trailer discharge an
-    // account that named nothing.
+    // The ACCOUNT must name the survivor, so only the account payloads are searched. Matching the
+    // whole body let a path in the headline, a rationale, or a `Refs:` trailer discharge an account
+    // that named nothing.
     const accounts = retirementAccounts(message).join('\n');
 
     return (specs || [])
