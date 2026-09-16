@@ -737,7 +737,7 @@ class Component extends BaseComponent {
         me.isScrolling = false;
 
         for (; i < 12; i++) {
-            flag = vdom.cn[1].cn[i].flag; // todo: #989 => get the date of the first fully visible row for the header
+            flag = vdom.cn[1].cn[i].flag; // todo: get the date of the first fully visible row for the header
 
             if (flag) {
                 date = new Date(flag);
@@ -752,7 +752,7 @@ class Component extends BaseComponent {
         header.style.opacity = 1;
         me.update()
 
-        // todo: #990 => scroll the view to the closest row
+        // todo: scroll the view to the closest row
     }
 
     /**

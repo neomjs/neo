@@ -46,7 +46,7 @@ test.describe('Dock drag-and-drop journey (Neural Link)', () => {
 
         const seedTail = before.nodes['main-tabs'].items.slice(2);
 
-        // product truth #1: the dock projects draggable tab headers (not just a static model). Both panes of
+        // product truth #1 [not-ticket-ref: ordinal label, not a ticket]: the dock projects draggable tab headers (not just a static model). Both panes of
         // main-tabs plus the two single-tab side zones = four draggable tab headers.
         const draggableTabHeaders = await page.evaluate(() =>
             document.querySelectorAll('.neo-tab-header-button.neo-draggable').length);
@@ -74,7 +74,7 @@ test.describe('Dock drag-and-drop journey (Neural Link)', () => {
         const after = await readModel();
         console.log('[dock-dnd] main-tabs:', JSON.stringify(before?.nodes?.['main-tabs']?.items), '->', JSON.stringify(after?.nodes?.['main-tabs']?.items));
 
-        // product truth #2: the drag mutated the COMMITTED dock model in the App Worker —
+        // product truth #2 [not-ticket-ref: ordinal label, not a ticket]: the drag mutated the COMMITTED dock model in the App Worker —
         // exactly the head pair swapped, the tail untouched (the single-swap proof)
         expect(after?.nodes?.['main-tabs']?.items?.slice(0, 2), 'the tab-drag must reorder the committed dock model — the whole point of the engine')
             .toEqual(['swarm', 'strategy']);

@@ -27,7 +27,7 @@
  * is offline, unauthenticated, or rate-limited, and this guard has no block channel to begin
  * with: the return shape cannot express one.
  *
- * @see #16256 — the ticket this module implements (ticket-ref-ok: implementing ticket)
+ * @see #16256 [not-ticket-ref: the ticket this module implements]
  * @see buildScripts/util/branchFreshness.mjs — the sibling pure predicate behind the
  *      pre-push branch-staleness advisory, whose non-blocking stance this follows
  * @see buildScripts/util/check-branch-discipline.mjs — the pre-push hook that supplies the

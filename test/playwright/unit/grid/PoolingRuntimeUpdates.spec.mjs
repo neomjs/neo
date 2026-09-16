@@ -2,8 +2,8 @@
  * @file test/playwright/unit/grid/PoolingRuntimeUpdates.spec.mjs
  * @summary Unit tests for Runtime Buffer Updates breaking Row/Cell Pooling.
  *
- * This suite reproduces the regression described in #9165 where changing bufferRowRange
- * or bufferColumnRange at runtime causes the grid to render blank or missing cells.
+ * This suite reproduces the regression where changing bufferRowRange or bufferColumnRange at
+ * runtime causes the grid to render blank or missing cells.
  */
 
 import {setup} from '../../setup.mjs';

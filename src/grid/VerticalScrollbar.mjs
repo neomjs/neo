@@ -21,7 +21,8 @@ import Component from '../component/Base.mjs';
  *    high velocity, the DOM immediately scrolls the container *before* the App Worker can calculate, serialize,
  *    and ship new VDOM rows. This results in horrific "blank body" artifacting where the DOM outpaces the JS engine.
  *
- * To solve #3, this `VerticalScrollbar` component acts as a physical proxy. When a user drags THIS scrollbar's target,
+ * To solve #3 [not-ticket-ref: item 3 of the list above, not a ticket], this `VerticalScrollbar`
+ * component acts as a physical proxy. When a user drags THIS scrollbar's target,
  * the `GridRowScrollPinning` main-thread add-on intercepts the interaction. Instead of the browser natively scrolling
  * the grid view, the add-on applies Main-Thread synchronous `translate3d` transforms (hardware-accelerated GPU pinning)
  * to forcefully lock the grid bodies into optical alignment with the delayed VDOM deltas.

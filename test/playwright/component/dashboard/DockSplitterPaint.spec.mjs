@@ -127,7 +127,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
     test('the ACTIVE handle colour comes from the engine token an app sets', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-dark');
 
-        // The rendered half of RA-2. Before this change the engine had `--dock-splitter-handle-color`
+        // The rendered half of the token contract. Before this change the engine had `--dock-splitter-handle-color`
         // and `-hover` but no `-active`, so an app wanting a distinct drag colour had nowhere to put
         // it except `&:active::after { background: ... }` in its own stylesheet — precisely the
         // app-layer paint this promotion exists to end. If the engine consumer is missing, the token

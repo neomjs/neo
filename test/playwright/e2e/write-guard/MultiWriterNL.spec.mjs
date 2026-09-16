@@ -67,7 +67,7 @@ test.describe('WriteGuard multi-writer enforcement (live two-writer e2e)', () =>
         const [componentA, componentB] = buttonIds;
         expect(componentA).not.toBe(componentB);
 
-        // writer-1 (the fixture ConnectionService, identity #1) acquires + HOLDS the lock on A's subtree.
+        // writer-1 (the fixture ConnectionService, identity #1 [not-ticket-ref: ordinal label, not a ticket]) acquires + HOLDS the lock on A's subtree.
         await app.setProperties(componentA, { text: 'writer-1-holds-A' });
 
         // writer-2 — a RAW second agent ws with a DISTINCT identity (the bridge mints its own sessionId).
