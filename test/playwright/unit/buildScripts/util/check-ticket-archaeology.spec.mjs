@@ -276,10 +276,16 @@ test.describe('check-ticket-archaeology --base scope selection (#14279)', () => 
         expect(isInScopePath('buildScripts/util/check-ticket-archaeology.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true)
     });
 
-    test('selects in-scope ai / src / test-playwright .mjs files', () => {
-        expect(isInScopePath('ai/services/foo.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true);
+    test('selects in-scope src / test-playwright .mjs files', () => {
         expect(isInScopePath('src/core/Base.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true);
         expect(isInScopePath('test/playwright/unit/x.spec.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true)
+    });
+
+    test('an untracked directory is out of scope, so a local audit cannot read what CI cannot', () => {
+        // `ai/` is the case that motivated the reachability rule: it held tracked source once, holds only
+        // gitignored content now, and survives in a checkout as residue. Kept as a named negative rather
+        // than simply deleted, so removing it from the scan surface stays a decision with a witness.
+        expect(isInScopePath('ai/services/foo.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false)
     });
 
     test('rejects non-.mjs, out-of-scope dirs, a buildScripts sibling, and ignored fragments', () => {
@@ -369,5 +375,42 @@ test.describe('the receipt reports what was READ, not what was selected', () => 
         expect(code).toBe(0);
         expect(stdout).toContain('could not read');
         expect(stdout).toContain('0 file(s) read, 1 unreadable')
+    })
+});
+
+/**
+ * @summary The scan surface must be reachable by CI, not only by the machine that runs the audit.
+ *
+ * `DEFAULT_SCAN_PATHS` is mirrored by the workflow's `paths:` filter, and that filter selects from TRACKED
+ * files. A root whose content is entirely gitignored therefore cannot trigger the gate it is scanned under,
+ * so the local audit reads files CI can never check out and the two verdicts stop being comparable.
+ *
+ * The failure mode is asymmetric, which is why the class arm matters more than the instance: a maintainer
+ * whose tree happens to contain the untracked directory sees a working guard, while a fresh clone sees it
+ * die — so the defect is invisible to exactly the person positioned to fix it.
+ */
+test.describe('check-ticket-archaeology scan-surface reachability', () => {
+    test('every declared scan root is tracked, so CI can see what the audit reads', () => {
+        const untracked = DEFAULT_SCAN_PATHS.filter(scanPath => {
+            const listed = execFileSync('git', ['ls-files', scanPath], {cwd: REPO_ROOT, encoding: 'utf8'});
+
+            return listed.trim() === ''
+        });
+
+        expect(untracked, 'a tracked-empty scan root cannot be reached by the workflow paths filter').toEqual([])
+    });
+
+    test('an absent scan root is named, with the remedy, instead of surfacing a find stack', () => {
+        // The red-first arm. Previously this reached `find` and returned `find: <root>: No such file or
+        // directory` — which names the symptom, omits the remedy, and reads as a broken guard rather than a
+        // misconfigured one. A bogus name is used deliberately: asserting against a real absent root would
+        // pass or fail by the tester's own setup state, which is the asymmetry this describe exists for.
+        const {code, stdout} = runGuard(['--dirs', 'src,neo-absent-scan-root']);
+
+        expect(code, 'an unusable scan surface is a failure, not a silent partial audit').toBe(1);
+        expect(stdout, 'the diagnostic names which root').toContain('neo-absent-scan-root');
+        expect(stdout, 'and it does not name the healthy one').not.toContain('src,');
+        expect(stdout, 'the remedy is stated, not left to be inferred').toContain('DEFAULT_SCAN_PATHS');
+        expect(stdout, 'a raw find failure is what this replaces').not.toContain('find command failed')
     })
 });

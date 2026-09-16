@@ -1,6 +1,7 @@
 import {program}             from 'commander';
 import {execSync, spawnSync} from 'node:child_process';
-import {readFileSync}        from 'node:fs';
+import {existsSync,
+        readFileSync}        from 'node:fs';
 import path                  from 'node:path';
 import process               from 'node:process';
 import {fileURLToPath}       from 'node:url';
@@ -13,7 +14,14 @@ const scriptRoot = path.resolve(__dirname, '../..');
 // file. Keep mirror-aligned with the `paths:` trigger of .github/workflows/ticket-archaeology-lint.yml so
 // every path that can trigger the gate is also scanned (else it passes vacuously). The guard lists ITSELF
 // here so it self-guards at the merge-gate, not only via the pre-commit lint-staged `*.mjs` glob.
-export const DEFAULT_SCAN_PATHS = ['ai', 'src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
+//
+// Every member must be TRACKED — `git ls-files <member>` returns a non-zero count. A root holding only
+// gitignored files cannot be reached by a `paths:` filter, so the mirror above becomes unsatisfiable in
+// that direction and the two verdicts stop being comparable: the audit reads files locally that CI can
+// never check out. Worse, it fails asymmetrically — a maintainer whose tree happens to contain the
+// untracked directory sees a working guard, while a fresh clone sees it die, so the defect is invisible
+// to exactly the person able to fix it. The sibling spec pins the invariant for every member.
+export const DEFAULT_SCAN_PATHS = ['src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
 export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 
 // The retired bare marker. Kept as a constant only so the failure message can name what NOT to write.
@@ -321,6 +329,21 @@ function main() {
     }
 
     function collectDefaultFiles() {
+        // A missing root reaches `find` as `find: <root>: No such file or directory` — which names the
+        // symptom and not the remedy, and reads as a broken guard rather than a misconfigured one. Checked
+        // here so the caller learns WHICH root and what to do about it.
+        // `resolve`, not `join`: `--dirs` accepts absolute paths (the CLI arms pass a temp dir), and joining
+        // one onto gitRoot concatenates instead of honouring it.
+        const missing = scanPaths.filter(scanPath => !existsSync(path.resolve(gitRoot, scanPath)));
+
+        if (missing.length) {
+            console.error(`\x1b[31mcheck-ticket-archaeology: scan root(s) not found: ${missing.join(', ')}\x1b[0m`);
+            console.error('Each is declared in DEFAULT_SCAN_PATHS (or passed via --dirs) but absent from this tree.');
+            console.error('Remove it from DEFAULT_SCAN_PATHS, or pass --dirs without it. A root whose files are all');
+            console.error('gitignored cannot be audited comparably in CI, which checks out tracked files only.');
+            process.exit(1);
+        }
+
         const findArgs = ['-type', 'f', '-name', '*.mjs'];
         ignores.forEach(ignore => findArgs.push('-not', '-path', `*/${ignore}/*`));
 
