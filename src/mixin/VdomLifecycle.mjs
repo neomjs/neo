@@ -647,6 +647,9 @@ class VdomLifecycle extends Base {
                 me._needsVdomUpdate = false;
                 me.afterSetNeedsVdomUpdate?.(false, true);
 
+                // The first render collects here, exactly as a flight does in collectPayloads()
+                VDomUpdate.claimPromiseCallbacks(me.id);
+
                 const data = await Promise.resolve(Neo.vdom.Helper.create({
                     appName    : me.appName,
                     autoMount,
@@ -859,7 +862,9 @@ class VdomLifecycle extends Base {
      *
      * The guarantee is about the caller's own change: a render already in the air has collected its payload, so a
      * change made after that point — and this promise with it — belongs to the next one, and the promise settles
-     * with that. A rejection means the flight carrying the change failed, or the component was destroyed first.
+     * with that. A component that is not mounted yet is the exception: the render that mounts it settles every
+     * promise parked on it, including one asked for after that render collected.
+     * A rejection means the flight carrying the change failed, or the component was destroyed first.
      * @returns {Promise<any>}
      */
     promiseUpdate() {

@@ -229,6 +229,29 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         await expect.poll(() => outcome, {message: 'the render that mounted the child is the one this promise waited for'}).toBe('resolved')
     });
 
+    test('a promise parked before a component renders for the first time settles with that render, mounted or not', async () => {
+        const containerId = uniqueId('settle-container');
+
+        created.push(containerId);
+
+        const container = Neo.create(SettleContainer, {
+            appName,
+            id   : containerId,
+            items: [{module: SettleChild, id: uniqueId('settle-child'), text: 'pristine'}]
+        });
+
+        let outcome = 'still parked';
+
+        // Not rendered yet, so the request parks until the first render collects it
+        container.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
+
+        await container.initVnode(false);
+
+        expect(container.mounted, 'nothing mounts, so the render itself is the only settle').toBe(false);
+
+        await expect.poll(() => outcome, {message: 'the first render carried what was parked before it collected'}).toBe('resolved')
+    });
+
     test('CONTROL: an idle component still settles its own first flight', async () => {
         const child = await createChild();
 
