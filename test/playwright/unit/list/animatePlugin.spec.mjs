@@ -548,24 +548,58 @@ const deferredConfig = () => ({listConfig: {getDomRect: deferredRects, itemHeigh
 test.describe('Neo.list.plugin.Animate — measured row height', () => {
     test.beforeEach(() => measuredHeights.clear());
 
-    test('the guard admits itemHeight null with measureItemHeight, and refuses it without', async () => {
-        const
-            errors = [],
-            prior  = console.error;
+    /**
+     * @summary Runs `fn` and returns what the Animate guard complained about while it ran.
+     *
+     * `console.error` is the whole process's, and one worker runs many spec files, so the capture sees messages
+     * this arm never caused — a wedge watchdog is a five-second timer armed by whichever component was updating
+     * when it started. Only the guard's own messages decide a question about the guard.
+     * @param {Function} fn
+     * @returns {Promise<String[]>}
+     */
+    async function captureGuardErrors(fn) {
+        const captured = [],
+              prior    = console.error;
 
-        console.error = (...args) => errors.push(String(args[0]));
+        console.error = (...args) => captured.push(String(args[0]));
 
         try {
-            const {list} = await createFixture(measuredConfig());
-            expect(errors).toEqual([]);
-            list.destroy();
-
-            const {list: bare} = await createFixture({listConfig: {getDomRect: measuredRects, itemHeight: null, itemWidth: 300}});
-            expect(errors.some(message => message.includes('measureItemHeight'))).toBe(true);
-            bare.destroy()
+            await fn()
         } finally {
             console.error = prior
         }
+
+        // The guard names itself; a blacklist of everything else would grow with every new logger in the process
+        return captured.filter(message => message.includes('list.plugin.Animate'))
+    }
+
+    test('the guard admits itemHeight null with measureItemHeight, and refuses it without', async () => {
+        const admitted = await captureGuardErrors(async () => {
+            const {list} = await createFixture(measuredConfig());
+            list.destroy()
+        });
+
+        expect(admitted, 'a measured config draws no complaint').toEqual([]);
+
+        const refused = await captureGuardErrors(async () => {
+            const {list: bare} = await createFixture({listConfig: {getDomRect: measuredRects, itemHeight: null, itemWidth: 300}});
+            bare.destroy()
+        });
+
+        expect(refused.some(message => message.includes('measureItemHeight')), 'itemHeight null without it is refused').toBe(true)
+    });
+
+    test('an error from elsewhere in the process does not decide this guard', async () => {
+        const admitted = await captureGuardErrors(async () => {
+            const {list} = await createFixture(measuredConfig());
+
+            // What another spec file's wedge watchdog looks like from inside this window
+            console.error('vdom update wedged: "a-component-from-another-spec" has been in-flight for over 5000ms.');
+
+            list.destroy()
+        });
+
+        expect(admitted, 'only the guard\'s own messages decide it').toEqual([])
     });
 
     test('the settle pass measures the tallest item into rowHeight, positions by it and reveals; the first pass was hidden and height-less', async () => {
