@@ -1804,12 +1804,13 @@ class Component extends Abstract {
      */
 
     /**
-     * Triggered by manager.Focus
+     * Triggered by manager.Focus on the closest component the old and new focus paths share
      * @name onFocusMove
      * @function
      * @param {Object} opts
-     * @param {Array}  opts.newPath dom element ids upwards
-     * @param {Array}  opts.oldPath dom element ids upwards
+     * @param {Neo.component.Base} opts.component This component
+     * @param {Array}  opts.path dom element infos upwards, of the element focus moved TO
+     * @param {Array}  opts.oldPath dom element infos upwards, of the element focus moved FROM
      */
 
     /**

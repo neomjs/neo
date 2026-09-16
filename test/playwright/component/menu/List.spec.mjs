@@ -103,6 +103,38 @@ function levelCounts(page) {
     return page.evaluate(() => window.__menuLevelCounts)
 }
 
+/**
+ * @summary A parent over three siblings, whose submenu has three rows.
+ *
+ * The shape the diagonal arm needs: the submenu aligns to its parent's top, so the path from `Share` to the
+ * third submenu row descends while still inside the root menu, across `Rename`. The focus-rest arms reuse it
+ * because one arrow key reaches the parent from `Rename`, and another leaves it again.
+ * @type {Object[]}
+ */
+const restItems = [{
+    id   : 'share',
+    items: [{id: 'email', text: 'Email'}, {id: 'link', text: 'Copy link'}, {id: 'print', text: 'Print'}],
+    text : 'Share'
+}, {
+    id  : 'rename',
+    text: 'Rename'
+}, {
+    id  : 'duplicate',
+    text: 'Duplicate'
+}, {
+    id  : 'delete',
+    text: 'Delete'
+}];
+
+/**
+ * @summary Returns the text of the menu item holding browser focus, or null.
+ * @param {Object} page
+ * @returns {Promise<String|null>}
+ */
+function focusedItem(page) {
+    return page.evaluate(() => document.activeElement?.closest('.neo-list-item')?.textContent.trim() ?? null)
+}
+
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/empty-viewport/index.html');
     await page.waitForSelector('#component-test-viewport', {state: 'attached'})
@@ -172,28 +204,6 @@ test.describe('Neo.menu.List parent click', () => {
 });
 
 test.describe('Neo.menu.List pointer rest', () => {
-    /**
-     * @summary A parent over three siblings, whose submenu has three rows.
-     *
-     * The shape the diagonal arm needs: the submenu aligns to its parent's top, so the path from `Share` to the
-     * third submenu row descends while still inside the root menu, across `Rename`.
-     * @type {Object[]}
-     */
-    const restItems = [{
-        id   : 'share',
-        items: [{id: 'email', text: 'Email'}, {id: 'link', text: 'Copy link'}, {id: 'print', text: 'Print'}],
-        text : 'Share'
-    }, {
-        id  : 'rename',
-        text: 'Rename'
-    }, {
-        id  : 'duplicate',
-        text: 'Duplicate'
-    }, {
-        id  : 'delete',
-        text: 'Delete'
-    }];
-
     /**
      * @summary Measures the named rows inside ONE page task.
      *
@@ -340,16 +350,115 @@ test.describe('Neo.menu.List pointer rest', () => {
     })
 });
 
-test.describe('Neo.menu.List keyboard cascade', () => {
+test.describe('Neo.menu.List focus rest', () => {
     /**
-     * @summary Returns the text of the menu item holding browser focus, or null.
-     * @param {Object} page
-     * @returns {Promise<String|null>}
+     * @summary A menu with two parents, so a hover and a keyboard rest can compete for different submenus.
+     * @type {Object[]}
      */
-    function focusedItem(page) {
-        return page.evaluate(() => document.activeElement?.closest('.neo-list-item')?.textContent.trim() ?? null)
+    const twoParentItems = [{
+        id   : 'share',
+        items: [{id: 'email', text: 'Email'}, {id: 'link', text: 'Copy link'}],
+        text : 'Share'
+    }, {
+        id  : 'rename',
+        text: 'Rename'
+    }, {
+        id   : 'export',
+        items: [{id: 'pdf', text: 'PDF'}, {id: 'csv', text: 'CSV'}],
+        text : 'Export'
+    }];
+
+    /**
+     * @summary Creates the menu and puts focus on `Rename`, from where one arrow key reaches either parent.
+     *
+     * Focus is placed with `.focus()` rather than by arrowing, so the arms measure what a MOVE does. Focus
+     * arriving from outside the menu is not a move and deliberately shows nothing.
+     * @param {Object} page
+     * @param {Object} [config]
+     * @returns {Promise<Object>} The menu levels locator
+     */
+    async function createMenuFocusedOnRename(page, config={}) {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: restItems, ...config});
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').nth(1).focus();
+        await expect.poll(() => focusedItem(page)).toBe('Rename');
+
+        return menus
     }
 
+    test('arrowing onto a parent previews its submenu, and arrowing off it drops the preview', async ({page}) => {
+        const
+            menus = await createMenuFocusedOnRename(page),
+            share = page.locator('.neo-list-item', {has: page.getByText('Share', {exact: true})});
+
+        await page.keyboard.press('ArrowUp');
+        await expect.poll(() => focusedItem(page)).toBe('Share');
+
+        await expect(menus).toHaveCount(2);
+        await expect(share).toHaveAttribute('aria-expanded', 'true');
+
+        // A preview: the item that opened it keeps focus, and nothing is selected
+        expect(await focusedItem(page)).toBe('Share');
+        await expect(share).not.toHaveClass(/neo-selected/);
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Rename');
+
+        await expect(menus).toHaveCount(1);
+        await expect(share).toHaveAttribute('aria-expanded', 'false')
+    });
+
+    test('CONTROL: Right into a previewed submenu keeps it open', async ({page}) => {
+        const menus = await createMenuFocusedOnRename(page);
+
+        await page.keyboard.press('ArrowUp');
+        await expect(menus).toHaveCount(2);
+
+        // Focus moves INTO the submenu: a rule that hides whenever focus leaves the parent would close
+        // the level it just opened, and this is the only arm that can tell the two rules apart
+        await page.keyboard.press('ArrowRight');
+        await expect.poll(() => focusedItem(page)).toBe('Email');
+
+        await page.waitForTimeout(400);
+        await expect(menus).toHaveCount(2)
+    });
+
+    test('the last rest wins, whichever input started it', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: twoParentItems});
+
+        await expect(menus).toHaveCount(1);
+        await page.getByText('Share', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+        await expect(page.getByText('Email', {exact: true})).toBeVisible();
+
+        await page.locator('.neo-menu-list .neo-list-item').nth(1).focus();
+        await expect.poll(() => focusedItem(page)).toBe('Rename');
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Export');
+
+        // One submenu, and it belongs to the item the keyboard rested on last
+        await expect(menus).toHaveCount(2);
+        await expect(page.getByText('PDF', {exact: true})).toBeVisible();
+        await expect(page.getByText('Email', {exact: true})).toHaveCount(0)
+    });
+
+    test('showSubMenuOnHover: false suppresses the focus rest as well', async ({page}) => {
+        const menus = await createMenuFocusedOnRename(page, {showSubMenuOnHover: false});
+
+        await page.keyboard.press('ArrowUp');
+        await expect.poll(() => focusedItem(page)).toBe('Share');
+
+        await page.waitForTimeout(400);
+        await expect(menus).toHaveCount(1)
+    })
+});
+
+test.describe('Neo.menu.List keyboard cascade', () => {
     /**
      * @summary Creates the menu and puts focus on its first item, `Open`.
      * @param {Object} page
@@ -390,19 +499,19 @@ test.describe('Neo.menu.List keyboard cascade', () => {
         await expect.poll(() => focusedItem(page)).toBe('Inspect')
     });
 
-    test('Right on a leaf, Left in the root, and Down onto a parent show nothing', async ({page}) => {
+    test('Right on a leaf and Left in the root show nothing', async ({page}) => {
         const menus = await createFocusedMenu(page);
 
+        // `Open` is a leaf and the root has no parent to leave, so neither key has anywhere to go.
+        // Down onto a parent DOES show its submenu — that is the focus rest, and its own describe measures it
         await page.keyboard.press('ArrowRight');
         await page.keyboard.press('ArrowLeft');
-        await page.keyboard.press('ArrowDown');
-        await expect.poll(() => focusedItem(page)).toBe('Inspect');
 
         // Absence cannot be polled for: outlast a show, then read
         await page.waitForTimeout(400);
 
         await expect(menus).toHaveCount(1);
-        expect(await focusedItem(page)).toBe('Inspect')
+        expect(await focusedItem(page)).toBe('Open')
     });
 
     test('Escape in a submenu hides only that level and focuses its parent item; in the root it dismisses', async ({page}) => {
