@@ -1396,9 +1396,7 @@ class Component extends Abstract {
         //    yield to it forever (nothing can ever settle it — the reply targets a dead
         //    component), silently freezing the ancestor's delta stream.
         // 3. Re-trigger ancestors already queued behind this component — exactly once.
-        // `true`: a destroyed component runs no further flight, so a request that arrived after the last one
-        // collected its payload has nothing left to settle it either
-        VDomUpdate.rejectCallbacks(me.id, Neo.isDestroyed, true);
+        VDomUpdate.rejectCallbacks(me.id, Neo.isDestroyed);
         VDomUpdate.unregisterInFlightUpdate(me.id);
         VDomUpdate.triggerPostUpdates(me.id);
 

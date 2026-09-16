@@ -141,6 +141,63 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         expect(renderedText(child), 'one flight carried both changes').toBe('second')
     });
 
+    /**
+     * Holds the next flight open between payload collection and landing, and returns the release for it.
+     * @returns {Function[]} the queue a test shifts releases from
+     */
+    function holdFlights() {
+        const inFlight = [];
+
+        VdomHelper.updateBatch = (...args) => {
+            const result = originalUpdateBatch.apply(VdomHelper, args);
+
+            return new Promise((resolve, reject) => inFlight.push({resolve: () => resolve(result), reject}))
+        };
+
+        return inFlight
+    }
+
+    test('a component destroyed while its flight is in the air settles every parked promise, claimed or not', async () => {
+        const child    = await createChild(),
+              inFlight = holdFlights();
+
+        child.text = 'first';
+
+        const claimed = child.promiseUpdate().then(() => 'resolved', reason => reason);
+
+        await expect.poll(() => inFlight.length, {message: 'the flight collected its payload'}).toBe(1);
+
+        child.text = 'second';
+
+        const later = child.promiseUpdate().then(() => 'resolved', reason => reason);
+
+        child.destroy();
+
+        expect(await claimed, 'the claimed promise settles with the destroy').toBe(Neo.isDestroyed);
+        expect(await later, 'so does the one that arrived after the claim').toBe(Neo.isDestroyed)
+    });
+
+    test('a flight that fails after its claim leaves no promise stranded', async () => {
+        const child    = await createChild(),
+              inFlight = holdFlights();
+
+        child.text = 'first';
+
+        const claimed = child.promiseUpdate().then(() => 'resolved', () => 'rejected');
+
+        await expect.poll(() => inFlight.length, {message: 'the flight collected its payload'}).toBe(1);
+
+        child.text = 'second';
+
+        const later = child.promiseUpdate().then(() => 'resolved', () => 'rejected');
+
+        VdomHelper.updateBatch = originalUpdateBatch;
+        inFlight.shift().reject({data: {error: 'test-injected apply failure'}});
+
+        expect(await claimed, 'the claimed promise rejects with its flight').toBe('rejected');
+        expect(['resolved', 'rejected'], 'the later one settles one way or the other').toContain(await later)
+    });
+
     test('CONTROL: an idle component still settles its own first flight', async () => {
         const child = await createChild();
 

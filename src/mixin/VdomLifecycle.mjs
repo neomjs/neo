@@ -269,15 +269,17 @@ class VdomLifecycle extends Base {
                 // Snapshot the merged children we are about to process.
                 // This prevents race conditions where a child merges *after* collection but *before* resolution,
                 // causing it to be acknowledged/cleared without actually being updated.
+                // The same rule for promises: what is parked NOW is what this payload carries, so this flight settles
+                // exactly that. A promiseUpdate() arriving afterwards describes a change this payload does not hold,
+                // and waits for the flight that does — the one `needsVdomUpdate` triggers. A merged child is claimed
+                // where it is marked collected, because a child skipped below still rides this payload.
+                VDomUpdate.claimPromiseCallbacks(componentId);
+
                 if (mergedChildIds) {
                     componentMergedChildren.set(componentId, mergedChildIds);
-                    VDomUpdate.markMergedCollected(componentId, mergedChildIds)
+                    VDomUpdate.markMergedCollected(componentId, mergedChildIds);
+                    mergedChildIds.forEach(childId => VDomUpdate.claimPromiseCallbacks(childId))
                 }
-
-                // The same rule for this component's own promises: what is parked NOW is what this payload carries,
-                // so this flight settles exactly that. A promiseUpdate() arriving afterwards describes a change this
-                // payload does not hold, and waits for the flight that does — the one `needsVdomUpdate` triggers.
-                VDomUpdate.claimPromiseCallbacks(componentId);
 
                 // Generate payload for this component.
                 // - Depth 1 (Teleportation): Pass ids=null to force disjoint/pruned payload.
