@@ -76,7 +76,7 @@ class CellEditing extends Plugin {
         if (session) {
             me.session = null;
             me.repaint(session);
-            session.editor.destroy()
+            me.destroyEditor(session.editor)
         }
     }
 
@@ -106,7 +106,7 @@ class CellEditing extends Plugin {
         // A write repaints the record's rows through the store, and the explicit repaint covers an unchanged draft
         editor.isDirty && record?.set({[dataField]: editor.getSubmitValue()});
         me.repaint(session);
-        editor.destroy();
+        me.destroyEditor(editor);
 
         return true
     }
@@ -123,9 +123,21 @@ class CellEditing extends Plugin {
         keys && !keys.isDestroyed && keys.removeKeys(me.getViewKeys());
 
         me.session = null;
-        session?.editor.destroy();
+        session && me.destroyEditor(session.editor);
 
         super.destroy(...args)
+    }
+
+    /**
+     * Destroys an editor through the Row it was embedded in, while that Row lives. Until the Row's own render lands,
+     * the vnode it keeps still names the editor, and an ancestor render collected earlier can land first and walk into
+     * that name. Destroying through the Row unlinks the name there. A Row already destroyed with its grid holds nothing
+     * to unlink.
+     * @param {Neo.form.field.Text} editor
+     * @protected
+     */
+    destroyEditor(editor) {
+        editor.destroy(!!editor.parent, true)
     }
 
     /**

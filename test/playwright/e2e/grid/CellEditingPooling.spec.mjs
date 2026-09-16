@@ -160,6 +160,27 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await expect(cell(page, 'c3', recordId), 'the scrolls wrote nothing').toHaveText('r3c3')
     });
 
+    for (const key of ['Escape', 'Enter']) {
+        test(`${key} while a body render is in the air leaves that render no destroyed editor to resolve`, async ({page}) => {
+            const recordId = await thirdRecordId(page),
+                  bodyId   = await page.locator(`${GRID} .neo-grid-body`).nth(1).getAttribute('id'),
+                  config   = async (id, name) => (await page.evaluate(({id, name}) => Neo.worker.App.getConfigs({id, keys: [name]}), {id, name}))[0];
+
+            await cell(page, 'c3', recordId).dblclick();
+            await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+            await page.keyboard.type(' draft');
+
+            // A 1px scroll re-renders the body without rebinding the row, and the key ends the edit while that render
+            // is in the air. The render lands naming the editor, which the fixture's worker-error gate would report.
+            await scrollVertically(page, 1);
+            await page.keyboard.press(key);
+
+            await expect(page.locator(EDITOR)).toHaveCount(0);
+            await expect(cell(page, 'c3', recordId)).toHaveText(key === 'Enter' ? 'r3c3 draft' : 'r3c3');
+            await expect.poll(() => config(bodyId, 'isScrolling'), {message: 'the scroll has settled'}).toBe(false)
+        })
+    }
+
     test('a drag inside the editor selects text instead of drag-scrolling the grid', async ({page}) => {
         const recordId = await thirdRecordId(page),
               view     = page.locator(`${GRID} .neo-grid-view`).first();
