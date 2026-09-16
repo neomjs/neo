@@ -120,10 +120,10 @@ class List extends BaseList {
          */
         selectionModel: ListModel,
         /**
-         * True shows a parent item's submenu once the pointer rests on it, and hides it once the pointer rests on
-         * another item. A rest previews: it neither selects nor takes focus, while a click or Enter still enters
-         * the submenu. False leaves submenus to click and keyboard, where a click on the parent toggles.
-         * Read from the root menu, so a whole cascade follows one value.
+         * True shows a parent item's submenu once the pointer or keyboard focus rests on it, and hides it once a
+         * rest lands on another item. A rest previews: it neither selects nor moves focus, while a click, Enter or
+         * ArrowRight still enters the submenu. False leaves submenus to click and keyboard, where a click on the
+         * parent toggles. Read from the root menu, so a whole cascade follows one value.
          * @member {Boolean} showSubMenuOnHover=true
          */
         showSubMenuOnHover: true,
@@ -144,9 +144,10 @@ class List extends BaseList {
          */
         subMenuGap: 0,
         /**
-         * How long, in ms, the pointer must rest on an item before `showSubMenuOnHover` acts on it. A pointer
-         * crossing a row on its way into an open submenu stays shorter than this, so the submenu survives the
-         * trip. 0 acts on enter. Read from the root menu.
+         * How long, in ms, the pointer or keyboard focus must rest on an item before `showSubMenuOnHover` acts on
+         * it. A pointer crossing a row on its way into an open submenu stays shorter than this, so the submenu
+         * survives the trip, and arrowing past items previews only the one focus stops on. 0 acts at once.
+         * Read from the root menu.
          * @member {Number} subMenuHoverDelay=200
          */
         subMenuHoverDelay: 200,
@@ -182,7 +183,7 @@ class List extends BaseList {
      */
     outsidePointerListenerOwner = null
     /**
-     * The timeout id of a pointer rest still pending on one of this menu's items.
+     * The timeout id of a pointer or focus rest still pending on one of this menu's items.
      * @member {Number|null} restTimeoutId=null
      * @protected
      */
@@ -351,7 +352,7 @@ class List extends BaseList {
     }
 
     /**
-     * Drops the pointer rest still pending on one of this menu's items, if any.
+     * Drops the rest still pending on one of this menu's items, if any, whichever input started it.
      * @protected
      */
     cancelRest() {
@@ -720,9 +721,9 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Previews the submenu of the item the pointer rests on, or hides the showing one for a leaf.
+     * @summary Previews the submenu of the item a pointer or focus rest landed on, or hides the showing one for a leaf.
      *
-     * A preview neither selects nor takes focus. The rest resumes on a timer, so liveness is checked where it
+     * A preview neither selects nor moves focus. The rest resumes on a timer, so liveness is checked where it
      * resumes: `hide()` can unmount through `removeDom` without `unmount()` cancelling the rest, and a destroyed
      * menu still reads as mounted.
      * @param {String} nodeId
