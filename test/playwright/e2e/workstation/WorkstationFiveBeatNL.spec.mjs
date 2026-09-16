@@ -1449,6 +1449,19 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             commitLogs.push(committed.beatLog);
 
             if (run < journeyRuns - 1) {
+                // The commit above moved `audit` out of `right-top-tabs`, and the next run drives the SAME
+                // step against it — so the document must be restored, not merely re-rendered. `page.reload()`
+                // alone cannot do it: the App Worker is a SharedWorker (`useSharedWorkers: true`), so the dock
+                // document survives both the reload and the next boot's navigation. Windows are render
+                // targets; this state lives one side further in.
+                //
+                // Restored rather than re-read from wherever the item landed, because the closing assertions
+                // compare the two runs' dwell logs for equality: a run that starts from a different document
+                // drags from a different source and cannot produce the same log. Independence is the claim
+                // those assertions make, and only a restore preserves it.
+                expect((await app.callMethod(wsId, 'resetTopology')).reset,
+                    'the shipped document is restored before the next run drives the same step').toBe(true);
+
                 await page.reload()
             }
 
@@ -1461,6 +1474,44 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }
 
         expect(pageErrorRuns.flat(), 'all live gesture-time error streams stay empty').toEqual([])
+    });
+
+    /**
+     * RED CONTROL for the beat above: the refusal it hit, seeded deliberately.
+     *
+     * The beat reds when its source node no longer holds the item the step names — the state a prior commit
+     * leaves behind. Asserting only that the green run passes cannot distinguish a working restore from a
+     * guard that stopped refusing, so this drives the condition on purpose and pins the REASON: the message
+     * must name the source, what it holds, and what was asked for. A shared string across the guard's three
+     * conditions is what made the original failure unreadable, and this is what keeps it readable.
+     *
+     * Seeded without mutating anything: `right-bottom-tabs` is a tabs node that ships holding `commits`
+     * alone, so naming `audit` against it reproduces the condition from the shipped document.
+     */
+    test('RED CONTROL: a source that does not hold the named item is refused, and the refusal says so', async ({page, neuralLink}) => {
+        const {app, wsId} = await boot({page, neuralLink});
+
+        const refused = await callWorkstationGesture(app, wsId, 'executeCrossZoneShowcaseStep', [{
+            itemId      : 'audit',
+            sourceNodeId: 'right-bottom-tabs',
+            dwells      : [
+                {targetNodeId: 'scale-tabs',     placementKind: 'edge-bottom'},
+                {targetNodeId: 'right-top-tabs', placementKind: 'tab-into'}
+            ],
+            terminal: 'cancel'
+        }, filmPace]);
+
+        expect(refused.applied, 'the gesture is refused, not attempted').toBe(false);
+        expect(refused.errors, 'the refusal names the source, its contents, and the item asked for').toEqual([
+            "cross-zone showcase source 'right-bottom-tabs' holds [commits], not 'audit'"
+        ]);
+
+        // The document is untouched by a refusal — a guard that half-applied would be worse than one that
+        // reported wrongly, and only reading back distinguishes them.
+        const document = await readDocument(app, wsId);
+
+        expect(document.nodes['right-top-tabs'].items, 'a refused gesture mutates nothing').toEqual(['metrics', 'audit']);
+        expect(document.nodes['right-bottom-tabs'].items, 'a refused gesture mutates nothing').toEqual(['commits'])
     });
 
     /**
