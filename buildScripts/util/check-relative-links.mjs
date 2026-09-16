@@ -94,6 +94,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       HTML_HREF = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
 
 /**
+ * The scan as globs — the form a workflow `paths:` filter takes, so the sibling alignment spec can
+ * hold this guard's mirror to what it actually reads.
+ *
+ * DERIVED from {@link SCAN_ROOTS} plus the root-level rule {@link scanTargets} applies, never
+ * restated: a root added above widens this in the same edit, and the spec then requires the mirror
+ * to widen with it. Every member must be TRACKED, since a workflow filter can only select files CI
+ * checks out.
+ * @type {String[]}
+ */
+export const SCAN_SURFACE = Object.freeze([...SCAN_ROOTS.map(root => `${root}**/*.md`), '*.md']);
+
+/**
  * Targets neither reader resolves inside the repository: an absolute URI, or a bare in-page anchor.
  *
  * Case-insensitive because **URI schemes are case-insensitive** (RFC 3986 §3.1), and both readers

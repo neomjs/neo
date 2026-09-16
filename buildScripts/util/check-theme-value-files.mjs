@@ -54,6 +54,22 @@ const
     baselinePath = path.join(dirname, 'check-theme-value-files-baseline.json');
 
 /**
+ * Every surface whose contents can change this guard's verdict, as globs — the form a workflow
+ * `paths:` filter takes, so the sibling alignment spec can hold the mirror to what is actually read.
+ *
+ * The `theme-*` segment is the collector's own filter, not a convenience: `themeRoot` holds
+ * `resources/scss/src` too and this guard never opens it. Writing the wider root here would demand a
+ * wider mirror than the guard needs. The baseline is a member because it is an INPUT to the verdict
+ * — a run that did not re-trigger on a baseline edit would let a file be blessed by editing the
+ * record of what exists, with nothing re-reading reality. Every member must be TRACKED.
+ * @type {String[]}
+ */
+export const SCAN_SURFACE = Object.freeze([
+    `${path.relative(repoRoot, themeRoot)}/theme-*/**/*.scss`,
+    path.relative(repoRoot, baselinePath)
+]);
+
+/**
  * @summary Finds every selector block nested inside a theme file's own scope.
  *
  * Detected by BRACE DEPTH rather than by matching selector text. A first attempt used a regex for

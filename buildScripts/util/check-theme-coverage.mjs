@@ -51,6 +51,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       };
 
 /**
+ * The three trees this guard reads, as globs relative to the repository root — the form a workflow
+ * `paths:` filter takes, so the sibling alignment spec can hold this guard's mirror to what it
+ * actually reads.
+ *
+ * DERIVED from {@link DEFAULT_PATHS} rather than restated, because the absolute forms above are what
+ * the guard opens and a second hand-written list would be free to disagree with them. Every member
+ * must be TRACKED: a workflow filter can only select files CI checks out.
+ * @type {String[]}
+ */
+export const SCAN_SURFACE = Object.freeze(
+    Object.values(DEFAULT_PATHS).map(dir => `${path.relative(repoRoot, dir)}/**/*.scss`)
+);
+
+/**
  * @param {String} dir
  * @returns {Boolean} true when dir exists and holds at least one .scss file, recursively.
  */

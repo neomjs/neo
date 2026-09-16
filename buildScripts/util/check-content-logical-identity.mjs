@@ -3,9 +3,10 @@ import path                    from 'node:path';
 import process                 from 'node:process';
 import {fileURLToPath}         from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const ROOT       = path.resolve(__dirname, '../..');
+const __filename  = fileURLToPath(import.meta.url);
+const __dirname   = path.dirname(__filename);
+const ROOT        = path.resolve(__dirname, '../..');
+const ARCHIVE_REL = 'resources/content/archive';
 
 /**
  * @module buildScripts/util/check-content-logical-identity
@@ -14,16 +15,16 @@ const ROOT       = path.resolve(__dirname, '../..');
  *
  * ## The defect
  *
- * `resources/content/archive/<family>/<version>/chunk-N/<name>.md` is addressed by ordinal chunk
- * (ADR 0004 §2.2 — ticket-ref-ok: the ADR DEFINES the layout this check enforces and supplies the
- * remediation the failure message prescribes, so the pointer is the contract, not a status note),
- * but a consumer resolves an artifact by its LOGICAL name — `pulls/pr-11982` — not
+ * `resources/content/archive/<family>/<version>/chunk-N/<name>.md` is addressed by ordinal chunk —
+ * the archived-content layout decision record defines that path shape and supplies the remediation
+ * this guard's failure message prescribes, so it is the contract rather than a status note — but a
+ * consumer resolves an artifact by its LOGICAL name — `pulls/pr-<id>` — not
  * by path. So two files in different chunks claiming one logical name are two documents asserting one
  * identity, and nothing on disk records which is current. `PullRequestSource` already refuses to embed
  * in that state, fail-closed and with a precise message:
  *
- *     pull request 11982 has more than one local artifact (…chunk-1/pr-11982.md and
- *     …chunk-10/pr-11982.md) — refusing to embed duplicate evidence under one logical name.
+ *     pull request <id> has more than one local artifact (…chunk-1/pr-<id>.md and
+ *     …chunk-10/pr-<id>.md) — refusing to embed duplicate evidence under one logical name.
  *
  * That refusal is correct and it is also the whole problem: it is the ONLY enforcement, it lives at
  * the point of consumption, and it runs on the Knowledge Base ingestion schedule — days later, often
@@ -47,7 +48,7 @@ const ROOT       = path.resolve(__dirname, '../..');
  *
  * ## Why the family, not the bucket, is the collision scope
  *
- * A consumer keys on `<family>/<logical name>`, so the scope here matches it: `pr-11982.md` may exist
+ * A consumer keys on `<family>/<logical name>`, so the scope here matches it: `pr-<id>.md` may exist
  * once across ALL of `archive/pulls`, not once per version bucket. A pull request belongs to exactly
  * one release, so the same name under two version folders is the same defect wearing a different
  * shape — and scoping per-bucket would have missed it while reporting green.
@@ -72,6 +73,17 @@ const ROOT       = path.resolve(__dirname, '../..');
  *   it would have wedged every commit in the repository until an unrelated repair cleared them.
  *   Keep that in mind before adding a family with pre-existing damage: fix first, then let CI hold.
  */
+
+/**
+ * The corpus this guard reads, as a glob — the form a workflow `paths:` filter takes, so the sibling
+ * alignment spec can hold the mirror to what is actually read.
+ *
+ * One member, and it is the whole corpus rather than a per-family list: the families are DERIVED from
+ * reading the directory, so naming them here would reintroduce exactly the roster this guard refuses
+ * to keep. Every member must be TRACKED, since a workflow filter can only select files CI checks out.
+ * @type {String[]}
+ */
+export const SCAN_SURFACE = Object.freeze([`${ARCHIVE_REL}/**`]);
 
 /**
  * @summary Lists the archived-content families present on disk.
@@ -180,7 +192,7 @@ const invokedAsCli = process.argv[1] && path.resolve(process.argv[1]) === __file
 
 if (invokedAsCli) {
     const
-        archiveRoot = path.join(ROOT, 'resources/content/archive'),
+        archiveRoot = path.join(ROOT, ARCHIVE_REL),
         args        = process.argv.slice(2),
         auditAll    = args.includes('--all'),
         candidates  = args.filter(arg => !arg.startsWith('--')),

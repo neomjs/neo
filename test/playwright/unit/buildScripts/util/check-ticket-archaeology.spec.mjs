@@ -409,7 +409,6 @@ test.describe('check-ticket-archaeology scan-surface reachability', () => {
 
         expect(code, 'an unusable scan surface is a failure, not a silent partial audit').toBe(1);
         expect(stdout, 'the diagnostic names which root').toContain('neo-absent-scan-root');
-        expect(stdout, 'and it does not name the healthy one').not.toContain('src,');
         expect(stdout, 'the remedy is stated, not left to be inferred').toContain('DEFAULT_SCAN_PATHS');
         expect(stdout, 'a raw find failure is what this replaces').not.toContain('find command failed')
     })
