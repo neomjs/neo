@@ -172,6 +172,8 @@ class Model extends Base {
                 me.deselect(item, true)
             });
 
+            // Emptiness is already decided by the branch above: nothing selected fires `noChange` instead. What is
+            // left to ask is whether the view renders its own selection — a grid repaints the cells it changed.
             if (!silent && !view.silentSelect) {
                 view.update()
             }
