@@ -88,7 +88,10 @@ class Button extends BaseButton {
         renderer_: 'cellRenderer',
         /**
          * Scope to execute the column renderer.
-         * Defaults to the matching table.Container
+         *
+         * An instance set here wins. A `renderer` string resolves against an instance and records it here:
+         * `'up.name'` the ancestor that defines the method, a plain name the view controller that defines it or
+         * else the column. A `renderer` function names no instance and runs on the matching table.Container.
          * @member {Neo.core.Base|null} rendererScope=null
          */
         rendererScope: null,
@@ -225,7 +228,16 @@ class Button extends BaseButton {
      * @protected
      */
     beforeSetRenderer(value, oldValue) {
-        return resolveCallback(value, this).fn
+        let me          = this,
+            {fn, scope} = resolveCallback(value, me);
+
+        // A name resolves against the instance its method must run on, a function against none.
+        // An explicit rendererScope stays the author's.
+        if (Neo.isString(value) && fn && !me.rendererScope) {
+            me.rendererScope = scope
+        }
+
+        return fn
     }
 
     /**
