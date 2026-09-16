@@ -187,13 +187,13 @@ class Row extends Component {
             value: fieldValue
         };
 
-        rendererOutput = column.renderer.call(column.rendererScope || column, rendererConfig);
+        rendererOutput = column.renderer.call(column.rendererScope || gridContainer, rendererConfig);
 
         if (column.cellCls) {
             let extraCls = column.cellCls;
 
             if (Neo.typeOf(extraCls) === 'Function') {
-                extraCls = extraCls.call(column.rendererScope || column, rendererConfig)
+                extraCls = extraCls.call(column.rendererScope || gridContainer, rendererConfig)
             }
 
             if (extraCls) {

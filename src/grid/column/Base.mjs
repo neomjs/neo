@@ -75,9 +75,12 @@ class Column extends Base {
          */
         renderer_: 'cellRenderer',
         /**
-         * Scope to execute the column renderer.
-         * Defaults to the grid.Body.
-         * You can pass the strings 'this' or 'me'
+         * Scope to execute the column renderer and a function `cellCls` in.
+         *
+         * Three sources can name it, and this config is the first: an instance set here wins. A `renderer` string
+         * starting with `up.` resolves on the instance that defines the method, and records it here. Everything
+         * else runs on the grid Container. The strings `'this'` and `'me'` mean the column, which is what a
+         * renderer the column itself owns needs — the default `cellRenderer`, or {@link Neo.grid.column.Component}.
          * @member {Neo.core.Base|String|null} rendererScope=null
          */
         rendererScope: null,
@@ -215,8 +218,18 @@ class Column extends Base {
      * @protected
      */
     beforeSetRenderer(value, oldValue) {
+        let me          = this,
+            {fn, scope} = resolveCallback(value, me);
+
+        // `up.name` names the instance that defines the method, and that instance is the one it must run on:
+        // without it the method would run on the column, which knows nothing of its owner. An explicit
+        // rendererScope stays the author's choice, whichever of the two configs is applied first.
+        if (fn && scope !== me && !me.rendererScope) {
+            me.rendererScope = scope
+        }
+
         // If no fn is found inside the parent tree, return the plain value for view controllers to match
-        return resolveCallback(value, this).fn || value
+        return fn || value
     }
 
     /**
