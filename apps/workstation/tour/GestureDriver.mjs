@@ -216,8 +216,19 @@ class GestureDriver extends Base {
                 tabs                                     = null,
                 windowRect                               = null;
 
-            if (!itemId || sourceNode?.type !== 'tabs' || !sourceNode.items.includes(itemId)) {
-                return {applied: false, errors: ['cross-zone showcase must name a live item held by its source tabs node']}
+            // Three refusals, three messages. One shared string could not say whether the step named nothing,
+            // named a node that is not a tabs node, or named an item that node no longer holds — and the third
+            // is the one a caller cannot predict, because a prior gesture may have moved the item away.
+            if (!itemId) {
+                return {applied: false, errors: ['cross-zone showcase needs an itemId']}
+            }
+
+            if (sourceNode?.type !== 'tabs') {
+                return {applied: false, errors: [`cross-zone showcase source '${sourceNodeId}' is ${sourceNode ? `a '${sourceNode.type}' node` : 'not in the document'}, not a tabs node`]}
+            }
+
+            if (!sourceNode.items.includes(itemId)) {
+                return {applied: false, errors: [`cross-zone showcase source '${sourceNodeId}' holds [${sourceNode.items.join(', ')}], not '${itemId}'`]}
             }
 
             if (!Array.isArray(dwells) || dwells.length < 2
