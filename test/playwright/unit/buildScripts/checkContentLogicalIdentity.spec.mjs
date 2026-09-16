@@ -188,6 +188,20 @@ test.describe('check-content-logical-identity — the commit-time corpus invaria
                 .toEqual(['some-future-family/v99.0.0'])
         });
 
+        test('the CLI refuses to combine the report with a gating mode', () => {
+            // Returning early past `--all` silently swallowed that audit: `--all` exits 1 on a corpus
+            // with a duplicate and `--all --ordinals` exited 0, so adding a reporting flag disabled a
+            // blocking gate. Falling through would have fixed the exit code and broken the other half
+            // of the contract — this mode's whole claim is that it can never fail a commit.
+            for (const argv of [['--all', '--ordinals'], ['--ordinals', 'resources/content/archive/pulls/x.md']]) {
+                const result = spawnSync('node', [GUARD, ...argv], {encoding: 'utf8'});
+
+                expect(result.status, `refused: ${argv.join(' ')}`).toBe(1);
+                expect(result.stderr).toContain('cannot be combined');
+                expect(result.stdout, 'and it reports nothing, so the refusal cannot read as a clean run').toBe('')
+            }
+        });
+
         test('the CLI mode reports and exits 0, against the real corpus that does NOT conform', () => {
             // AC-2's red control, and the one arm that reads the committed corpus deliberately: the
             // claim is about the EXIT CODE, which is 0 by construction whatever the count drifts to.

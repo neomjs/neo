@@ -10,8 +10,11 @@ const ARCHIVE_REL = 'resources/content/archive';
 
 /**
  * @module buildScripts/util/check-content-logical-identity
- * @summary Fails a commit that gives two archived artifacts the same logical name — the corpus
- * invariant that, until now, was enforced only at embed time by a consumer running somewhere else.
+ * @summary Guards the archived corpus on two axes: it FAILS a commit that gives two artifacts the
+ * same logical name, and REPORTS which artifacts sit off the ordinal the layout contract computes.
+ * The first is the invariant that, until now, was enforced only at embed time by a consumer running
+ * somewhere else; the second gates nothing today and says so. Both read the same complete per-bucket
+ * membership, which is why they share a module — see `## Modes` for why they never share a run.
  *
  * ## The defect
  *
@@ -72,6 +75,14 @@ const ARCHIVE_REL = 'resources/content/archive';
  *   a blocking gate only because the corpus is clean; while it carried known collisions, blocking on
  *   it would have wedged every commit in the repository until an unrelated repair cleared them.
  *   Keep that in mind before adding a family with pre-existing damage: fix first, then let CI hold.
+ * - **`--ordinals`**: reports which artifacts sit where the archived-content layout contract would
+ *   not place them, and **always exits 0**. It gates nothing: no `lint-staged` entry, no workflow.
+ *   That is the point rather than a first step — the corpus carries 175 known non-conformances, and
+ *   a blocking audit would wedge every commit exactly as a cold duplicate audit once would have.
+ *   It answers a whole-corpus question, so it **refuses** to share an invocation with `--all` or with
+ *   file arguments; those gate a commit, and one run cannot both always-pass and sometimes-fail.
+ *   Promoted to blocking or deleted when the parent decision lands on whether ordinal conformance is
+ *   worth a corpus rewrite — and if that answer is no, deleting this mode should cost nothing.
  */
 
 /**
@@ -281,7 +292,21 @@ if (invokedAsCli) {
 
     // Report-only, and it exits BEFORE the duplicate check rather than beside it: this mode answers a
     // different question and must never contribute to that check's exit code.
+    //
+    // Which is exactly why it REFUSES to share an invocation. Returning early past `--all` silently
+    // swallowed that audit — `--all` exits 1 on a duplicate corpus and `--all --ordinals` exited 0,
+    // so adding a reporting flag disabled a blocking gate. Falling through instead would fix the exit
+    // code and break the other half of the contract, since this mode's whole claim is that it can
+    // never fail a commit. A caller that wants both answers runs the guard twice and gets two exit
+    // codes, which is what having two questions actually looks like.
     if (args.includes('--ordinals')) {
+        if (auditAll || candidates.length) {
+            console.error('\x1b[31mcheck-content-logical-identity: --ordinals cannot be combined with --all or with file arguments.\x1b[0m');
+            console.error('It reports whole-corpus ordinal placement and always exits 0; the other modes gate a commit and');
+            console.error('exit non-zero on a finding. One invocation cannot honour both contracts — run the guard twice.');
+            process.exit(1)
+        }
+
         const findings = findOrdinalMisplacements({archiveRoot});
 
         if (findings.length) {
