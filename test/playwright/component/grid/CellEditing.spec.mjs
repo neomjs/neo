@@ -333,8 +333,8 @@ test.describe('grid cell editing — teardown', () => {
     });
 
     test('destroying the plugin alone discards the draft, restores the cell and releases the View keys', async ({page}) => {
-        // Generated from the ntype: `#grid-cell-editing` is constructed first, so it creates the first plugin
-        const pluginId = 'neo-plugin-grid-cell-editing-1',
+        // The fixture gives this grid's plugin its id, so the arm names one plugin rather than a construction order
+        const pluginId = 'grid-cell-editing-plugin',
               recordId = await recordIdOf(page, 2),
               name     = cell(page, 'name', recordId);
 
