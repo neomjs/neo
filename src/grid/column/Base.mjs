@@ -78,9 +78,10 @@ class Column extends Base {
          * Scope to execute the column renderer and a function `cellCls` in.
          *
          * Three sources can name it, and this config is the first: an instance set here wins. A `renderer` string
-         * starting with `up.` resolves on the instance that defines the method, and records it here. Everything
-         * else runs on the grid Container. The strings `'this'` and `'me'` mean the column, which is what a
-         * renderer the column itself owns needs — the default `cellRenderer`, or {@link Neo.grid.column.Component}.
+         * resolves against an instance and records it here — `'up.name'` the ancestor that defines the method,
+         * a plain name the column itself, which is what the default `cellRenderer` and every subclass override of
+         * it need to reach their own configs. A `renderer` function names no instance and runs on the grid
+         * Container. The strings `'this'` and `'me'` mean the column, as {@link Neo.grid.column.Component} sets.
          * @member {Neo.core.Base|String|null} rendererScope=null
          */
         rendererScope: null,
@@ -221,10 +222,11 @@ class Column extends Base {
         let me          = this,
             {fn, scope} = resolveCallback(value, me);
 
-        // `up.name` names the instance that defines the method, and that instance is the one it must run on:
-        // without it the method would run on the column, which knows nothing of its owner. An explicit
-        // rendererScope stays the author's choice, whichever of the two configs is applied first.
-        if (fn && scope !== me && !me.rendererScope) {
+        // A name is resolved against an instance, and that instance is the one the method must run on: `up.name`
+        // names an ancestor, a plain name names the column itself — `cellRenderer` and every subclass override of
+        // it read their own configs. A function carries no such instance and falls through to the grid Container.
+        // An explicit rendererScope stays the author's choice, whichever of the two configs is applied first.
+        if (Neo.isString(value) && fn && !me.rendererScope) {
             me.rendererScope = scope
         }
 

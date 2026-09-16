@@ -9,7 +9,9 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
+import CurrencyColumn from '../../../../../src/grid/column/Currency.mjs';
 import GridColumn     from '../../../../../src/grid/column/Base.mjs';
+import IndexColumn    from '../../../../../src/grid/column/Index.mjs';
 import Row            from '../../../../../src/grid/Row.mjs';
 
 /**
@@ -166,5 +168,29 @@ test.describe('Neo.grid.column.Base renderer scope', () => {
         const cell = renderCell(row, column);
 
         expect(cell.html, 'the column\'s own cellRenderer returned the field value').toBe('de')
+    });
+
+    /**
+     * The base `cellRenderer` returns its argument and never reads `this`, so it renders the same under every
+     * scope the code could pass. These two subclasses do read `this`, which is what makes them able to fail.
+     */
+    test('a column whose own cellRenderer reads `this` keeps the column as its scope', () => {
+        const column = Neo.create(CurrencyColumn, {dataField: 'amount'}),
+              row    = createRowFake({id: 'grid-1'});
+
+        row.record.amount = 1234.5;
+
+        const cell = renderCell(row, column);
+
+        expect(cell.html, 'Currency#cellRenderer reached its own formatter').toBe(column.formatter.format(1234.5))
+    });
+
+    test('an Index column reads its own zeroBased, not the grid Container\'s', () => {
+        const column = Neo.create(IndexColumn, {dataField: 'index', zeroBased: true}),
+              row    = createRowFake({id: 'grid-1'});
+
+        const cell = renderCell(row, column);
+
+        expect(cell.html, 'row 0 with zeroBased renders 0').toBe('0')
     })
 });
