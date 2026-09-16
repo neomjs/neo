@@ -897,6 +897,10 @@ class List extends BaseList {
                 zIndex         : me.zIndex + 1
             }));
 
+        // Every way into a submenu comes through here, so this ends a pending rest: a focus rest has no leave event,
+        // and would otherwise reopen what Right and Left closed, or take over the submenu Right just entered
+        me.cancelRest();
+
         // At most one submenu per level: a sibling's left mounted would have nothing tracking it
         if (me.activeSubMenu !== subMenu) {
             me.hideSubMenu();

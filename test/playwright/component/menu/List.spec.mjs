@@ -447,6 +447,29 @@ test.describe('Neo.menu.List focus rest', () => {
         await expect(page.getByText('Email', {exact: true})).toHaveCount(0)
     });
 
+    test('Right into a preview wins over a pointer rest still pending on another parent', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: twoParentItems, subMenuHoverDelay: 1000});
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').nth(1).focus();
+        await expect.poll(() => focusedItem(page)).toBe('Rename');
+
+        // A focus rest previews Export's submenu first, so Right below enters a submenu that is already showing
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByText('PDF', {exact: true})).toBeVisible();
+
+        // The pointer comes to rest on the other parent; its rest is still pending when Right is pressed
+        await page.getByText('Share', {exact: true}).hover();
+        await page.keyboard.press('ArrowRight');
+        await expect.poll(() => focusedItem(page)).toBe('PDF');
+
+        await page.waitForTimeout(1300);
+        await expect(page.getByText('PDF', {exact: true}), 'the submenu Right entered is still the one showing').toBeVisible();
+        await expect(page.getByText('Email', {exact: true})).toHaveCount(0)
+    });
+
     test('showSubMenuOnHover: false suppresses the focus rest as well', async ({page}) => {
         const menus = await createMenuFocusedOnRename(page, {showSubMenuOnHover: false});
 
@@ -475,6 +498,30 @@ test.describe('Neo.menu.List keyboard cascade', () => {
 
         return menus
     }
+
+    test('a rest pending from arrowing onto a parent does not reopen what Right and Left closed', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        // A long rest delay makes the race deterministic: Right and Left finish long before the rest would fire
+        menuId = await createMenu(page, {subMenuHoverDelay: 1000});
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+        await expect.poll(() => focusedItem(page)).toBe('Open');
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(menus).toHaveCount(2);
+
+        await page.keyboard.press('ArrowLeft');
+        await expect(menus).toHaveCount(1);
+
+        // Outlast the pending rest: absence cannot be polled for
+        await page.waitForTimeout(1300);
+        await expect(menus).toHaveCount(1)
+    });
 
     test('Right and Left walk two levels down and back up, with focus on the expected item at every step', async ({page}) => {
         const menus = await createFocusedMenu(page);
