@@ -120,6 +120,14 @@ class List extends BaseList {
          */
         selectionModel: ListModel,
         /**
+         * True shows a parent item's submenu once the pointer rests on it, and hides it once the pointer rests on
+         * another item. A rest previews: it neither selects nor takes focus, while a click or Enter still enters
+         * the submenu. False leaves submenus to click and keyboard, where a click on the parent toggles.
+         * Read from the root menu, so a whole cascade follows one value.
+         * @member {Boolean} showSubMenuOnHover=true
+         */
+        showSubMenuOnHover: true,
+        /**
          * Value for the list.Base store_ config.
          *
          * Accepts either a flat `Neo.menu.Store` (nested `items` arrays on each record) or a
@@ -135,6 +143,13 @@ class List extends BaseList {
          * @member {Number} subMenuGap=0
          */
         subMenuGap: 0,
+        /**
+         * How long, in ms, the pointer must rest on an item before `showSubMenuOnHover` acts on it. A pointer
+         * crossing a row on its way into an open submenu stays shorter than this, so the submenu survives the
+         * trip. 0 acts on enter. Read from the root menu.
+         * @member {Number} subMenuHoverDelay=200
+         */
+        subMenuHoverDelay: 200,
         /**
          * Storing childMenus by record keyProperty
          * @member {Object} subMenuMap=null
@@ -167,6 +182,12 @@ class List extends BaseList {
      */
     outsidePointerListenerOwner = null
     /**
+     * The timeout id of a pointer rest still pending on one of this menu's items.
+     * @member {Number|null} restTimeoutId=null
+     * @protected
+     */
+    restTimeoutId = null
+    /**
      * The hierarchy source, when this menu is driven by a `Neo.data.TreeStore`.
      *
      * The tree store is the single source of truth and is shared by every level of the cascade; it is
@@ -176,6 +197,22 @@ class List extends BaseList {
      * @protected
      */
     sourceStore = null
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            mouseenter: me.onItemMouseEnter,
+            mouseleave: me.cancelRest,
+            delegate  : path => me.getInteractiveItemIndex(path),
+            scope     : me
+        })
+    }
 
     /**
      * @summary Toggles the entrance-animation opt-in across this menu and every cached descendant.
@@ -240,8 +277,22 @@ class List extends BaseList {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (oldValue !== undefined && this.isRoot && this.floating) {
-            this.syncOutsidePointerListener(value)
+        let me           = this,
+            {parentMenu} = me,
+            {target}     = me.align || {};
+
+        if (oldValue !== undefined) {
+            me.isRoot && me.floating && me.syncOutsidePointerListener(value);
+
+            if (parentMenu) {
+                // A level can unmount itself, on Escape for one, without its parent's hideSubMenu()
+                if (!value && parentMenu.activeSubMenu === me) {
+                    parentMenu.activeSubMenu = null
+                }
+
+                // showSubMenu() aligns a submenu to the item that opened it, so its target is that item's node id
+                Neo.isString(target) && parentMenu.setItemExpanded(target, value)
+            }
         }
     }
 
@@ -300,6 +351,15 @@ class List extends BaseList {
     }
 
     /**
+     * Drops the pointer rest still pending on one of this menu's items, if any.
+     * @protected
+     */
+    cancelRest() {
+        clearTimeout(this.restTimeoutId);
+        this.restTimeoutId = null
+    }
+
+    /**
      * Renders a `separator` record as a rule rather than a command.
      *
      * The class is what the stylesheet paints and what `nonInteractiveItemCls` excludes, so this and
@@ -318,7 +378,12 @@ class List extends BaseList {
      * @returns {Object} The list item vdom object
      */
     createItem(record, index, poolIndex=index) {
-        let item = super.createItem(record, index, poolIndex);
+        let me   = this,
+            item = super.createItem(record, index, poolIndex);
+
+        if (item && me.hasChildren(record)) {
+            item['aria-expanded'] = !!me.getSubMenu(record)?.mounted
+        }
 
         if (item && record.separator) {
             item.cls.push('neo-menu-separator');
@@ -400,14 +465,10 @@ class List extends BaseList {
      * @protected
      */
     isInteractionPath(path=[]) {
-        const ids  = new Set(path.map(item => item.id).filter(Boolean));
-        let   root = this;
-
-        while (root.parentMenu) {
-            root = root.parentMenu
-        }
-
-        const menus = [root];
+        const
+            ids   = new Set(path.map(item => item.id).filter(Boolean)),
+            root  = this.getRootMenu(),
+            menus = [root];
         let   menu;
 
         while ((menu = menus.pop())) {
@@ -458,6 +519,20 @@ class List extends BaseList {
      */
     getMenuMapId(recordId) {
         return `menu__${recordId}`
+    }
+
+    /**
+     * @summary Returns the top level of this cascade.
+     * @returns {Neo.menu.List}
+     */
+    getRootMenu() {
+        let menu = this;
+
+        while (menu.parentMenu) {
+            menu = menu.parentMenu
+        }
+
+        return menu
     }
 
     /**
@@ -571,6 +646,48 @@ class List extends BaseList {
     }
 
     /**
+     * Starts a pointer rest on the item just entered, when the root menu shows submenus on hover.
+     * @param {Object} data
+     * @param {String} data.currentTarget The entered item's node id
+     * @protected
+     */
+    onItemMouseEnter({currentTarget}) {
+        let me                                      = this,
+            {showSubMenuOnHover, subMenuHoverDelay} = me.getRootMenu();
+
+        me.cancelRest();
+
+        if (showSubMenuOnHover) {
+            if (subMenuHoverDelay > 0) {
+                me.restTimeoutId = setTimeout(() => {
+                    me.restTimeoutId = null;
+                    me.onItemRest(currentTarget)
+                }, subMenuHoverDelay)
+            } else {
+                me.onItemRest(currentTarget)
+            }
+        }
+    }
+
+    /**
+     * @summary Previews the submenu of the item the pointer rests on, or hides the showing one for a leaf.
+     *
+     * A preview neither selects nor takes focus. The rest resumes on a timer, so liveness is checked where it
+     * resumes: `hide()` can unmount through `removeDom` without `unmount()` cancelling the rest, and a destroyed
+     * menu still reads as mounted.
+     * @param {String} nodeId
+     * @protected
+     */
+    onItemRest(nodeId) {
+        let me     = this,
+            record = !me.isDestroyed && me.mounted && me.store.get(me.getItemRecordId(nodeId));
+
+        if (record) {
+            me.hasChildren(record) ? me.showSubMenu(nodeId, record, false) : me.hideSubMenu()
+        }
+    }
+
+    /**
      * @param {Object} node
      * @param {Object} data
      */
@@ -641,9 +758,14 @@ class List extends BaseList {
             }
 
             // Only a submenu this item already showed toggles. The first show belongs to the selection the same
-            // click makes, and that listener runs after this one.
+            // click makes, and that listener runs after this one. While hover shows submenus, a click on the
+            // parent enters its submenu instead: a tap reaches it as mouseenter plus click.
             if (hasChildren && me.getSubMenu(record)) {
-                me.toggleSubMenu(nodeId, record)
+                if (me.getRootMenu().showSubMenuOnHover) {
+                    me.showSubMenu(nodeId, record)
+                } else {
+                    me.toggleSubMenu(nodeId, record)
+                }
             }
         }
     }
@@ -667,10 +789,27 @@ class List extends BaseList {
     }
 
     /**
-     * @param {String} nodeId
-     * @param {Object} record
+     * Marks whether the submenu of an item is showing.
+     * @param {String}  nodeId
+     * @param {Boolean} expanded
+     * @protected
      */
-    showSubMenu(nodeId, record) {
+    setItemExpanded(nodeId, expanded) {
+        let me   = this,
+            item = me.getVdomChild(nodeId);
+
+        if (item) {
+            item['aria-expanded'] = expanded;
+            me.update()
+        }
+    }
+
+    /**
+     * @param {String}  nodeId
+     * @param {Object}  record
+     * @param {Boolean} [focus=true] False previews: the submenu shows without taking focus
+     */
+    showSubMenu(nodeId, record, focus=true) {
         const
             me           = this,
             {store}      = me,
@@ -704,8 +843,13 @@ class List extends BaseList {
         // At most one submenu per level: a sibling's left mounted would have nothing tracking it
         if (me.activeSubMenu !== subMenu) {
             me.hideSubMenu();
-            me.activeSubMenu = subMenu;
+            me.activeSubMenu     = subMenu;
+            subMenu.focusOnMount = focus;
             subMenu.initVnode(true)
+        } else if (focus) {
+            // Entering a preview: a mount still in flight takes focus when it lands
+            subMenu.focusOnMount = true;
+            subMenu.mounted && subMenu.focus(subMenu.id, true)
         }
     }
 
@@ -816,6 +960,7 @@ class List extends BaseList {
      *
      */
     unmount() {
+        this.cancelRest();
         this._menuFocus = false;
         this.selectionModel?.deselectAll(true); // silent update
         this.hideSubMenu();

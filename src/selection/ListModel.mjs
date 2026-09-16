@@ -116,28 +116,12 @@ class ListModel extends Model {
             {id, view} = me;
 
         view.addDomListeners([{
-            click: me.onListClick,
-            scope: me,
-
-            // The class-name equivalent of `view.getNavigableItemSelector()`, which delegates cannot
-            // consume as a selector yet (TODO parse delegate selectors). Both read the same
-            // `nonInteractiveItemCls` config, so the two expressions of this rule cannot drift: a
-            // subclass adding a non-interactive concept is excluded from clicking and from arrow-key
-            // navigation by one declaration. Evaluated per event, so it always reflects the live value.
-            delegate: path => {
-                const excluded = view.nonInteractiveItemCls;
-
-                for (let i = 0, { length } = path; i < length; i++) {
-                    const { cls } = path[i];
-
-                    if (cls.includes(view.itemCls) && !excluded.some(name => cls.includes(name))) {
-                        return i;
-                    }
-                }
-            }
+            click   : me.onListClick,
+            delegate: path => view.getInteractiveItemIndex(path),
+            scope   : me
         }, {
-            neonavigate : me.onListNavigate,
-            scope       : me
+            neonavigate: me.onListNavigate,
+            scope      : me
         }]);
 
         view.keys?._keys.push(

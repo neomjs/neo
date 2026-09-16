@@ -109,7 +109,9 @@
             outline: var(--menu-list-item-outline-focus);
         }
 
-        &:hover {
+        // A parent whose submenu is showing stays marked while the pointer is inside that submenu
+        &:hover,
+        &[aria-expanded="true"] {
             background-color: var(--menu-list-item-background-color-hover);
         }
 

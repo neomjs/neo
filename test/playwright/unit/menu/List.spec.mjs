@@ -62,6 +62,22 @@ function createMenu(config={}) {
     return menu
 }
 
+/**
+ * @summary A floating root holding the given records; each one without `items` becomes a parent of one leaf.
+ * @param {Neo.menu.List[]} menus The describe block's teardown list
+ * @param {Object[]} records Parents, or leaves marked `leaf: true`
+ * @param {Object} [config]
+ * @returns {Neo.menu.List}
+ */
+function createRoot(menus, records, config={}) {
+    const root = createMenu({floating: true, isRoot: true, ...config});
+
+    menus.push(root);
+    root.store.add(records.map(({leaf, ...record}) => leaf ? record : {...record, items: [{text: `${record.text} leaf`}]}));
+
+    return root
+}
+
 test.describe('Neo.menu.List floating dismissal', () => {
     let menus;
 
@@ -283,24 +299,10 @@ test.describe('Neo.menu.List submenu cache', () => {
         })
     });
 
-    /**
-     * @summary A floating root holding the given parent records, each with one leaf child.
-     * @param {Object[]} parents
-     * @returns {Neo.menu.List}
-     */
-    function createRoot(parents) {
-        const root = createMenu({floating: true, isRoot: true});
-
-        menus.push(root);
-        root.store.add(parents.map(parent => ({...parent, items: [{text: `${parent.text} leaf`}]})));
-
-        return root
-    }
-
     for (const [label, parent] of [['keyed by its id', {id: 'more', text: 'More'}], ['keyed by the store', {text: 'More'}]]) {
-        test(`Enter on a parent whose submenu is showing closes it, and the next Enter shows it again (${label})`, () => {
+        test(`without hover, Enter on a parent whose submenu is showing closes it, and the next Enter shows it again (${label})`, () => {
             const
-                root   = createRoot([parent]),
+                root   = createRoot(menus, [parent], {showSubMenuOnHover: false}),
                 record = root.store.getAt(0),
                 nodeId = root.getItemId(record);
 
@@ -325,7 +327,7 @@ test.describe('Neo.menu.List submenu cache', () => {
 
     test('showing a sibling\'s submenu unmounts the one showing before it', () => {
         const
-            root            = createRoot([{text: 'First'}, {text: 'Second'}]),
+            root            = createRoot(menus, [{text: 'First'}, {text: 'Second'}]),
             [first, second] = root.store.items;
 
         root.showSubMenu(root.getItemId(first), first);
@@ -338,5 +340,180 @@ test.describe('Neo.menu.List submenu cache', () => {
 
         expect(root.activeSubMenu).not.toBe(firstSubmenu);
         expect(firstSubmenu.mounted).toBe(false)
+    })
+});
+
+/**
+ * The pointer rest drives these arms through the handlers the delegated `mouseenter` / `mouseleave` listeners call,
+ * with a short real delay. The component spec owns the real pointer; these own the timer and the root policy.
+ */
+test.describe('Neo.menu.List pointer rest', () => {
+    const delay = 20;
+
+    let menus;
+
+    test.beforeEach(() => {
+        menus = []
+    });
+
+    test.afterEach(() => {
+        menus.forEach(menu => {
+            !menu.isDestroyed && menu.destroy()
+        })
+    });
+
+    /**
+     * @summary A mounted root whose first record is a parent and whose second is a leaf.
+     * @param {Object} [config]
+     * @returns {{root: Neo.menu.List, parentId: String, leafId: String}}
+     */
+    function createMountedRoot(config={}) {
+        const root = createRoot(menus, [{text: 'More'}, {leaf: true, text: 'Open'}], {subMenuHoverDelay: delay, ...config});
+
+        root._mounted = true;
+
+        return {root, parentId: root.getItemId(root.store.getAt(0)), leafId: root.getItemId(root.store.getAt(1))}
+    }
+
+    test('a rest on a parent previews its submenu after the delay, without selecting or taking focus', async () => {
+        const {root, parentId} = createMountedRoot();
+
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        expect(root.activeSubMenu).toBe(null);
+
+        await expect.poll(() => root.activeSubMenu).not.toBe(null);
+
+        expect(root.activeSubMenu.focusOnMount).toBe(false);
+        expect(root.selectionModel.items).toEqual([])
+    });
+
+    test('leaving the item before the delay cancels the rest', async () => {
+        const {root, parentId} = createMountedRoot();
+
+        root.onItemMouseEnter({currentTarget: parentId});
+        root.cancelRest();
+
+        // Absence cannot be polled for: wait out two delays, then read
+        await new Promise(resolve => setTimeout(resolve, 2 * delay));
+
+        expect(root.activeSubMenu).toBe(null)
+    });
+
+    test('a rest on a leaf hides the submenu showing for its sibling', () => {
+        const {root, parentId, leafId} = createMountedRoot({subMenuHoverDelay: 0});
+
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        const submenu = root.activeSubMenu;
+
+        submenu._mounted = true;
+        root.onItemMouseEnter({currentTarget: leafId});
+
+        expect(root.activeSubMenu).toBe(null);
+        expect(submenu.mounted).toBe(false)
+    });
+
+    test('a submenu level follows the root policy, including a change after the level was cached', () => {
+        const {root, parentId} = createMountedRoot({subMenuHoverDelay: 0});
+
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        const
+            submenu  = root.activeSubMenu,
+            nested   = submenu.store.getAt(0),
+            nestedId = submenu.getItemId(nested);
+
+        submenu._mounted = true;
+        nested.items     = [{text: 'Deeper'}];
+
+        // The level's own values would forbid an immediate rest; the root's allow it
+        submenu.showSubMenuOnHover = false;
+        submenu.subMenuHoverDelay  = 500;
+        submenu.onItemMouseEnter({currentTarget: nestedId});
+
+        expect(submenu.activeSubMenu).not.toBe(null);
+
+        submenu.hideSubMenu();
+        root.showSubMenuOnHover = false;
+        submenu.onItemMouseEnter({currentTarget: nestedId});
+
+        expect(submenu.activeSubMenu).toBe(null)
+    });
+
+    test('a rest pending when its menu unmounts shows nothing', async () => {
+        const {root, parentId} = createMountedRoot();
+
+        root.onItemMouseEnter({currentTarget: parentId});
+        root.unmount();
+        root._mounted = true; // shown again inside the delay: a stale rest must not act on the new mount
+
+        await new Promise(resolve => setTimeout(resolve, 2 * delay));
+
+        expect(root.activeSubMenu).toBe(null)
+    });
+
+    test('a rest pending when its menu is destroyed shows nothing, even from a store that outlives the menu', async () => {
+        const
+            {root, parentId} = createMountedRoot({autoDestroyStore: false}),
+            {store}          = root,
+            {showSubMenu}    = MenuList.prototype;
+
+        let shown = 0;
+
+        // destroy() cancels nothing and leaves the instance reading as mounted, and a surviving store still answers
+        // the lookup, so only the resume check stops the rest. The spy sits on the prototype because destroy()
+        // deletes an instance stub.
+        MenuList.prototype.showSubMenu = function(...args) {
+            shown++;
+            return showSubMenu.apply(this, args)
+        };
+
+        try {
+            root.onItemMouseEnter({currentTarget: parentId});
+            root.destroy();
+
+            await new Promise(resolve => setTimeout(resolve, 2 * delay));
+
+            expect(shown).toBe(0)
+        } finally {
+            MenuList.prototype.showSubMenu = showSubMenu;
+            store.destroy()
+        }
+    });
+
+    test('a submenu that unmounts itself stops being its parent\'s active submenu, so a rest shows it again', () => {
+        const {root, parentId} = createMountedRoot({subMenuHoverDelay: 0});
+
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        const submenu = root.activeSubMenu;
+
+        submenu._mounted = true;
+
+        // Escape inside a submenu unmounts that level alone, without going through the parent's hideSubMenu()
+        submenu.onKeyDownEscape();
+
+        expect(root.activeSubMenu).toBe(null);
+
+        let mounts = 0;
+
+        submenu.initVnode = () => {mounts++};
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        expect(mounts).toBe(1)
+    });
+
+    test('Enter on the parent of a preview keeps it showing and enters it', () => {
+        const {root, parentId} = createMountedRoot({subMenuHoverDelay: 0});
+
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        const submenu = root.activeSubMenu;
+
+        root.onKeyDownEnter(parentId);
+
+        expect(root.activeSubMenu).toBe(submenu);
+        expect(submenu.focusOnMount).toBe(true)
     })
 });
