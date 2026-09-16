@@ -263,3 +263,80 @@ test.describe('Neo.menu.List floating dismissal', () => {
         expect(mainView.domListeners).toEqual([])
     })
 });
+
+/**
+ * A record's submenu is cached under the record's store key, while a rendered item id carries the internalId
+ * (`list.Base#useInternalId`). Every arm therefore derives its node id the way the list renders it, and the toggle
+ * arm runs for a record with an `id` and for one the store has to key itself — the two key shapes a lookup built
+ * from the node id could miss.
+ */
+test.describe('Neo.menu.List submenu cache', () => {
+    let menus;
+
+    test.beforeEach(() => {
+        menus = []
+    });
+
+    test.afterEach(() => {
+        menus.forEach(menu => {
+            !menu.isDestroyed && menu.destroy()
+        })
+    });
+
+    /**
+     * @summary A floating root holding the given parent records, each with one leaf child.
+     * @param {Object[]} parents
+     * @returns {Neo.menu.List}
+     */
+    function createRoot(parents) {
+        const root = createMenu({floating: true, isRoot: true});
+
+        menus.push(root);
+        root.store.add(parents.map(parent => ({...parent, items: [{text: `${parent.text} leaf`}]})));
+
+        return root
+    }
+
+    for (const [label, parent] of [['keyed by its id', {id: 'more', text: 'More'}], ['keyed by the store', {text: 'More'}]]) {
+        test(`Enter on a parent whose submenu is showing closes it, and the next Enter shows it again (${label})`, () => {
+            const
+                root   = createRoot([parent]),
+                record = root.store.getAt(0),
+                nodeId = root.getItemId(record);
+
+            // The first show belongs to the selection the same click makes
+            root.onSelect([nodeId]);
+
+            const submenu = root.activeSubMenu;
+
+            // initVnode() returns early in unit mode, so the mount is stated rather than rendered
+            submenu._mounted = true;
+
+            root.onKeyDownEnter(nodeId);
+
+            expect(root.activeSubMenu).toBe(null);
+            expect(submenu.mounted).toBe(false);
+
+            root.onKeyDownEnter(nodeId);
+
+            expect(root.activeSubMenu).toBe(submenu)
+        })
+    }
+
+    test('showing a sibling\'s submenu unmounts the one showing before it', () => {
+        const
+            root            = createRoot([{text: 'First'}, {text: 'Second'}]),
+            [first, second] = root.store.items;
+
+        root.showSubMenu(root.getItemId(first), first);
+
+        const firstSubmenu = root.activeSubMenu;
+
+        firstSubmenu._mounted = true;
+
+        root.showSubMenu(root.getItemId(second), second);
+
+        expect(root.activeSubMenu).not.toBe(firstSubmenu);
+        expect(firstSubmenu.mounted).toBe(false)
+    })
+});

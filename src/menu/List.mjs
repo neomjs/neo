@@ -461,6 +461,19 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Returns the submenu a record opened, if one was created.
+     *
+     * Resolves through the record's store key, which is what `showSubMenu()` caches under. A rendered item id
+     * carries the internalId instead (`list.Base#useInternalId`), so a lookup built from a node id never hits.
+     * @param {Object} record
+     * @returns {Neo.menu.List|undefined}
+     * @protected
+     */
+    getSubMenu(record) {
+        return this.subMenuMap?.[this.getMenuMapId(this.store.getKey(record))]
+    }
+
+    /**
      * Returns the data-related configs for a child level, for whichever store shape drives this menu.
      *
      * Tree-driven levels share the one `sourceStore` and identify their slice by `parentRecordId`;
@@ -597,8 +610,7 @@ class List extends BaseList {
             let me          = this,
                 recordId    = me.getItemRecordId(nodeId),
                 record      = me.store.get(recordId),
-                hasChildren = me.hasChildren(record),
-                submenu;
+                hasChildren = me.hasChildren(record);
 
             me.callback(record.handler, me, [record]);
 
@@ -628,12 +640,10 @@ class List extends BaseList {
                 me.mounted && me.unmount()
             }
 
-            if (hasChildren) {
-                submenu = me.subMenuMap?.[me.getMenuMapId(recordId)];
-
-                if (submenu) {
-                    me.toggleSubMenu(nodeId, record)
-                }
+            // Only a submenu this item already showed toggles. The first show belongs to the selection the same
+            // click makes, and that listener runs after this one.
+            if (hasChildren && me.getSubMenu(record)) {
+                me.toggleSubMenu(nodeId, record)
             }
         }
     }
@@ -649,15 +659,11 @@ class List extends BaseList {
      * @param {String[]} items
      */
     onSelect(items) {
-        let me       = this,
-            nodeId   = items[0],
-            recordId = me.getItemRecordId(nodeId),
-            record   = me.store.get(recordId);
+        let me     = this,
+            nodeId = items[0],
+            record = me.store.get(me.getItemRecordId(nodeId));
 
-        if (me.activeSubMenu !== me.subMenuMap?.[me.getMenuMapId(recordId)]) {
-            me.hideSubMenu();
-            me.hasChildren(record) && me.showSubMenu(nodeId, record)
-        }
+        me.hasChildren(record) ? me.showSubMenu(nodeId, record) : me.hideSubMenu()
     }
 
     /**
@@ -695,7 +701,9 @@ class List extends BaseList {
                 zIndex         : me.zIndex + 1
             }));
 
+        // At most one submenu per level: a sibling's left mounted would have nothing tracking it
         if (me.activeSubMenu !== subMenu) {
+            me.hideSubMenu();
             me.activeSubMenu = subMenu;
             subMenu.initVnode(true)
         }
@@ -795,11 +803,9 @@ class List extends BaseList {
      * @param {Object} record
      */
     toggleSubMenu(nodeId, record) {
-        let me       = this,
-            recordId = me.store.getKey(record),
-            submenu  = me.subMenuMap?.[me.getMenuMapId(recordId)];
+        let me = this;
 
-        if (!submenu?.mounted) {
+        if (!me.getSubMenu(record)?.mounted) {
             me.showSubMenu(nodeId, record)
         } else {
             me.hideSubMenu()

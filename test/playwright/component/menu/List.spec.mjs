@@ -142,6 +142,29 @@ test.describe('Neo.menu.List leaf-click cascade', () => {
     })
 });
 
+test.describe('Neo.menu.List parent click', () => {
+    test('a second click on a parent hides the submenu its first click showed', async ({page}) => {
+        menuId = await createMenu(page);
+
+        const
+            inspect = page.getByText('Inspect', {exact: true}),
+            menus   = page.locator('.neo-menu-list');
+
+        await expect(menus).toHaveCount(1);
+        await inspect.click();
+        await expect(menus).toHaveCount(2);
+
+        await recordLevelCounts(page);
+        await inspect.click();
+        await expect(menus).toHaveCount(1);
+
+        // A reopen after the hide would land later than the count poll above, so let one settle before reading
+        await page.waitForTimeout(300);
+
+        expect(await levelCounts(page)).toEqual([2, 1])
+    })
+});
+
 test.describe('Neo.menu.List focus across a reopen', () => {
     test('a menu shown again inside the focus gap stays open', async ({page}) => {
         menuId = await createMenu(page);
