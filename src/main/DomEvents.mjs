@@ -619,6 +619,11 @@ class DomEvents extends Base {
             ) {
                 event.preventDefault()
             }
+
+            // A menu item is not such a native target: Space activates it, like Enter, and scrolls nothing
+            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list'])) {
+                event.preventDefault()
+            }
         }
     }
 
