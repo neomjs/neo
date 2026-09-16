@@ -30,6 +30,17 @@ class Component extends Manager {
     childMap = new Map()
 
     /**
+     * The same reverse shape as `childMap`, for the OWNER rather than the render parent.
+     * Keys are `parentComponent` ids, values are Sets of component ids.
+     * The two disagree for every component rendered outside its owner's node: a button's menu (rendered at
+     * `document.body`), an open submenu (rendered under the app's main view), the tab overflow control and
+     * Markdown-injected components for as long as they exist, and a drag proxy's content for as long as the drag
+     * lasts. `getOwnedChildren()` is where the two are read together.
+     * @member {Map<String, Set<String>>} ownerMap=new Map()
+     */
+    ownerMap = new Map()
+
+    /**
      * @member {Map} wrapperNodes=new Map()
      */
     wrapperNodes = new Map()
@@ -44,6 +55,24 @@ class Component extends Manager {
 
         Neo.first        = me.getFirst.bind(me); // alias
         Neo.getComponent = me.get     .bind(me)  // alias
+    }
+
+    /**
+     * Adds one id to a reverse index, creating the bucket when it is the first entry.
+     * @param {Map<String, Set<String>>} index
+     * @param {String} key
+     * @param {String} id
+     * @protected
+     */
+    addToIndex(index, key, id) {
+        let set = index.get(key);
+
+        if (!set) {
+            set = new Set();
+            index.set(key, set)
+        }
+
+        set.add(id)
     }
 
     /**
@@ -104,6 +133,11 @@ class Component extends Manager {
      * Returns the first component which matches the config-selector moving down the component items tree.
      * Use returnFirstMatch=false to get an array of all matching items instead.
      * If no match is found, returns null in case returnFirstMatch === true, otherwise an empty Array.
+     *
+     * The tree is the OWNERSHIP tree, the one `component.Abstract#parent` walks upwards: besides the components
+     * a node renders, it descends into the ones it owns but renders elsewhere — a button's menu, an open
+     * submenu, the content of a drag proxy — so a lookup from an owner finds what it owns wherever it is drawn.
+     * Each component is returned once, however many ways the walk reaches it.
      * @param {Neo.component.Base|String} component
      * @param {Object|String|null} config
      * @param {Boolean} returnFirstMatch=true
@@ -114,13 +148,6 @@ class Component extends Manager {
             component = this.getById(component);
         }
 
-        let me          = this,
-            matchArray  = [],
-            returnValue = null,
-            i           = 0,
-            returnArray = [],
-            childItems, configArray, configLength, len;
-
         if (Neo.isString(config)) {
             config = {
                 ntype: config
@@ -129,41 +156,7 @@ class Component extends Manager {
             config = {}
         }
 
-        configArray  = Object.entries(config);
-        configLength = configArray.length;
-
-        configArray.forEach(([key, value]) => {
-            if ((component[key] === value)
-                || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value)))
-            {
-                matchArray.push(true)
-            }
-        });
-
-        if (matchArray.length === configLength) {
-            if (returnFirstMatch) {
-                return component
-            }
-
-            returnArray.push(component)
-        }
-
-        childItems = me.getDirectChildren(component.id);
-        len        = childItems.length;
-
-        for (; i < len; i++) {
-            returnValue = me.down(childItems[i], config, returnFirstMatch);
-
-            if (returnFirstMatch) {
-                if (returnValue !== null) {
-                    return returnValue
-                }
-            } else if (returnValue.length > 0) {
-                returnArray.push(...returnValue)
-            }
-        }
-
-        return returnFirstMatch ? null: returnArray
+        return this.walkDown(component, Object.entries(config), returnFirstMatch, new Set())
     }
 
     /**
@@ -269,8 +262,8 @@ class Component extends Manager {
     getDirectChildren(parentId) {
         if (!parentId) return [];
 
-        let me   = this,
-            ids  = me.childMap.get(parentId),
+        let me  = this,
+            ids = me.childMap.get(parentId),
             children;
 
         if (!ids) return [];
@@ -397,6 +390,40 @@ class Component extends Manager {
     }
 
     /**
+     * @summary Returns the direct children a component OWNS: the ones it renders, plus the ones it owns but renders elsewhere.
+     *
+     * `getDirectChildren()` answers the render question — who sits inside this node — and DOM consumers depend on
+     * that exact meaning (`mixin.VdomLifecycle` unmounts by it). Ownership is the wider question. The two differ
+     * for every component drawn outside its owner's node: a button's menu at `document.body` and an open submenu
+     * under the app's main view for their whole life, a drag proxy's content for the length of the drag.
+     * `component.Abstract#parent` already ranks them owner-first; this is the same ranking, walked downwards.
+     *
+     * A component reachable both ways from THIS node is returned once. Across a whole walk, where the same
+     * component can hang under two different keys, `walkDown()` owns the dedupe.
+     * @param {Neo.component.Base} component
+     * @returns {Neo.component.Base[]}
+     */
+    getOwnedChildren(component) {
+        let me       = this,
+            children = me.getDirectChildren(component.id),
+            ownedIds = me.ownerMap.size && me.ownerMap.get(component.id);
+
+        // `ownerMap` holds only components with a `parentComponent`, so it is small, and empty in an app without
+        // menus, overflow controls or a drag in flight: the size check keeps that walk at one Map read per node
+        if (ownedIds) {
+            const rendered = new Set(children.map(child => child.id));
+
+            ownedIds.forEach(id => {
+                const owned = !rendered.has(id) && me.get(id);
+
+                owned && children.push(owned)
+            })
+        }
+
+        return children
+    }
+
+    /**
      * Returns an Array containing the ids of all parent components for a given component
      * @param {Neo.component.Base} component
      * @returns {String[]} parentIds
@@ -507,36 +534,29 @@ class Component extends Manager {
     }
 
     /**
+     * Keeps the `ownerMap` in step with a component's `parentComponent` config, the way `onParentIdChange()`
+     * keeps the `childMap` in step with `parentId`.
+     * @param {Neo.component.Base} component
+     * @param {Neo.component.Base|null} oldParentComponent
+     */
+    onParentComponentChange(component, oldParentComponent) {
+        let me = this;
+
+        oldParentComponent && me.removeFromIndex(me.ownerMap, oldParentComponent.id, component.id);
+        component.parentComponent && me.addToIndex(me.ownerMap, component.parentComponent.id, component.id)
+    }
+
+    /**
      * Updates the `childMap` when a component's `parentId` config changes.
      * Maintains the integrity of the reverse parent-child index.
      * @param {Neo.component.Base} component
      * @param {String|null} oldParentId
      */
     onParentIdChange(component, oldParentId) {
-        let me          = this,
-            newParentId = component.parentId,
-            set;
+        let me = this;
 
-        // Remove from old parent's set
-        if (oldParentId) {
-            set = me.childMap.get(oldParentId);
-            if (set) {
-                set.delete(component.id);
-                if (set.size === 0) {
-                    me.childMap.delete(oldParentId)
-                }
-            }
-        }
-
-        // Add to new parent's set
-        if (newParentId) {
-            set = me.childMap.get(newParentId);
-            if (!set) {
-                set = new Set();
-                me.childMap.set(newParentId, set)
-            }
-            set.add(component.id)
-        }
+        oldParentId && me.removeFromIndex(me.childMap, oldParentId, component.id);
+        component.parentId && me.addToIndex(me.childMap, component.parentId, component.id)
     }
 
     /**
@@ -546,18 +566,11 @@ class Component extends Manager {
     register(item) {
         super.register(item);
 
-        const {id, parentId} = item;
+        let me                              = this,
+            {id, parentComponent, parentId} = item;
 
-        if (parentId) {
-            let me  = this,
-                set = me.childMap.get(parentId);
-
-            if (!set) {
-                set = new Set();
-                me.childMap.set(parentId, set)
-            }
-            set.add(id)
-        }
+        parentId        && me.addToIndex(me.childMap, parentId,           id);
+        parentComponent && me.addToIndex(me.ownerMap, parentComponent.id, id)
     }
 
     /**
@@ -566,6 +579,22 @@ class Component extends Manager {
      */
     registerWrapperNode(wrapperId, component) {
         this.wrapperNodes.set(wrapperId, component)
+    }
+
+    /**
+     * Removes one id from a reverse index, dropping the bucket when it empties.
+     * @param {Map<String, Set<String>>} index
+     * @param {String} key
+     * @param {String} id
+     * @protected
+     */
+    removeFromIndex(index, key, id) {
+        const set = index.get(key);
+
+        if (set) {
+            set.delete(id);
+            set.size === 0 && index.delete(key)
+        }
     }
 
     /**
@@ -583,23 +612,14 @@ class Component extends Manager {
             }
 
             if (component) {
-                const {id, parentId, vdom} = component;
+                const {id, parentComponent, parentId, vdom} = component;
 
                 if (vdom && id !== vdom.id) {
                     me.wrapperNodes.delete(vdom.id)
                 }
 
-                if (parentId) {
-                    let set = me.childMap.get(parentId);
-
-                    if (set) {
-                        set.delete(id);
-
-                        if (set.size === 0) {
-                            me.childMap.delete(parentId)
-                        }
-                    }
-                }
+                parentId        && me.removeFromIndex(me.childMap, parentId,           id);
+                parentComponent && me.removeFromIndex(me.ownerMap, parentComponent.id, id)
             }
         }
 
@@ -631,12 +651,19 @@ class Component extends Manager {
         configArray  = Object.entries(config);
         configLength = configArray.length;
 
-        while (component?.parentId) {
-            component = this.get(component.parentId);
+        // `parent` prefers the OWNER over the render parent, so a menu, a submenu or a drag proxy's content walks
+        // up through the component that owns it rather than the node that draws it. The visited set ends a
+        // `parentComponent` cycle, which the owner link makes expressible
+        const visited = new Set();
 
-            if (!component) {
+        while (component) {
+            component = component.parent;
+
+            if (!component || visited.has(component.id)) {
                 return returnFirstMatch ? null : returnArray
             }
+
+            visited.add(component.id);
 
             matchArray = [];
 
@@ -654,6 +681,74 @@ class Component extends Manager {
                 returnArray.push(component)
             }
         }
+    }
+
+    /**
+     * @summary The recursion behind `down()`, remembering every component the walk has visited.
+     *
+     * A component can sit in both reverse indexes under DIFFERENT keys: `menu.List` renders an open submenu under
+     * the app's main view while its owner sits deeper below that same view, so a walk from the main view meets
+     * the submenu once through each index. One visited set for the whole walk returns it once, and ends a
+     * `parentComponent` cycle instead of recursing through it.
+     * @param {Neo.component.Base} component
+     * @param {Array[]} configArray The selector's `Object.entries()`
+     * @param {Boolean} returnFirstMatch
+     * @param {Set<String>} visited The ids this walk has already expanded
+     * @returns {Neo.component.Base|Neo.component.Base[]|null}
+     * @protected
+     */
+    walkDown(component, configArray, returnFirstMatch, visited) {
+        let me           = this,
+            configLength = configArray.length,
+            matchArray   = [],
+            returnValue  = null,
+            i            = 0,
+            returnArray  = [],
+            childItems, len;
+
+        // Only a component with an owner can be reached twice — once through the node that renders it, once through
+        // the one that owns it — and only an owner link can close a cycle, since the render tree has one parent per
+        // node. So only those are remembered: a walk through an app without owned components pays nothing for it
+        if (me.ownerMap.size && component.parentComponent) {
+            if (visited.has(component.id)) {
+                return returnFirstMatch ? null : returnArray
+            }
+
+            visited.add(component.id)
+        }
+
+        configArray.forEach(([key, value]) => {
+            if ((component[key] === value)
+                || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value)))
+            {
+                matchArray.push(true)
+            }
+        });
+
+        if (matchArray.length === configLength) {
+            if (returnFirstMatch) {
+                return component
+            }
+
+            returnArray.push(component)
+        }
+
+        childItems = me.getOwnedChildren(component);
+        len        = childItems.length;
+
+        for (; i < len; i++) {
+            returnValue = me.walkDown(childItems[i], configArray, returnFirstMatch, visited);
+
+            if (returnFirstMatch) {
+                if (returnValue !== null) {
+                    return returnValue
+                }
+            } else if (returnValue.length > 0) {
+                returnArray.push(...returnValue)
+            }
+        }
+
+        return returnFirstMatch ? null: returnArray
     }
 }
 
