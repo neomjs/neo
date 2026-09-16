@@ -538,14 +538,10 @@ class Manager extends Base {
                     }
                 }
             } else {
-                if (dest === 'main') {
-                    data = data.data
-                }
-
-                if (data) {
-                    promise[data.reject ? 'reject' : 'resolve'](data);
-                    delete me.promises[replyId]
-                }
+                // Settled like worker.Base settles its own replies, whatever the payload's truthiness. A reply to a
+                // request this thread forwarded keeps the envelope, which the forward sends on.
+                promise[data.reject ? 'reject' : 'resolve'](dest === 'main' || dest === me.windowId ? data.data : data);
+                delete me.promises[replyId]
             }
         }
 

@@ -57,8 +57,8 @@ test.describe('SharedWorker error mirror — beyond the App worker', () => {
             data           : [{path: 'no/such/module/at/all'}]
         }));
 
-        expect(receipt?.data?.success, 'the operation ran and failed, which is the point').toBe(false);
-        expect(receipt?.origin,        'and it ran in the Data worker').toBe('data');
+        // The reply resolves with the Data worker's payload; which heap raised the error is the mirrored line's prefix
+        expect(receipt?.success, 'the operation ran and failed, which is the point').toBe(false);
 
         await expect.poll(() => mirrored, {
             message  : 'the Data worker error must reach the page console',
