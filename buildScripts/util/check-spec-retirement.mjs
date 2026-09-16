@@ -20,8 +20,7 @@ import process    from 'node:process';
  *
  * It runs pre-push rather than pre-commit for a mechanical reason: the account lives in the commit
  * message (the file is gone, so it cannot live in the file), and at pre-commit time the message does
- * not exist yet. `check-commit-authorship.mjs` reads commit messages from the same hook for the same
- * reason, and this guard lifts its range handling.
+ * not exist yet. Any guard reading commit messages needs the same hook for the same reason.
  */
 
 const
@@ -69,8 +68,10 @@ export const RETIREMENT_MARKER = 'spec-retired:';
  * git hands a pre-push hook `<localRef> <localSha> <remoteRef> <remoteSha>` per ref on stdin.
  * `remoteSha..localSha` is the exact set git will apply; a new remote branch reports the zero-sha,
  * where `origin/dev..localSha` is the honest fallback, and a ref deletion sends no commits at all.
- * Same contract as `check-commit-authorship.mjs`, whose comment records why guessing the range with a
- * hard-coded `origin/dev..HEAD` let a push to a sibling ref sail past the guard it was meant to hit.
+ * This range handling is lifted from `check-commit-authorship.mjs`, which lives in `neo-agent-brain`
+ * and runs no hook here — cited for provenance, not as a sibling to look for in this tree. Its comment
+ * records why guessing the range with a hard-coded `origin/dev..HEAD` let a push to a sibling ref sail
+ * past the guard it was meant to hit.
  *
  * @param {String} stdin Raw hook payload.
  * @returns {String[]} Rev-list ranges to scan.
