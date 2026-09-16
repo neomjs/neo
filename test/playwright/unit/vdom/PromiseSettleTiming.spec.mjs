@@ -198,6 +198,37 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         expect(['resolved', 'rejected'], 'the later one settles one way or the other').toContain(await later)
     });
 
+    test('a promise merged into a container that has not rendered yet settles when its first render mounts the child', async () => {
+        const containerId = uniqueId('settle-container'),
+              childId     = uniqueId('settle-child');
+
+        created.push(containerId);
+
+        const container = Neo.create(SettleContainer, {
+            appName,
+            id   : containerId,
+            items: [{module: SettleChild, id: childId, text: 'pristine'}]
+        });
+
+        const child = container.items[0];
+
+        // Not rendered yet, so the container parks this update, and the child's update merges into it
+        container.update();
+        child.text = 'first';
+
+        let outcome = 'still parked';
+
+        child.promiseUpdate().then(() => {outcome = 'resolved'}, reason => {outcome = reason});
+
+        expect(Neo.manager.VDomUpdate.getMergedChildIds(containerId)?.has(childId), 'the promise rides a merge, not a flight of its own').toBe(true);
+
+        // The first render expands the whole tree and clears the pending update, so no flight ever collects the merge
+        await container.initVnode(true);
+        container.mounted = true;
+
+        await expect.poll(() => outcome, {message: 'the render that mounted the child is the one this promise waited for'}).toBe('resolved')
+    });
+
     test('CONTROL: an idle component still settles its own first flight', async () => {
         const child = await createChild();
 

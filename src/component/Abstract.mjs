@@ -244,6 +244,8 @@ class Abstract extends Base {
                 // this component's own pending update cycle might be skipped or not yet triggered.
                 // We explicitly execute the callbacks here to ensure those pending promises are resolved immediately
                 // upon mount, preventing deadlocks where code awaits a VDOM update that effectively already happened.
+                // No flight collected that render, so the mount claims the promises itself.
+                VDomUpdate.claimPromiseCallbacks(me.id);
                 VDomUpdate.executeCallbacks(me.id, {
                     deltas: [],
                     vnode : me.vnode
