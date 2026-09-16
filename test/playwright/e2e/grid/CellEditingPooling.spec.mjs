@@ -263,6 +263,10 @@ test.describe('Grid cell editing across row and cell pooling', () => {
             await page.keyboard.type('#');
             await expect(page.locator(INPUT)).toHaveValue(/#/);
 
+            // One marker on every platform. A stale value written back over the previous removal shows as a second
+            // one, which the caret assertions below only catch where End and Home move the caret
+            expect((await page.locator(INPUT).inputValue()).split('#').length - 1, `${key} typed into the value the editor holds`).toBe(1);
+
             expect(await viewScrollTop(page), `${key} left the View where it was`).toBe(scrollTop);
 
             const caret = await page.evaluate(() => document.activeElement.value.indexOf('#'));
