@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary The grid cell-editing loop on a grid small enough that pooling never moves a cell: activation, commit,
@@ -19,8 +19,6 @@ const GRID    = '#grid-cell-editing',
       EDITOR  = `${GRID} .neo-grid-editor`,
       INPUT   = `${EDITOR} input`,
       OUTSIDE = '#grid-cell-editing-outside';
-
-let pageErrors;
 
 /**
  * @param {import('@playwright/test').Page} page
@@ -44,8 +42,9 @@ const activeElementId = page => page.evaluate(() => document.activeElement?.id |
 const viewIdOf = page => page.locator(`${GRID} .neo-grid-view`).first().getAttribute('id');
 
 /**
- * Whether a worker instance still exists. `getConfigs` never answers for an unknown id, so it races a second call
- * to an instance that stays alive: replies arrive in request order, so the second only wins when the first never comes.
+ * Whether a worker instance still exists. `getConfigs` replies `false` for an unknown id, and a main thread that drops
+ * falsy replies never settles it, so it races a second call to an instance that stays alive: replies arrive in
+ * request order, so the second only wins when the first never comes.
  * @param {import('@playwright/test').Page} page
  * @param {String} id
  * @returns {Promise<Boolean>}
@@ -99,15 +98,8 @@ const recordEditors = page => page.evaluate(grid => {
 const editorsRecorded = page => page.evaluate(() => window.__editors);
 
 test.beforeEach(async ({page}) => {
-    pageErrors = [];
-    page.on('pageerror', error => pageErrors.push(error.message));
-
     await page.goto('test/playwright/component/apps/grid-cell-editing/index.html');
     await page.waitForSelector(`${GRID} .neo-grid-cell[data-field="note"]`, {state: 'visible', timeout: 30000})
-});
-
-test.afterEach(() => {
-    expect(pageErrors, 'no page error in the arm').toEqual([])
 });
 
 test.describe('grid cell editing — activation', () => {
@@ -122,6 +114,18 @@ test.describe('grid cell editing — activation', () => {
             await expect.poll(() => editingIn(page, field, recordId), {message: 'focus lands in the embodied input'}).toBe(true);
             await expect(page.locator(EDITOR)).toHaveCount(1);
             await expect(target.locator('.neo-grid-editor input')).toHaveValue(value)
+        });
+
+        // A slowed main thread lands the render inserting the editor after the selection's render has settled the
+        // activation's repaint, so only focusing on the editor's own mount finds the input in the DOM
+        test(`a double-click focuses the editor of a ${body} cell while the main thread lags`, async ({page}) => {
+            const recordId = await recordIdOf(page, 2),
+                  cdp      = await page.context().newCDPSession(page);
+
+            await cdp.send('Emulation.setCPUThrottlingRate', {rate: 8});
+            await cell(page, field, recordId).dblclick();
+
+            await expect.poll(() => editingIn(page, field, recordId), {message: 'focus lands in the embodied input', timeout: 10000}).toBe(true)
         })
     }
 
@@ -326,5 +330,30 @@ test.describe('grid cell editing — teardown', () => {
         await page.evaluate(() => Neo.worker.App.destroyNeoInstance('grid-cell-editing'));
 
         expect(await isLive(page, editorId), 'the grid took its editor down with it').toBe(false)
+    });
+
+    test('destroying the plugin alone discards the draft, restores the cell and releases the View keys', async ({page}) => {
+        // Generated from the ntype: `#grid-cell-editing` is constructed first, so it creates the first plugin
+        const pluginId = 'neo-plugin-grid-cell-editing-1',
+              recordId = await recordIdOf(page, 2),
+              name     = cell(page, 'name', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+        await page.keyboard.type('Z');
+
+        const editorId = await page.locator(EDITOR).getAttribute('id');
+
+        expect(await isLive(page, pluginId), `${pluginId} exists`).toBe(true);
+        await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), pluginId);
+
+        expect(await isLive(page, editorId), 'the plugin took its editor down with it').toBe(false);
+        await expect(page.locator(EDITOR), 'no editor stays in the cell').toHaveCount(0);
+        await expect(name, 'the draft was not written').toHaveText('Name 2');
+
+        // A key registered for the destroyed plugin would throw in the App Worker, which fails the arm
+        await page.keyboard.press('Enter');
+        await roundTrip(page);
+        await expect(page.locator(EDITOR)).toHaveCount(0)
     })
 });

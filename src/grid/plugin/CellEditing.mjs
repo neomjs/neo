@@ -49,18 +49,12 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * The active edit: the logical cell (`recordId`, `dataField`), the `editor` field for it, and the `generation`
-     * that started it — an activation that awaited a render only acts while its generation is still current.
-     * `null` while nothing is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it.
+     * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
+     * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it.
      * @member {Object|null} session=null
      * @protected
      */
     session = null
-
-    /**
-     * @member {Number} #generation=0
-     */
-    #generation = 0
 
     /**
      * Triggered after the disabled config got changed
@@ -298,10 +292,9 @@ class CellEditing extends Plugin {
     /**
      * Re-renders the Row that shows the session's cell, if any, so the editor enters or leaves it.
      *
-     * Terminals do not wait for it, so the promise owns its outcome: a Row destroyed with its grid rejects with
+     * Nothing waits for the render, so its promise owns its outcome: a Row destroyed with its grid rejects with
      * `Neo.isDestroyed`, an expected end to this render; anything else is a failure with no caller to report to.
      * @param {Object} session
-     * @returns {Promise<void>}
      * @protected
      */
     repaint(session) {
@@ -310,31 +303,29 @@ class CellEditing extends Plugin {
             record = me.getRecord(session),
             row    = column && record && me.getRow(record, column);
 
-        if (!row) {
-            return Promise.resolve()
+        if (row) {
+            row.createVdom(true, false);
+
+            row.promiseUpdate().catch(reason => {
+                reason !== Neo.isDestroyed && console.error('grid.plugin.CellEditing: repaint failed', {id: row.id, reason})
+            })
         }
-
-        row.createVdom(true, false);
-
-        return row.promiseUpdate().catch(reason => {
-            reason !== Neo.isDestroyed && console.error('grid.plugin.CellEditing: repaint failed', {id: row.id, reason})
-        })
     }
 
     /**
-     * Edits a cell: a valid draft of another cell is committed first, and the editor is embodied and focused.
-     * Activating the cell already being edited only returns focus to its editor.
+     * Edits a cell: a valid draft of another cell is committed first, and the editor is embodied, then focused once
+     * it mounts. Activating the cell already being edited only returns focus to its editor.
      * @param {Object} record
      * @param {String} dataField
-     * @returns {Promise<Boolean>} false when the cell is not editable, not rendered, or an invalid draft blocks
+     * @returns {Boolean} false when the cell is not editable, not rendered, or an invalid draft blocks
      */
-    async startEdit(record, dataField) {
+    startEdit(record, dataField) {
         let me        = this,
             {owner}   = me,
             column    = owner.columns.get(dataField),
             recordId  = owner.view.getRecordId(record),
             {session} = me,
-            editor, generation, row;
+            editor, row;
 
         if (me.disabled || !column?.editable) {
             return false
@@ -351,8 +342,6 @@ class CellEditing extends Plugin {
             return false
         }
 
-        generation = ++me.#generation;
-
         editor = Neo.create({
             module   : TextField,
             ...column.editor,
@@ -367,11 +356,13 @@ class CellEditing extends Plugin {
 
         editor.on('focusLeave', me.onEditorFocusLeave, me);
 
-        me.session = {dataField, editor, generation, recordId};
+        // Only the editor's own mount proves its input is in the DOM: a Row render already in flight settles the
+        // repaint's promise before the render inserting the editor lands. An edit ending sooner destroys the editor,
+        // and this listener with it.
+        editor.on('mounted', () => editor.focus(), me, {once: true});
 
-        await me.repaint(me.session);
-
-        me.session?.generation === generation && editor.focus();
+        me.session = {dataField, editor, recordId};
+        me.repaint(me.session);
 
         return true
     }
