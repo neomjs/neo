@@ -177,7 +177,7 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         expect(await later, 'so does the one that arrived after the claim').toBe(Neo.isDestroyed)
     });
 
-    test('a flight that fails after its claim leaves no promise stranded', async () => {
+    test('a flight that fails after its claim rejects every parked promise, the later one included', async () => {
         const child    = await createChild(),
               inFlight = holdFlights();
 
@@ -195,7 +195,7 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         inFlight.shift().reject({data: {error: 'test-injected apply failure'}});
 
         expect(await claimed, 'the claimed promise rejects with its flight').toBe('rejected');
-        expect(['resolved', 'rejected'], 'the later one settles one way or the other').toContain(await later)
+        expect(await later, 'so does the one asked for after the claim, though that flight did not carry its change').toBe('rejected')
     });
 
     test('a promise merged into a container that has not rendered yet settles when its first render mounts the child', async () => {

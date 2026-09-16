@@ -272,7 +272,8 @@ class VdomLifecycle extends Base {
                 // The same rule for promises: what is parked NOW is what this payload carries, so this flight settles
                 // exactly that. A promiseUpdate() arriving afterwards describes a change this payload does not hold,
                 // and waits for the flight that does — the one `needsVdomUpdate` triggers. A merged child is claimed
-                // where it is marked collected, because a child skipped below still rides this payload.
+                // where it is marked collected, because a child skipped below for having no vnode yet is still expanded
+                // into this payload.
                 VDomUpdate.claimPromiseCallbacks(componentId);
 
                 if (mergedChildIds) {
@@ -864,7 +865,10 @@ class VdomLifecycle extends Base {
      * change made after that point — and this promise with it — belongs to the next one, and the promise settles
      * with that. A component that is not mounted yet is the exception: the render that mounts it settles every
      * promise parked on it, including one asked for after that render collected.
-     * A rejection means the flight carrying the change failed, or the component was destroyed first.
+     *
+     * The guarantee is a success-path one. A failing flight rejects every promise parked on the components it
+     * covers, including one asked for after its payload was collected, whose change it did not carry. Destroying
+     * the component rejects whatever is still parked.
      * @returns {Promise<any>}
      */
     promiseUpdate() {
