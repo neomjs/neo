@@ -188,6 +188,85 @@ export function findLogicalIdentityCollisions({archiveRoot, targets = null}) {
     return findings.sort((a, b) => a.key.localeCompare(b.key))
 }
 
+/**
+ * @summary The GitHub id a corpus artifact's filename carries, which the layout contract's §2.5 orders a bucket by.
+ *
+ * The trailing digits, because the prefix varies by family — `pr-11982.md`, `issue-1234.md`. Anything
+ * else returns `null` rather than 0: a name with no id cannot be placed by an ordinal at all, and
+ * folding it to 0 would silently sort it first and report every later member as misplaced.
+ * @param {String} fileName
+ * @returns {Number|null}
+ */
+export function artifactId(fileName) {
+    const match = fileName.match(/(\d+)\.md$/);
+
+    return match ? Number(match[1]) : null
+}
+
+/**
+ * @summary Which artifacts sit on an ordinal the archived-content layout contract would not compute for them.
+ *
+ * §2.2 places the item at index `i` of a bucket in `chunk-{floor(i / 100) + 1}`, §2.5 orders the bucket
+ * by ascending GitHub id, and §2.2.1 requires the membership to be COMPLETE — the three compose, and the
+ * completeness clause is what makes this derivable at all: an ordinal computed over a partial bucket is
+ * the drift this measures rather than a check for it.
+ *
+ * Buckets are `<family>/<version>`, derived from disk on both levels, so a family or a version added
+ * later is measured without an edit here.
+ *
+ * **Report-only by contract.** This returns findings; it never decides an exit code. The corpus carries
+ * known non-conformances, and a blocking audit would wedge every commit in the repository — the same
+ * reasoning that wired only the duplicate check as blocking.
+ *
+ * A bucket holding an artifact with no id is reported as `unorderable` instead of being ranked, because
+ * a guess at its position would misreport every member after it.
+ *
+ * @param {Object} options
+ * @param {String} options.archiveRoot Absolute path to the archive tree.
+ * @returns {Array<{bucket: String, members: Number, expectedChunks: Number, unorderable: String[], misplaced: Array<{file: String, id: Number, chunk: Number|null, expected: Number}>}>}
+ */
+export function findOrdinalMisplacements({archiveRoot}) {
+    const findings = [];
+
+    for (const family of listArchiveFamilies(archiveRoot)) {
+        for (const version of listArchiveFamilies(path.join(archiveRoot, family))) {
+            const
+                bucketDir   = path.join(archiveRoot, family, version),
+                artifacts   = collectArtifacts(bucketDir),
+                unorderable = [],
+                members     = [];
+
+            for (const absPath of artifacts) {
+                const id = artifactId(path.basename(absPath));
+
+                id === null ? unorderable.push(absPath) : members.push({
+                    file : absPath,
+                    id,
+                    chunk: Number((path.relative(bucketDir, absPath).match(/^chunk-(\d+)/) || [])[1]) || null
+                })
+            }
+
+            if (!members.length && !unorderable.length) continue;
+
+            members.sort((a, b) => a.id - b.id);
+
+            const misplaced = members
+                .map((member, index) => ({...member, expected: Math.floor(index / 100) + 1}))
+                .filter(member => member.chunk !== member.expected);
+
+            (misplaced.length || unorderable.length) && findings.push({
+                bucket        : `${family}/${version}`,
+                members       : members.length,
+                expectedChunks: members.length ? Math.floor((members.length - 1) / 100) + 1 : 0,
+                unorderable,
+                misplaced
+            })
+        }
+    }
+
+    return findings.sort((a, b) => a.bucket.localeCompare(b.bucket))
+}
+
 const invokedAsCli = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 
 if (invokedAsCli) {
@@ -199,6 +278,31 @@ if (invokedAsCli) {
         targets     = auditAll ? null : candidates
             .map(file => path.resolve(ROOT, file))
             .filter(file => file.startsWith(archiveRoot + path.sep) && file.endsWith('.md'));
+
+    // Report-only, and it exits BEFORE the duplicate check rather than beside it: this mode answers a
+    // different question and must never contribute to that check's exit code.
+    if (args.includes('--ordinals')) {
+        const findings = findOrdinalMisplacements({archiveRoot});
+
+        if (findings.length) {
+            const total = findings.reduce((sum, {misplaced}) => sum + misplaced.length, 0);
+
+            console.log(`check-content-logical-identity: ${total} artifact(s) on an ordinal ADR 0004 §2.2 would not compute:`);
+
+            findings.forEach(({bucket, members, expectedChunks, misplaced, unorderable}) => {
+                console.log(`  ${bucket.padEnd(30)} members=${String(members).padStart(5)}  ADR shape=chunk-1..${expectedChunks}  misplaced=${misplaced.length}`);
+                unorderable.length && console.log(`    ${unorderable.length} artifact(s) carry no id and were not ranked`)
+            });
+
+            console.log('\nReported, not enforced: the corpus carries known non-conformances, so a blocking audit here');
+            console.log('would wedge every commit. Re-placement and the question of whether ADR 0004 §2.2\'s derivability');
+            console.log('claim is worth a corpus rewrite are the parent ticket\'s, not this mode\'s.')
+        } else {
+            console.log('check-content-logical-identity: every archived artifact sits on its ADR 0004 §2.2 ordinal.')
+        }
+
+        process.exit(0)
+    }
 
     // `lint-staged` invokes this with the staged set; nothing under `archive/` means nothing to say.
     if (!auditAll && targets.length === 0) {

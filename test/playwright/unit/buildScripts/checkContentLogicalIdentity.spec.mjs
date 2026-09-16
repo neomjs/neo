@@ -3,13 +3,22 @@ import {mkdtempSync,
         mkdirSync,
         writeFileSync,
         rmSync}           from 'node:fs';
-import {tmpdir} from 'node:os';
-import path     from 'node:path';
+import {tmpdir}        from 'node:os';
+import path            from 'node:path';
+import {spawnSync}     from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {
     buildLogicalIndex,
     findLogicalIdentityCollisions,
+    findOrdinalMisplacements,
     listArchiveFamilies
 } from '../../../../buildScripts/util/check-content-logical-identity.mjs';
+
+// buildScripts -> unit -> playwright -> test -> repo root
+const GUARD = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../buildScripts/util/check-content-logical-identity.mjs'
+);
 
 /**
  * The commit-time half of the corpus logical-identity invariant.
@@ -109,5 +118,85 @@ test.describe('check-content-logical-identity — the commit-time corpus invaria
     test('a missing archive tree degrades to empty rather than throwing', () => {
         expect(listArchiveFamilies(path.join(archiveRoot, 'nope'))).toEqual([]);
         expect(findLogicalIdentityCollisions({archiveRoot: path.join(archiveRoot, 'nope')})).toEqual([])
+    });
+
+    /**
+     * @summary Ordinal conformance: does an artifact sit where the layout contract's §2.2 would place it?
+     *
+     * A different question from logical identity over the same membership, so it shares this fixture.
+     * The temp tree matters more here than for duplicates: the real corpus carries 175 known
+     * non-conformances, so an arm reading it would assert today's damage and invert the moment a
+     * repair lands. The real number belongs in a PR body as a measurement, never in an assertion.
+     */
+    test.describe('ordinal conformance (#18805)', () => {
+        /**
+         * Fills one bucket with `count` artifacts, each in the chunk the ordinal rule computes for it.
+         * @param {String} family
+         * @param {String} version
+         * @param {Number} count
+         */
+        const conformingBucket = (family, version, count) => {
+            for (let index = 0; index < count; index++) {
+                artifact(family, version, `chunk-${Math.floor(index / 100) + 1}`, `pr-${index + 1}.md`)
+            }
+        };
+
+        test('a conforming bucket reports nothing, across the 100/101 boundary', () => {
+            // 101 members is the smallest tree that can catch an off-by-one in either direction: member
+            // 100 is the last of chunk-1 and member 101 the first of chunk-2, so a rule shifted one way
+            // misplaces the first and the other way misplaces the second.
+            conformingBucket('pulls', 'v13.0.0', 101);
+
+            expect(findOrdinalMisplacements({archiveRoot})).toEqual([])
+        });
+
+        test('an artifact in the wrong chunk is reported, and named with the chunk it belongs in', () => {
+            conformingBucket('pulls', 'v13.0.0', 101);
+
+            // The member that belongs at index 0 of chunk-1, filed in chunk-2 instead
+            artifact('pulls', 'v13.0.0', 'chunk-2', 'pr-0.md');
+
+            const [finding] = findOrdinalMisplacements({archiveRoot});
+
+            expect(finding.bucket).toBe('pulls/v13.0.0');
+            expect(finding.members).toBe(102);
+            expect(finding.expectedChunks).toBe(2);
+            expect(finding.misplaced.map(({file, chunk, expected}) => [path.basename(file), chunk, expected]))
+                // `pr-0` displaces every later member by one, so the boundary member moves too — that
+                // cascade IS the defect: an ordinal is a position in a complete bucket, not a property
+                // of one file, which is why a per-file check could never have found this.
+                .toEqual([['pr-0.md', 2, 1], ['pr-100.md', 1, 2]])
+        });
+
+        test('an artifact with no id is reported as unorderable rather than ranked', () => {
+            // Folding it to 0 would sort it first and misreport every member after it — a wrong answer
+            // that looks like a finding, which is worse here than no answer.
+            conformingBucket('pulls', 'v13.0.0', 3);
+            artifact('pulls', 'v13.0.0', 'chunk-1', 'readme.md');
+
+            const [finding] = findOrdinalMisplacements({archiveRoot});
+
+            expect(finding.unorderable.map(file => path.basename(file))).toEqual(['readme.md']);
+            expect(finding.misplaced, 'the ranked members are still placed correctly').toEqual([])
+        });
+
+        test('buckets are derived on BOTH levels, so a new family or version is measured without an edit', () => {
+            conformingBucket('some-future-family', 'v99.0.0', 2);
+            artifact('some-future-family', 'v99.0.0', 'chunk-7', 'thing-3.md');
+
+            expect(findOrdinalMisplacements({archiveRoot}).map(({bucket}) => bucket))
+                .toEqual(['some-future-family/v99.0.0'])
+        });
+
+        test('the CLI mode reports and exits 0, against the real corpus that does NOT conform', () => {
+            // AC-2's red control, and the one arm that reads the committed corpus deliberately: the
+            // claim is about the EXIT CODE, which is 0 by construction whatever the count drifts to.
+            // A mode that fails a commit over pre-existing damage would wedge the repository.
+            const result = spawnSync('node', [GUARD, '--ordinals'], {encoding: 'utf8'});
+
+            expect(result.status, 'report-only: it must never fail a commit').toBe(0);
+            expect(result.stdout).toContain('ADR 0004');
+            expect(result.stderr, 'nothing on stderr — this mode reports, it does not complain').toBe('')
+        })
     })
 });
