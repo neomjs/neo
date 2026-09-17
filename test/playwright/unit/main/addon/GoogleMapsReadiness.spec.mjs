@@ -48,7 +48,8 @@ const {default: DomAccess}  = await import('../../../../../src/main/DomAccess.mj
 // The export is a class, but `Main` instantiates every addon, so the object the engine actually
 // consults is an instance. `preloadFilesDelay: false` keeps `construct()` from starting a background
 // load these arms would race against.
-const addon = Neo.create(GoogleMaps, {preloadFilesDelay: false});
+const addon  = Neo.create(GoogleMaps, {preloadFilesDelay: false}),
+      addon2 = Neo.create(GoogleMaps, {preloadFilesDelay: false});
 
 /**
  * @summary The Maps addon must not report ready before `google.maps` exists.
@@ -81,7 +82,11 @@ const addon = Neo.create(GoogleMaps, {preloadFilesDelay: false});
  * invoking the global the addon registered, which is exactly the ordering the live API produces.
  */
 
-const CALLBACK = 'neoGoogleMapsApiLoaded';
+const
+    CALLBACK     = 'neoGoogleMapsApiLoaded',
+    // The addon parks its shared load here so a second caller awaits the first rather than stealing
+    // its callback. Each arm needs a fresh one, or it would await a load a previous arm settled.
+    API_LOAD_KEY = Symbol.for('neo.main.addon.GoogleMaps.apiLoad');
 
 /**
  * Runs `loadFiles()` against a stubbed loader, with a `this` carrying nothing the method needs
@@ -94,11 +99,13 @@ async function withStubbedLoader(loadScript, callback) {
     const original = DomAccess.loadScript;
 
     DomAccess.loadScript = loadScript;
+    delete globalThis[API_LOAD_KEY];
 
     try {
         await callback(() => addon.loadFiles())
     } finally {
         DomAccess.loadScript = original;
+        delete globalThis[API_LOAD_KEY];
         delete globalThis[CALLBACK]
     }
 }
@@ -166,6 +173,30 @@ test.describe('main.addon.GoogleMaps readiness (#18829)', () => {
         })
     });
 
+    test('a second instance awaits the first load instead of hanging on a stolen callback', async () => {
+        let requests = 0;
+
+        await withStubbedLoader(() => {
+            requests++;
+            return Promise.resolve()
+        }, async run => {
+            // Two instances, as Main would hold if a workspace addon subclassed this one: one
+            // className each, one `registerAddon` singleton each, both calling loadFiles().
+            const first  = run(),
+                  second = addon2.loadFiles();
+
+            expect(requests, 'the API is requested once for the window, not once per instance').toBe(1);
+
+            // The bootstrap fires exactly one callback. Before the load was shared, the second
+            // instance had overwritten the first's global, so this released only the second and the
+            // first waited forever with isReady stuck false.
+            globalThis[CALLBACK]();
+
+            expect(await settledWithin(first),  'the first instance is released').toBe(true);
+            expect(await settledWithin(second), 'and so is the second').toBe(true)
+        })
+    });
+
     test('a failed script request rejects rather than hanging forever', async () => {
         await withStubbedLoader(() => Promise.reject(new Error('network down')), async run => {
             // Without the rejection path the promise would wait for a callback that can never arrive.
@@ -181,15 +212,39 @@ test.describe('main.addon.GoogleMaps readiness (#18829)', () => {
         // pass on a class whose instances no longer carry the list.
         const intercepted = addon.interceptRemotes ?? [];
 
-        // A call is cached only when its method is listed here. `create` and `geocode` construct
-        // `google.maps.Map` / `google.maps.Geocoder` directly, so an unlisted one runs against an
-        // undefined global no matter how correct loadFiles() is.
-        expect(intercepted, 'create must be cached until the API is loaded').toContain('create');
-        expect(intercepted, 'and so must geocode, which builds a Geocoder with no map to wait for')
-            .toContain('geocode');
+        // DERIVED, not enumerated. Listing today's two names would pin today's answer and let the
+        // next method that reaches `google` while unlisted — the exact defect this covers — pass green.
+        // Read descriptors rather than properties: Neo backs configs with accessors, and touching
+        // one on a bare prototype runs engine machinery that throws. A plain method is a `value`.
+        const
+            prototype = Object.getPrototypeOf(addon),
+            touching  = Object.getOwnPropertyNames(prototype).filter(name => {
+                const {value} = Object.getOwnPropertyDescriptor(prototype, name);
 
-        // addMarker also names google.maps.Marker, but only inside its `mapCreated` branch, so it
-        // already waits on the map rather than on the API.
+                return name !== 'constructor' && typeof value === 'function' && /\bgoogle\./.test(String(value))
+            });
+
+        expect(touching.length, 'the probe found the methods it is meant to judge').toBeGreaterThan(0);
+
+        // Two exemptions, each for a stated reason. Naming them here is what stops a future method
+        // joining them silently — the probe finds it, and this list is where someone has to argue.
+        const EXEMPT = {
+            // Names google.maps.Marker only inside the `else` branch its `mapCreated` listener
+            // guards, so it waits on the map rather than on the API.
+            addMarker: true,
+            // The loader itself. It cannot wait for readiness, because it is what causes readiness;
+            // intercepting it would deadlock. The probe matches it on its own `google.maps` early-out,
+            // which is a guard against a load already done, not a dereference on entry.
+            loadFiles: true
+        };
+
+        const required = touching.filter(name => !EXEMPT[name]);
+
+        expect(
+            required.filter(name => !intercepted.includes(name)),
+            `every method reaching google on entry must be interceptible — found in ${touching.join(', ')}`
+        ).toEqual([]);
+
         expect(addon.remote.app, 'the intercepted methods are remotely reachable in the first place')
             .toEqual(expect.arrayContaining(intercepted))
     })
