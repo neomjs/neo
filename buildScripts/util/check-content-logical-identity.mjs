@@ -10,8 +10,11 @@ const ARCHIVE_REL = 'resources/content/archive';
 
 /**
  * @module buildScripts/util/check-content-logical-identity
- * @summary Fails a commit that gives two archived artifacts the same logical name — the corpus
- * invariant that, until now, was enforced only at embed time by a consumer running somewhere else.
+ * @summary Guards the archived corpus on two axes: it FAILS a commit that gives two artifacts the
+ * same logical name, and REPORTS which artifacts sit off the ordinal the layout contract computes.
+ * The first is the invariant that, until now, was enforced only at embed time by a consumer running
+ * somewhere else; the second gates nothing today and says so. Both read the same complete per-bucket
+ * membership, which is why they share a module — see `## Modes` for why they never share a run.
  *
  * ## The defect
  *
@@ -72,6 +75,17 @@ const ARCHIVE_REL = 'resources/content/archive';
  *   a blocking gate only because the corpus is clean; while it carried known collisions, blocking on
  *   it would have wedged every commit in the repository until an unrelated repair cleared them.
  *   Keep that in mind before adding a family with pre-existing damage: fix first, then let CI hold.
+ * - **`--ordinals`**: reports which artifacts sit where the archived-content layout contract would
+ *   not place them, and **exits 0 whenever it reports**. It gates nothing: no `lint-staged` entry,
+ *   no workflow. That is the point rather than a first step — the corpus carries known
+ *   non-conformances, and a blocking audit would wedge every commit exactly as a cold duplicate
+ *   audit once would have.
+ *   It answers a whole-corpus question, so it **refuses** to share an invocation with `--all` or with
+ *   file arguments; those gate a commit, and one run cannot both always-pass and sometimes-fail. That
+ *   refusal exits 1 and is the mode's only non-zero exit — it declines to answer rather than
+ *   answering with a finding, so it still cannot fail a commit on what the corpus contains.
+ *   Promoted to blocking or deleted when the parent decision lands on whether ordinal conformance is
+ *   worth a corpus rewrite — and if that answer is no, deleting this mode should cost nothing.
  */
 
 /**
@@ -86,8 +100,12 @@ const ARCHIVE_REL = 'resources/content/archive';
 export const SCAN_SURFACE = Object.freeze([`${ARCHIVE_REL}/**`]);
 
 /**
- * @summary Lists the archived-content families present on disk.
- * @param {String} archiveRoot Absolute path to the archive tree.
+ * @summary Lists the child directories present on disk under an archive level.
+ *
+ * Named for its first caller, and it takes a level rather than the tree because the second one needs
+ * the same answer one level down: families under the root, then versions under a family. Both are
+ * derived reads of the same shape, so a version roster would be the same defect a family roster is.
+ * @param {String} archiveRoot Absolute path to the archive level to read — the tree, or one family in it.
  * @returns {String[]} Directory names, derived — never a hardcoded roster.
  */
 export function listArchiveFamilies(archiveRoot) {
@@ -188,6 +206,89 @@ export function findLogicalIdentityCollisions({archiveRoot, targets = null}) {
     return findings.sort((a, b) => a.key.localeCompare(b.key))
 }
 
+/**
+ * @summary The GitHub id a corpus artifact's filename carries, which the layout contract's §2.5 orders a bucket by.
+ *
+ * A lowercase prefix and the digits, WHOLE — the prefix varies by family (`pr-11982.md`,
+ * `issue-1234.md`) so it is not named, but the name has to be nothing else. Matching trailing digits
+ * alone would rank `pr-11982-v2.md` under id 2 and report every real member after it as misplaced,
+ * which is the failure mode the `null` return exists to prevent, arriving by a different door.
+ *
+ * Anything else returns `null` rather than 0: a name with no id cannot be placed by an ordinal at
+ * all, and folding it to 0 would silently sort it first and report every later member as misplaced.
+ * @param {String} fileName
+ * @returns {Number|null}
+ */
+export function artifactId(fileName) {
+    const match = fileName.match(/^[a-z]+-(\d+)\.md$/);
+
+    return match ? Number(match[1]) : null
+}
+
+/**
+ * @summary Which artifacts sit on an ordinal the archived-content layout contract would not compute for them.
+ *
+ * §2.2 places the item at index `i` of a bucket in `chunk-{floor(i / 100) + 1}`, §2.5 orders the bucket
+ * by ascending GitHub id, and §2.2.1 requires the membership to be COMPLETE — the three compose, and the
+ * completeness clause is what makes this derivable at all: an ordinal computed over a partial bucket is
+ * the drift this measures rather than a check for it.
+ *
+ * Buckets are `<family>/<version>`, derived from disk on both levels, so a family or a version added
+ * later is measured without an edit here.
+ *
+ * **Report-only by contract.** This returns findings; it never decides an exit code. The corpus carries
+ * known non-conformances, and a blocking audit would wedge every commit in the repository — the same
+ * reasoning that wired only the duplicate check as blocking.
+ *
+ * A bucket holding an artifact with no id is reported as `unorderable` instead of being ranked, because
+ * a guess at its position would misreport every member after it.
+ *
+ * @param {Object} options
+ * @param {String} options.archiveRoot Absolute path to the archive tree.
+ * @returns {Array<{bucket: String, members: Number, expectedChunks: Number, unorderable: String[], misplaced: Array<{file: String, id: Number, chunk: Number|null, expected: Number}>}>}
+ */
+export function findOrdinalMisplacements({archiveRoot}) {
+    const findings = [];
+
+    for (const family of listArchiveFamilies(archiveRoot)) {
+        for (const version of listArchiveFamilies(path.join(archiveRoot, family))) {
+            const
+                bucketDir   = path.join(archiveRoot, family, version),
+                artifacts   = collectArtifacts(bucketDir),
+                unorderable = [],
+                members     = [];
+
+            for (const absPath of artifacts) {
+                const id = artifactId(path.basename(absPath));
+
+                id === null ? unorderable.push(absPath) : members.push({
+                    file : absPath,
+                    id,
+                    chunk: Number((path.relative(bucketDir, absPath).match(/^chunk-(\d+)/) || [])[1]) || null
+                })
+            }
+
+            if (!members.length && !unorderable.length) continue;
+
+            members.sort((a, b) => a.id - b.id);
+
+            const misplaced = members
+                .map((member, index) => ({...member, expected: Math.floor(index / 100) + 1}))
+                .filter(member => member.chunk !== member.expected);
+
+            (misplaced.length || unorderable.length) && findings.push({
+                bucket        : `${family}/${version}`,
+                members       : members.length,
+                expectedChunks: members.length ? Math.floor((members.length - 1) / 100) + 1 : 0,
+                unorderable,
+                misplaced
+            })
+        }
+    }
+
+    return findings.sort((a, b) => a.bucket.localeCompare(b.bucket))
+}
+
 const invokedAsCli = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 
 if (invokedAsCli) {
@@ -199,6 +300,45 @@ if (invokedAsCli) {
         targets     = auditAll ? null : candidates
             .map(file => path.resolve(ROOT, file))
             .filter(file => file.startsWith(archiveRoot + path.sep) && file.endsWith('.md'));
+
+    // Report-only, and it exits BEFORE the duplicate check rather than beside it: this mode answers a
+    // different question and must never contribute to that check's exit code.
+    //
+    // Which is exactly why it REFUSES to share an invocation. Returning early past `--all` silently
+    // swallowed that audit — `--all` exits 1 on a duplicate corpus and `--all --ordinals` exited 0,
+    // so adding a reporting flag disabled a blocking gate. Falling through instead would fix the exit
+    // code and break the other half of the contract, since this mode's whole claim is that it can
+    // never fail a commit. A caller that wants both answers runs the guard twice and gets two exit
+    // codes, which is what having two questions actually looks like.
+    if (args.includes('--ordinals')) {
+        if (auditAll || candidates.length) {
+            console.error('\x1b[31mcheck-content-logical-identity: --ordinals cannot be combined with --all or with file arguments.\x1b[0m');
+            console.error('It reports whole-corpus ordinal placement and exits 0 whenever it reports; the other modes gate a');
+            console.error('commit and exit non-zero on a finding. One invocation cannot honour both contracts — run the guard twice.');
+            process.exit(1)
+        }
+
+        const findings = findOrdinalMisplacements({archiveRoot});
+
+        if (findings.length) {
+            const total = findings.reduce((sum, {misplaced}) => sum + misplaced.length, 0);
+
+            console.log(`check-content-logical-identity: ${total} artifact(s) on an ordinal ADR 0004 §2.2 would not compute:`);
+
+            findings.forEach(({bucket, members, expectedChunks, misplaced, unorderable}) => {
+                console.log(`  ${bucket.padEnd(30)} members=${String(members).padStart(5)}  ADR shape=chunk-1..${expectedChunks}  misplaced=${misplaced.length}`);
+                unorderable.length && console.log(`    ${unorderable.length} artifact(s) carry no id and were not ranked`)
+            });
+
+            console.log('\nReported, not enforced: the corpus carries known non-conformances, so a blocking audit here');
+            console.log('would wedge every commit. Re-placement and the question of whether ADR 0004 §2.2\'s derivability');
+            console.log('claim is worth a corpus rewrite are the parent ticket\'s, not this mode\'s.')
+        } else {
+            console.log('check-content-logical-identity: every archived artifact sits on its ADR 0004 §2.2 ordinal.')
+        }
+
+        process.exit(0)
+    }
 
     // `lint-staged` invokes this with the staged set; nothing under `archive/` means nothing to say.
     if (!auditAll && targets.length === 0) {
