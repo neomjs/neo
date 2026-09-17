@@ -11,6 +11,7 @@ import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
 import rebuildContentIndexesAndSeo from '../docs/rebuildContentIndexesAndSeo.mjs';
+import {composeNpmIgnore}          from '../util/npmIgnoreComposition.mjs';
 
 const
     root        = path.resolve(),
@@ -109,56 +110,22 @@ if (insideNeo) {
     const gitIgnorePath = path.join(root, '.gitignore');
 
     if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
-        const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
-        const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8').split(os.EOL);
-        const splitString      = '# Original content of the .gitignore file';
-        const splitIndex       = npmIgnoreContent.indexOf(splitString);
-        let   headerLines;
+        // The composition lives in buildScripts/util/npmIgnoreComposition.mjs, shared with the guard
+        // that predicts it. A guard verifying its own restatement of this logic can be green against a
+        // release step that behaves differently, which is the one failure a pre-release guard must not
+        // have — so there is exactly one implementation and both sides import it.
+        const {content, dropped, headerLines} = composeNpmIgnore(
+            fs.readFileSync(npmIgnorePath, 'utf-8'),
+            fs.readFileSync(gitIgnorePath, 'utf-8'),
+            os.EOL
+        );
 
-        if (splitIndex !== -1) {
-            headerLines = npmIgnoreContent.slice(0, splitIndex + 1);
-        } else {
-            // Fallback to the default 7 lines if the marker is missing
-            headerLines = npmIgnoreContent.slice(0, 7);
-        }
-
-        // The header is AUTHORITATIVE, and this filter is what makes it so. Appending `.gitignore`
-        // verbatim lets the copy contradict the header: ignore files resolve last-match-wins, so a
-        // bare `/dist` in the copy silently beats the header's `/dist/*` plus its negations, and the
-        // pack then drops `dist/parse5.mjs` and `dist/marked.mjs` — both imported at module scope.
-        //
-        // Resolving that by ORDER instead (custom rules last) leaves BOTH statements in the file and
-        // makes correctness depend on position, which nothing in the file states. Dropping the
-        // contradicting copy lines leaves one statement per path: what the header says about a path
-        // is the only thing the file says about it.
-        const ownedPaths = headerLines
-            .filter(line => line.trim() && !line.trim().startsWith('#'))
-            .map(line => line.trim().replace(/^!/, '').replace(/\/\*$/, '').replace(/\/$/, ''))
-            .filter(Boolean);
-
-        const dropped   = [];
-        const copyLines = gitIgnoreContent.filter(line => {
-            if (!line.trim() || line.trim().startsWith('#')) {
-                return true
-            }
-
-            const pattern = line.trim().replace(/^!/, '');
-            const owner   = ownedPaths.find(owned => pattern === owned || pattern.startsWith(`${owned}/`));
-
-            owner && dropped.push({line: line.trim(), owner});
-
-            return !owner
-        });
-
-        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + copyLines.join(os.EOL);
-
-        fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
+        fs.writeFileSync(npmIgnorePath, content);
 
         console.log(`Synced .npmignore with .gitignore (${headerLines.length} header lines kept)`);
 
         // Named individually rather than counted: a dropped line is a `.gitignore` rule that does not
-        // reach the package, so anyone adding one under an owned path has to see it disappear. Trading
-        // an invisible ordering rule for an invisible filtering rule would be no gain.
+        // reach the package, so anyone adding one under an owned path has to see it disappear.
         dropped.forEach(({line, owner}) => {
             console.log(`  dropped from the copy: ${line}  (the header owns ${owner})`)
         })
