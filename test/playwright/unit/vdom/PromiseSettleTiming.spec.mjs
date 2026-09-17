@@ -229,10 +229,12 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
 
         // DELIBERATE, and the one documented exception to the settle-timing guarantee: a mount claims
         // and settles everything parked on the component, so this reads the tree the mounting render
-        // carried rather than the one carrying `late`. Callers depend on it — `dashboard/dock/Workspace`
-        // awaits an UNMOUNTED host's `promiseUpdate()` purely to learn that it mounted, and so does its
-        // reconciler. Removing the mount's claim was proposed, implemented two different ways, and
-        // rejected; both ways turn this reading into `late`.
+        // carried rather than the one carrying `late`. A caller depends on it — `dashboard/dock/Workspace`
+        // awaits an UNMOUNTED host's `promiseUpdate()` purely to learn that it mounted, under an explicit
+        // `if (!host.mounted)`. That is the only such site: every other `host.promiseUpdate()` in the dock
+        // follows a `host.update()` on a host already mounted, which is an ordinary render settle.
+        // Removing the mount's claim was proposed, implemented two different ways, and rejected; both
+        // ways turn this reading into `late`.
         //
         // Assert the READING, never merely that it settled: a drained follow-up cycle settles it either
         // way, about 100ms later, so a settles-eventually arm passes with the claim removed and guards
