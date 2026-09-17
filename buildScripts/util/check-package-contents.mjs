@@ -1,4 +1,6 @@
 import {execFileSync}  from 'node:child_process';
+import {readFileSync}  from 'node:fs';
+import {EOL}           from 'node:os';
 import path            from 'node:path';
 import process         from 'node:process';
 import {fileURLToPath} from 'node:url';
@@ -129,6 +131,47 @@ export function findMissingEntries(packedPaths, rules = REQUIRED_ENTRIES) {
 }
 
 /**
+ * @summary Pure predicate: which ignore rules would a release run delete?
+ *
+ * `buildScripts/release/prepare.mjs` rebuilds `.npmignore` on every release as
+ * `header + verbatim .gitignore + preserved tail`. Anything between the two markers is replaced, so
+ * a rule written there survives only until the next release — and `npm pack` cannot see that coming,
+ * because it reads today's file. This check does: it composes what the release step would write and
+ * reports every rule the current file has that the rebuilt one would not.
+ *
+ * The defect it exists for was live and latent: `/dist/*` plus its `!/dist/parse5.mjs` and
+ * `!/dist/marked.mjs` negations sat in the replaced region, `.gitignore` carries a bare `/dist`, and
+ * both bundles are imported at module scope — so the first release after they were added would have
+ * published an engine that cannot boot, with every check green beforehand.
+ *
+ * Rules are compared, not lines: comments and blank lines move freely, and the copied `.gitignore`
+ * legitimately ADDS rules, which is the sync doing its job. Only a loss is a finding.
+ *
+ * @param {String} npmIgnore Current `.npmignore` contents.
+ * @param {String} gitIgnore Current `.gitignore` contents.
+ * @param {String} [eol='\n'] Line separator the release step composes with.
+ * @returns {String[]} Rules present today that a release run would drop, in file order.
+ */
+export function findRulesLostOnRelease(npmIgnore, gitIgnore, eol = '\n') {
+    const
+        lines     = npmIgnore.split(eol),
+        headIndex = lines.indexOf('# Original content of the .gitignore file'),
+        tailIndex = lines.indexOf('# npm-only rules that must OUTRANK the .gitignore copy above'),
+        isRule    = line => line.trim() && !line.trim().startsWith('#');
+
+    if (headIndex === -1) {
+        return []
+    }
+
+    const
+        rebuilt = lines.slice(0, headIndex + 1).join(eol) + eol + gitIgnore +
+            (tailIndex === -1 ? '' : eol + lines.slice(tailIndex).join(eol)),
+        kept    = new Set(rebuilt.split(eol).filter(isRule));
+
+    return lines.filter(line => isRule(line) && !kept.has(line))
+}
+
+/**
  * @summary Pure predicate: which packed paths violate the forbidden-prefix rules?
  *
  * Split out from the `npm pack` invocation so the rule logic is unit-testable without spawning a
@@ -188,6 +231,30 @@ export function parsePackOutput(raw) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+    const lost = findRulesLostOnRelease(
+        readFileSync(path.join(ROOT, '.npmignore'), 'utf8'),
+        readFileSync(path.join(ROOT, '.gitignore'), 'utf8'),
+        EOL
+    );
+
+    if (lost.length) {
+        console.error(`\x1b[31mcheck-package-contents: a release run would delete ${lost.length} .npmignore rule(s):\x1b[0m\n`);
+
+        lost.forEach(rule => console.error(`  ${rule}`));
+
+        console.error(`
+buildScripts/release/prepare.mjs rebuilds .npmignore as header + a verbatim copy of .gitignore +
+the preserved tail. These rules sit in the replaced region, so the next release drops them and this
+pack is green until then.
+
+Move them below the '# npm-only rules that must OUTRANK the .gitignore copy above' marker. Do NOT
+move them into the header instead: ignore files resolve last-match-wins, so the .gitignore copy that
+lands after the header re-excludes anything a header negation re-included — measured, that is how
+dist/parse5.mjs and dist/marked.mjs go missing while the file still reads as if they ship.`);
+
+        process.exit(1)
+    }
+
     const raw     = execFileSync('npm', ['pack', '--dry-run', '--json'], {cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024}),
           report  = parsePackOutput(raw)[0],
           files   = report.files.map(file => file.path),

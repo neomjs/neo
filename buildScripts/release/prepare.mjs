@@ -112,7 +112,9 @@ if (insideNeo) {
         const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
         const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8');
         const splitString      = '# Original content of the .gitignore file';
+        const tailString       = '# npm-only rules that must OUTRANK the .gitignore copy above';
         const splitIndex       = npmIgnoreContent.indexOf(splitString);
+        const tailIndex        = npmIgnoreContent.indexOf(tailString);
         let   headerLines;
 
         if (splitIndex !== -1) {
@@ -122,10 +124,18 @@ if (insideNeo) {
             headerLines = npmIgnoreContent.slice(0, 7);
         }
 
-        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + gitIgnoreContent;
+        // A rule in the header CANNOT survive the copy below it. Ignore files resolve last-match-wins,
+        // so `.gitignore`'s bare `/dist` is appended after the header and re-excludes anything a header
+        // negation re-included — measured with `npm pack --dry-run`: `dist/parse5.mjs` and
+        // `dist/marked.mjs`, both imported at module scope, come out MISSING. Rules that have to beat
+        // the copy therefore live BELOW it, and this preserves them verbatim.
+        const tailLines = tailIndex !== -1 ? npmIgnoreContent.slice(tailIndex) : [];
+
+        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + gitIgnoreContent +
+            (tailLines.length ? os.EOL + tailLines.join(os.EOL) : '');
 
         fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
-        console.log('Synced .npmignore with .gitignore');
+        console.log(`Synced .npmignore with .gitignore (${headerLines.length} header, ${tailLines.length} tail lines preserved)`);
     }
 }
 
