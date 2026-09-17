@@ -11,25 +11,6 @@ import Observable from '../../core/Observable.mjs';
 const readyCallbackName = 'neoGoogleMapsApiLoaded';
 
 /**
- * Where the in-flight or settled API load is parked, shared by every caller in this window.
- *
- * `google.maps` is a per-window resource and the bootstrap calls its callback exactly ONCE, so a
- * second caller must await the first load rather than start its own — otherwise it overwrites the
- * first's callback and the first waits forever, leaving `isReady` false and its cached remote calls
- * unflushed. Awaiting the wrong signal was the original defect; a second waiter is how a fix for it
- * reintroduces one.
- *
- * It lives on `globalThis` under a `Symbol.for` key rather than in module scope because the resource
- * it guards belongs to the window, not to this module. A `WS/` name addresses a neo workspace's own
- * `src/main/addon/` — the tree `npx neo-app` scaffolds — so a consumer may run its own Maps addon
- * beside the engine's. `Main#registerAddon` keys its single-instance guard on `className`, so a
- * verbatim copy collapses to one instance while a renamed copy is a second one, in a second module
- * with its own module scope. A registered symbol is the one slot both modules resolve to.
- * @type {Symbol}
- */
-const apiLoadKey = Symbol.for('neo.main.addon.GoogleMaps.apiLoad');
-
-/**
  * @class Neo.main.addon.GoogleMaps
  * @extends Neo.main.addon.Base
  * @mixes Neo.core.Observable
@@ -221,20 +202,19 @@ class GoogleMaps extends Base {
      * `create()` throws `ReferenceError: google is not defined`.
      *
      * So the awaited promise is settled by the callback, and `loadScript` contributes only its
-     * rejection path — a dead network still fails rather than hanging. The load is shared through
-     * `apiLoad`, because the bootstrap calls its callback once per window and a second waiter would
-     * otherwise never be released; see that member for which second instances are reachable.
+     * rejection path — a dead network still fails rather than hanging.
+     *
+     * One callback name for the window is enough, and does not need sharing machinery around it.
+     * `Main#registerAddon` keys its single-instance guard on `className`, so even a `WS/` workspace
+     * copy of this addon collapses onto the one instance; `Base#executeLoadFiles` then calls this
+     * once. Reaching a second waiter would take a `mainThreadAddons` list naming both this addon and
+     * a differently-named one that also loads Maps, which is not a configuration anyone writes.
      * @protected
      * @returns {Promise<void>}
      */
     async loadFiles() {
         let key = Neo.config.googleMapsApiKey,
             url = 'https://maps.googleapis.com/maps/api/js';
-
-        // Loaded by something this addon did not start — nothing left to wait for.
-        if (globalThis.google?.maps) {
-            return
-        }
 
         if (!key) {
             console.warn(
@@ -244,7 +224,7 @@ class GoogleMaps extends Base {
             )
         }
 
-        globalThis[apiLoadKey] ??= new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
             const cleanup = () => {delete globalThis[readyCallbackName]};
 
             globalThis[readyCallbackName] = () => {
@@ -255,13 +235,9 @@ class GoogleMaps extends Base {
             DomAccess.loadScript(`${url}?key=${key}&loading=async&v=weekly&callback=${readyCallbackName}`)
                 .catch(error => {
                     cleanup();
-                    // A failed load must not become the permanent answer for every later caller.
-                    delete globalThis[apiLoadKey];
                     reject(error)
                 })
-        });
-
-        await globalThis[apiLoadKey]
+        })
     }
 
     /**

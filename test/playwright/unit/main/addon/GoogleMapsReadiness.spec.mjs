@@ -48,8 +48,7 @@ const {default: DomAccess}  = await import('../../../../../src/main/DomAccess.mj
 // The export is a class, but `Main` instantiates every addon, so the object the engine actually
 // consults is an instance. `preloadFilesDelay: false` keeps `construct()` from starting a background
 // load these arms would race against.
-const addon  = Neo.create(GoogleMaps, {preloadFilesDelay: false}),
-      addon2 = Neo.create(GoogleMaps, {preloadFilesDelay: false});
+const addon = Neo.create(GoogleMaps, {preloadFilesDelay: false});
 
 /**
  * @summary The Maps addon must not report ready before `google.maps` exists.
@@ -82,11 +81,7 @@ const addon  = Neo.create(GoogleMaps, {preloadFilesDelay: false}),
  * invoking the global the addon registered, which is exactly the ordering the live API produces.
  */
 
-const
-    CALLBACK     = 'neoGoogleMapsApiLoaded',
-    // The addon parks its shared load here so a second caller awaits the first rather than stealing
-    // its callback. Each arm needs a fresh one, or it would await a load a previous arm settled.
-    API_LOAD_KEY = Symbol.for('neo.main.addon.GoogleMaps.apiLoad');
+const CALLBACK = 'neoGoogleMapsApiLoaded';
 
 /**
  * Runs `loadFiles()` against a stubbed loader, with a `this` carrying nothing the method needs
@@ -99,13 +94,11 @@ async function withStubbedLoader(loadScript, callback) {
     const original = DomAccess.loadScript;
 
     DomAccess.loadScript = loadScript;
-    delete globalThis[API_LOAD_KEY];
 
     try {
         await callback(() => addon.loadFiles())
     } finally {
         DomAccess.loadScript = original;
-        delete globalThis[API_LOAD_KEY];
         delete globalThis[CALLBACK]
     }
 }
@@ -173,30 +166,6 @@ test.describe('main.addon.GoogleMaps readiness (#18829)', () => {
         })
     });
 
-    test('a second instance awaits the first load instead of hanging on a stolen callback', async () => {
-        let requests = 0;
-
-        await withStubbedLoader(() => {
-            requests++;
-            return Promise.resolve()
-        }, async run => {
-            // Two instances, as Main would hold if a workspace addon subclassed this one: one
-            // className each, one `registerAddon` singleton each, both calling loadFiles().
-            const first  = run(),
-                  second = addon2.loadFiles();
-
-            expect(requests, 'the API is requested once for the window, not once per instance').toBe(1);
-
-            // The bootstrap fires exactly one callback. Before the load was shared, the second
-            // instance had overwritten the first's global, so this released only the second and the
-            // first waited forever with isReady stuck false.
-            globalThis[CALLBACK]();
-
-            expect(await settledWithin(first),  'the first instance is released').toBe(true);
-            expect(await settledWithin(second), 'and so is the second').toBe(true)
-        })
-    });
-
     test('a failed script request rejects rather than hanging forever', async () => {
         await withStubbedLoader(() => Promise.reject(new Error('network down')), async run => {
             // Without the rejection path the promise would wait for a callback that can never arrive.
@@ -221,7 +190,9 @@ test.describe('main.addon.GoogleMaps readiness (#18829)', () => {
             touching  = Object.getOwnPropertyNames(prototype).filter(name => {
                 const {value} = Object.getOwnPropertyDescriptor(prototype, name);
 
-                return name !== 'constructor' && typeof value === 'function' && /\bgoogle\./.test(String(value))
+                // `google.maps`, not `google.`: the looser form also matches the documentation URL in
+                // loadFiles' own warning (`developers.google.com/...`), which reaches no global at all.
+                return name !== 'constructor' && typeof value === 'function' && /\bgoogle\.maps\b/.test(String(value))
             });
 
         expect(touching.length, 'the probe found the methods it is meant to judge').toBeGreaterThan(0);
@@ -231,11 +202,7 @@ test.describe('main.addon.GoogleMaps readiness (#18829)', () => {
         const EXEMPT = {
             // Names google.maps.Marker only inside the `else` branch its `mapCreated` listener
             // guards, so it waits on the map rather than on the API.
-            addMarker: true,
-            // The loader itself. It cannot wait for readiness, because it is what causes readiness;
-            // intercepting it would deadlock. The probe matches it on its own `google.maps` early-out,
-            // which is a guard against a load already done, not a dereference on entry.
-            loadFiles: true
+            addMarker: true
         };
 
         const required = touching.filter(name => !EXEMPT[name]);
