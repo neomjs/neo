@@ -1,5 +1,6 @@
-import {expect, test}        from '../../fixtures.mjs';
-import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
+import {expect, test}                                from '../../fixtures.mjs';
+import {readNativeLifecycle}                         from '../utils/dockNativeLifecycle.mjs';
+import {mainParticipationId, participations, popOut} from '../utils/workstationPopOut.mjs';
 
 /**
  * @summary The native-titlebar drag of one torn-out popup ONTO ANOTHER torn-out popup.
@@ -147,104 +148,6 @@ function awaitOriginParity(app, managerId, windowId, screen, message) {
     }, {message, timeout: 5000, intervals: [25, 50, 100]}).toBeLessThanOrEqual(2)
 }
 
-/**
- * @summary Lists the live cross-window participations by workspace.
- * @param {Object} app
- * @returns {Promise<Object[]>}
- */
-async function participations(app) {
-    // By ntype: a host may compose its own Participation subclass, which keeps the engine's ntype but not its className.
-    return asArray(await app.findInstances({ntype: 'dock-crosswindow-participation'}, ['id', 'workspaceId']))
-        .map(entry => ({id: entry.id, workspaceId: entry.properties?.workspaceId}))
-}
-
-/**
- * @summary The main workspace participation's instance id — a projection refresh recreates it.
- * @param {Object} app
- * @returns {Promise<String|null>}
- */
-async function mainParticipationId(app) {
-    return (await participations(app)).find(entry => entry.workspaceId === 'workstation-main')?.id ?? null
-}
-
-/**
- * @summary Pops one pane out through the real header action and waits for adoption plus the
- * detach projection's refresh, so a later native claim cannot die with a re-registered zone.
- * @param {Object} data
- * @param {Object} data.app
- * @param {import('@playwright/test').Page} data.page
- * @param {String} data.workspaceId
- * @param {String} data.itemId
- * @returns {Promise<{popup: import('@playwright/test').Page, windowId: String}>}
- */
-async function popOut({app, page, workspaceId, itemId}) {
-    const
-        {dockModel} = await app.getComponent(workspaceId, ['dockModel']),
-        nodeId      = Object.entries(dockModel.nodes)
-            .find(([, node]) => node.type === 'tabs' && node.items?.includes(itemId))?.[0],
-        paneId      = await app.callMethod(workspaceId, 'getPaneIdentity', [itemId]),
-        mainBefore  = await mainParticipationId(app);
-
-    expect(nodeId, `${itemId} sits in a tabs node`).toBeTruthy();
-    expect(paneId, `${itemId} owns a live pane`).toBeTruthy();
-
-    let chrome;
-
-    await expect.poll(async () => {
-        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
-
-        return chrome?.buttons?.[itemId] ?? null
-    }, {
-        message  : `${nodeId} projects ${itemId} into live tab chrome`,
-        timeout  : 10000,
-        intervals: [25, 50, 100]
-    }).toBeTruthy();
-
-    await page.locator(`#${chrome.buttons[itemId]}`).click();
-
-    let action;
-
-    await expect.poll(async () => {
-        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
-        action = chrome?.containerId && await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
-        return Boolean(action?.id && await page.locator(`#${action.id}`).isVisible())
-    }, {message: `pop-out is user-reachable for ${itemId}`, timeout: 10000}).toBe(true);
-
-    const popupPromise = page.waitForEvent('popup', {timeout: 30000});
-
-    await page.locator(`#${action.id}`).click();
-
-    const popup = await popupPromise;
-
-    await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
-
-    let windowId;
-
-    await expect.poll(async () => {
-        const lifecycle = await readNativeLifecycle(app, workspaceId);
-
-        windowId = lifecycle.owners[itemId]?.windowId ?? null;
-
-        return windowId
-    }, {
-        message  : `${itemId} reaches vessel adoption`,
-        timeout  : 30000,
-        intervals: [50, 100, 250]
-    }).toBeTruthy();
-
-    await expect(page.locator(`#${paneId}`), `the main window releases ${itemId}'s live pane`).toHaveCount(0);
-    await expect(popup.locator(`#${paneId}`), `the popup adopts ${itemId}'s exact live pane`).toBeVisible();
-    await expect(page.locator('.neo-dashboard-dock-vessel-placeholder'), `the main window retires ${itemId}'s stand-in`)
-        .toHaveCount(0, {timeout: 15000});
-    await expect.poll(() => mainParticipationId(app), {
-        message  : `the detach projection refresh re-registers the main target after ${itemId}`,
-        timeout  : 15000,
-        intervals: [50, 100, 250]
-    }).not.toBe(mainBefore);
-
-    return {popup, windowId}
-}
-
 test.describe('Workstation — native titlebar drag popup onto popup (#18047)', () => {
     /**
      * @summary Runs the native transfer against either the initial or an enlarged target window.
@@ -295,12 +198,14 @@ test.describe('Workstation — native titlebar drag popup onto popup (#18047)', 
             });
 
             // Target first, then source: both born inside the main window, both adopted and settled.
-            const target = await popOut({app, page, workspaceId, itemId: TARGET_ITEM});
+            // settleForClaim: this spec raises a native claim against the main window's zone below, and a
+            // claim against a zone the detach projection has not yet re-registered dies silently.
+            const target = await popOut({app, page, workspaceId, itemId: TARGET_ITEM, settleForClaim: true});
 
             popups.push(target.popup);
             target.popup.on('close', () => console.log('[native-popup-over-popup] target popup closed at', new Date().toISOString()));
 
-            const source = await popOut({app, page, workspaceId, itemId: SOURCE_ITEM});
+            const source = await popOut({app, page, workspaceId, itemId: SOURCE_ITEM, settleForClaim: true});
 
             popups.push(source.popup);
 

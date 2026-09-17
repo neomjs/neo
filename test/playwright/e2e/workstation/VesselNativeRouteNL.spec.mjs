@@ -1,5 +1,5 @@
-import {expect, test}        from '../../fixtures.mjs';
-import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
+import {expect, test} from '../../fixtures.mjs';
+import {popOut}       from '../utils/workstationPopOut.mjs';
 
 /**
  * @summary A torn-out vessel carries the native control route the engine parks, moves and closes it by.
@@ -10,10 +10,10 @@ import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
  *
  * ## Why main's `null` is asserted too, and is not padding
  *
- * A route is minted by an OPENER — `Main.windowOpen` plants a token in the popup's `sessionStorage`
- * (`Main.mjs:1288-1311`), and the popup consumes it once through `opener.Neo.Main`
- * (`Main.mjs:22-62`), caching the result at module scope for its lifetime. The main window has no
- * opener, so it can mint nothing for itself: **`nativeRoute: null` on main is correct behaviour.**
+ * A route is minted by an OPENER — `Main#windowOpen` plants a token in the popup's `sessionStorage`,
+ * and the popup consumes it exactly once through `opener.Neo.Main`'s `consumeNativeWindowRoute`,
+ * caching the result at module scope for its lifetime. The main window has no opener, so it can mint
+ * nothing for itself: **`nativeRoute: null` on main is correct behaviour.**
  *
  * That asymmetry reads exactly like a broken pop-out, and has: three separate probes generalised a
  * main-window `null` into "pop-outs have no route" and recorded it as a blocking unknown, while the
@@ -32,64 +32,6 @@ test.use({viewport: null});
 const
     VESSEL_ITEM = 'commits',
     asArray     = value => Array.isArray(value) ? value : value ? [value] : [];
-
-/**
- * @summary Pops one pane out through the real header action — never `Main.windowOpen` directly, which
- * would assert that minting works while skipping the path that has to reach it.
- * @param {Object} data
- * @param {Object} data.app
- * @param {Object} data.page
- * @param {String} data.workspaceId
- * @param {String} data.itemId
- * @returns {Promise<{popup: Object, windowId: String}>}
- */
-async function popOut({app, page, workspaceId, itemId}) {
-    const
-        {dockModel} = await app.getComponent(workspaceId, ['dockModel']),
-        nodeId      = Object.entries(dockModel.nodes)
-            .find(([, node]) => node.type === 'tabs' && node.items?.includes(itemId))?.[0];
-
-    expect(nodeId, `${itemId} sits in a tabs node`).toBeTruthy();
-
-    let chrome;
-
-    await expect.poll(async () => {
-        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
-
-        return chrome?.buttons?.[itemId] ?? null
-    }, {message: `${nodeId} projects ${itemId} into live tab chrome`, timeout: 10000, intervals: [25, 50, 100]}).toBeTruthy();
-
-    await page.locator(`#${chrome.buttons[itemId]}`).click();
-
-    let action;
-
-    await expect.poll(async () => {
-        chrome = await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId]);
-        action = chrome?.containerId && await app.callMethod(chrome.containerId, 'getAction', ['pop-out']);
-
-        return Boolean(action?.id && await page.locator(`#${action.id}`).isVisible())
-    }, {message: `pop-out is user-reachable for ${itemId}`, timeout: 10000}).toBe(true);
-
-    const popupPromise = page.waitForEvent('popup', {timeout: 30000});
-
-    await page.locator(`#${action.id}`).click();
-
-    const popup = await popupPromise;
-
-    await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
-
-    let windowId;
-
-    await expect.poll(async () => {
-        const lifecycle = await readNativeLifecycle(app, workspaceId);
-
-        windowId = lifecycle.owners[itemId]?.windowId ?? null;
-
-        return windowId
-    }, {message: `${itemId} reaches vessel adoption`, timeout: 30000, intervals: [50, 100, 250]}).toBeTruthy();
-
-    return {popup, windowId}
-}
 
 test.describe('Workstation — a torn-out vessel carries a native control route (#18824)', () => {
     test('the vessel has every capability and the main window has none', async ({page, neuralLink}) => {
