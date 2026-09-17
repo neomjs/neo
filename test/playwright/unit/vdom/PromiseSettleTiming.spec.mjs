@@ -198,6 +198,48 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         expect(await later, 'so does the one asked for after the claim, though that flight did not carry its change').toBe('rejected')
     });
 
+    test('a promise asked for after the mounting render collected still settles AT the mount', async () => {
+        const containerId = uniqueId('settle-container'),
+              childId     = uniqueId('settle-child');
+
+        created.push(containerId);
+
+        const container = Neo.create(SettleContainer, {
+            appName,
+            id   : containerId,
+            items: [{module: SettleChild, id: childId, text: 'pristine'}]
+        });
+
+        const child = container.items[0];
+
+        // `initVnode` collects the whole tree synchronously, so this change is made after the render
+        // that mounts the child has already taken its payload.
+        const init = container.initVnode(true);
+
+        child.text = 'late';
+
+        let settledReading = 'still parked';
+
+        child.promiseUpdate().then(() => {settledReading = renderedText(child)}, reason => {settledReading = `rejected: ${reason}`});
+
+        await init;
+        container.mounted = true;
+
+        await expect.poll(() => settledReading, {message: 'the promise settled'}).not.toBe('still parked');
+
+        // DELIBERATE, and the one documented exception to the settle-timing guarantee: a mount claims
+        // and settles everything parked on the component, so this reads the tree the mounting render
+        // carried rather than the one carrying `late`. Callers depend on it — `dashboard/dock/Workspace`
+        // awaits an UNMOUNTED host's `promiseUpdate()` purely to learn that it mounted, and so does its
+        // reconciler. Removing the mount's claim was proposed, implemented two different ways, and
+        // rejected; both ways turn this reading into `late`.
+        //
+        // Assert the READING, never merely that it settled: a drained follow-up cycle settles it either
+        // way, about 100ms later, so a settles-eventually arm passes with the claim removed and guards
+        // nothing.
+        expect(settledReading, 'the mount settled it, so the caller reads the tree that render carried').toBe('pristine')
+    });
+
     test('a promise merged into a container that has not rendered yet settles when its first render mounts the child', async () => {
         const containerId = uniqueId('settle-container'),
               childId     = uniqueId('settle-child');
