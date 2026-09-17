@@ -10,10 +10,10 @@ import {popOut}       from '../utils/workstationPopOut.mjs';
  *
  * ## Why main's `null` is asserted too, and is not padding
  *
- * A route is minted by an OPENER — `Main.windowOpen` plants a token in the popup's `sessionStorage`
- * (`Main.mjs:1288-1311`), and the popup consumes it once through `opener.Neo.Main`
- * (`Main.mjs:22-62`), caching the result at module scope for its lifetime. The main window has no
- * opener, so it can mint nothing for itself: **`nativeRoute: null` on main is correct behaviour.**
+ * A route is minted by an OPENER — `Main#windowOpen` plants a token in the popup's `sessionStorage`,
+ * and the popup consumes it exactly once through `opener.Neo.Main`'s `consumeNativeWindowRoute`,
+ * caching the result at module scope for its lifetime. The main window has no opener, so it can mint
+ * nothing for itself: **`nativeRoute: null` on main is correct behaviour.**
  *
  * That asymmetry reads exactly like a broken pop-out, and has: three separate probes generalised a
  * main-window `null` into "pop-outs have no route" and recorded it as a blocking unknown, while the
