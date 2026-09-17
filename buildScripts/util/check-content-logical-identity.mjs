@@ -76,11 +76,14 @@ const ARCHIVE_REL = 'resources/content/archive';
  *   it would have wedged every commit in the repository until an unrelated repair cleared them.
  *   Keep that in mind before adding a family with pre-existing damage: fix first, then let CI hold.
  * - **`--ordinals`**: reports which artifacts sit where the archived-content layout contract would
- *   not place them, and **always exits 0**. It gates nothing: no `lint-staged` entry, no workflow.
- *   That is the point rather than a first step — the corpus carries 175 known non-conformances, and
- *   a blocking audit would wedge every commit exactly as a cold duplicate audit once would have.
+ *   not place them, and **exits 0 whenever it reports**. It gates nothing: no `lint-staged` entry,
+ *   no workflow. That is the point rather than a first step — the corpus carries known
+ *   non-conformances, and a blocking audit would wedge every commit exactly as a cold duplicate
+ *   audit once would have.
  *   It answers a whole-corpus question, so it **refuses** to share an invocation with `--all` or with
- *   file arguments; those gate a commit, and one run cannot both always-pass and sometimes-fail.
+ *   file arguments; those gate a commit, and one run cannot both always-pass and sometimes-fail. That
+ *   refusal exits 1 and is the mode's only non-zero exit — it declines to answer rather than
+ *   answering with a finding, so it still cannot fail a commit on what the corpus contains.
  *   Promoted to blocking or deleted when the parent decision lands on whether ordinal conformance is
  *   worth a corpus rewrite — and if that answer is no, deleting this mode should cost nothing.
  */
@@ -302,8 +305,8 @@ if (invokedAsCli) {
     if (args.includes('--ordinals')) {
         if (auditAll || candidates.length) {
             console.error('\x1b[31mcheck-content-logical-identity: --ordinals cannot be combined with --all or with file arguments.\x1b[0m');
-            console.error('It reports whole-corpus ordinal placement and always exits 0; the other modes gate a commit and');
-            console.error('exit non-zero on a finding. One invocation cannot honour both contracts — run the guard twice.');
+            console.error('It reports whole-corpus ordinal placement and exits 0 whenever it reports; the other modes gate a');
+            console.error('commit and exit non-zero on a finding. One invocation cannot honour both contracts — run the guard twice.');
             process.exit(1)
         }
 
