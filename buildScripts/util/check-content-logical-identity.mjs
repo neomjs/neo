@@ -100,8 +100,12 @@ const ARCHIVE_REL = 'resources/content/archive';
 export const SCAN_SURFACE = Object.freeze([`${ARCHIVE_REL}/**`]);
 
 /**
- * @summary Lists the archived-content families present on disk.
- * @param {String} archiveRoot Absolute path to the archive tree.
+ * @summary Lists the child directories present on disk under an archive level.
+ *
+ * Named for its first caller, and it takes a level rather than the tree because the second one needs
+ * the same answer one level down: families under the root, then versions under a family. Both are
+ * derived reads of the same shape, so a version roster would be the same defect a family roster is.
+ * @param {String} archiveRoot Absolute path to the archive level to read — the tree, or one family in it.
  * @returns {String[]} Directory names, derived — never a hardcoded roster.
  */
 export function listArchiveFamilies(archiveRoot) {
@@ -205,14 +209,18 @@ export function findLogicalIdentityCollisions({archiveRoot, targets = null}) {
 /**
  * @summary The GitHub id a corpus artifact's filename carries, which the layout contract's §2.5 orders a bucket by.
  *
- * The trailing digits, because the prefix varies by family — `pr-11982.md`, `issue-1234.md`. Anything
- * else returns `null` rather than 0: a name with no id cannot be placed by an ordinal at all, and
- * folding it to 0 would silently sort it first and report every later member as misplaced.
+ * A lowercase prefix and the digits, WHOLE — the prefix varies by family (`pr-11982.md`,
+ * `issue-1234.md`) so it is not named, but the name has to be nothing else. Matching trailing digits
+ * alone would rank `pr-11982-v2.md` under id 2 and report every real member after it as misplaced,
+ * which is the failure mode the `null` return exists to prevent, arriving by a different door.
+ *
+ * Anything else returns `null` rather than 0: a name with no id cannot be placed by an ordinal at
+ * all, and folding it to 0 would silently sort it first and report every later member as misplaced.
  * @param {String} fileName
  * @returns {Number|null}
  */
 export function artifactId(fileName) {
-    const match = fileName.match(/(\d+)\.md$/);
+    const match = fileName.match(/^[a-z]+-(\d+)\.md$/);
 
     return match ? Number(match[1]) : null
 }

@@ -180,6 +180,20 @@ test.describe('check-content-logical-identity — the commit-time corpus invaria
             expect(finding.misplaced, 'the ranked members are still placed correctly').toEqual([])
         });
 
+        test('a name that is not <prefix>-<id>.md is unorderable, not ranked by its trailing digits', () => {
+            // The gap trailing-digit matching leaves: `pr-11982-v2.md` reads as id 2, sorts ahead of
+            // every real member and reports the whole bucket misplaced — the same wrong-answer-that-
+            // looks-like-a-finding the `null` return exists to prevent, reached by a different door.
+            // No live instance: all 14,201 tracked names match the anchored form. This keeps it so.
+            conformingBucket('pulls', 'v13.0.0', 3);
+            artifact('pulls', 'v13.0.0', 'chunk-1', 'pr-11982-v2.md');
+
+            const [finding] = findOrdinalMisplacements({archiveRoot});
+
+            expect(finding.unorderable.map(file => path.basename(file))).toEqual(['pr-11982-v2.md']);
+            expect(finding.misplaced, 'and the real members keep their own ordinals').toEqual([])
+        });
+
         test('buckets are derived on BOTH levels, so a new family or version is measured without an edit', () => {
             conformingBucket('some-future-family', 'v99.0.0', 2);
             artifact('some-future-family', 'v99.0.0', 'chunk-7', 'thing-3.md');
