@@ -1204,7 +1204,7 @@ Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-
         "WS/GoogleMaps",
         "Stylesheet"
     ],
-    "googleMapsApiKey": "AIzaSyD4Y2xvl9mGT8HiVvQiZluT5gah3OIveCE",
+    "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY",
     "themes"          : ["neo-theme-neo-light"],
     "workerBasePath": "../../node_modules/neo.mjs/src/worker/"
 }
@@ -1213,6 +1213,23 @@ Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-
 It's unusual to need to edit `neo-config.json`. The app theme is specified there, and so are main thread add-ons.
 In our case, we're adding `WS/GoogleMaps` which in turn requires that we specify the map key. The `WS/`
 prefix tells Neo.mjs that the add-on is in our workspace, rather than an add-on provided by Neo.mjs.
+
+**You need your own key — this tutorial no longer ships one.** Earlier versions pasted a shared key here, from a
+time when a Maps key needed no payment method. Google now requires a billing account, so a shared key is a shared
+bill and is not something a public repository can hand out.
+
+Four steps, all in the [Google Cloud console](https://console.cloud.google.com/):
+
+1. Create a project (or pick an existing one).
+2. Enable the **Maps JavaScript API** for it.
+3. Enable billing on the project. Google's free monthly credit covers a tutorial comfortably, but the account
+   must exist — without it every map renders greyed out under a "For development purposes only" watermark.
+4. Create an API key and **restrict it by HTTP referrer** to the host you develop on. An unrestricted key works
+   anywhere, which is exactly the problem with sharing one.
+
+Google's own walkthrough is
+[Use API Keys](https://developers.google.com/maps/documentation/javascript/get-api-key); it stays current in a way
+a copy here would not.
 
 Save and refresh, and you'll see a console log emanating from the plugin.
 
