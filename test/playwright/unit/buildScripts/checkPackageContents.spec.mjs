@@ -272,3 +272,99 @@ test('the marked producer cannot substitute for the shipped runtime bundle', asy
     expect(findMissingEntries([...shippedExcept('marked'), 'buildScripts/build/marked.mjs']).map(entry => entry.path))
         .toEqual(['dist/marked.mjs'])
 });
+
+/**
+ * @summary What a release run would delete from `.npmignore`, which `npm pack` cannot see.
+ *
+ * `prepare.mjs` rebuilds the file as `authoritative header + a copy of .gitignore minus every rule the
+ * header owns`, through the shared `composeNpmIgnore`. A rule written below the marker survives only
+ * until the next release, so today's pack is green and the first release after it publishes a
+ * different package. The arms use a miniature fixture rather than the real files: the defect is in the
+ * COMPOSITION, and a fixture states which shape is asserted instead of inheriting whatever the
+ * repository happens to hold.
+ */
+test.describe('findRulesLostOnRelease', () => {
+    const HEAD = '# Original content of the .gitignore file',
+          GIT  = ['/node_modules', '/dist'].join('\n');
+
+    test('rules below the marker are reported, naming the negations a release would drop', async () => {
+        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['resources/content/', HEAD, '/node_modules', '/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'].join('\n');
+
+        expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual(['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'])
+    });
+
+    test('the same rules in the header survive, and the copy cannot contradict them', async () => {
+        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs', HEAD, '/node_modules', '/dist'].join('\n');
+
+        expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual([])
+    });
+
+    test('rules the copy ADDS are not findings — the sync is the point', async () => {
+        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        expect(findRulesLostOnRelease(['resources/content/', HEAD].join('\n'), GIT)).toEqual([])
+    });
+
+    test('a rule the header OWNS is subsumed rather than lost, however specific the copy was', async () => {
+        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        const npmIgnore = ['resources/content/', HEAD, '/node_modules', 'resources/content/handoff.md'].join('\n'),
+              git       = ['/node_modules', 'resources/content/handoff.md'].join('\n');
+
+        expect(findRulesLostOnRelease(npmIgnore, git)).toEqual([])
+    });
+
+    test('a file with no marker is left alone rather than reported wholesale', async () => {
+        const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
+
+        expect(findRulesLostOnRelease(['/node_modules', '/dist/*'].join('\n'), GIT)).toEqual([])
+    })
+});
+
+/**
+ * @summary The composition itself, and the spelling axis that made a guard built on it lie.
+ *
+ * `/dist`, `dist`, `dist/` and `/dist/` all name one directory to an ignore file. The first version of
+ * this filter normalized the HEADER pattern and compared it against a RAW copy pattern, so it matched
+ * `/dist` and missed the rest. @neo-opus-grace measured the consequence on the real tree: with
+ * `.gitignore` spelling it `dist/`, the composed file shipped 0 of 13 `dist` files while the guard
+ * reported nothing lost. Both sides normalize now, and every spelling has an arm — this is the axis,
+ * so a single happy-path case would be no control at all.
+ */
+test.describe('composeNpmIgnore — ownership is spelling-independent', () => {
+    const HEAD      = '# Original content of the .gitignore file',
+          npmIgnore = ['/dist/*', '!/dist/parse5.mjs', HEAD, '/node_modules'].join('\n');
+
+    for (const spelling of ['/dist', 'dist', 'dist/', '/dist/']) {
+        test(`a copied \`${spelling}\` is recognised as owned by the header's /dist/*`, async () => {
+            const {composeNpmIgnore} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+            const {content, dropped} = composeNpmIgnore(npmIgnore, ['/node_modules', spelling].join('\n'));
+
+            expect(dropped.map(entry => entry.line), 'the copy\'s rule is dropped').toEqual([spelling]);
+            expect(dropped[0].owner, 'and it names the header path that owns it').toBe('dist');
+            expect(content.split('\n').filter(line => line === spelling), 'so it cannot re-exclude the tree').toEqual([])
+        })
+    }
+
+    test('a copied rule for an unowned path is kept, so the sync still works', async () => {
+        const {composeNpmIgnore} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+        const {content, dropped} = composeNpmIgnore(npmIgnore, ['/node_modules', '/coverage'].join('\n'));
+
+        expect(dropped).toEqual([]);
+        expect(content.split('\n')).toContain('/coverage')
+    });
+
+    test('a negation in the copy is matched on the path it names, not on its marker', async () => {
+        const {composeNpmIgnore} = await import('../../../../buildScripts/util/npmIgnoreComposition.mjs');
+
+        const {dropped} = composeNpmIgnore(npmIgnore, ['/node_modules', '!/dist/other.mjs'].join('\n'));
+
+        expect(dropped.map(entry => entry.line)).toEqual(['!/dist/other.mjs'])
+    })
+});

@@ -11,6 +11,7 @@ import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
 import rebuildContentIndexesAndSeo from '../docs/rebuildContentIndexesAndSeo.mjs';
+import {composeNpmIgnore}          from '../util/npmIgnoreComposition.mjs';
 
 const
     root        = path.resolve(),
@@ -109,23 +110,25 @@ if (insideNeo) {
     const gitIgnorePath = path.join(root, '.gitignore');
 
     if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
-        const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
-        const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8');
-        const splitString      = '# Original content of the .gitignore file';
-        const splitIndex       = npmIgnoreContent.indexOf(splitString);
-        let   headerLines;
+        // The composition lives in buildScripts/util/npmIgnoreComposition.mjs, shared with the guard
+        // that predicts it. A guard verifying its own restatement of this logic can be green against a
+        // release step that behaves differently, which is the one failure a pre-release guard must not
+        // have — so there is exactly one implementation and both sides import it.
+        const {content, dropped, headerLines} = composeNpmIgnore(
+            fs.readFileSync(npmIgnorePath, 'utf-8'),
+            fs.readFileSync(gitIgnorePath, 'utf-8'),
+            os.EOL
+        );
 
-        if (splitIndex !== -1) {
-            headerLines = npmIgnoreContent.slice(0, splitIndex + 1);
-        } else {
-            // Fallback to the default 7 lines if the marker is missing
-            headerLines = npmIgnoreContent.slice(0, 7);
-        }
+        fs.writeFileSync(npmIgnorePath, content);
 
-        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + gitIgnoreContent;
+        console.log(`Synced .npmignore with .gitignore (${headerLines.length} header lines kept)`);
 
-        fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
-        console.log('Synced .npmignore with .gitignore');
+        // Named individually rather than counted: a dropped line is a `.gitignore` rule that does not
+        // reach the package, so anyone adding one under an owned path has to see it disappear.
+        dropped.forEach(({line, owner}) => {
+            console.log(`  dropped from the copy: ${line}  (the header owns ${owner})`)
+        })
     }
 }
 
