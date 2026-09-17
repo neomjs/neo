@@ -69,7 +69,9 @@ function configChecked(page, id) {
  * in `onInputValueChange()` leaves both of them green (measured). The vdom assignment on the line
  * below is what suppresses the delta, so the vnode write is not load-bearing for this path and no
  * arm here should pretend to hold it. What is guarded is the round trip in both directions, which
- * had no coverage at all — and the burst arm holds the parity a property write would break.
+ * had no coverage at all — and the burst arm holds the parity a property write would break, with
+ * every click of the burst genuinely inside one render's flight. See that arm for why it drives the
+ * mouse directly instead of using `locator.click()`.
  */
 test.describe('Neo.form.field.CheckBox', () => {
     test.beforeEach(async ({page}) => {
@@ -103,20 +105,28 @@ test.describe('Neo.form.field.CheckBox', () => {
     test('a burst of clicks leaves the DOM on the user\'s last state, with the config agreeing', async ({page}) => {
         componentId = await createCheckBox(page, {checked: false});
 
-        const label = clickTarget(page, componentId);
+        const box = await clickTarget(page, componentId).boundingBox(),
+              x   = box.x + box.width  / 2,
+              y   = box.y + box.height / 2;
 
-        // Every click after the first lands while the previous render is still in the air. A render
-        // that wrote its own `checked` on landing would win over the user — it is a property write —
-        // and the document would come to rest on the wrong parity.
+        // Raw mouse events, not `locator.click()`. The locator waits for actionability first — the
+        // element has to hold still for two animation frames — which is about one render round trip,
+        // so a burst built from it arrives BETWEEN renders and tests almost nothing. Measured on this
+        // head: locator clicks land at 26/59/90/125/157ms against renders at 56/105/123/156/189ms,
+        // while the raw burst below lands at 3/4/5/5/6ms against a single coalesced render at 34ms.
+        //
+        // That is the window worth holding: every click after the first is inside the first render's
+        // flight, so a render writing its own `checked` on landing would win over the user — it is a
+        // property write — and the document would come to rest on the wrong parity.
         for (let i = 0; i < 5; i++) {
-            await label.click({delay: 0})
+            await page.mouse.click(x, y)
         }
 
         await expect.poll(() => domChecked(page, componentId), {message: 'five clicks from unchecked end checked'}).toBe(true);
         await expect.poll(() => configChecked(page, componentId), {message: 'and the config agrees with the document'}).toBe(true);
 
         for (let i = 0; i < 3; i++) {
-            await label.click({delay: 0})
+            await page.mouse.click(x, y)
         }
 
         await expect.poll(() => domChecked(page, componentId), {message: 'three more, an odd count, end unchecked'}).toBe(false);
