@@ -110,11 +110,9 @@ if (insideNeo) {
 
     if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
         const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
-        const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8');
+        const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8').split(os.EOL);
         const splitString      = '# Original content of the .gitignore file';
-        const tailString       = '# npm-only rules that must OUTRANK the .gitignore copy above';
         const splitIndex       = npmIgnoreContent.indexOf(splitString);
-        const tailIndex        = npmIgnoreContent.indexOf(tailString);
         let   headerLines;
 
         if (splitIndex !== -1) {
@@ -124,18 +122,46 @@ if (insideNeo) {
             headerLines = npmIgnoreContent.slice(0, 7);
         }
 
-        // A rule in the header CANNOT survive the copy below it. Ignore files resolve last-match-wins,
-        // so `.gitignore`'s bare `/dist` is appended after the header and re-excludes anything a header
-        // negation re-included — measured with `npm pack --dry-run`: `dist/parse5.mjs` and
-        // `dist/marked.mjs`, both imported at module scope, come out MISSING. Rules that have to beat
-        // the copy therefore live BELOW it, and this preserves them verbatim.
-        const tailLines = tailIndex !== -1 ? npmIgnoreContent.slice(tailIndex) : [];
+        // The header is AUTHORITATIVE, and this filter is what makes it so. Appending `.gitignore`
+        // verbatim lets the copy contradict the header: ignore files resolve last-match-wins, so a
+        // bare `/dist` in the copy silently beats the header's `/dist/*` plus its negations, and the
+        // pack then drops `dist/parse5.mjs` and `dist/marked.mjs` — both imported at module scope.
+        //
+        // Resolving that by ORDER instead (custom rules last) leaves BOTH statements in the file and
+        // makes correctness depend on position, which nothing in the file states. Dropping the
+        // contradicting copy lines leaves one statement per path: what the header says about a path
+        // is the only thing the file says about it.
+        const ownedPaths = headerLines
+            .filter(line => line.trim() && !line.trim().startsWith('#'))
+            .map(line => line.trim().replace(/^!/, '').replace(/\/\*$/, '').replace(/\/$/, ''))
+            .filter(Boolean);
 
-        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + gitIgnoreContent +
-            (tailLines.length ? os.EOL + tailLines.join(os.EOL) : '');
+        const dropped   = [];
+        const copyLines = gitIgnoreContent.filter(line => {
+            if (!line.trim() || line.trim().startsWith('#')) {
+                return true
+            }
+
+            const pattern = line.trim().replace(/^!/, '');
+            const owner   = ownedPaths.find(owned => pattern === owned || pattern.startsWith(`${owned}/`));
+
+            owner && dropped.push({line: line.trim(), owner});
+
+            return !owner
+        });
+
+        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + copyLines.join(os.EOL);
 
         fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
-        console.log(`Synced .npmignore with .gitignore (${headerLines.length} header, ${tailLines.length} tail lines preserved)`);
+
+        console.log(`Synced .npmignore with .gitignore (${headerLines.length} header lines kept)`);
+
+        // Named individually rather than counted: a dropped line is a `.gitignore` rule that does not
+        // reach the package, so anyone adding one under an owned path has to see it disappear. Trading
+        // an invisible ordering rule for an invisible filtering rule would be no gain.
+        dropped.forEach(({line, owner}) => {
+            console.log(`  dropped from the copy: ${line}  (the header owns ${owner})`)
+        })
     }
 }
 

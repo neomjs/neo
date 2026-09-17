@@ -276,53 +276,52 @@ test('the marked producer cannot substitute for the shipped runtime bundle', asy
 /**
  * @summary What a release run would delete from `.npmignore`, which `npm pack` cannot see.
  *
- * `buildScripts/release/prepare.mjs` rebuilds the file as `header + verbatim .gitignore + preserved
- * tail`. A rule in the replaced region survives only until the next release, so today's pack is
- * green and the first release after it publishes a different package. The arms use a miniature
- * fixture rather than the real files: the defect is in the COMPOSITION, and a fixture states which
- * shape is being asserted instead of inheriting whatever the repository happens to hold.
+ * `buildScripts/release/prepare.mjs` rebuilds the file as `authoritative header + a FILTERED copy of
+ * .gitignore`, dropping from that copy any rule for a path the header names. A rule written below the
+ * marker survives only until the next release, so today's pack is green and the first release after it
+ * publishes a different package. The arms use a miniature fixture rather than the real files: the
+ * defect is in the COMPOSITION, and a fixture states which shape is asserted instead of inheriting
+ * whatever the repository happens to hold.
  */
 test.describe('findRulesLostOnRelease', () => {
     const HEAD = '# Original content of the .gitignore file',
-          TAIL = '# npm-only rules that must OUTRANK the .gitignore copy above',
           GIT  = ['/node_modules', '/dist'].join('\n');
 
     test('rules below the marker are reported, naming the negations a release would drop', async () => {
         const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
 
-        // The pre-repair shape: the dist block sits in the region the release step overwrites, and
-        // `.gitignore` carries a bare `/dist` with no negations of its own.
+        // The pre-repair shape: the dist block sits in the region the release step overwrites.
         const npmIgnore = ['resources/content/', HEAD, '/node_modules', '/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'].join('\n');
 
         expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual(['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'])
     });
 
-    test('the same rules below the tail marker are preserved, so nothing is reported', async () => {
+    test('the same rules in the header survive, and the copy cannot contradict them', async () => {
         const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
 
-        const npmIgnore = ['resources/content/', HEAD, '/node_modules', TAIL, '/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs'].join('\n');
+        // The repaired shape. `.gitignore`'s bare `/dist` would otherwise outrank these by
+        // last-match-wins; the header owns `/dist`, so the release step drops that line from the copy.
+        const npmIgnore = ['/dist/*', '!/dist/parse5.mjs', '!/dist/marked.mjs', HEAD, '/node_modules', '/dist'].join('\n');
 
         expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual([])
     });
 
-    test('rules the .gitignore copy ADDS are not findings — the sync is the point', async () => {
+    test('rules the copy ADDS are not findings — the sync is the point', async () => {
         const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
 
         expect(findRulesLostOnRelease(['resources/content/', HEAD].join('\n'), GIT)).toEqual([])
     });
 
-    test('BOUNDARY: a rule hoisted into the HEADER is kept, and this predicate cannot tell that it stopped working', async () => {
+    test('a rule the header OWNS is subsumed rather than lost, however specific the copy was', async () => {
         const {findRulesLostOnRelease} = await import('../../../../buildScripts/util/check-package-contents.mjs');
 
-        // Header rules survive the rebuild, so nothing is LOST — but the `.gitignore` copy lands after
-        // them and ignore files resolve last-match-wins, so its bare `/dist` re-excludes what these
-        // negations re-included. Measured with `npm pack --dry-run`: `dist/parse5.mjs` comes out
-        // MISSING from this exact shape. Deletion is this predicate's question; override is
-        // `findMissingEntries`', against a real pack. Neither covers both, and that is why the script
-        // runs them together.
-        const npmIgnore = ['/dist/*', '!/dist/parse5.mjs', HEAD, '/node_modules'].join('\n');
+        // `resources/content/` excludes the whole tree, so dropping a per-file rule beneath it changes
+        // nothing that ships. Reporting it would mean reporting every redundant .gitignore line under
+        // an owned path, on every run, with no available repair.
+        const npmIgnore = ['resources/content/', HEAD, '/node_modules', 'resources/content/handoff.md'].join('\n'),
+              git       = ['/node_modules', 'resources/content/handoff.md'].join('\n');
 
-        expect(findRulesLostOnRelease(npmIgnore, GIT)).toEqual([])
+        expect(findRulesLostOnRelease(npmIgnore, git)).toEqual([])
     });
 
     test('a file with no marker is left alone rather than reported wholesale', async () => {
