@@ -198,6 +198,39 @@ test.describe('Neo.mixin.VdomLifecycle promiseUpdate settle timing', () => {
         expect(await later, 'so does the one asked for after the claim, though that flight did not carry its change').toBe('rejected')
     });
 
+    test('a promise asked for after the first render collected settles with its own change rendered, not at the mount', async () => {
+        const containerId = uniqueId('settle-container'),
+              childId     = uniqueId('settle-child');
+
+        created.push(containerId);
+
+        const container = Neo.create(SettleContainer, {
+            appName,
+            id   : containerId,
+            items: [{module: SettleChild, id: childId, text: 'pristine'}]
+        });
+
+        const child = container.items[0];
+
+        // `initVnode` collects the whole tree synchronously, so by the time the next line runs the payload
+        // already holds `pristine` — the same window the flight arms above hold open, reached without a hook
+        // because the first render has no in-flight state to wedge.
+        const init = container.initVnode(true);
+
+        child.text = 'late';
+
+        const promise = child.promiseUpdate();
+
+        await init;
+        container.mounted = true;
+
+        await promise;
+
+        // The mount claimed and settled every parked promise, so this one resolved against the tree the
+        // render carried. A caller that awaits it and then focuses or measures reaches the previous state.
+        expect(renderedText(child), 'the render carrying `late` had landed when its promise settled').toBe('late')
+    });
+
     test('a promise merged into a container that has not rendered yet settles when its first render mounts the child', async () => {
         const containerId = uniqueId('settle-container'),
               childId     = uniqueId('settle-child');

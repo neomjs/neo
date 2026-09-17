@@ -244,8 +244,17 @@ class Abstract extends Base {
                 // this component's own pending update cycle might be skipped or not yet triggered.
                 // We explicitly execute the callbacks here to ensure those pending promises are resolved immediately
                 // upon mount, preventing deadlocks where code awaits a VDOM update that effectively already happened.
-                // No flight collected that render, so the mount claims the promises itself.
-                VDomUpdate.claimPromiseCallbacks(me.id);
+                // No flight collected that render, so the mount claims the promises itself — unless a cycle is
+                // already queued. Vdom updates are LOCKED before the first render: `updateVdom()` parks every one
+                // of them while `!vnodeInitialized`, and `afterSetVnodeInitialized` drains what parked once the
+                // render lands. So a request made after that render collected has its own cycle coming, and
+                // claiming it here would settle it against the tree the render carried — the previous state,
+                // handed to a caller that is about to focus or measure what it just changed.
+                //
+                // Claiming only with nothing queued is what keeps the deadlock closed: when a covering ancestor's
+                // render consumed this component's pending update, no cycle is coming and the mount is the only
+                // settle there will ever be. `needsVdomUpdate` tells the two apart.
+                !me.needsVdomUpdate && VDomUpdate.claimPromiseCallbacks(me.id);
                 VDomUpdate.executeCallbacks(me.id, {
                     deltas: [],
                     vnode : me.vnode
