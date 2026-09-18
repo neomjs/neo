@@ -198,7 +198,13 @@ class Helper extends Base {
 
             if (Object.keys(delta).length > 0) {
                 delta.id = vnode.id;
-                deltas.default.push(delta)
+
+                // Markup replaces the old children, so it waits behind the moves, as their removal does: a child moving
+                // to a node the diff reaches later would be detached before its move could find it
+                deltas[
+                    (Object.hasOwn(delta, 'innerHTML') || Object.hasOwn(delta, 'textContent')) &&
+                    this.hasMovedDescendant(oldVnode, vnodeMap) ? 'remove' : 'default'
+                ].push(delta)
             }
         }
 
@@ -559,7 +565,7 @@ class Helper extends Base {
      * @returns {Number}
      */
     getFragmentPhysicalCount(fragmentNode) {
-        let count      = 2, // Start + End anchors
+        let count = 2, // Start + End anchors
             childNodes = fragmentNode.childNodes,
             i          = 0,
             len        = childNodes?.length || 0,
@@ -613,6 +619,19 @@ class Helper extends Base {
         }
 
         return physicalIndex
+    }
+
+    /**
+     * Whether a node's old subtree holds a node the new tree still contains, which the diff then moves elsewhere.
+     * @param {Neo.vdom.VNode} oldVnode
+     * @param {Map}            vnodeMap The new tree's nodes by id
+     * @returns {Boolean}
+     * @protected
+     */
+    hasMovedDescendant(oldVnode, vnodeMap) {
+        return !!oldVnode.childNodes?.some(child =>
+            vnodeMap.has(child.id || child.componentId) || this.hasMovedDescendant(child, vnodeMap)
+        )
     }
 
     /**
@@ -842,11 +861,11 @@ class Helper extends Base {
      * This method is the core of the "Teleportation" / Disjoint Updates architecture.
      * Instead of building a single bridged VDOM tree, we process multiple components
      * as separate, disjoint updates in a single batch.
-     * 
+     *
      * **Meta Payload Aggregation:**
-     * If individual component updates provide a `meta` object (see `Neo.mixin.VdomLifecycle#getVdomUpdatePayload`), 
-     * this method aggregates them into a single `meta` dictionary keyed by `componentId`. This allows 
-     * the VDOM worker to pass contextual App Worker state (like baseline `scrollTop` values) through 
+     * If individual component updates provide a `meta` object (see `Neo.mixin.VdomLifecycle#getVdomUpdatePayload`),
+     * this method aggregates them into a single `meta` dictionary keyed by `componentId`. This allows
+     * the VDOM worker to pass contextual App Worker state (like baseline `scrollTop` values) through
      * to the Main Thread's `DeltaUpdates` event listeners.
      *
      * @param {Object} data
@@ -865,7 +884,7 @@ class Helper extends Base {
             if (Object.hasOwn(data.updates, id)) {
                 updateOpts = data.updates[id];
                 result     = me.update(updateOpts);
-                
+
                 allDeltas.push(...result.deltas);
                 vnodes[id] = result.vnode;
 
