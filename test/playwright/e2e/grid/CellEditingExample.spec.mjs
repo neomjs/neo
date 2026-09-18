@@ -348,6 +348,55 @@ test.describe('Grid cell editing on the public example', () => {
         await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true)
     });
 
+    // Enter is the grid's commit and the plain arrows are the date input's own, so the picker has a key of its own.
+    // `window` hears a keydown last, after the engine's listener: that is where a cancelled default shows
+    const recordDefaults = page => page.evaluate(() => {
+        window.__prevented = {};
+        window.addEventListener('keydown', event => {
+            if (event.key !== 'Alt') {
+                window.__prevented[`${event.altKey ? 'Alt+' : ''}${event.key}`] = event.defaultPrevented
+            }
+        })
+    });
+
+    test('date: Alt+ArrowDown opens the picker inside the session and hands it focus', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+        await recordDefaults(page);
+
+        await page.keyboard.press('Alt+ArrowDown');
+        await expect(page.locator(PICKER)).toBeVisible();
+        await expect.poll(() => pickerHasFocus(page), {message: 'the date selector took focus'}).toBe(true);
+        await expect(page.locator(EDITOR), 'the edit is still open').toHaveCount(1);
+        expect(await page.evaluate(() => window.__prevented), 'the browser opens no picker of its own beside it')
+            .toEqual({'Alt+ArrowDown': true});
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(PICKER)).toHaveCount(0);
+        await expect.poll(() => editingIn(page, 'randomDate', recordId), {message: 'Escape closed the picker only'}).toBe(true)
+    });
+
+    // The Escape is the proof that no picker opened: it closes an open picker first and leaves the editor, and with
+    // none it cancels the edit. Keys reach the App Worker in order, so it answers for the arrow before it
+    test('date: plain ArrowDown stays the input\'s own — it steps the date and opens no picker', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+        await recordDefaults(page);
+
+        const before = await page.locator(INPUT).inputValue();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.locator(INPUT), 'the browser stepped the focused segment').not.toHaveValue(before);
+        expect(await page.evaluate(() => window.__prevented)).toEqual({'ArrowDown': false});
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR), 'Escape cancelled the edit: no picker was open').toHaveCount(0)
+    });
+
     // Enter in a picker editor is the grid's commit, so the field must not open its picker for the edit the key ends.
     // A later gesture is the barrier for "no picker": events reach the App Worker in order, so once that gesture's
     // editor is up, whatever the Enter caused has landed.

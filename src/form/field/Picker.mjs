@@ -40,6 +40,7 @@ class Picker extends Text {
          * @member {Object} keys
          */
         keys: {
+            Down  : 'onKeyDownDown',
             Enter : 'onKeyDownEnter',
             Escape: 'onKeyDownEscape'
         },
@@ -297,6 +298,18 @@ class Picker extends Text {
      */
     onInputClick(data) {
         !this.editable && this.togglePicker()
+    }
+
+    /**
+     * Alt+ArrowDown opens the closed picker: the key the WAI-ARIA combobox and date-picker patterns name, and the one
+     * that is free everywhere. Plain ArrowDown steps the focused segment of a date or time input, and Enter may belong
+     * to the field's host ({@link #showPickerOnEnter}). The picker takes focus as it mounts, and `main.DomEvents` cancels
+     * the combination's native default on picker inputs.
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownDown(data) {
+        data.altKey && !this.pickerIsMounted && this.showPicker()
     }
 
     /**
