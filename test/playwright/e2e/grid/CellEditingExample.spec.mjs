@@ -7,7 +7,8 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
  *
  * The sibling `CellEditingPooling` spec proves one session survives pooling, on a synthetic text-only fixture. This
  * one owns the public example: number and date editors beside the text one, a non-editable column, and the toolbar
- * switch that disables the plugin. The country editor has no arm yet: it filters the store its column renders from.
+ * switch that disables the plugin. The Country editor is a combo over a store the grid's renderer reads too: its arms
+ * prove one edit session neither filters nor destroys that store for the next reader.
  *
  * Two planes, as in the sibling. The DOM shows where the editor is embodied and where focus is. A commit destroys the
  * editor, so the text a cell shows afterwards is its Row rendering the record again: a draft that never reached the
@@ -20,7 +21,9 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
  * The viewport is wide on purpose: at 1400px the configuration panel covers the last column.
  */
 const GRID                                          = '.neo-grid-container',
-      {EDITOR, INPUT, cell, editingIn, recordLeaks} = gridCellEditing(GRID);
+      {EDITOR, INPUT, cell, editingIn, recordLeaks} = gridCellEditing(GRID),
+      // A combo renders a disabled typeahead-hint input beside the real one
+      COMBO_INPUT                                   = `${INPUT}:not(.neo-typeahead-input)`;
 
 let pageErrors;
 
@@ -34,7 +37,8 @@ const recordIdOf = (page, githubId) => page.locator(`${GRID} .neo-grid-cell[data
 const focusIsOnView = page => page.evaluate(() => document.activeElement?.classList.contains('neo-grid-view') === true);
 
 // A picker field's floating picker lives on the document body, outside the grid
-const PICKER = '.neo-picker-container';
+const PICKER  = '.neo-picker-container',
+      OPTIONS = `${PICKER} .neo-list-item[role="option"]`;
 
 const pickerHasFocus = page => page.evaluate(picker => !!document.activeElement?.closest(picker), PICKER);
 
@@ -49,6 +53,19 @@ const retype = async (page, text) => {
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type(text)
 };
+
+/**
+ * Ends a picker editor's session by Escape, however many presses its open picker takes first.
+ * @returns {Promise<void>}
+ */
+const escapeEdit = page => expect.poll(async () => {
+    if (await page.locator(EDITOR).count() === 0) {
+        return true
+    }
+
+    await page.keyboard.press('Escape');
+    return false
+}, {message: 'Escape ended the edit'}).toBe(true);
 
 test.describe('Grid cell editing on the public example', () => {
     test.use({viewport: {width: 1900, height: 1000}});
@@ -135,6 +152,36 @@ test.describe('Grid cell editing on the public example', () => {
 
         await page.keyboard.press('Enter');
         await expect(cell(page, 'randomNumber', recordId)).toHaveText('25')
+    });
+
+    test('country: the combo opens on the record\'s country', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'country', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'country', recordId)).toBe(true);
+        await expect(page.locator(COMBO_INPUT), 'the bound store resolved the record\'s code').toHaveValue('United States')
+    });
+
+    test('country: typing narrows only the editor\'s own list, so the next editor still finds its country', async ({page}) => {
+        const recordId = await recordIdOf(page, 'tobiu'),
+              nextId   = await recordIdOf(page, 'jsakalos');
+
+        await cell(page, 'country', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'country', recordId)).toBe(true);
+
+        // Germany alone matches: the same filter on the grid's store would hide Slovakia from every other reader
+        await retype(page, 'Germ');
+        await expect(page.locator(OPTIONS)).toHaveText(['Germany']);
+        await escapeEdit(page);
+
+        await cell(page, 'country', nextId).dblclick();
+        await expect.poll(() => editingIn(page, 'country', nextId)).toBe(true);
+        await expect(page.locator(COMBO_INPUT), 'the grid\'s store still holds Slovakia').toHaveValue('Slovakia');
+        await escapeEdit(page);
+
+        for (const [githubId, name] of [['tobiu', 'Germany'], ['rwaters', 'United States'], ['jsakalos', 'Slovakia']]) {
+            await expect(cell(page, 'country', await recordIdOf(page, githubId))).toHaveText(name)
+        }
     });
 
     test('Escape discards the draft', async ({page}) => {
