@@ -150,6 +150,10 @@ class Picker extends Text {
     }
 
     /**
+     * The picker floats on the document body, and belongs to this field: `parentComponent` puts it into the field's
+     * component tree, which is the tree {@link Neo.manager.Focus} reads. Focus moving between the input and the
+     * picker is then a move inside the field — the field and every ancestor keep `containsFocus`, and none of them
+     * sees a `focusLeave` until focus leaves both.
      * @returns {Neo.container.Base}
      */
     createPicker() {
@@ -168,35 +172,18 @@ class Picker extends Text {
                 axisLock : true,
                 target   : me.getInputWrapperId()
             },
-            appName  : me.appName,
-            cls      : ['neo-picker-container', 'neo-container'],
-            height   : me.pickerHeight,
-            hidden   : true,
-            id       : me.getPickerId(),
-            items    : pickerComponent ? [pickerComponent] : [],
-            maxHeight: me.pickerMaxHeight,
-            theme    : me.theme,
-            width    : pickerWidth,
-            windowId : me.windowId,
-            ...me.pickerConfig,
-
-            // scoped to the field instance
-            onFocusLeave: data => {
-                let insideField = false,
-                    item;
-
-                for (item of data.oldPath) {
-                    if (item.id === me.id) {
-                        insideField = true;
-                        break
-                    }
-                }
-
-                if (!insideField) {
-                    me.hidePicker();
-                    super.onFocusLeave(data)
-                }
-            }
+            appName        : me.appName,
+            cls            : ['neo-picker-container', 'neo-container'],
+            height         : me.pickerHeight,
+            hidden         : true,
+            id             : me.getPickerId(),
+            items          : pickerComponent ? [pickerComponent] : [],
+            maxHeight      : me.pickerMaxHeight,
+            parentComponent: me,
+            theme          : me.theme,
+            width          : pickerWidth,
+            windowId       : me.windowId,
+            ...me.pickerConfig
         });
 
         me.picker.on('hiddenChange', me.onPickerHiddenChange, me);
@@ -289,25 +276,14 @@ class Picker extends Text {
     }
 
     /**
+     * Focus left the field and its picker. The field owns its picker (`parentComponent`), so focus moving between
+     * the input and the floating picker is a move inside the field, and never arrives here.
      * @param {Object} data
      * @protected
      */
     onFocusLeave(data) {
-        let me           = this,
-            insidePicker = false,
-            item;
-
-        for (item of data.oldPath) {
-            if (item.id === me.getPickerId()) {
-                insidePicker = true;
-                break
-            }
-        }
-
-        if (!insidePicker) {
-            me.hidePicker();
-            super.onFocusLeave(data)
-        }
+        this.hidePicker();
+        super.onFocusLeave(data)
     }
 
     /**

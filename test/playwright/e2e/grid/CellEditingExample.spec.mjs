@@ -189,8 +189,8 @@ test.describe('Grid cell editing on the public example', () => {
         expect(await page.evaluate(() => window.__leaks), 'no editor while the plugin was disabled').toEqual([])
     });
 
-    // A picker field floats its picker on the document body. Editor and picker are one island: focus moving between
-    // them stays inside the edit, and only leaving both ends it.
+    // A picker field floats its picker on the document body and owns it in the component tree, so focus moving between
+    // editor and picker stays inside the edit, and only leaving both ends it.
     test('date: the trigger opens the picker inside the session, and a picked day commits on the next click elsewhere', async ({page}) => {
         const recordId = await recordIdOf(page, 'rwaters'),
               otherId  = await recordIdOf(page, 'tobiu'),
@@ -236,7 +236,7 @@ test.describe('Grid cell editing on the public example', () => {
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(cell(page, 'randomDate', recordId)).toHaveText(before);
 
-        // The editor last took focus from its picker, which is gone: the edit's first origin is what gets it back
+        // Focus visiting the picker never left the editor, so it still hands focus back to where the edit took it from
         await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true)
     });
 
