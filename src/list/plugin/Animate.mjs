@@ -62,8 +62,10 @@ class Animate extends Base {
          * Opt-in measured-height mode, the height twin of {@link #minItemWidth_}: with the owner's
          * `itemHeight` null, the plugin measures the rendered items once they are in the DOM and takes
          * the tallest as the uniform row height ({@link #rowHeight}) — measured again after a record
-         * change, a resize and every settle pass. An item stays as tall as its content: no height is
-         * written back, because a later measurement would read the written height, never the content.
+         * change, a resize and every settle pass. Every item then takes that height, exactly like a
+         * fixed-mode item, so a grid of cards is a grid of equal cards. The measurement reads the items
+         * with their inline height released ({@link Neo.component.Base#getNaturalRect}) — a plain rect
+         * read would answer the height the plugin wrote, and the row would never change again.
          * Leave false (with a fixed owner `itemHeight`) for the shipped fixed-row behavior.
          * @member {Boolean} measureItemHeight_=false
          * @reactive
@@ -287,8 +289,12 @@ class Animate extends Base {
                     width    : `${owner.itemWidth}px`
                 });
 
-                // the measured first pass rendered its items hidden — the first row height reveals them
-                me.rowHeight && delete node.style.visibility
+                // the measured first pass rendered its items hidden and height-less — the first row
+                // height sizes and reveals them, and every later one re-sizes them
+                if (me.rowHeight) {
+                    node.style.height = `${me.rowHeight}px`;
+                    delete node.style.visibility
+                }
             }
         });
 
@@ -389,12 +395,12 @@ class Animate extends Base {
             return null
         }
 
-        if (me.measuresItemHeight) {
-            // no inline height: the item is as tall as its content, which is what gets measured; before
-            // the first measurement there is no row to place it in, so it renders hidden
-            !me.rowHeight && (style.visibility = 'hidden')
+        // an item fills its row; a measured list has none before its first measurement, so the item
+        // renders hidden and as tall as its content — which is what that measurement reads
+        if (me.rowHeight) {
+            style.height = `${me.rowHeight}px`
         } else {
-            style.height = `${owner.itemHeight}px`
+            style.visibility = 'hidden'
         }
 
         Object.assign(style, {
@@ -483,7 +489,8 @@ class Animate extends Base {
     }
 
     /**
-     * ONE batched rect read over the rendered items; the tallest becomes {@link #measuredRowHeight}.
+     * ONE batched read over the rendered items, their inline height released for it; the tallest
+     * becomes {@link #measuredRowHeight}, whether the row grows or shrinks by it.
      * An equal measurement changes nothing; a new one re-derives the rows and repositions — a reflow,
      * never a rebuild. Runs after the items are in the DOM (the settle pass), never inside
      * `createItem`, which would read 0. The answer is a result for the request and the mode that asked:
@@ -507,7 +514,7 @@ class Animate extends Base {
         }
 
         try {
-            rects = await owner.getDomRect(ids)
+            rects = await owner.getNaturalRect(ids)
         } catch (e) {
             return
         }

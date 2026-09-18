@@ -1518,6 +1518,26 @@ class Component extends Abstract {
     }
 
     /**
+     * @summary Convenience shortcut for the layout boxes nodes would have with inline style properties released.
+     *
+     * The read for a size the caller writes itself: a node carrying an inline `height` answers
+     * {@link #getDomRect} and {@link #getLayoutRect} with the written value, never with its content's.
+     * @param {String[]|String} id=this.id
+     * @param {String[]} properties=['height'] CSS property names, spelled as in a style attribute
+     * @param {String} windowId=this.windowId
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
+     */
+    async getNaturalRect(id=this.id, properties=['height'], windowId=this.windowId) {
+        let result = await this.trap(Neo.main.DomAccess.getNaturalRect({id, properties, windowId}));
+
+        if (Array.isArray(result)) {
+            return result.map(rect => Rectangle.clone(rect))
+        }
+
+        return Rectangle.clone(result)
+    }
+
+    /**
      * Get the parent components as an array
      * @returns {Neo.component.Base[]}
      */

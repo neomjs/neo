@@ -79,6 +79,7 @@ class DomAccess extends Base {
                 'getChildNodeIds',
                 'getComputedStyle',
                 'getLayoutRect',
+                'getNaturalRect',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
                 'measure',
@@ -567,6 +568,35 @@ class DomAccess extends Base {
         }
 
         return returnData
+    }
+
+    /**
+     * @summary The layout boxes nodes would have with the named inline style properties released.
+     *
+     * A node that carries an inline `height` answers that height to every rect read, never its
+     * content's — so a size written from a measurement answers every later one with itself. This read lifts
+     * the properties off every node, reads every layout box ({@link #getLayoutRect}: transform-immune,
+     * so the answer can be written back as a CSS length) and restores the inline values, all inside
+     * one task: one forced layout for any number of nodes, and no frame is painted in between.
+     * @param {Object} data
+     * @param {Array|String} data.id either an id or an array of ids
+     * @param {String[]} [data.properties=['height']] CSS property names, spelled as in a style attribute
+     * @returns {Object|Object[]} rect-shaped layout metrics, an empty object for a node that is not in the DOM
+     */
+    getNaturalRect({id, properties=['height']}) {
+        let me      = this,
+            isArray = Array.isArray(id),
+            nodes   = (isArray ? id : [id]).map(nodeId => me.getElement(nodeId)),
+            inline  = nodes.map(node => !node ? [] : properties.map(name => [name, node.style.getPropertyValue(name), node.style.getPropertyPriority(name)])),
+            rects;
+
+        nodes.forEach(node => node && properties.forEach(name => node.style.removeProperty(name)));
+
+        rects = nodes.map(node => node ? me.getLayoutRect(node) : {});
+
+        nodes.forEach((node, index) => inline[index].forEach(([name, value, priority]) => value && node.style.setProperty(name, value, priority)));
+
+        return isArray ? rects : rects[0]
     }
 
     /**
