@@ -500,6 +500,44 @@ test.describe('Neo.list.plugin.Animate', () => {
         expect(list.items.map(item => item.text)).toEqual(['alpha', 'bravo', 'charlie', 'delta', 'echo']);
 
         list.destroy()
+    });
+
+    test('a filter pass that swaps the visible set fades the leaving rows and shows the entering ones', async () => {
+        const
+            {list, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 300}}),
+            nodeIds       = Object.fromEntries(store.items.map(record => [record.id, list.getItemId(record)])),
+            opacityOf     = id => itemNodes(list).find(node => node.id === nodeIds[id])?.style?.opacity;
+
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        await list.timeout(450);                              // fade + settle
+        expect(itemNodes(list)).toHaveLength(3);
+
+        // online → offline: alpha, bravo, delta leave while charlie, echo enter — the entering rows
+        // are already in the vdom when the leaving ones fade, so an old index names the wrong row
+        store.getFilter('online').value = false;
+        await list.timeout(120);                              // past the 50ms frame, inside the transition
+
+        expect([1, 2, 4].map(opacityOf)).toEqual([0, 0, 0]);
+        expect([3, 5].map(opacityOf)).toEqual([1, 1]);
+
+        list.destroy()
+    });
+
+    test('a list rebuilt before the fade frame lands fades no surviving row', async () => {
+        const
+            {list, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 300}}),
+            nodeIds       = Object.fromEntries(store.items.map(record => [record.id, list.getItemId(record)])),
+            opacityOf     = id => itemNodes(list).find(node => node.id === nodeIds[id])?.style?.opacity;
+
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        list.createItems();                                   // a load or a sort landing inside the 50ms frame
+        await list.timeout(120);
+
+        // charlie and echo are gone from the vdom: their old indexes 2 and 4 name delta and nothing
+        expect(itemNodes(list)).toHaveLength(3);
+        expect([1, 2, 4].map(opacityOf)).not.toContain(0);
+
+        list.destroy()
     })
 });
 
