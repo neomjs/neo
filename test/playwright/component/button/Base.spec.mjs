@@ -315,4 +315,82 @@ test.describe('Neo.button.Base', () => {
             await expect.poll(focusedItem, 'the key moved it').toBe('Two');
         });
     }
+
+    /**
+     * @summary Creates a button whose menu has a submenu, sized so the menu opens on screen for pointer arms.
+     * @param {Object} page
+     * @returns {Promise<Object>} The button locator
+     */
+    async function createSubMenuButton(page) {
+        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), {
+            flex      : 'none',
+            height    : 40,
+            importPath: '../button/Base.mjs',
+            ntype     : 'button',
+            parentId  : 'component-test-viewport',
+            style     : {margin: '20px'},
+            text      : 'Actions',
+            width     : 120,
+            menu      : [{text: 'Open'}, {text: 'Inspect', items: [{text: 'Details'}, {text: 'Properties'}]}, {text: 'Close'}]
+        });
+
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+
+        buttonId = result.id;
+
+        return page.locator(`#${buttonId}`)
+    }
+
+    const focusedMenuItem = page => page.evaluate(() => document.activeElement?.closest('.neo-list-item')?.textContent.trim() ?? null);
+
+    /**
+     * @summary Opens the menu from the keyboard and walks focus into the Inspect submenu.
+     * @param {Object} page
+     * @returns {Promise<void>}
+     */
+    async function focusIntoSubMenu(page) {
+        await (await createSubMenuButton(page)).focus();
+        await page.keyboard.press('Enter');
+        await expect.poll(() => focusedMenuItem(page)).toBe('Open');
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedMenuItem(page)).toBe('Inspect');
+
+        await page.keyboard.press('ArrowRight');
+        await expect.poll(() => focusedMenuItem(page)).toBe('Details')
+    }
+
+    for (const how of ['Enter', 'Space', 'click']) {
+        test(`a leaf chosen by ${how} inside a submenu returns focus to the button`, async ({page}) => {
+            await focusIntoSubMenu(page);
+
+            how === 'click' ? await page.getByText('Details', {exact: true}).click() : await page.keyboard.press(how);
+
+            await expect(page.locator('.neo-menu-list')).toHaveCount(0);
+            await expect.poll(() => page.evaluate(() => document.activeElement.id)).toBe(buttonId)
+        });
+    }
+
+    test('after a submenu visit, Escape at the root returns focus to the button', async ({page}) => {
+        await focusIntoSubMenu(page);
+
+        await page.keyboard.press('ArrowLeft');
+        await expect.poll(() => focusedMenuItem(page)).toBe('Inspect');
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-menu-list')).toHaveCount(0);
+        await expect.poll(() => page.evaluate(() => document.activeElement.id)).toBe(buttonId)
+    });
+
+    test('CONTROL: without a submenu visit, Escape returns focus to the button', async ({page}) => {
+        await (await createSubMenuButton(page)).focus();
+        await page.keyboard.press('Enter');
+        await expect.poll(() => focusedMenuItem(page)).toBe('Open');
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-menu-list')).toHaveCount(0);
+        await expect.poll(() => page.evaluate(() => document.activeElement.id)).toBe(buttonId)
+    });
 });

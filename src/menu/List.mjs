@@ -171,6 +171,14 @@ class List extends BaseList {
     }
 
     /**
+     * The node focus entered this cascade from, which a dismissal returns it to. The root records it on the first
+     * focus enter after it mounts, `null` when focus came from nowhere: every later enter is a move between the
+     * cascade's own levels. `undefined` until that first enter.
+     * @member {Object|null|undefined} focusSource
+     * @protected
+     */
+    focusSource = undefined
+    /**
      * The exact listener config attached to the owning app's main view while this floating root is mounted.
      * @member {Object|null} outsidePointerListener=null
      * @protected
@@ -284,6 +292,11 @@ class List extends BaseList {
 
         if (oldValue !== undefined) {
             me.isRoot && me.floating && me.syncOutsidePointerListener(value);
+
+            // Each mount records where focus enters it anew
+            if (value && me.isRoot) {
+                me.focusSource = undefined
+            }
 
             if (parentMenu) {
                 // A level can unmount itself, on Escape for one, without its parent's hideSubMenu()
@@ -549,21 +562,11 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Hides this submenu and puts focus back on the item that opened it.
-     *
-     * Focus moves first, while this level is still mounted, so it travels between two items of the same menu
-     * cascade and never leaves it — leaving would dismiss the whole cascade. A root menu has nothing to leave.
+     * @summary Hides this submenu and puts focus back on the item that opened it, through the parent's
+     * `hideSubMenu()`. A root menu has nothing to leave.
      */
     leaveSubMenu() {
-        let me           = this,
-            {parentMenu} = me,
-            {target}     = me.align || {};
-
-        if (parentMenu) {
-            // showSubMenu() aligns a submenu to the item that opened it, so its target is that item's node id
-            Neo.isString(target) && parentMenu.focus(target);
-            parentMenu.hideSubMenu()
-        }
+        this.parentMenu?.hideSubMenu()
     }
 
     /**
@@ -633,15 +636,37 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Hides the submenu showing for one of this menu's items, with every level below it.
      *
+     * Focus inside that branch moves to the item that opened it first, while the branch is still mounted, so it
+     * travels between two items of the cascade and never leaves it. Focus on a node that unmounts drops to the
+     * document body, where no key reaches the menu. A level that is closing itself passes false: focus then belongs
+     * to the level that stays, or to the root's return.
+     * @param {Boolean} [focus=true]
      */
-    hideSubMenu() {
-        let {activeSubMenu} = this;
+    hideSubMenu(focus=true) {
+        let me              = this,
+            {activeSubMenu} = me,
+            // showSubMenu() aligns a submenu to the item that opened it, so its target is that item's node id
+            target          = activeSubMenu?.align?.target;
 
         if (activeSubMenu) {
+            focus && Neo.isString(target) && activeSubMenu.holdsFocus() && me.focus(target);
             activeSubMenu.unmount();
-            this.activeSubMenu = null
+            me.activeSubMenu = null
         }
+    }
+
+    /**
+     * True when this level, or a level showing below it, holds focus.
+     *
+     * Every level is its own focus branch (a submenu shares the root's `parentComponent`), so `containsFocus`
+     * answers for one level only.
+     * @returns {Boolean}
+     * @protected
+     */
+    holdsFocus() {
+        return !!(this.containsFocus || this.activeSubMenu?.holdsFocus())
     }
 
     /**
@@ -649,8 +674,15 @@ class List extends BaseList {
      * @param {Object[]} data.path
      */
     onFocusEnter(data) {
+        let me = this;
+
         super.onFocusEnter(data);
-        this.menuFocus = true
+
+        if (me.isRoot && me.focusSource === undefined) {
+            me.focusSource = data.relatedTarget || null
+        }
+
+        me.menuFocus = true
     }
 
     /**
@@ -1019,13 +1051,23 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Unmounts this level with every level below it.
      *
+     * A root closing while its cascade holds focus returns focus to where it entered, while every level is still
+     * mounted. The inherited `revertFocus()` cannot: it reads one level, and a move between levels resets it.
      */
     unmount() {
-        this.cancelRest();
-        this._menuFocus = false;
-        this.selectionModel?.deselectAll(true); // silent update
-        this.hideSubMenu();
+        let me = this;
+
+        me.cancelRest();
+
+        if (me.isRoot && me.focusSource?.id && me.holdsFocus()) {
+            me.focus(me.focusSource.id)
+        }
+
+        me._menuFocus = false;
+        me.selectionModel?.deselectAll(true); // silent update
+        me.hideSubMenu(false);
 
         super.unmount()
     }
