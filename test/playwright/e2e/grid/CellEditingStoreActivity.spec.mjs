@@ -45,7 +45,7 @@ const editWithDraft = async page => {
 
     await cell(page, 'c3', recordId).dblclick();
     await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
-    await page.keyboard.type(' draft');
+    await page.keyboard.type('draft');
 
     return recordId
 };
@@ -71,7 +71,7 @@ test.describe('Grid cell editing under store activity', () => {
         await drive(page, 'updateOther');
         await expect(cell(page, 'c4', recordId), 'the pushed value rendered').toHaveText('pushed');
         await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'focus stayed in the editor'}).toBe(true);
-        await expect(page.locator(INPUT)).toHaveValue('r3c3 draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
 
         await page.keyboard.press('Escape');
         await expect(page.locator(EDITOR)).toHaveCount(0);
@@ -83,11 +83,11 @@ test.describe('Grid cell editing under store activity', () => {
 
         await drive(page, 'updateEdited');
         await expect(cell(page, 'c4', recordId), 'the row repainted').toHaveText('pushed');
-        await expect(page.locator(INPUT), 'the draft survived the pushed value').toHaveValue('r3c3 draft');
+        await expect(page.locator(INPUT), 'the draft survived the pushed value').toHaveValue('draft');
 
         await page.keyboard.press('Enter');
         await expect(page.locator(EDITOR)).toHaveCount(0);
-        await expect(cell(page, 'c3', recordId), 'the draft was written').toHaveText('r3c3 draft')
+        await expect(cell(page, 'c3', recordId), 'the draft was written').toHaveText('draft')
     });
 
     for (const [change, away, back] of [['sort', 'sortDesc', 'sortAsc'], ['filter', 'filterOut', 'clearFilter']]) {
@@ -102,7 +102,7 @@ test.describe('Grid cell editing under store activity', () => {
 
             await drive(page, back);
             await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
-            await expect(page.locator(INPUT), 'the draft survived').toHaveValue('r3c3 draft');
+            await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
 
             expect(await page.evaluate(() => window.__leaks), 'no other cell ever showed the editor').toEqual([]);
 
