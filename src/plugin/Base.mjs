@@ -72,6 +72,23 @@ class Plugin extends Base {
     }
 
     /**
+     * A plugin destroyed while its owner lives leaves the owner's `plugins`, so `getPlugin()` stops finding it. An
+     * owner being destroyed destroys every plugin it holds.
+     * @param {Array} args
+     */
+    destroy(...args) {
+        let me      = this,
+            {owner} = me;
+
+        // A plugin created with an owner, rather than through its plugins config, is not listed there
+        if (!owner.isDestroying && !owner.isDestroyed && owner.plugins?.includes(me)) {
+            owner.plugins = owner.plugins.filter(plugin => plugin !== me)
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
      * Override this method to apply changes to the owner Component when it is constructed
      */
     onOwnerConstructed() {

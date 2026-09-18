@@ -383,7 +383,10 @@ class GridContainer extends BaseContainer {
                     appName
                 });
 
-                me.plugins = plugins
+                me.plugins = plugins;
+
+                // The plugin arrives after an import, so rows may have rendered without it
+                me.repaintCells()
             })
         }
     }
@@ -1037,11 +1040,12 @@ class GridContainer extends BaseContainer {
 
     /**
      * Triggered by `grid.column.Base#afterSetEditable`. The cell editing plugin, when present, ends an edit its
-     * column no longer allows.
+     * column no longer allows, and the cells repaint their `aria-readonly`.
      * @param {Neo.grid.column.Base} column
      */
     onColumnEditableChange(column) {
-        this.getPlugin('grid-cell-editing')?.onColumnEditableChange(column)
+        this.getPlugin('grid-cell-editing')?.onColumnEditableChange(column);
+        this.repaintCells()
     }
 
     /**
@@ -1129,6 +1133,19 @@ class GridContainer extends BaseContainer {
         me.lockedStartColumns = me._columns.items.filter(c => c.locked === 'start');
         me.centerColumns      = me._columns.items.filter(c => !c.locked);
         me.lockedEndColumns   = me._columns.items.filter(c => c.locked === 'end')
+    }
+
+    /**
+     * @summary Re-renders every mounted row of every body, including rows whose record and index did not change.
+     *
+     * For state a cell derives from the grid rather than from its record, such as whether it can be edited:
+     * an unforced pass skips every row whose record and index are unchanged.
+     * @protected
+     */
+    repaintCells() {
+        let me = this;
+
+        [me.bodyStart, me.body, me.bodyEnd].forEach(body => body?.createViewData(false, true))
     }
 
     /**

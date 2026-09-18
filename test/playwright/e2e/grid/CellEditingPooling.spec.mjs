@@ -39,6 +39,13 @@ const scrollVertically = (page, top) => page.evaluate(({grid, top}) => {
 
 const viewScrollTop = page => page.evaluate(grid => document.querySelector(`${grid} .neo-grid-view`).scrollTop, GRID);
 
+/**
+ * Per rendered cell of a column, whether it carries `aria-readonly="true"`.
+ * @returns {Promise<Boolean[]>}
+ */
+const readonlyCells = (page, field) => page.evaluate(({grid, field}) => [...document.querySelectorAll(`${grid} .neo-grid-cell[data-field="${field}"]`)]
+    .map(node => node.getAttribute('aria-readonly') === 'true'), {grid: GRID, field});
+
 test.describe('Grid cell editing across row and cell pooling', () => {
     test.use({viewport: {width: 1400, height: 900}});
 
@@ -116,6 +123,20 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await page.keyboard.press('Escape');
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(cell(page, 'c3', recordId), 'the scrolls wrote nothing').toHaveText('r3c3')
+    });
+
+    test('a column turned non-editable is read-only in every row, the rows the pool rebinds afterwards included', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              marks    = async () => ({c3: await readonlyCells(page, 'c3'), c4: await readonlyCells(page, 'c4')}),
+              state    = ({c3, c4}) => ({c3: c3.length > 0 && c3.every(Boolean), c4: c4.some(Boolean)});
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-pooled-c3', editable: false}));
+        await expect.poll(async () => state(await marks()), {message: 'the mounted rows repaint'}).toEqual({c3: true, c4: false});
+
+        // Rebound rows render other records, which no repaint touched
+        await scrollVertically(page, 4000);
+        await expect(page.locator(`${GRID} .neo-grid-row[data-record-id="${recordId}"]`), 'the row slot was rebound').toHaveCount(0);
+        await expect.poll(async () => state(await marks()), {message: 'the rebound rows render the mark'}).toEqual({c3: true, c4: false})
     });
 
     for (const key of ['Escape', 'Enter']) {
