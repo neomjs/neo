@@ -9,28 +9,19 @@ name: Consumer Runtime Build
 # optional-root failure was found by a physical build a minute after a simulated one reported every
 # root correct — so this packs, installs and compiles for real.
 #
-# PR-only, and path-filtered to the two layers that own the contract plus the guard's own sources:
-# `Data.mjs` / `Main.mjs` decide which roots exist, and the webpack helpers/configs decide where
-# those roots live once the framework is a dependency. Changing one half without the other is the
-# defect.
+# PR-only, and path-filtered to what an installed copy compiles and what compiles it: every tree the
+# App worker reaches (`src`, `apps`, `examples`, `docs/app`), the build scripts, and the packaging
+# rules. Any shipped module can hold a specifier that resolves only while this repository is the root.
 
 on:
   pull_request:
     branches: [dev]
     paths:
-      - 'src/worker/Data.mjs'
-      - 'src/Main.mjs'
-      - 'buildScripts/webpack/mainAddonContextPlugin.mjs'
-      - 'buildScripts/webpack/buildThreads.mjs'
-      - 'src/component/Markdown.mjs'
-      - 'src/app/content/Component.mjs'
-      - 'buildScripts/build/marked.mjs'
-      - 'buildScripts/webpack/workerContextRebasePlugin.mjs'
-      - 'buildScripts/webpack/development/webpack.config.main.mjs'
-      - 'buildScripts/webpack/development/webpack.config.worker.mjs'
-      - 'buildScripts/webpack/production/webpack.config.main.mjs'
-      - 'buildScripts/webpack/production/webpack.config.worker.mjs'
-      - 'buildScripts/util/check-consumer-runtime-build.mjs'
+      - 'apps/**'
+      - 'docs/app/**'
+      - 'examples/**'
+      - 'src/**'
+      - 'buildScripts/**'
       - '.github/workflows/consumer-runtime-build.yml'
       - '.npmignore'
       - 'package.json'
@@ -60,5 +51,5 @@ jobs:
       - name: Bundle browser dependencies for the package
         run: npm run bundle-browser-deps
 
-      - name: Build Data-worker and Main contexts from an installed copy, under an `apps/` ancestor
+      - name: Build Data worker, App worker and Main from an installed copy, under an `apps/` ancestor
         run: node buildScripts/util/check-consumer-runtime-build.mjs
