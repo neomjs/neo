@@ -151,6 +151,7 @@
     },
     "lint-staged": {
         "*": [
+            "node ./buildScripts/util/check-secrets.mjs",
             "node ./buildScripts/util/check-whitespace.mjs"
         ],
         "*.mjs": [
