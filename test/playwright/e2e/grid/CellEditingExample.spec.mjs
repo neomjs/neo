@@ -238,5 +238,29 @@ test.describe('Grid cell editing on the public example', () => {
 
         // The editor last took focus from its picker, which is gone: the edit's first origin is what gets it back
         await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true)
+    });
+
+    test('date: Enter after a picker visit commits and hands focus back to the View', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+
+        await page.locator(`${EDITOR} .neo-field-trigger`).click();
+        await page.locator(`${PICKER} [id$="__2024-12-12"]`).click();
+        await expect(page.locator(INPUT)).toHaveValue('2024-12-12');
+
+        await page.keyboard.press('Escape');
+        await expect.poll(() => editingIn(page, 'randomDate', recordId), {message: 'back in the editor, picker closed'}).toBe(true);
+
+        // The field's own Enter shows its picker again while the grid's Enter ends the edit. The picker dies with the
+        // editor, and must not take focus with it: both are gone before focus is read
+        await page.keyboard.press('Enter');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(page.locator(PICKER)).toHaveCount(0);
+        await expect.poll(() => focusIsOnView(page), {message: 'focus stayed on the View'}).toBe(true);
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect(page.locator(INPUT), 'the picked day reached the record').toHaveValue('2024-12-12')
     })
 });
