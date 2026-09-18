@@ -156,6 +156,22 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await expect(page.locator(EDITOR), 'nothing is reprojected').toHaveCount(0)
     });
 
+    // Code can end an edit too, and a listener hears that as well: a cancel that names no reason is the API's
+    test('a cancel from code that names no reason is announced as api', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await drive(page, 'cancel');
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId), 'the draft was not written').toHaveText('r3c3');
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c3-api/)
+    });
+
     // Only an embodiment that existed can be lost. Tab from a suspended edit starts the next one suspended too, on its
     // way into sight. The bodies render one after another, so while the center body reports its pass the locked `c39`
     // has not been rendered yet — which must not read as a loss

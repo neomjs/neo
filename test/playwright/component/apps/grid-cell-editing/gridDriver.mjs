@@ -19,6 +19,7 @@ const {searchParams}   = new URL(import.meta.url),
       {columns, store} = grid;
 
 const actions = {
+    cancel      : () => grid.getPlugin('grid-cell-editing').cancelEdit(),
     clearFilter : () => store.clearFilters(),
     filterOut   : () => {store.filters = [{property: 'c3', operator: 'like', value: 'r1'}]},
     hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
