@@ -2325,6 +2325,17 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary The document a window-scope perspective records: the committed one, with every pane
+     * that is away in a vessel folded back into the home its return would take
+     * ({@link Neo.dashboard.dock.model.Operations#foldPlacements}, under this host's return policy).
+     * Nothing is committed, and the recorded homes stay with the tear-out owner.
+     * @returns {Object|null}
+     */
+    getPerspectiveDocument() {
+        return Operations.foldPlacements(this.dockModel, this.tearOutHandlers?.placements, this.resolveDockReturnDescriptor.bind(this))
+    }
+
+    /**
      * Hook: item ids whose live panes the consumer holds OUTSIDE the current projection and that
      * the reconciler must park rather than retire — for example a click-detached pane. Engine-owned
      * tear-out handles are merged separately and never depend on an app override. The default

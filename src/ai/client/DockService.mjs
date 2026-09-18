@@ -263,7 +263,9 @@ class DockService extends Service {
      *
      * `captureScope` validates against {@link Neo.dashboard.dock.model.Persistence#CAPTURE_SCOPES}:
      * `window` (the default) captures the holder's own document through
-     * `Persistence.capturePerspective()` (fingerprint-coherent by construction); `topology`
+     * `Persistence.capturePerspective()` (fingerprint-coherent by construction) — its perspective
+     * document when it offers one, so a pane away in a vessel is recorded in its home rather than as
+     * closed ({@link Neo.dashboard.dock.Workspace#getPerspectiveDocument}); `topology`
      * captures the whole multi-window workspace through
      * `Persistence.captureTopologyPerspective()` over the holder's topology read seam —
      * `getDockTopologyWorkspaces()`, returning documents keyed by semantic workspace identity.
@@ -324,7 +326,7 @@ class DockService extends Service {
 
             produced = Persistence.captureTopologyPerspective(holder.getDockTopologyWorkspaces(), metadata)
         } else {
-            produced = Persistence.capturePerspective(this.readDocument(holder), metadata)
+            produced = Persistence.capturePerspective(holder.getPerspectiveDocument?.() ?? this.readDocument(holder), metadata)
         }
 
         if (produced.errors.length) {
