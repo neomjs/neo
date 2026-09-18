@@ -566,9 +566,9 @@ test.describe('Neo.list.plugin.Animate', () => {
     })
 });
 
-// The measured mode reads the item rects through the owner's getDomRect; the harness answers it from this
-// map, keyed by record id, 78px for every record it does not name. Installed as the list's own
-// getDomRect, so `this` is the list and an item id resolves back to its record.
+// The measured mode reads the items through the owner's getNaturalRect — their inline height released; the
+// harness answers it from this map, keyed by record id, 78px for every record it does not name. Installed
+// as the list's own method, so `this` is the list and an item id resolves back to its record.
 const measuredHeights = new Map();
 
 const measuredRects = async function(ids) {
@@ -586,7 +586,25 @@ const measuredRects = async function(ids) {
     })
 };
 
-const measuredConfig = () => ({listConfig: {getDomRect: measuredRects, itemHeight: null, itemWidth: 300}, mounted: true, pluginConfig: {measureItemHeight: true}});
+// A plain rect read, as a real DOM answers it: an item that carries an inline height reports that height,
+// never its content's. Installed as getDomRect, so a plugin that measured through it would be answered with
+// its own last write and the row would never change again — the grow-and-shrink arm then stops at 78.
+const writtenRects = async function(ids) {
+    const list    = this,
+          natural = await measuredRects.call(list, ids);
+
+    if (!Array.isArray(ids)) {
+        return natural
+    }
+
+    return ids.map((id, index) => {
+        const written = parseFloat(itemNodes(list).find(node => node.id === id)?.style?.height);
+
+        return Number.isFinite(written) ? {height: written, width: 300} : natural[index]
+    })
+};
+
+const measuredConfig = () => ({listConfig: {getDomRect: writtenRects, getNaturalRect: measuredRects, itemHeight: null, itemWidth: 300}, mounted: true, pluginConfig: {measureItemHeight: true}});
 
 // A rect read that does not answer until the test says so — the controlled interleavings: every item
 // read parks its resolver here (the owner's own rect still answers at once), and `answer(i, height)`
@@ -606,7 +624,7 @@ const answer = (index, height) => {
     read.resolve(Array.from({length: read.count}, () => ({height, width: 300})))
 };
 
-const deferredConfig = () => ({listConfig: {getDomRect: deferredRects, itemHeight: null, itemWidth: 300}, mounted: true, pluginConfig: {measureItemHeight: true}});
+const deferredConfig = () => ({listConfig: {getDomRect: deferredRects, getNaturalRect: deferredRects, itemHeight: null, itemWidth: 300}, mounted: true, pluginConfig: {measureItemHeight: true}});
 
 test.describe('Neo.list.plugin.Animate — measured row height', () => {
     test.beforeEach(() => measuredHeights.clear());
@@ -665,7 +683,7 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
         expect(admitted, 'only the guard\'s own messages decide it').toEqual([])
     });
 
-    test('the settle pass measures the tallest item into rowHeight, positions by it and reveals; the first pass was hidden and height-less', async () => {
+    test('the settle pass measures the tallest item into rowHeight, positions by it, sizes every item to it and reveals; the first pass was hidden and height-less', async () => {
         measuredHeights.set(2, 110);                        // one taller card decides the row
 
         const {list, plugin} = await createFixture(measuredConfig());
@@ -680,9 +698,14 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
         expect(transformOf(list, 4)).toBe('translate(10px, 130px)');
 
         itemNodes(list).forEach(node => {
-            expect(node.style.height,     'an item stays as tall as its content').toBeUndefined();
+            expect(node.style.height,     'every item takes the row height, the short ones too').toBe('110px');
             expect(node.style.visibility, 'the measurement revealed it').toBeUndefined()
         });
+
+        // a rebuild after the measurement: the new item is born with the row height, and visible
+        const rebuilt = list.createItem(list.store.getAt(0), 0);
+        expect(rebuilt.style.height).toBe('110px');
+        expect(rebuilt.style.visibility).toBeUndefined();
 
         // the first pass, replayed: no row height yet → hidden, and no height
         plugin.measuredRowHeight = null;
@@ -713,14 +736,16 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
         expect(repositions).toBe(1);
         expect(transformOf(list, 4)).toBe('translate(10px, 160px)');
         expect(itemNodes(list)).toHaveLength(5);
+        itemNodes(list).forEach(node => expect(node.style.height, 'every item grows with the row').toBe('140px'));
 
         measuredHeights.clear();                            // wider items unwrap
         plugin.onOwnerResize({rect: {width: 935, height: 400}});
         await list.timeout(60);
 
-        expect(plugin.rowHeight, 'the row shrinks back — no height was written into the items').toBe(78);
+        expect(plugin.rowHeight, 'the row shrinks back — the read released the 140px the plugin wrote').toBe(78);
         expect(repositions, 'the resize reflow and the measurement').toBe(3);
         expect(transformOf(list, 4)).toBe('translate(10px, 98px)');
+        itemNodes(list).forEach(node => expect(node.style.height, 'every item shrinks with the row').toBe('78px'));
 
         list.destroy()
     });
@@ -728,8 +753,10 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
     test('fixed mode never measures: rowHeight is the owner itemHeight and the items carry it inline', async () => {
         let reads = 0;
 
+        const countedRects = async function(ids) { Array.isArray(ids) && reads++; return measuredRects.call(this, ids) };
+
         const {list, plugin} = await createFixture({
-            listConfig: {getDomRect: async function(ids) { Array.isArray(ids) && reads++; return measuredRects.call(this, ids) }, itemWidth: 300},
+            listConfig: {getDomRect: countedRects, getNaturalRect: countedRects, itemWidth: 300},
             mounted   : true
         });
 
@@ -742,17 +769,17 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
         list.destroy()
     });
 
-    test('a runtime switch: itemHeight null + measureItemHeight true measures; a fixed itemHeight again restores the inline heights', async () => {
+    test('a runtime switch: itemHeight null + measureItemHeight true measures and sizes the items; a fixed itemHeight again restores the fixed heights', async () => {
         measuredHeights.set(3, 96);
 
-        const {list, plugin} = await createFixture({listConfig: {getDomRect: measuredRects, itemWidth: 300}, mounted: true});
+        const {list, plugin} = await createFixture({listConfig: {getDomRect: writtenRects, getNaturalRect: measuredRects, itemWidth: 300}, mounted: true});
 
         list.itemHeight          = null;
         plugin.measureItemHeight = true;
         await list.timeout(60);
 
         expect(plugin.rowHeight).toBe(96);
-        itemNodes(list).forEach(node => expect(node.style.height).toBeUndefined());
+        itemNodes(list).forEach(node => expect(node.style.height).toBe('96px'));
 
         list.itemHeight          = 126;
         plugin.measureItemHeight = false;
