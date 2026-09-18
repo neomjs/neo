@@ -899,6 +899,7 @@ class Collection extends Base {
                 delete config.filters;
                 delete config.items;
                 delete config.sorters;
+                delete config.sourceId;
 
                 // When a collection is filtered, it clones itself to create an `allItems` collection
                 // which stores the unfiltered data. It is crucial to use `me.constructor` here.
@@ -1623,7 +1624,7 @@ class Collection extends Base {
         // (the store's own synchronous `load` included) sees `allItems` holding the batch, and a
         // record hydrated inside a listener lands in both collections. The payload is the input
         // rows, because the projection filters nothing itself.
-        me.allItems?.mirrorMutation({addedItems: toAddArray, removedItems});
+        me.allItems?.mirrorMutation({addedItems: toAddArray, removedItems: toRemoveArray || removedItems});
 
         if (me[updatingIndex] === 0) {
             me.count = me._items.length;

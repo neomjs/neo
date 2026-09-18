@@ -223,6 +223,46 @@ test.describe('Neo.collection.Base — allItems mirrors inside the mutation', ()
         expect(source.allItems.count).toBe(5)
     });
 
+    test('a filtered `sourceId` collection\'s projection is no derived collection either: its source\'s mutation lands once', () => {
+        const source  = Neo.create(Collection, {keyProperty: 'id', items: rows()}),
+              derived = Neo.create(Collection, {keyProperty: 'id', sourceId: source.id});
+
+        created.push(source, derived);
+
+        derived.filters = [{property: 'state', filterBy: ({item}) => item.state === 'idle'}];
+
+        // The projection used to be cloned WITH the `sourceId`: subscribed to the same `mutate` the
+        // derived collection mirrors into it, and the next source mutation never returned
+        source.add({id: 'e', state: 'idle'});
+
+        expect(derived.allItems.sourceId).toBeNull();
+
+        derived.clearFilters();
+
+        expect(derived.items.map(item => item.id), 'the addition, exactly once').toEqual(['a', 'b', 'c', 'd', 'e'])
+    });
+
+    test('a row the filter hides, removed, leaves the projection too', () => {
+        const store = Neo.create(Store, {
+            autoInitRecords: true,
+            keyProperty    : 'id',
+            model          : tierModel(),
+            data           : rows(),
+            filters        : [{property: 'state', operator: 'like', value: null, includeEmptyValues: true}]
+        });
+
+        created.push(store);
+
+        store.getFilter('state').value = 'idle';
+
+        // `a` is hidden: the filtered splice removes nothing it shows, so only the input rows can
+        // tell the projection what left, as they already do for additions
+        store.remove('a');
+        store.getFilter('state').value = null;
+
+        expect(store.items.map(record => record.id), 'removed while hidden, gone once the filter lifts').toEqual(['b', 'c', 'd'])
+    });
+
     // A tree store's projection write is event-free on EVERY exit of `TreeStore#splice`: the
     // visible-delta exit reaches the Collection's `splice`; the two exits that do not — a node added
     // under a collapsed parent (no visible delta) and a store with an active filter — fire their own
