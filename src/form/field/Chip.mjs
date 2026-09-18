@@ -359,7 +359,8 @@ class Chip extends ComboBox {
     }
 
     /**
-     * @summary Destroys the field-owned projection; its shared Store survives until ComboBox teardown.
+     * @summary Detaches from the store and destroys the chip projection. The store itself is ComboBox's to destroy,
+     * and only when the field built it: a store the field was handed outlives it.
      */
     destroy(...args) {
         let me          = this,
@@ -377,9 +378,7 @@ class Chip extends ComboBox {
         valueList?.destroy();
         me.valueList = null;
 
-        super.destroy(...args);
-
-        !store?.isDestroyed && store?.destroy()
+        super.destroy(...args)
     }
 
     /**
