@@ -2325,6 +2325,33 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary The document a window-scope perspective records: the committed one, with every pane
+     * that is away in a vessel folded back into the home its return would take.
+     *
+     * The live document spells such a pane exactly like a closed one — a catalog record, no
+     * placement — so a record of it restores a window without the pane. Only the tear-out owner
+     * tells the two apart: it holds each home. The fold asks the return's two questions — the
+     * recorded home, then the host's answer for a home that is gone
+     * ({@link #resolveDockReturnDescriptor}) — over the document value: nothing is committed, the
+     * homes stay with their owner, and a fold the reducer refuses changes nothing.
+     * @returns {Object|null}
+     */
+    getPerspectiveDocument() {
+        let me = this;
+
+        return Object.entries(me.tearOutHandlers?.placements ?? {}).reduce((document, [itemId, placement]) => {
+            const fold = home => {
+                const descriptor = me.resolveDockReturnDescriptor(document, itemId, home),
+                      result     = descriptor && Operations.applyOperation(document, descriptor);
+
+                return result?.errors.length === 0 ? result.document : null
+            };
+
+            return WorkspaceDocument.findContainingTabsId(document, itemId) ? document : fold(placement) ?? fold(null) ?? document
+        }, me.dockModel)
+    }
+
+    /**
      * Hook: item ids whose live panes the consumer holds OUTSIDE the current projection and that
      * the reconciler must park rather than retire — for example a click-detached pane. Engine-owned
      * tear-out handles are merged separately and never depend on an app override. The default
