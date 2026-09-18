@@ -151,6 +151,16 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Runs when a render has given this component a new vnode: its own render, or an ancestor's that covered it
+     * (see {@link #syncVnodeTree}). The vnode is the one that render diffed against, so a component whose DOM
+     * changed after the render collected its payload corrects the vnode here, unless `deltas` show the render
+     * wrote that DOM state itself.
+     * @param {Object[]|null} deltas What the render wrote, null for a first render, which built the DOM from the vnode
+     * @protected
+     */
+    afterVnodeSync(deltas) {}
+
+    /**
      * Creates a lightweight, serializable placeholder for this component, intended for injection
      * into the VDOM of other components.
      *
@@ -369,7 +379,10 @@ class VdomLifecycle extends Base {
                         const component = Neo.getComponent(id);
 
                         if (component && !component.isDestroyed) {
-                            component.vnode = vnode;
+                            // Silent, since afterSetVnode() cannot pass the deltas the sync hands to every
+                            // component this vnode carries (see afterVnodeSync())
+                            component._vnode = vnode;
+                            component.syncVnodeTree(vnode, response.deltas || []);
 
                             // Resolve the update for this component and its merged children
                             // Note: response.deltas contains the aggregated deltas for the whole batch
@@ -945,9 +958,13 @@ class VdomLifecycle extends Base {
      *    moved node stays in the map, so only genuinely removed nodes are missing: that is the
      *    "Placeholder" (valid, keep) vs "Removal" (unmount) distinction.
      *
+     * Every component that receives a vnode here, this one included, then gets {@link #afterVnodeSync} with the
+     * deltas of the render that produced it.
+     *
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
+     * @param {Object[]|null} [deltas=null] What the render that produced the vnode wrote, null for a first render
      */
-    syncVnodeTree(vnode=this.vnode) {
+    syncVnodeTree(vnode=this.vnode, deltas=null) {
         let me              = this,
             childComponents = ComponentManager.getChildren(me),
             debug           = false,
@@ -997,7 +1014,9 @@ class VdomLifecycle extends Base {
                 component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
                 component.vnodeInitialized = true;
-                component.mounted          = true
+                component.mounted          = true;
+
+                component.afterVnodeSync(deltas)
             } else {
                 console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
             }
@@ -1017,6 +1036,8 @@ class VdomLifecycle extends Base {
 
         // silent update
         me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
+
+        vnode && me.afterVnodeSync(deltas);
 
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
