@@ -68,6 +68,6 @@ permissions:
 
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@48e3d72a552ef8ce60ef76432d93e4f62257b1d0
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@ab37528bb59e8a9c23e48ed8046be4e529c1862e
     with:
       required_base: dev
