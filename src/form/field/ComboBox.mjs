@@ -119,6 +119,9 @@ class ComboBox extends Picker {
          */
         role: 'combobox',
         /**
+         * The records to pick from. A config or an array makes the field create the store, which it
+         * then owns. A store instance, passed or bound, stays its owner's: the field filters and destroys
+         * only its own view of it (see `listStore`), so every other reader keeps every record.
          * @member {Neo.data.Store|null} store_=null
          * @reactive
          */
@@ -158,6 +161,19 @@ class ComboBox extends Picker {
     }
 
     /**
+     * What the picker list shows and the typing filter narrows: the store itself when the field created
+     * it, otherwise a view the field owns over it (`sourceId`), which follows the store's changes.
+     * @member {Neo.data.Store|null} listStore=null
+     * @protected
+     */
+    listStore = null
+    /**
+     * The stores this field created, and so destroys. A passed or bound store is never in it.
+     * @member {WeakSet} #owned
+     * @private
+     */
+    #owned = new WeakSet()
+    /**
      * Internal flag to store the value, in case it was set before the store was loaded
      * @member {Number|String} preStoreLoadValue=null
      */
@@ -183,6 +199,24 @@ class ComboBox extends Picker {
     }
 
     /**
+     * Destroys what this field owns — its list view, or a store it created — once the list showing it is
+     * gone. A passed or bound store stays its owner's, minus this field's load listener.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me                 = this,
+            owned              = me.#owned,
+            {listStore, store} = me;
+
+        store?.un('load', me.onStoreLoad, me);
+
+        super.destroy(...args);
+
+        listStore !== store && owned.has(listStore) && listStore.destroy();
+        owned.has(store) && store.destroy()
+    }
+
+    /**
      * Triggered after the inputValue config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -200,12 +234,23 @@ class ComboBox extends Picker {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        let me = this,
-            filters;
+        let me           = this,
+            owned        = me.#owned,
+            previousView = me.listStore,
+            filters, listStore, rawValue;
 
         if (value) {
+            listStore = owned.has(value) ? value : Neo.create(Store, {
+                keyProperty: value.keyProperty,
+                model      : value.model,
+                sourceId   : value.id
+            });
+
+            owned.add(listStore);
+            me.listStore = listStore;
+
             if (me.useFilter) {
-                filters = value.filters || [];
+                filters = listStore.filters || [];
 
                 filters.push({
                     includeEmptyValues: true,
@@ -214,14 +259,37 @@ class ComboBox extends Picker {
                     value             : value?.[me.displayField] || null
                 });
 
-                value.filters = filters
+                listStore.filters = filters
             }
 
             if (me.list) {
-                me.list.store = value
+                me.list.store = listStore
             }
 
-            value.on('load', me.onStoreLoad, me)
+            // A view follows the store's items, but only the store itself announces a load
+            value.on('load', me.onStoreLoad, me);
+
+            // A store delivered after construction (a binding) finds a value applied while it was
+            // pending, still the raw key it was given: set it again, silently as onStoreLoad() does, so
+            // beforeSetValue() resolves it or waits for the load. During construction processConfigs()
+            // applies the value itself, with the store already in place.
+            if (me.isConstructed) {
+                rawValue = me.value;
+
+                if (rawValue != null && !Neo.isRecord(rawValue)) {
+                    me._value = undefined;
+                    me.value  = rawValue
+                }
+            }
+        } else {
+            me.listStore = null
+        }
+
+        // Retired only now, with the list already showing the new store
+        if (oldValue) {
+            oldValue.un('load', me.onStoreLoad, me);
+            previousView !== oldValue && owned.has(previousView) && previousView.destroy();
+            owned.has(oldValue) && oldValue.destroy()
         }
     }
 
@@ -288,8 +356,6 @@ class ComboBox extends Picker {
             return null
         }
 
-        oldValue?.destroy();
-
         // Promote an array of items to be a Store
         if (Array.isArray(value)) {
             value = {
@@ -318,7 +384,12 @@ class ComboBox extends Picker {
             }
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, Store)
+        let store = ClassSystemUtil.beforeSetInstance(value, Store);
+
+        // Built here from a config or an array, so this field's to destroy; an instance comes back as is
+        store && store !== value && me.#owned.add(store);
+
+        return store
     }
 
     /**
@@ -390,9 +461,11 @@ class ComboBox extends Picker {
             parentId      : me.id,
             role          : 'listbox',
             selectionModel: {stayInList: false},
-            store         : me.store,
+            store         : me.listStore,
             windowId,
-            ...me.listConfig
+            ...me.listConfig,
+            // The field destroys what it owns; the list must not destroy what it only shows
+            autoDestroyStore: false
         });
 
         me.getInputEl()['aria-controls'] = me.list.id;
@@ -424,10 +497,11 @@ class ComboBox extends Picker {
      * @param {String|null} value The value to filter the picker by
      */
     doFilter(value) {
-        let me              = this,
-            {picker, store} = me,
-            record          = me.value,
-            filter          = store.getFilter(me.displayField);
+        let me       = this,
+            {picker} = me,
+            store    = me.listStore,
+            record   = me.value,
+            filter   = store.getFilter(me.displayField);
 
         if (filter) {
             filter.value = value
@@ -514,7 +588,7 @@ class ComboBox extends Picker {
         let {list}    = this,
             recordKey = list.selectionModel.getSelection()[0];
 
-        return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null
+        return recordKey && this.listStore.get(list.getItemRecordId(recordKey)) || null
     }
 
     /**
@@ -558,7 +632,7 @@ class ComboBox extends Picker {
          */
         if (me.forceSelection && !me.value) {
             me.programmaticValueChange = true;
-            me.value                   = me.store.get(me.activeRecordId);
+            me.value                   = me.listStore.get(me.activeRecordId);
             me.programmaticValueChange = false;
         }
 
@@ -594,7 +668,7 @@ class ComboBox extends Picker {
         if (selection?.length) {
             let me       = this,
                 {list}   = me,
-                {store}  = me,
+                store    = me.listStore,
                 selected = selection[0],
                 record;
 
@@ -645,8 +719,8 @@ class ComboBox extends Picker {
         let {activeIndex} = data;
 
         if (activeIndex >= 0) {
-            let me      = this,
-                {store} = me;
+            let me    = this,
+                store = me.listStore;
 
             me.activeRecord   = data.record || store.getAt(activeIndex);
             me.activeRecordId = me.activeRecord[store.getKeyProperty()];
@@ -697,7 +771,7 @@ class ComboBox extends Picker {
      *
      */
     selectLastListItem() {
-        this.selectListItem(this.store.getCount() -1)
+        this.selectListItem(this.listStore.getCount() -1)
     }
 
     /**
@@ -709,7 +783,7 @@ class ComboBox extends Picker {
 
         if (!Neo.isNumber(index)) {
             if (me.activeRecordId) {
-                index = me.store.indexOfKey(me.activeRecordId)
+                index = me.listStore.indexOfKey(me.activeRecordId)
             } else {
                 index = 0
             }
@@ -786,10 +860,11 @@ class ComboBox extends Picker {
      * @protected
      */
     updateTypeAheadValue(value=this.lastManualInput, silent=false) {
-        let me                    = this,
-            match                 = false,
-            inputHintEl           = me.getInputHintEl(),
-            {displayField, store} = me;
+        let me             = this,
+            match          = false,
+            inputHintEl    = me.getInputHintEl(),
+            {displayField} = me,
+            store          = me.listStore;
 
         if (me.typeAhead) {
             if (!me.value && value?.length > 0) {

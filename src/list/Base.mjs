@@ -477,7 +477,8 @@ class List extends Component {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue?.destroy();
+        // The same ownership destroy() honours: a list told it does not own its store never destroys it
+        this.autoDestroyStore && oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, Store)
     }
 
