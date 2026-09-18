@@ -160,19 +160,22 @@ test.describe('Grid cell editing across row and cell pooling', () => {
     // way into sight. The bodies render one after another, so while the center body reports its pass the locked `c39`
     // has not been rendered yet — which must not read as a loss
     test('an edit born suspended on a locked column that cannot suspend is embodied, not cancelled', async ({page}) => {
-        const recordId = await thirdRecordId(page),
-              bodyId   = await page.locator(`${GRID} .neo-grid-body`).nth(1).getAttribute('id'),
-              config   = async (id, name) => (await page.evaluate(({id, name}) => Neo.worker.App.getConfigs({id, keys: [name]}), {id, name}))[0];
+        const recordId = await thirdRecordId(page);
 
         // The fixture's locked columns suspend, as the locked-body arms need them to: this arm opts `c39` out itself
         await drive(page, 'optOutEnd');
 
-        // A double-click while the App Worker still re-slots cells hands Playwright a moving target
         await scrollHorizontally(page, 10000);
         await expect(cell(page, 'c38', recordId)).toBeVisible();
-        await expect.poll(() => config(bodyId, 'isScrolling'), {message: 'the scroll has settled'}).toBe(false);
 
-        await cell(page, 'c38', recordId).dblclick();
+        // The pool can re-slot cells once more after the jump, and a pointer gesture then lands on another column.
+        // The click is retried until the model holds c38; Enter edits the SELECTED cell, which is logical
+        await expect(async () => {
+            await cell(page, 'c38', recordId).click();
+            await expect(cell(page, 'c38', recordId)).toHaveClass(/neo-selected/, {timeout: 1000})
+        }).toPass();
+
+        await page.keyboard.press('Enter');
         await expect.poll(() => editingIn(page, 'c38', recordId)).toBe(true);
 
         await scrollVertically(page, 4000);
