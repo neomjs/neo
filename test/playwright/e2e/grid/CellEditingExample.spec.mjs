@@ -39,6 +39,23 @@ const PICKER = '.neo-picker-container';
 const pickerHasFocus = page => page.evaluate(picker => !!document.activeElement?.closest(picker), PICKER);
 
 /**
+ * Counts into `window.__pickerInserts` every picker node the DOM inserts from now on, including one removed again in
+ * the same task, which no locator would see.
+ * @returns {Promise<void>}
+ */
+const recordPickerInserts = page => page.evaluate(picker => {
+    window.__pickerInserts = 0;
+
+    new MutationObserver(records => records.forEach(({addedNodes}) => addedNodes.forEach(node => {
+        if (node.nodeType === Node.ELEMENT_NODE && (node.matches(picker) || node.querySelector(picker))) {
+            window.__pickerInserts++
+        }
+    }))).observe(document.body, {childList: true, subtree: true})
+}, PICKER);
+
+const pickerInserts = page => page.evaluate(() => window.__pickerInserts);
+
+/**
  * Replaces the editor's whole text by keyboard, independently of what activation left selected.
  *
  * Activation selects the value itself, so the select-all here compensates for no caret — it keeps these arms
@@ -266,7 +283,27 @@ test.describe('Grid cell editing on the public example', () => {
         await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true)
     });
 
-    test('date: Enter after a picker visit commits and hands focus back to the View', async ({page}) => {
+    // Enter in a picker editor is the grid's commit, so the field must not open its picker for the edit the key ends.
+    // A later gesture is the barrier for "no picker": events reach the App Worker in order, so once that gesture's
+    // editor is up, whatever the Enter caused has landed.
+    test('date: Enter commits, and shows no picker for the edit it ends', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters'),
+              otherId  = await recordIdOf(page, 'tobiu');
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+
+        await recordPickerInserts(page);
+        await page.keyboard.press('Enter');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true);
+
+        await cell(page, 'randomDate', otherId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', otherId)).toBe(true);
+        expect(await pickerInserts(page), 'no picker node, not even for a moment').toBe(0)
+    });
+
+    test('date: Enter after a picker visit commits, shows no picker, and hands focus back to the View', async ({page}) => {
         const recordId = await recordIdOf(page, 'rwaters');
 
         await cell(page, 'randomDate', recordId).dblclick();
@@ -278,16 +315,16 @@ test.describe('Grid cell editing on the public example', () => {
 
         await page.keyboard.press('Escape');
         await expect.poll(() => editingIn(page, 'randomDate', recordId), {message: 'back in the editor, picker closed'}).toBe(true);
+        await expect(page.locator(PICKER)).toHaveCount(0);
 
-        // The field's own Enter shows its picker again while the grid's Enter ends the edit. The picker dies with the
-        // editor, and must not take focus with it. The editor's removal is the barrier: it lands after the picker's
-        // mount. The picker's own node is not asserted — a loaded runner has been seen to keep it, which is not what
-        // this arm is about
+        // The picker instance exists now, so a picker the key showed would mount at once
+        await recordPickerInserts(page);
         await page.keyboard.press('Enter');
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect.poll(() => focusIsOnView(page), {message: 'focus stayed on the View'}).toBe(true);
 
         await cell(page, 'randomDate', recordId).dblclick();
-        await expect(page.locator(INPUT), 'the picked day reached the record').toHaveValue('2024-12-12')
+        await expect(page.locator(INPUT), 'the picked day reached the record').toHaveValue('2024-12-12');
+        expect(await pickerInserts(page), 'no picker node, not even for a moment').toBe(0)
     })
 });
