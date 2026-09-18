@@ -404,17 +404,20 @@ class VDomUpdate extends Collection {
         if (item) {
             const ids = new Set(item.children.keys());
 
-            // Add Bridge Paths: Walk up from each merged child to the owner
+            // Add Bridge Paths: Walk up from each merged child to the owner. A child moved out of the owner's subtree
+            // since it merged has none, since its walk would climb past the owner to the root, and it goes out as its
+            // own payload.
             for (const [childId, meta] of item.children) {
                 if (meta.distance > 1) {
-                    let component = Neo.getComponent(childId);
+                    let component = Neo.getComponent(childId),
+                        bridge    = [];
 
                     while (component && component.parentId && component.parentId !== ownerId) {
                         component = Neo.getComponent(component.parentId);
-                        if (component) {
-                            ids.add(component.id)
-                        }
+                        component && bridge.push(component.id)
                     }
+
+                    component?.parentId === ownerId && bridge.forEach(id => ids.add(id))
                 }
             }
 
