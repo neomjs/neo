@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}  from '../../fixtures.mjs';
+import gridCellEditing from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary A grid cell edit is one logical session over pooled cells: its editor is embodied in whichever cell
@@ -16,13 +17,10 @@ import {expect, test} from '../../fixtures.mjs';
  * Scroll arms wait for the rendered cells to change rather than for time: a column leaving the mounted window
  * leaves the DOM with its `data-field`, and a rebound row carries another `data-record-id`.
  */
-const GRID   = '#grid-cell-editing-pooled',
-      EDITOR = `${GRID} .neo-grid-editor`,
-      INPUT  = `${EDITOR} input`;
+const GRID                                                      = '#grid-cell-editing-pooled',
+      {EDITOR, INPUT, cell, editingIn, embodiment, recordLeaks} = gridCellEditing(GRID);
 
 let pageErrors;
-
-const cell = (page, field, recordId) => page.locator(`${GRID} .neo-grid-cell[data-field="${field}"][data-record-id="${recordId}"]`);
 
 /**
  * The record id of the third rendered row — row 3, a row the initial window always renders.
@@ -30,46 +28,6 @@ const cell = (page, field, recordId) => page.locator(`${GRID} .neo-grid-cell[dat
  */
 const thirdRecordId = page => page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText('r3c3', {exact: true})
     .getAttribute('data-record-id');
-
-const editingIn = (page, field, recordId) => page.evaluate(({field, recordId}) => {
-    const input = document.activeElement,
-          cell  = input?.closest?.('.neo-grid-cell');
-
-    return input?.tagName === 'INPUT' && !!input.closest('.neo-grid-editor') &&
-        cell?.dataset.field === field && cell?.dataset.recordId === recordId
-}, {field, recordId});
-
-/**
- * Where the editor is embodied right now: `{count, field, recordId}` — `field`/`recordId` of its cell.
- * @returns {Promise<Object>}
- */
-const embodiment = page => page.evaluate(editor => {
-    const nodes = document.querySelectorAll(editor),
-          cell  = nodes[0]?.closest('.neo-grid-cell');
-
-    return {count: nodes.length, field: cell?.dataset.field ?? null, recordId: cell?.dataset.recordId ?? null}
-}, EDITOR);
-
-/**
- * Records, on every DOM mutation, any editor embodied in a cell other than the target — the leak a recycled slot
- * would show.
- * @returns {Promise<void>}
- */
-const recordLeaks = (page, field, recordId) => page.evaluate(({grid, field, recordId}) => {
-    const root = document.querySelector(grid);
-
-    window.__leaks = [];
-
-    new MutationObserver(() => {
-        root.querySelectorAll('.neo-grid-editor').forEach(editor => {
-            const cell = editor.closest('.neo-grid-cell');
-
-            if (cell?.dataset.field !== field || cell?.dataset.recordId !== recordId) {
-                window.__leaks.push(`${cell?.dataset.field}/${cell?.dataset.recordId}`)
-            }
-        })
-    }).observe(root, {attributes: true, childList: true, subtree: true})
-}, {grid: GRID, field, recordId});
 
 const scrollHorizontally = (page, left) => page.evaluate(({grid, left}) => {
     document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`).scrollLeft = left
