@@ -385,7 +385,14 @@ class CellEditing extends Plugin {
         // Only the editor's own mount proves its input is in the DOM: a Row render already in flight settles the
         // repaint's promise before the render inserting the editor lands. An edit ending sooner destroys the editor,
         // and this listener with it.
-        editor.on('mounted', () => editor.focus(), me, {once: true});
+        //
+        // Selecting belongs to the ACTIVATION, which is why it sits here and not beside the `focus()` above: that one
+        // re-focuses an edit already open, and a caret the user placed is theirs to keep. A field with no text to
+        // select — a CheckBox editor extends `form.field.Base`, not `Text` — has no `selectText` and skips it.
+        editor.on('mounted', () => {
+            editor.focus();
+            editor.selectText?.()
+        }, me, {once: true});
 
         me.session = {dataField, editor, recordId};
         me.repaint(me.session);
