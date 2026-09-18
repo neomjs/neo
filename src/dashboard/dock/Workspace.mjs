@@ -2326,29 +2326,13 @@ class Workspace extends Container {
 
     /**
      * @summary The document a window-scope perspective records: the committed one, with every pane
-     * that is away in a vessel folded back into the home its return would take.
-     *
-     * The live document spells such a pane exactly like a closed one — a catalog record, no
-     * placement — so a record of it restores a window without the pane. Only the tear-out owner
-     * tells the two apart: it holds each home. The fold asks the return's two questions — the
-     * recorded home, then the host's answer for a home that is gone
-     * ({@link #resolveDockReturnDescriptor}) — over the document value: nothing is committed, the
-     * homes stay with their owner, and a fold the reducer refuses changes nothing.
+     * that is away in a vessel folded back into the home its return would take
+     * ({@link Neo.dashboard.dock.model.Operations#foldPlacements}, under this host's return policy).
+     * Nothing is committed, and the recorded homes stay with the tear-out owner.
      * @returns {Object|null}
      */
     getPerspectiveDocument() {
-        let me = this;
-
-        return Object.entries(me.tearOutHandlers?.placements ?? {}).reduce((document, [itemId, placement]) => {
-            const fold = home => {
-                const descriptor = me.resolveDockReturnDescriptor(document, itemId, home),
-                      result     = descriptor && Operations.applyOperation(document, descriptor);
-
-                return result?.errors.length === 0 ? result.document : null
-            };
-
-            return WorkspaceDocument.findContainingTabsId(document, itemId) ? document : fold(placement) ?? fold(null) ?? document
-        }, me.dockModel)
+        return Operations.foldPlacements(this.dockModel, this.tearOutHandlers?.placements, this.resolveDockReturnDescriptor.bind(this))
     }
 
     /**

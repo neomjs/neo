@@ -286,6 +286,34 @@ class Operations extends Base {
     }
 
     /**
+     * @summary The document with every recorded home folded back in: what it becomes once each pane
+     * that is away has returned.
+     *
+     * A document spells a pane that is away exactly like a closed one — a catalog record, no
+     * placement — so a record of it restores a window without the pane, and only the recorded homes
+     * tell the two apart. The fold asks the return's two questions per pane — its recorded home, then
+     * the host's answer for a home that is gone — and leaves a pane the document already places, or
+     * one the reducer refuses, as it is.
+     * @param {Object} document
+     * @param {Object|null} placements Recorded homes, keyed by item id.
+     * @param {Function} resolveDescriptor The host's return policy: `(document, itemId, placement|null) => Object|null`.
+     * @returns {Object} A new document value, or the input when nothing folds.
+     * @static
+     */
+    static foldPlacements(document, placements, resolveDescriptor) {
+        return Object.entries(placements || {}).reduce((folded, [itemId, placement]) => {
+            const fold = home => {
+                const descriptor = resolveDescriptor(folded, itemId, home),
+                      result     = descriptor && Operations.applyOperation(folded, descriptor);
+
+                return result?.errors.length === 0 ? result.document : null
+            };
+
+            return WorkspaceDocument.findContainingTabsId(folded, itemId) ? folded : fold(placement) ?? fold(null) ?? folded
+        }, document)
+    }
+
+    /**
      * @summary Relocates an unlocked in-tree `itemId` into the target tabs node at `index`.
      *
      * Locked items fail closed as sources; the target may still contain locked peers.
