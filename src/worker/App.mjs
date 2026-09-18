@@ -385,7 +385,7 @@ class App extends Base {
         }
 
         return import(
-            /* webpackInclude: /(?:apps|docs\/app|examples|src)\/.*app\.mjs$/ */
+            /* webpackInclude: /(?:(?:apps|docs\/app|examples|src)\/.*|docs\/)app\.mjs$/ */
             /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
