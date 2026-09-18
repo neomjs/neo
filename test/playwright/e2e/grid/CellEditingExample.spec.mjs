@@ -378,23 +378,34 @@ test.describe('Grid cell editing on the public example', () => {
         await expect.poll(() => editingIn(page, 'randomDate', recordId), {message: 'Escape closed the picker only'}).toBe(true)
     });
 
-    // The Escape is the proof that no picker opened: it closes an open picker first and leaves the editor, and with
-    // none it cancels the edit. Keys reach the App Worker in order, so it answers for the arrow before it
-    test('date: plain ArrowDown stays the input\'s own — it steps the date and opens no picker', async ({page}) => {
+    /**
+     * Whether the App Worker holds a picker for a field. The worker handles messages in order and creates a picker
+     * inside the key handler that shows it, so this answers for every key sent before it. An unknown id's reply never
+     * settles, so a second request to the field itself decides the race.
+     * @returns {Promise<Boolean>}
+     */
+    const pickerExists = (page, fieldId) => page.evaluate(id => Promise.race([
+        Neo.worker.App.getConfigs({id: `${id}__picker`, keys: ['id']}).then(reply => reply !== false),
+        Neo.worker.App.getConfigs({id, keys: ['id']}).then(() => false)
+    ]), fieldId);
+
+    test('date: plain ArrowDown stays the input\'s own — its native default is kept, and it opens no picker', async ({page}) => {
         const recordId = await recordIdOf(page, 'rwaters');
 
         await cell(page, 'randomDate', recordId).dblclick();
         await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
         await recordDefaults(page);
 
-        const before = await page.locator(INPUT).inputValue();
+        const fieldId = await page.locator(EDITOR).getAttribute('id');
 
+        // What the browser does with the key is its own business, and differs by platform; that it may is ours
         await page.keyboard.press('ArrowDown');
-        await expect(page.locator(INPUT), 'the browser stepped the focused segment').not.toHaveValue(before);
+        expect(await pickerExists(page, fieldId), 'a fresh editor has no picker, and the arrow built none').toBe(false);
         expect(await page.evaluate(() => window.__prevented)).toEqual({'ArrowDown': false});
 
-        await page.keyboard.press('Escape');
-        await expect(page.locator(EDITOR), 'Escape cancelled the edit: no picker was open').toHaveCount(0)
+        // The instrument can see one
+        await page.keyboard.press('Alt+ArrowDown');
+        expect(await pickerExists(page, fieldId)).toBe(true)
     });
 
     // Enter in a picker editor is the grid's commit, so the field must not open its picker for the edit the key ends.
