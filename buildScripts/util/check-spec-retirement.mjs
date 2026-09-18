@@ -8,10 +8,9 @@ import process    from 'node:process';
  * takes its own assertions with it, so the run goes green with less coverage behind the same number.
  * The silence is indistinguishable from success.
  *
- * The repo had exactly one place that thought about deletions and it thought about EXCLUDING them:
- * `check-ticket-archaeology.mjs` passes `--diff-filter=d` because a deleted file carries no comments
- * to audit. `ai/scripts/agent-preflight.mjs` reads `--diff-filter=ACMR` — Added, Copied, Modified, Renamed, with
- * `D` the one letter left out. Nothing looked at disappearance.
+ * The repo's guards thought about deletions only to EXCLUDE them: the archaeology guard and
+ * `ai/scripts/agent-preflight.mjs` both read `--diff-filter=ACMR` — Added, Copied, Modified, Renamed, with
+ * `D` the one letter left out, since a deleted file carries no comments to audit. Nothing looked at disappearance.
  *
  * This guard asks for an ACCOUNT, never a veto. Deleting a spec is routine and correct: it gets
  * renamed, split, folded into a sibling, or its subject genuinely goes away. Each of those is one line

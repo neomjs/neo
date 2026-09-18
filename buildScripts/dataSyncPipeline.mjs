@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import {spawn}                from 'node:child_process';
-import path                   from 'node:path';
-import process                from 'node:process';
-import {fileURLToPath}        from 'node:url';
+import {spawn}         from 'node:child_process';
+import path            from 'node:path';
+import process         from 'node:process';
+import {fileURLToPath} from 'node:url';
 
 import {
     DEFAULT_CORPUS_PATH,
@@ -937,9 +937,7 @@ export async function runDataSyncPipeline({
             continue
         }
 
-        await git(execute, cwd, ['commit', '--no-verify', '-m', commitMessage], {
-            env: {...process.env, NEO_SKIP_TICKET_ARCHAEOLOGY: '1'}
-        });
+        await git(execute, cwd, ['commit', '--no-verify', '-m', commitMessage]);
 
         currentSha = await fetchRemoteDev(execute, cwd);
         await logFreshness({

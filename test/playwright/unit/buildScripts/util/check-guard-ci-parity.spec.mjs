@@ -297,30 +297,6 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
         expect(output).toMatch(/suppression/)
     });
 
-    test('a guard NAMED in a workflow comment is not counted as INVOKED by it', () => {
-        // The detection trap. `ticket-archaeology-lint.yml` mentions block-alignment in prose while
-        // not invoking it. Structural YAML traversal plus direct-command classification keeps that
-        // prose outside execution evidence; this pins the boundary against later simplification.
-        const workflow = fs.readFileSync(
-            path.join(REPO_ROOT, '.github/workflows/ticket-archaeology-lint.yml'), 'utf8'
-        );
-
-        const commentedMention = workflow
-            .split('\n')
-            .some(line => line.trim().startsWith('#') && line.includes('block-alignment'));
-
-        expect(commentedMention, 'fixture drift: the prose mention this case pins is gone').toBe(true);
-
-        // …and with that mention present, the guard is still reported as client-only.
-        const {output} = runLint();
-
-        expect(output).toMatch(/\[lint-guard-ci-parity\] OK/);
-        expect(
-            fs.readJsonSync(REGISTRY).clientOnly['buildScripts/util/check-block-alignment.mjs'],
-            'block-alignment must still be classified client-only despite being named in a comment'
-        ).toBeTruthy()
-    })
-
     test('RED: removing this guard commit-time carrier is detected directly', () => {
         const {code, output} = runFixture({
             lintStaged: {
@@ -380,6 +356,10 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
     test('RED: shell mentions, dead commands, and masked commands are not execution evidence', () => {
         [
+            {
+                label   : 'YAML comment',
+                workflow: '# node ./tools/mentioned-only.mjs\njobs:\n  lint:\n    steps:\n      - run: node ./tools/other.mjs\n'
+            },
             {label: 'echo', step: '      - run: "echo node ./tools/mentioned-only.mjs"\n'},
             {label: 'comment', step: '      - run: "# node ./tools/mentioned-only.mjs"\n'},
             {label: 'prefixed executable', step: '      - run: fake-node ./tools/mentioned-only.mjs\n'},

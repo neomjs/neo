@@ -189,8 +189,7 @@ jobs:
             git add -A node_modules/neo.mjs/resources/content/
             git add -A node_modules/neo.mjs/learn/
 
-            # temp_pages is a clone of neomjs/pages (built output) — it carries no neo archaeology guard,
-            # so NEO_SKIP_TICKET_ARCHAEOLOGY is intentionally absent here (only --no-verify, for whitespace).
+            # temp_pages is a clone of neomjs/pages (built output); --no-verify skips its whitespace hook.
             git commit --no-verify -m "chore(data): Sync data and content from neo repo [skip ci]"
             git push origin main
           else
