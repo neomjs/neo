@@ -787,3 +787,80 @@ test.describe('Neo.menu.List focus across a reopen', () => {
         }
     })
 });
+
+test.describe('Neo.menu.List focus when a level holding it closes', () => {
+    /**
+     * @summary Two parents, one of them two levels deep, so a rest can close the level holding focus from either depth.
+     * @type {Object[]}
+     */
+    const branchItems = [{
+        id  : 'open',
+        text: 'Open'
+    }, {
+        id   : 'inspect',
+        items: [{
+            id   : 'details',
+            items: [{id: 'copy-name', text: 'Copy name'}],
+            text : 'Details'
+        }, {
+            id  : 'props',
+            text: 'Properties'
+        }],
+        text: 'Inspect'
+    }, {
+        id   : 'export',
+        items: [{id: 'pdf', text: 'PDF'}],
+        text : 'Export'
+    }];
+
+    /**
+     * @summary Creates the menu and walks keyboard focus `depth` levels down from `Inspect`.
+     * @param {Object} page
+     * @param {Number} depth 1 enters Inspect's submenu, 2 enters Details' submenu as well
+     * @returns {Promise<Object>} The menu levels locator
+     */
+    async function focusIntoSubMenu(page, depth) {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: branchItems});
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').nth(1).focus();
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        for (const text of ['Details', 'Copy name'].slice(0, depth)) {
+            await page.keyboard.press('ArrowRight');
+            await expect.poll(() => focusedItem(page)).toBe(text)
+        }
+
+        return menus
+    }
+
+    test('a rest on a root leaf closes the submenu holding focus, and focus lands on the item that opened it', async ({page}) => {
+        const menus = await focusIntoSubMenu(page, 1);
+
+        await page.getByText('Open', {exact: true}).hover();
+        await expect(menus).toHaveCount(1);
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        // Focus on the body would leave Escape nowhere to go
+        await page.keyboard.press('Escape');
+        await expect(menus).toHaveCount(0)
+    });
+
+    test('a rest on another root parent swaps the preview, and focus lands on the item whose submenu closed', async ({page}) => {
+        await focusIntoSubMenu(page, 1);
+
+        await page.getByText('Export', {exact: true}).hover();
+        await expect(page.getByText('PDF', {exact: true})).toBeVisible();
+        await expect.poll(() => focusedItem(page)).toBe('Inspect')
+    });
+
+    test('a rest on a leaf one level up closes the deepest level, and focus lands on its parent item', async ({page}) => {
+        const menus = await focusIntoSubMenu(page, 2);
+
+        await page.getByText('Properties', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+        await expect.poll(() => focusedItem(page)).toBe('Details')
+    })
+});
