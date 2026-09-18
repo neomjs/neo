@@ -53,8 +53,9 @@ class CellEditing extends Plugin {
     /**
      * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
      * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it. `held` counts the lock
-     * changes holding the editor out of every cell ({@link #holdEdit}), and `blurOwed` marks the leave the first of
-     * them causes.
+     * changes holding the editor out of every cell ({@link #holdEdit}), `blurOwed` marks the leave the first of them
+     * causes, and `wasEmbodied` says whether a cell has shown the editor yet — a session born suspended has that
+     * still ahead of it.
      * @member {Object|null} session=null
      * @protected
      */
@@ -303,6 +304,39 @@ class CellEditing extends Plugin {
         index = body.columnPositions.indexOf(session.dataField);
 
         return index >= body.mountedColumns[0] && index <= body.mountedColumns[1]
+    }
+
+    /**
+     * Called by every {@link Neo.grid.Body} once a render pass is through — the one place where an embodiment can
+     * go. Losing it is neutral by default: the session waits, suspended, for the pass that renders its cell again.
+     *
+     * A column whose editor cannot be suspended ({@link Neo.grid.column.Base#cancelEditOnProjectionLoss}) ends the
+     * edit instead and says so: the draft is discarded, and the grid fires `cellEditCancel` with
+     * `reason: 'projectionLoss'`. Only an embodiment that existed can be lost — a session born suspended, on its way
+     * into sight, is not.
+     * @protected
+     */
+    onBodyRender() {
+        let me        = this,
+            {session} = me,
+            column, record;
+
+        if (!session) {
+            return
+        }
+
+        if (me.isEmbodied(session)) {
+            session.wasEmbodied = true
+        } else if (session.wasEmbodied) {
+            column = me.owner.columns.get(session.dataField);
+
+            if (column?.cancelEditOnProjectionLoss) {
+                record = me.getRecord(session);
+
+                me.cancelEdit();
+                me.owner.fire('cellEditCancel', {dataField: session.dataField, reason: 'projectionLoss', record})
+            }
+        }
     }
 
     /**
@@ -566,6 +600,7 @@ class CellEditing extends Plugin {
         }, me, {once: true});
 
         me.setSession({blurOwed: false, dataField, editor, held: 0, recordId});
+        me.session.wasEmbodied = me.isEmbodied(me.session);
         me.repaint(me.session);
 
         return true

@@ -828,6 +828,9 @@ class GridBody extends Component {
 
         me.updateScrollHeight(true); // silent
 
+        // A pass can take the open edit's cell out of the DOM, and only the editing plugin knows what that means
+        me.gridContainer.getPlugin('grid-cell-editing')?.onBodyRender();
+
         if (me.isScrolling) {
             Performance.markEnd('grid.createViewData:' + me.id)
         }

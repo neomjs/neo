@@ -17,7 +17,9 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
  * `#grid-cell-editing-pooled` exists for pooling: 40 columns of 150px and 400 rows, so a horizontal scroll moves
  * the mounted column window and a vertical one rebinds pooled rows to other records. `c0` is locked to the start
  * and `c39` to the end, and every column is editable. `c3` carries an id, so an arm can turn it read-only, and `c5`
- * is `required`: the one invalid draft a cell can hold while pooling has taken it out of the DOM.
+ * is `required`: the one invalid draft a cell can hold while pooling has taken it out of the DOM. `c7` and the
+ * locked `c39` opt out of suspension (`cancelEditOnProjectionLoss`), and the grid writes the `cellEditCancel` it
+ * then fires onto its own node as a class, `edit-cancelled-<dataField>-<reason>`.
  *
  * Both select cells with a `CellModel`: keyboard activation edits the selected cell, and a row model selects none.
  * `#grid-cell-editing-outside` in `index.html` is the focus target outside both grids.
@@ -99,6 +101,13 @@ export const onStart = () => Neo.app({
             store      : pooledStore,
             viewConfig : {selectionModel: CellModel},
 
+            // The cancel an opted-out column announces, put where a Brain-free spec can read it: on the grid's node
+            listeners: {
+                cellEditCancel: ({dataField, reason}) => {
+                    Neo.getComponent('grid-cell-editing-pooled').addCls(`edit-cancelled-${dataField}-${reason}`)
+                }
+            },
+
             columns: Array.from({length: 40}, (_, c) => ({
                 dataField: `c${c}`,
                 editable : true,
@@ -106,7 +115,8 @@ export const onStart = () => Neo.app({
                 width    : 150,
                 ...(c === 0 ? {locked: 'start'} : c === 39 ? {locked: 'end'} : {}),
                 ...(c === 3 ? {id: 'grid-cell-editing-pooled-c3'} : {}),
-                ...(c === 5 ? {editor: {required: true}} : {})
+                ...(c === 5 ? {editor: {required: true}} : {}),
+                ...(c === 7 || c === 39 ? {cancelEditOnProjectionLoss: true} : {})
             }))
         }]
     },
