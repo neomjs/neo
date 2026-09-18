@@ -540,45 +540,71 @@ flowchart TD
     Cancelled --> Idle
 ```
 
-The `examples/grid/cellEditing` example is the grid this section describes. It has text, number and date editors, a
-column that cannot be edited, and a toolbar switch that turns editing off and on.
+The `examples/grid/cellEditing` example is a fuller version of the preview below. It adds a country picker, a choice of
+selection models, and a checkbox that turns editing off and on.
 
 ### Turning It On
 
 Set `cellEditing: true` on the `Neo.grid.Container`, and mark the columns it may edit with `editable`. A column's
 `editor` is the config its field is created from. Without one, a cell edits with a `Neo.form.field.Text`.
 
-```javascript readonly
-import {CellModel}   from '../../../src/selection/grid/_export.mjs';
-import DateField     from '../../../src/form/field/Date.mjs';
-import GridContainer from '../../../src/grid/Container.mjs';
-import NumberField   from '../../../src/form/field/Number.mjs';
+```javascript live-preview
+import CellModel     from '../selection/grid/CellModel.mjs';
+import DateField     from '../form/field/Date.mjs';
+import GridContainer from '../grid/Container.mjs';
+import NumberField   from '../form/field/Number.mjs';
+import Viewport      from '../container/Viewport.mjs';
 
-const myGrid = Neo.create(GridContainer, {
-    cellEditing   : true,
-    columnDefaults: {editable: true},
+class MainView extends Viewport {
+    static config = {
+        className: 'MainView',
+        layout   : {ntype: 'fit'},
+        items    : [{
+            module        : GridContainer,
+            cellEditing   : true,
+            columnDefaults: {editable: true},
 
-    // Enter and F2 edit the selected cell, so keyboard editing needs a model that selects cells
-    viewConfig: {selectionModel: CellModel},
+            // Enter and F2 edit the selected cell, so keyboard editing needs a model that selects cells
+            viewConfig: {selectionModel: CellModel},
 
-    columns: [{
-        dataField: 'firstname',
-        text     : 'Firstname'
-    }, {
-        dataField: 'randomNumber',
-        text     : 'Number (step 5)',
-        editor   : {module: NumberField, maxValue: 100, minValue: 0, stepSize: 5}
-    }, {
-        dataField: 'randomDate',
-        text     : 'Random Date',
-        editor   : {module: DateField, maxValue: '2024-12-20', minValue: '2024-12-10'}
-    }, {
-        dataField: 'githubId',
-        editable : false,
-        text     : 'Github Id'
-    }]
-    // store: ...
-});
+            store: {
+                keyProperty: 'githubId',
+                model: {
+                    fields: [
+                        {name: 'firstname',    type: 'String'},
+                        {name: 'githubId',     type: 'String'},
+                        {name: 'randomDate',   type: 'Date'},
+                        {name: 'randomNumber', type: 'Int'}
+                    ]
+                },
+                data: [
+                    {firstname: 'Tobias', githubId: 'tobiu',      randomDate: '2024-12-20', randomNumber: 100},
+                    {firstname: 'Rich',   githubId: 'rwaters',    randomDate: '2024-12-18', randomNumber: 90},
+                    {firstname: 'Nils',   githubId: 'mrsunshine', randomDate: '2024-12-19', randomNumber: 70}
+                ]
+            },
+
+            columns: [{
+                dataField: 'firstname',
+                text     : 'Firstname'
+            }, {
+                dataField: 'randomNumber',
+                text     : 'Number (step 5)',
+                editor   : {module: NumberField, maxValue: 100, minValue: 0, stepSize: 5}
+            }, {
+                dataField: 'randomDate',
+                renderer : ({value}) => new Intl.DateTimeFormat('default').format(value),
+                text     : 'Random Date',
+                editor   : {module: DateField, clearable: false, maxValue: '2024-12-20', minValue: '2024-12-10'}
+            }, {
+                dataField: 'githubId',
+                editable : false,
+                text     : 'Github Id'
+            }]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
 ```
 
 `editable` is reactive. Turning it off on a column while one of its cells is being edited cancels that edit.
@@ -677,7 +703,7 @@ const myGrid = Neo.create(GridContainer, {
 ### Turning Editing Off
 
 The plugin's `disabled` config cancels an open edit and ignores every activation until it is turned off again. This
-is what the example's toolbar switch does:
+is what the example's "Disable CellEditing" checkbox does:
 
 ```javascript readonly
 myGrid.getPlugin('grid-cell-editing').disabled = true;
