@@ -316,6 +316,32 @@ test.describe('Neo.button.Base', () => {
         });
     }
 
+    test('a click that lands before the lazily loaded menu exists still opens it', async ({page}) => {
+        // The menu module loads on demand. Holding its fetch pins the click in the gap a slow load opens
+        let release;
+        const held = new Promise(resolve => release = resolve);
+
+        await page.context().route('**/src/menu/List.mjs', async route => {await held; await route.continue()});
+
+        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), {
+            importPath: '../button/Base.mjs',
+            ntype     : 'button',
+            parentId  : 'component-test-viewport',
+            text      : 'Actions',
+            menu      : [{text: 'One'}, {text: 'Two'}]
+        });
+
+        buttonId = result.id;
+
+        await page.locator(`#${buttonId}`).click();
+
+        // The App Worker handles events in order, so this reply means it has handled the click
+        await page.evaluate(id => Neo.worker.App.getConfigs({id, keys: ['id']}), buttonId);
+        release();
+
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1)
+    });
+
     /**
      * @summary Creates a button whose menu has a submenu, sized so the menu opens on screen for pointer arms.
      * @param {Object} page
