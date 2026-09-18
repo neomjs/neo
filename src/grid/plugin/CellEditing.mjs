@@ -49,8 +49,9 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
-     * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it.
+     * The active edit: the logical cell (`recordId`, `dataField`), the `editor` field for it, and — once the editor
+     * took focus — the `focusOrigin` that focus came from. `null` while nothing is edited.
+     * {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it.
      * @member {Object|null} session=null
      * @protected
      */
@@ -255,14 +256,49 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * A destroyed editor hands focus back to where its last focus enter came from
+     * ({@link Neo.component.Base#revertFocus}). Coming back from its own picker would make that the picker, which
+     * dies with the editor, so the session keeps the origin of the edit's first enter and restores it on every later one.
+     * @param {Object} data
+     * @protected
+     */
+    onEditorFocusEnter(data) {
+        let {session} = this;
+
+        if (session) {
+            session.focusOrigin ??= data;
+            session.editor.focusEnterData = session.focusOrigin
+        }
+    }
+
+    /**
      * Focus leaving the embodied editor — to another cell, or out of the grid — commits a valid draft. Losing the
      * embodiment to a scroll blurs the editor too, and is neutral.
+     *
+     * A picker field floats its picker on the document body, outside the editor's component path, so focus entering
+     * the picker leaves the editor without leaving the edit: editor and picker are one island. A focus move reports
+     * its leave before its enter ({@link Neo.manager.Focus#focusMove}), so the island is asked once both have landed.
+     * While focus is in the picker, the picker's own leave is the way out of the edit, and ends here too.
      * @protected
      */
     onEditorFocusLeave() {
-        let {session} = this;
+        let me        = this,
+            {session} = me;
 
-        session && this.isEmbodied(session) && this.completeEdit()
+        session && Promise.resolve().then(() => {
+            let {editor} = session,
+                {picker} = editor;
+
+            if (session !== me.session || editor.containsFocus) {
+                return
+            }
+
+            if (picker?.containsFocus) {
+                picker.on('focusLeave', me.onEditorFocusLeave, me, {once: true})
+            } else {
+                me.isEmbodied(session) && me.completeEdit()
+            }
+        })
     }
 
     /**
@@ -374,7 +410,11 @@ class CellEditing extends Plugin {
             windowId : owner.windowId
         });
 
-        editor.on('focusLeave', me.onEditorFocusLeave, me);
+        editor.on({
+            focusEnter: me.onEditorFocusEnter,
+            focusLeave: me.onEditorFocusLeave,
+            scope     : me
+        });
 
         // Only the editor's own mount proves its input is in the DOM: a Row render already in flight settles the
         // repaint's promise before the render inserting the editor lands. An edit ending sooner destroys the editor,
