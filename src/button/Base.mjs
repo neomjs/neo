@@ -188,6 +188,12 @@ class Button extends Component {
         return this.getVdomRoot().cn[0]
     }
     /**
+     * Settles once the `menu` config's list exists: its module loads on demand, so a click can arrive first.
+     * @member {Promise|null} menuListReady=null
+     * @protected
+     */
+    menuListReady = null
+    /**
      * Time in ms for the ripple effect when clicking on the button.
      * Only active if useRippleEffect is set to true.
      * @member {Number} rippleEffectDuration=400
@@ -336,7 +342,7 @@ class Button extends Component {
      */
     afterSetMenu(value, oldValue) {
         if (value) {
-            import('../menu/List.mjs').then(module => {
+            this.menuListReady = import('../menu/List.mjs').then(module => {
                 let me            = this,
                     isArray       = Array.isArray(value),
                     items         = isArray ? value : value.items,
@@ -623,13 +629,18 @@ class Button extends Component {
      * Toggles the visibility of the button's menu, if one is configured.
      */
     async toggleMenu() {
-        let {menuList} = this,
+        let me = this;
+
+        // A click can land before the lazily loaded menu exists: it toggles once the menu does
+        await me.trap(me.menuListReady);
+
+        let {menuList} = me,
             hidden     = !menuList.hidden;
 
         menuList.hidden = hidden;
 
         if (!hidden) {
-            await this.timeout(50)
+            await me.timeout(50)
         }
     }
 
