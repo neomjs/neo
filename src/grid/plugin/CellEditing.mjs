@@ -16,7 +16,8 @@ import TextField from '../../form/field/Text.mjs';
  * - a scroll that keeps the cell rendered keeps the editor, and its focus;
  * - a scroll that rebinds the row, or moves the column out of the mounted window, drops the embodiment — the field
  *   and its draft live on in the App Worker;
- * - the next render of that cell embodies the editor again.
+ * - the next render of that cell embodies the editor again;
+ * - a column lock change holds the editor out of every cell until the bodies have swapped columns.
  *
  * Losing the projection is neutral: scrolling never commits and never cancels.
  *
@@ -51,7 +52,9 @@ class CellEditing extends Plugin {
 
     /**
      * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
-     * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it.
+     * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it. `held` counts the lock
+     * changes holding the editor out of every cell ({@link #holdEdit}), and `blurOwed` marks the leave the first of
+     * them causes.
      * @member {Object|null} session=null
      * @protected
      */
@@ -251,8 +254,32 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * Whether the session's cell is rendered right now: its record inside the row pool, and its column locked or
-     * inside the body's mounted column window. Read from the App Worker's own projection state, so it answers for
+     * Holds the editor out of every cell until the matching {@link #releaseEdit}. A column changing body shifts the
+     * cells beside it too, and a render that moves the editor between cells can lose its node, so a lock change
+     * renders it out first, and the body rendering the column embeds it anew. Removing the focused editor blurs it,
+     * and that one leave is owed to the lock change.
+     * @returns {Promise<void>} settles once the editor is out of the DOM
+     */
+    holdEdit() {
+        let me        = this,
+            {session} = me,
+            editor;
+
+        // Only the first of overlapping lock changes renders the editor out
+        if (!session || session.held++) {
+            return Promise.resolve()
+        }
+
+        editor           = session.editor;
+        session.blurOwed = editor.containsFocus;
+
+        // The Row the editor's parent names embeds it, whichever body its column is moving to
+        return editor.vnode ? me.repaintRow(editor.parent) : Promise.resolve()
+    }
+
+    /**
+     * Whether the session's cell is rendered right now: not held, its record inside the row pool, and its column locked
+     * or inside the body's mounted column window. Read from the App Worker's own projection state, so it answers for
      * the render that dropped or restored the embodiment, whatever order its DOM events arrive in.
      * @param {Object} session
      * @returns {Boolean}
@@ -264,7 +291,7 @@ class CellEditing extends Plugin {
             record = me.getRecord(session),
             body, index;
 
-        if (!column || !record || !me.getRow(record, column)) {
+        if (session.held || !column || !record || !me.getRow(record, column)) {
             return false
         }
 
@@ -298,13 +325,18 @@ class CellEditing extends Plugin {
 
     /**
      * Focus leaving the embodied editor — to another cell, or out of the grid — commits a valid draft. Losing the
-     * embodiment to a scroll blurs the editor too, and is neutral.
+     * embodiment to a scroll blurs the editor too, and is neutral, as is the blur a lock change owes.
      * @protected
      */
     onEditorFocusLeave() {
-        let {session} = this;
+        let me        = this,
+            {session} = me;
 
-        session && this.isEmbodied(session) && this.completeEdit()
+        if (session?.blurOwed) {
+            session.blurOwed = false
+        } else if (session && me.isEmbodied(session)) {
+            me.completeEdit()
+        }
     }
 
     /**
@@ -408,26 +440,46 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * Ends a {@link #holdEdit}: once the last lock change releases it, the body rendering the column embeds the
+     * editor again.
+     */
+    releaseEdit() {
+        let me        = this,
+            {session} = me;
+
+        session?.held && !--session.held && me.repaint(session)
+    }
+
+    /**
      * Re-renders the Row that shows the session's cell, if any, so the editor enters or leaves it.
-     *
-     * Nothing waits for the render, so its promise owns its outcome: a Row destroyed with its grid rejects with
-     * `Neo.isDestroyed`, an expected end to this render; anything else is a failure with no caller to report to.
      * @param {Object} session
      * @protected
      */
     repaint(session) {
         let me     = this,
             column = me.owner.columns.get(session.dataField),
-            record = me.getRecord(session),
-            row    = column && record && me.getRow(record, column);
+            record = me.getRecord(session);
 
-        if (row) {
-            row.createVdom(true, false);
+        column && record && me.repaintRow(me.getRow(record, column))
+    }
 
-            row.promiseUpdate().catch(reason => {
-                reason !== Neo.isDestroyed && console.error('grid.plugin.CellEditing: repaint failed', {id: row.id, reason})
-            })
+    /**
+     * Re-renders a Row. The promise owns the render's outcome, since no caller reports it: a Row destroyed with its
+     * grid rejects with `Neo.isDestroyed`, an expected end to this render; anything else is a failure.
+     * @param {Neo.grid.Row|null} row
+     * @returns {Promise<void>} settles once the render has landed
+     * @protected
+     */
+    repaintRow(row) {
+        if (!row) {
+            return Promise.resolve()
         }
+
+        row.createVdom(true, false);
+
+        return row.promiseUpdate().catch(reason => {
+            reason !== Neo.isDestroyed && console.error('grid.plugin.CellEditing: repaint failed', {id: row.id, reason})
+        })
     }
 
     /**
@@ -513,7 +565,7 @@ class CellEditing extends Plugin {
             editor.selectText?.()
         }, me, {once: true});
 
-        me.setSession({dataField, editor, recordId});
+        me.setSession({blurOwed: false, dataField, editor, held: 0, recordId});
         me.repaint(me.session);
 
         return true

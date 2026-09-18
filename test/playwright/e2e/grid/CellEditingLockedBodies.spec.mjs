@@ -112,10 +112,8 @@ test.describe('Grid cell editing in the locked bodies', () => {
         })
     }
 
-    // Red today, and expected to be: the editor is lost on the way to the end body, and the unlock wedges a body's
-    // update. The engine fix flips these two arms to plain tests.
     for (const [action, region] of [['lockStart', 'start'], ['lockEnd', 'end']]) {
-        test.fail(`a draft survives its column moving to the ${region} body and back while the editor is open`, async ({page}) => {
+        test(`a draft survives its column moving to the ${region} body and back while the editor is open`, async ({page}) => {
             const recordId = await editWithDraft(page, 'c3');
 
             await drive(page, action);
@@ -138,4 +136,24 @@ test.describe('Grid cell editing in the locked bodies', () => {
             await escapeAndExpect(page, 'c3', recordId, 'r3c3')
         })
     }
+
+    test('a held edit is in no cell until its last release embeds it again, with its draft', async ({page}) => {
+        const recordId = await editWithDraft(page, 'c3');
+
+        await drive(page, 'hold');
+        await drive(page, 'hold');
+        await expect.poll(() => embodiment(page), {message: 'no cell embeds a held editor'}).toEqual({count: 0, field: null, recordId: null});
+
+        // One release of two keeps it out: the row's next render, which the pushed value makes visible, embeds nothing
+        await drive(page, 'release');
+        await drive(page, 'updateOther');
+        await expect(cell(page, 'c4', recordId), 'the row repainted').toHaveText('pushed');
+        expect(await embodiment(page), 'still held').toEqual({count: 0, field: null, recordId: null});
+
+        await drive(page, 'release');
+        await expect.poll(() => embodiment(page), {message: 'the last release embeds it again'}).toEqual({count: 1, field: 'c3', recordId});
+        await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
+
+        await escapeAndExpect(page, 'c3', recordId, 'r3c3')
+    })
 });

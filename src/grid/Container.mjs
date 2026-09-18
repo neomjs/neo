@@ -861,14 +861,14 @@ class GridContainer extends BaseContainer {
             if (!me.bodyStart) {
                 me.bodyStart = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    flex          : 'none',
-                    gridContainer : me,
-                    parentId      : me.view.id,
-                    rowHeight     : me.rowHeight,
-                    store         : me.store,
-                    theme         : me.theme,
-                    useInternalId : me.useInternalId,
-                    windowId      : me.windowId
+                    flex         : 'none',
+                    gridContainer: me,
+                    parentId     : me.view.id,
+                    rowHeight    : me.rowHeight,
+                    store        : me.store,
+                    theme        : me.theme,
+                    useInternalId: me.useInternalId,
+                    windowId     : me.windowId
                 })
             }
         } else if (me.bodyStart) {
@@ -885,14 +885,14 @@ class GridContainer extends BaseContainer {
             if (!me.bodyEnd) {
                 me.bodyEnd = Neo.create(GridBody, {
                     ...me.body.initialConfig,
-                    flex          : 'none',
-                    gridContainer : me,
-                    parentId      : me.view.id,
-                    rowHeight     : me.rowHeight,
-                    store         : me.store,
-                    theme         : me.theme,
-                    useInternalId : me.useInternalId,
-                    windowId      : me.windowId
+                    flex         : 'none',
+                    gridContainer: me,
+                    parentId     : me.view.id,
+                    rowHeight    : me.rowHeight,
+                    store        : me.store,
+                    theme        : me.theme,
+                    useInternalId: me.useInternalId,
+                    windowId     : me.windowId
                 })
             }
         } else if (me.bodyEnd) {
@@ -1054,9 +1054,15 @@ class GridContainer extends BaseContainer {
      * @param {Neo.grid.column.Base} column
      */
     async onColumnLockChange(column) {
-        let me            = this,
-            columnsArray  = [...me.columns.items],
-            sortedColumns = me.sortColumns(columnsArray);
+        let me          = this,
+            cellEditing = me.getPlugin('grid-cell-editing'),
+            holds       = !!cellEditing?.session,
+            sortedColumns;
+
+        // An open edit leaves its cell before the bodies swap columns, and returns once they have
+        holds && await cellEditing.holdEdit();
+
+        sortedColumns = me.sortColumns([...me.columns.items]);
 
         // Sync the Collection
         // clearSilent() and add() is the safest way to reset internal indices.
@@ -1083,6 +1089,7 @@ class GridContainer extends BaseContainer {
         if (me.bodyStart) me.bodyStart.createViewData();
         if (me.bodyEnd)   me.bodyEnd.createViewData();
 
+        holds && cellEditing.releaseEdit()
     }
 
     /**
