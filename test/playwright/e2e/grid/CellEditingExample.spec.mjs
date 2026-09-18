@@ -184,6 +184,24 @@ test.describe('Grid cell editing on the public example', () => {
         }
     });
 
+    test('country: a committed pick renders the chosen country, and every other Country cell keeps its name', async ({page}) => {
+        const recordId = await recordIdOf(page, 'tobiu');
+
+        await cell(page, 'country', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'country', recordId)).toBe(true);
+
+        await retype(page, 'Slovak');
+        await expect(page.locator(OPTIONS)).toHaveText(['Slovakia']);
+        await page.keyboard.press('Enter');
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'country', recordId)).toHaveText('Slovakia');
+
+        for (const [githubId, name] of [['rwaters', 'United States'], ['mrsunshine', 'Germany'], ['jsakalos', 'Slovakia']]) {
+            await expect(cell(page, 'country', await recordIdOf(page, githubId))).toHaveText(name)
+        }
+    });
+
     test('Escape discards the draft', async ({page}) => {
         const recordId = await recordIdOf(page, 'rwaters');
 
