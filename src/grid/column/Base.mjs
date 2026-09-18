@@ -21,6 +21,17 @@ class Column extends Base {
          */
         className: 'Neo.grid.column.Base',
         /**
+         * What an open edit of this column does when pooling takes its cell out of the DOM — the row out of the row
+         * pool, or the column out of the mounted window.
+         *
+         * False, the default, suspends it: the editor and its draft live on in the App Worker, and the render that
+         * shows the cell again embodies them. True is for an editor that cannot be suspended, one holding state only
+         * its DOM has: the edit is cancelled instead, the draft discarded, and the grid fires `cellEditCancel` with
+         * `reason: 'projectionLoss'` — never silently.
+         * @member {Boolean} cancelEditOnProjectionLoss=false
+         */
+        cancelEditOnProjectionLoss: false,
+        /**
          * Additional CSS classes to add to the cell.
          * These classes are appended to the default ones (e.g. 'neo-grid-cell').
          * @member {Function|String|String[]|null} cellCls=null

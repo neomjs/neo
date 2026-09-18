@@ -20,7 +20,19 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                                      = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment, recordLeaks} = gridCellEditing(GRID);
 
-let pageErrors;
+let driverCalls = 0,
+    pageErrors;
+
+/**
+ * Runs one action of the fixture's `gridDriver.mjs` inside the App Worker; the counter makes every call a new module.
+ * @returns {Promise<void>}
+ */
+const drive = async (page, action) => {
+    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
+        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++driverCalls}`);
+
+    expect(success, `the ${action} driver ran`).toBe(true)
+};
 
 /**
  * The record id of the third rendered row — row 3, a row the initial window always renders.
@@ -123,6 +135,106 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await page.keyboard.press('Escape');
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(cell(page, 'c3', recordId), 'the scrolls wrote nothing').toHaveText('r3c3')
+    });
+
+    // `c7` opts out of suspension. The arm above is its control: the same scroll on `c3` suspends and restores
+    test('a column that cannot suspend cancels its edit when the row leaves the pool, and the grid says so', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await cell(page, 'c7', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c7', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await scrollVertically(page, 4000);
+
+        // The fixture writes the `cellEditCancel` event onto the grid's node
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c7-projectionLoss/);
+
+        await scrollVertically(page, 0);
+        await expect(cell(page, 'c7', recordId), 'the row is back, and the draft is gone').toHaveText('r3c7');
+        await expect(page.locator(EDITOR), 'nothing is reprojected').toHaveCount(0)
+    });
+
+    // Only an embodiment that existed can be lost. Tab from a suspended edit starts the next one suspended too, on its
+    // way into sight. The bodies render one after another, so while the center body reports its pass the locked `c39`
+    // has not been rendered yet — which must not read as a loss
+    test('an edit born suspended on a locked column that cannot suspend is embodied, not cancelled', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              bodyId   = await page.locator(`${GRID} .neo-grid-body`).nth(1).getAttribute('id'),
+              config   = async (id, name) => (await page.evaluate(({id, name}) => Neo.worker.App.getConfigs({id, keys: [name]}), {id, name}))[0];
+
+        // The fixture's locked columns suspend, as the locked-body arms need them to: this arm opts `c39` out itself
+        await drive(page, 'optOutEnd');
+
+        // A double-click while the App Worker still re-slots cells hands Playwright a moving target
+        await scrollHorizontally(page, 10000);
+        await expect(cell(page, 'c38', recordId)).toBeVisible();
+        await expect.poll(() => config(bodyId, 'isScrolling'), {message: 'the scroll has settled'}).toBe(false);
+
+        await cell(page, 'c38', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c38', recordId)).toBe(true);
+
+        await scrollVertically(page, 4000);
+        await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
+
+        await page.keyboard.press('Tab');
+
+        await expect.poll(() => editingIn(page, 'c39', recordId), {message: 'the grid scrolled back and edits c39'}).toBe(true);
+        await expect(page.locator(GRID), 'no cancel was announced').not.toHaveClass(/edit-cancelled/)
+    });
+
+    // A lock change holds the editor out of every cell while the bodies swap columns, and the node it re-embeds is a
+    // new one: for a column that cannot suspend, that is a loss like any other. Its control is the locked-bodies arm
+    // that moves the same column, by default, with its draft intact
+    test('a column that cannot suspend cancels its edit when a lock change moves it to another body', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await drive(page, 'optOutEdited');
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await drive(page, 'lockEnd');
+
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c3-projectionLoss/);
+        await expect(page.locator(`${GRID} .neo-grid-body`).nth(2).locator(`.neo-grid-cell[data-field="c3"][data-record-id="${recordId}"]`),
+            'c3 renders in the end body, and nothing was committed').toHaveText('r3c3');
+        await expect(page.locator(EDITOR), 'the release embeds nothing').toHaveCount(0);
+
+        // The cancelled session left nothing held: the next edit opens
+        await cell(page, 'c4', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c4', recordId), {message: 'the grid edits again'}).toBe(true)
+    });
+
+    // An IME composes text the browser has not committed yet. Every composing `input` still reaches the App Worker, so
+    // the draft holds the composition when the node goes; no `compositionend` ever arrives, and none is needed. What
+    // is lost is the IME's own conversion state, never text — which is why pooling does not have to wait for it.
+    test('a composition in flight when the row leaves the pool survives as the draft', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              client   = await page.context().newCDPSession(page);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+
+        // Activation selected the value; the composition replaces it
+        await client.send('Input.imeSetComposition', {selectionEnd: 1, selectionStart: 1, text: 'に'});
+        await client.send('Input.imeSetComposition', {selectionEnd: 2, selectionStart: 2, text: 'にほ'});
+        await expect(page.locator(INPUT)).toHaveValue('にほ');
+
+        await scrollVertically(page, 4000);
+        await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
+
+        await scrollVertically(page, 0);
+        await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
+        await expect(page.locator(INPUT), 'the composed text is the draft').toHaveValue('にほ');
+
+        await page.locator(INPUT).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId)).toHaveText('にほ')
     });
 
     test('a column turned non-editable is read-only in every row, the rows the pool rebinds afterwards included', async ({page}) => {

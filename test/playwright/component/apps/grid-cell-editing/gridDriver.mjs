@@ -8,8 +8,10 @@
  * lives, so each operation runs in the order the spec asks for it. The caller adds a counter to the query, which makes
  * every call a new module URL, evaluated again.
  *
- * Store actions target record 3 and column actions target `c3`, the cell the arms edit. `updateEdited` also writes
- * `c4`, so the row's repaint is visible while the edited cell itself shows the editor.
+ * Store actions target record 3 and column actions target `c3`, the cell the arms edit. `optOutEdited` and
+ * `optOutEnd` take `c3` and the locked `c39` out of suspension, for the arms that need an opted-out column under a lock
+ * change or in a locked body. `updateEdited` also writes `c4`, so the row's repaint is visible while the edited cell
+ * itself shows the editor.
  */
 const {searchParams}   = new URL(import.meta.url),
       grid             = Neo.getComponent('grid-cell-editing-pooled'),
@@ -21,6 +23,8 @@ const actions = {
     hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
     lockEnd     : () => {columns.get('c3').locked = 'end'},
     lockStart   : () => {columns.get('c3').locked = 'start'},
+    optOutEdited: () => {columns.get('c3').cancelEditOnProjectionLoss = true},
+    optOutEnd   : () => {columns.get('c39').cancelEditOnProjectionLoss = true},
     release     : () => grid.getPlugin('grid-cell-editing').releaseEdit(),
     remove      : () => store.remove(3),
     sortAsc     : () => store.sort({property: 'id', direction: 'ASC'}),

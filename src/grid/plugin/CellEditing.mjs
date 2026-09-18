@@ -53,8 +53,9 @@ class CellEditing extends Plugin {
     /**
      * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
      * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it. `held` counts the lock
-     * changes holding the editor out of every cell ({@link #holdEdit}), and `blurOwed` marks the leave the first of
-     * them causes.
+     * changes holding the editor out of every cell ({@link #holdEdit}), `blurOwed` marks the leave the first of them
+     * causes, and `wasEmbodied` says whether a cell has shown the editor yet — a session born suspended has that
+     * still ahead of it.
      * @member {Object|null} session=null
      * @protected
      */
@@ -67,7 +68,7 @@ class CellEditing extends Plugin {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        value && this.cancelEdit();
+        value && this.cancelEdit('disabled');
 
         // Whether the grid edits at all decides every cell's aria-readonly
         oldValue !== undefined && this.owner.repaintCells()
@@ -75,15 +76,27 @@ class CellEditing extends Plugin {
 
     /**
      * Discards the draft and ends the session. The editor's destruction returns focus to where the edit took it from.
+     *
+     * No cancel is silent: the grid fires `cellEditCancel` with `{dataField, reason, record}` once the session is
+     * over, so a listener may start the next edit. `reason` is `'escape'`, `'notEditable'` (the column stopped being
+     * editable), `'disabled'`, `'destroy'` (the plugin went, its grid lives on), `'projectionLoss'`
+     * ({@link #onBodyRender}) or `'api'` for a caller that names none; `record` is null once the store no longer
+     * holds it. A grid destroyed with its plugin fires nothing: nobody is left to hear it.
+     * @param {String} [reason='api']
      */
-    cancelEdit() {
+    cancelEdit(reason='api') {
         let me        = this,
-            {session} = me;
+            {session} = me,
+            record;
 
         if (session) {
+            record = me.getRecord(session);
+
             me.setSession(null);
             me.repaint(session);
-            me.destroyEditor(session.editor)
+            me.destroyEditor(session.editor);
+
+            me.owner.fire('cellEditCancel', {dataField: session.dataField, reason, record})
         }
     }
 
@@ -138,7 +151,7 @@ class CellEditing extends Plugin {
             me.setSession(null);
             session && me.destroyEditor(session.editor)
         } else {
-            me.cancelEdit()
+            me.cancelEdit('destroy')
         }
 
         super.destroy(...args);
@@ -306,6 +319,30 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * Called by every {@link Neo.grid.Body} once a render pass is through — the one place where an embodiment can
+     * go. Losing it is neutral by default: the session waits, suspended, for the pass that renders its cell again.
+     *
+     * A column whose editor cannot be suspended ({@link Neo.grid.column.Base#cancelEditOnProjectionLoss}) cancels the
+     * edit instead, with `reason: 'projectionLoss'`. Only an embodiment that existed can be lost — a session born
+     * suspended, on its way into sight, is not.
+     * @protected
+     */
+    onBodyRender() {
+        let me        = this,
+            {session} = me;
+
+        if (!session) {
+            return
+        }
+
+        if (me.isEmbodied(session)) {
+            session.wasEmbodied = true
+        } else if (session.wasEmbodied && me.owner.columns.get(session.dataField)?.cancelEditOnProjectionLoss) {
+            me.cancelEdit('projectionLoss')
+        }
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.dataField
      * @param {Object} data.record
@@ -320,7 +357,7 @@ class CellEditing extends Plugin {
      * @param {Neo.grid.column.Base} column
      */
     onColumnEditableChange(column) {
-        !column.editable && this.session?.dataField === column.dataField && this.cancelEdit()
+        !column.editable && this.session?.dataField === column.dataField && this.cancelEdit('notEditable')
     }
 
     /**
@@ -359,7 +396,7 @@ class CellEditing extends Plugin {
      * @protected
      */
     onEscapeKey() {
-        this.cancelEdit()
+        this.cancelEdit('escape')
     }
 
     /**
@@ -566,6 +603,7 @@ class CellEditing extends Plugin {
         }, me, {once: true});
 
         me.setSession({blurOwed: false, dataField, editor, held: 0, recordId});
+        me.session.wasEmbodied = me.isEmbodied(me.session);
         me.repaint(me.session);
 
         return true
