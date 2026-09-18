@@ -12,7 +12,8 @@
  * `optOutEnd` take `c3` and the locked `c39` out of suspension, for the arms that need an opted-out column under a lock
  * change or in a locked body. `updateEdited` also writes `c4`, so the row's repaint is visible while the edited cell
  * itself shows the editor. `startUpdates` writes `c4` every 4 ms until `stopUpdates`: a stream of row repaints, each a
- * render that covers the editor.
+ * render that covers the editor. `logEvents` records, in order, every record write (`commit:<fields>`) and every
+ * selection change (`select`) into `grid.driverEventLog`, which a spec reads through `Neo.worker.App.getConfigs()`.
  */
 const {searchParams}   = new URL(import.meta.url),
       grid             = Neo.getComponent('grid-cell-editing-pooled'),
@@ -25,6 +26,12 @@ const actions = {
     hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
     lockEnd     : () => {columns.get('c3').locked = 'end'},
     lockStart   : () => {columns.get('c3').locked = 'start'},
+    logEvents   : () => {
+        const log = grid.driverEventLog = [];
+
+        store.on('recordChange', ({fields}) => log.push(`commit:${fields.map(({name}) => name).join()}`));
+        grid.view.selectionModel.on('selectionChange', () => log.push('select'))
+    },
     optOutEdited: () => {columns.get('c3').cancelEditOnProjectionLoss = true},
     optOutEnd   : () => {columns.get('c39').cancelEditOnProjectionLoss = true},
     release     : () => grid.getPlugin('grid-cell-editing').releaseEdit(),

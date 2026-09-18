@@ -362,18 +362,35 @@ class CellEditing extends Plugin {
 
     /**
      * Focus leaving the embodied editor — to another cell, or out of the grid — commits a valid draft. Losing the
-     * embodiment to a scroll blurs the editor too, and is neutral, as is the blur a lock change owes.
+     * embodiment to a scroll blurs the editor too, and is neutral, as is the blur a lock change owes. Both take the
+     * editor's focus with it, so its reprojection owes it back ({@link #onEditorReprojected}).
      * @protected
      */
     onEditorFocusLeave() {
         let me        = this,
             {session} = me;
 
-        if (session?.blurOwed) {
-            session.blurOwed = false
-        } else if (session && me.isEmbodied(session)) {
+        if (session && !session.blurOwed && me.isEmbodied(session)) {
             me.completeEdit()
+        } else if (session) {
+            session.blurOwed = false;
+            session.editor.on('mounted', me.onEditorReprojected, me, {once: true})
         }
+    }
+
+    /**
+     * A suspended editor, which had focus, is embodied again. Its unmount returned focus to the View, so the editor
+     * takes it back only while the View still holds it: a newer gesture that moved focus elsewhere keeps it.
+     *
+     * The View's focus is read at the mount, not recorded at the gesture: `manager.Focus` settles a leave one gap
+     * after its focusout, and an event recorded meanwhile would lag exactly as far, while a suspension whose focus
+     * return outlasts that gap would read as the View being left.
+     * @protected
+     */
+    onEditorReprojected() {
+        let {session} = this;
+
+        session && this.owner.view.containsFocus && session.editor.focus()
     }
 
     /**
