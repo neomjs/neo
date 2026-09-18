@@ -1,5 +1,5 @@
 import ContentComponent from '../../content/Component.mjs';
-import {marked}         from '../../../../../node_modules/marked/lib/marked.esm.js';
+import {marked}         from '../../../../../dist/marked.mjs';
 
 const
     regexComments      = /\n## Comments\s*\n([\s\S]*)$/,
