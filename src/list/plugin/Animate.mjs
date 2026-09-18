@@ -409,11 +409,14 @@ class Animate extends Base {
     }
 
     /**
+     * @summary Takes the settle timer along: left armed, it rebuilds the items of an owner that is gone.
      * @param {Object} args
      */
     destroy(...args) {
         let me      = this,
             ownerId = me.owner?.id;
+
+        clearTimeout(me.transitionTimeoutId);
 
         me.owner?.un({createItems: me.onOwnerCreateItems, scope: me});
         me.addResizeObserver(false);
@@ -440,20 +443,24 @@ class Animate extends Base {
     }
 
     /**
-     * @param {Object} obj
-     * @param {String[]} map
-     * @param {Boolean} intercept
+     * @summary The vdom index of a record's item: positional, or looked up by item id in `map`.
+     *
+     * Positional is only right for an insertion — before it the vdom and the store agree. Once added
+     * rows sit in the vdom next to rows that are leaving, a store index names a different row, so every
+     * read after that resolves by id and answers `-1` for a row that is gone.
+     * @param {Object} obj `{index, record}`
+     * @param {String[]} map The item ids of the owner's vdom children, in order
+     * @param {Boolean} byId
      * @returns {Number}
      */
-    getItemIndex(obj, map, intercept) {
-        if (!intercept) {
+    getItemIndex(obj, map, byId) {
+        if (!byId) {
             return obj.index
         }
 
-        let owner = this.owner,
-            key   = owner.getKeyProperty();
+        let {owner} = this;
 
-        return map.indexOf(owner.getItemId(obj.record[key]))
+        return map.indexOf(owner.getItemId(owner.getRecordId(obj.record)))
     }
 
     /**
@@ -554,7 +561,6 @@ class Animate extends Base {
     onStoreFilter(data) {
         let me                  = this,
             owner               = me.owner,
-            key                 = owner.getKeyProperty(),
             hasAddedItems       = false,
             addedItems          = [],
             movedItems          = [],
@@ -576,7 +582,7 @@ class Animate extends Base {
 
             if (!data.oldItems.includes(record)) {
                 // flag items which are still inside the DOM (running remove OP)
-                if (intercept && map.includes(owner.getItemId(record[key]))) {
+                if (intercept && map.includes(owner.getItemId(owner.getRecordId(record)))) {
                     item.reAdded = true;
                 }
 
@@ -611,12 +617,13 @@ class Animate extends Base {
 
         // ensure to get into the next animation frame
         me.timeout(50).then(() => {
-            // new items are already added into the vdom, while old items are not yet removed
-            // => we need a map to ensure getting the correct index
+            // new items are already added into the vdom, while old items are not yet removed — and the
+            // owner may have rebuilt its items since. A store index names the wrong row in both cases,
+            // so every read in this frame resolves by id.
             map = vdom.cn.map(e => e.id);
 
             addedItems.forEach(obj => {
-                index = me.getItemIndex(obj, map, intercept);
+                index = me.getItemIndex(obj, map, true);
 
                 if (index > -1) {
                     // we can change the opacity for re-added items too => the vdom engine will ignore this
@@ -625,7 +632,7 @@ class Animate extends Base {
             });
 
             movedItems.forEach(obj => {
-                index = me.getItemIndex(obj, map, true); // honor removed items, even without interceptions
+                index = me.getItemIndex(obj, map, true);
 
                 if (index > -1) {
                     position = me.getItemPosition(obj.record, obj.index);
@@ -638,7 +645,7 @@ class Animate extends Base {
             });
 
             removedItems.forEach(obj => {
-                index = me.getItemIndex(obj, map, intercept);
+                index = me.getItemIndex(obj, map, true);
 
                 if (index > -1) {
                     obj.item = vdom.cn[index];
