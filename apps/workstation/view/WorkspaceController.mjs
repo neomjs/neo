@@ -257,15 +257,15 @@ class WorkspaceController extends Controller {
         const reservation = TransactionManager.reserve({groupId: this.component.topologyGroupId, workspaceKey});
         if (!reservation) return {opened: false, errors: ['workspace already has a window']};
 
-        const url = new URL('../index.html', import.meta.url);
-        url.searchParams.set('workspace', workspaceKey);
-        url.searchParams.set('theme', this.component.theme);
+        // Relative, as in VesselWorkspace: `windowOpen` resolves it against the opener's page. Under
+        // webpack, `new URL(…, import.meta.url)` becomes a copy of the source page that cannot boot.
+        const params = new URLSearchParams({workspace: workspaceKey, theme: this.component.theme});
 
         let opened = false;
         try {
             opened = await Neo.Main.windowOpen({
                 topologyIdentity: reservation,
-                url             : url.href,
+                url             : `./index.html?${params}`,
                 windowFeatures  : 'width=700,height=600',
                 windowId        : this.component.windowId,
                 windowName      : `workstation-restored-${crypto.randomUUID()}`

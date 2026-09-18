@@ -2,9 +2,9 @@ import {setup} from '../../../setup.mjs';
 
 setup({appConfig: {name: 'WorkstationTopologyControllerTest'}});
 
-import {test, expect}      from '@playwright/test';
-import Neo                 from '../../../../../src/Neo.mjs';
-import * as core           from '../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import Base             from '../../../../../src/core/Base.mjs';
 import ComponentManager from '../../../../../src/manager/Component.mjs';
@@ -144,6 +144,37 @@ test.describe('Workstation topology save and close coordination', () => {
                 if (value === undefined) delete main[key];
                 else main[key] = value
             }
+            Transaction.retireGroup(root.groupId)
+        }
+    });
+
+    test('a topology window opens the page its opener is on, in every build', async () => {
+        // A webpack build turns `new URL('../index.html', import.meta.url)` into a bundled copy of the
+        // source page, whose neo-config.json does not exist beside it, so nothing boots. The opener's
+        // own document is the app page in source, dist/esm, dist/development and dist/production alike.
+        const root     = Transaction.bind({windowId: 'controller-open-root'}),
+              main     = Neo.ns('Neo.Main', true),
+              opened   = [],
+              original = main.windowOpen;
+
+        main.windowOpen = data => {opened.push(data); return Promise.resolve(true)};
+
+        try {
+            const result = await WorkspaceController.prototype.openTopologyWorkspace.call({
+                component: {
+                    getPopupState  : key => key === 'details' ? {} : null,
+                    theme          : 'neo-theme-neo-dark',
+                    topologyGroupId: root.groupId,
+                    windowId       : root.windowId
+                }
+            }, 'details');
+
+            expect(result.opened).toBe(true);
+            expect(new URL(opened[0].url, 'https://host/dist/production/apps/workstation/index.html?workspace=main').href)
+                .toBe('https://host/dist/production/apps/workstation/index.html?workspace=details&theme=neo-theme-neo-dark')
+        } finally {
+            if (original === undefined) delete main.windowOpen;
+            else main.windowOpen = original;
             Transaction.retireGroup(root.groupId)
         }
     });
