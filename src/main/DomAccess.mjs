@@ -1254,7 +1254,12 @@ class DomAccess extends Base {
 
         if (node) {
             node.select();
-            node.setSelectionRange(start, end)
+
+            // `setSelectionRange()` THROWS on an input whose type has no selection API — `number`, `date`, `email`
+            // and friends — where `selectionStart` reads null and `select()` has already taken the whole value, the
+            // only range such an input can express. Measured in Chromium: `select()` selects, the range call throws
+            // "The input element's type ('number') does not support selection."
+            node.selectionStart !== null && node.setSelectionRange(start, end)
         }
 
         return {id: data.id}

@@ -174,6 +174,43 @@ test.describe('grid cell editing — activation', () => {
     })
 });
 
+test.describe('grid cell editing — activation selects the value', () => {
+    /**
+     * The editor input's selection, read from the DOM rather than inferred from what typing did.
+     * @returns {Promise<{end: Number, start: Number, value: String}>}
+     */
+    const selectionOf = page => page.evaluate(selector => {
+        const el = document.querySelector(selector);
+
+        return {end: el.selectionEnd, start: el.selectionStart, value: el.value}
+    }, INPUT);
+
+    // Every activation gesture, because the selection hangs off the editor's `mounted`, and each gesture reaches it
+    // by a different route: a cell event, and two keys through grid.View's registry
+    for (const [gesture, activate] of [
+        ['a double-click', (page, target) => target.dblclick()],
+        ['Enter',          async (page, target) => { await target.click(); await page.keyboard.press('Enter') }],
+        ['F2',             async (page, target) => { await target.click(); await page.keyboard.press('F2') }]
+    ]) {
+        test(`${gesture} opens the editor with its whole value selected, so typing replaces it`, async ({page}) => {
+            const recordId = await recordIdOf(page, 2),
+                  target   = cell(page, 'name', recordId),
+                  value    = (await target.innerText()).trim();
+
+            await activate(page, target);
+            await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+            await expect.poll(() => selectionOf(page), {message: 'activation selects the whole value'})
+                .toEqual({end: value.length, start: 0, value});
+
+            // The consequence the selection exists for. A caret check alone passes on a selection of the wrong range;
+            // this fails unless the replaced text is the WHOLE value
+            await page.keyboard.type('Zed');
+            await expect(page.locator(INPUT)).toHaveValue('Zed')
+        })
+    }
+});
+
 test.describe('grid cell editing — terminals', () => {
     test('Enter writes a valid dirty draft, removes the editor and returns focus to the View', async ({page}) => {
         const recordId = await recordIdOf(page, 2),
@@ -183,11 +220,11 @@ test.describe('grid cell editing — terminals', () => {
         await name.dblclick();
         await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
 
-        await page.keyboard.type(' edited');
+        await page.keyboard.type('Edited name');
         await page.keyboard.press('Enter');
 
         await expect(page.locator(EDITOR)).toHaveCount(0);
-        await expect(name).toHaveText('Name 2 edited');
+        await expect(name).toHaveText('Edited name');
         await expect.poll(() => activeElementId(page), {message: 'focus returns to the View'}).toBe(viewId)
     });
 
@@ -245,11 +282,11 @@ test.describe('grid cell editing — one session', () => {
         await expect.poll(() => editingIn(page, 'name', first)).toBe(true);
         await recordEditors(page);
 
-        await page.keyboard.type(' moved');
+        await page.keyboard.type('Moved name');
         await city.dblclick();
 
         await expect.poll(() => editingIn(page, 'city', second), {message: 'the new cell is embodied'}).toBe(true);
-        await expect(name).toHaveText('Name 2 moved');
+        await expect(name).toHaveText('Moved name');
         expect((await editorsRecorded(page)).max, 'never two editors at once').toBeLessThanOrEqual(1)
     });
 
@@ -260,11 +297,11 @@ test.describe('grid cell editing — one session', () => {
         await note.dblclick();
         await expect.poll(() => editingIn(page, 'note', recordId)).toBe(true);
 
-        await page.keyboard.type(' left');
+        await page.keyboard.type('Left note');
         await page.locator(OUTSIDE).click();
 
         await expect(page.locator(EDITOR)).toHaveCount(0);
-        await expect(note).toHaveText('Note 1 left');
+        await expect(note).toHaveText('Left note');
         expect(await activeElementId(page), 'focus stays where the user put it').toBe('grid-cell-editing-outside')
     });
 

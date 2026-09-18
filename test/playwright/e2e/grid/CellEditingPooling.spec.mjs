@@ -77,7 +77,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
 
         await cell(page, 'c3', recordId).dblclick();
         await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
-        await page.keyboard.type(' draft');
+        await page.keyboard.type('draft');
         await recordLeaks(page, 'c3', recordId);
 
         // Two columns: c1 leaves the mounted window, c3 stays in it
@@ -91,7 +91,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
 
         await scrollHorizontally(page, 0);
         await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
-        await expect(page.locator(INPUT), 'the draft survived').toHaveValue('r3c3 draft');
+        await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
 
         expect(await page.evaluate(() => window.__leaks), 'no other cell ever showed the editor').toEqual([]);
 
@@ -106,7 +106,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
 
         await cell(page, 'c3', recordId).dblclick();
         await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
-        await page.keyboard.type(' draft');
+        await page.keyboard.type('draft');
         await recordLeaks(page, 'c3', recordId);
 
         await scrollVertically(page, 4000);
@@ -115,7 +115,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
 
         await scrollVertically(page, 0);
         await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
-        await expect(page.locator(INPUT)).toHaveValue('r3c3 draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
 
         expect(await page.evaluate(() => window.__leaks), 'no rebound slot ever showed the editor').toEqual([]);
 
@@ -147,7 +147,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
 
             await cell(page, 'c3', recordId).dblclick();
             await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
-            await page.keyboard.type(' draft');
+            await page.keyboard.type('draft');
 
             // A 1px scroll re-renders the body without rebinding the row, and the key ends the edit while that render
             // is in the air. The render lands naming the editor, which the fixture's worker-error gate would report.
@@ -155,7 +155,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
             await page.keyboard.press(key);
 
             await expect(page.locator(EDITOR)).toHaveCount(0);
-            await expect(cell(page, 'c3', recordId)).toHaveText(key === 'Enter' ? 'r3c3 draft' : 'r3c3');
+            await expect(cell(page, 'c3', recordId)).toHaveText(key === 'Enter' ? 'draft' : 'r3c3');
             await expect.poll(() => config(bodyId, 'isScrolling'), {message: 'the scroll has settled'}).toBe(false)
         })
     }

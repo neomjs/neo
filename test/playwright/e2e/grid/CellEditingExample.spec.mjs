@@ -39,7 +39,10 @@ const PICKER = '.neo-picker-container';
 const pickerHasFocus = page => page.evaluate(picker => !!document.activeElement?.closest(picker), PICKER);
 
 /**
- * Replaces the editor's whole text by keyboard, wherever activation left the caret.
+ * Replaces the editor's whole text by keyboard, independently of what activation left selected.
+ *
+ * Activation selects the value itself, so the select-all here compensates for no caret — it keeps these arms
+ * insensitive to the activation contract, which has arms of its own.
  * @returns {Promise<void>}
  */
 const retype = async (page, text) => {
@@ -109,6 +112,29 @@ test.describe('Grid cell editing on the public example', () => {
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(cell(page, 'randomNumber', recordId)).toHaveText('100');
         await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true)
+    });
+
+    // The component tier owns the three activation gestures on a text editor; this is the number editor, which exists
+    // only here. `form.field.Number` extends `Text`, so it inherits `selectText()` — the arm proves the inheritance
+    // reaches the plugin's call, not that the method exists
+    test('number: activation selects the whole value, so typing replaces rather than appends', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'randomNumber', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomNumber', recordId)).toBe(true);
+        await expect(page.locator(INPUT)).toHaveValue('90');
+
+        // `selectionStart` is null on `input[type=number]` — the type has no selection API — so the contract is read
+        // from the document's live selection, and then from the only thing that actually matters
+        await expect.poll(() => page.evaluate(() => String(document.getSelection())),
+            {message: 'activation selects the whole value'}).toBe('90');
+
+        // Typing without a select-all of its own: appending to "90" would give 9025, replacing gives 25
+        await page.keyboard.type('25');
+        await expect(page.locator(INPUT)).toHaveValue('25');
+
+        await page.keyboard.press('Enter');
+        await expect(cell(page, 'randomNumber', recordId)).toHaveText('25')
     });
 
     test('Escape discards the draft', async ({page}) => {

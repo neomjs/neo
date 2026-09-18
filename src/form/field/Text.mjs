@@ -1152,6 +1152,21 @@ class Text extends Field {
     }
 
     /**
+     * @summary Selects the input's text, so the next keystroke replaces it instead of appending.
+     *
+     * Selection is the same node's next step after {@link #focus}, and the facts it needs — the input element's id
+     * and the field's `windowId` — are the field's own. Callers reaching for `Neo.main.DomAccess.selectNode()`
+     * directly have to reassemble both. Omitting the range selects the whole value: `selectNode()` clamps its own.
+     * @param {Number} [start=0]
+     * @param {Number} [end] Defaults to the end of the value.
+     */
+    selectText(start=0, end) {
+        let me = this;
+
+        Neo.main.DomAccess.selectNode({end, id: me.getInputElId(), start, windowId: me.windowId})
+    }
+
+    /**
      * @returns {Object|null}
      */
     getCenterBorderEl() {
