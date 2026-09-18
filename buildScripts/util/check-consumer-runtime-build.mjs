@@ -6,6 +6,7 @@ import path                           from 'node:path';
 import process                        from 'node:process';
 import {createRequire}                from 'node:module';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import isEntryModule                  from './isEntryModule.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       ROOT      = path.resolve(__dirname, '../..');
@@ -378,7 +379,7 @@ async function main() {
 }
 
 // Only the CLI path packs and builds; importing the module for its rule logic must stay cheap.
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+if (isEntryModule(import.meta.url)) {
     main().catch(error => {
         console.error(`check-consumer-runtime-build: ${error.message}`);
         process.exit(1)

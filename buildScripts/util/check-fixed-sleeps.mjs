@@ -90,10 +90,10 @@
  * turns every unrelated change into a wall of false staleness — and a guard nobody can keep green gets
  * routed around, which is the failure this ticket is about.
  */
-import {parse}         from 'acorn';
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {parse}       from 'acorn';
+import fs            from 'node:fs';
+import path          from 'node:path';
+import isEntryModule from './isEntryModule.mjs';
 
 const
     BASELINE_REL   = 'buildScripts/util/check-fixed-sleeps-baseline.json',
@@ -472,6 +472,6 @@ function main() {
     process.exit(1)
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isEntryModule(import.meta.url)) {
     main()
 }

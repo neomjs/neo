@@ -1,9 +1,9 @@
-import autoprefixer    from 'autoprefixer';
-import chalk           from 'chalk';
-import fs              from 'fs-extra';
-import path            from 'node:path';
-import {pathToFileURL} from 'node:url';
-import postcss         from 'postcss';
+import autoprefixer  from 'autoprefixer';
+import chalk         from 'chalk';
+import fs            from 'fs-extra';
+import path          from 'node:path';
+import postcss       from 'postcss';
+import isEntryModule from '../util/isEntryModule.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
     inspectDevelopmentThemeAssets
@@ -655,7 +655,7 @@ export async function startThemeWatcher({
     )
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+if (isEntryModule(import.meta.url)) {
     startThemeWatcher().catch(error => {
         console.error(error.message);
         process.exitCode = 1

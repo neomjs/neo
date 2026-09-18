@@ -1,5 +1,6 @@
-import {execSync} from 'node:child_process';
-import process    from 'node:process';
+import {execSync}    from 'node:child_process';
+import process       from 'node:process';
+import isEntryModule from './isEntryModule.mjs';
 
 /**
  * A deleted spec is the one regression the test suite cannot report.
@@ -622,6 +623,6 @@ async function main() {
 }
 
 // Import-safe: the spec imports the pure exports above without running the git scan.
-if (process.argv[1] && process.argv[1].endsWith('check-spec-retirement.mjs')) {
+if (isEntryModule(import.meta.url)) {
     await main()
 }

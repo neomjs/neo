@@ -5,6 +5,7 @@ import os              from 'os';
 import path            from 'path';
 import {Command}       from 'commander';
 import * as terser     from 'terser';
+import isEntryModule   from '../util/isEntryModule.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const neoPath   = path.resolve(__dirname, '../../');
@@ -141,6 +142,6 @@ async function main() {
 // Run only when executed directly, matching the guard `check-derived-domain.mjs` and
 // `check-fixed-sleeps.mjs` already use. Without it, importing this module to test the argv builder
 // would clone a repository and run a build as a side effect of the import.
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+if (isEntryModule(import.meta.url)) {
     main()
 }

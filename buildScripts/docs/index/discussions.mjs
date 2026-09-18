@@ -1,9 +1,9 @@
 import fs              from 'fs-extra';
 import path            from 'path';
 import {Command}       from 'commander';
-import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
+import isEntryModule   from '../../util/isEntryModule.mjs';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 /**
@@ -261,10 +261,7 @@ async function runCli() {
     })
 }
 
-const cliEntryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
-const modulePath   = fileURLToPath(import.meta.url);
-
-if (cliEntryPath && cliEntryPath === modulePath) {
+if (isEntryModule(import.meta.url)) {
     runCli().catch(err => {
         console.error(err);
         process.exit(1)

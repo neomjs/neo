@@ -13,6 +13,7 @@
 import fs              from 'node:fs';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
+import isEntryModule   from './isEntryModule.mjs';
 
 const
     dirname              = path.dirname(fileURLToPath(import.meta.url)),
@@ -208,7 +209,7 @@ export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
     return failures
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isEntryModule(import.meta.url)) {
     const failures = collectThemeSurfaceFailures();
 
     if (failures.length) {

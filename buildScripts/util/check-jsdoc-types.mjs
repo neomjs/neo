@@ -1,9 +1,10 @@
-import catharsis            from 'catharsis';
+import catharsis             from 'catharsis';
 import {execSync, spawnSync} from 'node:child_process';
-import {readFileSync}       from 'node:fs';
-import path                 from 'node:path';
-import process              from 'node:process';
-import {fileURLToPath}      from 'node:url';
+import {readFileSync}        from 'node:fs';
+import path                  from 'node:path';
+import process               from 'node:process';
+import {fileURLToPath}       from 'node:url';
+import isEntryModule         from './isEntryModule.mjs';
 
 /*
  * Substrate gate against unparseable JSDoc type expressions in the docs build.
@@ -267,7 +268,6 @@ function main() {
     console.log(`check-jsdoc-types: ${scanned}, 0 unparseable type expressions (${scope}).`)
 }
 
-const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === __filename;
-if (invokedDirectly) {
+if (isEntryModule(import.meta.url)) {
     main()
 }

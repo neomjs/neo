@@ -2,7 +2,7 @@
 
 import fs                          from 'fs-extra';
 import path                        from 'path';
-import {fileURLToPath}             from 'url';
+import isEntryModule               from '../util/isEntryModule.mjs';
 import createReleaseIndex          from './index/release.mjs';
 import createDiscussionIndex       from './index/discussions.mjs';
 import createPullRequestIndex      from './index/pulls.mjs';
@@ -97,10 +97,7 @@ async function runCli() {
     })
 }
 
-const cliEntryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
-const modulePath   = fileURLToPath(import.meta.url);
-
-if (cliEntryPath && cliEntryPath === modulePath) {
+if (isEntryModule(import.meta.url)) {
     runCli().catch(error => {
         console.error(error);
         process.exit(1);

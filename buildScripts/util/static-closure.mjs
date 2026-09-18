@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import fs   from 'node:fs';
-import path from 'node:path';
+import fs            from 'node:fs';
+import path          from 'node:path';
+import isEntryModule from './isEntryModule.mjs';
 
 /**
  * @summary Measures the static import closure of one or more entry modules — the modules a browser
@@ -69,7 +70,7 @@ export function measureClosure(entries, root=process.cwd()) {
     }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
+if (isEntryModule(import.meta.url)) {
     const args    = process.argv.slice(2),
           list    = args.includes('--list'),
           entries = args.filter(arg => arg !== '--list');

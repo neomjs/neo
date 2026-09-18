@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import process from 'node:process';
+import process       from 'node:process';
+import isEntryModule from './util/isEntryModule.mjs';
 
 /**
  * @module buildScripts.dataSyncWatchdog
@@ -612,9 +613,7 @@ async function main() {
     }
 }
 
-const isMain = process.argv[1] && import.meta.url === new URL(process.argv[1], 'file:').href;
-
-if (isMain) {
+if (isEntryModule(import.meta.url)) {
     main().catch(error => {
         console.error(`dataSyncWatchdog FAILED: ${error.message}`);
         process.exitCode = 1

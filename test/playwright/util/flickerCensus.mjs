@@ -20,6 +20,7 @@
  *   node test/playwright/util/flickerCensus.mjs <video-file> [--scale 640x360]
  */
 import {spawn, spawnSync} from 'node:child_process';
+import isEntryModule      from '../../../buildScripts/util/isEntryModule.mjs';
 
 const DEFAULT_SCALE = '640:360',
       ABS_FLOOR     = 25,
@@ -242,7 +243,7 @@ export async function censusVideoFlicker({videoPath, scale = DEFAULT_SCALE, ...d
         times, ...detectorOptions})
 }
 
-if (process.argv[1] && process.argv[1].endsWith('flickerCensus.mjs')) {
+if (isEntryModule(import.meta.url)) {
     const args      = process.argv.slice(2),
           scaleAt   = args.indexOf('--scale'),
           scale     = scaleAt !== -1 && args[scaleAt + 1] ? args[scaleAt + 1] : DEFAULT_SCALE,

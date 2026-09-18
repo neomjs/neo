@@ -1,4 +1,5 @@
-import process from 'node:process';
+import process       from 'node:process';
+import isEntryModule from './isEntryModule.mjs';
 
 /**
  * @module buildScripts/util/check-codeql-extraction
@@ -194,6 +195,6 @@ async function main() {
 
 // only run the CLI when invoked directly, so the spec can import the pure parser without side effects
 // (dependency-free — Node built-ins + global fetch only, so the guard job needs no npm install)
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+if (isEntryModule(import.meta.url)) {
     await main()
 }

@@ -1,10 +1,8 @@
 import {execFileSync, spawnSync} from 'node:child_process';
 import process                   from 'node:process';
-import {fileURLToPath}           from 'node:url';
-import path                      from 'node:path';
+import isEntryModule             from './isEntryModule.mjs';
 
 const
-    __filename           = fileURLToPath(import.meta.url),
     AGENT_BRANCH_PATTERN = /^agent\/[A-Za-z0-9][A-Za-z0-9._/-]*$/u,
     FORBIDDEN_FLAGS      = new Set([
         '-f',
@@ -196,6 +194,6 @@ export function runAgentPush({
     return result.error ? 1 : 0
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isEntryModule(import.meta.url)) {
     process.exitCode = runAgentPush()
 }

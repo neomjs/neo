@@ -4,6 +4,7 @@ import {readFileSync}  from 'node:fs';
 import path            from 'node:path';
 import process         from 'node:process';
 import {fileURLToPath} from 'node:url';
+import isEntryModule   from './isEntryModule.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -282,7 +283,7 @@ export function describeAddedCrossings(added, findings) {
         .map(entry => `  ${entry.file}:${entry.line} imports ${entry.specifier}`)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isEntryModule(import.meta.url)) {
     const files = execFileSync('git', ['ls-files', ...SCAN_ROOTS], {cwd: ROOT, encoding: 'utf8'})
         .split('\n')
         .filter(file => file.endsWith('.mjs'));
