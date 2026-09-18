@@ -21,9 +21,10 @@ import TextField from '../../form/field/Text.mjs';
  * Losing the projection is neutral: scrolling never commits and never cancels.
  *
  * Keys route through {@link Neo.grid.View}, the grid's single key registry: Enter and F2 edit the selected cell
- * (keyboard activation needs a cell-selecting model), Enter in the editor commits, and Escape cancels. A
- * double-click edits any editable cell. Activating another cell, or moving focus out of the editor, commits a valid
- * draft first; an invalid draft keeps its edit open. A column opts in through
+ * (keyboard activation needs a cell-selecting model), Enter in the editor commits, Escape cancels, and Tab or
+ * Shift+Tab commits and edits the next or previous editable cell. A double-click edits any editable cell. Activating
+ * another cell, or moving focus out of the editor, commits a valid draft first; an invalid draft keeps its edit
+ * open. A column opts in through
  * {@link Neo.grid.column.Base#editable_}, and {@link Neo.grid.column.Base#editor} configures its field.
  * @class Neo.grid.plugin.CellEditing
  * @extends Neo.plugin.Base
@@ -167,6 +168,40 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * The editable cell `step` cells along from the session's, in the column order the arrow keys walk
+     * ({@link Neo.selection.grid.BaseModel#dataFields}): a row's last editable cell is followed by the next record's
+     * first, and its first preceded by the previous record's last. A logical target — record and `dataField` — so a
+     * commit that re-sorts the store cannot move it.
+     * @param {Object} session
+     * @param {Number} step 1 or -1
+     * @returns {{dataField: String, record: Object}|null} null past either end of the store
+     * @protected
+     */
+    getAdjacentEditableCell(session, step) {
+        let me         = this,
+            {owner}    = me,
+            {store}    = owner,
+            dataFields = owner.columns.items.filter(column => column.editable).map(column => column.dataField),
+            index      = dataFields.indexOf(session.dataField) + step,
+            record     = me.getRecord(session),
+            rowIndex   = record ? store.indexOf(record) : -1;
+
+        // A record the store no longer shows has no neighbours
+        if (rowIndex < 0) {
+            return null
+        }
+
+        if (index < 0 || index >= dataFields.length) {
+            rowIndex += step;
+            index     = step > 0 ? 0 : dataFields.length - 1
+        }
+
+        record = rowIndex >= 0 && store.getAt(rowIndex);
+
+        return record ? {dataField: dataFields[index], record} : null
+    }
+
+    /**
      * The body rendering a column: locked columns live in their own bodies.
      * @param {Neo.grid.column.Base} column
      * @returns {Neo.grid.Body|null}
@@ -210,7 +245,8 @@ class CellEditing extends Plugin {
         return [
             {fn: 'onEnterKey',  key: 'Enter',  scope},
             {fn: 'onEscapeKey', key: 'Escape', scope},
-            {fn: 'onF2Key',     key: 'F2',     scope}
+            {fn: 'onF2Key',     key: 'F2',     scope},
+            {fn: 'onTabKey',    key: 'Tab',    scope}
         ]
     }
 
@@ -313,6 +349,47 @@ class CellEditing extends Plugin {
 
         owner.on('cellDoubleClick', me.onCellDoubleClick, me);
         owner.view.keys.add(me.getViewKeys())
+    }
+
+    /**
+     * Tab in the editor commits and edits the next editable cell, Shift+Tab the previous one. An invalid draft keeps
+     * its editor. A cell-selecting model follows the edit, so the arrow keys continue from where it ends, and the
+     * View scrolls the new cell into sight the way it does for them.
+     *
+     * Past the last editable cell, and before the first, the edit commits and ends with focus on the View. The main
+     * thread cancels Tab's default only inside an editor (`Neo.main.DomEvents#onKeyDown`), so the next Tab is the
+     * browser's own and leaves the grid.
+     * @param {Object} data
+     * @protected
+     */
+    onTabKey(data) {
+        let me               = this,
+            {owner, session} = me,
+            {store, view}    = owner,
+            {selectionModel} = view,
+            columnIndex, dataFields, rowIndex, target;
+
+        if (!session || !owner.body.isEditorEvent(data)) {
+            return
+        }
+
+        // Read before the commit ends the session, and before a re-sort can move the record
+        dataFields  = owner.columns.items.map(column => column.dataField);
+        columnIndex = dataFields.indexOf(session.dataField);
+        rowIndex    = store.indexOf(me.getRecord(session));
+        target      = me.getAdjacentEditableCell(session, data.shiftKey ? -1 : 1);
+
+        if (me.completeEdit() && target) {
+            let {dataField, record} = target;
+
+            selectionModel?.selectsCells && selectionModel.select(view.getLogicalCellId(record, dataField));
+
+            // Both scroll the target into sight only when it is out of it; a wrap changes row and column at once
+            store.indexOf(record) !== rowIndex && view.scrollByRows(rowIndex, store.indexOf(record) - rowIndex);
+            owner.scrollByColumns(columnIndex, dataFields.indexOf(dataField) - columnIndex);
+
+            me.startEdit(record, dataField)
+        }
     }
 
     /**
