@@ -196,6 +196,39 @@ test.describe('Neo.dashboard.dock.interaction.Rail — a native drag across the 
     }, {overlayId, targetSel: TARGET_SEL, hiddenCls: HIDDEN_CLS});
 
     /**
+     * The centres of the source row and the plain frame, once the pointer can trust them: no counted dock
+     * motion and nothing animating inside the workspace. The dock glides its first layout into place by
+     * transform, and a rect read mid-glide is not where the press lands (`restingTab()` in
+     * DockTabReorderGesture.spec.mjs reads the same two signals).
+     * @returns {Promise<{source: Object, target: Object}>} `{x, y}` per point
+     */
+    const restingPoints = async page => {
+        let points = null;
+
+        await expect.poll(async () => {
+            points = await page.evaluate(({sourceSel, targetSel, workspaceId}) => {
+                const host   = document.getElementById(workspaceId),
+                      centre = selector => {
+                          const {x, y, width, height} = document.querySelector(selector).getBoundingClientRect();
+
+                          return {x: x + width / 2, y: y + height / 2}
+                      };
+
+                if (host.closest('.neo-dashboard-dock-animating') || host.querySelector('.neo-dashboard-dock-animating') ||
+                    host.getAnimations({subtree: true}).length > 0) {
+                    return null
+                }
+
+                return {source: centre(sourceSel), target: centre(targetSel)}
+            }, {sourceSel: SOURCE_SEL, targetSel: TARGET_SEL, workspaceId: WORKSPACE_ID});
+
+            return points !== null
+        }, {message: 'the dock is at rest'}).toBe(true);
+
+        return points
+    };
+
+    /**
      * A real browser drag from the source row to the centre of the plain frame, driven as raw pointer
      * input: Chromium starts the native drag on the first move after the press and delivers
      * dragover / drop by hit-testing the target point, exactly as a user's gesture would. A locator
@@ -203,12 +236,11 @@ test.describe('Neo.dashboard.dock.interaction.Rail — a native drag across the 
      * shield denies while a reveal is open.
      */
     const dragRowIntoPlainFrame = async page => {
-        const source = await page.locator(SOURCE_SEL).boundingBox(),
-              target = await page.locator(TARGET_SEL).boundingBox();
+        const {source, target} = await restingPoints(page);
 
-        await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+        await page.mouse.move(source.x, source.y);
         await page.mouse.down();
-        await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, {steps: 4});
+        await page.mouse.move(target.x, target.y, {steps: 4});
         await page.mouse.up()
     };
 
