@@ -60,8 +60,8 @@ class List extends BaseList {
          */
         items_: null,
         /**
-         * Internal flag.
-         * Sub-menus will bubble focus changes to the top level.
+         * Whether focus is inside the cascade, read on the root: every level below belongs to the root's focus
+         * branch. Turning false closes the cascade.
          * @member {Boolean} menuFocus_=false
          * @protected
          * @reactive
@@ -171,14 +171,6 @@ class List extends BaseList {
     }
 
     /**
-     * The node focus entered this cascade from, which a dismissal returns it to. The root records it on the first
-     * focus enter after it mounts, `null` when focus came from nowhere: every later enter is a move between the
-     * cascade's own levels. `undefined` until that first enter.
-     * @member {Object|null|undefined} focusSource
-     * @protected
-     */
-    focusSource = undefined
-    /**
      * The exact listener config attached to the owning app's main view while this floating root is mounted.
      * @member {Object|null} outsidePointerListener=null
      * @protected
@@ -263,17 +255,10 @@ class List extends BaseList {
      * @protected
      */
     afterSetMenuFocus(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
+        let me = this;
 
-            if (me.isRoot) {
-                if (!value) {
-                    me[me.floating ? 'unmount' : 'hideSubMenu']()
-                }
-            } else {
-                // bubble the focus change upwards
-                me.parentMenu.menuFocus = value
-            }
+        if (oldValue !== undefined && !value && me.isRoot) {
+            me[me.floating ? 'unmount' : 'hideSubMenu']()
         }
     }
 
@@ -292,11 +277,6 @@ class List extends BaseList {
 
         if (oldValue !== undefined) {
             me.isRoot && me.floating && me.syncOutsidePointerListener(value);
-
-            // Each mount records where focus enters it anew
-            if (value && me.isRoot) {
-                me.focusSource = undefined
-            }
 
             if (parentMenu) {
                 // A level can unmount itself, on Escape for one, without its parent's hideSubMenu()
@@ -651,22 +631,10 @@ class List extends BaseList {
             target          = activeSubMenu?.align?.target;
 
         if (activeSubMenu) {
-            focus && Neo.isString(target) && activeSubMenu.holdsFocus() && me.focus(target);
+            focus && Neo.isString(target) && activeSubMenu.containsFocus && me.focus(target);
             activeSubMenu.unmount();
             me.activeSubMenu = null
         }
-    }
-
-    /**
-     * True when this level, or a level showing below it, holds focus.
-     *
-     * Every level is its own focus branch (a submenu shares the root's `parentComponent`), so `containsFocus`
-     * answers for one level only.
-     * @returns {Boolean}
-     * @protected
-     */
-    holdsFocus() {
-        return !!(this.containsFocus || this.activeSubMenu?.holdsFocus())
     }
 
     /**
@@ -674,15 +642,8 @@ class List extends BaseList {
      * @param {Object[]} data.path
      */
     onFocusEnter(data) {
-        let me = this;
-
         super.onFocusEnter(data);
-
-        if (me.isRoot && me.focusSource === undefined) {
-            me.focusSource = data.relatedTarget || null
-        }
-
-        me.menuFocus = true
+        this.menuFocus = true
     }
 
     /**
@@ -692,31 +653,33 @@ class List extends BaseList {
     onFocusLeave(data) {
         super.onFocusLeave(data);
 
-        const leftPathIsOwnTree = data.oldPath?.some(item => item.id === this.id);
+        let me = this;
 
-        if (!data.relatedTarget || leftPathIsOwnTree || !this.isInteractionPath(data.oldPath)) {
-            this.menuFocus = false
+        // Only the root's leave ends the cascade's focus: to nowhere, away from its own tree (a leave reports where focus
+        // was), or to a node outside the menu and its trigger (a move reports where it went)
+        if (me.isRoot && (!data.relatedTarget || data.oldPath?.some(item => item.id === me.id) || !me.isInteractionPath(data.oldPath))) {
+            me.menuFocus = false
         }
     }
 
     /**
      * @summary Keyboard navigation between this menu's items rests on the item focus landed on.
      *
-     * `manager.Focus` fires this on the closest component the two paths SHARE, which for an item-to-item move
-     * is this menu. Arrowing between siblings therefore previews the new item's submenu and drops the one the
-     * old item was showing — while `ArrowRight` moving focus INTO a submenu shares an ancestor of both menus
-     * instead, and never reaches this method. The submenu it just opened stays open without a guard here.
+     * `manager.Focus` fires this on the closest component the two paths share. A submenu is owned by the level that
+     * opened it, so a move into the submenu, and Left's move back out, arrive here as well as a move between this
+     * level's items. Only the last is a rest: arrowing between siblings previews the new item's submenu and drops
+     * the one the old item was showing, while a rest on the item Left returned to would reopen what Left closed.
      * @param {Object} data
      * @param {Object[]} data.path Dom node infos of the focused element upwards
      * @param {Object[]} data.oldPath
      * @protected
      */
-    onFocusMove(data) {
+    onFocusMove({oldPath, path}) {
         let me      = this,
-            {path}  = data,
-            itemIdx = me.getInteractiveItemIndex(path);
+            itemIdx = me.getInteractiveItemIndex(path),
+            inLevel = nodes => nodes.some(node => node.id === me.id);
 
-        Neo.isNumber(itemIdx) && me.startRest(path[itemIdx].id)
+        inLevel(path) && inLevel(oldPath) && Neo.isNumber(itemIdx) && me.startRest(path[itemIdx].id)
     }
 
     /**
@@ -822,21 +785,9 @@ class List extends BaseList {
             // hasChildren() is the single branch predicate: it is store-shape aware, and it does not
             // treat an empty `items: []` array as a parent the way a raw truthiness test would.
             if (me.hideOnLeafItemClick && !hasChildren) {
-                /*
-                    Through the SETTER, and that is the whole point. `afterSetMenuFocus` is the only
-                    path that closes ANCESTORS: a non-root menu bubbles to `parentMenu`, recursing
-                    until the floating root unmounts itself and cascades back down via `hideSubMenu()`.
-
-                    `unmount()` writes `_menuFocus` silently on purpose — reaching it *from*
-                    `afterSetMenuFocus` must not re-enter that hook. But a leaf click reaches
-                    `unmount()` directly, so calling it first swallowed the only signal the ancestors
-                    ever get, and left the submenu closed under a still-open parent. It also disarmed
-                    the fallback: a later `menuFocus = false` from `onFocusLeave` found the value
-                    already false, so the setter fired nothing.
-                */
-                me.menuFocus = false;
-
-                // The root's cascade may already have taken this menu down.
+                // The root closes the cascade and this level with it. An embedded root only collapses its submenus,
+                // so its own leaf still unmounts it here
+                me.getRootMenu().menuFocus = false;
                 me.mounted && me.unmount()
             }
 
@@ -873,9 +824,13 @@ class List extends BaseList {
     onSelect(items) {
         let me     = this,
             nodeId = items[0],
-            record = me.store.get(me.getItemRecordId(nodeId));
+            record;
 
-        me.hasChildren(record) ? me.showSubMenu(nodeId, record) : me.hideSubMenu()
+        // `selection.Model` also hands a selection to the view's parent component, and a submenu's parent is this level
+        if (me.getVdomChild(nodeId)) {
+            record = me.store.get(me.getItemRecordId(nodeId));
+            me.hasChildren(record) ? me.showSubMenu(nodeId, record) : me.hideSubMenu()
+        }
     }
 
     /**
@@ -922,7 +877,7 @@ class List extends BaseList {
                 floating    : true,
                 ...me.getSubMenuData(record),
                 isRoot         : false,
-                parentComponent: me.parentComponent,
+                parentComponent: me,
                 parentId       : me.app.mainView.id,
                 parentIndex    : store.indexOf(record),
                 parentMenu     : me,
@@ -1053,17 +1008,14 @@ class List extends BaseList {
     /**
      * @summary Unmounts this level with every level below it.
      *
-     * A root closing while its cascade holds focus returns focus to where it entered, while every level is still
-     * mounted. The inherited `revertFocus()` cannot: it reads one level, and a move between levels resets it.
+     * Each submenu belongs to the level that opened it, so focus moving between levels never leaves the root. A root
+     * closing while its cascade holds focus therefore returns it to where it entered, through the inherited
+     * `revertFocus()` that unmounting runs.
      */
     unmount() {
         let me = this;
 
         me.cancelRest();
-
-        if (me.isRoot && me.focusSource?.id && me.holdsFocus()) {
-            me.focus(me.focusSource.id)
-        }
 
         me._menuFocus = false;
         me.selectionModel?.deselectAll(true); // silent update

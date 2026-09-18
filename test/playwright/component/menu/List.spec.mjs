@@ -515,6 +515,9 @@ test.describe('Neo.menu.List keyboard cascade', () => {
         await page.keyboard.press('ArrowRight');
         await expect(menus).toHaveCount(2);
 
+        // The submenu mounts before focus reaches it, and a Left pressed in between lands on the root
+        await expect.poll(() => focusedItem(page)).toBe('Details');
+
         await page.keyboard.press('ArrowLeft');
         await expect(menus).toHaveCount(1);
 

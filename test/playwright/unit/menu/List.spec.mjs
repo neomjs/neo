@@ -232,8 +232,8 @@ test.describe('Neo.menu.List floating dismissal', () => {
         root.activeSubMenu   = level1;
         level1.activeSubMenu = level2;
 
-        // Focus reaching the deepest level primes the whole chain — afterSetMenuFocus bubbles upwards.
-        level2.menuFocus = true;
+        // Every level belongs to the root's focus branch, so focus anywhere in the cascade is the root's flag
+        root.menuFocus = true;
 
         return {root, level1, level2, leafNodeId: level2.getItemId(level2.store.getAt(0))}
     }
