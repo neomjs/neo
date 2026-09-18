@@ -184,6 +184,31 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await expect(page.locator(GRID), 'no cancel was announced').not.toHaveClass(/edit-cancelled/)
     });
 
+    // A lock change holds the editor out of every cell while the bodies swap columns, and the node it re-embeds is a
+    // new one: for a column that cannot suspend, that is a loss like any other. Its control is the locked-bodies arm
+    // that moves the same column, by default, with its draft intact
+    test('a column that cannot suspend cancels its edit when a lock change moves it to another body', async ({page}) => {
+        const recordId = await thirdRecordId(page);
+
+        await drive(page, 'optOutEdited');
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await drive(page, 'lockEnd');
+
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c3-projectionLoss/);
+        await expect(page.locator(`${GRID} .neo-grid-body`).nth(2).locator(`.neo-grid-cell[data-field="c3"][data-record-id="${recordId}"]`),
+            'c3 renders in the end body, and nothing was committed').toHaveText('r3c3');
+        await expect(page.locator(EDITOR), 'the release embeds nothing').toHaveCount(0);
+
+        // The cancelled session left nothing held: the next edit opens
+        await cell(page, 'c4', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c4', recordId), {message: 'the grid edits again'}).toBe(true)
+    });
+
     // An IME composes text the browser has not committed yet. Every composing `input` still reaches the App Worker, so
     // the draft holds the composition when the node goes; no `compositionend` ever arrives, and none is needed. What
     // is lost is the IME's own conversion state, never text — which is why pooling does not have to wait for it.
