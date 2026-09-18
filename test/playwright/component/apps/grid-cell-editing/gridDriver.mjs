@@ -8,7 +8,8 @@
  * lives, so each operation runs in the order the spec asks for it. The caller adds a counter to the query, which makes
  * every call a new module URL, evaluated again.
  *
- * Store actions target record 3 and column actions target `c3`, the cell the arms edit. `updateEdited` also writes
+ * Store actions target record 3 and column actions target `c3`, the cell the arms edit; `optOutEnd` takes the locked
+ * `c39` out of suspension, for the one arm that needs an opted-out column in a locked body. `updateEdited` also writes
  * `c4`, so the row's repaint is visible while the edited cell itself shows the editor.
  */
 const {searchParams}   = new URL(import.meta.url),
@@ -21,6 +22,7 @@ const actions = {
     hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
     lockEnd     : () => {columns.get('c3').locked = 'end'},
     lockStart   : () => {columns.get('c3').locked = 'start'},
+    optOutEnd   : () => {columns.get('c39').cancelEditOnProjectionLoss = true},
     release     : () => grid.getPlugin('grid-cell-editing').releaseEdit(),
     remove      : () => store.remove(3),
     sortAsc     : () => store.sort({property: 'id', direction: 'ASC'}),

@@ -20,7 +20,19 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                                      = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment, recordLeaks} = gridCellEditing(GRID);
 
-let pageErrors;
+let driverCalls = 0,
+    pageErrors;
+
+/**
+ * Runs one action of the fixture's `gridDriver.mjs` inside the App Worker; the counter makes every call a new module.
+ * @returns {Promise<void>}
+ */
+const drive = async (page, action) => {
+    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
+        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++driverCalls}`);
+
+    expect(success, `the ${action} driver ran`).toBe(true)
+};
 
 /**
  * The record id of the third rendered row — row 3, a row the initial window always renders.
@@ -151,6 +163,9 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         const recordId = await thirdRecordId(page),
               bodyId   = await page.locator(`${GRID} .neo-grid-body`).nth(1).getAttribute('id'),
               config   = async (id, name) => (await page.evaluate(({id, name}) => Neo.worker.App.getConfigs({id, keys: [name]}), {id, name}))[0];
+
+        // The fixture's locked columns suspend, as the locked-body arms need them to: this arm opts `c39` out itself
+        await drive(page, 'optOutEnd');
 
         // A double-click while the App Worker still re-slots cells hands Playwright a moving target
         await scrollHorizontally(page, 10000);

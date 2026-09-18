@@ -17,9 +17,9 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
  * `#grid-cell-editing-pooled` exists for pooling: 40 columns of 150px and 400 rows, so a horizontal scroll moves
  * the mounted column window and a vertical one rebinds pooled rows to other records. `c0` is locked to the start
  * and `c39` to the end, and every column is editable. `c3` carries an id, so an arm can turn it read-only, and `c5`
- * is `required`: the one invalid draft a cell can hold while pooling has taken it out of the DOM. `c7` and the
- * locked `c39` opt out of suspension (`cancelEditOnProjectionLoss`), and the grid writes the `cellEditCancel` it
- * then fires onto its own node as a class, `edit-cancelled-<dataField>-<reason>`.
+ * is `required`: the one invalid draft a cell can hold while pooling has taken it out of the DOM. `c7` opts out of
+ * suspension (`cancelEditOnProjectionLoss`; `gridDriver.mjs` can opt the locked `c39` out at runtime), and the grid
+ * writes the `cellEditCancel` it then fires onto its own node as a class, `edit-cancelled-<dataField>-<reason>`.
  *
  * Both select cells with a `CellModel`: keyboard activation edits the selected cell, and a row model selects none.
  * `#grid-cell-editing-outside` in `index.html` is the focus target outside both grids.
@@ -116,7 +116,7 @@ export const onStart = () => Neo.app({
                 ...(c === 0 ? {locked: 'start'} : c === 39 ? {locked: 'end'} : {}),
                 ...(c === 3 ? {id: 'grid-cell-editing-pooled-c3'} : {}),
                 ...(c === 5 ? {editor: {required: true}} : {}),
-                ...(c === 7 || c === 39 ? {cancelEditOnProjectionLoss: true} : {})
+                ...(c === 7 ? {cancelEditOnProjectionLoss: true} : {})
             }))
         }]
     },
