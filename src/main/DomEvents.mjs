@@ -65,7 +65,8 @@ const lastWheelEvent = {
 const
     disabledInputKeys         = {},
     preventClickTargets       = [],
-    preventContextmenuTargets = [];
+    preventContextmenuTargets = [],
+    preventDefaultKeys        = {};
 
 /**
  * @class Neo.main.DomEvents
@@ -107,8 +108,10 @@ class DomEvents extends Base {
             app: [
                 'addDomListener',
                 'registerDisabledInputChars',
+                'registerPreventDefaultKeys',
                 'registerPreventDefaultTargets',
-                'unregisterDisabledInputChars'
+                'unregisterDisabledInputChars',
+                'unregisterPreventDefaultKeys'
             ]
         }
     }
@@ -608,6 +611,12 @@ class DomEvents extends Base {
                 event.preventDefault()
             }
 
+            // A key the App Worker handles for this exact node: it still gets the event, only the default is gone.
+            // The worker cannot cancel a default after the fact, so it registers the node before the key arrives.
+            if (preventDefaultKeys[target.id]?.includes(event.key)) {
+                event.preventDefault()
+            }
+
             // A grid editor sits in grid.View's scroll area, and a key its input does not consume scrolls the View,
             // recycling the pooled row the editor is embodied in. PageUp/PageDown never move a single-line caret;
             // Home/End scroll under macOS key bindings and move the caret everywhere else. Bindings follow the host
@@ -918,6 +927,19 @@ class DomEvents extends Base {
     }
 
     /**
+     * Cancels the browser default of `keys` while the node `id` is the keydown target. Unlike
+     * {@link #registerDisabledInputChars} the event is still delivered to the App Worker, and the node need not be
+     * an input: this is for a key the worker handles itself on a focusable container, where letting the default
+     * through as well — Tab leaving the component, say — would undo what the handler does.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String[]} data.keys `KeyboardEvent.key` values
+     */
+    registerPreventDefaultKeys(data) {
+        preventDefaultKeys[data.id] = data.keys
+    }
+
+    /**
      * @param {Object} data
      * @param {Array|String} data.cls
      * @param {String} data.name
@@ -1002,6 +1024,14 @@ class DomEvents extends Base {
      */
     unregisterDisabledInputChars(data) {
         delete disabledInputKeys[data.id]
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    unregisterPreventDefaultKeys(data) {
+        delete preventDefaultKeys[data.id]
     }
 }
 

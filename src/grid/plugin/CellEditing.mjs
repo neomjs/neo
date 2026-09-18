@@ -78,7 +78,7 @@ class CellEditing extends Plugin {
             {session} = me;
 
         if (session) {
-            me.session = null;
+            me.setSession(null);
             me.repaint(session);
             me.destroyEditor(session.editor)
         }
@@ -104,8 +104,8 @@ class CellEditing extends Plugin {
             return false
         }
 
-        record     = me.getRecord(session);
-        me.session = null;
+        record = me.getRecord(session);
+        me.setSession(null);
 
         // A write repaints the record's rows through the store, and the explicit repaint covers an unchanged draft
         editor.isDirty && record?.set({[dataField]: editor.getSubmitValue()});
@@ -132,7 +132,7 @@ class CellEditing extends Plugin {
         // there is nothing left to render against. A plugin destroyed on its own leaves a Row that lives on, and
         // an input nothing owns would stay in its cell until an unrelated render replaced it: cancel repaints it.
         if (owner.isDestroying) {
-            me.session = null;
+            me.setSession(null);
             session && me.destroyEditor(session.editor)
         } else {
             me.cancelEdit()
@@ -356,9 +356,12 @@ class CellEditing extends Plugin {
      * its editor. A cell-selecting model follows the edit, so the arrow keys continue from where it ends, and the
      * View scrolls the new cell into sight the way it does for them.
      *
-     * Past the last editable cell, and before the first, the edit commits and ends with focus on the View. The main
-     * thread cancels Tab's default only inside an editor (`Neo.main.DomEvents#onKeyDown`), so the next Tab is the
-     * browser's own and leaves the grid.
+     * Past the last editable cell, and before the first, the edit commits and ends with focus on the View. With no
+     * session the main thread cancels no Tab, so the next one is the browser's own and leaves the grid.
+     *
+     * The key arrives from the editor, or — while the session's editor is not embodied, or not focused — from the
+     * View itself, whose Tab {@link #setSession} claimed. There an invalid draft cannot simply stay where it is: its
+     * cell is scrolled back into sight, and the editor takes focus once it is embodied again.
      * @param {Object} data
      * @protected
      */
@@ -369,7 +372,8 @@ class CellEditing extends Plugin {
             {selectionModel} = view,
             columnIndex, dataFields, rowIndex, target;
 
-        if (!session || !owner.body.isEditorEvent(data)) {
+        // Tab on any other node inside the View keeps its default, and is not this edit's
+        if (!session || !(owner.body.isEditorEvent(data) || data.path?.[0]?.id === view.id)) {
             return
         }
 
@@ -379,16 +383,27 @@ class CellEditing extends Plugin {
         rowIndex    = store.indexOf(me.getRecord(session));
         target      = me.getAdjacentEditableCell(session, data.shiftKey ? -1 : 1);
 
-        if (me.completeEdit() && target) {
+        if (!me.completeEdit()) {
+            let {editor} = session;
+
+            if (me.isEmbodied(session)) {
+                editor.focus()
+            } else {
+                editor.on('mounted', () => editor.focus(), me, {once: true});
+
+                rowIndex >= 0 && view.scrollByRows(rowIndex, 0);
+                owner.scrollByColumns(columnIndex, 0)
+            }
+        } else if (target) {
             let {dataField, record} = target;
 
             selectionModel?.selectsCells && selectionModel.select(view.getLogicalCellId(record, dataField));
 
-            // Both scroll the target into sight only when it is out of it; a wrap changes row and column at once
-            store.indexOf(record) !== rowIndex && view.scrollByRows(rowIndex, store.indexOf(record) - rowIndex);
+            // Both scroll only a target that is out of sight — which the session's own row is, too, while it is suspended
+            view.scrollByRows(store.indexOf(record), 0);
             owner.scrollByColumns(columnIndex, dataFields.indexOf(dataField) - columnIndex);
 
-            me.startEdit(record, dataField)
+            me.startEdit(record, dataField, true)
         }
     }
 
@@ -416,13 +431,39 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * The single write to {@link #session}. While a session is open, Tab on the View belongs to the edit: the main
+     * thread cancels its default for the View's node, so a Tab pressed while the editor is not embodied — its cell
+     * scrolled out of the row pool or the column window — reaches {@link #onTabKey} instead of leaving the grid
+     * with the draft open. With no session the View's Tab is the browser's own again.
+     * @param {Object|null} session
+     * @protected
+     */
+    setSession(session) {
+        let me     = this,
+            {view} = me.owner,
+            wasSet = !!me.session;
+
+        me.session = session;
+
+        if (!!session !== wasSet && view) {
+            Neo.main.DomEvents[session ? 'registerPreventDefaultKeys' : 'unregisterPreventDefaultKeys']({
+                id      : view.id,
+                keys    : ['Tab'],
+                windowId: view.windowId
+            })
+        }
+    }
+
+    /**
      * Edits a cell: a valid draft of another cell is committed first, and the editor is embodied, then focused once
      * it mounts. Activating the cell already being edited only returns focus to its editor.
      * @param {Object} record
      * @param {String} dataField
+     * @param {Boolean} [allowSuspended=false] true starts the edit on a cell whose Row is not rendered: the session is
+     * born suspended, and the Row embodies it on the render that brings the record into the pool
      * @returns {Boolean} false when the cell is not editable, not rendered, or an invalid draft blocks
      */
-    startEdit(record, dataField) {
+    startEdit(record, dataField, allowSuspended=false) {
         let me        = this,
             {owner}   = me,
             column    = owner.columns.get(dataField),
@@ -441,7 +482,7 @@ class CellEditing extends Plugin {
 
         row = me.getRow(record, column);
 
-        if (!row || !me.completeEdit()) {
+        if (!row && !allowSuspended || !me.completeEdit()) {
             return false
         }
 
@@ -451,10 +492,11 @@ class CellEditing extends Plugin {
             appName  : owner.appName,
             cls      : NeoArray.union(column.editor?.cls || [], ['neo-grid-editor']),
             hideLabel: true,
-            parentId : row.id,
-            theme    : row.theme,
-            value    : record.get(dataField),
-            windowId : owner.windowId
+            // The Row embedding the editor takes it over as its parent; until one does, its body stands in
+            parentId: (row || me.getBody(column)).id,
+            theme   : (row || owner).theme,
+            value   : record.get(dataField),
+            windowId: owner.windowId
         });
 
         editor.on('focusLeave', me.onEditorFocusLeave, me);
@@ -471,7 +513,7 @@ class CellEditing extends Plugin {
             editor.selectText?.()
         }, me, {once: true});
 
-        me.session = {dataField, editor, recordId};
+        me.setSession({dataField, editor, recordId});
         me.repaint(me.session);
 
         return true
