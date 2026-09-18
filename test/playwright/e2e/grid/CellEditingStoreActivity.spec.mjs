@@ -37,7 +37,8 @@ const drive = async (page, action) => {
 };
 
 /**
- * Edits record 3's `c3` and types a draft.
+ * Edits record 3's `c3` and replaces its value with a draft. The select-all keeps the arms independent of what
+ * activation selects, which has arms of its own.
  * @returns {Promise<String>} the record id
  */
 const editWithDraft = async page => {
@@ -45,6 +46,7 @@ const editWithDraft = async page => {
 
     await cell(page, 'c3', recordId).dblclick();
     await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+    await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('draft');
 
     return recordId
