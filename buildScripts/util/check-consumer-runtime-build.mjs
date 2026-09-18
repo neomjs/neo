@@ -12,8 +12,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
 
 /**
  * @module buildScripts/util/check-consumer-runtime-build
- * @summary Builds Data-worker and Main entry points from an installed copy of this package, because
- * this repository's own build structurally cannot observe what a consumer's build does.
+ * @summary Builds Data-worker, App-worker and Main entry points from an installed copy of this package,
+ * because this repository's own build structurally cannot observe what a consumer's build does.
  *
  * ## The defect class
  *
@@ -50,9 +50,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * ## What it does NOT do
  *
  * It does not assert bundle size, chunk counts, or anything about *this* repository's build — those
- * are observable here and belong to cheaper checks. It answers two consumer-only questions: does
- * Data resolve the consumer's modules and only those, and does Main preserve an optional workspace
- * addon root without leaking package addons into it?
+ * are observable here and belong to cheaper checks. It answers three consumer-only questions: does
+ * Data resolve the consumer's modules and only those, does every app the package ships compile in the
+ * App worker, and does Main preserve an optional workspace addon root without leaking package addons
+ * into it? The App worker's context spans every shipped `app.mjs`, so it reaches each importer without
+ * a list of them; one mode suffices, because a specifier that resolves nowhere fails both.
  */
 
 /**
@@ -89,6 +91,22 @@ const MAIN_ADDON_EXPECTATION = {
     present: true,
     because: 'a present workspace Main addon must remain reachable through the WS context'
 };
+
+/**
+ * @summary What the App worker's compile must reach, so an error-free build is not a context that reached nothing.
+ * @type {Object[]}
+ */
+export const APP_EXPECTATIONS = [{
+    file   : 'node_modules/neo.mjs/apps/portal/view/news/tickets/Component.mjs',
+    match  : /neo\.mjs[/\\]apps[/\\]portal[/\\]view[/\\]news[/\\]tickets[/\\]Component\.mjs$/,
+    present: true,
+    because: 'the App worker compiles the apps the package ships, so an importer there must resolve from an installed copy'
+}, {
+    file   : 'node_modules/neo.mjs/dist/marked.mjs',
+    match  : /neo\.mjs[/\\]dist[/\\]marked\.mjs$/,
+    present: true,
+    because: 'marked resolves through the bundle the package ships, never through a node_modules layout'
+}];
 
 /**
  * @summary Rule logic, split from the pack/install/build so it is unit-testable without spawning.
@@ -175,14 +193,15 @@ export function collectMainContextFailures({mode, contextModules}, workspace, ar
     return failures
 }
 
-/** @summary Writes the consumer fixture: one app-space module, two exclusions, and generated roots. */
+/**
+ * @summary Writes the consumer fixture: one app-space module, two exclusions, generated roots, and the
+ * loader the App-worker config copies from every workspace.
+ */
 function createFixture(workspace) {
     const files = {
         'package.json'                    : JSON.stringify({name: 'neo-consumer-fixture', version: '1.0.0', type: 'module'}, null, 4),
-        'apps/probe/data/ConsumerOnly.mjs':
-            "import Markdown from '../../../node_modules/neo.mjs/src/component/Markdown.mjs';\n" +
-            "import Content from '../../../node_modules/neo.mjs/src/app/content/Component.mjs';\n" +
-            'export default class ConsumerOnly {static consumers = [Markdown, Content]}\n',
+        'src/MicroLoader.mjs'             : 'export default "loader";\n',
+        'apps/probe/data/ConsumerOnly.mjs': 'export default class ConsumerOnly {}\n',
         'RootOnly.mjs'                    : 'export default "root-level node script";\n',
         'client/src/Unrelated.mjs'        : 'export default "unrelated application tree";\n'
     };
@@ -213,17 +232,27 @@ function createMainAddonFixture(workspace) {
  * standing in the consumer when the module loads — running it from the framework checkout silently
  * builds the framework's own tree instead, and every consumer assertion then fails for the wrong
  * reason. The caller owns the `chdir`; this only consumes it.
+ *
+ * The App worker has a config of its own, selected as `buildThreads.mjs` selects it, and compiles as the
+ * framework while standing in the consumer. In consumer mode its app context moves to the workspace root,
+ * where webpack hides everything under `./node_modules/`, so it reaches no shipped app. As the framework it
+ * reaches every one, which is also how a consumer building with `--framework` compiles.
+ * @param {String} workspace Consumer fixture root.
+ * @param {String} mode `development` or `production`.
+ * @param {String} [worker='data']
+ * @returns {Promise<Object>} Compilation module names and errors.
  */
-async function buildWorker(workspace, mode) {
-    const webpack = createRequire(path.join(workspace, 'package.json'))('webpack');
+async function buildWorker(workspace, mode, worker='data') {
+    const webpack = createRequire(path.join(workspace, 'package.json'))('webpack'),
+          isApp   = worker === 'app';
 
     const {default: configFactory} = await import(
-        path.join(workspace, `node_modules/neo.mjs/buildScripts/webpack/${mode}/webpack.config.worker.mjs`)
+        path.join(workspace, `node_modules/neo.mjs/buildScripts/webpack/${mode}/webpack.config.${isApp ? 'appworker' : 'worker'}.mjs`)
     );
 
-    const config = configFactory({worker: 'data', insideNeo: 'false'});
+    const config = configFactory(isApp ? {insideNeo: 'true'} : {worker, insideNeo: 'false'});
 
-    config.output = {...config.output, path: path.join(workspace, 'dist', mode)};
+    config.output = {...config.output, path: path.join(workspace, 'dist', mode, worker)};
 
     const stats = await new Promise((resolve, reject) => {
         webpack(config, (err, result) => err ? reject(err) : resolve(result))
@@ -232,7 +261,7 @@ async function buildWorker(workspace, mode) {
     const json = stats.toJson({modules: true, errors: true, all: false});
 
     return {
-        mode,
+        mode       : `${mode}/${worker}`,
         moduleNames: (json.modules || []).map(m => m.name || ''),
         errors     : (json.errors  || []).map(e => e.message || String(e))
     }
@@ -290,8 +319,9 @@ async function main() {
 
         console.log(`check-consumer-runtime-build: installing ${packed} into the fixture…`);
         // The published package declares no runtime dependencies, so a consumer that builds neo's
-        // workers supplies the build toolchain itself; installing it here mirrors that reality.
-        execFileSync('npm', ['install', '--no-audit', '--no-fund', '--ignore-scripts', `./${packed}`, 'fs-extra', 'webpack', 'webpack-hook-plugin'],
+        // workers supplies the build toolchain itself; installing it here mirrors that reality. The App
+        // worker's template loader adds acorn and astring.
+        execFileSync('npm', ['install', '--no-audit', '--no-fund', '--ignore-scripts', `./${packed}`, 'acorn', 'astring', 'fs-extra', 'webpack', 'webpack-hook-plugin'],
             {cwd: workspace, encoding: 'utf8', stdio: 'pipe'});
 
         const failures = [],
@@ -314,6 +344,9 @@ async function main() {
                 ));
                 failures.push(...collectMainContextFailures(result, workspace, 'absent'))
             }
+
+            console.log('check-consumer-runtime-build: building development App…');
+            failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, 'development', 'app'), APP_EXPECTATIONS));
 
             createMainAddonFixture(workspace);
 
@@ -338,7 +371,7 @@ async function main() {
             process.exit(1)
         }
 
-        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes.')
+        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, and every shipped app compiles in the App worker.')
     } finally {
         fs.rmSync(workspaceRoot, {recursive: true, force: true})
     }

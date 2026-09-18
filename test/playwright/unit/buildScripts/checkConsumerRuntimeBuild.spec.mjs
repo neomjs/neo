@@ -3,18 +3,21 @@ import path           from 'node:path';
 
 /**
  * The consumer runtime-build guard fails when installed Data/Main contexts resolve framework
- * modules instead of consumer-owned modules, or fail outright on an optional consumer root.
+ * modules instead of consumer-owned modules, or fail outright on an optional consumer root, and when
+ * the App worker's compile of the shipped apps errors or reaches none of them.
  *
  * Only the rule logic is exercised here. The guard's expensive half — `npm pack`, install into a
- * fixture nested under an `apps/` ancestor, and six real webpack compiles — is what the CI workflow
+ * fixture nested under an `apps/` ancestor, and seven real webpack compiles — is what the CI workflow
  * runs, and it cannot be meaningfully faked: a simulated layout is exactly the instrument that
  * reported every root correct while the physical build failed on two of them. So this spec asserts
  * the failure DIRECTIONS, and the workflow asserts the behaviour.
  */
 test.describe('check-consumer-runtime-build — rule logic', () => {
-    let collectConsumerBuildFailures, collectMainContextFailures;
+    let APP_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures;
 
-    const CONSUMER         = './apps/probe/data/ConsumerOnly.mjs',
+    const APP_VIEW         = './node_modules/neo.mjs/apps/portal/view/news/tickets/Component.mjs',
+          APP_MARKED       = './node_modules/neo.mjs/dist/marked.mjs',
+          CONSUMER         = './apps/probe/data/ConsumerOnly.mjs',
           ROOT_ONLY        = './RootOnly.mjs',
           UNRELATED        = './client/src/Unrelated.mjs',
           healthy          = {mode: 'development', moduleNames: [CONSUMER, './src/worker/Data.mjs'], errors: []},
@@ -24,7 +27,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           workspaceContext = {context: path.join(workspace, 'src/main/addon'), regExpSource: '^\\.\\/.*\\.mjs$'};
 
     test.beforeAll(async () => {
-        ({collectConsumerBuildFailures, collectMainContextFailures} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+        ({APP_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
     });
 
     test('a build resolving only the consumer\'s modules passes', () => {
@@ -103,5 +106,23 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         expect(failures).toHaveLength(2);
         expect(failures[0]).toContain('live workspace roots');
         expect(failures[1]).toContain('empty package fallbacks')
+    });
+
+    test('an App compile that reached the shipped apps and the bundled marked passes', () => {
+        expect(collectConsumerBuildFailures(
+            {mode: 'development/app', moduleNames: [APP_VIEW, APP_MARKED], errors: []},
+            APP_EXPECTATIONS
+        )).toEqual([])
+    });
+
+    test('an App compile that reached no shipped app fails, however clean its error list', () => {
+        const failures = collectConsumerBuildFailures(
+            {mode: 'development/app', moduleNames: ['./node_modules/neo.mjs/src/worker/App.mjs'], errors: []},
+            APP_EXPECTATIONS
+        );
+
+        expect(failures).toHaveLength(2);
+        expect(failures[0]).toContain('tickets/Component.mjs is absent, expected present');
+        expect(failures[1]).toContain('dist/marked.mjs is absent, expected present')
     })
 });
