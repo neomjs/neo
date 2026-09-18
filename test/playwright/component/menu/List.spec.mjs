@@ -71,12 +71,9 @@ async function openToLeaf(page) {
 /**
  * @summary Starts recording how many menu levels stand, on every DOM mutation batch.
  *
- * A settled assertion cannot witness this defect. `expect(locator).toHaveCount(0)` is web-first: it
- * re-polls until the timeout, so it reports the tree that eventually stands, not the tree the click
- * produced. The regression closed the clicked submenu on its own and left two ancestors mounted until
- * a later focus round-trip swept them up — under a retrying assertion that is a pass, and it is how
- * the defect reached `dev` with the suites green. Recording every intermediate state instead makes
- * the lingering ancestors the observation rather than a state polled past.
+ * For steps that move one level at a time. Each level sends its own `removeNode`, so a close of several levels
+ * can land across batches and read like a level left standing: those closes are read with
+ * `readMountedWithNext()` or `recordLevelRemovals()` instead.
  * @param {Object} page
  * @returns {Promise<void>}
  */
@@ -101,6 +98,74 @@ function recordLevelCounts(page) {
  */
 function levelCounts(page) {
     return page.evaluate(() => window.__menuLevelCounts)
+}
+
+/**
+ * @summary Asks the App Worker whether each level is mounted, in the same main-thread task as the next `type` event.
+ *
+ * A close of several levels happens in the one App Worker task that handles its gesture: every level's `unmount()`
+ * clears `mounted` at once, then sends its own `removeNode`, which a busy main thread may apply in different frames.
+ * So the DOM cannot tell a close that took every level down together from one that left the ancestors to a later
+ * focus round trip, and neither can a settled assertion, which polls until that round trip has swept them up. A
+ * read sent after the gesture resolves can land behind those focus events too. A `window` listener runs after the
+ * engine forwarded the event, in the same task, so this read reaches the App Worker right behind the gesture.
+ * @param {Object} page
+ * @param {String} type The event the gesture ends with: `click` or `keydown`
+ * @param {String[]} ids The level ids, outermost first
+ * @returns {Promise<void>}
+ */
+function readMountedWithNext(page, type, ids) {
+    return page.evaluate(({ids, type}) => {
+        window.addEventListener(type, () => {
+            window.__mountedWithGesture = Promise.all(ids.map(id => Neo.worker.App.getConfigs({id, keys: ['mounted']}).then(([mounted]) => mounted)))
+        }, {once: true})
+    }, {ids, type})
+}
+
+/**
+ * @summary Resolves the reads `readMountedWithNext()` sent: one `mounted` per level, outermost first.
+ * @param {Object} page
+ * @returns {Promise<Boolean[]>}
+ */
+function mountedWithGesture(page) {
+    return page.evaluate(() => window.__mountedWithGesture)
+}
+
+/**
+ * @summary Starts recording the id of every menu level the DOM removes, in removal order.
+ *
+ * The main thread applies the levels' `removeNode` deltas in the order the App Worker sent them, whichever frames
+ * they land in, so the order is the App Worker's: a level that takes its submenu down first removes it first.
+ * @param {Object} page
+ * @returns {Promise<void>}
+ */
+function recordLevelRemovals(page) {
+    return page.evaluate(() => {
+        window.__menuLevelRemovals = [];
+
+        new MutationObserver(records => records.forEach(record => record.removedNodes.forEach(node => {
+            node.nodeType === 1 && node.matches('.neo-menu-list') && window.__menuLevelRemovals.push(node.id)
+        }))).observe(document.body, {childList: true, subtree: true})
+    })
+}
+
+/**
+ * @summary Returns the recorded level removals, first removed first.
+ * @param {Object} page
+ * @returns {Promise<String[]>}
+ */
+function levelRemovals(page) {
+    return page.evaluate(() => window.__menuLevelRemovals)
+}
+
+/**
+ * @summary The id of the menu level that shows an item.
+ * @param {Object} page
+ * @param {String} text The item's text
+ * @returns {Promise<String>}
+ */
+function levelOf(page, text) {
+    return page.locator('.neo-menu-list', {has: page.getByText(text, {exact: true})}).getAttribute('id')
 }
 
 /**
@@ -152,13 +217,12 @@ test.describe('Neo.menu.List leaf-click cascade', () => {
         menuId = await createMenu(page);
 
         await openToLeaf(page);
-        await recordLevelCounts(page);
+        await readMountedWithNext(page, 'click', [menuId, await levelOf(page, 'Details'), await levelOf(page, 'Copy name')]);
         await page.getByText('Copy name', {exact: true}).click();
-        await expect(page.locator('.neo-menu-list')).toHaveCount(0);
 
-        // Three levels stand, then none. Any value in between is an ancestor that outlived the
-        // submenu the click was in — exactly what the regression produced ([3, 2, 0]).
-        expect(await levelCounts(page)).toEqual([3, 0])
+        // An ancestor still mounted is one that outlived the submenu the click was in
+        expect(await mountedWithGesture(page)).toEqual([false, false, false]);
+        await expect(page.locator('.neo-menu-list')).toHaveCount(0)
     });
 
     test('hideOnLeafItemClick: false keeps every level open', async ({page}) => {
@@ -774,12 +838,14 @@ test.describe('Neo.menu.List hover and keys across the cascade', () => {
         await page.getByText('Details', {exact: true}).hover();
         await expect(menus).toHaveCount(3);
 
-        await recordLevelCounts(page);
+        const branch = [await levelOf(page, 'Copy name'), await levelOf(page, 'Details')];
+
+        await recordLevelRemovals(page);
         await page.getByText('Open', {exact: true}).hover();
         await expect(menus).toHaveCount(1);
 
-        // Three levels, then one: a level left standing in between would be a level its parent did not take down
-        expect(await levelCounts(page)).toEqual([3, 1])
+        // The third level goes first: one its parent did not take down would go second, or never
+        expect(await levelRemovals(page)).toEqual(branch)
     });
 
     test('a click on a leaf inside a hover preview closes every level and routes once', async ({page}) => {
@@ -792,11 +858,11 @@ test.describe('Neo.menu.List hover and keys across the cascade', () => {
         await expect(menus).toHaveCount(2);
 
         await recordHashes(page);
-        await recordLevelCounts(page);
+        await readMountedWithNext(page, 'click', [menuId, await levelOf(page, 'Properties')]);
         await page.getByText('Properties', {exact: true}).click();
-        await expect(menus).toHaveCount(0);
 
-        expect(await levelCounts(page)).toEqual([2, 0]);
+        expect(await mountedWithGesture(page)).toEqual([false, false]);
+        await expect(menus).toHaveCount(0);
         await expect.poll(() => page.evaluate(() => window.__hashes)).toEqual(['#/props'])
     });
 
@@ -804,11 +870,11 @@ test.describe('Neo.menu.List hover and keys across the cascade', () => {
         const menus = await focusDown(page, 2);
 
         await recordHashes(page);
-        await recordLevelCounts(page);
+        await readMountedWithNext(page, 'keydown', [menuId, await levelOf(page, 'Details'), await levelOf(page, 'Copy name')]);
         await page.keyboard.press('Enter');
-        await expect(menus).toHaveCount(0);
 
-        expect(await levelCounts(page)).toEqual([3, 0]);
+        expect(await mountedWithGesture(page)).toEqual([false, false, false]);
+        await expect(menus).toHaveCount(0);
         await expect.poll(() => page.evaluate(() => window.__hashes)).toEqual(['#/copy-name'])
     });
 
