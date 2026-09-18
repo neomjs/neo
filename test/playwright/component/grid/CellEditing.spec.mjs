@@ -236,6 +236,28 @@ test.describe('grid cell editing — terminals', () => {
         await expect(page.locator(GRID), 'the commit announced no cancel').not.toHaveClass(/edit-cancelled-name/)
     });
 
+    // Focus returning to the View is only half of what the arrow keys need: they move from a selected cell, and a
+    // commit that ends the edit in place used to leave none. Tab never had this hole — it selects the cell it moves to.
+    test('Enter leaves the edited cell selected, so the arrow keys have an anchor', async ({page}) => {
+        const recordId = await recordIdOf(page, 2),
+              name     = cell(page, 'name', recordId),
+              score    = cell(page, 'score', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.type('Edited name');
+        await page.keyboard.press('Enter');
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(name, 'the edited cell is the anchor').toHaveClass(/neo-selected/);
+
+        // …and it is a real anchor, not only a class: ArrowRight moves from it to the next column
+        await page.keyboard.press('ArrowRight');
+        await expect(score).toHaveClass(/neo-selected/);
+        await expect(name).not.toHaveClass(/neo-selected/)
+    });
+
     test('Escape discards the draft, destroys the editor and returns focus to the View', async ({page}) => {
         const recordId = await recordIdOf(page, 4),
               note     = cell(page, 'note', recordId),
@@ -277,6 +299,49 @@ test.describe('grid cell editing — terminals', () => {
         await page.keyboard.press('Escape');
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(name, 'Enter wrote nothing: Escape restores the original').toHaveText('Name 5')
+    });
+
+    // The same block Enter meets, through the two gestures that also end an edit. Both already hold; the arms exist so
+    // a later change to either terminal cannot quietly commit a draft the field rejects.
+    test('an invalid draft blocks Tab: the edit stays open and focused', async ({page}) => {
+        const recordId = await recordIdOf(page, 5),
+              name     = cell(page, 'name', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.press('ControlOrMeta+A');
+        await page.keyboard.press('Backspace');
+        await expect(page.locator(INPUT)).toHaveValue('');
+
+        await page.keyboard.press('Tab');
+        await page.keyboard.type('Z');
+
+        // Z reaches the input only if Tab left the editor open and focused
+        await expect(page.locator(INPUT)).toHaveValue('Z');
+
+        await page.keyboard.press('Escape');
+        await expect(name, 'Tab wrote nothing').toHaveText('Name 5')
+    });
+
+    test('an invalid draft survives focus leaving the grid: the edit stays open', async ({page}) => {
+        const recordId = await recordIdOf(page, 5),
+              name     = cell(page, 'name', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.press('ControlOrMeta+A');
+        await page.keyboard.press('Backspace');
+        await expect(page.locator(INPUT)).toHaveValue('');
+
+        await page.locator(OUTSIDE).click();
+
+        // A valid draft commits away here — see `focus leaving the grid commits the draft`. An invalid one cannot.
+        // Escape is no longer a way to read this: the click put focus outside the grid, so no key reaches the editor
+        await expect(page.locator(EDITOR)).toHaveCount(1);
+        await expect(page.locator(INPUT), 'the draft the field rejects is still pending, not written').toHaveValue('');
+        await expect(name, 'the cell still shows its editor, not a value').toHaveText('Required')
     })
 });
 

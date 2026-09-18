@@ -378,6 +378,10 @@ class CellEditing extends Plugin {
 
     /**
      * Enter in the editor commits; Enter on the View edits the selected cell.
+     *
+     * A commit that ends the edit in place leaves the cell selected, so the arrow keys have an anchor to move from.
+     * The selection sits here rather than in {@link #completeEdit}, which Tab and a re-activation also call: both of
+     * those go on to select a cell of their own, and selecting the edited one first would only cost a round trip.
      * @param {Object} data
      * @protected
      */
@@ -385,7 +389,15 @@ class CellEditing extends Plugin {
         let me = this;
 
         if (me.owner.body.isEditorEvent(data)) {
-            me.completeEdit()
+            // Read before the commit ends the session
+            let {session}        = me,
+                {view}           = me.owner,
+                {selectionModel} = view,
+                dataField        = session?.dataField,
+                record           = session && me.getRecord(session);
+
+            me.completeEdit() && record && selectionModel?.selectsCells &&
+                selectionModel.select(view.getLogicalCellId(record, dataField))
         } else {
             me.editSelectedCell()
         }
