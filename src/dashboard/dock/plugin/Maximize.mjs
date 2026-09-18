@@ -1011,8 +1011,7 @@ class Maximize extends Plugin {
                 scope                       : me
             });
 
-            owner.keys?.removeKey({fn: 'onEscape', key: 'Escape', scope: me.id});
-            owner.plugins = owner.plugins.filter(plugin => plugin !== me)
+            owner.keys?.removeKey({fn: 'onEscape', key: 'Escape', scope: me.id})
         }
 
         me.restoreSnapshot = null;

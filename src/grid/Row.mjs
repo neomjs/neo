@@ -144,7 +144,7 @@ class Row extends Component {
      * @returns {Object} VDOM object for the cell
      */
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
-        let {colspanField, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
+        let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
 
         let me            = this,
             cellCls       = ['neo-grid-cell'],
@@ -283,6 +283,11 @@ class Row extends Component {
             cellConfig['aria-selected'] = true
         }
 
+        // Only a grid that edits has cells to tell apart: while its editing is on, the others are read-only
+        if (editsCells && !column.editable) {
+            cellConfig['aria-readonly'] = true
+        }
+
         if (column.width) {
             cellConfig.style.width = `${column.width}px`
         }
@@ -375,8 +380,10 @@ class Row extends Component {
             selectionModel = view?.selectionModel ?? null,
             recordId       = gridBody.getRecordId(record),
             countColumns   = columns.getCount(),
-            editSession    = gridContainer.getPlugin('grid-cell-editing')?.session ?? null,
-            cache          = {colspanField, columnPositions, editSession, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+            cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
+            editSession    = cellEditing?.session ?? null,
+            editsCells     = !!cellEditing && !cellEditing.disabled,
+            cache          = {colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2

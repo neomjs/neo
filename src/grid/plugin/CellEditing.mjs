@@ -63,7 +63,10 @@ class CellEditing extends Plugin {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        value && this.cancelEdit()
+        value && this.cancelEdit();
+
+        // Whether the grid edits at all decides every cell's aria-readonly
+        oldValue !== undefined && this.owner.repaintCells()
     }
 
     /**
@@ -112,7 +115,8 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * Gives up activation and ends an open edit without writing it.
+     * Gives up activation and ends an open edit without writing it. A grid that outlives its plugin edits no cell, so
+     * it repaints them: none stays read-only.
      * @param {Array} args
      */
     destroy(...args) {
@@ -133,7 +137,9 @@ class CellEditing extends Plugin {
             me.cancelEdit()
         }
 
-        super.destroy(...args)
+        super.destroy(...args);
+
+        owner.isDestroying || owner.repaintCells()
     }
 
     /**

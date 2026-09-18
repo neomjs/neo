@@ -357,3 +357,67 @@ test.describe('grid cell editing — teardown', () => {
         await expect(page.locator(EDITOR)).toHaveCount(0)
     })
 });
+
+test.describe('grid cell editing — aria-readonly', () => {
+    /**
+     * Per rendered cell of the small grid, its field and whether it carries `aria-readonly="true"`, read in one task.
+     * @param {import('@playwright/test').Page} page
+     * @returns {Promise<Object>} `{field: [Boolean, …]}`
+     */
+    const readonlyByField = page => page.evaluate(grid => {
+        const result = {};
+
+        document.querySelectorAll(`${grid} .neo-grid-cell`).forEach(node => {
+            (result[node.dataset.field] ??= []).push(node.getAttribute('aria-readonly') === 'true')
+        });
+
+        return result
+    }, GRID);
+
+    /**
+     * @param {Object} byField
+     * @returns {String[]} The fields whose every rendered cell is marked read-only, sorted
+     */
+    const readonlyFields = byField => Object.keys(byField).filter(field => byField[field].every(Boolean)).sort();
+
+    test('with editing on, the cells of the non-editable columns are read-only, and no editable cell is', async ({page}) => {
+        const byField = await readonlyByField(page);
+
+        // `id` and `score` are the fixture's non-editable columns, one locked to the start and one in the center
+        expect(readonlyFields(byField)).toEqual(['id', 'score']);
+
+        for (const field of ['code', 'name', 'city', 'note']) {
+            expect(byField[field], `${field} has rendered cells`).not.toHaveLength(0);
+            expect(byField[field].some(Boolean), `no ${field} cell is read-only`).toBe(false)
+        }
+    });
+
+    test('a column turned non-editable at runtime becomes read-only in every rendered row, and back', async ({page}) => {
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-city', editable: false}));
+        await expect.poll(async () => readonlyFields(await readonlyByField(page))).toEqual(['city', 'id', 'score']);
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-city', editable: true}));
+        await expect.poll(async () => readonlyFields(await readonlyByField(page))).toEqual(['id', 'score'])
+    });
+
+    test('a disabled plugin leaves no cell read-only, and enabling it marks the non-editable ones again', async ({page}) => {
+        // With editing off there are no editable cells to tell apart, so no cell claims to be the exception
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-plugin', disabled: true}));
+        await expect.poll(async () => Object.values(await readonlyByField(page)).flat().some(Boolean)).toBe(false);
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-plugin', disabled: false}));
+        await expect.poll(async () => readonlyFields(await readonlyByField(page))).toEqual(['id', 'score'])
+    });
+
+    test('a plugin destroyed on its own leaves no cell read-only, and cellEditing turned on marks them again', async ({page}) => {
+        expect(readonlyFields(await readonlyByField(page))).toEqual(['id', 'score']);
+
+        // Without its plugin the grid edits nothing, so no cell claims to be the exception
+        await page.evaluate(() => Neo.worker.App.destroyNeoInstance('grid-cell-editing-plugin'));
+        await expect.poll(async () => Object.values(await readonlyByField(page)).flat().some(Boolean)).toBe(false);
+
+        // `cellEditing: true` imports its plugin, which lands after these rows rendered
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing', cellEditing: true}));
+        await expect.poll(async () => readonlyFields(await readonlyByField(page))).toEqual(['id', 'score'])
+    })
+});
