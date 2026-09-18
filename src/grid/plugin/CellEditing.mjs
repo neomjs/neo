@@ -68,7 +68,7 @@ class CellEditing extends Plugin {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        value && this.cancelEdit();
+        value && this.cancelEdit('disabled');
 
         // Whether the grid edits at all decides every cell's aria-readonly
         oldValue !== undefined && this.owner.repaintCells()
@@ -76,15 +76,27 @@ class CellEditing extends Plugin {
 
     /**
      * Discards the draft and ends the session. The editor's destruction returns focus to where the edit took it from.
+     *
+     * No cancel is silent: the grid fires `cellEditCancel` with `{dataField, reason, record}` once the session is
+     * over, so a listener may start the next edit. `reason` is `'escape'`, `'notEditable'` (the column stopped being
+     * editable), `'disabled'`, `'destroy'` (the plugin went, its grid lives on), `'projectionLoss'`
+     * ({@link #onBodyRender}) or `'api'` for a caller that names none; `record` is null once the store no longer
+     * holds it. A grid destroyed with its plugin fires nothing: nobody is left to hear it.
+     * @param {String} [reason='api']
      */
-    cancelEdit() {
+    cancelEdit(reason='api') {
         let me        = this,
-            {session} = me;
+            {session} = me,
+            record;
 
         if (session) {
+            record = me.getRecord(session);
+
             me.setSession(null);
             me.repaint(session);
-            me.destroyEditor(session.editor)
+            me.destroyEditor(session.editor);
+
+            me.owner.fire('cellEditCancel', {dataField: session.dataField, reason, record})
         }
     }
 
@@ -139,7 +151,7 @@ class CellEditing extends Plugin {
             me.setSession(null);
             session && me.destroyEditor(session.editor)
         } else {
-            me.cancelEdit()
+            me.cancelEdit('destroy')
         }
 
         super.destroy(...args);
@@ -310,16 +322,14 @@ class CellEditing extends Plugin {
      * Called by every {@link Neo.grid.Body} once a render pass is through — the one place where an embodiment can
      * go. Losing it is neutral by default: the session waits, suspended, for the pass that renders its cell again.
      *
-     * A column whose editor cannot be suspended ({@link Neo.grid.column.Base#cancelEditOnProjectionLoss}) ends the
-     * edit instead and says so: the draft is discarded, and the grid fires `cellEditCancel` with
-     * `reason: 'projectionLoss'`. Only an embodiment that existed can be lost — a session born suspended, on its way
-     * into sight, is not.
+     * A column whose editor cannot be suspended ({@link Neo.grid.column.Base#cancelEditOnProjectionLoss}) cancels the
+     * edit instead, with `reason: 'projectionLoss'`. Only an embodiment that existed can be lost — a session born
+     * suspended, on its way into sight, is not.
      * @protected
      */
     onBodyRender() {
         let me        = this,
-            {session} = me,
-            column, record;
+            {session} = me;
 
         if (!session) {
             return
@@ -327,15 +337,8 @@ class CellEditing extends Plugin {
 
         if (me.isEmbodied(session)) {
             session.wasEmbodied = true
-        } else if (session.wasEmbodied) {
-            column = me.owner.columns.get(session.dataField);
-
-            if (column?.cancelEditOnProjectionLoss) {
-                record = me.getRecord(session);
-
-                me.cancelEdit();
-                me.owner.fire('cellEditCancel', {dataField: session.dataField, reason: 'projectionLoss', record})
-            }
+        } else if (session.wasEmbodied && me.owner.columns.get(session.dataField)?.cancelEditOnProjectionLoss) {
+            me.cancelEdit('projectionLoss')
         }
     }
 
@@ -354,7 +357,7 @@ class CellEditing extends Plugin {
      * @param {Neo.grid.column.Base} column
      */
     onColumnEditableChange(column) {
-        !column.editable && this.session?.dataField === column.dataField && this.cancelEdit()
+        !column.editable && this.session?.dataField === column.dataField && this.cancelEdit('notEditable')
     }
 
     /**
@@ -393,7 +396,7 @@ class CellEditing extends Plugin {
      * @protected
      */
     onEscapeKey() {
-        this.cancelEdit()
+        this.cancelEdit('escape')
     }
 
     /**

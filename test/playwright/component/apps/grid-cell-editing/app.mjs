@@ -18,12 +18,18 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
  * the mounted column window and a vertical one rebinds pooled rows to other records. `c0` is locked to the start
  * and `c39` to the end, and every column is editable. `c3` carries an id, so an arm can turn it read-only, and `c5`
  * is `required`: the one invalid draft a cell can hold while pooling has taken it out of the DOM. `c7` opts out of
- * suspension (`cancelEditOnProjectionLoss`; `gridDriver.mjs` can opt the locked `c39` out at runtime), and the grid
- * writes the `cellEditCancel` it then fires onto its own node as a class, `edit-cancelled-<dataField>-<reason>`.
+ * suspension (`cancelEditOnProjectionLoss`; `gridDriver.mjs` can opt `c3` and the locked `c39` out at runtime).
+ *
+ * Both grids write every `cellEditCancel` they fire onto their own node as a class,
+ * `edit-cancelled-<dataField>-<reason>`: the one place a Brain-free spec can read an App Worker event.
  *
  * Both select cells with a `CellModel`: keyboard activation edits the selected cell, and a row model selects none.
  * `#grid-cell-editing-outside` in `index.html` is the focus target outside both grids.
  */
+const announceCancel = id => ({
+    cellEditCancel: ({dataField, reason}) => Neo.getComponent(id).addCls(`edit-cancelled-${dataField}-${reason}`)
+});
+
 const smallStore = Neo.setupClass(class extends Store {
     static config = {
         className  : 'Neo.test.playwright.GridCellEditingStore',
@@ -81,6 +87,7 @@ export const onStart = () => Neo.app({
             module    : GridContainer,
             id        : 'grid-cell-editing',
             flex      : 1,
+            listeners : announceCancel('grid-cell-editing'),
             plugins   : [{module: CellEditing, id: 'grid-cell-editing-plugin'}],
             store     : smallStore,
             viewConfig: {selectionModel: CellModel},
@@ -98,15 +105,9 @@ export const onStart = () => Neo.app({
             id         : 'grid-cell-editing-pooled',
             cellEditing: true,
             flex       : 1,
+            listeners  : announceCancel('grid-cell-editing-pooled'),
             store      : pooledStore,
             viewConfig : {selectionModel: CellModel},
-
-            // The cancel an opted-out column announces, put where a Brain-free spec can read it: on the grid's node
-            listeners: {
-                cellEditCancel: ({dataField, reason}) => {
-                    Neo.getComponent('grid-cell-editing-pooled').addCls(`edit-cancelled-${dataField}-${reason}`)
-                }
-            },
 
             columns: Array.from({length: 40}, (_, c) => ({
                 dataField: `c${c}`,

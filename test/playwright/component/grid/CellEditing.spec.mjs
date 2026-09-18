@@ -225,7 +225,15 @@ test.describe('grid cell editing — terminals', () => {
 
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(name).toHaveText('Edited name');
-        await expect.poll(() => activeElementId(page), {message: 'focus returns to the View'}).toBe(viewId)
+        await expect.poll(() => activeElementId(page), {message: 'focus returns to the View'}).toBe(viewId);
+
+        // A commit is no cancel. The fixture writes every `cellEditCancel` onto the grid's node, and one component's
+        // renders land in order: once a later cancel shows there, an earlier one would
+        await cell(page, 'note', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'note', recordId)).toBe(true);
+        await page.keyboard.press('Escape');
+        await expect(page.locator(GRID)).toHaveClass(/edit-cancelled-note-escape/);
+        await expect(page.locator(GRID), 'the commit announced no cancel').not.toHaveClass(/edit-cancelled-name/)
     });
 
     test('Escape discards the draft, destroys the editor and returns focus to the View', async ({page}) => {
@@ -243,6 +251,7 @@ test.describe('grid cell editing — terminals', () => {
 
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(note).toHaveText('Note 4');
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-note-escape/);
         await expect.poll(() => activeElementId(page)).toBe(viewId);
         expect(await isLive(page, editorId), 'the editor instance is destroyed, not only unmounted').toBe(false)
     });
@@ -305,6 +314,21 @@ test.describe('grid cell editing — one session', () => {
         expect(await activeElementId(page), 'focus stays where the user put it').toBe('grid-cell-editing-outside')
     });
 
+    test('disabling the plugin cancels the open edit, and the grid says why', async ({page}) => {
+        const recordId = await recordIdOf(page, 3),
+              name     = cell(page, 'name', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+        await page.keyboard.type('Z');
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-plugin', disabled: true}));
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(name, 'the draft was not written').toHaveText('Name 3');
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-name-disabled/)
+    });
+
     test('turning editable off on the active column cancels its session', async ({page}) => {
         const recordId = await recordIdOf(page, 6),
               city     = cell(page, 'city', recordId),
@@ -319,6 +343,7 @@ test.describe('grid cell editing — one session', () => {
 
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(city).toHaveText(value);
+        await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-city-notEditable/);
 
         await recordEditors(page);
         await city.dblclick();
@@ -387,6 +412,7 @@ test.describe('grid cell editing — teardown', () => {
         expect(await isLive(page, editorId), 'the plugin took its editor down with it').toBe(false);
         await expect(page.locator(EDITOR), 'no editor stays in the cell').toHaveCount(0);
         await expect(name, 'the draft was not written').toHaveText('Name 2');
+        await expect(page.locator(GRID), 'the grid lives on, and hears the cancel').toHaveClass(/edit-cancelled-name-destroy/);
 
         // A key registered for the destroyed plugin would throw in the App Worker, which fails the arm
         await page.keyboard.press('Enter');
