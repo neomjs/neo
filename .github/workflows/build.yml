@@ -1,0 +1,59 @@
+name: Build
+
+# Builds this repository's own dist from a clean install. No other check does: the consumer build
+# compiles only an installed fixture's Data-worker and Main configs, so a webpack bump merged green
+# while the app worker's production build was red (#18833). Breaks also arrive from `src/` and
+# `test/` (#12298), so there is no path filter.
+
+on:
+  pull_request:
+    branches: [dev]
+
+concurrency:
+  group: build-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # `-l no`: the lock is already installed, and build-all's own `npm i` could drift from it.
+      - name: Build all
+        run: npm run build-all -- -l no
+
+  threads-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # The template loader imports both bundles; without them every thread fails to resolve.
+      - name: Bundle parse5 and marked
+        run: npm run bundle-parse5 && npm run bundle-marked
+
+      - name: Build every thread for dist/production
+        run: npm run build-threads -- -n -e prod -t all
