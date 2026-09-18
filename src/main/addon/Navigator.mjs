@@ -167,18 +167,20 @@ class Navigator extends Base {
         treeWalker.currentNode = this.navigatorGetActiveItem(data) || data.subject;
         treeWalker[direction < 0 ? 'previousNode' : 'nextNode']();
 
-        // Found a target in the requested direction
-        if (treeWalker.currentNode) {
-            if (treeWalker.currentNode !== data.activeItem) {
-                return treeWalker.currentNode
-            }
+        // A walker that finds no target keeps its current node; the callers own wrapping
+        if (treeWalker.currentNode !== data.activeItem) {
+            return treeWalker.currentNode
         }
-        // Could not find target in requested direction, then wrap if configured to do so
-        else if (data.wrap !== false) {
-            const allItems = data.subject.querySelector(data.selector);
+    }
 
-            return allItems[direction === 1 ? 0 : allItems.length - 1]
-        }
+    /**
+     * The last element matching the selector. `:last-of-type` cannot express it: it matches the last element of
+     * its tag, so a list whose last row is not navigable (disabled, a separator) would match nothing.
+     * @param {Object} data
+     * @returns {HTMLElement|undefined}
+     */
+    navigateGetLast(data) {
+        return Array.from(data.subject.querySelectorAll(data.selector)).at(-1)
     }
 
     /**
@@ -218,7 +220,7 @@ class Navigator extends Base {
             case data.previousKey:
                 newActiveElement = me.navigateGetAdjacent(-1, data);
                 if (!newActiveElement && wrap) {
-                    newActiveElement = subject.querySelector(`${data.selector}:last-of-type`)
+                    newActiveElement = me.navigateGetLast(data)
                 }
                 break;
             // Move to the next navigable item
@@ -234,7 +236,7 @@ class Navigator extends Base {
                 break;
             // Move to the last navigable item
             case 'End':
-                newActiveElement = subject.querySelector(`${data.selector}:last-of-type`);
+                newActiveElement = me.navigateGetLast(data);
                 break;
             // Click the currently active item if necessary
             case 'Enter':
@@ -258,8 +260,13 @@ class Navigator extends Base {
 
         // If there is a focusable under the mouse, it will take focus, and we respond to that in navigateFocusInHandler.
         // If not, we have to programmatically activate on click, but we must not draw focus away from
-        // where it is, so preventDefault
-        if (target && !data.findFocusable(target)) {
+        // where it is, so preventDefault.
+        if (target) {
+            !data.findFocusable(target) && e.preventDefault()
+        }
+        // A press on no navigable item at all (a disabled row, a separator) activates nothing, so it keeps focus where
+        // it is as well. Only the subject's own scrollbar keeps its default press.
+        else if (!DomUtils.closest(e.target, DomUtils.isFocusable, data.subject.parentNode) && !this.isScrollbarPress(e, data.subject)) {
             e.preventDefault()
         }
     }
@@ -353,6 +360,18 @@ class Navigator extends Base {
         else {
             this.setActiveItem(target, data)
         }
+    }
+
+    /**
+     * True for a press on the scroller's own scrollbar: the scroller is the target, and the press lies outside its
+     * client area.
+     * @param {MouseEvent} e
+     * @param {HTMLElement} scroller
+     * @returns {Boolean}
+     */
+    isScrollbarPress({offsetX, offsetY, target}, scroller) {
+        return target === scroller &&
+            (offsetX < 0 || offsetY < 0 || offsetX >= scroller.clientWidth || offsetY >= scroller.clientHeight)
     }
 
     /**

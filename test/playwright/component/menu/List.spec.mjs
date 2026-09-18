@@ -632,6 +632,135 @@ test.describe('Neo.menu.List keyboard cascade', () => {
     })
 });
 
+test.describe('Neo.menu.List rows the Navigator skips', () => {
+    /**
+     * @summary Presses the middle of the first element matching `selector` with the real pointer.
+     *
+     * A disabled row and a separator take no pointer events, so the press lands on the menu element itself: the case
+     * these arms exist for. `locator.click()` refuses such a row, so the pointer is driven by the row's coordinates.
+     * @param {Object} page
+     * @param {String} selector
+     * @returns {Promise<void>}
+     */
+    async function pressRow(page, selector) {
+        const {x, y} = await page.evaluate(selector => {
+            const {height, width, x, y} = document.querySelector(selector).getBoundingClientRect();
+
+            return {x: x + width / 2, y: y + height / 2}
+        }, selector);
+
+        await page.mouse.click(x, y)
+    }
+
+    for (const [label, lastRow] of [['disabled', {text: 'Delta', disabled: true}], ['a separator', {separator: true}]]) {
+        test(`End lands on the last interactive row when the last row is ${label}`, async ({page}) => {
+            menuId = await createMenu(page, {items: [{text: 'Alpha'}, {text: 'Beta'}, {text: 'Gamma'}, lastRow]});
+
+            await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+            await page.locator('.neo-menu-list .neo-list-item').first().focus();
+            await expect.poll(() => focusedItem(page)).toBe('Alpha');
+
+            await page.keyboard.press('End');
+            await expect.poll(() => focusedItem(page)).toBe('Gamma')
+        })
+    }
+
+    test('CONTROL: End reaches an interactive last row, and Home passes over a disabled first row', async ({page}) => {
+        menuId = await createMenu(page, {items: [{text: 'Alpha', disabled: true}, {text: 'Beta'}, {text: 'Gamma'}, {text: 'Delta'}]});
+
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').nth(2).focus();
+        await expect.poll(() => focusedItem(page)).toBe('Gamma');
+
+        await page.keyboard.press('End');
+        await expect.poll(() => focusedItem(page)).toBe('Delta');
+
+        await page.keyboard.press('Home');
+        await expect.poll(() => focusedItem(page)).toBe('Beta')
+    });
+
+    for (const [label, middleRow] of [['a disabled row', {text: 'Locked', disabled: true}], ['a separator', {separator: true}]]) {
+        test(`a press on ${label} keeps the menu open, with focus where it was`, async ({page}) => {
+            const menus = page.locator('.neo-menu-list');
+
+            menuId = await createMenu(page, {items: [{text: 'Alpha'}, middleRow, {text: 'Gamma'}]});
+
+            await expect(menus).toHaveCount(1);
+            await page.locator('.neo-menu-list .neo-list-item').first().focus();
+            await expect.poll(() => focusedItem(page)).toBe('Alpha');
+
+            await pressRow(page, '.neo-menu-list .neo-list-item:nth-child(2)');
+
+            // A dismissal lands after the focus manager's leave gap, and absence cannot be polled for: outlast it
+            await page.waitForTimeout(300);
+
+            await expect(menus).toHaveCount(1);
+            expect(await focusedItem(page)).toBe('Alpha');
+
+            // CONTROL: a row the Navigator does take still activates
+            await page.getByText('Gamma', {exact: true}).click();
+            await expect(menus).toHaveCount(0)
+        })
+    }
+
+    test('CONTROL: after a press on a disabled row, a press outside the menu still dismisses it', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: [{text: 'Alpha'}, {text: 'Locked', disabled: true}, {text: 'Gamma'}]});
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+        await expect.poll(() => focusedItem(page)).toBe('Alpha');
+
+        // Outlast the focus manager's leave gap before reading an absence, as above
+        await pressRow(page, '.neo-menu-list .neo-list-item:nth-child(2)');
+        await page.waitForTimeout(300);
+        await expect(menus).toHaveCount(1);
+
+        await page.mouse.click(600, 400);
+        await expect(menus).toHaveCount(0)
+    });
+
+    test('an embedded menu keeps focus on its active item when a press lands on a disabled row', async ({page}) => {
+        menuId = await createMenu(page, {floating: false, items: [{text: 'Alpha'}, {text: 'Locked', disabled: true}, {text: 'Gamma'}]});
+
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+        await expect.poll(() => focusedItem(page)).toBe('Alpha');
+
+        await pressRow(page, '.neo-menu-list .neo-list-item:nth-child(2)');
+
+        // A blur is synchronous with the press, but let a late one land before reading
+        await page.waitForTimeout(300);
+
+        expect(await focusedItem(page)).toBe('Alpha')
+    });
+
+    test('a press outside the menu\'s client area, where its scrollbar lies, keeps its default', async ({page}) => {
+        // Headless Chromium draws no scrollbars. A right border lies outside the client area exactly as one would.
+        menuId = await createMenu(page, {floating: false, style: {borderRight: '16px solid'}});
+
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+
+        const prevented = await page.evaluate(id => {
+            const
+                menu               = document.getElementById(id),
+                {left, right, top} = menu.getBoundingClientRect(),
+                press              = clientX => {
+                    const event = new MouseEvent('mousedown', {bubbles: true, cancelable: true, clientX, clientY: top + 4});
+
+                    menu.dispatchEvent(event);
+
+                    return event.defaultPrevented
+                };
+
+            return {inside: press(left + 4), outside: press(right - 8)}
+        }, menuId);
+
+        expect(prevented).toEqual({inside: true, outside: false})
+    })
+});
+
 test.describe('Neo.menu.List focus across a reopen', () => {
     test('a menu shown again inside the focus gap stays open', async ({page}) => {
         menuId = await createMenu(page);
