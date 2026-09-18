@@ -64,6 +64,7 @@
 import {execFileSync}  from 'child_process';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import isEntryModule   from './isEntryModule.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       repoRoot  = path.resolve(__dirname, '../..'),
@@ -461,6 +462,6 @@ function main() {
     )
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isEntryModule(import.meta.url)) {
     main()
 }

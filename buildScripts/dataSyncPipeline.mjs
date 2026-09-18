@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import {spawn}         from 'node:child_process';
-import path            from 'node:path';
-import process         from 'node:process';
-import {fileURLToPath} from 'node:url';
+import {spawn}       from 'node:child_process';
+import path          from 'node:path';
+import process       from 'node:process';
+import isEntryModule from './util/isEntryModule.mjs';
 
 import {
     DEFAULT_CORPUS_PATH,
@@ -1013,10 +1013,7 @@ export async function runDataSyncPipeline({
     throw new Error(`Data Sync exhausted ${maxAttempts} attempts without a terminal result`)
 }
 
-const modulePath   = fileURLToPath(import.meta.url);
-const cliEntryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
-
-if (cliEntryPath === modulePath) {
+if (isEntryModule(import.meta.url)) {
     runDataSyncPipeline().catch(error => {
         console.error(`[DataSync] ${error.message}`);
         process.exitCode = 1

@@ -26,6 +26,7 @@
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import isEntryModule   from './isEntryModule.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       repoRoot  = path.resolve(__dirname, '../..'),
@@ -143,7 +144,7 @@ export function collectThemeCoverageFailures({
 
 // ─────────────────────────────── CLI ───────────────────────────────
 // Only when run directly (`node …/check-theme-coverage.mjs`), not when imported by the spec.
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isEntryModule(import.meta.url)) {
     const failures = collectThemeCoverageFailures();
 
     if (failures.length) {

@@ -233,8 +233,9 @@ class Base {}
             fsMod.mkdirSync(guardDir, {recursive: true});
             fsMod.mkdirSync(pathMod.join(fixture, 'src'), {recursive: true});
 
-            // The guard under test, byte-for-byte — not a reimplementation.
+            // The guard under test, byte-for-byte — not a reimplementation — with the entry helper it imports.
             fsMod.copyFileSync(pathMod.join(repoRoot, 'buildScripts/util/check-class-module-scope.mjs'), guard);
+            fsMod.copyFileSync(pathMod.join(repoRoot, 'buildScripts/util/isEntryModule.mjs'), pathMod.join(guardDir, 'isEntryModule.mjs'));
             fsMod.writeFileSync(baseline, '[]\n');
             fsMod.writeFileSync(
                 pathMod.join(fixture, 'src', 'Probe.mjs'),
@@ -267,7 +268,7 @@ class Base {}
             // checked. This is what the previous copied-expression arm could not detect.
             fsMod.writeFileSync(baseline, '[]\n');
             fsMod.writeFileSync(guard, fsMod.readFileSync(guard, 'utf8').replace(
-                'if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {',
+                'if (isEntryModule(import.meta.url)) {',
                 'if (import.meta.url === `file://${process.argv[1]}`) {'
             ));
 
@@ -286,23 +287,24 @@ class Base {}
         // `import.meta.url` percent-encodes and resolves symlinks;
         // `process.argv[1]` does neither, so the string comparison is false and the main block never
         // runs. Executed rather than asserted about, in a real directory whose name has a space.
-        const {execFileSync} = await import('node:child_process'),
-              fsMod          = await import('node:fs'),
-              osMod          = await import('node:os'),
-              pathMod        = await import('node:path');
+        const {execFileSync}                 = await import('node:child_process'),
+              fsMod                          = await import('node:fs'),
+              osMod                          = await import('node:os'),
+              pathMod                        = await import('node:path'),
+              {fileURLToPath, pathToFileURL} = await import('node:url'),
+              helper                         = pathMod.resolve(fileURLToPath(import.meta.url), '../../../../../../buildScripts/util/isEntryModule.mjs');
 
-        // realpath the tmpdir first: on macOS `/tmp` is a symlink to `/private/tmp`, which makes BOTH
-        // predicates false and would hide the difference this arm exists to show.
+        // realpath the tmpdir first: on macOS `/tmp` is a symlink to `/private/tmp`, which would fail the string form
+        // for a different reason than the space this arm isolates.
         const base   = fsMod.mkdtempSync(pathMod.join(fsMod.realpathSync(osMod.tmpdir()), 'neo-entry-')),
               spaced = pathMod.join(base, 'has space'),
               probe  = pathMod.join(spaced, 'probe.mjs');
 
         fsMod.mkdirSync(spaced);
         fsMod.writeFileSync(probe, [
-            `import path            from 'node:path';`,
-            `import {fileURLToPath} from 'node:url';`,
+            `import isEntryModule from ${JSON.stringify(pathToFileURL(helper).href)};`,
             `const fragile = import.meta.url === \`file://\${process.argv[1]}\`;`,
-            `const robust  = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);`,
+            'const robust  = isEntryModule(import.meta.url);',
             `console.log(JSON.stringify({fragile, robust}));`
         ].join('\n'));
 
@@ -312,8 +314,8 @@ class Base {}
             // NEGATIVE control: the form this guard originally copied does not fire here.
             expect(observed.fragile, 'the `file://` string form misses a space-containing path').toBe(false);
 
-            // POSITIVE control: the form this guard now uses does.
-            expect(observed.robust, 'the resolve/fileURLToPath form fires').toBe(true)
+            // POSITIVE control: the helper this guard now calls does.
+            expect(observed.robust, 'isEntryModule() fires').toBe(true)
         } finally {
             fsMod.rmSync(base, {recursive: true, force: true})
         }

@@ -4,6 +4,7 @@ import {readFileSync}  from 'node:fs';
 import path            from 'node:path';
 import process         from 'node:process';
 import {fileURLToPath} from 'node:url';
+import isEntryModule   from './isEntryModule.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -212,9 +213,7 @@ function listSpecFiles() {
 // module reading the repo and calling `process.exit` on the way in — the first version of this file did
 // exactly that and killed the test worker, which is the same class of defect the check exists to catch:
 // the guard was not exercised against the consumer that would actually load it.
-const invokedAsCli = process.argv[1] && path.resolve(process.argv[1]) === __filename;
-
-if (!invokedAsCli) {
+if (!isEntryModule(import.meta.url)) {
     // Imported for its predicates; nothing else to do.
 } else {
 

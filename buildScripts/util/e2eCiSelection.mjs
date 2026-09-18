@@ -1,6 +1,7 @@
 import {readdirSync}              from 'fs';
 import {join}                     from 'path';
 import {selectExternalBrainSpecs} from '../../test/playwright/externalBrainSelection.mjs';
+import isEntryModule              from './isEntryModule.mjs';
 
 /**
  * @summary The one place that decides which e2e specs the CI tier runs, and the one place that
@@ -177,7 +178,7 @@ export function coverageLine(root = process.cwd()) {
         `The job summary lists every exclusion class and its owner.`
 }
 
-if (process.argv[1]?.endsWith('e2eCiSelection.mjs')) {
+if (isEntryModule(import.meta.url)) {
     const mode = process.argv[2];
 
     if (mode === '--coverage-line') {

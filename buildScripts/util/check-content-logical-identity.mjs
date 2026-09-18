@@ -2,6 +2,7 @@ import {readdirSync, statSync} from 'node:fs';
 import path                    from 'node:path';
 import process                 from 'node:process';
 import {fileURLToPath}         from 'node:url';
+import isEntryModule           from './isEntryModule.mjs';
 
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
@@ -289,9 +290,7 @@ export function findOrdinalMisplacements({archiveRoot}) {
     return findings.sort((a, b) => a.bucket.localeCompare(b.bucket))
 }
 
-const invokedAsCli = process.argv[1] && path.resolve(process.argv[1]) === __filename;
-
-if (invokedAsCli) {
+if (isEntryModule(import.meta.url)) {
     const
         archiveRoot = path.join(ROOT, ARCHIVE_REL),
         args        = process.argv.slice(2),

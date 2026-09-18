@@ -4,6 +4,7 @@ import {EOL}                                                       from 'node:os
 import path                                                        from 'node:path';
 import process                                                     from 'node:process';
 import {fileURLToPath}                                             from 'node:url';
+import isEntryModule                                               from './isEntryModule.mjs';
 import {composeNpmIgnore, HEADER_MARKER, isRule, normalizePattern} from './npmIgnoreComposition.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -240,7 +241,7 @@ export function parsePackOutput(raw) {
     return JSON.parse(raw.slice(start))
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isEntryModule(import.meta.url)) {
     const lost = findRulesLostOnRelease(
         readFileSync(path.join(ROOT, '.npmignore'), 'utf8'),
         readFileSync(path.join(ROOT, '.gitignore'), 'utf8'),

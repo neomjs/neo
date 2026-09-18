@@ -4,6 +4,7 @@ import {readFileSync}  from 'node:fs';
 import path            from 'node:path';
 import process         from 'node:process';
 import {fileURLToPath} from 'node:url';
+import isEntryModule   from './isEntryModule.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -245,13 +246,10 @@ export function describeAddedHelpers(added, findings) {
         .map(entry => `  ${entry.file}:${entry.line} declares ${entry.name}() at module scope`)
 }
 
-// `import.meta.url === `file://${process.argv[1]}`` is WRONG, and wrong in the worst direction: it
-// percent-encodes (a checkout path containing a space yields `%20` on one side and a raw space on the
-// other) and it does not resolve symlinks, so the comparison is false and this block never runs — the
-// guard exits 0 having checked nothing. A gate that passes because it did not execute is the exact
-// failure this file exists to prevent. Six sibling guards already use the form below; three still use
-// the string form and inherit the defect.
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// A guard that passes because its CLI block never ran is the exact failure this file exists to prevent. Comparing
+// `process.argv[1]` by hand misses a checkout path containing a space, or one reached through a symlink, and exits 0
+// having checked nothing; isEntryModule() resolves both sides.
+if (isEntryModule(import.meta.url)) {
     const files = execFileSync('git', ['ls-files', ...SCAN_ROOTS], {cwd: ROOT, encoding: 'utf8'})
         .split('\n')
         .filter(file => file.endsWith('.mjs'));

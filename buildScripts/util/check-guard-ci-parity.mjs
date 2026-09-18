@@ -50,10 +50,11 @@
  * a tree that has a `lint-staged` population to mirror.
  */
 
-import fs        from 'fs';
-import path      from 'path';
-import url       from 'url';
-import * as yaml from 'js-yaml';
+import fs            from 'fs';
+import path          from 'path';
+import url           from 'url';
+import * as yaml     from 'js-yaml';
+import isEntryModule from './isEntryModule.mjs';
 
 const
     __filename = url.fileURLToPath(import.meta.url),
@@ -527,6 +528,6 @@ function runLint() {
 
 // Import-safe: `check-guard-ci-parity.spec.mjs` imports SCAN_SURFACE from this module, and a bare
 // `process.exit()` at module scope would terminate the test process on import.
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isEntryModule(import.meta.url)) {
     process.exit(runLint().exitCode)
 }

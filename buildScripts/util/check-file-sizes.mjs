@@ -6,6 +6,7 @@ import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 import path                                      from 'node:path';
 import process                                   from 'node:process';
 import {fileURLToPath}                           from 'node:url';
+import isEntryModule                             from './isEntryModule.mjs';
 
 const __filename = fileURLToPath(import.meta.url),
       __dirname  = path.dirname(__filename),
@@ -640,6 +641,6 @@ async function main() {
     }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isEntryModule(import.meta.url)) {
     await main()
 }

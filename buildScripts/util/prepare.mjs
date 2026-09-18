@@ -3,6 +3,7 @@ import {existsSync, readFileSync} from 'node:fs';
 import path                       from 'node:path';
 import process                    from 'node:process';
 import {fileURLToPath}            from 'node:url';
+import isEntryModule              from './isEntryModule.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -101,8 +102,6 @@ export function runPrepare({root=repoRoot, env=process.env, spawnFn=spawnSync}={
     return {skipped: null, stage: 'husky', status: 0}
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === __filename;
-
-if (isMain) {
+if (isEntryModule(import.meta.url)) {
     process.exit(runPrepare().status)
 }

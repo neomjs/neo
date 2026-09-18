@@ -1,6 +1,5 @@
-import {pathToFileURL} from 'node:url';
-
 import {ensureDevelopmentThemeAssets} from '../../../buildScripts/util/developmentThemeAssets.mjs';
+import isEntryModule                  from '../../../buildScripts/util/isEntryModule.mjs';
 
 /**
  * @summary Ensures ordinary source-mode E2E starts only after this checkout owns a complete,
@@ -14,6 +13,6 @@ export default async function globalSetup() {
 
 // Playwright starts `webServer` before its `globalSetup` hook. Executing this same module as the
 // first web-server command step closes that ordering gap; the later hook revalidates and no-ops.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isEntryModule(import.meta.url)) {
     await globalSetup()
 }
