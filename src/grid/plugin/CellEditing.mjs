@@ -509,6 +509,9 @@ class CellEditing extends Plugin {
     /**
      * Edits a cell: a valid draft of another cell is committed first, and the editor is embodied, then focused once
      * it mounts. Activating the cell already being edited only returns focus to its editor.
+     *
+     * Enter in the editor is the grid's commit, so a picker editor starts with
+     * {@link Neo.form.field.Picker#showPickerOnEnter} off: its own Enter would open a picker for the edit it ends.
      * @param {Object} record
      * @param {String} dataField
      * @param {Boolean} [allowSuspended=false] true starts the edit on a cell whose Row is not rendered: the session is
@@ -539,7 +542,8 @@ class CellEditing extends Plugin {
         }
 
         editor = Neo.create({
-            module   : TextField,
+            module           : TextField,
+            showPickerOnEnter: false,
             ...column.editor,
             appName  : owner.appName,
             cls      : NeoArray.union(column.editor?.cls || [], ['neo-grid-editor']),

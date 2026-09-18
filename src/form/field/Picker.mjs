@@ -76,6 +76,12 @@ class Picker extends Text {
          */
         pickerWidth: null,
         /**
+         * True opens the closed picker on Enter. A host whose Enter means something else turns it off and keeps the
+         * key: {@link Neo.grid.plugin.CellEditing} commits on it.
+         * @member {Boolean} showPickerOnEnter=true
+         */
+        showPickerOnEnter: true,
+        /**
          * @member {Boolean} showPickerOnFocus=false
          * @protected
          */
@@ -294,13 +300,14 @@ class Picker extends Text {
     }
 
     /**
+     * Opens the closed picker, unless {@link #showPickerOnEnter} leaves Enter to the field's host.
      * @param {Object} data
      * @param {Function} [callback]
      * @param {Object} [callbackScope]
      * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
-        !this.pickerIsMounted && this.showPicker(callback, callbackScope)
+        !this.pickerIsMounted && this.showPickerOnEnter && this.showPicker(callback, callbackScope)
     }
 
     /**
@@ -395,6 +402,7 @@ class Picker extends Text {
             pickerIsMounted  : me.pickerIsMounted,
             pickerMaxHeight  : me.pickerMaxHeight,
             pickerWidth      : me.pickerWidth,
+            showPickerOnEnter: me.showPickerOnEnter,
             showPickerOnFocus: me.showPickerOnFocus
         }
     }
