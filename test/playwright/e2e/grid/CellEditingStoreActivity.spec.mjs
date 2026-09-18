@@ -6,7 +6,7 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
  * update, sort, filter or removal moves or ends its projection without committing, cancelling or dropping the draft.
  *
  * Fixture: `test/playwright/component/apps/grid-cell-editing`, grid `#grid-cell-editing-pooled`, whose 400 rows let a
- * sort or a filter take the edited record out of the row pool. The fixture's `storeDriver.mjs` runs one store
+ * sort or a filter take the edited record out of the row pool. The fixture's `gridDriver.mjs` runs one store
  * operation per call inside the App Worker, where no pointer or focus change is involved.
  *
  * Every arm edits record 3's `c3` and types a draft first, and waits on the DOM, never on time: a row leaving or
@@ -31,7 +31,7 @@ const recordIdOf = (page, text) => page.locator(`${GRID} .neo-grid-cell[data-fie
  */
 const drive = async (page, action) => {
     const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/storeDriver.mjs?action=${action}&n=${++calls}`);
+        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++calls}`);
 
     expect(success, `the ${action} driver ran`).toBe(true)
 };
