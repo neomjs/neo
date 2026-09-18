@@ -6,8 +6,8 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
  * pointer and keyboard: its text and number editors activate, commit, discard, and are refused where they must be.
  *
  * The sibling `CellEditingPooling` spec proves one session survives pooling, on a synthetic text-only fixture. This
- * one owns the public example: a number editor beside the text one, a non-editable column, and the toolbar switch
- * that disables the plugin.
+ * one owns the public example: number and date editors beside the text one, a non-editable column, and the toolbar
+ * switch that disables the plugin. The country editor has no arm yet: it filters the store its column renders from.
  *
  * Two planes, as in the sibling. The DOM shows where the editor is embodied and where focus is. A commit destroys the
  * editor, so the text a cell shows afterwards is its Row rendering the record again: a draft that never reached the
@@ -32,6 +32,11 @@ const recordIdOf = (page, githubId) => page.locator(`${GRID} .neo-grid-cell[data
     .getByText(githubId, {exact: true}).getAttribute('data-record-id');
 
 const focusIsOnView = page => page.evaluate(() => document.activeElement?.classList.contains('neo-grid-view') === true);
+
+// A picker field's floating picker lives on the document body, outside the grid
+const PICKER = '.neo-picker-container';
+
+const pickerHasFocus = page => page.evaluate(picker => !!document.activeElement?.closest(picker), PICKER);
 
 /**
  * Replaces the editor's whole text by keyboard, wherever activation left the caret.
@@ -182,5 +187,80 @@ test.describe('Grid cell editing on the public example', () => {
         await expect.poll(() => editingIn(page, 'firstname', controlId), {message: 're-enabled, the same gesture edits'}).toBe(true);
 
         expect(await page.evaluate(() => window.__leaks), 'no editor while the plugin was disabled').toEqual([])
+    });
+
+    // A picker field floats its picker on the document body and owns it in the component tree, so focus moving between
+    // editor and picker stays inside the edit, and only leaving both ends it.
+    test('date: the trigger opens the picker inside the session, and a picked day commits on the next click elsewhere', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters'),
+              otherId  = await recordIdOf(page, 'tobiu'),
+              before   = await cell(page, 'randomDate', recordId).textContent();
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+
+        await page.locator(`${EDITOR} .neo-field-trigger`).click();
+        await expect(page.locator(PICKER)).toBeVisible();
+        await expect.poll(() => pickerHasFocus(page), {message: 'the date selector took focus'}).toBe(true);
+        await expect(page.locator(EDITOR), 'focus entering the picker kept the session').toHaveCount(1);
+
+        await page.locator(`${PICKER} [id$="__2024-12-12"]`).click();
+        await expect(page.locator(INPUT)).toHaveValue('2024-12-12');
+
+        await cell(page, 'firstname', otherId).click();
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(page.locator(PICKER)).toHaveCount(0);
+        await expect(cell(page, 'randomDate', recordId), 'the cell renders another date').not.toHaveText(before);
+
+        // The cell text is locale-formatted; the editor reads the record back in ISO form
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect(page.locator(INPUT), 'the picked day reached the record').toHaveValue('2024-12-12')
+    });
+
+    test('date: Escape closes the picker first, the next Escape cancels and hands focus back to the View', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters'),
+              before   = await cell(page, 'randomDate', recordId).textContent();
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+
+        await page.locator(`${EDITOR} .neo-field-trigger`).click();
+        await expect.poll(() => pickerHasFocus(page)).toBe(true);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(PICKER)).toHaveCount(0);
+        await expect.poll(() => editingIn(page, 'randomDate', recordId), {message: 'the first Escape only closed the picker'}).toBe(true);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'randomDate', recordId)).toHaveText(before);
+
+        // Focus visiting the picker never left the editor, so it still hands focus back to where the edit took it from
+        await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true)
+    });
+
+    test('date: Enter after a picker visit commits and hands focus back to the View', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+
+        await page.locator(`${EDITOR} .neo-field-trigger`).click();
+        await page.locator(`${PICKER} [id$="__2024-12-12"]`).click();
+        await expect(page.locator(INPUT)).toHaveValue('2024-12-12');
+
+        await page.keyboard.press('Escape');
+        await expect.poll(() => editingIn(page, 'randomDate', recordId), {message: 'back in the editor, picker closed'}).toBe(true);
+
+        // The field's own Enter shows its picker again while the grid's Enter ends the edit. The picker dies with the
+        // editor, and must not take focus with it: both are gone before focus is read
+        await page.keyboard.press('Enter');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(page.locator(PICKER)).toHaveCount(0);
+        await expect.poll(() => focusIsOnView(page), {message: 'focus stayed on the View'}).toBe(true);
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect(page.locator(INPUT), 'the picked day reached the record').toHaveValue('2024-12-12')
     })
 });

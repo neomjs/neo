@@ -37,10 +37,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import Picker         from '../../../../../src/form/field/Picker.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../src/Neo.mjs';
+import * as core        from '../../../../../src/core/_export.mjs';
+import Component        from '../../../../../src/component/Base.mjs';
+import ComponentManager from '../../../../../src/manager/Component.mjs';
+import FocusManager     from '../../../../../src/manager/Focus.mjs';
+import Picker           from '../../../../../src/form/field/Picker.mjs';
 
 class TestPicker extends Picker {
     static config = {
@@ -115,25 +118,57 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
         expect(dismissals).toBe(1)
     });
 
-    test('preserves both focus-island directions and Escape semantics', () => {
-        const picker = field.picker,
-              escape = {};
+    test('the field owns its picker: focus moving between them never leaves the field, leaving both dismisses once', async () => {
+        const picker  = field.picker,
+              outside = Neo.create(Component, {appName, id: Neo.getId('picker-focus-outside')}),
+              leaves  = [],
+              escape  = {};
         let   dismissals = 0;
 
+        /**
+         * One DOM focus move as the main thread reports it: a focusout, and the focusin inside the manager's gap.
+         * The component path is the one `manager.DomEvent` hands over — read from the component tree.
+         */
+        const moveFocusTo = id => {
+            const [last] = FocusManager.history;
+
+            // The first focus enters; every later one is a move
+            last && FocusManager.onFocusout({componentPath: last.componentPath, data: {path: []}});
+            FocusManager.onFocusin({componentPath: ComponentManager.getParentPath([id]), data: {path: [{id}]}})
+        };
+
         field.hidePicker = () => dismissals++;
+        field.on('focusLeave', () => leaves.push('field'));
 
-        field.onFocusLeave({oldPath: [{id: picker.id}]});
-        picker.onFocusLeave({oldPath: [{id: field.id}]});
+        expect(ComponentManager.getParentPath([picker.id]), 'the picker sits under its field in the tree focus reads')
+            .toEqual([picker.id, field.id]);
 
+        moveFocusTo(field.id);
+        moveFocusTo(picker.id);
+
+        expect(field.containsFocus, 'the field keeps focus while its picker holds it').toBe(true);
+        expect(picker.containsFocus).toBe(true);
+
+        moveFocusTo(field.id);
+
+        expect(leaves, 'neither direction is a leave for the field').toEqual([]);
         expect(dismissals).toBe(0);
 
-        field.onFocusLeave({oldPath: [{id: 'focusable-outside'}]});
-        picker.onFocusLeave({oldPath: [{id: 'focusable-outside'}]});
+        moveFocusTo(picker.id);
+        moveFocusTo(outside.id);
+
+        expect(leaves, 'leaving field and picker is one leave').toEqual(['field']);
+        expect(field.containsFocus).toBe(false);
+        expect(dismissals).toBe(1);
 
         field.pickerIsMounted = true;
         expect(field.onKeyDownEscape(escape)).toBe(false);
         expect(escape.cancelBubble).toBe(true);
-        expect(dismissals).toBe(3)
+        expect(dismissals).toBe(2);
+
+        // The manager's pending focusout timers must not outlive the arm
+        await new Promise(resolve => setTimeout(resolve, FocusManager.maxFocusInOutGap + 20));
+        outside.destroy()
     });
 
     test('removes the exact app-root listener during destroy', () => {
