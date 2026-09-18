@@ -76,6 +76,31 @@ test.describe('check-secrets', () => {
         ])
     });
 
+    test("a comment's closer is no reason, and neither is the credential beside the marker", () => {
+        const key = planted['google-api-key'];
+
+        expect(findSecrets([
+            `${key} <!-- secret-scan-ok: -->`,
+            `/* secret-scan-ok: */ const mapsKey = '${key}'`,
+            `{/* secret-scan-ok: */} ${key}`,
+            `// secret-scan-ok: ${key}`,
+            `${key} <!-- secret-scan-ok: a revoked format sample -->`,
+            `/* secret-scan-ok: the placeholder the tutorial replaces */ '${key}'`
+        ].join('\n'))).toEqual([
+            {line: 1, kind: 'allow-marker-without-reason'},
+            {line: 2, kind: 'allow-marker-without-reason'},
+            {line: 3, kind: 'allow-marker-without-reason'},
+            {line: 4, kind: 'allow-marker-without-reason'}
+        ])
+    });
+
+    test('a marker on a line without a credential excuses nothing, and is nothing to report', () => {
+        expect(findSecrets([
+            "export const ALLOW_MARKER = 'secret-scan-ok:';",
+            '// secret-scan-ok:'
+        ].join('\n'))).toEqual([])
+    });
+
     test('the report names file, line and kind, and never the credential', () => {
         const
             dir  = fs.mkdtempSync(path.join(os.tmpdir(), 'check-secrets-')),
