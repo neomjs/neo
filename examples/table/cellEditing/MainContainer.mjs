@@ -45,7 +45,7 @@ class MainContainer extends ConfigurationViewport {
      */
     createConfigurationComponents() {
         let me               = this,
-            {selectionModel} = me.exampleComponent.view;
+            {selectionModel} = me.exampleComponent.body;
 
         const selectionModelRadioDefaults = {
             module        : Radio,
@@ -181,7 +181,7 @@ class MainContainer extends ConfigurationViewport {
      */
     onRadioViewChange(config, value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.exampleComponent.view[config] = value
+            this.exampleComponent.body[config] = value
         }
     }
 }
