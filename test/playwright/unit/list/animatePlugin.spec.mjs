@@ -538,6 +538,31 @@ test.describe('Neo.list.plugin.Animate', () => {
         expect([1, 2, 4].map(opacityOf)).not.toContain(0);
 
         list.destroy()
+    });
+
+    test('a list destroyed inside a transition takes its settle timer with it', async () => {
+        const {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 300}});
+
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        await list.timeout(120);                              // the settle timer is armed, the transition runs
+
+        const
+            armed   = plugin.transitionTimeoutId,
+            cleared = [],
+            prior   = globalThis.clearTimeout;
+
+        expect(armed).toBeTruthy();
+
+        // left armed, it fires on a plugin without an owner — inside whichever test runs next
+        globalThis.clearTimeout = id => {cleared.push(id); prior(id)};
+
+        try {
+            list.destroy()
+        } finally {
+            globalThis.clearTimeout = prior
+        }
+
+        expect(cleared).toContain(armed)
     })
 });
 

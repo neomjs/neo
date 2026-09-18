@@ -409,11 +409,14 @@ class Animate extends Base {
     }
 
     /**
+     * @summary Takes the settle timer along: left armed, it rebuilds the items of an owner that is gone.
      * @param {Object} args
      */
     destroy(...args) {
         let me      = this,
             ownerId = me.owner?.id;
+
+        clearTimeout(me.transitionTimeoutId);
 
         me.owner?.un({createItems: me.onOwnerCreateItems, scope: me});
         me.addResizeObserver(false);
