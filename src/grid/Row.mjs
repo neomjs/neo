@@ -180,11 +180,11 @@ class Row extends Component {
             dataField,
             gridContainer,
             record,
-            row: me,
+            row      : me,
             rowIndex,
             silent,
             store,
-            value: fieldValue
+            value    : fieldValue
         };
 
         rendererOutput = column.renderer.call(column.rendererScope || gridContainer, rendererConfig);
@@ -306,9 +306,14 @@ class Row extends Component {
             cellConfig.cn = rendererOutput
         }
 
-        // The cell of the active edit embeds its editor instead of the value. The editor's parent follows the Row
-        // rendering it, so a pool rebinding that drops the cell unmounts the editor, and the next render embeds it again.
-        if (cache.editSession?.dataField === dataField && cache.editSession.recordId === recordId) {
+        // The cell of the active edit embeds its editor instead of the value, unless a lock change holds it. The
+        // editor's parent follows the Row rendering it, so a pool rebinding that drops the cell unmounts the editor,
+        // and the next render embeds it again.
+        if (
+            cache.editSession?.dataField === dataField &&
+            cache.editSession.recordId === recordId &&
+            !cache.editSession.held
+        ) {
             let {editor} = cache.editSession;
 
             editor.parentId !== me.id && (editor.parentId = me.id);
@@ -350,13 +355,13 @@ class Row extends Component {
      * @param {Boolean} [recycle=true] True to attempt reusing existing cell VDOMs.
      */
     createVdom(silent=false, recycle=true) {
-        let me               = this,
-            record           = me.record,
-            rowIndex         = me.rowIndex,
-            gridBody         = me.parent, // The Row is an item of Body
-            gridContainer    = gridBody.gridContainer,
-            vdom             = me.vdom,
-            {columns}        = gridContainer,
+        let me            = this,
+            record        = me.record,
+            rowIndex      = me.rowIndex,
+            gridBody      = me.parent, // The Row is an item of Body
+            gridContainer = gridBody.gridContainer,
+            vdom          = me.vdom,
+            {columns}     = gridContainer,
             cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
 
         if (!record) {

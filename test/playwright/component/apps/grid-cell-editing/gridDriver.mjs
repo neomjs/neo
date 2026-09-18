@@ -1,7 +1,7 @@
 /**
  * @module test/playwright/component/apps/grid-cell-editing/gridDriver
- * @summary Drives `#grid-cell-editing-pooled` from inside the App Worker: one store or column operation per import,
- * named by the module's own `action` query parameter.
+ * @summary Drives `#grid-cell-editing-pooled` from inside the App Worker: one store, column or edit operation per
+ * import, named by the module's own `action` query parameter.
  *
  * A spec cannot sort, filter or lock a column by pointer without ending the edit it wants to observe: a header click
  * moves focus, and focus leaving the editor commits. `Neo.worker.App.loadModule()` imports this module where the grid
@@ -12,13 +12,16 @@
  * `c4`, so the row's repaint is visible while the edited cell itself shows the editor.
  */
 const {searchParams}   = new URL(import.meta.url),
-      {columns, store} = Neo.getComponent('grid-cell-editing-pooled');
+      grid             = Neo.getComponent('grid-cell-editing-pooled'),
+      {columns, store} = grid;
 
 const actions = {
     clearFilter : () => store.clearFilters(),
     filterOut   : () => {store.filters = [{property: 'c3', operator: 'like', value: 'r1'}]},
+    hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
     lockEnd     : () => {columns.get('c3').locked = 'end'},
     lockStart   : () => {columns.get('c3').locked = 'start'},
+    release     : () => grid.getPlugin('grid-cell-editing').releaseEdit(),
     remove      : () => store.remove(3),
     sortAsc     : () => store.sort({property: 'id', direction: 'ASC'}),
     sortDesc    : () => store.sort({property: 'id', direction: 'DESC'}),
