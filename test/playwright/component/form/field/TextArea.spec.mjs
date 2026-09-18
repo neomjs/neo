@@ -74,4 +74,43 @@ test.describe('Neo.form.field.TextArea', () => {
         expect(sizes.fieldsetHeight).toBeGreaterThan(sizes.textAreaHeight);
         expect(sizes.textAreaHeight).toBeGreaterThan(60);
     });
+
+    // A render that writes the value back while the user types is harmless only while the App Worker keeps up: once it
+    // lags, the write carries an older value than the DOM holds. The wrapped setter sees every programmatic write, and
+    // none of the typing. The field's own label is the barrier: a render after the last key has landed when it shows.
+    test('typing causes no programmatic write of the value, and a value set in code still arrives', async ({page}) => {
+        fieldsetId = await createFieldsetWithTextArea(page, {id: 'textarea-sync-probe'});
+
+        const input = page.locator(`#${fieldsetId} textarea.neo-textfield-input`);
+
+        await input.click();
+
+        await page.evaluate(() => {
+            const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+
+            window.__valueWrites = [];
+
+            Object.defineProperty(HTMLTextAreaElement.prototype, 'value', {
+                configurable: true,
+                get() {return descriptor.get.call(this)},
+                set(value) {
+                    window.__valueWrites.push(value);
+                    descriptor.set.call(this, value)
+                }
+            });
+        });
+
+        await page.keyboard.type('two lines\nof notes');
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'textarea-sync-probe', labelText: 'Rendered'}));
+        await expect(page.locator(`#${fieldsetId} .neo-textfield-label`)).toHaveText('Rendered');
+
+        await expect(input).toHaveValue('two lines\nof notes');
+        expect(await page.evaluate(() => window.__valueWrites), 'no render wrote the text area').toEqual([]);
+
+        // CONTROL: the instrument sees a write, and a value set in code is one
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'textarea-sync-probe', value: 'set in code'}));
+        await expect(input).toHaveValue('set in code');
+        expect(await page.evaluate(() => window.__valueWrites)).toEqual(['set in code']);
+    });
 });
