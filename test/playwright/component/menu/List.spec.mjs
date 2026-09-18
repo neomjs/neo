@@ -632,6 +632,241 @@ test.describe('Neo.menu.List keyboard cascade', () => {
     })
 });
 
+test.describe('Neo.menu.List hover and keys across the cascade', () => {
+    /**
+     * @summary Three levels with a leaf beside each parent. The leaves carry routes, so a choice is countable.
+     * @type {Object[]}
+     */
+    const cascadeItems = [{
+        route: '/open',
+        text : 'Open'
+    }, {
+        items: [{
+            items: [{route: '/copy-name', text: 'Copy name'}],
+            text : 'Details'
+        }, {
+            route: '/props',
+            text : 'Properties'
+        }],
+        text: 'Inspect'
+    }];
+
+    /**
+     * @summary Records every hash the page takes. `Neo.Main.setRoute` writes `location.hash`, so a route that
+     * fires twice leaves two entries.
+     * @param {Object} page
+     * @returns {Promise<void>}
+     */
+    function recordHashes(page) {
+        return page.evaluate(() => {
+            window.__hashes = [];
+            window.addEventListener('hashchange', () => window.__hashes.push(location.hash))
+        })
+    }
+
+    /**
+     * @summary Walks keyboard focus from `Inspect` down `depth` levels of `cascadeItems`.
+     * @param {Object} page
+     * @param {Number} depth
+     * @returns {Promise<Object>} The menu levels locator
+     */
+    async function focusDown(page, depth) {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: cascadeItems});
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').nth(1).focus();
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        for (const text of ['Details', 'Copy name'].slice(0, depth)) {
+            await page.keyboard.press('ArrowRight');
+            await expect.poll(() => focusedItem(page)).toBe(text)
+        }
+
+        return menus
+    }
+
+    test('arrowing past a parent faster than the rest delay previews nothing, and stopping on it does', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        // A long delay makes "faster than the delay" deterministic
+        menuId = await createMenu(page, {items: [{text: 'Alpha'}, {text: 'Share', items: [{text: 'Email'}]}, {text: 'Gamma'}], subMenuHoverDelay: 1000});
+
+        await expect(menus).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+        await expect.poll(() => focusedItem(page)).toBe('Alpha');
+
+        await page.evaluate(() => {
+            window.__maxLevels = 1;
+
+            new MutationObserver(() => {
+                window.__maxLevels = Math.max(window.__maxLevels, document.querySelectorAll('.neo-menu-list').length)
+            }).observe(document.body, {childList: true, subtree: true})
+        });
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Share');
+
+        // wall-clock-under-test: a pause longer than a mount round trip and shorter than the delay. A rest that did
+        // not wait would have its preview in the DOM by now, where a quicker key press would cancel it unseen
+        await page.waitForTimeout(300);
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Gamma');
+
+        // Outlast the rest the pass started: absence cannot be polled for
+        await page.waitForTimeout(1300);
+        expect(await page.evaluate(() => window.__maxLevels)).toBe(1);
+
+        // CONTROL: the same parent previews once focus stops on it
+        await page.keyboard.press('ArrowUp');
+        await expect.poll(() => focusedItem(page)).toBe('Share');
+        await expect(menus).toHaveCount(2)
+    });
+
+    test('the arrow keys pass over a disabled row and a separator, both ways', async ({page}) => {
+        menuId = await createMenu(page, {items: [{text: 'Alpha'}, {text: 'Beta', disabled: true}, {separator: true}, {text: 'Gamma'}]});
+
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+        await expect.poll(() => focusedItem(page)).toBe('Alpha');
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Gamma');
+
+        await page.keyboard.press('ArrowUp');
+        await expect.poll(() => focusedItem(page)).toBe('Alpha')
+    });
+
+    test('a pointer resting on a disabled parent previews nothing', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: [{text: 'Alpha'}, {text: 'Locked', disabled: true, items: [{text: 'Secret'}]}, {text: 'Gamma'}]});
+
+        await expect(menus).toHaveCount(1);
+
+        // A disabled row takes no pointer events, so `hover()` refuses it: move to its middle by coordinates
+        const {x, y} = await page.evaluate(() => {
+            const row                   = [...document.querySelectorAll('.neo-list-item')].find(node => node.textContent.trim() === 'Locked'),
+                  {height, width, x, y} = row.getBoundingClientRect();
+
+            return {x: x + width / 2, y: y + height / 2}
+        });
+
+        await page.mouse.move(x, y);
+
+        // Outlast the default rest delay before reading an absence
+        await page.waitForTimeout(400);
+        await expect(menus).toHaveCount(1)
+    });
+
+    test('a rest on a root leaf takes a two-level branch down in one step', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: cascadeItems});
+
+        await page.getByText('Inspect', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+        await page.getByText('Details', {exact: true}).hover();
+        await expect(menus).toHaveCount(3);
+
+        await recordLevelCounts(page);
+        await page.getByText('Open', {exact: true}).hover();
+        await expect(menus).toHaveCount(1);
+
+        // Three levels, then one: a level left standing in between would be a level its parent did not take down
+        expect(await levelCounts(page)).toEqual([3, 1])
+    });
+
+    test('a click on a leaf inside a hover preview closes every level and routes once', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: cascadeItems});
+
+        // A preview: focus stays in the root, so the click is the first input the submenu sees
+        await page.getByText('Inspect', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+
+        await recordHashes(page);
+        await recordLevelCounts(page);
+        await page.getByText('Properties', {exact: true}).click();
+        await expect(menus).toHaveCount(0);
+
+        expect(await levelCounts(page)).toEqual([2, 0]);
+        await expect.poll(() => page.evaluate(() => window.__hashes)).toEqual(['#/props'])
+    });
+
+    test('Enter on a leaf two levels down closes every level together and routes once', async ({page}) => {
+        const menus = await focusDown(page, 2);
+
+        await recordHashes(page);
+        await recordLevelCounts(page);
+        await page.keyboard.press('Enter');
+        await expect(menus).toHaveCount(0);
+
+        expect(await levelCounts(page)).toEqual([3, 0]);
+        await expect.poll(() => page.evaluate(() => window.__hashes)).toEqual(['#/copy-name'])
+    });
+
+    test('Escape walks back from depth three one level per press, focusing each parent item, then dismisses', async ({page}) => {
+        const menus = await focusDown(page, 2);
+
+        await page.keyboard.press('Escape');
+        await expect(menus).toHaveCount(2);
+        await expect.poll(() => focusedItem(page)).toBe('Details');
+
+        await page.keyboard.press('Escape');
+        await expect(menus).toHaveCount(1);
+        await expect.poll(() => focusedItem(page)).toBe('Inspect');
+
+        await page.keyboard.press('Escape');
+        await expect(menus).toHaveCount(0)
+    });
+
+    test('arrowing inside a submenu previews and drops its own child level, and never closes itself', async ({page}) => {
+        const menus = await focusDown(page, 1);
+
+        await recordLevelCounts(page);
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Properties');
+
+        // Arriving on Details by a move is a rest: it previews Details' own submenu
+        await page.keyboard.press('ArrowUp');
+        await expect.poll(() => focusedItem(page)).toBe('Details');
+        await expect(menus).toHaveCount(3);
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => focusedItem(page)).toBe('Properties');
+        await expect(menus).toHaveCount(2);
+
+        expect(await levelCounts(page)).toEqual([2, 3, 2])
+    });
+
+    test('Tab out of a submenu dismisses the whole floating cascade', async ({page}) => {
+        const menus = await focusDown(page, 1);
+
+        await page.keyboard.press('Tab');
+        await expect(menus).toHaveCount(0)
+    });
+
+    test('a preview stays while the pointer leaves the menu', async ({page}) => {
+        const menus = page.locator('.neo-menu-list');
+
+        menuId = await createMenu(page, {items: cascadeItems});
+
+        await page.getByText('Inspect', {exact: true}).hover();
+        await expect(menus).toHaveCount(2);
+
+        await page.mouse.move(700, 500);
+
+        // Outlast the rest delay before reading an absence of change
+        await page.waitForTimeout(400);
+        await expect(menus).toHaveCount(2)
+    })
+});
+
 test.describe('Neo.menu.List rows the Navigator skips', () => {
     /**
      * @summary Presses the middle of the first element matching `selector` with the real pointer.

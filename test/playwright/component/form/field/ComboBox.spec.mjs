@@ -242,6 +242,46 @@ test.describe('Neo.form.field.ComboBox', () => {
         await expect(inputField).toHaveValue('Marshall Islands'); // Assuming forceSelection picks the closest value
     });
 
+    test('a press on a disabled row of the open list keeps focus in the input, and the list open', async ({page}) => {
+        // The Navigator drives this list from the input, so focus lives OUTSIDE the list it navigates: the one
+        // consumer where a press on the list's dead space must not move focus at all
+        componentId = await createComboBox(page, {
+            displayField: 'name',
+            store       : {
+                data : [{id: 'a', name: 'Alpha'}, {id: 'b', name: 'Locked', disabled: true}, {id: 'c', name: 'Gamma'}],
+                model: {fields: [{name: 'id', type: 'String'}, {name: 'name', type: 'String'}, {name: 'disabled', type: 'Boolean'}]}
+            },
+            valueField  : 'id'
+        });
+
+        const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`),
+              picker     = page.locator('.neo-picker-container');
+
+        await inputField.click();
+        await page.keyboard.press('ArrowDown');
+        await expect(picker).toBeVisible();
+
+        // A disabled row takes no pointer events, so the press lands on the list itself
+        const {x, y} = await page.evaluate(() => {
+            const row                   = [...document.querySelectorAll('.neo-list-item')].find(node => node.textContent.trim() === 'Locked'),
+                  {height, width, x, y} = row.getBoundingClientRect();
+
+            return {x: x + width / 2, y: y + height / 2}
+        });
+
+        await page.mouse.click(x, y);
+
+        // A blur lands within the focus manager's leave gap: outlast it before reading an absence
+        await page.waitForTimeout(300);
+
+        await expect(inputField).toBeFocused();
+        await expect(picker).toBeVisible();
+
+        // CONTROL: an enabled row still chooses
+        await page.locator('.neo-list-item', {hasText: 'Gamma'}).click();
+        await expect(inputField).toHaveValue('Gamma')
+    });
+
     test('With store as data', async ({page}) => {
         componentId = await createComboBox(page, {
             labelText: 'Foo',
