@@ -18,8 +18,10 @@ import {fileURLToPath} from 'node:url';
  *
  * A line that legitimately carries a credential-shaped literal takes a marker with its reason, in whatever comment
  * syntax the file has: `secret-scan-ok: <why this is not a secret>`. The marker covers its own line only, and a marker
- * without a reason is a finding. A reviewer reads the reason in the diff: a placeholder, a revoked test value, or a
- * format sample needs saying, and a real credential cannot honestly carry one.
+ * without a reason is a finding. A reason runs to the end of the line or to the comment's closer, and it says
+ * something: the closer is no reason, and neither is the credential beside it. A reviewer reads the reason in the diff:
+ * a placeholder, a revoked test value, or a format sample needs saying, and a real credential cannot honestly carry
+ * one. On a line with no credential, a marker excuses nothing and is not read.
  */
 
 /**
@@ -45,7 +47,7 @@ export const ALLOW_MARKER = 'secret-scan-ok:';
 export const SCAN_SURFACE = Object.freeze(['**']);
 
 const
-    allowRE           = /secret-scan-ok:\s*(\S.*)?$/,
+    allowRE           = /secret-scan-ok:(.*?)(?:-->|\*\/|$)/,
     BINARY_EXTENSIONS = new Set([
         '.eot', '.gif', '.ico', '.jpeg', '.jpg', '.mp3', '.mp4', '.otf', '.pdf', '.png', '.ttf', '.wasm', '.webm',
         '.webp', '.woff', '.woff2', '.zip'
@@ -60,20 +62,31 @@ export function findSecrets(text) {
     const findings = [];
 
     text.split('\n').forEach((line, index) => {
-        const allow = line.includes(ALLOW_MARKER) && line.match(allowRE);
+        const
+            kinds  = PATTERNS.filter(({re}) => {
+                re.lastIndex = 0;
+                return re.test(line)
+            }).map(({kind}) => kind),
+            marker = kinds.length > 0 && line.match(allowRE);
 
-        if (allow && !allow[1]) {
-            findings.push({line: index + 1, kind: 'allow-marker-without-reason'});
-            return
+        if (!marker) {
+            kinds.forEach(kind => findings.push({line: index + 1, kind}))
+        } else if (!givesReason(marker[1])) {
+            findings.push({line: index + 1, kind: 'allow-marker-without-reason'})
         }
-
-        allow || PATTERNS.forEach(({kind, re}) => {
-            re.lastIndex = 0;
-            re.test(line) && findings.push({line: index + 1, kind})
-        })
     });
 
     return findings
+}
+
+/**
+ * @summary Whether the text an allow marker takes as its reason says something: a letter or a digit, once the
+ * credential the marker sits beside is left out.
+ * @param {String} text
+ * @returns {Boolean}
+ */
+function givesReason(text) {
+    return /[\p{L}\p{N}]/u.test(PATTERNS.reduce((rest, {re}) => rest.replace(re, ''), text))
 }
 
 /**
