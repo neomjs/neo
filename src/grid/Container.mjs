@@ -1333,52 +1333,38 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Used for keyboard navigation (selection models)
+     * Keyboard navigation scrolls the column `step` along from `index` into sight, when it is out of it. Both count
+     * in {@link #columns}, the order the selection models walk; past either end the walk wraps.
+     *
+     * A locked column is always in sight. A center column is, while it lies inside what the center body shows:
+     * the container's width less the two locked regions, which the horizontal scrollbar carries as its insets. The
+     * scroll position itself belongs to that scrollbar — the bodies follow it, and the container's node does not
+     * scroll.
      * @param {Number} index
      * @param {Number} step
      */
     scrollByColumns(index, step) {
-        let me                                                                = this,
-            {body}                                                            = me,
-            {columnPositions, containerWidth, mountedColumns, visibleColumns} = body,
-            countColumns                                                      = columnPositions.getCount(),
-            newIndex                                                          = index + step,
-            column, mounted, scrollLeft, visible;
+        let me                          = this,
+            {body, horizontalScrollbar} = me,
+            {scrollLeft}                = body,
+            countColumns                = me.columns.getCount(),
+            column                      = me.columns.getAt(((index + step) % countColumns + countColumns) % countColumns),
+            position                    = !column.locked && body.columnPositions.get(column.dataField),
+            value, visibleWidth;
 
-        if (newIndex >= countColumns) {
-            newIndex %= countColumns;
-            step     = newIndex - index
-        }
+        if (position) {
+            visibleWidth = body.containerWidth - horizontalScrollbar.startWidth - horizontalScrollbar.endWidth;
 
-        while (newIndex < 0) {
-            newIndex += countColumns;
-            step     += countColumns
-        }
-
-        mounted = newIndex >= mountedColumns[0] && newIndex <= mountedColumns[1];
-
-        // Not using >= or <=, since the first / last column might not be fully visible
-        visible = newIndex > visibleColumns[0] && newIndex < visibleColumns[1];
-
-        if (!visible) {
-            // Leaving the mounted area will re-calculate the visibleColumns for us
-            if (mounted) {
-                visibleColumns[0] += step;
-                visibleColumns[1] += step
+            if (position.x < scrollLeft) {
+                value = position.x
+            } else if (position.x + position.width > scrollLeft + visibleWidth) {
+                value = position.x + position.width - visibleWidth
             }
 
-            column = columnPositions.getAt(newIndex);
-
-            if (step < 0) {
-                scrollLeft = column.x
-            } else {
-                scrollLeft = column.x - containerWidth + column.width
-            }
-
-            Neo.main.DomAccess.scrollTo({
+            Neo.isNumber(value) && Neo.main.DomAccess.scrollTo({
                 direction: 'left',
-                id       : me.getVdomRoot().id,
-                value    : scrollLeft,
+                id       : horizontalScrollbar.id,
+                value,
                 windowId : me.windowId
             })
         }
