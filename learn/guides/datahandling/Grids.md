@@ -598,20 +598,20 @@ selects text instead of drag-scrolling it.
 
 | Gesture | What happens |
 |---|---|
-| Enter | Commits the draft. Focus returns to the grid. |
+| Enter | Commits the draft. Focus returns to the grid, and a model that selects cells keeps the edited cell selected, so the arrow keys go on from there. |
 | Escape | Discards the draft. Focus returns to the grid. |
 | Tab, Shift+Tab | Commits, and edits the next or previous editable cell: across locked columns, past columns that cannot be edited, and on into the next or previous record. Past the last editable cell, or before the first, the edit ends with focus on the grid. |
 | A click on another cell | Commits, and selects that cell. |
 | Focus leaving the grid | Commits. |
 
-A commit writes a valid draft to its record. An invalid draft keeps its editor: Enter and Tab leave the edit open and
-write nothing. While no edit is open, Tab is the browser's own.
+A commit writes a valid draft to its record. An invalid draft keeps its editor: Enter, Tab, a click on another cell and
+focus leaving the grid all leave the edit open and write nothing. While no edit is open, Tab is the browser's own.
 
 A field with a picker, like the example's `DateField`, keeps the picker inside the edit. Its trigger opens the picker,
-focus moving into the picker does not end the edit, and a day picked there becomes the draft. Escape closes an open
+and so does Alt+ArrowDown, the key the WAI-ARIA date-picker pattern names; plain ArrowDown stays the date input's own.
+Focus moving into the picker does not end the edit, and a day picked there becomes the draft. Escape closes an open
 picker first, and the next Escape cancels the edit. Enter commits, as in any other editor, and opens no picker: in a
-grid, Enter belongs to the edit, and the trigger is the way to the picker. The grid gives its editors
-`showPickerOnEnter: false` for this.
+grid, Enter belongs to the edit, so the grid gives its editors `showPickerOnEnter: false`.
 
 ### What Scrolling Does to an Edit
 
