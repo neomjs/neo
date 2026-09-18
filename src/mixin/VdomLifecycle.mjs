@@ -769,7 +769,8 @@ class VdomLifecycle extends Base {
                     return false
                 }
 
-                return me.isParentUpdating(parent.parentId, resolve, distance+1)
+                // null, not undefined: an undefined argument takes the default and restarts the walk from this component
+                return me.isParentUpdating(parent.parentId ?? null, resolve, distance+1)
             }
         }
 
@@ -803,7 +804,8 @@ class VdomLifecycle extends Base {
                     return true
                 }
 
-                return me.mergeIntoParentUpdate(parent.parentId, distance+1)
+                // null, not undefined: see isParentUpdating()
+                return me.mergeIntoParentUpdate(parent.parentId ?? null, distance+1)
             }
         }
 
