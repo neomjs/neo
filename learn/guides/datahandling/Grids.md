@@ -609,7 +609,9 @@ write nothing. While no edit is open, Tab is the browser's own.
 
 A field with a picker, like the example's `DateField`, keeps the picker inside the edit. Its trigger opens the picker,
 focus moving into the picker does not end the edit, and a day picked there becomes the draft. Escape closes an open
-picker first, and the next Escape cancels the edit. Enter commits, as in any other editor.
+picker first, and the next Escape cancels the edit. Enter commits, as in any other editor, and opens no picker: in a
+grid, Enter belongs to the edit, and the trigger is the way to the picker. The grid gives its editors
+`showPickerOnEnter: false` for this.
 
 ### What Scrolling Does to an Edit
 
