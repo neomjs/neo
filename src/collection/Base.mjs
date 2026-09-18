@@ -1367,9 +1367,13 @@ class Collection extends Base {
      * @summary The unfiltered projection's write: the rows its collection's `splice` just applied,
      * applied here without an event. The projection holds what the collection holds before any
      * listener runs, and fires nothing of its own — it is part of the mutation, not an observer of it.
-     * @param {Object}   opts
-     * @param {Object[]} [opts.addedItems]
-     * @param {Object[]} [opts.removedItems]
+     *
+     * Removals arrive as the caller's input, keys included, because `splice` resolves keys and items alike and
+     * only the input names a row the filter hid. The `mutate` payload normalises to objects for its listeners;
+     * this write has none.
+     * @param {Object}                      opts
+     * @param {Object[]}                    [opts.addedItems]
+     * @param {Array<Object|Number|String>} [opts.removedItems]
      * @protected
      */
     mirrorMutation({addedItems, removedItems}) {
