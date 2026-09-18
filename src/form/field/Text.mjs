@@ -314,7 +314,7 @@ class Text extends Field {
 
     /**
      * The value the DOM input reported last through `onInputValueChange()`, kept until a render writes the input's
-     * value itself or the field unmounts. See {@link #resolveVdomUpdate} for what it restores.
+     * value itself or the field unmounts. See {@link #afterVnodeSync} for what it restores.
      * @member {String|null} reportedInputValue=null
      * @protected
      */
@@ -970,6 +970,34 @@ class Text extends Field {
     }
 
     /**
+     * A render lands with the vnode it was diffed against, the field's own render or an ancestor's that covered it.
+     * When the user typed after that render collected its payload, the vnode no longer holds what the DOM shows, and
+     * `onInputValueChange()`'s sync is undone: the next render would write a stale value over newer typing. Unless
+     * that render wrote the input's value itself, the DOM still shows the reported value, so the vnode gets it back.
+     * A first render built the input from the vnode, which leaves the report nothing to restore.
+     * @param {Object[]|null} deltas
+     * @protected
+     */
+    afterVnodeSync(deltas) {
+        let me                   = this,
+            {reportedInputValue} = me;
+
+        if (reportedInputValue !== null) {
+            let inputId = me.getInputElId();
+
+            if (!deltas || deltas.some(delta => delta.id === inputId && (delta.action === 'removeNode' || Object.hasOwn(delta.attributes || {}, 'value')))) {
+                me.reportedInputValue = null
+            } else {
+                let {vnode} = VNodeUtil.find(me.vnode, {nodeName: 'input'}) || {};
+
+                vnode && (vnode.attributes.value = reportedInputValue)
+            }
+        }
+
+        super.afterVnodeSync(deltas)
+    }
+
+    /**
      * Return a shallow copy of the triggers config
      * @param {Array|null} value
      * @protected
@@ -1569,34 +1597,6 @@ class Text extends Field {
         if (value === null && me.clean) {
             me.updateError(null)
         }
-    }
-
-    /**
-     * A render lands with the vnode it was diffed against. When the user typed after that render collected its
-     * payload, that vnode no longer holds what the DOM shows, and `onInputValueChange()`'s sync is undone: the next
-     * render would write a stale value over newer typing. Unless the landing render wrote the input's value itself,
-     * the DOM still shows the reported value, so the landed vnode gets it back.
-     * @param {Object} data
-     * @param {Set<String>|null} [mergedChildIds]
-     * @protected
-     */
-    resolveVdomUpdate(data, mergedChildIds) {
-        let me                   = this,
-            {reportedInputValue} = me;
-
-        if (reportedInputValue !== null) {
-            let inputId = me.getInputElId();
-
-            if (data?.deltas?.some(delta => delta.id === inputId && (delta.action === 'removeNode' || Object.hasOwn(delta.attributes || {}, 'value')))) {
-                me.reportedInputValue = null
-            } else {
-                let {vnode} = VNodeUtil.find(me.vnode, {nodeName: 'input'}) || {};
-
-                vnode && (vnode.attributes.value = reportedInputValue)
-            }
-        }
-
-        super.resolveVdomUpdate(data, mergedChildIds)
     }
 
     /**

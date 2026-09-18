@@ -92,6 +92,41 @@ test.describe('Grid cell editing under store activity', () => {
         await expect(cell(page, 'c3', recordId), 'the draft was written').toHaveText('draft')
     });
 
+    test('typing while the record takes a stream of updates keeps every key, and no render writes over the input', async ({page}) => {
+        const recordId = await recordIdOf(page, 'r3c3'),
+              typed    = 'abcdefghijklmnopqrstuvwxyz';
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.press('ControlOrMeta+a');
+
+        // Every programmatic write to the input goes through its value setter, and the user's typing does not
+        await page.evaluate(() => {
+            const {get, set} = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+            window.__inputWrites = [];
+
+            Object.defineProperty(HTMLInputElement.prototype, 'value', {
+                configurable: true,
+                get,
+                set(value) {
+                    this.closest('.neo-grid-editor') && window.__inputWrites.push(`${get.call(this)} → ${value}`);
+                    set.call(this, value)
+                }
+            })
+        });
+
+        await drive(page, 'startUpdates');
+        await page.keyboard.type(typed, {delay: 15});
+        await drive(page, 'stopUpdates');
+
+        await expect(page.locator(INPUT), 'every key the user typed is in the input').toHaveValue(typed);
+        expect(await page.evaluate(() => window.__inputWrites), 'no render wrote over the input').toEqual([]);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0)
+    });
+
     for (const [change, away, back] of [['sort', 'sortDesc', 'sortAsc'], ['filter', 'filterOut', 'clearFilter']]) {
         test(`a ${change} that takes the record out of the pool and back suspends the editor, then reprojects it with the draft`, async ({page}) => {
             const recordId = await editWithDraft(page);

@@ -11,7 +11,8 @@
  * Store actions target record 3 and column actions target `c3`, the cell the arms edit. `optOutEdited` and
  * `optOutEnd` take `c3` and the locked `c39` out of suspension, for the arms that need an opted-out column under a lock
  * change or in a locked body. `updateEdited` also writes `c4`, so the row's repaint is visible while the edited cell
- * itself shows the editor.
+ * itself shows the editor. `startUpdates` writes `c4` every 4 ms until `stopUpdates`: a stream of row repaints, each a
+ * render that covers the editor.
  */
 const {searchParams}   = new URL(import.meta.url),
       grid             = Neo.getComponent('grid-cell-editing-pooled'),
@@ -29,6 +30,11 @@ const actions = {
     remove      : () => store.remove(3),
     sortAsc     : () => store.sort({property: 'id', direction: 'ASC'}),
     sortDesc    : () => store.sort({property: 'id', direction: 'DESC'}),
+    startUpdates: () => {
+        let count = 0;
+        globalThis.gridDriverUpdates = setInterval(() => store.get(3).set({c4: `pushed ${++count}`}), 4)
+    },
+    stopUpdates : () => clearInterval(globalThis.gridDriverUpdates),
     unlock      : () => {columns.get('c3').locked = null},
     updateEdited: () => store.get(3).set({c3: 'pushed', c4: 'pushed'}),
     updateOther : () => store.get(3).set({c4: 'pushed'})
