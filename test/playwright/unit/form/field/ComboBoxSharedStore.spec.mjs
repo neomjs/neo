@@ -23,10 +23,13 @@ import InstanceManager    from '../../../../../src/manager/Instance.mjs';
 import ComponentManager   from '../../../../../src/manager/Component.mjs';
 import VdomHelper         from '../../../../../src/vdom/Helper.mjs';
 import DomApiVnodeCreator from '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import Component          from '../../../../../src/component/Base.mjs';
 import ComboBox           from '../../../../../src/form/field/ComboBox.mjs';
+import CountryField       from '../../../../../src/form/field/Country.mjs';
 import List               from '../../../../../src/list/Base.mjs';
 import Store              from '../../../../../src/data/Store.mjs';
 import Model              from '../../../../../src/data/Model.mjs';
+import StateProvider      from '../../../../../src/state/Provider.mjs';
 
 class CountryModel extends Model {
     static config = {
@@ -65,6 +68,27 @@ async function boundCombo(store) {
     combo.store   = store;
 
     return combo
+}
+
+/**
+ * @summary A CountryField the way a grid editor builds one: its class-default store in place, a raw value, and a
+ * `bind.store` its parent's provider resolves as construction ends, after the value was applied.
+ * @param {Neo.data.Store} store
+ * @param {String} value
+ * @returns {{field: Neo.form.field.Country, parent: Neo.component.Base}}
+ */
+function providedCountryField(store, value) {
+    const parent = Neo.create(Component, {appName, stateProvider: {stores: {countries: store}}}),
+          field  = Neo.create(CountryField, {
+              appName,
+              bind          : {store: 'stores.countries'},
+              forceSelection: true,
+              parentId      : parent.id,
+              value,
+              valueField    : 'code'
+          });
+
+    return {field, parent}
 }
 
 test.describe('Neo.form.field.ComboBox on a store it does not own', () => {
@@ -128,6 +152,33 @@ test.describe('Neo.form.field.ComboBox on a store it does not own', () => {
         combo.destroy();
         first.destroy();
         second.destroy()
+    });
+});
+
+test.describe('Neo.form.field.ComboBox bound to a store while it holds a class-default one', () => {
+    test('a value the default store lacks resolves against the store the binding delivers', () => {
+        const store           = Neo.create(Store, {autoInitRecords: true, keyProperty: 'code', model: CountryModel, data: [{code: 'US', name: 'United States'}]}),
+              {field, parent} = providedCountryField(store, 'US');
+
+        expect(field.store).toBe(store);
+        expect(field.value, 'the default store only knows `us`').toBe(store.get('US'));
+        expect(field.inputValue).toBe('United States');
+
+        field.destroy();
+        parent.destroy();
+        store.destroy()
+    });
+
+    test('a value the default store holds ends as the bound store\'s record, not the discarded one\'s', () => {
+        const store           = sharedStore(),
+              {field, parent} = providedCountryField(store, 'de');
+
+        expect(field.value).toBe(store.get('de'));
+        expect(field.inputValue).toBe('Germany');
+
+        field.destroy();
+        parent.destroy();
+        store.destroy()
     });
 });
 

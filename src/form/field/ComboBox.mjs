@@ -269,17 +269,17 @@ class ComboBox extends Picker {
             // A view follows the store's items, but only the store itself announces a load
             value.on('load', me.onStoreLoad, me);
 
-            // A store delivered after construction (a binding) finds a value applied while it was
-            // pending, still the raw key it was given: set it again, silently as onStoreLoad() does, so
-            // beforeSetValue() resolves it or waits for the load. During construction processConfigs()
-            // applies the value itself, with the store already in place.
-            if (me.isConstructed) {
-                rawValue = me.value;
+            // Re-resolve what no previous store resolved or may keep: a parked key, a storeless field's raw key
+            // (once constructed: before, `_value` may be a config processConfigs() has yet to apply), and a record
+            // of a store destroyed below. Silently, as onStoreLoad() does; beforeSetValue() parks a miss again.
+            rawValue = Neo.isRecord(me._value)
+                ? owned.has(oldValue) ? me._value[value.keyProperty] : null
+                : (me.isConstructed ? me._value : null) ?? me.preStoreLoadValue;
 
-                if (rawValue != null && !Neo.isRecord(rawValue)) {
-                    me._value = undefined;
-                    me.value  = rawValue
-                }
+            if (rawValue != null) {
+                me.preStoreLoadValue = null;
+                me._value            = undefined;
+                me.value             = rawValue
             }
         } else {
             me.listStore = null
@@ -435,7 +435,15 @@ class ComboBox extends Picker {
                 return record
             }
 
-            return store.find(displayField, value)[0] || null
+            record = store.find(displayField, value)[0];
+
+            // A miss during construction may be against a store the field is about to lose: a binding delivers
+            // its store once construction ends. Park the key where a pending load parks it, for afterSetStore().
+            if (!record && !me.isConstructed) {
+                me.preStoreLoadValue = value
+            }
+
+            return record || null
         } else {
             // store not loaded yet
             me.preStoreLoadValue = value;
