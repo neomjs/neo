@@ -199,81 +199,6 @@ This pattern is particularly beneficial for:
 
 ## Columns
 
-## Sorting
-
-Neo.mjs grids provide built-in support for sorting data by one or more columns. Sorting is primarily managed by the
-grid's underlying `Neo.data.Store`.
-
-### Enabling Sorting
-
-To enable sorting for a column, ensure the `sortable` config is set to `true` on the `Neo.grid.Container` (which is its
-default value). Then, simply click on a column header to sort the data by that column. Clicking again will reverse the
-sort direction.
-
-```javascript live-preview
-import GridContainer from '../grid/Container.mjs';
-import Store         from '../data/Store.mjs';
-import Viewport      from '../container/Viewport.mjs';
-
-class MainView extends Viewport {
-    static config = {
-        className: 'MainView',
-        layout   : {ntype: 'fit'},
-        items    : [{
-            module: GridContainer,
-            sortable: true, // Default is true, but explicitly shown here
-            store : {
-                model: {
-                    fields: [
-                        {name: 'name', type: 'String'},
-                        {name: 'age',  type: 'Number'}
-                    ]
-                },
-                data: [
-                    {name: 'Alice',   age: 30},
-                    {name: 'Bob',     age: 24},
-                    {name: 'Charlie', age: 35},
-                    {name: 'David',   age: 28}
-                ]
-            },
-            columns: [
-                {text: 'Name', dataField: 'name'},
-                {text: 'Age',  dataField: 'age'}
-            ]
-        }]
-    }
-}
-MainView = Neo.setupClass(MainView);
-```
-
-### Initial Sorting
-
-You can define an initial sort order for your store using the `sorters` config.
-
-```javascript readonly
-store: {
-    model: { /* ... */ },
-    data: [ /* ... */ ],
-    sorters: [{
-        property : 'name',
-        direction: 'ASC' // 'ASC' for ascending, 'DESC' for descending
-    }]
-}
-```
-
-### Programmatic Sorting
-
-You can also sort the store programmatically using the `sort` method of the store instance.
-
-```javascript readonly
-myGrid.getStore().sort({
-    property : 'age',
-    direction: 'DESC'
-});
-```
-
-## Columns
-
 Columns are the building blocks of a grid. You can configure them with various options.
 
 ### Column Types
@@ -410,10 +335,10 @@ class MainView extends Viewport {
                     ]
                 },
                 data: [
-                    {name: 'Alice', age: 30},
-                    {name: 'Bob',   age: 24},
+                    {name: 'Alice',   age: 30},
+                    {name: 'Bob',     age: 24},
                     {name: 'Charlie', age: 35},
-                    {name: 'David', age: 28}
+                    {name: 'David',   age: 28}
                 ]
             },
             columns: [
@@ -443,14 +368,13 @@ store: {
 
 ### Programmatic Sorting
 
-You can also sort the store programmatically using one of the following 2 options:
+You can also sort from code, through the grid's store: `sort()` replaces the sorters with one, and assigning `sorters`
+replaces them with any number.
 
 ```javascript readonly
-// Option 1: Directly modifying the existing sorter
-myGrid.getSorter('name').direction = 'DESC';
+myGrid.store.sort({property: 'age', direction: 'DESC'});
 
-// Option 2: Assigning a new value to the sorters config
-myGrid.sorters = [{
+myGrid.store.sorters = [{
     property : 'name',
     direction: 'DESC'
 }];
@@ -541,18 +465,8 @@ store.filters = currentFilters;
 ## Plugins
 
 Neo.mjs grids support various plugins to extend their functionality. Plugins are typically enabled by setting a
-configuration property on the `Neo.grid.Container` or `Neo.grid.Body`.
-
-### Cell Editing
-
-Enable cell editing by setting the `cellEditing` config to `true` on the `Neo.grid.Container`.
-
-```javascript readonly
-const myGrid = Neo.create(GridContainer, {
-    cellEditing: true,
-    // ...
-});
-```
+configuration property on the `Neo.grid.Container` or `Neo.grid.Body`. Cell editing is a plugin too, and has a section
+of its own below.
 
 ### Animated Row Sorting
 
@@ -592,13 +506,194 @@ const myGrid = Neo.create(GridContainer, {
 });
 ```
 
+## Cell Editing
+
+A grid that renders only what is visible meets a hard question the moment someone types into it. The cell under the
+caret does not belong to its record. The body keeps a small pool of rows, and each row a pool of cell slots, so the
+node you are typing into goes to another record as soon as the grid scrolls. There are three obvious answers for the
+draft inside it, and each one fails someone. Writing it saves a half-typed value for the user who only scrolled to look
+something up. Throwing it away loses what they typed. Keeping the row alive stops pooling it, and the grid no longer
+scales.
+
+The grid takes none of them. An edit is a session in the App Worker, keyed by what does not move: the record's id and
+the column's `dataField`. Its editor is an ordinary form field, and the grid only *embodies* it, in whichever cell
+renders that record and field at the moment. When pooling takes that cell away, the session waits, suspended, with its
+draft, and the next render that shows the cell embodies the editor again. Scrolling never commits an edit, and never
+cancels one.
+
+```mermaid
+flowchart TD
+    Idle(["No edit"])
+    Embodied["Embodied: the editor sits in the cell that renders its record and field"]
+    Suspended["Suspended: the cell has left the DOM, and the editor and its draft wait in the App Worker"]
+    Committed["Committed: a valid draft is written to the record"]
+    Cancelled["Cancelled: the draft is discarded"]
+
+    Idle -->|"double-click, Enter or F2"| Embodied
+    Embodied -->|"a scroll, sort or filter takes the cell away"| Suspended
+    Suspended -->|"a render shows the cell again"| Embodied
+    Embodied -->|"Enter, Tab, a click elsewhere, focus leaving the grid"| Committed
+    Suspended -->|"Tab"| Committed
+    Embodied -->|"Escape"| Cancelled
+    Embodied -->|"the cell goes, on a column that cannot suspend"| Cancelled
+    Committed --> Idle
+    Cancelled --> Idle
+```
+
+The `examples/grid/cellEditing` example is the grid this section describes. It has text, number and date editors, a
+column that cannot be edited, and a toolbar switch that turns editing off and on.
+
+### Turning It On
+
+Set `cellEditing: true` on the `Neo.grid.Container`, and mark the columns it may edit with `editable`. A column's
+`editor` is the config its field is created from. Without one, a cell edits with a `Neo.form.field.Text`.
+
+```javascript readonly
+import {CellModel}   from '../../../src/selection/grid/_export.mjs';
+import DateField     from '../../../src/form/field/Date.mjs';
+import GridContainer from '../../../src/grid/Container.mjs';
+import NumberField   from '../../../src/form/field/Number.mjs';
+
+const myGrid = Neo.create(GridContainer, {
+    cellEditing   : true,
+    columnDefaults: {editable: true},
+
+    // Enter and F2 edit the selected cell, so keyboard editing needs a model that selects cells
+    viewConfig: {selectionModel: CellModel},
+
+    columns: [{
+        dataField: 'firstname',
+        text     : 'Firstname'
+    }, {
+        dataField: 'randomNumber',
+        text     : 'Number (step 5)',
+        editor   : {module: NumberField, maxValue: 100, minValue: 0, stepSize: 5}
+    }, {
+        dataField: 'randomDate',
+        text     : 'Random Date',
+        editor   : {module: DateField, maxValue: '2024-12-20', minValue: '2024-12-10'}
+    }, {
+        dataField: 'githubId',
+        editable : false,
+        text     : 'Github Id'
+    }]
+    // store: ...
+});
+```
+
+`editable` is reactive. Turning it off on a column while one of its cells is being edited cancels that edit.
+
+### Starting an Edit
+
+- A double-click on an editable cell edits it.
+- Enter or F2 edits the selected cell.
+- Space starts nothing. A column that is not editable refuses the double-click, Enter and F2 alike.
+- The editor opens with its whole value selected, so typing replaces the value instead of appending to it.
+- One editor exists at a time. Activating another cell commits the current draft first.
+
+Inside the editor, the keys and the pointer belong to the field: the navigation keys never scroll the grid, and a drag
+selects text instead of drag-scrolling it.
+
+### Ending an Edit
+
+| Gesture | What happens |
+|---|---|
+| Enter | Commits the draft. Focus returns to the grid. |
+| Escape | Discards the draft. Focus returns to the grid. |
+| Tab, Shift+Tab | Commits, and edits the next or previous editable cell: across locked columns, past columns that cannot be edited, and on into the next or previous record. Past the last editable cell, or before the first, the edit ends with focus on the grid. |
+| A click on another cell | Commits, and selects that cell. |
+| Focus leaving the grid | Commits. |
+
+A commit writes a valid draft to its record. An invalid draft keeps its editor: Enter and Tab leave the edit open and
+write nothing. While no edit is open, Tab is the browser's own.
+
+A field with a picker, like the example's `DateField`, keeps the picker inside the edit. Its trigger opens the picker,
+focus moving into the picker does not end the edit, and a day picked there becomes the draft. Escape closes an open
+picker first, and the next Escape cancels the edit. Enter commits, as in any other editor.
+
+### What Scrolling Does to an Edit
+
+Pooling takes a cell out of the DOM in two ways: a vertical scroll hands its row to another record, and a horizontal
+scroll moves its column out of the mounted window. For an open edit the two are the same event:
+
+- A scroll that keeps the cell rendered keeps the editor, and its focus.
+- A scroll that takes the cell away suspends the edit. The editor and its draft wait in the App Worker.
+- The render that shows the cell again embodies the editor, with the draft as it was.
+
+The store moves records too, and the edit follows the same rules. A sort or filter that takes the edited record out of
+the pool and back suspends the edit and restores it. An update to another field of the edited record repaints its cell
+and leaves the editor, the draft and focus alone. An update to the edited field itself keeps the draft, and Enter
+writes the draft over the new value. Removing the record removes the editor with it.
+
+Locking or unlocking a column moves it to another body. The editor stays out of every cell until the bodies have
+swapped their columns, then returns with its draft.
+
+A suspended edit still answers Tab and Shift+Tab: they commit it and edit the next or previous cell. When the draft is
+invalid, its cell is scrolled back into sight and its editor takes focus, so the user sees why nothing moved on.
+
+An IME composition in flight when its row leaves the pool survives as the draft. The composed text reaches the field
+as it is typed, so there is nothing that only the DOM holds.
+
+### Editors That Cannot Be Suspended
+
+Suspension relies on the editor keeping its state in the App Worker, and the engine's form fields do: the draft is the
+field's value. An editor that keeps state only in its DOM cannot be suspended. Give its column
+`cancelEditOnProjectionLoss: true`: when pooling takes the cell away, the edit is cancelled instead, its draft
+discarded, and the grid announces it. A lock change that moves such a column to another body cancels its edit too.
+
+An edit that starts on a cell that is not rendered yet is different. Tab to a cell out of sight scrolls it into sight
+and starts its edit before the cell renders, and the cell's first render embodies it: an edit that was never embodied
+has no embodiment to lose.
+
+### Listening for Cancelled Edits
+
+No cancel is silent: the grid fires `cellEditCancel` with `{dataField, reason, record}` for every edit it cancels. A
+commit fires nothing.
+
+| `reason` | The edit was cancelled because |
+|---|---|
+| `escape` | Escape was pressed. |
+| `notEditable` | the column's `editable` was turned off. |
+| `disabled` | the plugin's `disabled` was turned on. |
+| `destroy` | the plugin was destroyed while its grid lives on. |
+| `projectionLoss` | pooling took away the cell of a column that cannot be suspended. |
+| `api` | code called the plugin's `cancelEdit()` without a reason. |
+
+```javascript readonly
+const myGrid = Neo.create(GridContainer, {
+    cellEditing: true,
+
+    listeners: {
+        cellEditCancel({dataField, reason, record}) {
+            console.log(`The ${dataField} edit ended without a write: ${reason}`)
+        }
+    }
+    // ...
+});
+```
+
+### Turning Editing Off
+
+The plugin's `disabled` config cancels an open edit and ignores every activation until it is turned off again. This
+is what the example's toolbar switch does:
+
+```javascript readonly
+myGrid.getPlugin('grid-cell-editing').disabled = true;
+```
+
+### Accessibility
+
+While a grid edits, the cells of its columns that cannot be edited carry `aria-readonly="true"`, and the editable ones
+carry nothing. The marks follow the configuration: a column turned non-editable at runtime is read-only in every
+rendered row, and a disabled or destroyed plugin leaves no cell read-only.
+
 ## Performance and Big Data
 
 The grid is designed for exceptional performance, especially when dealing with large datasets. Its virtual rendering
 engine ensures that only the visible parts of the grid (rows and columns) are rendered in the DOM, significantly
 reducing memory consumption and improving rendering speed.
 
-You### Optimizing Virtual Rendering
+### Optimizing Virtual Rendering
 
 You can fine-tune the virtual rendering behavior with the `bufferRowRange` and `bufferColumnRange` configs in the
 `body`. These settings define how many extra rows and columns to render outside the visible area to provide a
