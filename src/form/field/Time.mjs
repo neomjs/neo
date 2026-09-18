@@ -38,6 +38,7 @@ class Time extends Picker {
          * @member {Object} keys
          */
         keys: {
+            'Down'  : 'onKeyDownDown',
             'Enter' : 'onKeyDownEnter',
             'Escape': 'onKeyDownEscape'
         },
