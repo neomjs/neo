@@ -24,6 +24,7 @@ import ComponentManager   from '../../../../../src/manager/Component.mjs';
 import VdomHelper         from '../../../../../src/vdom/Helper.mjs';
 import DomApiVnodeCreator from '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import Component          from '../../../../../src/component/Base.mjs';
+import Chip               from '../../../../../src/form/field/Chip.mjs';
 import ComboBox           from '../../../../../src/form/field/ComboBox.mjs';
 import CountryField       from '../../../../../src/form/field/Country.mjs';
 import List               from '../../../../../src/list/Base.mjs';
@@ -198,6 +199,31 @@ test.describe('Neo.form.field.ComboBox on a store it created', () => {
             combo.destroy();
             expect(store.isDestroyed, `destroyed with the field (picker opened: ${openPicker})`).toBe(true)
         }
+    });
+});
+
+test.describe('Neo.form.field.Chip, which inherits what a ComboBox owns', () => {
+    test('destroying a Chip handed a store leaves that store alive', () => {
+        const store = sharedStore(),
+              chip  = Neo.create(Chip, {appName, displayField: 'name', store, valueField: 'code'});
+
+        expect(chip.store, 'the field reads the handed instance').toBe(store);
+
+        chip.destroy();
+
+        expect(store.isDestroyed, 'the handed store survives the field').not.toBe(true);
+        expect(store.getCount()).toBe(3);
+
+        store.destroy()
+    });
+
+    test('destroying a Chip takes down the store it built', () => {
+        const chip    = Neo.create(Chip, {appName, displayField: 'name', valueField: 'code', store: {model: CountryModel, data: COUNTRIES}}),
+              {store} = chip;
+
+        chip.destroy();
+
+        expect(store.isDestroyed, 'the store the field built goes with it').toBe(true)
     });
 });
 
