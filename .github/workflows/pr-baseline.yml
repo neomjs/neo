@@ -35,13 +35,11 @@ name: PR Baseline
 #                                    and rejects a PR whose base is not `required_base`, on every
 #                                    event this caller fires. One fixes a wrong base, the other
 #                                    refuses one; neither covers the other's case.
-#   - `source-comment-archaeology` vs `ticket-archaeology-lint.yml` — NOT equivalent. The local
-#                                    workflow is path-scoped (`src/**`, `test/playwright/**`, plus the
-#                                    guard and itself) and deliberately mirrors DEFAULT_SCAN_PATHS in
-#                                    buildScripts/util/check-ticket-archaeology.mjs. The baseline job
-#                                    carries no path filter and runs the published guard. Whichever
-#                                    scope is right, they are different scopes, and the difference has
-#                                    to be measured before either is removed.
+#   - `source-comment-archaeology` has no local counterpart since #18809. The path-scoped local
+#                                    workflow ran an engine copy of the guard that had drifted from the
+#                                    published one; measured before it went, the published guard finds
+#                                    nothing over every tracked `.mjs`, so its wider scope is the one
+#                                    kept, and the pre-commit hook runs the same published binary.
 #
 # `skills-materialized` is adjacent to `substrate-sync.yml`; `substrate-size` and `pr-body` have no
 # local counterpart at all and are the reason this caller is worth its duplication in the interim.
