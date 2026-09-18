@@ -1059,37 +1059,39 @@ class GridContainer extends BaseContainer {
             holds       = !!cellEditing?.session,
             sortedColumns;
 
-        // An open edit leaves its cell before the bodies swap columns, and returns once they have
+        // An open edit leaves its cell before the bodies swap columns, and returns once they have, or failed to
         holds && await cellEditing.holdEdit();
 
-        sortedColumns = me.sortColumns([...me.columns.items]);
+        try {
+            sortedColumns = me.sortColumns([...me.columns.items]);
 
-        // Sync the Collection
-        // clearSilent() and add() is the safest way to reset internal indices.
-        // add() is NON-silent: it fires the collection's mutate event, which IS this container's
-        // registered onColumnsMutate listener — the sub-grid layout sync runs exactly once through
-        // that path. An additional explicit onColumnsMutate() call here would run the rebuild
-        // twice in the same tick: two racing `view.items` assignments diff against a stale vnode
-        // and insert duplicate region-body DOM nodes (the second copy renders the same columns
-        // beside the first — "duplicated columns" after a cross-region drop).
-        me.columns.clearSilent();
-        me.columns.add(sortedColumns);
+            // Sync the Collection
+            // clearSilent() and add() is the safest way to reset internal indices.
+            // add() is NON-silent: it fires the collection's mutate event, which IS this container's
+            // registered onColumnsMutate listener — the sub-grid layout sync runs exactly once through
+            // that path. An additional explicit onColumnsMutate() call here would run the rebuild
+            // twice in the same tick: two racing `view.items` assignments diff against a stale vnode
+            // and insert duplicate region-body DOM nodes (the second copy renders the same columns
+            // beside the first — "duplicated columns" after a cross-region drop).
+            me.columns.clearSilent();
+            me.columns.add(sortedColumns);
 
-        // onColumnsMutate re-homed the header buttons across the region toolbars; each region's
-        // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
-        // them from the new toolbar memberships before re-rendering the rows, or the gaining
-        // region renders without the column and the losing region keeps a hidden ghost position.
-        let {headerWrapper} = me,
-            toolbars        = [headerWrapper.headerStart, me.headerToolbar, headerWrapper.headerEnd].filter(Boolean);
+            // onColumnsMutate re-homed the header buttons across the region toolbars; each region's
+            // body still holds the columnPositions / availableWidth of its OLD membership. Rebuild
+            // them from the new toolbar memberships before re-rendering the rows, or the gaining
+            // region renders without the column and the losing region keeps a hidden ghost position.
+            let {headerWrapper} = me,
+                toolbars        = [headerWrapper.headerStart, me.headerToolbar, headerWrapper.headerEnd].filter(Boolean);
 
-        await Promise.all(toolbars.map(toolbar => toolbar.passSizeToBody()));
+            await Promise.all(toolbars.map(toolbar => toolbar.passSizeToBody()));
 
-        // Force a full row re-render to apply the new column order and styles
-        if (me.body)      me.body.createViewData();
-        if (me.bodyStart) me.bodyStart.createViewData();
-        if (me.bodyEnd)   me.bodyEnd.createViewData();
-
-        holds && cellEditing.releaseEdit()
+            // Force a full row re-render to apply the new column order and styles
+            if (me.body)      me.body.createViewData();
+            if (me.bodyStart) me.bodyStart.createViewData();
+            if (me.bodyEnd)   me.bodyEnd.createViewData()
+        } finally {
+            holds && cellEditing.releaseEdit()
+        }
     }
 
     /**

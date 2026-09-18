@@ -49,7 +49,7 @@ test.describe('Grid Locked Columns', () => {
         const data = [];
         for (let i = 0; i < 5; i++) {
             data.push({
-                id: i,
+                id  : i,
                 col1: `C1-${i}`,
                 col2: `C2-${i}`,
                 col3: `C3-${i}`,
@@ -61,7 +61,7 @@ test.describe('Grid Locked Columns', () => {
         store = Neo.create(Store, {
             keyProperty: 'id',
             data,
-            model: {
+            model      : {
                 fields: [
                     {name: 'id',   type: 'Integer'},
                     {name: 'col1', type: 'String'},
@@ -145,7 +145,7 @@ test.describe('Grid Locked Columns', () => {
         await grid.timeout(50);
 
         const expectedOrderAfterLock = ['col3', 'col4', 'col1', 'col5', 'col2'];
-        const actualOrderAfterLock = grid.columns.items.map(col => col.dataField);
+        const actualOrderAfterLock   = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterLock).toEqual(expectedOrderAfterLock);
 
         // Now unlock 'col4'
@@ -156,7 +156,7 @@ test.describe('Grid Locked Columns', () => {
         await grid.timeout(50);
 
         const expectedOrderAfterUnlock = ['col3', 'col1', 'col4', 'col5', 'col2'];
-        const actualOrderAfterUnlock = grid.columns.items.map(col => col.dataField);
+        const actualOrderAfterUnlock   = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterUnlock).toEqual(expectedOrderAfterUnlock);
 
         // Change 'col5' to locked: 'end'
@@ -169,8 +169,19 @@ test.describe('Grid Locked Columns', () => {
         await grid.timeout(50);
 
         const expectedOrderAfterEnd = ['col3', 'col1', 'col4', 'col5', 'col2'];
-        const actualOrderAfterEnd = grid.columns.items.map(col => col.dataField);
+        const actualOrderAfterEnd   = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterEnd).toEqual(expectedOrderAfterEnd);
+    });
+
+    test('a lock change that fails releases the open edit it held', async () => {
+        const calls  = [],
+              plugin = {session: {}, holdEdit: async () => {calls.push('hold')}, releaseEdit: () => calls.push('release')};
+
+        grid.getPlugin = ntype => ntype === 'grid-cell-editing' ? plugin : null;
+        grid.headerToolbar.passSizeToBody = () => Promise.reject(new Error('measurement failed'));
+
+        await expect(grid.onColumnLockChange(grid.columns.get('col1'))).rejects.toThrow('measurement failed');
+        expect(calls).toEqual(['hold', 'release'])
     });
 
     test('Header toolbars are synchronized with column collection order across regions', async () => {
@@ -224,9 +235,9 @@ test.describe('Grid Locked Columns', () => {
 
     test('a late initial windowId owns every ScrollManager addon registration', async () => {
         const
-            {scrollManager} = grid,
+            {scrollManager}  = grid,
             originalGetAddon = Neo.currentWorker.getAddon,
-            getAddonCalls     = [],
+            getAddonCalls    = [],
             registrations    = [],
             targetAddons     = new Set([
                 'GridDragScroll',
@@ -288,7 +299,7 @@ test.describe('Grid Locked Columns', () => {
         grid.mounted = false;
 
         Neo.currentWorker.getAddon = async name => ({
-            register: data => targetAddons.has(name) && events.push({action: 'register', name, windowId: data.windowId}),
+            register  : data => targetAddons.has(name) && events.push({action: 'register', name, windowId: data.windowId}),
             unregister: data => targetAddons.has(name) && events.push({action: 'unregister', name, windowId: data.windowId})
         });
 
@@ -410,7 +421,7 @@ test.describe('Grid Locked Columns', () => {
     });
 
     test('onResize evaluates responsiveLockPolicy before the sizing refresh', async () => {
-        let bodyUpdated    = false,
+        let bodyUpdated     = false,
             headerRefreshed = false,
             passSilentArgs  = [];
 
@@ -464,7 +475,7 @@ test.describe('Grid Locked Columns', () => {
 
         // Expected sorted order: start -> unlocked -> end
         const expectedOrder = ['newCol3', 'newCol1', 'newCol2'];
-        const actualOrder = grid.columns.items.map(col => col.dataField);
+        const actualOrder   = grid.columns.items.map(col => col.dataField);
 
         expect(actualOrder).toEqual(expectedOrder);
     });
