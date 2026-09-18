@@ -5,7 +5,7 @@
  *
  * Why the class is the assertion rather than the position: `neo-floating` is what carries
  * `position: fixed` (`resources/scss/src/component/Base.scss:23`), so the class IS the contract the
- * DOM reads. Alignment and focus ride on top of it and belong to the mounted tier.
+ * DOM reads. Alignment and focus ride on top of it; the second suite pins when a landing mount may ask for them.
  */
 
 import {setup} from '../../setup.mjs';
@@ -97,5 +97,57 @@ test.describe('component.Base floating as a runtime config', () => {
 
         expect(button.cls, 'the floating class leaves').not.toContain('neo-floating');
         expect(button.cls, 'and neo-button is still there').toContain('neo-button')
+    })
+});
+
+/**
+ * A mount is confirmed after a round trip, and `mounted` is written when it lands — by then the owner may have
+ * destroyed the component. Its node still exists for the few milliseconds until the removal arrives, so a focus call
+ * would land on it, and be lost to the document body when the node goes.
+ */
+test.describe('component.Base floating: what a landing mount does', () => {
+    const {alignTo, focus} = Component.prototype;
+
+    let calls;
+
+    test.beforeEach(() => {
+        calls = [];
+
+        // On the prototype: a destroyed instance keeps no own properties to spy through
+        Component.prototype.alignTo = function() {calls.push(`alignTo ${this.id}`)};
+        Component.prototype.focus   = function() {calls.push(`focus ${this.id}`)}
+    });
+
+    test.afterEach(() => {
+        Object.assign(Component.prototype, {alignTo, focus})
+    });
+
+    test('control: a floating component that lives aligns and takes focus when its mount lands', () => {
+        const component = Neo.create(Component, {appName, floating: true, id: 'floating-mount-alive'});
+
+        component.mounted = true;
+
+        expect(calls).toEqual(['alignTo floating-mount-alive', 'focus floating-mount-alive']);
+
+        component.destroy()
+    });
+
+    test('focusOnMount: false aligns without taking focus', () => {
+        const component = Neo.create(Component, {appName, floating: true, focusOnMount: false, id: 'floating-mount-preview'});
+
+        component.mounted = true;
+
+        expect(calls).toEqual(['alignTo floating-mount-preview']);
+
+        component.destroy()
+    });
+
+    test('a floating component destroyed before its mount lands neither aligns nor takes focus', () => {
+        const component = Neo.create(Component, {appName, floating: true, id: 'floating-mount-destroyed'});
+
+        component.destroy();
+        component.mounted = true;
+
+        expect(calls).toEqual([])
     })
 })

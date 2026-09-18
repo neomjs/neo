@@ -755,6 +755,10 @@ class Component extends Abstract {
 
     /**
      * Triggered after the mounted config got changed
+     *
+     * A mount is confirmed after a round trip, so `mounted` can be written on a component its owner has destroyed
+     * in the meantime. Its node still exists until the removal arrives: a floating component must not align to,
+     * or take focus into, a node that is about to go — the focus would be lost to the document body with it.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -768,7 +772,7 @@ class Component extends Abstract {
             if (value) { // mount
                 me.hasBeenMounted = true;
 
-                if (me.floating) {
+                if (me.floating && !me.isDestroyed) {
                     me.alignTo();
 
                     // Focus will be pushed into the first input field or other focusable item
