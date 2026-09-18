@@ -324,6 +324,30 @@ test.describe('grid cell editing — terminals', () => {
         await expect(name, 'Tab wrote nothing').toHaveText('Name 5')
     });
 
+    test('an invalid draft blocks a click on another cell: the edit stays where it is', async ({page}) => {
+        const recordId = await recordIdOf(page, 5),
+              name     = cell(page, 'name', recordId),
+              city     = cell(page, 'city', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.press('ControlOrMeta+A');
+        await page.keyboard.press('Backspace');
+        await expect(page.locator(INPUT)).toHaveValue('');
+
+        // Activating another cell commits first, and an invalid draft refuses: the new edit never starts
+        await city.dblclick();
+
+        await expect(page.locator(EDITOR), 'no second editor was embodied').toHaveCount(1);
+        await expect(name.locator('.neo-grid-editor input'), 'the editor and its rejected draft stayed put').toHaveValue('');
+        await expect(city).not.toHaveClass(/neo-selected/);
+
+        // This gesture keeps the editor but not its focus: the View holds it, where Enter and Tab leave it in the
+        // input. Asserted as measured, so the asymmetry is recorded rather than read from the arms above
+        expect(await activeElementId(page)).toBe(await viewIdOf(page))
+    });
+
     test('an invalid draft survives focus leaving the grid: the edit stays open', async ({page}) => {
         const recordId = await recordIdOf(page, 5),
               name     = cell(page, 'name', recordId);
