@@ -1778,11 +1778,13 @@ class Component extends Abstract {
     }
 
     /**
+     * Keeps the payload as `focusEnterData`: {@link #revertFocus} hands focus back to its `relatedTarget` when this
+     * component is hidden, unmounted or destroyed while it holds focus. It records the LAST enter only. An owner
+     * whose component trades focus with a floating part of itself may substitute the origin it wants focus returned
+     * to, as {@link Neo.grid.plugin.CellEditing#onEditorFocusEnter} does for an editor and its picker.
      * @param {Object} data
      */
     onFocusEnter(data) {
-        // If we are hidden, or unmounted while we still contain focus, we have to revert
-        // focus to where it came from if possible
         this.focusEnterData = data
     }
 
