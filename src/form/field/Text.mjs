@@ -988,7 +988,7 @@ class Text extends Field {
             if (!deltas || deltas.some(delta => delta.id === inputId && (delta.action === 'removeNode' || Object.hasOwn(delta.attributes || {}, 'value')))) {
                 me.reportedInputValue = null
             } else {
-                let {vnode} = VNodeUtil.find(me.vnode, {nodeName: 'input'}) || {};
+                let {vnode} = VNodeUtil.find(me.vnode, me.getInputElId()) || {};
 
                 vnode && (vnode.attributes.value = reportedInputValue)
             }
@@ -1492,7 +1492,7 @@ class Text extends Field {
             inputValue = data.value;
 
         // Find the VNode for the real input element within the component's vnode tree.
-        const {vnode: inputVNode} = VNodeUtil.find(me.vnode, {nodeName: 'input'}) || {};
+        const {vnode: inputVNode} = VNodeUtil.find(me.vnode, me.getInputElId()) || {};
 
         if (inputVNode) {
             // This is the critical synchronization step. The user's input has changed the
