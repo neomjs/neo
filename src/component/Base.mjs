@@ -14,7 +14,8 @@ import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 const
     addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController = Symbol.for('closestController'),
-    lengthRE          = /^\d+\w+$/;
+    // A number with a unit made of letters: `%` has no px value without an axis and a containing block
+    lengthRE          = /^\d*\.?\d+[a-z]+$/i;
 
 /**
  * @typedef {Object} ComponentReferenceConfig
@@ -1683,8 +1684,10 @@ class Component extends Abstract {
     }
 
     /**
+     * Converts a CSS length to px, asking the main thread for any unit other than px. A percentage, or anything that is
+     * not a length, comes back unchanged.
      * @param {Number|String} value
-     * @returns {Promise<number>}
+     * @returns {Promise<Number|String>}
      */
     async measure(value) {
         if (value != null) {
