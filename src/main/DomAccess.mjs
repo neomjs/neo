@@ -6,7 +6,8 @@ import StringUtil from '../util/String.mjs';
 const
     doPreventDefault = e => e.preventDefault(),
     filterTabbable   = e => !e.classList.contains('neo-focus-trap') && DomUtils.isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
-    lengthRE         = /^\d+\w+$/,
+    // A number with a unit made of letters: `%` has no px value without an axis and a containing block
+    lengthRE         = /^\d*\.?\d+[a-z]+$/i,
 
     capturePassive = {
         capture: true,
@@ -800,18 +801,20 @@ class DomAccess extends Base {
     }
 
     /**
+     * @summary Converts a CSS length to px: a number or a px length directly, any other unit through an off-screen
+     * div that takes the node's font properties, so font-relative units resolve as they would on the node.
+     *
+     * A percentage comes back unchanged: it has no px value without its axis and its containing block.
      * @param {Object} data
-     * @param {String} data.id
+     * @param {String|HTMLElement} data.id
      * @param {Number|String} data.value
-     * @returns {Number|String}
+     * @returns {Number|String} px as a Number, or a percentage as it was passed
      */
     measure({ value, id }) {
         const node = id.nodeType === 1 ? id : this.getElement(id);
 
         if (value.endsWith('%')) {
-            const fraction = parseFloat(value) / 100;
-
-            return (node.offsetParent?.getBoundingClientRect().height || 0) * fraction
+            return value
         }
         // If it's any other CSS unit than px, it needs to be measured using the DOM
         else if (isNaN(value) && !value.endsWith('px')) {
@@ -835,8 +838,7 @@ class DomAccess extends Base {
             d.className = node.className;
             d.style.width = value;
 
-            // Read back the resulting computed pixel width
-            value = elStyle.width;
+            value = parseFloat(d.ownerDocument.defaultView.getComputedStyle(d).width)
 
         }
         // If it's a number, or ends with px, use the numeric value.
