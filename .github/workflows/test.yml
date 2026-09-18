@@ -25,7 +25,7 @@ jobs:
     uses: ./.github/workflows/classify-test-scope.yml
 
   test:
-    name: ${{ matrix.suite }}
+    name: ${{ matrix.suite }}${{ matrix.shard && format(' ({0}/{1})', matrix.shard, matrix.shards) || '' }}
     runs-on: ubuntu-latest
     needs: changes
     strategy:
@@ -39,11 +39,24 @@ jobs:
         # Per-suite run flag resolves the classifier output once (#15368) — every
         # step below gates on `matrix.run` instead of re-enumerating suite×flag
         # boolean pairs, which stopped scaling at the third suite.
+        #
+        # The components suite runs one worker per runner, so it scales across runners: each
+        # entry is a Playwright shard. A shard nearing four minutes of test time gets a sibling.
         include:
           - suite: unit
             run: ${{ needs.changes.outputs.run_unit }}
           - suite: components
             run: ${{ needs.changes.outputs.run_components }}
+            shard: 1
+            shards: 3
+          - suite: components
+            run: ${{ needs.changes.outputs.run_components }}
+            shard: 2
+            shards: 3
+          - suite: components
+            run: ${{ needs.changes.outputs.run_components }}
+            shard: 3
+            shards: 3
 
     steps:
       # Re-run failed jobs does not re-run successful prerequisite jobs. Keep this
@@ -159,7 +172,7 @@ jobs:
 
       - name: Run ${{ matrix.suite }} tests
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        run: npm run test-${{ matrix.suite }}
+        run: npm run test-${{ matrix.suite }}${{ matrix.shard && format(' -- --shard={0}/{1}', matrix.shard, matrix.shards) || '' }}
         env:
           NEO_TEST_SKIP_CI: ${{ matrix.suite == 'unit' && 'true' || '' }}
 
@@ -167,6 +180,6 @@ jobs:
         if: ${{ failure() && matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-${{ matrix.suite }}-${{ github.run_id }}
+          name: test-results-${{ matrix.suite }}-${{ github.run_id }}${{ matrix.shard && format('-shard-{0}', matrix.shard) || '' }}
           path: test/playwright/test-results/
           retention-days: 14

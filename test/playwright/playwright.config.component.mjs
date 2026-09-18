@@ -14,8 +14,10 @@ process.env.NEO_E2E_PORT = String(PORT);
 export default defineConfig({
     testDir      : './component',
     outputDir    : './test-results/component',
-    fullyParallel: false, // CRITICAL
-    workers      : 1,     // CRITICAL
+    // One page at a time: many arms measure timing (hover delays, animation frames, native drags),
+    // and a second page on the same CPUs shifts it. CI scales the tier across runners instead.
+    fullyParallel: false,
+    workers      : 1,
     globalSetup  : './e2e/globalSetup.mjs',
 
     reporter: [['list']],
