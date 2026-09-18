@@ -529,7 +529,7 @@ class Text extends Field {
         let me    = this,
             {cls} = me;
 
-        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
+        me.getInputEl().value = me.getInputElValue(value);
 
         me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
 
@@ -1188,6 +1188,26 @@ class Text extends Field {
     }
 
     /**
+     * What the input's vdom says for an input value. `value` is trimmed, the DOM is not: a space typed at either end
+     * is in the input and in the vnode, and a vdom holding the trimmed spelling would make every render write it back
+     * over the input, with whatever was typed while that render was on its way. So while the DOM's last report is such
+     * a spelling, the vdom keeps the report. An adjustor's correction or a value set in code is written as before.
+     * @param {*} value
+     * @returns {*}
+     * @protected
+     */
+    getInputElValue(value) {
+        let me                   = this,
+            {reportedInputValue} = me;
+
+        if (Neo.isString(reportedInputValue) && reportedInputValue !== value && reportedInputValue.trim() === value) {
+            return reportedInputValue
+        }
+
+        return me.containsFocus ? value : me.inputValueRenderer(value)
+    }
+
+    /**
      * Calculates the new inputWidth based on the labelWidth & total width
      * @returns {Number|null} null in case this.width is unknown
      */
@@ -1403,6 +1423,7 @@ class Text extends Field {
     onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
+            inputEl        = me.getInputEl(),
             cls;
 
         if (!me.readOnly) {
@@ -1420,6 +1441,11 @@ class Text extends Field {
 
         if (Neo.isString(me.value)) {
             me.value = me.value.trim()
+        }
+
+        // Spaces typed at either end stayed in the input while the typing went on (see getInputElValue())
+        if (Neo.isString(inputEl.value) && inputEl.value !== inputEl.value.trim()) {
+            inputEl.value = me.inputValueRenderer(me.inputValue)
         }
 
         me.update();
@@ -1457,6 +1483,9 @@ class Text extends Field {
 
         me.clean      = false;
         me.inputValue = me.inputValueAdjustor(inputValue); // updates this.value
+
+        // A space at either end changes no config, so afterSetInputValue() never ran for it
+        me.getInputEl().value = me.getInputElValue(me.inputValue);
 
         me.fireUserChangeEvent(me.value, oldValue)
     }

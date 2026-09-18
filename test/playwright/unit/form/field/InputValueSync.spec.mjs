@@ -27,6 +27,9 @@ import VdomHelper     from '../../../../../src/vdom/Helper.mjs';
  * the DOM already holds it. A render collected before that report lands afterwards and brings the vnode it was
  * diffed against. The arms hold a render open between two reports and read the `value` deltas every render sends,
  * because a value delta is a write over whatever the user typed in the meantime.
+ *
+ * The second group is the same write from another producer: `value` is trimmed, the DOM is not. A space typed at
+ * either end is in the DOM and in the vnode, and a vdom holding the trimmed spelling makes every render write it back.
  */
 test.describe('Neo.form.field.Text input value sync across a render in the air', () => {
     let counter = 0,
@@ -139,5 +142,50 @@ test.describe('Neo.form.field.Text input value sync across a render in the air',
 
         expect(valueWrites(held.batches), 'the render in the air wrote its value').toEqual(['xyz']);
         expect(valueWrites(settled.batches), 'so the DOM shows "xyz", and the next render writes the typed value back').toEqual(['ab'])
+    });
+
+    for (const [end, typed] of [['trailing', 'ab '], ['leading', ' ab']]) {
+        test(`a ${end} space leaves the value trimmed, and no render writes the trimmed spelling over the input`, async () => {
+            const renders = recordRenders(false);
+
+            field.onInputValueChange({value: 'ab'});
+            await field.promiseUpdate();
+
+            field.onInputValueChange({value: typed});
+            expect(field.value, 'the value never holds the space').toBe('ab');
+
+            // Any render at all: the space changed no config, so nothing else would collect one
+            await field.promiseUpdate();
+
+            expect(valueWrites(renders.batches), 'the DOM shows what the user typed, and no render says otherwise').toEqual([])
+        })
+    }
+
+    test('focus leaving the field writes the trimmed value once: the spaces go when the typing is over', async () => {
+        field.onInputValueChange({value: 'ab '});
+        await field.promiseUpdate();
+
+        const renders = recordRenders(false);
+
+        field.onFocusLeave({oldPath: []});
+        await field.promiseUpdate();
+
+        expect(valueWrites(renders.batches)).toEqual(['ab'])
+    });
+
+    test('CONTROL: an adjustor that rejects what was typed still gets its value written', async () => {
+        field.inputValueAdjustor = value => value.replace(/x/g, '');
+
+        field.onInputValueChange({value: 'ab'});
+        await field.promiseUpdate();
+
+        const renders = recordRenders(false);
+
+        // The DOM shows "abx"; the field's value stays "ab", and the next render has to say so
+        field.onInputValueChange({value: 'abx'});
+        await field.promiseUpdate();
+
+        expect(field.value).toBe('ab');
+        expect(valueWrites(renders.batches), 'the rejected character is written out of the input').toEqual(['ab'])
     })
 });
