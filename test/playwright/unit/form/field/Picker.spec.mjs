@@ -42,8 +42,10 @@ import Neo              from '../../../../../src/Neo.mjs';
 import * as core        from '../../../../../src/core/_export.mjs';
 import Component        from '../../../../../src/component/Base.mjs';
 import ComponentManager from '../../../../../src/manager/Component.mjs';
+import DateField        from '../../../../../src/form/field/Date.mjs';
 import FocusManager     from '../../../../../src/manager/Focus.mjs';
 import Picker           from '../../../../../src/form/field/Picker.mjs';
+import TimeField        from '../../../../../src/form/field/Time.mjs';
 
 class TestPicker extends Picker {
     static config = {
@@ -179,5 +181,32 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
         expect(removed).toHaveLength(1);
         expect(removed[0]).toBe(added[0]);
         expect(mainView.domListeners).toEqual([])
+    })
+});
+
+/**
+ * Enter opens a closed picker unless `showPickerOnEnter` is off, which is how a grid editor leaves Enter to the grid's
+ * commit. Date and Time override `onKeyDownEnter` and reach the switch through `super`.
+ */
+test.describe('Neo.form.field.Picker Enter', () => {
+    [TestPicker, DateField, TimeField].forEach(FieldClass => {
+        test(`${FieldClass.prototype.className}: Enter shows the closed picker, and with showPickerOnEnter off builds none`, () => {
+            const opens = Neo.create(FieldClass, {appName, id: Neo.getId('enter-opens')}),
+                  keeps = Neo.create(FieldClass, {appName, id: Neo.getId('enter-keeps'), showPickerOnEnter: false});
+            let   shown = 0;
+
+            // The default only has to ask for its picker: showing one needs a DOM
+            opens.showPicker = () => shown++;
+            opens.onKeyDownEnter({});
+
+            expect(shown, 'the default opens the picker on Enter').toBe(1);
+
+            keeps.onKeyDownEnter({});
+
+            expect(keeps.picker, 'no picker was built').toBeNull();
+
+            opens.destroy();
+            keeps.destroy()
+        })
     })
 });
