@@ -357,7 +357,9 @@ class ComponentService extends Service {
      * @param {Object}   params
      * @param {String}   [params.rootId]
      * @param {Object}   params.selector
-     * @param {String[]} [params.returnProperties]
+     * @param {String[]} [params.returnProperties] Property paths, read like `get_instance_properties` reads them: a
+     * dotted path reaches a nested value (`store.count`), and one that resolves to nothing returns `null`, so the key
+     * stays visible
      * @returns {Object}
      */
     queryComponent({rootId, selector, returnProperties}) {
@@ -375,7 +377,7 @@ class ComponentService extends Service {
             if (Array.isArray(returnProperties) && returnProperties.length > 0) {
                 const props = {};
                 returnProperties.forEach(prop => {
-                    props[prop] = this.safeSerialize(c[prop])
+                    props[prop] = this.safeSerialize(Neo.ns(prop, false, c)) ?? null
                 });
 
                 return {
