@@ -285,6 +285,13 @@ class GridBody extends Component {
      */
     #initialTotalSize = 0
     /**
+     * The merged arguments of every {@link #createViewData} call deferred while this body's update is in flight. They
+     * collapse into one run, which must keep the strongest intent of them all: forced if any caller forced, and
+     * rendering if any caller asked to render.
+     * @member {Object|null} #deferredViewData=null
+     */
+    #deferredViewData = null
+    /**
      * Internal cache for the last mountedColumns state.
      * Used to detect horizontal scrolling/resizing to force row updates.
      * @member {Number[]|null} #lastMountedColumns=null
@@ -757,7 +764,15 @@ class GridBody extends Component {
         }
 
         if (me.isVdomUpdating) {
+            let pending = me.#deferredViewData;
+
+            // registerPreUpdate() keeps one callback per id, so a later deferral must not drop an earlier one's intent
+            me.#deferredViewData = {force: force || !!pending?.force, silent: silent && (pending?.silent ?? true)};
+
             Neo.manager.VDomUpdate.registerPreUpdate(me.id, () => {
+                let {force, silent} = me.#deferredViewData;
+
+                me.#deferredViewData = null;
                 me.createViewData(silent, force)
             });
             return

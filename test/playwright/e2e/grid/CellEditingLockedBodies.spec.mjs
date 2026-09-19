@@ -49,6 +49,13 @@ const regionOf = (page, field, recordId) => page.evaluate(({grid, field, recordI
     return node ? ['start', 'center', 'end'][bodies.indexOf(node.closest('.neo-grid-body'))] ?? null : null
 }, {grid: GRID, field, recordId});
 
+/**
+ * How many `c3` cells each body renders, in DOM order: start, center, end.
+ * @returns {Promise<Number[]>}
+ */
+const c3Census = page => page.evaluate(grid => [...document.querySelectorAll(`${grid} .neo-grid-body`)]
+    .map(body => body.querySelectorAll('.neo-grid-cell[data-field="c3"]').length), GRID);
+
 const scrollVertically = (page, top) => page.evaluate(({grid, top}) => {
     document.querySelector(`${grid} .neo-grid-view`).scrollTop = top
 }, {grid: GRID, top});
@@ -136,6 +143,18 @@ test.describe('Grid cell editing in the locked bodies', () => {
             await escapeAndExpect(page, 'c3', recordId, 'r3c3')
         })
     }
+
+    test('a lock change that meets an in-flight center-body render moves every cell of the column out of the center', async ({page}) => {
+        const recordId = await editWithDraft(page, 'c3');
+
+        // The lock change's renders defer behind the held flight and collapse into one run, which must stay forced
+        await drive(page, 'lockInFlight');
+        await expect.poll(() => c3Census(page), {message: 'no c3 cell stays in the center body'}).toEqual([0, 0, expect.any(Number)]);
+        expect((await c3Census(page))[2], 'the end body renders c3').toBeGreaterThan(0);
+        await expect.poll(() => embodiment(page), {message: 'the editor followed its column'}).toEqual({count: 1, field: 'c3', recordId});
+
+        await escapeAndExpect(page, 'c3', recordId, 'r3c3')
+    });
 
     test('a held edit is in no cell until its last release embeds it again, with its draft', async ({page}) => {
         const recordId = await editWithDraft(page, 'c3');
