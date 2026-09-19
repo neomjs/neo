@@ -22,13 +22,14 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../src/Neo.mjs';
-import * as core       from '../../../../src/core/_export.mjs';
-import GridContainer   from '../../../../src/grid/Container.mjs';
-import InstanceManager from '../../../../src/manager/Instance.mjs';
-import Store           from '../../../../src/data/Store.mjs';
-import VdomHelper      from '../../../../src/vdom/Helper.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import CellEditingPlugin from '../../../../src/grid/plugin/CellEditing.mjs';
+import GridContainer     from '../../../../src/grid/Container.mjs';
+import InstanceManager   from '../../../../src/manager/Instance.mjs';
+import Store             from '../../../../src/data/Store.mjs';
+import VdomHelper        from '../../../../src/vdom/Helper.mjs';
 
 /**
  * The plugin arrives through a dynamic import, so every arm waits for it rather than for a fixed timeout.
@@ -159,6 +160,36 @@ test.describe('Grid cellEditing toggled at runtime', () => {
         // The refusal itself, not the flag that causes it: `startEdit` reports false and opens no session.
         expect(plugin.startEdit(store.getAt(0), 'firstname', true)).toBe(false);
         expect(plugin.session).toBeNull()
+    });
+
+    test('a plugin declared by hand is not disabled by this config default', async () => {
+        const declared = Neo.create(GridContainer, {
+            appName  : 'GridCellEditingToggleTest',
+            height   : 200,
+            width    : 300,
+            rowHeight: 40,
+            // Enabled by declaring the plugin directly, never through cellEditing, which stays at its default
+            plugins: [{module: CellEditingPlugin, id: 'declared-cell-editing-plugin'}],
+            store  : Neo.create(Store, {
+                keyProperty: 'id',
+                data       : [{id: 1, firstname: 'Tobias'}],
+                model      : {fields: [{name: 'id', type: 'Integer'}, {name: 'firstname', type: 'String'}]}
+            }),
+            columnDefaults: {editable: true, width: 150},
+            columns       : [{dataField: 'firstname', text: 'Firstname'}]
+        });
+
+        await declared.initVnode();
+        declared.mounted = true;
+        await declared.timeout(20);
+
+        const plugin = declared.getPlugin('grid-cell-editing');
+
+        expect(plugin).not.toBeNull();
+        expect(declared.cellEditing).toBe(false);
+        expect(plugin.disabled).toBe(false);
+
+        declared.destroy()
     });
 
     test('a plugin whose import lands after the config went off arrives disabled', async () => {

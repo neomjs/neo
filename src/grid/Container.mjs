@@ -377,8 +377,10 @@ class GridContainer extends BaseContainer {
 
         // The plugin is created once and afterwards follows this config, so turning editing off ends an open edit
         // and refuses new ones, and turning it on again reuses the instance instead of adding a second one.
+        // A plugin declared directly inside `plugins` is its own enablement: this config only governs it once it
+        // actually changes, so the default value cannot disable a plugin the app asked for by hand.
         if (plugin) {
-            plugin.disabled = !value
+            oldValue !== undefined && (plugin.disabled = !value)
         } else if (value) {
             import('./plugin/CellEditing.mjs').then(module => {
                 let {appName} = me,
