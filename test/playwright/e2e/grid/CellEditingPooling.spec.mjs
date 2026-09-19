@@ -105,7 +105,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
                     await cell(page, field, recordId).click();
                     await expect.poll(selected).toEqual(initial);
 
-                    // RowModel's keyboard activation is a separate repair. Two clicks keep the already selected row.
+                    // A row selection names no column. Activate this specific field by pointer.
                     if (model === 'row') {
                         await cell(page, field, recordId).dblclick()
                     } else {

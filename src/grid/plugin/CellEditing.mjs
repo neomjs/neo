@@ -241,7 +241,7 @@ class CellEditing extends Plugin {
             editor.on('mounted', () => editor.focus(), me, {once: true});
 
             rowIndex >= 0 && owner.view.scrollByRows(rowIndex, 0);
-            owner.scrollByColumns(owner.columns.items.findIndex(column => column.dataField === session.dataField), 0)
+            owner.scrollByColumns(owner.columns.indexOf(session.dataField), 0)
         }
     }
 
@@ -570,9 +570,9 @@ class CellEditing extends Plugin {
     onTabKey(data) {
         let me               = this,
             {owner, session} = me,
-            {store, view}    = owner,
+            {view}           = owner,
             {selectionModel} = view,
-            columnIndex, dataFields, target;
+            target;
 
         // Tab on any other node inside the View keeps its default, and is not this edit's
         if (!session || !(owner.body.isEditorEvent(data) || data.path?.[0]?.id === view.id)) {
@@ -580,9 +580,7 @@ class CellEditing extends Plugin {
         }
 
         // Read before the commit ends the session, and before a re-sort can move the record
-        dataFields  = owner.columns.items.map(column => column.dataField);
-        columnIndex = dataFields.indexOf(session.dataField);
-        target      = me.getAdjacentEditableCell(session, data.shiftKey ? -1 : 1);
+        target = me.getAdjacentEditableCell(session, data.shiftKey ? -1 : 1);
 
         if (!me.completeEdit()) {
             me.focusEdit(session)
