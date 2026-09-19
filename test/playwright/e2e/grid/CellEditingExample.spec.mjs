@@ -37,21 +37,23 @@ const recordIdOf = (page, githubId) => page.locator(`${GRID} .neo-grid-cell[data
 const focusIsOnView = page => page.evaluate(() => document.activeElement?.classList.contains('neo-grid-view') === true);
 
 /**
- * The selected cells as `field/recordId`, and the record ids of the selected rows.
- * @returns {Promise<{cells: String[], rows: String[]}>}
+ * The selected cells as `field/recordId`, the fields of the selected columns, and the record ids of the selected rows.
+ * @returns {Promise<{cells: String[], columns: String[], rows: String[]}>}
  */
 const selection = page => page.evaluate(grid => ({
-    cells: [...document.querySelectorAll(`${grid} .neo-grid-cell.neo-selected`)].map(node => `${node.dataset.field}/${node.dataset.recordId}`),
-    rows : [...new Set([...document.querySelectorAll(`${grid} .neo-grid-row.neo-selected`)].map(node => node.dataset.recordId))]
+    cells  : [...document.querySelectorAll(`${grid} .neo-grid-cell.neo-selected`)].map(node => `${node.dataset.field}/${node.dataset.recordId}`),
+    columns: [...new Set([...document.querySelectorAll(`${grid} .neo-grid-cell.selected-column-cell`)].map(node => node.dataset.field))],
+    rows   : [...new Set([...document.querySelectorAll(`${grid} .neo-grid-row.neo-selected`)].map(node => node.dataset.recordId))]
 }), GRID);
 
 /**
- * Picks the example's "Cell & Row" model, which selects a cell together with its row. The round trip through the App
- * Worker follows the radio's change event there, so the model is in place once it resolves.
+ * Picks one of the example's selection models by its radio label: "Cell & Row" selects a cell together with its row,
+ * "Cell & Column" with its column, "Cell & Column & Row" with both. The round trip through the App Worker follows the
+ * radio's change event there, so the model is in place once it resolves.
  * @returns {Promise<void>}
  */
-const selectCellAndRowModel = async page => {
-    await page.getByText('Cell & Row', {exact: true}).click();
+const selectModel = async (page, label) => {
+    await page.getByText(label, {exact: true}).click();
     await page.evaluate(() => Neo.worker.App.getConfigs({id: document.querySelector('.neo-grid-view').id, keys: ['id']}))
 };
 
@@ -475,7 +477,7 @@ test.describe('Grid cell editing on the public example', () => {
     test('Cell & Row: Tab into the next record selects its cell and its row', async ({page}) => {
         const recordId = await recordIdOf(page, 'tobiu');
 
-        await selectCellAndRowModel(page);
+        await selectModel(page, 'Cell & Row');
 
         await cell(page, 'firstname', recordId).dblclick();
         await expect.poll(() => editingIn(page, 'firstname', recordId)).toBe(true);
@@ -505,7 +507,7 @@ test.describe('Grid cell editing on the public example', () => {
     test('Cell & Row: a double-click edit ended by Escape keeps its row, and Enter edits it again', async ({page}) => {
         const recordId = await recordIdOf(page, 'tobiu');
 
-        await selectCellAndRowModel(page);
+        await selectModel(page, 'Cell & Row');
 
         // The double-click's two clicks select the cell and its row, and deselect both again
         await cell(page, 'firstname', recordId).dblclick();
@@ -518,5 +520,49 @@ test.describe('Grid cell editing on the public example', () => {
         await page.keyboard.press('Enter');
         await expect.poll(() => editingIn(page, 'firstname', recordId), {message: 'Enter edits the row in the column of the last edit'})
             .toBe(true)
-    })
+    });
+
+    for (const model of ['Cell & Column', 'Cell & Column & Row']) {
+        test(`${model}: the selected column follows the edit through Tab, and the arrows keep cell and column together`, async ({page}) => {
+            const recordId = await recordIdOf(page, 'tobiu');
+
+            await selectModel(page, model);
+
+            await cell(page, 'firstname', recordId).click();
+            await expect.poll(async () => (await selection(page)).columns, {message: 'a click selects the cell\'s column'})
+                .toEqual(['firstname']);
+
+            await page.keyboard.press('Enter');
+            await expect.poll(() => editingIn(page, 'firstname', recordId)).toBe(true);
+
+            await page.keyboard.press('Tab');
+            await expect.poll(() => editingIn(page, 'randomNumber', recordId), {message: 'Tab edits the next cell'}).toBe(true);
+            await expect.poll(async () => (await selection(page)).columns, {message: 'and its column is the selected one'})
+                .toEqual(['randomNumber']);
+
+            await page.keyboard.press('Escape');
+            await expect(page.locator(EDITOR)).toHaveCount(0);
+
+            await page.keyboard.press('ArrowRight');
+            await expect.poll(() => selection(page), {message: 'ArrowRight moves the cell and the column together'})
+                .toMatchObject({cells: [`randomDate/${recordId}`], columns: ['randomDate']})
+        });
+
+        test(`${model}: a double-click edit ended by Enter leaves its column selected`, async ({page}) => {
+            const recordId = await recordIdOf(page, 'tobiu');
+
+            await selectModel(page, model);
+
+            // The double-click's two clicks select the cell and its column, and deselect both again
+            await cell(page, 'firstname', recordId).dblclick();
+            await expect.poll(() => editingIn(page, 'firstname', recordId)).toBe(true);
+            await expect.poll(async () => (await selection(page)).columns, {message: 'the edit selected its column'})
+                .toEqual(['firstname']);
+
+            await page.keyboard.press('Enter');
+            await expect(page.locator(EDITOR)).toHaveCount(0);
+            await expect.poll(() => selection(page), {message: 'the commit leaves cell and column selected'})
+                .toMatchObject({cells: [`firstname/${recordId}`], columns: ['firstname']})
+        })
+    }
 });

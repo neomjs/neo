@@ -634,6 +634,8 @@ selects text instead of drag-scrolling it.
 
 A model that selects rows keeps the edited record's row selected for as long as the edit lasts, and moves it along as
 Tab walks into another record. However the edit ends, the arrow keys go on from that row, and Enter edits it again.
+A model that selects columns keeps the edited cell's column selected the same way, so the arrow keys move the selected
+cell and its column together afterwards.
 
 A commit writes a valid draft to its record. An invalid draft keeps its editor: Enter, Tab, a click on another cell and
 focus leaving the grid all leave the edit open and write nothing. While no edit is open, Tab is the browser's own.
