@@ -14,3 +14,11 @@ payload="$(cat)"
 
 printf '%s\n' "$payload" | node ./buildScripts/util/check-branch-discipline.mjs
 printf '%s\n' "$payload" | node ./buildScripts/util/check-spec-retirement.mjs
+
+# The commit-authorship guard ships with `neo-agent-skills`; the team roster it checks co-author trailers against lives
+# in the Brain. A seat whose shell names its Brain checkout (`NEO_AGENTOS_RUNTIME_ROOT`) checks trailers here too;
+# without one, the guard still refuses the operator's identity from an agent checkout, and CI checks the trailers.
+authorship=./node_modules/.bin/neo-agent-skills-commit-authorship
+[ -x "$authorship" ] || { echo "pre-push: $authorship is missing; run npm install (neo-agent-skills 0.1.12+)" >&2; exit 1; }
+roster="${NEO_AGENTOS_RUNTIME_ROOT:+$NEO_AGENTOS_RUNTIME_ROOT/ai/graph/agentCoAuthorEmails.mjs}"
+printf '%s\n' "$payload" | "$authorship" ${roster:+--roster "$roster"}
