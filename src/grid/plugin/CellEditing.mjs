@@ -22,10 +22,11 @@ import TextField from '../../form/field/Text.mjs';
  * Losing the projection is neutral: scrolling never commits and never cancels.
  *
  * Keys route through {@link Neo.grid.View}, the grid's single key registry: Enter and F2 edit the selected cell —
- * or, with a row selected and no cell, that row's record ({@link #editSelectedCell}) — Enter in the editor commits, Escape cancels, and Tab or Shift+Tab commits and edits the next or previous editable cell. A
- * double-click edits any editable cell. Activating another cell, or moving focus out of the editor, commits a valid
- * draft first; an invalid draft keeps its edit open. A column opts in through
- * {@link Neo.grid.column.Base#editable_}, and {@link Neo.grid.column.Base#editor} configures its field.
+ * or, with a row selected and no cell, that row's record ({@link #editSelectedCell}) — Enter in the editor commits,
+ * Escape cancels, and Tab or Shift+Tab commits and edits the next or previous editable cell. A double-click edits any
+ * editable cell. Activating another cell, or moving focus out of the editor, commits a valid draft first; an invalid
+ * draft keeps its edit open. A column opts in through {@link Neo.grid.column.Base#editable_}, and
+ * {@link Neo.grid.column.Base#editor} configures its field.
  * @class Neo.grid.plugin.CellEditing
  * @extends Neo.plugin.Base
  */
