@@ -255,6 +255,45 @@ test.describe('Grid cell editing on the public example', () => {
         await expect.poll(() => focusIsOnView(page), {message: 'focus returned to the View'}).toBe(true)
     });
 
+    test('a commit into the sorted column moves no row, and the next sort puts it where it belongs', async ({page}) => {
+        /**
+         * The Firstname column from top to bottom, as the user sees it: pooled rows are placed by position, so DOM
+         * order says nothing.
+         * @returns {Promise<String[]>}
+         */
+        const firstnames = () => page.evaluate(grid => [...document.querySelectorAll(`${grid} .neo-grid-cell[data-field="firstname"]`)]
+            .map(node => ({text: node.textContent, top: node.getBoundingClientRect().top}))
+            .sort((a, b) => a.top - b.top)
+            .map(item => item.text), GRID);
+
+        const ascending = [...await firstnames()].sort(),
+              header    = page.locator(`${GRID} .neo-grid-header-button`).filter({hasText: /^Firstname$/});
+
+        await header.click();
+        await expect.poll(firstnames, {message: 'the header click sorts ascending'}).toEqual(ascending);
+
+        // The first row's new value belongs at the other end
+        const first    = page.locator(`${GRID} .neo-grid-cell[data-field="firstname"]`).getByText(ascending[0], {exact: true}),
+              recordId = await first.getAttribute('data-record-id');
+
+        await first.dblclick();
+        await expect.poll(() => editingIn(page, 'firstname', recordId)).toBe(true);
+        await retype(page, 'Zzz');
+
+        await page.keyboard.press('Tab');
+        await expect.poll(() => editingIn(page, 'randomNumber', recordId), {message: 'Tab goes on in the same row'}).toBe(true);
+        expect(await firstnames(), 'the committed row kept its place').toEqual(['Zzz', ...ascending.slice(1)]);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+
+        // Descending, then ascending again: the sorter applies when it changes
+        await header.click();
+        await header.click();
+        await expect.poll(firstnames, {message: 'the next ascending sort moves the row to the end'})
+            .toEqual([...ascending.slice(1), 'Zzz'])
+    });
+
     test('a click on another cell commits the draft and selects that cell', async ({page}) => {
         const recordId = await recordIdOf(page, 'rwaters'),
               otherId  = await recordIdOf(page, 'tobiu');
