@@ -430,7 +430,7 @@ jobs:
                 round2Misses.push("Origin Session ID: Neo Memory Core UUID");
               }
 
-              if (!/\*\*Round-1 Review ID:\*\*\s*(?!\[)\S/.test(body)) {
+              if (!/\*\*Round-1 Review ID:\*\*[ \t]*(?!\[[^\]\n]*\](?!\())[^\s·]/.test(body)) {
                 round2Misses.push("Round-1 Review ID: the round this dispositions");
               }
 
