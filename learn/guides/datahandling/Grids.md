@@ -660,6 +660,10 @@ the pool and back suspends the edit and restores it. An update to another field 
 and leaves the editor, the draft and focus alone. An update to the edited field itself keeps the draft, and Enter
 writes the draft over the new value. Removing the record removes the editor with it.
 
+A commit moves no row, even into the column the grid is sorted by: the edited row keeps its place, so Tab goes on in
+the row the user is looking at. Sorters apply when they change, and the next click on the column's header puts the row
+where its new value belongs.
+
 Locking or unlocking a column moves it to another body. The editor stays out of every cell until the bodies have
 swapped their columns, then returns with its draft.
 
