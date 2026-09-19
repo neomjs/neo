@@ -152,10 +152,11 @@ class Socket extends Base {
     }
 
     /**
-     * @param {Number} [code] defaults to 1000
+     * @summary Closes the connection with a normal status unless the caller supplies another code.
+     * @param {Number} [code=1000]
      * @param {String} [reason]
      */
-    close(code, reason) {
+    close(code = 1000, reason) {
         this.socket.close(code, reason)
     }
 

@@ -43,6 +43,27 @@ test.describe('Neo.data.connection.WebSocket', () => {
         console.error = realError
     });
 
+    test('close defaults the native code to normal closure and preserves explicit arguments', () => {
+        const socket = Neo.create(DetachedSocket),
+              calls  = [];
+
+        try {
+            socket.socket = {close: (...args) => calls.push(args), send() {}};
+
+            Socket.prototype.close.call(socket);
+            Socket.prototype.close.call(socket, undefined, 'job complete');
+            Socket.prototype.close.call(socket, 4001, 'application shutdown');
+
+            expect(calls).toEqual([
+                [1000, undefined],
+                [1000, 'job complete'],
+                [4001, 'application shutdown']
+            ])
+        } finally {
+            socket.destroy()
+        }
+    });
+
     test('the native close callback publishes the CloseEvent fields', () => {
         const socket = Neo.create(DetachedSocket),
               native = {send() {}},
