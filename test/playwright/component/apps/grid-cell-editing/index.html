@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neo.mjs Grid Cell Editing Test App</title>
+    <style>
+        /* The focus target outside the app gets its own strip, so the Viewport keeps the whole window width */
+        body                       {flex-direction: column}
+        #grid-cell-editing-outside {flex: none; align-self: flex-start; margin: 4px}
+        body > .neo-viewport       {flex: 1 1 0; min-height: 0; width: 100%; align-self: stretch}
+    </style>
 </head>
 <body>
     <button id="grid-cell-editing-outside" type="button">Outside the grids</button>
