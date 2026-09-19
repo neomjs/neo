@@ -46,10 +46,17 @@ class Client extends Base {
     }
 
     /**
-     * @member {Boolean} isConnected=false
+     * When the socket last ran out of reconnect attempts. Null while it is connected or still reconnecting on its own.
+     * From then on only {@link #redial} dials, and the failures it meets are no news.
+     * @member {Number|null} gaveUpAt=null
      * @protected
      */
-    isConnected = false
+    gaveUpAt = null
+    /**
+     * Whether the current socket opened, so a close can tell a lost connection from a refused dial
+     * @member {Boolean} #opened=false
+     */
+    #opened = false
     /**
      * Buffer for console logs generated before connection is established
      * @member {Array} logs=[]
@@ -92,6 +99,17 @@ class Client extends Base {
     transactionService = null
 
     /**
+     * True while the socket is open. Read from the socket rather than kept as a flag: a failing socket reports `error`
+     * before `close`, and the worker forwards every console line to the bridge while this is true. A stale flag would
+     * send a failure's own log through the failed socket, whose `sendMessage()` reconnects, which logs again.
+     * @member {Boolean} isConnected
+     * @protected
+     */
+    get isConnected() {
+        return this.socket?.socket?.readyState === WebSocket.OPEN
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -124,9 +142,11 @@ class Client extends Base {
         registerInteractionServiceMethods(me.serviceMap, interaction);
 
         Neo.currentWorker.on({
-            connect   : me.onAppWorkerWindowConnect,
-            disconnect: me.onAppWorkerWindowDisconnect,
-            scope     : me
+            connect         : me.onAppWorkerWindowConnect,
+            disconnect      : me.onAppWorkerWindowDisconnect,
+            visibilityChange: me.onWindowVisibilityChange,
+            windowFocus     : me.redial,
+            scope           : me
         });
 
         me.connect()
@@ -279,16 +299,18 @@ class Client extends Base {
      * @param {Event} event
      */
     onSocketOpen(event) {
-        console.log('Neo.ai.Client: Connected to MCP Server');
-        this.isConnected = true;
+        this.gaveUpAt = null;
+        this.#opened  = true;
 
-        // Flush buffered logs
+        // Flush buffered logs, which are older than the line announcing this connection
         if (this.logs.length > 0) {
             this.logs.forEach(log => {
                 this.sendNotification('console_log', log)
             });
             this.logs.length = 0
         }
+
+        console.log('Neo.ai.Client: Connected to MCP Server');
 
         const appWorker = Neo.worker.App;
 
@@ -342,11 +364,15 @@ class Client extends Base {
     }
 
     /**
+     * A dial that never opened disconnects nothing, so only a lost connection is logged
      * @param {CloseEvent} event
      */
     onSocketClose(event) {
-        console.log('Neo.ai.Client: Disconnected');
-        this.isConnected = false
+        let me     = this,
+            opened = me.#opened;
+
+        me.#opened = false;
+        opened && console.log('Neo.ai.Client: Disconnected')
     }
 
     /**
@@ -357,22 +383,57 @@ class Client extends Base {
      * CI and for anyone not running one. The event itself carries nothing: the WebSocket spec
      * deliberately reduces it to `{isTrusted: true}` so a page cannot probe why a connection
      * failed, and the actionable detail lives on the close event's code instead. An error level on
-     * a content-free, expected condition trains readers to skip the channel.
+     * a content-free, expected condition trains readers to skip the channel. Once the socket gave up,
+     * a refused {@link #redial} is not even news, so it stays silent: the browser logs it anyway.
      * @param {Event} event
      */
     onSocketError(event) {
-        console.warn('Neo.ai.Client: WebSocket Error', event)
+        this.gaveUpAt || console.warn('Neo.ai.Client: WebSocket Error', event)
     }
 
     /**
      * @summary The bridge stayed unreachable through every reconnect attempt: the same ordinary state
-     * {@link #onSocketError} reports for anyone not running a Neural Link bridge, so a warning here too.
+     * {@link #onSocketError} reports for anyone not running a Neural Link bridge, so a warning here too,
+     * once. A refused {@link #redial} ends here as well, silently, and restarts the wait for the next one.
      * @param {Object}  failure
      * @param {Boolean} failure.handled Set, so the socket does not report it as an error
      */
     onSocketReconnectFailed(failure) {
-        console.warn('Neo.ai.Client: the Neural Link bridge stayed unreachable, reconnecting stopped');
+        let me = this;
+
+        if (!me.gaveUpAt) {
+            console.warn('Neo.ai.Client: the Neural Link bridge stayed unreachable, reconnecting stopped ' +
+                'until a window is focused or shown again')
+        }
+
+        me.gaveUpAt     = Date.now();
         failure.handled = true
+    }
+
+    /**
+     * A window shown again is a return, like a window regaining focus: see {@link #redial}
+     * @param {Object}  data
+     * @param {Boolean} data.hidden
+     */
+    onWindowVisibilityChange({hidden}) {
+        hidden || this.redial()
+    }
+
+    /**
+     * @summary Dials once more after the socket gave up, when a user returns to one of this worker's windows:
+     * the moment a bridge started meanwhile becomes worth a try.
+     *
+     * Never on a timer. Every refused dial writes a browser-level DevTools error that no script can suppress,
+     * so a page without a bridge pays at most one per return, and at most one per backoff step since the
+     * last failure. One dial at a time: a return while it connects changes nothing.
+     */
+    redial() {
+        let {gaveUpAt, socket} = this;
+
+        if (gaveUpAt && socket.socket.readyState === WebSocket.CLOSED &&
+            Date.now() - gaveUpAt >= socket.backoffStrategy(socket.reconnectAttempts)) {
+            socket.createSocket()
+        }
     }
 
     /**

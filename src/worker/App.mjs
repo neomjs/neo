@@ -735,6 +735,8 @@ class App extends Base {
     }
 
     /**
+     * Reported twice: the window's app fires `visibilitychange`, and this worker fires `visibilityChange` for listeners
+     * that serve every window, like {@link Neo.ai.Client}.
      * @param {Object}  msg
      * @param {Object}  msg.data
      * @param {Boolean} msg.data.hidden
@@ -742,8 +744,21 @@ class App extends Base {
      * @param {Number}  msg.data.windowId
      */
     onVisibilityChange(msg) {
-        this.hiddenTick.sync(msg.data);
-        Neo.apps[msg.data.windowId]?.fire('visibilitychange', msg.data)
+        let me = this;
+
+        me.hiddenTick.sync(msg.data);
+        Neo.apps[msg.data.windowId]?.fire('visibilitychange', msg.data);
+        me.fire('visibilityChange', msg.data)
+    }
+
+    /**
+     * A window of this worker regained focus, reported as the `windowFocus` event
+     * @param {Object} msg
+     * @param {Object} msg.data
+     * @param {String} msg.data.windowId
+     */
+    onWindowFocus(msg) {
+        this.fire('windowFocus', msg.data)
     }
 
     /**

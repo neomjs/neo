@@ -193,9 +193,8 @@ class Socket extends Base {
     onClose(event, reason, wasClean) {
         this.fire('close', {event, reason, wasClean});
 
-        // Auto-reconnect on abnormal closure
+        // Auto-reconnect on abnormal closure. attemptReconnect() logs each attempt it schedules, and it may schedule none
         if (!wasClean || event.code !== 1000) {
-            console.warn('WebSocket closed abnormally, attempting reconnect...');
             this.attemptReconnect()
         }
     }

@@ -144,6 +144,7 @@ class DomEvents extends Base {
         window  .addEventListener('orientationchange', me.onOrientationChange.bind(me));
         window  .addEventListener('hashchange',        me.onHashChange       .bind(me));
         window  .addEventListener('blur',              me.onWindowBlur       .bind(me));
+        window  .addEventListener('focus',             me.onWindowFocus      .bind(me));
 
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
@@ -569,6 +570,16 @@ class DomEvents extends Base {
                 type        : 'focusin'
             }))
         }, 0)
+    }
+
+    /**
+     * Tells the App Worker that this window regained focus, e.g. a user coming back from another application
+     */
+    onWindowFocus() {
+        Neo.worker.Manager.sendMessage('app', {
+            action: 'windowFocus',
+            data  : {windowId: Neo.worker.Manager.windowId}
+        })
     }
 
     /**
