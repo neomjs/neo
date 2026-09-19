@@ -23,6 +23,28 @@
         border-right-color: var(--grid-header-button-border-right-color);
     }
 
+    // Where two regions meet, the header draws the seam its cells draw (grid/Body.scss): the locked
+    // start closes on its last column's right, the locked end opens on its first column's left
+    &.neo-locked-start:last-child {
+        border-right-color: var(--grid-header-button-border-right-color);
+    }
+
+    &.neo-locked-end:first-child {
+        border-left-color: var(--grid-header-button-border-right-color);
+    }
+
+    // The last column's trailing edge, just outside the button like its cells' (grid/Body.scss): the
+    // toolbar clips it wherever the column meets its region's end
+    &:last-child::after {
+        background-color: var(--grid-header-button-border-right-color);
+        bottom          : -1px;
+        content         : '';
+        position        : absolute;
+        right           : -2px;
+        top             : -1px;
+        width           : 1px;
+    }
+
     &:hover {
         background-color: var(--grid-header-button-background-color-hover);
         border-color    : var(--grid-header-button-border-hover-color);
@@ -30,6 +52,10 @@
 
         &:not(:last-child) {
             border-right-color: var(--grid-header-button-border-right-hover-color);
+        }
+
+        &:last-child::after {
+            background-color: var(--grid-header-button-border-right-hover-color);
         }
 
         .neo-button-glyph {
