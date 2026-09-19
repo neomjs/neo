@@ -16,6 +16,8 @@
  * itself shows the editor. `startUpdates` writes `c4` every 4 ms until `stopUpdates`: a stream of row repaints, each a
  * render that covers the editor. `logEvents` records, in order, every record write (`commit:<fields>`) and every
  * selection change (`select`) into `grid.driverEventLog`, which a spec reads through `Neo.worker.App.getConfigs()`.
+ * `lockInFlight` locks `c3` to the end while a held center-body flight is in the air, so the lock change's renders
+ * defer behind it.
  */
 import RowModel from '../../../../../src/selection/grid/RowModel.mjs';
 
@@ -23,12 +25,35 @@ const {searchParams}   = new URL(import.meta.url),
       grid             = Neo.getComponent('grid-cell-editing-pooled'),
       {columns, store} = grid;
 
+/**
+ * Puts a forced center-body render in the air and holds its flight 300 ms, once, so whatever the caller does in the
+ * same tick meets an in-flight body and its renders defer behind it.
+ */
+const holdCenterFlight = () => {
+    const {Helper} = Neo.vdom,
+          update   = Helper.updateBatch;
+
+    Helper.updateBatch = async data => {
+        const response = await update.call(Helper, data);
+
+        if (data.updates?.[grid.body.id]) {
+            Helper.updateBatch = update;
+            await new Promise(resolve => setTimeout(resolve, 300))
+        }
+
+        return response
+    };
+
+    grid.body.createViewData(false, true)
+};
+
 const actions = {
     cancel      : () => grid.getPlugin('grid-cell-editing').cancelEdit(),
     clearFilter : () => store.clearFilters(),
     filterOut   : () => {store.filters = [{property: 'c3', operator: 'like', value: 'r1'}]},
     hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
     lockEnd     : () => {columns.get('c3').locked = 'end'},
+    lockInFlight: () => {holdCenterFlight(); columns.get('c3').locked = 'end'},
     lockStart   : () => {columns.get('c3').locked = 'start'},
     logEvents   : () => {
         const log = grid.driverEventLog = [];
