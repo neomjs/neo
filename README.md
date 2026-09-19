@@ -153,7 +153,7 @@ This sets up a new app workspace, a pre-configured app shell, a local developmen
 * :student: **[Learning Section](https://neomjs.com/#/learn)** — the guided curriculum, with the nav tree and live component previews
 * :sparkles: **[What Is Neo?](https://neomjs.com/#/learn/benefits/Introduction)** — the two-hemisphere organism, with receipts
 * :robot: **[Run Your Own Agent Team](https://github.com/neomjs/neo-agent-brain)** — deploy the Agent OS against your own repositories
-* :hammer: **[Contributing](CONTRIBUTING.md)** — changing the engine itself? Clone, `npm install`, `npm run server-start`
+* :hammer: **[Contributing](CONTRIBUTING.md)** — changing the engine itself? Setup, tests and the contribution workflow
 
 </br></br>
 ## Who This Is For
