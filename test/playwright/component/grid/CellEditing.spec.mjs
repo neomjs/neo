@@ -304,12 +304,9 @@ test.describe('grid cell editing — terminals', () => {
     // `cellEditCancel` fires synchronously while the cancel is still unwinding, so a listener runs before the gesture
     // has finished. The anchor therefore belongs BEFORE that notification: these two arms are what the ordering buys,
     // and both are red when the selection happens after `cancelEdit` instead.
-    test('a listener that ends the grid on cancel is not reached into afterwards', async ({page}) => {
-        const errors   = [],
-              recordId = await recordIdOf(page, 3),
+    test('a listener that ends the grid on cancel is not reached into afterwards', async ({page, workerErrors}) => {
+        const recordId = await recordIdOf(page, 3),
               name     = cell(page, 'name', recordId);
-
-        page.on('pageerror', error => errors.push(error.message));
 
         await installCancelListener(page, 'destroyOnCancel');
 
@@ -318,10 +315,16 @@ test.describe('grid cell editing — terminals', () => {
 
         await page.keyboard.press('Escape');
 
+        // The throw happens in the App Worker, and its mirrored console line reaches the page after the gesture.
+        // Asserting straight after the keypress reads before it arrives, so this waits for the worker to drain
+        // first — `workerErrors` is what carries it, not `page.on('pageerror')`.
+        await roundTrip(page);
+
         // The grid going is the listener's doing and fine. What must not happen is the cancel continuing into it,
-        // which threw `Cannot destructure property 'silentSelect' of 'view' as it is null`.
+        // which throws `Cannot destructure property 'silentSelect' of 'view' as it is null` from `BaseModel.silently`.
         await expect.poll(() => isLive(page, 'grid-cell-editing'), {message: 'the listener destroyed the grid'}).toBe(false);
-        expect(errors, 'the cancel completed without touching the destroyed grid').toEqual([])
+        expect(workerErrors.lines.filter(line => /silentSelect|BaseModel/.test(line)),
+            'the cancel completed without reaching into the destroyed grid').toEqual([])
     });
 
     test('a listener that selects on cancel keeps its newer selection', async ({page}) => {
