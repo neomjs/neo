@@ -121,6 +121,8 @@ class Responsive extends Plugin {
     }
 
     /**
+     * Applies the owner's current `responsive` value. An owner that turned it off keeps this plugin idle until the next
+     * value arrives.
      * @param {Object} data
      */
     onResize(data) {
@@ -130,6 +132,10 @@ class Responsive extends Plugin {
             configTester = Neo.Responsive.responsiveConfig,
             {owner}      = me,
             {responsive} = owner;
+
+        if (!responsive) {
+            return
+        }
 
         for (const [key, value] of Object.entries(responsive)) {
             const hasKey = configTester.get(key)?.(data.rect);

@@ -804,24 +804,29 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered after the responsive config got changed
+     * Triggered after the responsive config got changed. The first value imports the Responsive plugin, which reads
+     * `responsive` on every resize, so later values need no plugin of their own.
      * @param {Object} value
      * @param {Object} oldValue
      * @protected
      */
     async afterSetResponsive(value, oldValue) {
         if (value && !this.getPlugin('responsive')) {
-            let me      = this,
-                module  = await me.trap(import(`../../src/plugin/Responsive.mjs`)),
-                plugins = me.plugins || [];
+            let me     = this,
+                module = await me.trap(import(`../../src/plugin/Responsive.mjs`));
 
-            plugins.push({
-                module : module.default,
-                appName: me.appName,
-                value
-            });
+            // Values set before the import settles all passed the lookup above, so admission is decided here
+            if (!me.getPlugin('responsive')) {
+                let plugins = me.plugins || [];
 
-            me.plugins = plugins
+                plugins.push({
+                    module : module.default,
+                    appName: me.appName,
+                    value
+                });
+
+                me.plugins = plugins
+            }
         }
     }
 
