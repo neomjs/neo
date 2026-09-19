@@ -533,7 +533,7 @@ flowchart TD
     Embodied -->|"a scroll, sort or filter takes the cell away"| Suspended
     Suspended -->|"a render shows the cell again"| Embodied
     Embodied -->|"Enter, Tab, a click elsewhere, focus leaving the grid"| Committed
-    Suspended -->|"Tab"| Committed
+    Suspended -->|"Tab or arrow navigation"| Committed
     Embodied -->|"Escape"| Cancelled
     Embodied -->|"the cell goes, on a column that cannot suspend"| Cancelled
     Committed --> Idle
@@ -663,8 +663,10 @@ writes the draft over the new value. Removing the record removes the editor with
 Locking or unlocking a column moves it to another body. The editor stays out of every cell until the bodies have
 swapped their columns, then returns with its draft.
 
-A suspended edit still answers Tab and Shift+Tab: they commit it and edit the next or previous cell. When the draft is
-invalid, its cell is scrolled back into sight and its editor takes focus, so the user sees why nothing moved on.
+A suspended edit still answers Tab and Shift+Tab: they commit it and edit the next or previous cell. An arrow on the
+View commits the suspended draft before the selection model moves to the next row or cell, ending the edit. Either
+gesture blocks when the draft is invalid: selection stays put, the cell is scrolled back into sight, and the same
+editor takes focus with its validation error visible. Arrows inside an embodied editor keep their field's meaning.
 
 An IME composition in flight when its row leaves the pool survives as the draft. The composed text reaches the field
 as it is typed, so there is nothing that only the DOM holds.

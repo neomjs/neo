@@ -71,6 +71,18 @@ class BaseModel extends Model {
     }
 
     /**
+     * @summary Admits arrow navigation after the grid's edit terminal: inputs keep their own arrows, and an open
+     * edit on the View must commit or return to its invalid editor before selection can move.
+     * @param {Object} data
+     * @returns {Boolean}
+     * @protected
+     */
+    canNavigate(data) {
+        return !this.hasEditorFocus(data) &&
+            this.view.gridContainer?.getPlugin('grid-cell-editing')?.onNavigationKey(data) !== false
+    }
+
+    /**
      * Updates the visual state (selection class) of specific rows without triggering a full Body update.
      *
      * This method implements the **Granular Update** strategy:

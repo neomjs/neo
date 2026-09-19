@@ -16,6 +16,8 @@
  * itself shows the editor. `startUpdates` writes `c4` every 4 ms until `stopUpdates`: a stream of row repaints, each a
  * render that covers the editor. `logEvents` records, in order, every record write (`commit:<fields>`) and every
  * selection change (`select`) into `grid.driverEventLog`, which a spec reads through `Neo.worker.App.getConfigs()`.
+ * It also snapshots column selection at each write in `driverColumnsAtCommit`, since ColumnModel emits no
+ * selectionChange event: the snapshot proves whether a commit preceded its navigation.
  * `lockInFlight` locks `c3` to the end while a held center-body flight is in the air, so the lock change's renders
  * defer behind it.
  */
@@ -58,7 +60,10 @@ const actions = {
     logEvents   : () => {
         const log = grid.driverEventLog = [];
 
-        store.on('recordChange', ({fields}) => log.push(`commit:${fields.map(({name}) => name).join()}`));
+        store.on('recordChange', ({fields}) => {
+            grid.driverColumnsAtCommit = [...grid.view.selectionModel.selectedColumns];
+            log.push(`commit:${fields.map(({name}) => name).join()}`)
+        });
         grid.view.selectionModel.on('selectionChange', () => log.push('select'))
     },
     optOutEdited: () => {columns.get('c3').cancelEditOnProjectionLoss = true},
