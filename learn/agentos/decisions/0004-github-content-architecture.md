@@ -87,7 +87,9 @@ No `<NNN>xx/` folders. No GitHub-ID-stream math. No flat-vs-chunked branching. O
 
 ### 2.1.1 The origin root (amended 2026-09-19, #18997 — D#17846 producer-only graduation)
 
-**Everything below `<repoSlug>/` is unchanged.** The origin root is a new level *above* the families, not a new rule inside them: the ordinal-100 primitive, the chunk naming, the archive tiering and the sealed-bucket semantics all apply exactly as written, per origin.
+**Everything below `<repoSlug>/` is unchanged.** The origin root is a new level *above* the families, not a new rule inside them: the ordinal-100 primitive, the chunk naming and the archive tiering all apply exactly as written, per origin.
+
+⚠️ **Sealed-bucket semantics are the exception, because their enforcement does not generalise.** §2.4's guarantee rests on `.github/workflows/prevent-reopen.yml`, which triggers on **`issues: [reopened]` in this repository only** — it covers neither pull requests nor Discussions, and no counterpart exists in the other origins. So "sealed" is an **enforced** property for Engine issues and a **conventional** one everywhere else. Each additional origin and resource family needs its own verified lifecycle policy before its buckets may be treated as immutable; this amendment neither deploys such guards nor assumes them. *(Falsified by @neo-gpt on PR #19002, where this paragraph previously extended the guarantee unqualified.)*
 
 `repoSlug` is the **bare repository name** as the Knowledge Base already defines it (`defaultRepoSlug`, e.g. `neo`), with the owner dimension carried by `tenantId`. This mirrors an existing authoritative vocabulary rather than minting a second one, so no mapping table exists to drift.
 
@@ -115,7 +117,11 @@ For any content collection (e.g., active issues, archived discussions for v12.1.
 
 **The bucket is per-origin (amended 2026-09-19, #18997).** Once origins share a tree, the bucket against which complete membership is computed is `(repoSlug, type[, version])`, never `(type[, version])`. A `buildContentInventory` scan rooted **above** the slugs reads two origins' items as one collection and computes **a different ordinal, not an approximate one** — this section's own failure mode, re-armed by the very change that adds the second origin, and silent in exactly the same way: a valid-looking artifact in a plausible chunk. D#17846 §8.4 measured the sibling case one layer up, where `findLogicalIdentityCollisions` pointed above the slugs reads repository directories as families and emits keys naming families that do not exist. **Adding an origin without adding its root must FAIL, not silently go unchecked.**
 
-**Are pre-amendment ordinals still valid?** ✅ **Yes, and the reason is narrow enough to state precisely: the corpus had exactly one origin.** Every ordinal written before this amendment was computed against the complete membership of a single-origin bucket, and that set is identical to the membership of its `(neo, type[, version])` bucket afterwards. The migration adds a path prefix above the families; it does not change any bucket's contents, so it does not change any `itemIndex`. **Nothing needs recomputing, and a repair pass over existing ordinals would be a no-op.**
+**Does this amendment invalidate pre-amendment ordinals?** ✅ **No — and that is a narrower claim than "they were all correct".** The corpus had exactly one origin, so every pre-amendment bucket's membership is identical to the membership of its `(neo, type[, version])` bucket afterwards. The migration adds a path prefix *above* the families; it changes no bucket's contents, therefore it changes no `itemIndex`. **An already-correct ordinal stays correct; the ordering it was computed against is untouched.**
+
+⚠️ **This amendment certifies preservation, never pre-existing correctness — and the corpus itself is the reason the distinction matters.** A census of the archive families on `dev` finds **four chunk directories already over the 100-item ceiling**: `archive/issues/v13.0.0/chunk-1` (102), `archive/pulls/v13.0.0/chunk-1` (178), `archive/pulls/v13.0.0/chunk-2` (141), `archive/pulls/v13.1.0/chunk-1` (130). So a blanket "every historical ordinal is valid, and a repair pass would be a no-op" is **false**, and this section must not be read as saying it. A scope-preserving transformation preserves whatever validity exists; it cannot manufacture a certification of the data it moves. *(Census by @neo-gpt on PR #19002, reproduced independently before this correction was written.)*
+
+**Historical cleanup of those chunks is explicitly outside this delivery** — it is pre-existing state, not something the origin dimension creates or worsens, and it wants its own ticket with its own evidence.
 
 That guarantee holds only while membership is computed per-origin. It is void for any scan rooted above the slugs — which is why the paragraph above is a rule and not a recommendation, and why §5.7 states it as an anti-pattern.
 
@@ -136,6 +142,8 @@ That guarantee holds only while membership is computed per-origin. It is void fo
 - Reopen attempt past 24h → CI auto-re-closes + creates new ticket `${title} (reopened from #N)`, body `Originally: #N\n\n${body}`, labels preserved
 
 **Mechanical consequence:** post-24h-grace, `closedAt` is HARD-IMMUTABLE → archive placement is CI-enforced stable → sealed-chunk semantics are an automated primitive. This is what makes the ordinal chunking safe — chunk membership never shifts retroactively once a chunk is sealed.
+
+⚠️ **Scope of that enforcement (2026-09-19, #18997).** The workflow's trigger is `issues: [reopened]` in this repository. It therefore enforces immutability for **Engine issues only** — not pull requests, not Discussions, and not other origins, none of which have a counterpart workflow. Everywhere else the sealed-bucket property is a convention this ADR relies on, not a primitive CI holds up. §2.1.1 states the consequence for the origin dimension.
 
 ### 2.5 Insertion-order semantics
 
@@ -326,7 +334,7 @@ If invariance holds → no further work needed in DreamService / gemma4 layer. I
 - **Single substrate anchor:** future agents have ONE document to V-B-A against before authoring migrations / syncer changes / consumer audits
 - **Symmetric across types AND tiers:** one mental model serves all content; sync code branches only on type-name, not on shape primitive or tier
 - **Consistent reasoning:** "chunk-N" means the same thing everywhere (archive-tier v12.1.0 / active issues / release notes — all use `chunk-N/` with the same ordinal math)
-- **Sealed-chunk semantics CI-enforced:** `prevent-reopen.yml` guarantees archive immutability; no voluntary discipline required
+- **Sealed-chunk semantics CI-enforced for Engine issues:** `prevent-reopen.yml` guarantees archive immutability there without voluntary discipline. Pull requests, Discussions and other origins have no counterpart workflow, so for them the property is conventional — see §2.4's scope note (2026-09-19, #18997)
 - **GitHub-ID-stream-math anti-pattern eliminated:** the false framing that "100 IDs across types ≈ 100 items per chunk" is no longer reachable; the math is ordinal on planned items
 - **Density-future-proof:** ordinal primitive handles growth automatically; no special-case "flat-or-chunked" branching; no Option-G-style density-tuning regret possible
 
