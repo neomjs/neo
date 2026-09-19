@@ -691,10 +691,12 @@ class CellEditing extends Plugin {
 
         // A model that selects rows follows the edit by its row, so every end — commit, cancel, Tab past the last
         // cell — leaves the keyboard an anchor, and a selected cell's row stays selected as Tab walks into the next
-        // record. A double-click has just toggled its row on and off again.
+        // record. A double-click has just toggled its row on and off again. Reported the way the model reports a row
+        // click, and between sessions: this plugin hears selection changes only while one is open.
         if (selectionModel?.selectsRows && !selectionModel.isSelectedRow(recordId)) {
             selectionModel.selectRow(recordId);
-            owner.view.fire('select', {record})
+            owner.view.fire('select', {record});
+            selectionModel.fireRowSelectionChange()
         }
 
         // Only the editor's own mount proves its input is in the DOM: a Row render already in flight settles the

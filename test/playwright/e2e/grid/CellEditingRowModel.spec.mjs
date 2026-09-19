@@ -54,6 +54,15 @@ const workerSettled = page => page.evaluate(grid => Neo.worker.App.getConfigs({
 }), GRID);
 
 /**
+ * What the driver's `logEvents` has recorded in the App Worker: one `select` per `selectionChange` of the model.
+ * @returns {Promise<String[]>}
+ */
+const eventLog = page => page.evaluate(async grid => (await Neo.worker.App.getConfigs({
+    id  : document.querySelector(grid).id,
+    keys: ['driverEventLog']
+}))[0], GRID);
+
+/**
  * Selects the record's row by a click on its `c3` cell.
  * @returns {Promise<void>}
  */
@@ -139,6 +148,25 @@ test.describe('Grid cell editing under a row-selecting model', () => {
             expect(await selectedRecords(page), `the row is still selected after ${key}`).toEqual([recordId])
         })
     }
+
+    test('the row an edit selects is reported as a selection change, the way a row click is', async ({page}) => {
+        const recordId = await recordIdOf(page, 'r3c3');
+
+        // After the model switch: the log listens to the model the View holds now
+        await drive(page, 'logEvents');
+
+        // The two clicks toggle the row on and off, and the edit they start selects it again
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await expect.poll(() => eventLog(page), {message: 'click, click, and the edit'}).toEqual(['select', 'select', 'select']);
+
+        // An edit on a row that is selected already changes no selection. The editor it opens orders the absence.
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await page.keyboard.press('Enter');
+        await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'Enter edits the selected row'}).toBe(true);
+        expect(await eventLog(page), 'and reports nothing').toEqual(['select', 'select', 'select'])
+    });
 
     test('Tab into the next record selects its row, and Shift+Tab before the first cell ends on a selected row', async ({page}) => {
         const recordId = await recordIdOf(page, 'r3c3'),
