@@ -315,9 +315,19 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await cell(page, 'c3', recordId).dblclick();
         await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
 
-        const input = await page.locator(INPUT).boundingBox();
+        // The press must start inside the editor. Until its theme lands the input has the browser's default width,
+        // which overflows the cell, so a point near its edge would press the next cell and drag-scroll the grid
+        let from;
 
-        await drag({x: input.x + input.width - 6, y: input.y + input.height / 2});
+        await expect.poll(async () => {
+            const input = await page.locator(INPUT).boundingBox();
+
+            from = {x: input.x + input.width - 6, y: input.y + input.height / 2};
+
+            return page.evaluate(({x, y}) => !!document.elementFromPoint(x, y)?.closest('.neo-grid-editor'), from)
+        }, {message: 'the press point is inside the editor'}).toBe(true);
+
+        await drag(from);
 
         expect(await viewScrollTop(page), 'the grid did not scroll').toBe(0);
         await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'the editor kept its cell and focus'}).toBe(true);
