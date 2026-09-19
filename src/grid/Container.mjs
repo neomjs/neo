@@ -795,6 +795,9 @@ class GridContainer extends BaseContainer {
 
                 buttonConfig = {...column};
 
+                // An id the app gave the column names the column: its button takes a generated one
+                delete buttonConfig.id;
+
                 if (column.locked === 'start') {
                     lockedStartButtons.push(buttonConfig);
                 } else if (column.locked === 'end') {
