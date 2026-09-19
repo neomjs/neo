@@ -21,12 +21,12 @@ import TextField from '../../form/field/Text.mjs';
  *
  * Losing the projection is neutral: scrolling never commits and never cancels.
  *
- * Keys route through {@link Neo.grid.View}, the grid's single key registry: Enter and F2 edit the selected cell
- * (keyboard activation needs a cell-selecting model), Enter in the editor commits, Escape cancels, and Tab or
- * Shift+Tab commits and edits the next or previous editable cell. A double-click edits any editable cell. Activating
- * another cell, or moving focus out of the editor, commits a valid draft first; an invalid draft keeps its edit
- * open. A column opts in through
- * {@link Neo.grid.column.Base#editable_}, and {@link Neo.grid.column.Base#editor} configures its field.
+ * Keys route through {@link Neo.grid.View}, the grid's single key registry: Enter and F2 edit the selected cell —
+ * or, with a row selected and no cell, that row's record ({@link #editSelectedCell}) — Enter in the editor commits,
+ * Escape cancels, and Tab or Shift+Tab commits and edits the next or previous editable cell. A double-click edits any
+ * editable cell. Activating another cell, or moving focus out of the editor, commits a valid draft first; an invalid
+ * draft keeps its edit open. A column opts in through {@link Neo.grid.column.Base#editable_}, and
+ * {@link Neo.grid.column.Base#editor} configures its field.
  * @class Neo.grid.plugin.CellEditing
  * @extends Neo.plugin.Base
  */
@@ -49,6 +49,14 @@ class CellEditing extends Plugin {
          */
         disabled_: false
     }
+
+    /**
+     * The column of the grid's last edit: the keyboard's column while a row is selected and no cell
+     * ({@link #editSelectedCell}).
+     * @member {String|null} lastDataField=null
+     * @protected
+     */
+    lastDataField = null
 
     /**
      * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
@@ -173,15 +181,47 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * Edits the cell the View's selection model holds selected, if any.
+     * Edits a cell wherever it is. Both scrolls move only a target that is out of sight, and an edit whose Row is not
+     * rendered yet is born suspended: the render that brings it into sight embodies it.
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {Boolean} see {@link #startEdit}
+     * @protected
+     */
+    editInSight(record, dataField) {
+        let me      = this,
+            {owner} = me;
+
+        owner.view.scrollByRows(owner.store.indexOf(record), 0);
+        owner.scrollByColumns(owner.columns.indexOf(dataField), 0);
+
+        return me.startEdit(record, dataField, true)
+    }
+
+    /**
+     * Edits the keyboard's target. A selected cell names it. A selected row with no selected cell — `RowModel`, the
+     * grid's default, selects no cells at all — names a record only, so the column is the one the grid last edited
+     * while that is still editable, and the record's first editable one otherwise: Enter on the next row goes on in
+     * the column the user is working down. With neither selected, the keyboard starts nothing.
      * @protected
      */
     editSelectedCell() {
-        let {view} = this.owner,
-            cellId = view.selectedCells[0],
-            record = cellId && view.getRecordFromLogicalId(cellId);
+        let me              = this,
+            {columns, view} = me.owner,
+            [cellId]        = view.selectedCells,
+            [rowId]         = view.selectedRows,
+            column, dataField, record;
 
-        record && this.startEdit(record, view.getDataField(cellId))
+        if (cellId) {
+            dataField = view.getDataField(cellId);
+            record    = view.getRecordFromLogicalId(cellId)
+        } else if (rowId) {
+            column    = columns.get(me.lastDataField);
+            dataField = (column?.editable ? column : columns.items.find(item => item.editable))?.dataField;
+            record    = view.rowSelectionModel.getRowRecord(rowId)
+        }
+
+        record && dataField && me.editInSight(record, dataField)
     }
 
     /**
@@ -520,11 +560,8 @@ class CellEditing extends Plugin {
 
             selectionModel?.selectsCells && selectionModel.select(view.getLogicalCellId(record, dataField));
 
-            // Both scroll only a target that is out of sight — which the session's own row is, too, while it is suspended
-            view.scrollByRows(store.indexOf(record), 0);
-            owner.scrollByColumns(columnIndex, dataFields.indexOf(dataField) - columnIndex);
-
-            me.startEdit(record, dataField, true)
+            // The session's own row is out of sight too, while it is suspended
+            me.editInSight(record, dataField)
         }
     }
 
@@ -613,11 +650,12 @@ class CellEditing extends Plugin {
      * @returns {Boolean} false when the cell is not editable, not rendered, or an invalid draft blocks
      */
     startEdit(record, dataField, allowSuspended=false) {
-        let me        = this,
-            {owner}   = me,
-            column    = owner.columns.get(dataField),
-            recordId  = owner.view.getRecordId(record),
-            {session} = me,
+        let me               = this,
+            {owner}          = me,
+            column           = owner.columns.get(dataField),
+            recordId         = owner.view.getRecordId(record),
+            {selectionModel} = owner.view,
+            {session}        = me,
             editor, row;
 
         if (me.disabled || !column?.editable) {
@@ -651,6 +689,16 @@ class CellEditing extends Plugin {
 
         editor.on('focusLeave', me.onEditorFocusLeave, me);
 
+        // A model that selects rows follows the edit by its row, so every end — commit, cancel, Tab past the last
+        // cell — leaves the keyboard an anchor, and a selected cell's row stays selected as Tab walks into the next
+        // record. A double-click has just toggled its row on and off again. Reported the way the model reports a row
+        // click, and between sessions: this plugin hears selection changes only while one is open.
+        if (selectionModel?.selectsRows && !selectionModel.isSelectedRow(recordId)) {
+            selectionModel.selectRow(recordId);
+            owner.view.fire('select', {record});
+            selectionModel.fireRowSelectionChange()
+        }
+
         // Only the editor's own mount proves its input is in the DOM: a Row render already in flight settles the
         // repaint's promise before the render inserting the editor lands. An edit ending sooner destroys the editor,
         // and this listener with it.
@@ -662,6 +710,8 @@ class CellEditing extends Plugin {
             editor.focus();
             editor.selectText?.()
         }, me, {once: true});
+
+        me.lastDataField = dataField;
 
         me.setSession({blurOwed: false, dataField, editor, held: 0, recordId});
         me.session.wasEmbodied = me.isEmbodied(me.session);
