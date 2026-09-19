@@ -20,20 +20,8 @@ class Focus extends CoreBase {
          */
         history: [],
         /**
-         * The Date object when the last focusin event has occurred
-         * @member {Date|null} lastFocusInDate=null
-         * @protected
-         */
-        lastFocusInDate: null,
-        /**
-         * The Date object when the last focusout event has occurred
-         * @member {Date|null} lastFocusInDate=null
-         * @protected
-         */
-        lastFocusOutDate: null,
-        /**
-         * The amount of time for a focusIn to occur after the last focusOut
-         * to get combined into a focusmove event.
+         * How long a focusout waits for its focusin before it counts as a leave. A focusin arriving while the focusout
+         * still waits makes the pair a focusmove, however long the App Worker took to handle it.
          * @member {Number} maxFocusInOutGap=50
          */
         maxFocusInOutGap: 50,
@@ -42,6 +30,13 @@ class Focus extends CoreBase {
          * @member {Number} maxHistoryLength=20
          */
         maxHistoryLength: 20,
+        /**
+         * The focusout waiting for its focusin ({@link #maxFocusInOutGap}). `null` once a focusin made the pair a move,
+         * or its leave came due.
+         * @member {Object|null} pendingFocusOut=null
+         * @protected
+         */
+        pendingFocusOut: null,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -157,40 +152,40 @@ class Focus extends CoreBase {
     }
 
     /**
+     * A focusin that finds a focusout still waiting completes a move; otherwise focus enters. The browser raises both
+     * halves of a move in one task, so the wait decides the pair, never the time the App Worker took between them.
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
      */
     onFocusin(opts) {
-        let me = this;
+        let me      = this,
+            pending = me.pendingFocusOut;
 
-        me.lastFocusInDate = new Date();
+        me.pendingFocusOut = null;
 
-        if (me.lastFocusOutDate && me.lastFocusInDate - me.lastFocusOutDate < me.maxFocusInOutGap) {
-            me.focusMove(opts)
-        } else {
-            me.focusEnter(opts)
-        }
+        pending ? me.focusMove(opts) : me.focusEnter(opts)
     }
 
     /**
+     * A focusout waits {@link #maxFocusInOutGap} for its focusin, then counts as a leave — unless the engine removed a
+     * floating component that is shown again by then ({@link #isRemovedFloatingShownAgain}).
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
      */
     onFocusout(opts) {
-        let me   = this,
-            date = new Date();
+        let me = this;
 
-        me.lastFocusOutDate = date;
+        me.pendingFocusOut = opts;
 
         me.timeout(me.maxFocusInOutGap).then(() => {
-            // Identity, not just recency: a newer focusout must not satisfy this check on an older
-            // one's behalf and deliver `opts` raised against a mount that has since been replaced.
-            if (me.lastFocusOutDate === date && date > me.lastFocusInDate && !me.isRemovedFloatingShownAgain(opts)) {
-                me.focusLeave(opts)
+            // Identity: a focusin made it a move, or a newer focusout, raised against a newer mount, replaced it
+            if (me.pendingFocusOut === opts) {
+                me.pendingFocusOut = null;
+                me.isRemovedFloatingShownAgain(opts) || me.focusLeave(opts)
             }
         })
     }

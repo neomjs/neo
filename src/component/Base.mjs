@@ -90,7 +90,13 @@ class Component extends Abstract {
          */
         baseCls: [],
         /**
-         * manager.Focus will change this flag on focusin & out dom events
+         * True while DOM focus is inside this component's subtree; {@link Neo.manager.Focus} writes it. It answers
+         * whether, never where: focus moving inside the subtree leaves it unchanged, and one node can hold DOM focus
+         * for many items — a grid View does for its cells — so moving between those is no focus event at all.
+         *
+         * It is App-Worker state. It is set when the worker handles the focusin, and cleared
+         * {@link Neo.manager.Focus#maxFocusInOutGap} after a focusout that no focusin makes a move, so a read in the
+         * same tick as a gesture sees the state before it.
          * @member {Boolean} containsFocus_=false
          * @protected
          * @reactive
