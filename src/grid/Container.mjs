@@ -372,15 +372,34 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetCellEditing(value, oldValue) {
-        if (value) {
+        let me     = this,
+            plugin = me.getPlugin('grid-cell-editing');
+
+        // The plugin is created once and afterwards follows this config, so turning editing off ends an open edit
+        // and refuses new ones, and turning it on again reuses the instance instead of adding a second one.
+        // A plugin declared directly inside `plugins` is its own enablement: this config only governs it once it
+        // actually changes, so the default value cannot disable a plugin the app asked for by hand.
+        if (plugin) {
+            oldValue !== undefined && (plugin.disabled = !value)
+        } else if (value) {
             import('./plugin/CellEditing.mjs').then(module => {
-                let me        = this,
-                    {appName} = me,
-                    plugins   = me.plugins || [];
+                let {appName} = me,
+                    plugins   = me.plugins || [],
+                    // Enabling twice before the first import settles queues a continuation each. A lookup made
+                    // before the import cannot reserve the slot, so admission is decided here: the first
+                    // continuation to arrive creates the plugin and every later one only carries the config onto it.
+                    settled   = me.getPlugin('grid-cell-editing');
+
+                if (settled) {
+                    settled.disabled = !me.cellEditing;
+                    return
+                }
 
                 plugins.push({
-                    module: module.default,
-                    appName
+                    module  : module.default,
+                    appName,
+                    // The config can have changed again while the import was in flight
+                    disabled: !me.cellEditing
                 });
 
                 me.plugins = plugins;
