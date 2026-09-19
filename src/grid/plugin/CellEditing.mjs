@@ -699,6 +699,10 @@ class CellEditing extends Plugin {
             selectionModel.fireRowSelectionChange()
         }
 
+        // And a model that selects columns by its column, the way a cell click does: the arrow keys step the column
+        // from where it is, so one left behind by Tab would trail the selected cell from then on
+        selectionModel?.selectsColumns && selectionModel.setSelectedColumns([dataField]);
+
         // Only the editor's own mount proves its input is in the DOM: a Row render already in flight settles the
         // repaint's promise before the render inserting the editor lands. An edit ending sooner destroys the editor,
         // and this listener with it.
