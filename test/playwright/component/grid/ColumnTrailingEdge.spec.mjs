@@ -10,7 +10,8 @@ import {test, expect} from '@playwright/test';
  * Both are paint, not layout, so the arms read screen pixels: every edge is compared with an inner column's divider
  * in the same row. Fixtures:
  * - `apps/grid-cell-editing`: `#grid-cell-editing` (fixed widths, `note` locked to the end) leaves 608px unused at
- *   1400px, and a narrower viewport makes its center meet or overflow the end region.
+ *   1400px, and a narrower viewport makes its center meet or overflow the end region. Unlocking `note` leaves a
+ *   fixed-width grid with no locked end.
  *   `#grid-cell-editing-pooled` (40 pooled columns) meets its end region when scrolled to the end.
  * - `apps/grid-focus`: `#grid-focus-short` has a flex column and no locked regions, so its last column meets the
  *   grid's own edge.
@@ -50,7 +51,7 @@ const pixels = async (page, points) => {
  * @param {String} grid
  * @param {String} text The header text
  * @param {String} field The cells' `data-field`
- * @returns {Promise<{cellYs: Number[], headerY: Number, left: Number, right: Number}>}
+ * @returns {Promise<{cellWidths: Number[], cellYs: Number[], headerY: Number, left: Number, right: Number}>}
  */
 const column = (page, grid, text, field) => page.evaluate(({grid, text, field}) => {
     const node   = document.querySelector(grid),
@@ -60,10 +61,11 @@ const column = (page, grid, text, field) => page.evaluate(({grid, text, field}) 
               .filter(rect => rect.top > header.bottom && rect.bottom < node.getBoundingClientRect().bottom);
 
     return {
-        cellYs : cells.map(rect => Math.round(rect.top + rect.height / 2)),
-        headerY: Math.round(header.top + header.height / 2),
-        left   : Math.round(header.left),
-        right  : Math.round(header.right)
+        cellWidths: cells.map(rect => Math.round(rect.width)),
+        cellYs    : cells.map(rect => Math.round(rect.top + rect.height / 2)),
+        headerY   : Math.round(header.top + header.height / 2),
+        left      : Math.round(header.left),
+        right     : Math.round(header.right)
     }
 }, {grid, text, field});
 
@@ -164,6 +166,31 @@ test.describe('grid column trailing edge — shown across unused width (#18969)'
             .querySelectorAll('.neo-grid-header-toolbar')[1].lastElementChild.textContent.trim(), GRID)).toBe('Score');
 
         await expectEdgeShown(page, await column(page, GRID, 'Score', 'score'), await column(page, GRID, 'Name', 'name'))
+    });
+
+    test('a fixed-width grid without a locked end keeps its declared widths and dividers, and closes its last column', async ({page}) => {
+        await open(page, CELL_EDITING, GRID);
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-note', locked: null}));
+
+        // the end region is gone, and Note is the center's last column
+        await expect.poll(() => page.evaluate(grid => [...document.querySelector(grid).querySelectorAll('.neo-grid-header-toolbar')]
+            .map(toolbar => toolbar.lastElementChild.textContent.trim()), GRID)).toEqual(['#', 'Note']);
+
+        const center = await Promise.all([['Name', 'name'], ['Score', 'score'], ['City', 'city'], ['Note', 'note']]
+            .map(([text, field]) => column(page, GRID, text, field)));
+
+        const [name, score, city, note] = center,
+              {cell, header}            = await dividers(page, name, note.cellYs[0]);
+
+        expect(center.map(({left, right}) => right - left), 'the declared widths, in the header').toEqual([200, 100, 160, 160]);
+        expect(center.map(({cellWidths}) => [...new Set(cellWidths)]), 'and in every cell').toEqual([[200], [100], [160], [160]]);
+
+        for (const inner of [score, city]) {
+            expect(await pixels(page, [inner.headerY, ...inner.cellYs].map(y => ({x: inner.right - 1, y}))), 'an inner column keeps its divider')
+                .toEqual([header, ...inner.cellYs.map(() => cell)])
+        }
+
+        await expectEdgeShown(page, note, name)
     });
 });
 
