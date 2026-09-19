@@ -705,10 +705,10 @@ class Participation extends Base {
         me.ownedAffordances?.destroy();
         me.ownedAffordances = null;
 
-        me.ownedPreview?.destroy();
+        me.ownedPreview?.destroy(true);
         me.ownedPreview = null;
 
-        me.ownedIndicators?.destroy();
+        me.ownedIndicators?.destroy(true);
         me.ownedIndicators = null;
 
         super.destroy()

@@ -102,6 +102,53 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         expect(participation.target ?? null).toBeNull()
     });
 
+    /**
+     * The overlays this adapter composes are CHILDREN of the workspace, so releasing them has to tell
+     * the parent to drop them from its vdom. `Component#destroy()` defaults `updateParentVdom` to
+     * `false`, which unregisters the instance and leaves the parent's `cn` still naming it — a
+     * reference no `ComponentManager` can resolve, which every downstream consumer then trips over
+     * under a different error.
+     *
+     * Asserted as an OUTCOME on the parent's vdom rather than as "destroy was called with true":
+     * an argument assertion witnesses that the child was TOLD to detach, not that it detached.
+     */
+    test('releasing owned overlays removes them from the parent vdom, not just from the manager', () => {
+        const parent = Neo.create(Container, {autoMount: false, items: []}),
+              owned  = id => {
+                  const child = Neo.create(Container, {autoMount: false, id});
+
+                  parent.vdom.cn.push({componentId: id});
+                  child.parentId = parent.id;
+
+                  return child
+              };
+
+        const preview    = owned('test-owned-preview'),
+              indicators = owned('test-owned-indicators');
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            dragCoordinator: createCoordinatorStub([]),
+            getDocument    : () => targetDoc(),
+            sortGroup      : 'dock-demo',
+            windowId       : 'window-b',
+            workspaceId    : 'B'
+        });
+
+        participation.ownedPreview    = preview;
+        participation.ownedIndicators = indicators;
+
+        const named = () => parent.vdom.cn.map(node => node.componentId ?? node.id);
+
+        expect(named(), 'the parent names both overlays before release')
+            .toEqual(expect.arrayContaining(['test-owned-preview', 'test-owned-indicators']));
+
+        participation.destroy();
+
+        expect(named(), 'and names neither after it').toEqual([]);
+
+        parent.destroy()
+    });
+
     test('a registered target resolves the current preview policy at drop time', () => {
         const participation = Neo.create(DockCrossWindowParticipation, {
             dragCoordinator: createCoordinatorStub([]),
