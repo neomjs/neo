@@ -219,6 +219,36 @@ test.describe('Grid cell editing on the public example', () => {
         }
     });
 
+    test('country: Enter on text that matches no country keeps the editor and says why, and the record keeps its country', async ({page}) => {
+        const recordId = await recordIdOf(page, 'tobiu');
+
+        await cell(page, 'country', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'country', recordId)).toBe(true);
+
+        await retype(page, 'Zzzzz');
+        await page.keyboard.press('Enter');
+
+        await expect(page.locator(`${EDITOR} .neo-textfield-error`), 'the refusal is shown').toHaveText('No match: Zzzzz');
+        await expect(page.locator(COMBO_INPUT), 'the editor stays open on the draft').toHaveValue('Zzzzz');
+
+        await escapeEdit(page);
+        await expect(cell(page, 'country', recordId), 'nothing was written').toHaveText('Germany')
+    });
+
+    test('country: leaving text that matches no country returns to the record\'s country, and the commit writes nothing', async ({page}) => {
+        const recordId = await recordIdOf(page, 'tobiu'),
+              otherId  = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'country', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'country', recordId)).toBe(true);
+
+        await retype(page, 'Zzzzz');
+        await cell(page, 'firstname', otherId).click();
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'country', recordId), 'the record keeps its country').toHaveText('Germany')
+    });
+
     test('Escape discards the draft', async ({page}) => {
         const recordId = await recordIdOf(page, 'rwaters');
 

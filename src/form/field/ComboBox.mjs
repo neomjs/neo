@@ -25,6 +25,7 @@ import VDomUtil         from '../../util/VDom.mjs';
  * 3.  **Force Selection (`forceSelection` config):**
  *     - When `true` (default), the component ensures that the field's final value corresponds to a valid record from the store.
  *     - On blur, if the user has typed partial text, the component will automatically select the "closest" match (the current typeahead suggestion) and fill the input with its full `displayField` value.
+ *     - Text that matches no record is refused. Until the field is left, `validate()` reports it (`errorTextNoMatch`), so a commit gated on it writes nothing; on blur the field returns to the record it held before the user typed, or to empty if it held none.
  *
  * 4.  **Filtering (`useFilter`, `filterOperator`, `triggerAction`):**
  *     - The dropdown list can be dynamically filtered as the user types.
@@ -68,6 +69,11 @@ class ComboBox extends Picker {
          * @member {String} displayField='name'
          */
         displayField: 'name',
+        /**
+         * The error {@link #validate} reports under {@link #forceSelection} while the input holds text and no record
+         * @member {Function} errorTextNoMatch=data=>`No match: ${data.input}`
+         */
+        errorTextNoMatch: data => `No match: ${data.input}`,
         /**
          * The millisecond time to delay between input field mutation and applying the input field's
          * new value to the filter
@@ -183,6 +189,13 @@ class ComboBox extends Picker {
      * @member {Boolean} programmaticValueChange=false
      */
     programmaticValueChange = false
+    /**
+     * The record the field held when the user started typing over it: the value {@link #forceSelection} returns to
+     * when the typed text matches no record.
+     * @member {Object|null} valueBeforeInput=null
+     * @protected
+     */
+    valueBeforeInput = null
 
     /**
      * @param {Object} config
@@ -200,7 +213,8 @@ class ComboBox extends Picker {
 
     /**
      * Destroys what this field owns — its list view, or a store it created — once the list showing it is
-     * gone. A passed or bound store stays its owner's, minus this field's load listener.
+     * gone. A passed or bound store stays its owner's, minus this field's load listener. A filter still buffered
+     * from the last keystroke is cancelled: it would run against the destroyed field.
      * @param {...*} args
      */
     destroy(...args) {
@@ -208,6 +222,7 @@ class ComboBox extends Picker {
             owned              = me.#owned,
             {listStore, store} = me;
 
+        me.filterOnInput.cancel();
         store?.un('load', me.onStoreLoad, me);
 
         super.destroy(...args);
@@ -636,12 +651,14 @@ class ComboBox extends Picker {
         /*
          * If we are leaving the field, using forceSelection=true and the field does not have a selected record,
          * we do want to pick the closest match => the focussed record (honoring filters).
-         * If no record is found, we will clear the field instead.
+         * Text that matches no record returns to the record the field held before the user typed, or to empty.
+         * A value that stays empty re-renders nothing, so the input is written from the value either way.
          */
         if (me.forceSelection && !me.value) {
             me.programmaticValueChange = true;
-            me.value                   = me.listStore.get(me.activeRecordId);
-            me.programmaticValueChange = false;
+            me.value                   = me.listStore.get(me.activeRecordId) || (me.lastManualInput && me.valueBeforeInput) || null;
+            me.updateInputValueFromValue(me.value);
+            me.programmaticValueChange = false
         }
 
         me.updateTypeAheadValue(null);
@@ -910,12 +927,33 @@ class ComboBox extends Picker {
         me.lastManualInput = inputValue;
 
         if (!me.programmaticValueChange) {
-            // changing the input => silent record reset
+            // changing the input => silent record reset, remembering the record for a refused entry to return to
+            me._value && (me.valueBeforeInput = me._value);
             me._value = null;
             me.list?.selectionModel.deselectAll();
 
             me.filterOnInput(inputValue)
         }
+    }
+
+    /**
+     * Under {@link #forceSelection}, input text without a record is refused: the value is empty while the input shows
+     * something else, and a commit gated on this method would otherwise write that empty value over the old one.
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        let me          = this,
+            returnValue = super.validate(silent);
+
+        if (returnValue && me.forceSelection && !me.value && me.lastManualInput) {
+            me._error   = me.errorTextNoMatch({input: me.lastManualInput});
+            returnValue = false
+        }
+
+        !returnValue && !me.clean && me.updateError(me._error, silent);
+
+        return returnValue
     }
 }
 
