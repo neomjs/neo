@@ -129,7 +129,17 @@ class Viewport extends Container {
         oldValue && remove.add(oldValue);
         remove.delete(theme);
 
+        // The dispatch owns its terminal outcome, like the sibling detached dispatches across `src/`:
+        // `worker.Base#promiseMessage` rejects with `code: 'NEO_DEAD_PORT'` once the destination window
+        // is gone, and a body class for a window that closed is moot — settle silently. Every other
+        // rejection is a live-window failure, and this call has no caller to propagate to, so the
+        // console is the honest terminal surface. Without the handler the expected teardown surfaces
+        // as an unhandled rejection in the App Worker instead.
         Neo.main.DomAccess.setBodyCls({add: [theme], remove: [...remove], windowId})
+            .catch(reason => {
+                reason?.code !== 'NEO_DEAD_PORT' &&
+                    console.error('container.Viewport: body-theme publication failed', {reason, windowId})
+            })
     }
 
     /**

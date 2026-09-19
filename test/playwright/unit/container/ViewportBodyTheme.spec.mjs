@@ -26,12 +26,14 @@ const appName = 'ViewportBodyThemeTest';
  * exists to remove, arriving through its own fix.
  */
 test.describe('Neo.container.Viewport — body-theme publication', () => {
-    let calls    = [],
-        original = null,
-        viewport = null;
+    let calls      = [],
+        original   = null,
+        rejectWith = null,
+        viewport   = null;
 
     test.beforeEach(() => {
-        calls = [];
+        calls      = [];
+        rejectWith = null;
 
         Neo.main            ??= {};
         Neo.main.DomAccess  ??= {};
@@ -41,7 +43,14 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
         };
 
         Neo.main.DomAccess.applyBodyCls = () => {};
-        Neo.main.DomAccess.setBodyCls   = data => calls.push(data)
+        // The real call is a remote method: it ALWAYS answers a promise, and `syncBodyTheme` attaches
+        // its terminal handler to that promise. A stub returning a plain value would let a missing
+        // handler pass unnoticed here while throwing in production.
+        Neo.main.DomAccess.setBodyCls = data => {
+            calls.push(data);
+
+            return rejectWith ? Promise.reject(rejectWith) : Promise.resolve()
+        }
     });
 
     test.afterEach(() => {
@@ -97,6 +106,46 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
         // the publisher. An implementation that published `getTheme()` unconditionally passes every arm
         // above and fails this one.
         expect(calls).toHaveLength(0);
+    });
+
+    test('a publication into a window that already closed settles silently', async () => {
+        const errors = [],
+              origin = console.error;
+
+        console.error = (...args) => errors.push(args);
+        rejectWith    = Object.assign(new Error('no live port'), {code: 'NEO_DEAD_PORT'});
+
+        try {
+            viewport = Neo.create(Viewport, {appName, autoMount: false, theme: 'neo-theme-neo-light'});
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(calls, 'the publication was attempted').toHaveLength(1);
+            expect(errors, 'a departed window is an expected outcome, not a failure').toEqual([])
+        } finally {
+            console.error = origin
+        }
+    });
+
+    test('any other publication failure still reaches the console — the control for the arm above', async () => {
+        const errors = [],
+              origin = console.error;
+
+        console.error = (...args) => errors.push(args);
+        rejectWith    = new Error('main thread said no');
+
+        try {
+            viewport = Neo.create(Viewport, {appName, autoMount: false, theme: 'neo-theme-neo-light'});
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // Without this arm the silent-settle arm passes against a handler that swallows everything,
+            // and against one that was never attached at all.
+            expect(errors, 'the observer fires').toHaveLength(1);
+            expect(errors[0][0]).toContain('body-theme publication failed')
+        } finally {
+            console.error = origin
+        }
     });
 
     test('applyBodyCls:false opts out even with an explicit theme', () => {
