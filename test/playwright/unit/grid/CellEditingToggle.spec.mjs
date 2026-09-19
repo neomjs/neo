@@ -148,6 +148,19 @@ test.describe('Grid cellEditing toggled at runtime', () => {
         expect(plugin.disabled).toBe(false)
     });
 
+    test('a grid whose cellEditing is off refuses to start an edit', async () => {
+        grid.cellEditing = true;
+
+        const plugin = await awaitPlugin(grid);
+
+        grid.cellEditing = false;
+        await grid.timeout(20);
+
+        // The refusal itself, not the flag that causes it: `startEdit` reports false and opens no session.
+        expect(plugin.startEdit(store.getAt(0), 'firstname', true)).toBe(false);
+        expect(plugin.session).toBeNull()
+    });
+
     test('a plugin whose import lands after the config went off arrives disabled', async () => {
         grid.cellEditing = true;
         grid.cellEditing = false;
