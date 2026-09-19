@@ -384,7 +384,16 @@ class GridContainer extends BaseContainer {
         } else if (value) {
             import('./plugin/CellEditing.mjs').then(module => {
                 let {appName} = me,
-                    plugins   = me.plugins || [];
+                    plugins   = me.plugins || [],
+                    // Enabling twice before the first import settles queues a continuation each. A lookup made
+                    // before the import cannot reserve the slot, so admission is decided here: the first
+                    // continuation to arrive creates the plugin and every later one only carries the config onto it.
+                    settled   = me.getPlugin('grid-cell-editing');
+
+                if (settled) {
+                    settled.disabled = !me.cellEditing;
+                    return
+                }
 
                 plugins.push({
                     module  : module.default,

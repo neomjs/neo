@@ -192,6 +192,27 @@ test.describe('Grid cellEditing toggled at runtime', () => {
         declared.destroy()
     });
 
+    test('enabling twice before the first import settles still admits one plugin, and the final off reaches it', async () => {
+        // Each enable queues its own import continuation, so admission has to be decided when they settle
+        // rather than when they were requested.
+        grid.cellEditing = true;
+        grid.cellEditing = false;
+        grid.cellEditing = true;
+
+        await awaitPlugin(grid);
+        await grid.timeout(60);
+
+        expect(countPlugins(grid)).toBe(1);
+
+        grid.cellEditing = false;
+        await grid.timeout(20);
+
+        // A second instance would keep editing alive behind a config that reads false.
+        expect(countPlugins(grid)).toBe(1);
+        expect(grid.getPlugin('grid-cell-editing').disabled).toBe(true);
+        expect((grid.plugins || []).filter(item => item.ntype === 'plugin-grid-cell-editing' && !item.disabled).length).toBe(0)
+    });
+
     test('a plugin whose import lands after the config went off arrives disabled', async () => {
         grid.cellEditing = true;
         grid.cellEditing = false;
