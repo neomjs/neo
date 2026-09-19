@@ -36,6 +36,25 @@ const recordIdOf = (page, githubId) => page.locator(`${GRID} .neo-grid-cell[data
 
 const focusIsOnView = page => page.evaluate(() => document.activeElement?.classList.contains('neo-grid-view') === true);
 
+/**
+ * The selected cells as `field/recordId`, and the record ids of the selected rows.
+ * @returns {Promise<{cells: String[], rows: String[]}>}
+ */
+const selection = page => page.evaluate(grid => ({
+    cells: [...document.querySelectorAll(`${grid} .neo-grid-cell.neo-selected`)].map(node => `${node.dataset.field}/${node.dataset.recordId}`),
+    rows : [...new Set([...document.querySelectorAll(`${grid} .neo-grid-row.neo-selected`)].map(node => node.dataset.recordId))]
+}), GRID);
+
+/**
+ * Picks the example's "Cell & Row" model, which selects a cell together with its row. The round trip through the App
+ * Worker follows the radio's change event there, so the model is in place once it resolves.
+ * @returns {Promise<void>}
+ */
+const selectCellAndRowModel = async page => {
+    await page.getByText('Cell & Row', {exact: true}).click();
+    await page.evaluate(() => Neo.worker.App.getConfigs({id: document.querySelector('.neo-grid-view').id, keys: ['id']}))
+};
+
 // A picker field's floating picker lives on the document body, outside the grid
 const PICKER  = '.neo-picker-container',
       OPTIONS = `${PICKER} .neo-list-item[role="option"]`;
@@ -451,5 +470,53 @@ test.describe('Grid cell editing on the public example', () => {
         await cell(page, 'randomDate', recordId).dblclick();
         await expect(page.locator(INPUT), 'the picked day reached the record').toHaveValue('2024-12-12');
         expect(await pickerInserts(page), 'no picker node, not even for a moment').toBe(0)
+    });
+
+    test('Cell & Row: Tab into the next record selects its cell and its row', async ({page}) => {
+        const recordId = await recordIdOf(page, 'tobiu');
+
+        await selectCellAndRowModel(page);
+
+        await cell(page, 'firstname', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'firstname', recordId)).toBe(true);
+
+        // firstname → randomNumber → randomDate → country → the next record's firstname
+        for (const field of ['randomNumber', 'randomDate', 'country']) {
+            await page.keyboard.press('Tab');
+            await expect.poll(() => editingIn(page, field, recordId), {message: `Tab reached ${field}`}).toBe(true)
+        }
+
+        await page.keyboard.press('Tab');
+        await expect.poll(async () => {
+            const [selected] = (await selection(page)).cells;
+
+            return !!selected?.startsWith('firstname/') && selected !== `firstname/${recordId}`
+        }, {message: 'Tab selected the next record\'s firstname'}).toBe(true);
+
+        const {cells, rows} = await selection(page),
+              [, nextId]    = cells[0].split('/');
+
+        expect(nextId, 'Tab left the first record').not.toBe(recordId);
+        expect(cells, 'one selected cell, the edited one').toEqual([`firstname/${nextId}`]);
+        expect(rows, 'and its row is the selected row').toEqual([nextId]);
+        expect(await editingIn(page, 'firstname', nextId)).toBe(true)
+    });
+
+    test('Cell & Row: a double-click edit ended by Escape keeps its row, and Enter edits it again', async ({page}) => {
+        const recordId = await recordIdOf(page, 'tobiu');
+
+        await selectCellAndRowModel(page);
+
+        // The double-click's two clicks select the cell and its row, and deselect both again
+        await cell(page, 'firstname', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'firstname', recordId)).toBe(true);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect.poll(async () => (await selection(page)).rows, {message: 'the edited row is the anchor'}).toEqual([recordId]);
+
+        await page.keyboard.press('Enter');
+        await expect.poll(() => editingIn(page, 'firstname', recordId), {message: 'Enter edits the row in the column of the last edit'})
+            .toBe(true)
     })
 });

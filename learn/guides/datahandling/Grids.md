@@ -612,7 +612,9 @@ MainView = Neo.setupClass(MainView);
 ### Starting an Edit
 
 - A double-click on an editable cell edits it.
-- Enter or F2 edits the selected cell.
+- Enter or F2 edits the selected cell. With a selected row and no selected cell — under `RowModel`, the default —
+  they edit that row: in the column of the grid's last edit, or the row's first editable column, scrolled into sight
+  when it is out of it. With neither a cell nor a row selected, the keyboard starts nothing.
 - Space starts nothing. A column that is not editable refuses the double-click, Enter and F2 alike.
 - The editor opens with its whole value selected, so typing replaces the value instead of appending to it.
 - One editor exists at a time. Activating another cell commits the current draft first.
@@ -629,6 +631,9 @@ selects text instead of drag-scrolling it.
 | Tab, Shift+Tab | Commits, and edits the next or previous editable cell: across locked columns, past columns that cannot be edited, and on into the next or previous record. Past the last editable cell, or before the first, the edit ends with focus on the grid. |
 | A click on another cell | Commits, and selects that cell. |
 | Focus leaving the grid | Commits. |
+
+A model that selects rows keeps the edited record's row selected for as long as the edit lasts, and moves it along as
+Tab walks into another record. However the edit ends, the arrow keys go on from that row, and Enter edits it again.
 
 A commit writes a valid draft to its record. An invalid draft keeps its editor: Enter, Tab, a click on another cell and
 focus leaving the grid all leave the edit open and write nothing. While no edit is open, Tab is the browser's own.
