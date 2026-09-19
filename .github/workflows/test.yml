@@ -25,7 +25,7 @@ jobs:
     uses: ./.github/workflows/classify-test-scope.yml
 
   test:
-    name: ${{ matrix.suite }}${{ matrix.shard && format(' ({0}/{1})', matrix.shard, matrix.shards) || '' }}
+    name: ${{ matrix.suite }}${{ matrix.shard && format(' ({0}/{1})', matrix.shard, matrix.shards) || '' }}${{ matrix.tzLabel && format(' ({0})', matrix.tzLabel) || '' }}
     runs-on: ubuntu-latest
     needs: changes
     strategy:
@@ -45,6 +45,18 @@ jobs:
         include:
           - suite: unit
             run: ${{ needs.changes.outputs.run_unit }}
+          # The timezone-discriminating half of the unit tier. A local<->UTC conversion computes the
+          # same answer in both implementations when the offset is zero, so a UTC runner cannot fail
+          # on one - no extra test case closes that, only a non-UTC zone does (#19005). Two entries
+          # because one zone catches one sign: +14 and -11, both DST-free so the runs are stable.
+          - suite: unit-tz
+            run: ${{ needs.changes.outputs.run_unit }}
+            tz: Pacific/Kiritimati
+            tzLabel: plus14
+          - suite: unit-tz
+            run: ${{ needs.changes.outputs.run_unit }}
+            tz: Pacific/Niue
+            tzLabel: minus11
           - suite: components
             run: ${{ needs.changes.outputs.run_components }}
             shard: 1
@@ -174,12 +186,13 @@ jobs:
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm run test-${{ matrix.suite }}${{ matrix.shard && format(' -- --shard={0}/{1}', matrix.shard, matrix.shards) || '' }}
         env:
-          NEO_TEST_SKIP_CI: ${{ matrix.suite == 'unit' && 'true' || '' }}
+          NEO_TEST_SKIP_CI: ${{ startsWith(matrix.suite, 'unit') && 'true' || '' }}
+          NEO_UNIT_TZ: ${{ matrix.tz }}
 
       - name: Upload test artifacts on failure
         if: ${{ failure() && matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-${{ matrix.suite }}-${{ github.run_id }}${{ matrix.shard && format('-shard-{0}', matrix.shard) || '' }}
+          name: test-results-${{ matrix.suite }}-${{ github.run_id }}${{ matrix.shard && format('-shard-{0}', matrix.shard) || '' }}${{ matrix.tzLabel && format('-{0}', matrix.tzLabel) || '' }}
           path: test/playwright/test-results/
           retention-days: 14
