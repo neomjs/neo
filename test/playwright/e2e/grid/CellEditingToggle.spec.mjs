@@ -1,0 +1,153 @@
+import {expect, test}  from '../../fixtures.mjs';
+import gridCellEditing from '../utils/gridCellEditing.mjs';
+
+/**
+ * @summary `cellEditing` toggled at runtime, as a user sees it: off refuses a double-click and cancels an open edit, and
+ * on again opens one editor per double-click, however often editing was turned on.
+ *
+ * Fixture: `test/playwright/component/apps/grid-cell-editing`, grid `#grid-cell-editing-pooled`, which is built with
+ * `cellEditing: true`. The fixture's `gridDriver.mjs` sets the config inside the App Worker. The unit tier cannot mount
+ * an editor, because a text field calls `Neo.main.DomEvents`, so only these arms see the editors themselves.
+ *
+ * A refused double-click has no event to wait for. The arms count editors with a MutationObserver instead, so an editor
+ * that mounts and leaves again inside the wait still counts.
+ */
+const GRID                                         = '#grid-cell-editing-pooled',
+      {EDITOR, INPUT, cell, editingIn, embodiment} = gridCellEditing(GRID);
+
+let calls = 0,
+    pageErrors;
+
+/**
+ * Runs one grid operation in the App Worker. The counter makes each call a module URL of its own.
+ * @returns {Promise<void>}
+ */
+const drive = async (page, action) => {
+    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
+        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++calls}`);
+
+    expect(success, `the ${action} driver ran`).toBe(true)
+};
+
+/**
+ * The internal record id behind a `c3` text, which names its record: `r3c3` is record 3.
+ * @returns {Promise<String>}
+ */
+const recordIdOf = (page, text) => page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText(text, {exact: true})
+    .getAttribute('data-record-id');
+
+/**
+ * From now on, the most editors the grid held at once.
+ * @returns {Promise<void>}
+ */
+const countEditors = page => page.evaluate(({grid, editor}) => {
+    window.__editorWatch?.disconnect();
+    window.__maxEditors  = document.querySelectorAll(editor).length;
+    window.__editorWatch = new MutationObserver(() => {
+        window.__maxEditors = Math.max(window.__maxEditors, document.querySelectorAll(editor).length)
+    });
+
+    window.__editorWatch.observe(document.querySelector(grid), {childList: true, subtree: true})
+}, {grid: GRID, editor: EDITOR});
+
+const maxEditors = page => page.evaluate(() => window.__maxEditors);
+
+/**
+ * Reads one property of the grid in the App Worker.
+ * @returns {Promise<*>}
+ */
+const gridValue = (page, key) => page.evaluate(async ({grid, key}) => {
+    const {id} = document.querySelector(grid);
+
+    return (await Neo.worker.App.getConfigs({id, keys: [key]}))[0]
+}, {grid: GRID, key});
+
+/**
+ * Double-clicks a cell while editing is off: no editor may mount.
+ * @returns {Promise<void>}
+ */
+const expectRefused = async (page, target, message) => {
+    await countEditors(page);
+    await target.dblclick();
+
+    // wall-clock-under-test: a refused double-click fires nothing, so the arm waits out the time an editor takes to mount
+    await page.waitForTimeout(500);
+
+    expect(await maxEditors(page), message).toBe(0)
+};
+
+/**
+ * Double-clicks a cell while editing is on: exactly one editor mounts, in that cell.
+ * @returns {Promise<void>}
+ */
+const expectOneEditor = async (page, target, recordId, message) => {
+    await countEditors(page);
+    await target.dblclick();
+    await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'the editor took focus in the cell'}).toBe(true);
+
+    // wall-clock-under-test: a second plugin's editor would mount a render later, so the arm waits one out
+    await page.waitForTimeout(300);
+
+    expect(await maxEditors(page), message).toBe(1);
+    expect(await embodiment(page)).toEqual({count: 1, field: 'c3', recordId})
+};
+
+test.describe('Grid cellEditing toggled at runtime', () => {
+    test.use({viewport: {width: 1400, height: 900}});
+
+    test.beforeEach(async ({page}) => {
+        pageErrors = [];
+        page.on('pageerror', error => pageErrors.push(error.message));
+
+        await page.goto('/test/playwright/component/apps/grid-cell-editing/index.html');
+        await page.waitForSelector(`${GRID} .neo-grid-cell[data-field="c39"]`, {state: 'visible', timeout: 30000})
+    });
+
+    test.afterEach(() => {
+        expect(pageErrors, 'no page error in the arm').toEqual([])
+    });
+
+    test('off refuses a double-click, on again opens exactly one editor, and the next off refuses again', async ({page}) => {
+        const recordId = await recordIdOf(page, 'r3c3'),
+              target   = cell(page, 'c3', recordId);
+
+        await drive(page, 'editingOff');
+        await expectRefused(page, target, 'editing off: no editor');
+
+        await drive(page, 'editingOn');
+        await expectOneEditor(page, target, recordId, 'editing on again: one editor, not one per time it was turned on');
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+
+        // Another plugin added by the second enable would not hear this off
+        await drive(page, 'editingOff');
+        await expectRefused(page, target, 'editing off again: still no editor');
+
+        await drive(page, 'editingOn');
+        await expectOneEditor(page, target, recordId, 'and on once more: one editor');
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0)
+    });
+
+    test('an edit open when editing goes off is cancelled, so its draft never reaches the record', async ({page}) => {
+        const recordId = await recordIdOf(page, 'r3c3'),
+              target   = cell(page, 'c3', recordId);
+
+        await target.dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await page.keyboard.press('ControlOrMeta+a');
+        await page.keyboard.type('draft');
+        await expect(page.locator(INPUT)).toHaveValue('draft');
+
+        await drive(page, 'logCancels');
+        await drive(page, 'editingOff');
+
+        await expect(page.locator(EDITOR), 'the editor left').toHaveCount(0);
+        await expect.poll(() => gridValue(page, 'driverCancelLog'), {message: 'a cancel, for the disabled plugin'}).toEqual(['disabled']);
+
+        // A commit would also remove the editor. The record's value tells the two apart
+        await expect(target, 'the record kept its value').toHaveText('r3c3')
+    })
+});

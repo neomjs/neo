@@ -19,7 +19,8 @@
  * It also snapshots column selection at each write in `driverColumnsAtCommit`, since ColumnModel emits no
  * selectionChange event: the snapshot proves whether a commit preceded its navigation.
  * `lockInFlight` locks `c3` to the end while a held center-body flight is in the air, so the lock change's renders
- * defer behind it.
+ * defer behind it. `editingOff` and `editingOn` set the grid's `cellEditing` config, and `logCancels` records the
+ * `reason` of every `cellEditCancel` into `grid.driverCancelLog`.
  */
 import RowModel from '../../../../../src/selection/grid/RowModel.mjs';
 
@@ -52,11 +53,18 @@ const holdCenterFlight = () => {
 const actions = {
     cancel      : () => grid.getPlugin('grid-cell-editing').cancelEdit(),
     clearFilter : () => store.clearFilters(),
+    editingOff  : () => {grid.cellEditing = false},
+    editingOn   : () => {grid.cellEditing = true},
     filterOut   : () => {store.filters = [{property: 'c3', operator: 'like', value: 'r1'}]},
     hold        : () => grid.getPlugin('grid-cell-editing').holdEdit(),
     lockEnd     : () => {columns.get('c3').locked = 'end'},
     lockInFlight: () => {holdCenterFlight(); columns.get('c3').locked = 'end'},
     lockStart   : () => {columns.get('c3').locked = 'start'},
+    logCancels  : () => {
+        const log = grid.driverCancelLog = [];
+
+        grid.on('cellEditCancel', ({reason}) => log.push(reason))
+    },
     logEvents   : () => {
         const log = grid.driverEventLog = [];
 
