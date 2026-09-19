@@ -558,6 +558,25 @@ test.describe('Grid selection: a cell click as the DOM delivers it', () => {
         expect(grid.view.selectedRows).toEqual([])
     });
 
+    test('RowModel reports a row click, a second click and arrow navigation as selectionChange, like a cell model', async () => {
+        store = createStore();
+        grid  = await createGrid(store);
+
+        await renderRows(grid);
+
+        const model = grid.view.selectionModel,
+              seen  = [];
+
+        model.on('selectionChange', ({selection}) => seen.push([...selection]));
+
+        model.onRowClick({record: store.get(1), data: {path: []}});
+        model.onRowClick({record: store.get(1), data: {path: []}});
+        model.onRowClick({record: store.get(2), data: {path: []}});
+        model.onNavKeyRow(1);
+
+        expect(seen, 'select, deselect, select, navigate').toEqual([[1], [], [2], [3]])
+    });
+
     test('arrow navigation starts from the selected cell\'s record, keyed by business id or by internal id', async () => {
         for (const useInternalId of [false, true]) {
             store = createStore();
