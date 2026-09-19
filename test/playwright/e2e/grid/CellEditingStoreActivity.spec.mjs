@@ -1,5 +1,5 @@
-import {expect, test}  from '../../fixtures.mjs';
-import gridCellEditing from '../utils/gridCellEditing.mjs';
+import {expect, test}               from '../../fixtures.mjs';
+import gridCellEditing, {driveGrid} from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary An open grid edit under store activity. The session is keyed by record id and `dataField`, so a store
@@ -15,8 +15,7 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                                      = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment, recordLeaks} = gridCellEditing(GRID);
 
-let calls = 0,
-    pageErrors;
+let pageErrors;
 
 /**
  * The internal record id behind a `c3` text, which names its record: `r3c3` is record 3.
@@ -24,17 +23,6 @@ let calls = 0,
  */
 const recordIdOf = (page, text) => page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText(text, {exact: true})
     .getAttribute('data-record-id');
-
-/**
- * Runs one store operation in the App Worker. The counter makes each call a module URL of its own.
- * @returns {Promise<void>}
- */
-const drive = async (page, action) => {
-    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++calls}`);
-
-    expect(success, `the ${action} driver ran`).toBe(true)
-};
 
 /**
  * Edits record 3's `c3` and replaces its value with a draft. The select-all keeps the arms independent of what
@@ -70,7 +58,7 @@ test.describe('Grid cell editing under store activity', () => {
     test('an update to another field repaints its cell and keeps the editor, the draft and focus', async ({page}) => {
         const recordId = await editWithDraft(page);
 
-        await drive(page, 'updateOther');
+        await driveGrid(page, 'updateOther');
         await expect(cell(page, 'c4', recordId), 'the pushed value rendered').toHaveText('pushed');
         await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'focus stayed in the editor'}).toBe(true);
         await expect(page.locator(INPUT)).toHaveValue('draft');
@@ -83,7 +71,7 @@ test.describe('Grid cell editing under store activity', () => {
     test('an update to the edited field keeps the draft, and Enter commits the draft over it', async ({page}) => {
         const recordId = await editWithDraft(page);
 
-        await drive(page, 'updateEdited');
+        await driveGrid(page, 'updateEdited');
         await expect(cell(page, 'c4', recordId), 'the row repainted').toHaveText('pushed');
         await expect(page.locator(INPUT), 'the draft survived the pushed value').toHaveValue('draft');
 
@@ -116,9 +104,9 @@ test.describe('Grid cell editing under store activity', () => {
             })
         });
 
-        await drive(page, 'startUpdates');
+        await driveGrid(page, 'startUpdates');
         await page.keyboard.type(typed, {delay: 15});
-        await drive(page, 'stopUpdates');
+        await driveGrid(page, 'stopUpdates');
 
         await expect(page.locator(INPUT), 'every key the user typed is in the input').toHaveValue(typed);
         expect(await page.evaluate(() => window.__inputWrites), 'no render wrote over the input').toEqual([]);
@@ -133,11 +121,11 @@ test.describe('Grid cell editing under store activity', () => {
 
             await recordLeaks(page, 'c3', recordId);
 
-            await drive(page, away);
+            await driveGrid(page, away);
             await expect(page.locator(`${GRID} .neo-grid-row[data-record-id="${recordId}"]`), 'the record left the row pool').toHaveCount(0);
             await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
 
-            await drive(page, back);
+            await driveGrid(page, back);
             await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
             await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
 
@@ -155,7 +143,7 @@ test.describe('Grid cell editing under store activity', () => {
         const recordId = await editWithDraft(page),
               nextId   = await recordIdOf(page, 'r4c3');
 
-        await drive(page, 'remove');
+        await driveGrid(page, 'remove');
         await expect(page.locator(`${GRID} .neo-grid-row[data-record-id="${recordId}"]`), 'the record left the grid').toHaveCount(0);
         await expect(page.locator(EDITOR), 'no editor is left behind').toHaveCount(0);
 

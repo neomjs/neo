@@ -1,5 +1,5 @@
-import {expect, test}  from '../../fixtures.mjs';
-import gridCellEditing from '../utils/gridCellEditing.mjs';
+import {expect, test}               from '../../fixtures.mjs';
+import gridCellEditing, {driveGrid} from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary Where focus goes when a suspended grid edit comes back, and what a click on another cell does first.
@@ -15,19 +15,7 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                         = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment} = gridCellEditing(GRID);
 
-let driverCalls = 0,
-    pageErrors;
-
-/**
- * Runs one action of the fixture's `gridDriver.mjs` inside the App Worker; the counter makes every call a new module.
- * @returns {Promise<void>}
- */
-const drive = async (page, action) => {
-    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++driverCalls}`);
-
-    expect(success, `the ${action} driver ran`).toBe(true)
-};
+let pageErrors;
 
 /**
  * Reads one property of an App Worker instance, found by the id of its DOM node.
@@ -116,7 +104,7 @@ test.describe('Grid cell editing: focus on reprojection, and a click on another 
         await page.keyboard.press('ControlOrMeta+a');
         await page.keyboard.type('draft');
 
-        await drive(page, 'lockEnd');
+        await driveGrid(page, 'lockEnd');
         await expect.poll(() => page.evaluate(({editor, grid}) => {
             const body = document.querySelector(editor)?.closest('.neo-grid-body');
 
@@ -175,7 +163,7 @@ test.describe('Grid cell editing: focus on reprojection, and a click on another 
     });
 
     test('under the grid\'s default RowModel, a reprojected editor leaves focus on the View when a click selected another row', async ({page}) => {
-        await drive(page, 'rowModel');
+        await driveGrid(page, 'rowModel');
 
         const recordId = await editAndSuspend(page),
               other    = page.locator(`${GRID} .neo-grid-cell[data-field="c4"]`).nth(4),
@@ -236,10 +224,10 @@ test.describe('Grid cell editing: focus on reprojection, and a click on another 
             await page.keyboard.type('draft');
 
             // The App Worker runs the store op: no pointer and no focus change, so the only leave is the editor's own
-            await drive(page, away);
+            await driveGrid(page, away);
             await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
 
-            await drive(page, back);
+            await driveGrid(page, back);
             await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
 
             await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'focus is back in the editor'}).toBe(true);
@@ -259,7 +247,7 @@ test.describe('Grid cell editing: focus on reprojection, and a click on another 
         await page.keyboard.press('ControlOrMeta+a');
         await page.keyboard.type('draft');
 
-        await drive(page, 'logEvents');
+        await driveGrid(page, 'logEvents');
         await cell(page, 'c4', recordId).click();
 
         await expect(cell(page, 'c3', recordId), 'the draft was written').toHaveText('draft');

@@ -1,4 +1,5 @@
 import {expect, test} from '../../fixtures.mjs';
+import {driveGrid}    from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary A locked region that loses its last column at runtime: the column moves to the center, with its header
@@ -13,19 +14,13 @@ import {expect, test} from '../../fixtures.mjs';
  */
 const GRID = '#grid-cell-editing-pooled';
 
-let calls = 0,
-    pageErrors;
+let pageErrors;
 
 /**
- * Writes `locked` on a column in the App Worker. The counter makes each call a module URL of its own.
+ * Writes `locked` on a column in the App Worker; `null` unlocks it.
  * @returns {Promise<void>}
  */
-const setLocked = async (page, field, locked) => {
-    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=setLocked&field=${field}&locked=${locked ?? ''}&n=${++calls}`);
-
-    expect(success, `the setLocked driver ran for ${field}`).toBe(true)
-};
+const setLocked = (page, field, locked) => driveGrid(page, 'setLocked', {field, locked: locked ?? ''});
 
 /**
  * What the grid shows of one column: the ids of its header buttons, its cells, and how many of them a locked region

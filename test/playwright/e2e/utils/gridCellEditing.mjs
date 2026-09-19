@@ -1,3 +1,25 @@
+import {expect} from '../../fixtures.mjs';
+
+let driverCalls = 0;
+
+/**
+ * @summary Runs one action of the `grid-cell-editing` fixture's `gridDriver.mjs` inside the App Worker.
+ *
+ * The counter makes every call a new module URL, so the driver is evaluated again rather than served from the import
+ * cache. `params` become further query parameters: `setLocked` reads `field` and `locked`.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} action
+ * @param {Object<String, String>} [params={}]
+ * @returns {Promise<void>}
+ */
+export async function driveGrid(page, action, params = {}) {
+    const query     = new URLSearchParams({action, ...params, n: String(++driverCalls)}),
+          {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
+              `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?${query}`);
+
+    expect(success, `the ${action} driver ran (${query})`).toBe(true)
+}
+
 /**
  * @module e2e/utils/gridCellEditing
  * @summary The DOM reads every grid cell-editing e2e spec shares, bound to one grid.

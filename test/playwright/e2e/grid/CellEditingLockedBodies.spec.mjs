@@ -1,5 +1,5 @@
-import {expect, test}  from '../../fixtures.mjs';
-import gridCellEditing from '../utils/gridCellEditing.mjs';
+import {expect, test}               from '../../fixtures.mjs';
+import gridCellEditing, {driveGrid} from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary An edit in a locked body is the same logical session as one in the center: its draft survives the row pool
@@ -16,8 +16,7 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                         = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment} = gridCellEditing(GRID);
 
-let calls = 0,
-    pageErrors;
+let pageErrors;
 
 /**
  * The internal record id behind a `c3` text, which names its record: `r3c3` is record 3.
@@ -25,17 +24,6 @@ let calls = 0,
  */
 const recordIdOf = (page, text) => page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText(text, {exact: true})
     .getAttribute('data-record-id');
-
-/**
- * Runs one grid operation in the App Worker. The counter makes each call a module URL of its own.
- * @returns {Promise<void>}
- */
-const drive = async (page, action) => {
-    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++calls}`);
-
-    expect(success, `the ${action} driver ran`).toBe(true)
-};
 
 /**
  * The region whose body renders a cell. The fixture always has all three bodies — `c0` locks the start and `c39` the
@@ -123,12 +111,12 @@ test.describe('Grid cell editing in the locked bodies', () => {
         test(`a draft survives its column moving to the ${region} body and back while the editor is open`, async ({page}) => {
             const recordId = await editWithDraft(page, 'c3');
 
-            await drive(page, action);
+            await driveGrid(page, action);
             await expect.poll(() => regionOf(page, 'c3', recordId), {message: `c3 renders in the ${region} body`}).toBe(region);
             await expect.poll(() => embodiment(page), {message: 'the editor followed its column'}).toEqual({count: 1, field: 'c3', recordId});
             await expect(page.locator(INPUT), 'the draft survived the move').toHaveValue('draft');
 
-            await drive(page, 'unlock');
+            await driveGrid(page, 'unlock');
 
             // Unlocked from the end, c3 lands after c38, beyond the mounted column window until scrolled to
             action === 'lockEnd' && await page.evaluate(grid => {
@@ -148,7 +136,7 @@ test.describe('Grid cell editing in the locked bodies', () => {
         const recordId = await editWithDraft(page, 'c3');
 
         // The lock change's renders defer behind the held flight and collapse into one run, which must stay forced
-        await drive(page, 'lockInFlight');
+        await driveGrid(page, 'lockInFlight');
         await expect.poll(() => c3Census(page), {message: 'no c3 cell stays in the center body'}).toEqual([0, 0, expect.any(Number)]);
         expect((await c3Census(page))[2], 'the end body renders c3').toBeGreaterThan(0);
         await expect.poll(() => embodiment(page), {message: 'the editor followed its column'}).toEqual({count: 1, field: 'c3', recordId});
@@ -159,17 +147,17 @@ test.describe('Grid cell editing in the locked bodies', () => {
     test('a held edit is in no cell until its last release embeds it again, with its draft', async ({page}) => {
         const recordId = await editWithDraft(page, 'c3');
 
-        await drive(page, 'hold');
-        await drive(page, 'hold');
+        await driveGrid(page, 'hold');
+        await driveGrid(page, 'hold');
         await expect.poll(() => embodiment(page), {message: 'no cell embeds a held editor'}).toEqual({count: 0, field: null, recordId: null});
 
         // One release of two keeps it out: the row's next render, which the pushed value makes visible, embeds nothing
-        await drive(page, 'release');
-        await drive(page, 'updateOther');
+        await driveGrid(page, 'release');
+        await driveGrid(page, 'updateOther');
         await expect(cell(page, 'c4', recordId), 'the row repainted').toHaveText('pushed');
         expect(await embodiment(page), 'still held').toEqual({count: 0, field: null, recordId: null});
 
-        await drive(page, 'release');
+        await driveGrid(page, 'release');
         await expect.poll(() => embodiment(page), {message: 'the last release embeds it again'}).toEqual({count: 1, field: 'c3', recordId});
         await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
 
