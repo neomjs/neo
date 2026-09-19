@@ -258,6 +258,49 @@ test.describe('grid cell editing — terminals', () => {
         await expect(name).not.toHaveClass(/neo-selected/)
     });
 
+    // The cancel terminal owes the same anchor as the commit one. It cannot restore what was selected before the
+    // edit, because the double-click that starts it deselects the cell on the way in — so it selects the edited cell,
+    // exactly as Enter does. Without it the next arrow key is spent re-anchoring instead of moving.
+    test('Escape leaves the edited cell selected, so the arrow keys have an anchor', async ({page}) => {
+        const recordId = await recordIdOf(page, 3),
+              name     = cell(page, 'name', recordId),
+              score    = cell(page, 'score', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        // The gesture deselects on the way in, which is why a restore-based fix would restore nothing
+        await expect(name, 'the double-click left nothing selected to return to').not.toHaveClass(/neo-selected/);
+
+        await page.keyboard.type(' draft');
+        await page.keyboard.press('Escape');
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(name, 'the draft is discarded').toHaveText('Name 3');
+        await expect(name, 'the cancelled cell is the anchor').toHaveClass(/neo-selected/);
+
+        // …and a real anchor, not only a class: the first arrow after the cancel MOVES
+        await page.keyboard.press('ArrowRight');
+        await expect(score).toHaveClass(/neo-selected/);
+        await expect(name).not.toHaveClass(/neo-selected/)
+    });
+
+    // The scope boundary: only the gesture a user makes selects. A cancel the grid issues for its own reasons has
+    // no cell to anchor to, and `projectionLoss` is the one reachable without touching the plugin's API.
+    test('a cancel the pooling issues selects nothing', async ({page}) => {
+        const recordId = await recordIdOf(page, 2),
+              city     = cell(page, 'city', recordId);
+
+        await city.dblclick();
+        await expect.poll(() => editingIn(page, 'city', recordId)).toBe(true);
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-city', editable: false}));
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(page.locator(GRID), 'the grid cancelled for its own reason').toHaveClass(/edit-cancelled-city-notEditable/);
+        await expect(city, 'a cancel nobody gestured for anchors nothing').not.toHaveClass(/neo-selected/)
+    });
+
     test('Escape discards the draft, destroys the editor and returns focus to the View', async ({page}) => {
         const recordId = await recordIdOf(page, 4),
               note     = cell(page, 'note', recordId),
