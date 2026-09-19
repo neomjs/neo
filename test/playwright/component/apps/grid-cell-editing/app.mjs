@@ -10,9 +10,10 @@ import Viewport      from '../../../../../src/container/Viewport.mjs';
  * `#grid-cell-editing` is small enough that every row and column stays rendered, so its arms isolate the edit
  * loop — activation, commit, cancel, focus — from pooling. Every body holds an editable column (`code` locked
  * to the start, `name` and `city` in the center, `note` locked to the end), `score` is the non-editable control,
- * and `name` is `required`, so an emptied draft is the invalid value. It declares the plugin itself, for the id:
- * a generated one names whichever grid constructed first, and the arm that destroys the plugin alone has to name
- * this grid's. `#grid-cell-editing-pooled` keeps `cellEditing: true`, the public entry point.
+ * and `name` is `required`, so an emptied draft is the invalid value. `city` and `note` carry ids, so an arm can
+ * change their config at runtime. It declares the plugin itself, for the id: a generated one names whichever grid
+ * constructed first, and the arm that destroys the plugin alone has to name this grid's. `#grid-cell-editing-pooled`
+ * keeps `cellEditing: true`, the public entry point.
  *
  * `#grid-cell-editing-pooled` exists for pooling: 40 columns of 150px and 400 rows, so a horizontal scroll moves
  * the mounted column window and a vertical one rebinds pooled rows to other records. `c0` is locked to the start
@@ -98,7 +99,7 @@ export const onStart = () => Neo.app({
                 {dataField: 'name',  text: 'Name',  width: 200, editable: true, editor: {required: true}},
                 {dataField: 'score', text: 'Score', width: 100},
                 {dataField: 'city',  text: 'City',  width: 160, editable: true, id: 'grid-cell-editing-city'},
-                {dataField: 'note',  text: 'Note',  width: 160, editable: true, locked: 'end'}
+                {dataField: 'note',  text: 'Note',  width: 160, editable: true, locked: 'end', id: 'grid-cell-editing-note'}
             ]
         }, {
             module     : GridContainer,
