@@ -11,6 +11,11 @@ import {WebSocketServer} from 'ws';
  *
  * The client's backoff is shortened in the App Worker, so it gives up within about a second instead of fifteen. The
  * step after giving up is the gap a user's return must respect.
+ *
+ * Losing a bridge must end in one bounded reconnect cycle. The worker forwards its console to a connected bridge, so a
+ * log line written while the client still counts as connected is a send through the failed socket, which reconnects and
+ * logs again. A lost connection reaches the client either as `close` alone or as `error` before `close`, and each has an
+ * arm.
  */
 
 const APP = '/examples/button/base/index.html';
@@ -75,13 +80,20 @@ async function boot(page, port, {cycle, after}) {
         socket.backoffStrategy = attempt => attempt < socket.maxReconnectAttempts ? cycle : after
     }, {cycle, after});
 
-    await expect.poll(() => lines.some(line => line.includes('reconnecting stopped')), {
-        message: 'the client gave up',
-        timeout: 10000
-    }).toBe(true);
-
     return {dials, lines, worker}
 }
+
+/**
+ * @param {String[]} lines The App Worker's console output
+ * @returns {Number} how often the client reported giving up
+ */
+const giveUps = lines => lines.filter(line => line.includes('reconnecting stopped')).length;
+
+/**
+ * @param {String[]} lines
+ * @returns {Promise<void>}
+ */
+const expectGaveUp = lines => expect.poll(() => giveUps(lines), {message: 'the client gave up', timeout: 10000}).toBe(1);
 
 test.describe('Neo.ai.Client late bridge', () => {
     let server;
@@ -105,8 +117,9 @@ test.describe('Neo.ai.Client late bridge', () => {
     test('an app that gave up attaches to a bridge started later, once, when a user returns to its window', async ({page}) => {
         const port        = await freePort(),
               connections = [],
-              {lines}     = await boot(page, port, {cycle: 50, after: 50}),
-              gaveUp      = () => lines.filter(line => line.includes('reconnecting stopped')).length;
+              {lines}     = await boot(page, port, {cycle: 50, after: 50});
+
+        await expectGaveUp(lines);
 
         server = new WebSocketServer({host: '127.0.0.1', port});
 
@@ -129,21 +142,59 @@ test.describe('Neo.ai.Client late bridge', () => {
             message: 'the client registers with the bridge'
         }).toMatchObject({appWorkerId: expect.any(String)});
 
+        // The console lines buffered while no bridge listened arrive first, then the line announcing this connection
+        const forwarded = connections[0].messages.filter(({method}) => method === 'console_log').map(({params}) => params.message),
+              stopped   = forwarded.findIndex(line => line.includes('reconnecting stopped')),
+              connected = forwarded.findIndex(line => line.includes('Connected to MCP Server'));
+
+        expect(stopped, 'the buffered lines reach the bridge').toBeGreaterThanOrEqual(0);
+        expect(connected, 'before the line announcing the connection').toBeGreaterThan(stopped);
+
         await returnToWindow(page);
         await page.waitForTimeout(300);
 
         expect(connections.length, 'no second socket, while connecting or once connected').toBe(1);
 
-        const reported = gaveUp();
-
         await stopBridge();
 
-        await expect.poll(gaveUp, {message: 'a bridge lost later is reported again'}).toBe(reported + 1)
+        await expect.poll(() => giveUps(lines), {message: 'a bridge lost later is reported again'}).toBe(2)
+    });
+
+    test('a bridge that fails with an error before the close is reported once, and nothing re-enters', async ({page}) => {
+        const port = await freePort();
+
+        let bridgeSide = null;
+
+        server = new WebSocketServer({host: '127.0.0.1', port});
+        server.on('connection', socket => socket.on('message', data => {
+            JSON.parse(data).method === 'register' && (bridgeSide = socket)
+        }));
+
+        const {lines} = await boot(page, port, {cycle: 50, after: 50});
+
+        await expect.poll(() => !!bridgeSide, {message: 'the client registers with the bridge'}).toBe(true);
+
+        // An invalid UTF-8 text frame makes the browser fail the connection, so `error` fires before `close`. The listener
+        // stops too, without terminating the connection, so the client's own reconnect attempts are refused
+        bridgeSide._socket.write(Buffer.from([0x81, 0x01, 0xff]));
+        server.close();
+        server = null;
+
+        await expect.poll(() => giveUps(lines), {message: 'one reconnect cycle, reported once'}).toBe(1);
+
+        // wall-clock-under-test: a re-entered cycle reports again within milliseconds, so the arm waits one out
+        await page.waitForTimeout(300);
+
+        expect(giveUps(lines), 'and not again').toBe(1);
+        expect(lines.filter(line => line.includes('reconnect attempt')).length, "the cycle's own attempts, none re-entered")
+            .toBe(4)
     });
 
     test('without a bridge, a return dials once per backoff step and the client prints nothing about it', async ({page}) => {
         const port                   = await freePort(),
               {dials, lines, worker} = await boot(page, port, {cycle: 50, after: 1500});
+
+        await expectGaveUp(lines);
 
         const gaveUp = Date.now(),
               quiet  = {dials: dials.length, lines: lines.length};

@@ -53,10 +53,10 @@ class Client extends Base {
      */
     gaveUpAt = null
     /**
-     * @member {Boolean} isConnected=false
-     * @protected
+     * Whether the current socket opened, so a close can tell a lost connection from a refused dial
+     * @member {Boolean} #opened=false
      */
-    isConnected = false
+    #opened = false
     /**
      * Buffer for console logs generated before connection is established
      * @member {Array} logs=[]
@@ -97,6 +97,17 @@ class Client extends Base {
      * @protected
      */
     transactionService = null
+
+    /**
+     * True while the socket is open. Read from the socket rather than kept as a flag: a failing socket reports `error`
+     * before `close`, and the worker forwards every console line to the bridge while this is true. A stale flag would
+     * send a failure's own log through the failed socket, whose `sendMessage()` reconnects, which logs again.
+     * @member {Boolean} isConnected
+     * @protected
+     */
+    get isConnected() {
+        return this.socket?.socket?.readyState === WebSocket.OPEN
+    }
 
     /**
      * @param {Object} config
@@ -288,17 +299,18 @@ class Client extends Base {
      * @param {Event} event
      */
     onSocketOpen(event) {
-        console.log('Neo.ai.Client: Connected to MCP Server');
-        this.gaveUpAt    = null;
-        this.isConnected = true;
+        this.gaveUpAt = null;
+        this.#opened  = true;
 
-        // Flush buffered logs
+        // Flush buffered logs, which are older than the line announcing this connection
         if (this.logs.length > 0) {
             this.logs.forEach(log => {
                 this.sendNotification('console_log', log)
             });
             this.logs.length = 0
         }
+
+        console.log('Neo.ai.Client: Connected to MCP Server');
 
         const appWorker = Neo.worker.App;
 
@@ -352,17 +364,15 @@ class Client extends Base {
     }
 
     /**
-     * A dial that never opened disconnects nothing, so only a lost connection is logged. The flag drops first:
-     * the worker forwards console output to a connected bridge, and a send on the closed socket would reconnect
-     * from inside this log, which logs again.
+     * A dial that never opened disconnects nothing, so only a lost connection is logged
      * @param {CloseEvent} event
      */
     onSocketClose(event) {
-        let me        = this,
-            connected = me.isConnected;
+        let me     = this,
+            opened = me.#opened;
 
-        me.isConnected = false;
-        connected && console.log('Neo.ai.Client: Disconnected')
+        me.#opened = false;
+        opened && console.log('Neo.ai.Client: Disconnected')
     }
 
     /**
