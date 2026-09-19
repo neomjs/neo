@@ -9,8 +9,9 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
  * `cellEditing: true`. The fixture's `gridDriver.mjs` sets the config inside the App Worker. The unit tier cannot mount
  * an editor, because a text field calls `Neo.main.DomEvents`, so only these arms see the editors themselves.
  *
- * A refused double-click has no event to wait for. The arms count editors with a MutationObserver instead, so an editor
- * that mounts and leaves again inside the wait still counts.
+ * A refused double-click has no event to wait for. The arms count editors with a MutationObserver instead, which replays
+ * its records rather than sampling the DOM once they are delivered. An editor inserted and removed again before the
+ * observer runs still counts; the counter has its own arm for that.
  */
 const GRID                                         = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment} = gridCellEditing(GRID);
@@ -37,18 +38,28 @@ const recordIdOf = (page, text) => page.locator(`${GRID} .neo-grid-cell[data-fie
     .getAttribute('data-record-id');
 
 /**
- * From now on, the most editors the grid held at once.
+ * From now on, the most editors the grid held at once. The records are replayed in order, removals before additions
+ * within one record, so an editor inserted and removed within one batch counts, and a moved editor counts once.
  * @returns {Promise<void>}
  */
-const countEditors = page => page.evaluate(({grid, editor}) => {
-    window.__editorWatch?.disconnect();
-    window.__maxEditors  = document.querySelectorAll(editor).length;
-    window.__editorWatch = new MutationObserver(() => {
-        window.__maxEditors = Math.max(window.__maxEditors, document.querySelectorAll(editor).length)
-    });
+const countEditors = page => page.evaluate(grid => {
+    const root      = document.querySelector(grid),
+          editorsIn = nodes => [...nodes].reduce((sum, node) => node.nodeType !== Node.ELEMENT_NODE ? sum :
+              sum + (node.matches('.neo-grid-editor') ? 1 : 0) + node.querySelectorAll('.neo-grid-editor').length, 0);
 
-    window.__editorWatch.observe(document.querySelector(grid), {childList: true, subtree: true})
-}, {grid: GRID, editor: EDITOR});
+    let current = root.querySelectorAll('.neo-grid-editor').length;
+
+    window.__editorWatch?.disconnect();
+    window.__maxEditors  = current;
+    window.__editorWatch = new MutationObserver(records => records.forEach(({addedNodes, removedNodes}) => {
+        current -= editorsIn(removedNodes);
+        current += editorsIn(addedNodes);
+
+        window.__maxEditors = Math.max(window.__maxEditors, current)
+    }));
+
+    window.__editorWatch.observe(root, {childList: true, subtree: true})
+}, GRID);
 
 const maxEditors = page => page.evaluate(() => window.__maxEditors);
 
@@ -105,6 +116,32 @@ test.describe('Grid cellEditing toggled at runtime', () => {
 
     test.afterEach(() => {
         expect(pageErrors, 'no page error in the arm').toEqual([])
+    });
+
+    test('the editor count keeps an editor that mounts and leaves before the observer runs', async ({page}) => {
+        const recordId = await recordIdOf(page, 'r3c3'),
+              // Inserts an editor node into a cell and removes it again in the same task
+              flash    = () => page.evaluate(grid => {
+                  const node = document.createElement('div');
+
+                  node.className = 'neo-grid-editor';
+                  document.querySelector(`${grid} .neo-grid-cell`).append(node);
+                  node.remove()
+              }, GRID);
+
+        await countEditors(page);
+        await flash();
+        expect(await maxEditors(page), 'a transient first editor').toBe(1);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+
+        await countEditors(page);
+        await flash();
+        expect(await maxEditors(page), 'a transient second editor beside the open one').toBe(2);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0)
     });
 
     test('off refuses a double-click, on again opens exactly one editor, and the next off refuses again', async ({page}) => {
