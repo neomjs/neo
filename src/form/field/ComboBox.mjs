@@ -191,7 +191,7 @@ class ComboBox extends Picker {
     programmaticValueChange = false
     /**
      * The record the field held when the user started typing over it: the value {@link #forceSelection} returns to
-     * when the typed text matches no record.
+     * when the typed text matches no record. It lives for one input attempt, which leaving the field ends.
      * @member {Object|null} valueBeforeInput=null
      * @protected
      */
@@ -660,6 +660,9 @@ class ComboBox extends Picker {
             me.updateInputValueFromValue(me.value);
             me.programmaticValueChange = false
         }
+
+        // leaving ends the input attempt, and its fallback with it: the next attempt starts from what the field holds
+        me.valueBeforeInput = null;
 
         me.updateTypeAheadValue(null);
 

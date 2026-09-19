@@ -327,6 +327,28 @@ test.describe('Neo.form.field.ComboBox', () => {
         await expect.poll(() => valueState(page, componentId)).toEqual({error: null, hasValue: false})
     });
 
+    test('forceSelection: a field cleared on purpose stays empty through its next unmatched entry', async ({page}) => {
+        componentId = await createComboBox(page, {value: 'AZ'});
+        const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`);
+
+        await typeAndLeave(page, inputField, 'Zzzzz');
+        await expect(inputField, 'the first attempt returns to the record').toHaveValue('Arizona');
+
+        await inputField.click();
+        await page.keyboard.press('ControlOrMeta+a');
+        await page.keyboard.press('Backspace');
+        await page.keyboard.press('Tab');
+        // the keystroke already emptied the value; leaving is what ends the attempt, so wait for the App Worker to see it
+        await expect.poll(() => page.evaluate(id => Neo.worker.App.getConfigs({id, keys: ['containsFocus']}), componentId),
+            {message: 'the field was left'}).toEqual([false]);
+        await expect.poll(() => valueState(page, componentId), {message: 'the clear holds'}).toEqual({error: null, hasValue: false});
+
+        await typeAndLeave(page, inputField, 'Zzzzz');
+
+        await expect(inputField, 'no earlier record comes back').toHaveValue('');
+        await expect.poll(() => valueState(page, componentId)).toEqual({error: null, hasValue: false})
+    });
+
     test('forceSelection: a partial match still resolves on blur, over the record the field held', async ({page}) => {
         componentId = await createComboBox(page, {value: 'CA'});
         const inputField = page.locator(`#${componentId} input.neo-textfield-input:not(.neo-typeahead-input)`);
