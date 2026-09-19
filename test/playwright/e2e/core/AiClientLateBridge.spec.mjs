@@ -114,6 +114,78 @@ test.describe('Neo.ai.Client late bridge', () => {
 
     test.afterEach(stopBridge);
 
+    for (const retry of [true, false]) {
+        test(`a clean bridge close ${retry ? 'recovers through the default retry cycle and a later return' : 'stays closed after an explicit retry opt-out'}`, async ({page}) => {
+            const port = await freePort();
+
+            let registrations = 0;
+
+            const startBridge = () => {
+                server = new WebSocketServer({host: '127.0.0.1', port});
+                server.on('connection', socket => socket.on('message', data => {
+                    JSON.parse(data).method === 'register' && registrations++
+                }))
+            };
+
+            startBridge();
+
+            const {lines, worker} = await boot(page, port, {cycle: 50, after: 50});
+
+            await expect.poll(() => registrations, {message: 'the first bridge is connected'}).toBe(1);
+
+            await worker.evaluate(retry => {
+                const {socket} = Neo.ai.Client;
+
+                if (!retry) socket.reconnectOnCleanClose = false;
+
+                globalThis.cleanCloseEvents = [];
+                socket.on('close', ({event, reason, wasClean}) => {
+                    cleanCloseEvents.push({code: event.code, reason, wasClean})
+                })
+            }, retry);
+
+            const closing = server;
+
+            closing.clients.forEach(socket => socket.close(1000, 'bridge shutdown'));
+            await new Promise(resolve => closing.close(resolve));
+            server = null;
+
+            await expect.poll(() => worker.evaluate(() => cleanCloseEvents[0]), {
+                message: 'the native clean close keeps its metadata'
+            }).toEqual({code: 1000, reason: 'bridge shutdown', wasClean: true});
+
+            if (retry) {
+                await expectGaveUp(lines);
+                await expect.poll(() => worker.evaluate(() => {
+                    const client = Neo.ai.Client;
+
+                    return Date.now() - client.gaveUpAt >= client.socket.backoffStrategy(client.socket.reconnectAttempts)
+                }), {message: 'the next window return is eligible'}).toBe(true)
+            } else {
+                // wall-clock-under-test: longer than the four 50ms reconnect steps the opt-out must suppress
+                await page.waitForTimeout(300);
+
+                expect(giveUps(lines), 'no reconnect cycle ran').toBe(0);
+                expect(await worker.evaluate(() => Neo.ai.Client.socket.reconnectAttempts)).toBe(0)
+            }
+
+            startBridge();
+            await returnToWindow(page);
+            await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+
+            if (retry) {
+                await expect.poll(() => registrations, {message: 'the returning window attaches to the new bridge once'}).toBe(2);
+                expect(await worker.evaluate(() => Neo.ai.Client.isConnected)).toBe(true)
+            } else {
+                // wall-clock-under-test: a return must not invent a retry cycle for a deliberately retired socket
+                await page.waitForTimeout(300);
+
+                expect(registrations, 'neither return reopens the opted-out socket').toBe(1);
+                expect(await worker.evaluate(() => Neo.ai.Client.isConnected)).toBe(false)
+            }
+        })
+    }
+
     test('an app that gave up attaches to a bridge started later, once, when a user returns to its window', async ({page}) => {
         const port        = await freePort(),
               connections = [],
