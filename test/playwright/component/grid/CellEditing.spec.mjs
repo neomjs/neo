@@ -49,6 +49,22 @@ const viewIdOf = page => page.locator(`${GRID} .neo-grid-view`).first().getAttri
  * @param {String} id
  * @returns {Promise<Boolean>}
  */
+/**
+ * Installs one `cellEditCancel` listener on the grid, inside the App Worker where the event lives. The counter makes
+ * every call a new module URL, so the module is evaluated again rather than served from the import cache.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} action
+ * @returns {Promise<void>}
+ */
+let cancelListenerCount = 0;
+
+const installCancelListener = async (page, action) => {
+    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
+        `../../test/playwright/component/apps/grid-cell-editing/cancelListenerDriver.mjs?action=${action}&n=${++cancelListenerCount}`);
+
+    expect(success, `the ${action} listener was installed`).toBe(true)
+};
+
 const isLive = (page, id) => page.evaluate(id => Promise.race([
     Neo.worker.App.getConfigs({id, keys: ['id']}).then(reply => reply !== false),
     Neo.worker.App.getConfigs({id: 'grid-cell-editing-pooled', keys: ['id']}).then(() => false)
@@ -256,6 +272,94 @@ test.describe('grid cell editing — terminals', () => {
         await page.keyboard.press('ArrowRight');
         await expect(score).toHaveClass(/neo-selected/);
         await expect(name).not.toHaveClass(/neo-selected/)
+    });
+
+    // The cancel terminal owes the same anchor as the commit one. It cannot restore what was selected before the
+    // edit, because the double-click that starts it deselects the cell on the way in — so it selects the edited cell,
+    // exactly as Enter does. Without it the next arrow key is spent re-anchoring instead of moving.
+    test('Escape leaves the edited cell selected, so the arrow keys have an anchor', async ({page}) => {
+        const recordId = await recordIdOf(page, 3),
+              name     = cell(page, 'name', recordId),
+              score    = cell(page, 'score', recordId);
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        // The gesture deselects on the way in, which is why a restore-based fix would restore nothing
+        await expect(name, 'the double-click left nothing selected to return to').not.toHaveClass(/neo-selected/);
+
+        await page.keyboard.type(' draft');
+        await page.keyboard.press('Escape');
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(name, 'the draft is discarded').toHaveText('Name 3');
+        await expect(name, 'the cancelled cell is the anchor').toHaveClass(/neo-selected/);
+
+        // …and a real anchor, not only a class: the first arrow after the cancel MOVES
+        await page.keyboard.press('ArrowRight');
+        await expect(score).toHaveClass(/neo-selected/);
+        await expect(name).not.toHaveClass(/neo-selected/)
+    });
+
+    // `cellEditCancel` fires synchronously while the cancel is still unwinding, so a listener runs before the gesture
+    // has finished. The anchor therefore belongs BEFORE that notification: these two arms are what the ordering buys,
+    // and both are red when the selection happens after `cancelEdit` instead.
+    test('a listener that ends the grid on cancel is not reached into afterwards', async ({page, workerErrors}) => {
+        const recordId = await recordIdOf(page, 3),
+              name     = cell(page, 'name', recordId);
+
+        await installCancelListener(page, 'destroyOnCancel');
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.press('Escape');
+
+        // The throw happens in the App Worker, and its mirrored console line reaches the page after the gesture.
+        // Asserting straight after the keypress reads before it arrives, so this waits for the worker to drain
+        // first — `workerErrors` is what carries it, not `page.on('pageerror')`.
+        await roundTrip(page);
+
+        // The grid going is the listener's doing and fine. What must not happen is the cancel continuing into it,
+        // which throws `Cannot destructure property 'silentSelect' of 'view' as it is null` from `BaseModel.silently`.
+        await expect.poll(() => isLive(page, 'grid-cell-editing'), {message: 'the listener destroyed the grid'}).toBe(false);
+        expect(workerErrors.lines.filter(line => /silentSelect|BaseModel/.test(line)),
+            'the cancel completed without reaching into the destroyed grid').toEqual([])
+    });
+
+    test('a listener that selects on cancel keeps its newer selection', async ({page}) => {
+        const recordId = await recordIdOf(page, 3),
+              name     = cell(page, 'name', recordId),
+              otherId  = await recordIdOf(page, 4),
+              score    = cell(page, 'score', otherId);
+
+        await installCancelListener(page, 'selectOnCancel');
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.press('Escape');
+
+        // The listener acts last, so its choice is the newer intent and stands. The cancel overwriting it back to
+        // the edited cell is what this pins.
+        await expect(score, "the listener's selection survives the cancel").toHaveClass(/neo-selected/);
+        await expect(name, 'the cancelled cell did not overwrite it').not.toHaveClass(/neo-selected/)
+    });
+
+    // The scope boundary: only the gesture a user makes selects. A cancel the grid issues for its own reasons has
+    // no cell to anchor to, and `projectionLoss` is the one reachable without touching the plugin's API.
+    test('a cancel the pooling issues selects nothing', async ({page}) => {
+        const recordId = await recordIdOf(page, 2),
+              city     = cell(page, 'city', recordId);
+
+        await city.dblclick();
+        await expect.poll(() => editingIn(page, 'city', recordId)).toBe(true);
+
+        await page.evaluate(() => Neo.worker.App.setConfigs({id: 'grid-cell-editing-city', editable: false}));
+
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(page.locator(GRID), 'the grid cancelled for its own reason').toHaveClass(/edit-cancelled-city-notEditable/);
+        await expect(city, 'a cancel nobody gestured for anchors nothing').not.toHaveClass(/neo-selected/)
     });
 
     test('Escape discards the draft, destroys the editor and returns focus to the View', async ({page}) => {

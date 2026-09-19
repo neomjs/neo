@@ -491,11 +491,36 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * Escape is the one discard: it cancels the session, embodied or not.
+     * Escape is the one discard: it cancels the session, embodied or not, and leaves the edited cell selected the
+     * way a commit does. The double-click that starts an edit deselects the cell on its way in, so without this the
+     * cancel ends with nothing selected and the next arrow key is spent re-anchoring instead of moving.
+     *
+     * The other cancel reasons do not pass through here, which is what keeps this to the gesture a user makes: a
+     * `projectionLoss` or `destroy` has no cell on screen to anchor to, and `notEditable` and `disabled` cancel
+     * because the cell stopped being a legitimate target.
      * @protected
      */
     onEscapeKey() {
-        this.cancelEdit('escape')
+        let me        = this,
+            {session} = me;
+
+        if (!session) {
+            return
+        }
+
+        let {view}           = me.owner,
+            {selectionModel} = view,
+            {dataField}      = session,
+            record           = me.getRecord(session);
+
+        // Before the cancel, not after it: `cancelEdit` fires `cellEditCancel` synchronously, and a listener may
+        // destroy the grid or select something else. Selecting first leaves the anchor in place for the ordinary
+        // case, lets a listener's newer intent stand as the last word, and keeps this line from reaching into a
+        // grid that has already moved on. The selection change only clears the session's `refocus` flag, and the
+        // session is destroyed a line later.
+        record && selectionModel?.selectsCells && selectionModel.select(view.getLogicalCellId(record, dataField));
+
+        me.cancelEdit('escape')
     }
 
     /**
