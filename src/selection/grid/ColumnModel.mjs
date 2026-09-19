@@ -75,14 +75,14 @@ class ColumnModel extends BaseModel {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        !this.hasEditorFocus(data) && this.onNavKeyColumn(-1)
+        this.canNavigate(data) && this.onNavKeyColumn(-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        !this.hasEditorFocus(data) && this.onNavKeyColumn(1)
+        this.canNavigate(data) && this.onNavKeyColumn(1)
     }
 
     /**

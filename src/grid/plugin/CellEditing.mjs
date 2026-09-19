@@ -508,7 +508,8 @@ class CellEditing extends Plugin {
 
     /**
      * @summary An arrow on the View is leave-edit intent, including while the editor is suspended. The selection
-     * model calls this before moving: a valid draft commits; an invalid draft reappears and vetoes navigation.
+     * model calls this before moving: a valid draft commits and anchors navigation at its cell; an invalid draft
+     * reappears and vetoes navigation.
      * Arrows arriving from a field or picker retain their own meaning.
      * @param {Object} data
      * @returns {Boolean} true permits the selection model's existing navigation
@@ -518,7 +519,17 @@ class CellEditing extends Plugin {
         let me        = this,
             {session} = me;
 
-        if (!session || data.path?.[0]?.id !== me.owner.view.id || me.completeEdit()) {
+        if (!session || data.path?.[0]?.id !== me.owner.view.id) {
+            return true
+        }
+
+        let {view}           = me.owner,
+            {selectionModel} = view,
+            {dataField}      = session,
+            record           = me.getRecord(session);
+
+        if (me.completeEdit()) {
+            record && selectionModel?.selectsCells && selectionModel.select(view.getLogicalCellId(record, dataField));
             return true
         }
 

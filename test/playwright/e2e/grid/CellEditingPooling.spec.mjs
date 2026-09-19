@@ -75,38 +75,41 @@ test.describe('Grid cell editing across row and cell pooling', () => {
 
     // Real keys must settle the edit before the selection model consumes them. Read the worker's event order and
     // logical selection as well as the reprojected DOM: a new selected cell alone used to hide a surviving draft.
-    for (const model of ['cell', 'row', 'CellColumnModel', 'CellColumnRowModel']) {
-        const selectsCells = model !== 'row';
+    for (const model of ['cell', 'row', 'CellColumnModel', 'CellColumnRowModel', 'ColumnModel']) {
+        const columnsOnly  = model === 'ColumnModel',
+              selectsCells = model !== 'row' && !columnsOnly,
+              keys         = columnsOnly ? ['ArrowLeft', 'ArrowRight'] : selectsCells ? ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'] : ['ArrowDown', 'ArrowUp'];
 
-        for (const key of selectsCells ? ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'] : ['ArrowDown', 'ArrowUp']) {
+        for (const key of keys) {
             for (const invalid of [false, true]) {
                 test(`${model}: ${key} resolves ${invalid ? 'an invalid' : 'a valid'} suspended edit before navigation`, async ({page}) => {
                     const recordId = await thirdRecordId(page),
                           field    = invalid ? 'c5' : 'c3',
                           viewId   = await page.locator(`${GRID} .neo-grid-view`).getAttribute('id'),
                           config   = (id, keys) => page.evaluate(({id, keys}) => Neo.worker.App.getConfigs({id, keys}), {id, keys}),
-                          selected = () => config(viewId, selectsCells ? 'selectedCells' : 'selectedRows'),
-                          initial  = selectsCells ? [`${recordId}__${field}`] : [recordId],
+                          selected = () => columnsOnly ? config('grid-arrow-selection', 'selectedColumns') :
+                              config(viewId, selectsCells ? 'selectedCells' : 'selectedRows'),
+                          initial  = columnsOnly ? [field] : selectsCells ? [`${recordId}__${field}`] : [recordId],
                           vertical = key === 'ArrowDown' || key === 'ArrowUp',
                           nextRow  = vertical ? await page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`)
                               .getByText(key === 'ArrowDown' ? 'r4c3' : 'r2c3', {exact: true}).getAttribute('data-record-id') : recordId;
 
                     model === 'row' && await drive(page, 'rowModel');
 
-                    if (model.startsWith('Cell')) {
+                    if (model.endsWith('Model')) {
                         const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}), `../selection/grid/${model}.mjs`);
 
                         expect(success).toBe(true);
                         await page.evaluate(({viewId, model}) => Neo.worker.App.setConfigs({
-                            id: viewId, selectionModel: {ntype: `selection-grid-${model.toLowerCase()}`}
+                            id: viewId, selectionModel: {id: 'grid-arrow-selection', ntype: `selection-grid-${model.toLowerCase()}`}
                         }), {viewId, model})
                     }
 
                     await cell(page, field, recordId).click();
                     await expect.poll(selected).toEqual(initial);
 
-                    // A row selection names no column. Activate this specific field by pointer.
-                    if (model === 'row') {
+                    // A row or column selection names no cell. Activate this specific cell by pointer.
+                    if (!selectsCells) {
                         await cell(page, field, recordId).dblclick()
                     } else {
                         await page.keyboard.press('Enter')
@@ -137,14 +140,18 @@ test.describe('Grid cell editing across row and cell pooling', () => {
                         await expect(cell(page, field, recordId)).toHaveText(`r3${field}`)
                     } else {
                         const nextField = vertical ? field : key === 'ArrowLeft' ? 'c2' : 'c4',
-                              expected  = selectsCells ? [`${nextRow}__${nextField}`] : [nextRow];
+                              expected  = columnsOnly ? [nextField] : selectsCells ? [`${nextRow}__${nextField}`] : [nextRow];
 
                         await expect.poll(() => config(editorId, 'id'), {message: 'the suspended editor is destroyed'}).toBe(false);
                         await expect.poll(selected).toEqual(expected);
                         const events = await config(GRID.slice(1), 'driverEventLog');
 
                         expect(events[0], 'the draft commits before any selection change').toBe('commit:c3');
-                        expect(events.slice(1).length).toBeGreaterThan(0);
+                        if (columnsOnly) {
+                            expect(await config(GRID.slice(1), 'driverColumnsAtCommit'), 'the commit precedes the column move').toEqual(initial)
+                        } else {
+                            expect(events.slice(1).length).toBeGreaterThan(0)
+                        }
                         expect(events.slice(1).every(event => event === 'select'), 'no second commit').toBe(true);
                         await scrollVertically(page, 0);
                         await scrollHorizontally(page, 0);
@@ -158,6 +165,31 @@ test.describe('Grid cell editing across row and cell pooling', () => {
             }
         }
     }
+
+    test('a double-clicked cell anchors the suspended arrow commit even when no cell is selected', async ({page}) => {
+        const recordId = await thirdRecordId(page),
+              nextId   = await page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText('r4c3', {exact: true}).getAttribute('data-record-id'),
+              viewId   = await page.locator(`${GRID} .neo-grid-view`).getAttribute('id'),
+              selected = () => page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'selectedCells'}), viewId);
+
+        await cell(page, 'c3', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+        await expect.poll(selected, {message: 'the second click toggled the cell off'}).toEqual([]);
+        await page.locator(INPUT).fill('pointer draft');
+        await drive(page, 'logEvents');
+        await scrollVertically(page, 4000);
+        await expect.poll(() => embodiment(page)).toEqual({count: 0, field: null, recordId: null});
+        await expect(page.locator(`${GRID} .neo-grid-view`)).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+
+        await expect.poll(selected, {message: 'the arrow moves from the edited cell, not the first cell'}).toEqual([`${nextId}__c3`]);
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c3', recordId)).toHaveText('pointer draft');
+        const events = await page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'driverEventLog'}), GRID.slice(1));
+
+        expect(events[0], 'the anchor is restored after the commit').toBe('commit:c3');
+        expect(events.slice(1).every(event => event === 'select')).toBe(true)
+    });
 
     for (const [field, body] of [['c0', 'locked-start'], ['c3', 'center'], ['c39', 'locked-end']]) {
         test(`a double-click embodies the editor in a pooled grid's ${body} cell`, async ({page}) => {
