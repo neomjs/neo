@@ -10,13 +10,14 @@ import { test, expect } from '../../fixtures.mjs';
  * survives — the browser cannot tie the programmatic focus back to the originating pointer gesture. The fix
  * makes modality an explicit contract: `DomAccess.focus` stamps `neo-focus-pointer` immediately before
  * `node.focus()` (atomic, no flash), which suppresses the ring; the class self-clears on blur or the first
- * keydown, so a pointer→keyboard switch WITHOUT a blur restores the intentional keyboard ring. The click keeps
+ * keydown, so a pointer→keyboard switch WITHOUT a blur swaps the stamp. Neither stamp paints a ring around the
+ * View by default: the selection shows where focus is. The click keeps
  * its mousedown default, so a pointer gesture reaches the View natively and the stamp follows one round trip
  * later; the arm therefore WAITS for the stamp instead of requiring it in the same read as the focus.
  *
  * This asserts the observable contract the unit suite cannot reach, against REBUILT themes (a stale-CSS run
  * false-greened the prior receipt): per-body View ownership, the eventual pointer stamp with no ring at either
- * sampled point, the positive keyboard ring after the modality switch, blur cleanup, and scroll stability
+ * sampled point, the keyboard stamp after the modality switch, still with no ring, blur cleanup, and scroll stability
  * across the focus transfer at the fixture's natural offset.
  */
 test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring (#15195)', () => {
@@ -29,7 +30,7 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
         await page.waitForTimeout(500);
     });
 
-    test('pointer focus in ANY body → View, no ring, atomic stamp; keyboard switch restores the ring; blur clears; scroll stable across the focus transfer', async ({ page, neuralLink }) => {
+    test('pointer focus in ANY body → View, no ring, atomic stamp; keyboard switch swaps the stamp, still no ring; blur clears; scroll stable across the focus transfer', async ({ page, neuralLink }) => {
         const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
         const gridId = await resolveGridId(app);
 
@@ -95,9 +96,9 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
         const navRow = page.locator(`#${centerBodyId} .neo-grid-row`).nth(2);
         const navRec = await navRow.getAttribute('data-record-id');
 
-        // AC-3 (positive keyboard witness + pointer→keyboard cleanup): a keyboard interaction on the
-        // pointer-focused View swaps the modality WITHOUT a blur, so the intentional ring returns while the
-        // View keeps focus, and keyboard nav still moves the selection through the View's keys.
+        // AC-3 (keyboard witness + pointer→keyboard cleanup): a keyboard interaction on the pointer-focused View
+        // swaps the modality WITHOUT a blur while the View keeps focus, and keyboard nav still moves the selection
+        // through the View's keys. The selection is the focus cue, so no ring is painted around the View.
         await navRow.click();
         await expect.poll(async () => (await readFocus()).active, { timeout: 5000 }).toBe(viewId);
         await expect(navRow, 'the clicked row is selected').toHaveClass(/neo-selected/);
@@ -111,7 +112,7 @@ test.describe('Desktop (1920x1080): grid View-owned focus + input-modality ring 
         const afterKey = await readFocus();
         expect(afterKey.pointer, 'the pointer modality class is cleared after the switch').toBe(false);
         expect(afterKey.active,  'the View retains focus through the pointer→keyboard switch').toBe(viewId);
-        expect(afterKey.outline, 'the intentional keyboard ring is painted after the modality switch').not.toBe('none');
+        expect(afterKey.outline, 'the keyboard switch paints no ring around the View either').toBe('none');
         await expect(
             page.locator(`#${centerBodyId} .neo-grid-row[data-record-id="${navRec}"]`),
             'ArrowDown moves selection off the clicked row — keyboard nav preserved through the View'
