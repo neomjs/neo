@@ -19,35 +19,43 @@ You need **Node.js 24 or newer**. Nothing else: no Docker, no database, no API k
 git clone https://github.com/neomjs/neo.git   # or your fork
 cd neo
 npm install
-npm run bundle-browser-deps
+npm run bundle-browser-deps               # third-party bundles into dist/
+npm run build-themes -- -n -e dev -t all  # the CSS the dev environment renders with
 npm run server-start
 ```
 
-`server-start` opens the development environment in your browser. **Your own edits never need a build** — Neo.mjs runs
-them as native ES modules, so you change a file and reload.
+Both build steps exist for the same reason: **`dist/` is git-ignored, so a fresh clone has neither.** Skip the first and
+anything importing `marked`, `parse5`, `mermaid`, Monaco or highlight.js fails to load — including the unit suite, which
+then selects *zero tests* rather than failing one. Skip the second and the server starts and serves an unstyled page; it
+warns and tells you this exact command. Together they take under ten seconds.
 
-`bundle-browser-deps` is a different thing, and it is the one step that is easy to miss. A few third-party libraries
-(`marked`, `parse5`, `mermaid`, Monaco, highlight.js) are bundled into `dist/`, which is git-ignored — so a fresh clone
-does not have them, and anything importing them fails to load until you run it once. It takes a few seconds.
+**Your own JavaScript never needs a build** — Neo.mjs runs your edits as native ES modules, so you change a file and
+reload. That does not extend to **SCSS**: styles compile into `dist/development/css`, so re-run `build-themes` after a
+`.scss` change, or keep `npm run watch-themes` going while you work on one.
 
 Running the tests:
 
 ```bash
-npm run test-unit         # engine units — no browser download needed
+npm run test-unit         # engine units — no browser needed at all
 ```
 
 Every test command takes a path, so you can run just the area you touched:
 `npm run test-unit -- test/playwright/unit/util`.
 
-The other two suites drive a **real browser**, so they need Playwright's browsers downloaded once (~1 GB):
+The browser suites need real browsers, and **they do not need the same one**:
 
 ```bash
-npx playwright install    # one time, only for the two suites below
-npm run test-components   # components in a browser
-npm run test-e2e          # full applications
+npx playwright install    # Playwright's own browsers (~1 GB)
+npm run test-components   # components — uses Playwright's bundled Chromium
+
+npx playwright install chrome   # only if you do not already have Google Chrome
+npm run test-e2e                # full applications — uses your system Google Chrome
 ```
 
-If you are fixing a unit test, you never need that download.
+`test-e2e` is pinned to `channel: 'chrome'`, so it launches the Google Chrome installed on your machine rather than
+Playwright's Chromium — `npx playwright install` alone does not provide it.
+
+If you are fixing a unit test, you need none of this.
 
 Two things `npm install` does that are worth recognising when they scroll past:
 
