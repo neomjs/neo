@@ -26,14 +26,21 @@ const appName = 'ViewportBodyThemeTest';
  * exists to remove, arriving through its own fix.
  */
 test.describe('Neo.container.Viewport — body-theme publication', () => {
-    let calls      = [],
-        original   = null,
-        rejectWith = null,
-        viewport   = null;
+    let calls            = [],
+        departed         = false,
+        original         = null,
+        originalDeparted = undefined,
+        rejectWith       = null,
+        viewport         = null;
 
     test.beforeEach(() => {
         calls      = [];
         rejectWith = null;
+        departed   = false;
+
+        Neo.currentWorker ??= {};
+        originalDeparted   = Neo.currentWorker.isWindowDeparted;
+        Neo.currentWorker.isWindowDeparted = () => departed;
 
         Neo.main            ??= {};
         Neo.main.DomAccess  ??= {};
@@ -57,8 +64,9 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
         viewport?.destroy();
         viewport = null;
 
-        Neo.main.DomAccess.applyBodyCls = original.applyBodyCls;
-        Neo.main.DomAccess.setBodyCls   = original.setBodyCls
+        Neo.main.DomAccess.applyBodyCls    = original.applyBodyCls;
+        Neo.main.DomAccess.setBodyCls      = original.setBodyCls;
+        Neo.currentWorker.isWindowDeparted = originalDeparted
     });
 
     /** @returns {String|null} the theme the last publication put on the body */
@@ -108,7 +116,9 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
         expect(calls).toHaveLength(0);
     });
 
-    test('a publication into a window that already closed settles silently', async () => {
+    test('a publication into a window this worker RECORDED as departed settles silently', async () => {
+        departed = true;
+
         const errors = [],
               origin = console.error;
 
@@ -127,7 +137,30 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
         }
     });
 
-    test('any other publication failure still reaches the console — the control for the arm above', async () => {
+    test('the SAME typed rejection reaches the console when no departure was recorded', async () => {
+        const errors = [],
+              origin = console.error;
+
+        console.error = (...args) => errors.push(args);
+        // Identical rejection to the arm above. Only the evidence differs, and only the evidence may
+        // buy silence: `NEO_DEAD_PORT` is attached to any send that resolved no message id, including
+        // a port that was never there.
+        rejectWith    = Object.assign(new Error('no live port'), {code: 'NEO_DEAD_PORT'});
+        departed      = false;
+
+        try {
+            viewport = Neo.create(Viewport, {appName, autoMount: false, theme: 'neo-theme-neo-light'});
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(errors, 'unreachable is not departed').toHaveLength(1);
+            expect(errors[0][0]).toContain('body-theme publication failed')
+        } finally {
+            console.error = origin
+        }
+    });
+
+    test('any other publication failure still reaches the console — the control for the arms above', async () => {
         const errors = [],
               origin = console.error;
 

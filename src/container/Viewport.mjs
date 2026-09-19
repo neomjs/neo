@@ -129,15 +129,22 @@ class Viewport extends Container {
         oldValue && remove.add(oldValue);
         remove.delete(theme);
 
-        // The dispatch owns its terminal outcome, like the sibling detached dispatches across `src/`:
-        // `worker.Base#promiseMessage` rejects with `code: 'NEO_DEAD_PORT'` once the destination window
-        // is gone, and a body class for a window that closed is moot — settle silently. Every other
-        // rejection is a live-window failure, and this call has no caller to propagate to, so the
-        // console is the honest terminal surface. Without the handler the expected teardown surfaces
-        // as an unhandled rejection in the App Worker instead.
+        // The dispatch owns its terminal outcome, and this call has no caller to propagate to, so the
+        // console is the honest terminal surface. Without a handler the teardown case surfaces as an
+        // unhandled rejection in the App Worker instead, naming the wrong subsystem.
+        //
+        // Silence requires BOTH halves. `worker.Base#promiseMessage` attaches `code: 'NEO_DEAD_PORT'`
+        // to every send that resolved no message id, which includes a port that was never there — the
+        // code alone says "unreachable", not "departed". `isWindowDeparted` is the evidence half, and
+        // its own docblock names this pairing: it answers at the instant the rejection arrives, because
+        // `removePort()` records the departure before `onDisconnect()` fires. A body class for a window
+        // that closed is moot; an unreachable one that never departed is a failure worth seeing.
         Neo.main.DomAccess.setBodyCls({add: [theme], remove: [...remove], windowId})
             .catch(reason => {
-                reason?.code !== 'NEO_DEAD_PORT' &&
+                const departed = reason?.code === 'NEO_DEAD_PORT' &&
+                    Neo.currentWorker?.isWindowDeparted?.(windowId);
+
+                departed ||
                     console.error('container.Viewport: body-theme publication failed', {reason, windowId})
             })
     }
