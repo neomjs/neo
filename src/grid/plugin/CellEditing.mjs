@@ -55,7 +55,8 @@ class CellEditing extends Plugin {
      * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it. `held` counts the lock
      * changes holding the editor out of every cell ({@link #holdEdit}), `blurOwed` marks the leave the first of them
      * causes, and `wasEmbodied` says whether a cell has shown the editor yet — a session born suspended has that
-     * still ahead of it.
+     * still ahead of it. `selection` is the View's selection when a scroll or a lock change took the editor out
+     * ({@link #onEditorReprojected}).
      * @member {Object|null} session=null
      * @protected
      */
@@ -252,6 +253,17 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * The View's selection as one comparable value: the cells, rows and columns its model selects.
+     * @returns {String}
+     * @protected
+     */
+    getSelectionKey() {
+        let model = this.owner.view.selectionModel;
+
+        return model ? JSON.stringify([model.getSelection(), model.selectedRows, model.selectedColumns]) : ''
+    }
+
+    /**
      * @returns {Object[]}
      * @protected
      */
@@ -373,14 +385,17 @@ class CellEditing extends Plugin {
         if (session && !session.blurOwed && me.isEmbodied(session)) {
             me.completeEdit()
         } else if (session) {
-            session.blurOwed = false;
+            session.blurOwed  = false;
+            session.selection = me.getSelectionKey();
             session.editor.on('mounted', me.onEditorReprojected, me, {once: true})
         }
     }
 
     /**
      * A suspended editor, which had focus, is embodied again. Its unmount returned focus to the View, so the editor
-     * takes it back only while the View still holds it: a newer gesture that moved focus elsewhere keeps it.
+     * takes it back only while nothing happened since: the View still holds focus, and its selection is the one the
+     * editor left. A newer gesture keeps the focus it made: one moving focus elsewhere, and one moving the selection
+     * inside the View, where DOM focus never moves.
      *
      * The View's focus is read at the mount, not recorded at the gesture: `manager.Focus` settles a leave one gap
      * after its focusout, and an event recorded meanwhile would lag exactly as far, while a suspension whose focus
@@ -388,9 +403,10 @@ class CellEditing extends Plugin {
      * @protected
      */
     onEditorReprojected() {
-        let {session} = this;
+        let me        = this,
+            {session} = me;
 
-        session && this.owner.view.containsFocus && session.editor.focus()
+        session && me.owner.view.containsFocus && me.getSelectionKey() === session.selection && session.editor.focus()
     }
 
     /**

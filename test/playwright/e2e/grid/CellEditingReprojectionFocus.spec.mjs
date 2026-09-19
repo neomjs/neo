@@ -155,6 +155,67 @@ test.describe('Grid cell editing: focus on reprojection, and a click on another 
         })
     }
 
+    test('a reprojected editor leaves focus on the View when a click selected another of its cells meanwhile', async ({page}) => {
+        const recordId = await editAndSuspend(page),
+              other    = page.locator(`${GRID} .neo-grid-cell[data-field="c4"]`).first();
+
+        // A click inside the View moves the selection, and DOM focus stays on the View all the while
+        await other.click();
+        await expect(other, 'the clicked cell is selected').toHaveClass(/neo-selected/);
+        await expect.poll(() => viewContainsFocus(page), {message: 'focus is still on the View'}).toBe(true);
+
+        await reproject(page, recordId);
+
+        expect(await page.evaluate(grid => document.activeElement === document.querySelector(`${grid} .neo-grid-view`), GRID),
+            'focus stayed on the View, for the selection the click made').toBe(true);
+
+        await page.locator(INPUT).focus();
+        await page.keyboard.press('Escape');
+        await expect(cell(page, 'c3', recordId), 'Escape discarded the draft').toHaveText('r3c3')
+    });
+
+    test('a reprojected editor leaves focus on the View when focus went out and came back to another of its cells', async ({page}) => {
+        const recordId = await editAndSuspend(page),
+              other    = page.locator(`${GRID} .neo-grid-cell[data-field="c4"]`).first();
+
+        await page.locator('#grid-cell-editing-outside').click();
+        await expect.poll(() => viewContainsFocus(page), {message: 'the View no longer holds focus'}).toBe(false);
+
+        await other.click();
+        await expect(other, 'the clicked cell is selected').toHaveClass(/neo-selected/);
+        await expect.poll(() => viewContainsFocus(page), {message: 'the View holds focus again'}).toBe(true);
+
+        await reproject(page, recordId);
+
+        expect(await page.evaluate(grid => document.activeElement === document.querySelector(`${grid} .neo-grid-view`), GRID),
+            'focus stayed on the View, for the selection the click made').toBe(true)
+    });
+
+    for (const [change, away, back] of [['sort', 'sortDesc', 'sortAsc'], ['filter', 'filterOut', 'clearFilter']]) {
+        test(`an editor a ${change} took out of the pool takes focus back, because the selection never moved`, async ({page}) => {
+            const recordId = await recordIdOf(page, 'r3c3');
+
+            await cell(page, 'c3', recordId).dblclick();
+            await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
+            await page.keyboard.press('ControlOrMeta+a');
+            await page.keyboard.type('draft');
+
+            // The App Worker runs the store op: no pointer and no focus change, so the only leave is the editor's own
+            await drive(page, away);
+            await expect.poll(() => embodiment(page), {message: 'no cell embodies the suspended editor'}).toEqual({count: 0, field: null, recordId: null});
+
+            await drive(page, back);
+            await expect.poll(() => embodiment(page), {message: 'the editor is reprojected into its cell'}).toEqual({count: 1, field: 'c3', recordId});
+
+            await expect.poll(() => editingIn(page, 'c3', recordId), {message: 'focus is back in the editor'}).toBe(true);
+            await page.keyboard.type('!');
+            await expect(page.locator(INPUT), 'typing continues the draft').toHaveValue('draft!');
+
+            await page.keyboard.press('Escape');
+            await expect(cell(page, 'c3', recordId), 'Escape discarded the draft').toHaveText('r3c3')
+        })
+    }
+
     test('a click on another cell while editing commits the draft first, then selects the clicked cell', async ({page}) => {
         const recordId = await recordIdOf(page, 'r3c3');
 
