@@ -19,9 +19,10 @@ name: Spec Retirement Lint
 # did. #17171 carries the decision and the spec that reads the live ruleset, so do not close it here —
 # adding only this job to the ruleset would leave eighteen false headers standing beside one true one.
 #
-# The other pre-push guard (check-branch-discipline) is hook-only and has no CI mirror at all, so this
-# is still strictly more coverage than the sibling — just not the gate the first draft of this comment
-# claimed.
+# The hook's other guards: check-branch-discipline is hook-only, with no CI mirror at all, and
+# check-commit-authorship has its mirror in the PR baseline's `commit-authorship` job. So this is
+# still strictly more coverage than the hook-only sibling — just not the gate the first draft of this
+# comment claimed.
 
 on:
   pull_request:

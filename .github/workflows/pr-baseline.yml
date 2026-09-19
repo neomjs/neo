@@ -66,8 +66,12 @@ permissions:
   contents: read
   pull-requests: read
 
+# THE TEAM ROSTER is this caller's input to the `commit-authorship` job: who our agents are, and which addresses are
+# theirs. It lives in the Brain and is read at the Brain's `dev`, never from the pull request under review.
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@ab37528bb59e8a9c23e48ed8046be4e529c1862e
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@4253d70f10c95b27ae71356da145d8e39f458ea9
     with:
       required_base: dev
+      team_roster_repository: neomjs/neo-agent-brain
+      team_roster_path: ai/graph/agentCoAuthorEmails.mjs
