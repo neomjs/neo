@@ -1,5 +1,5 @@
-import {expect, test}  from '../../fixtures.mjs';
-import gridCellEditing from '../utils/gridCellEditing.mjs';
+import {expect, test}               from '../../fixtures.mjs';
+import gridCellEditing, {driveGrid} from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary `cellEditing` toggled at runtime, as a user sees it: off refuses a double-click and cancels an open edit, and
@@ -16,19 +16,7 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                         = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment} = gridCellEditing(GRID);
 
-let calls = 0,
-    pageErrors;
-
-/**
- * Runs one grid operation in the App Worker. The counter makes each call a module URL of its own.
- * @returns {Promise<void>}
- */
-const drive = async (page, action) => {
-    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++calls}`);
-
-    expect(success, `the ${action} driver ran`).toBe(true)
-};
+let pageErrors;
 
 /**
  * The internal record id behind a `c3` text, which names its record: `r3c3` is record 3.
@@ -148,20 +136,20 @@ test.describe('Grid cellEditing toggled at runtime', () => {
         const recordId = await recordIdOf(page, 'r3c3'),
               target   = cell(page, 'c3', recordId);
 
-        await drive(page, 'editingOff');
+        await driveGrid(page, 'editingOff');
         await expectRefused(page, target, 'editing off: no editor');
 
-        await drive(page, 'editingOn');
+        await driveGrid(page, 'editingOn');
         await expectOneEditor(page, target, recordId, 'editing on again: one editor, not one per time it was turned on');
 
         await page.keyboard.press('Escape');
         await expect(page.locator(EDITOR)).toHaveCount(0);
 
         // Another plugin added by the second enable would not hear this off
-        await drive(page, 'editingOff');
+        await driveGrid(page, 'editingOff');
         await expectRefused(page, target, 'editing off again: still no editor');
 
-        await drive(page, 'editingOn');
+        await driveGrid(page, 'editingOn');
         await expectOneEditor(page, target, recordId, 'and on once more: one editor');
 
         await page.keyboard.press('Escape');
@@ -178,8 +166,8 @@ test.describe('Grid cellEditing toggled at runtime', () => {
         await page.keyboard.type('draft');
         await expect(page.locator(INPUT)).toHaveValue('draft');
 
-        await drive(page, 'logCancels');
-        await drive(page, 'editingOff');
+        await driveGrid(page, 'logCancels');
+        await driveGrid(page, 'editingOff');
 
         await expect(page.locator(EDITOR), 'the editor left').toHaveCount(0);
         await expect.poll(() => gridValue(page, 'driverCancelLog'), {message: 'a cancel, for the disabled plugin'}).toEqual(['disabled']);

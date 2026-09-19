@@ -1,5 +1,5 @@
-import {expect, test}  from '../../fixtures.mjs';
-import gridCellEditing from '../utils/gridCellEditing.mjs';
+import {expect, test}               from '../../fixtures.mjs';
+import gridCellEditing, {driveGrid} from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary A grid cell edit is one logical session over pooled cells: its editor is embodied in whichever cell
@@ -20,19 +20,7 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                                      = '#grid-cell-editing-pooled',
       {EDITOR, INPUT, cell, editingIn, embodiment, recordLeaks} = gridCellEditing(GRID);
 
-let driverCalls = 0,
-    pageErrors;
-
-/**
- * Runs one action of the fixture's `gridDriver.mjs` inside the App Worker; the counter makes every call a new module.
- * @returns {Promise<void>}
- */
-const drive = async (page, action) => {
-    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++driverCalls}`);
-
-    expect(success, `the ${action} driver ran`).toBe(true)
-};
+let pageErrors;
 
 /**
  * The record id of the third rendered row — row 3, a row the initial window always renders.
@@ -94,7 +82,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
                           nextRow  = vertical ? await page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`)
                               .getByText(key === 'ArrowDown' ? 'r4c3' : 'r2c3', {exact: true}).getAttribute('data-record-id') : recordId;
 
-                    model === 'row' && await drive(page, 'rowModel');
+                    model === 'row' && await driveGrid(page, 'rowModel');
 
                     if (model.endsWith('Model')) {
                         const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}), `../selection/grid/${model}.mjs`);
@@ -121,7 +109,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
 
                     await page.locator(INPUT).fill(invalid ? '' : 'arrow draft');
                     await expect.poll(() => config(editorId, 'value')).toBe(invalid ? null : 'arrow draft');
-                    await drive(page, 'logEvents');
+                    await driveGrid(page, 'logEvents');
 
                     await (vertical ? scrollVertically(page, 4000) : scrollHorizontally(page, 3000));
                     await expect.poll(() => embodiment(page)).toEqual({count: 0, field: null, recordId: null});
@@ -176,7 +164,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
         await expect.poll(selected, {message: 'the second click toggled the cell off'}).toEqual([]);
         await page.locator(INPUT).fill('pointer draft');
-        await drive(page, 'logEvents');
+        await driveGrid(page, 'logEvents');
         await scrollVertically(page, 4000);
         await expect.poll(() => embodiment(page)).toEqual({count: 0, field: null, recordId: null});
         await expect(page.locator(`${GRID} .neo-grid-view`)).toBeFocused();
@@ -283,7 +271,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         await page.keyboard.type('draft');
         await expect(page.locator(INPUT)).toHaveValue('draft');
 
-        await drive(page, 'cancel');
+        await driveGrid(page, 'cancel');
 
         await expect(page.locator(EDITOR)).toHaveCount(0);
         await expect(cell(page, 'c3', recordId), 'the draft was not written').toHaveText('r3c3');
@@ -297,7 +285,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         const recordId = await thirdRecordId(page);
 
         // The fixture's locked columns suspend, as the locked-body arms need them to: this arm opts `c39` out itself
-        await drive(page, 'optOutEnd');
+        await driveGrid(page, 'optOutEnd');
 
         await scrollHorizontally(page, 10000);
         await expect(cell(page, 'c38', recordId)).toBeVisible();
@@ -327,14 +315,14 @@ test.describe('Grid cell editing across row and cell pooling', () => {
     test('a column that cannot suspend cancels its edit when a lock change moves it to another body', async ({page}) => {
         const recordId = await thirdRecordId(page);
 
-        await drive(page, 'optOutEdited');
+        await driveGrid(page, 'optOutEdited');
 
         await cell(page, 'c3', recordId).dblclick();
         await expect.poll(() => editingIn(page, 'c3', recordId)).toBe(true);
         await page.keyboard.type('draft');
         await expect(page.locator(INPUT)).toHaveValue('draft');
 
-        await drive(page, 'lockEnd');
+        await driveGrid(page, 'lockEnd');
 
         await expect(page.locator(GRID), 'the cancel is announced, with its reason').toHaveClass(/edit-cancelled-c3-projectionLoss/);
         await expect(page.locator(`${GRID} .neo-grid-body`).nth(2).locator(`.neo-grid-cell[data-field="c3"][data-record-id="${recordId}"]`),

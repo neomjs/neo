@@ -1,5 +1,5 @@
-import {expect, test}  from '../../fixtures.mjs';
-import gridCellEditing from '../utils/gridCellEditing.mjs';
+import {expect, test}               from '../../fixtures.mjs';
+import gridCellEditing, {driveGrid} from '../utils/gridCellEditing.mjs';
 
 /**
  * @summary Cell editing under `RowModel`, the grid's default selection model, which selects rows and no cells.
@@ -15,22 +15,10 @@ import gridCellEditing from '../utils/gridCellEditing.mjs';
 const GRID                                  = '#grid-cell-editing-pooled',
       {EDITOR, cell, editingIn, embodiment} = gridCellEditing(GRID);
 
-let calls = 0,
-    pageErrors;
+let pageErrors;
 
 const recordIdOf = (page, text) => page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`).getByText(text, {exact: true})
     .getAttribute('data-record-id');
-
-/**
- * Runs one driver action in the App Worker. The counter makes each call a module URL of its own.
- * @returns {Promise<void>}
- */
-const drive = async (page, action) => {
-    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
-        `../../test/playwright/component/apps/grid-cell-editing/gridDriver.mjs?action=${action}&n=${++calls}`);
-
-    expect(success, `the ${action} driver ran`).toBe(true)
-};
 
 /**
  * The record ids of the selected rows. Every body renders the row, so one selected record shows up once per body.
@@ -80,7 +68,7 @@ test.describe('Grid cell editing under a row-selecting model', () => {
 
         await page.goto('/test/playwright/component/apps/grid-cell-editing/index.html');
         await page.waitForSelector(`${GRID} .neo-grid-cell[data-field="c39"]`, {state: 'visible', timeout: 30000});
-        await drive(page, 'rowModel')
+        await driveGrid(page, 'rowModel')
     });
 
     test.afterEach(() => {
@@ -153,7 +141,7 @@ test.describe('Grid cell editing under a row-selecting model', () => {
         const recordId = await recordIdOf(page, 'r3c3');
 
         // After the model switch: the log listens to the model the View holds now
-        await drive(page, 'logEvents');
+        await driveGrid(page, 'logEvents');
 
         // The two clicks toggle the row on and off, and the edit they start selects it again
         await cell(page, 'c3', recordId).dblclick();
