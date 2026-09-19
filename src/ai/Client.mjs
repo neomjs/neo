@@ -34,8 +34,10 @@ class Client extends Base {
          */
         singleton: true,
         /**
-         * Add custom configs for data.connection.Websocket, or pass a module or instance.
-         * @member {Object|Neo.data.connection.WebSocket|null} socket=null
+         * Add custom configs for data.connection.WebSocket, or pass a module or instance. The default socket retries
+         * clean closes too. Explicit `reconnectOnCleanClose: false` ends automatic recovery after a clean code-1000
+         * close, including window-return retries: no exhausted cycle is invented. A supplied instance keeps its policy.
+         * @member {Object|Neo.data.connection.WebSocket|null} socketConfig=null
          */
         socketConfig: null,
         /**
@@ -153,7 +155,7 @@ class Client extends Base {
     }
 
     /**
-     * Establishes the WebSocket connection to the Neural Link MCP Server.
+     * @summary Establishes the WebSocket connection to the Neural Link MCP Server.
      * Uses Neo.data.connection.WebSocket for robust connection management.
      */
     connect() {
@@ -180,8 +182,9 @@ class Client extends Base {
             url.searchParams.set('appName', appName);
 
             me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
-                serverAddress: url.toString(),
-                listeners    : {
+                reconnectOnCleanClose: true,
+                serverAddress        : url.toString(),
+                listeners            : {
                     close          : me.onSocketClose,
                     error          : me.onSocketError,
                     message        : me.onSocketMessage,

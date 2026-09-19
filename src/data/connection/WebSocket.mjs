@@ -22,6 +22,11 @@ class Socket extends Base {
          */
         backoffStrategy: attempt => Math.min(1000 * Math.pow(2, attempt - 1), 30000),
         /**
+         * True also retries a clean code-1000 close. Other closures retry regardless of this setting.
+         * @member {Boolean} reconnectOnCleanClose=false
+         */
+        reconnectOnCleanClose: false,
+        /**
          * @member {WebSocket|null} socket_=null
          * @protected
          * @reactive
@@ -170,6 +175,7 @@ class Socket extends Base {
     }
 
     /**
+     * @summary Publishes the native close fields and applies this connection's retry policy.
      * @param {CloseEvent} event The Websocket generated CloseEvent
      * @param {Number}     event.code The WebSocket connection close code provided by the server
      *
@@ -187,14 +193,15 @@ class Socket extends Base {
      *        3000-3999                         Available for use by libraries and frameworks. May not be used by applications.
      *        4000-4999                         Available for use by applications.
      *
-     * @param {String}     reason A string indicating the reason the server closed the connection. This is specific to the particular server and sub-protocol.
-     * @param {Boolean}    wasClean Indicates whether or not the connection was cleanly closed.
+     * @param {String}     event.reason The reason the server closed the connection.
+     * @param {Boolean}    event.wasClean Whether the connection was cleanly closed.
      */
-    onClose(event, reason, wasClean) {
+    onClose(event) {
+        const {code, reason, wasClean} = event;
+
         this.fire('close', {event, reason, wasClean});
 
-        // Auto-reconnect on abnormal closure. attemptReconnect() logs each attempt it schedules, and it may schedule none
-        if (!wasClean || event.code !== 1000) {
+        if (this.reconnectOnCleanClose || !wasClean || code !== 1000) {
             this.attemptReconnect()
         }
     }

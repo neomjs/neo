@@ -43,6 +43,49 @@ test.describe('Neo.data.connection.WebSocket', () => {
         console.error = realError
     });
 
+    test('the native close callback publishes the CloseEvent fields', () => {
+        const socket = Neo.create(DetachedSocket),
+              native = {send() {}},
+              event  = {code: 1000, reason: 'job complete', wasClean: true};
+
+        let received;
+
+        try {
+            socket.socket = native;
+            socket.attemptReconnect = () => {};
+            socket.on('close', data => {received = data});
+
+            socket.socket.onclose(event);
+
+            expect(received).toMatchObject({reason: 'job complete', wasClean: true});
+            expect(received.event).toBe(event)
+        } finally {
+            socket.destroy()
+        }
+    });
+
+    for (const {name, code, wasClean, config, attempts} of [
+        {name: 'a normal clean close stays closed by default', code: 1000, wasClean: true, config: {}, attempts: 0},
+        {name: 'an explicit opt-in reconnects after a normal clean close', code: 1000, wasClean: true, config: {reconnectOnCleanClose: true}, attempts: 1},
+        {name: 'an unclean close still reconnects', code: 1006, wasClean: false, config: {}, attempts: 1},
+        {name: 'a clean going-away close still reconnects', code: 1001, wasClean: true, config: {}, attempts: 1}
+    ]) {
+        test(name, () => {
+            const socket = Neo.create(DetachedSocket, config);
+
+            let calls = 0;
+
+            try {
+                socket.attemptReconnect = () => {calls++};
+                socket.onClose({code, reason: '', wasClean});
+
+                expect(calls).toBe(attempts)
+            } finally {
+                socket.destroy()
+            }
+        })
+    }
+
     const exhaust = socket => {
         socket.reconnectAttempts = socket.maxReconnectAttempts - 1;
         return socket.attemptReconnect()
