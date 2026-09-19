@@ -11,6 +11,7 @@
 | **Supersedes** | (a) Implicit shape pre-Discussion-#11180 (asymmetric `issue-archive/` + `pr-archive/` fragmentation); (b) Option G per-type density-tuning (operator-revised 2026-05-14); (c) Active-tier `<NNN>xx/` GitHub-ID-range chunking via `chunkPath.mjs` (operator-revised 2026-05-14 to ordinal-100) |
 | **Informs** | All future migrations, syncer authors, KB consumer audits, MCP-server boot recovery, release pipeline |
 | **Anti-anchor for** | Substrate-bypass authoring (the #11362 failure mode) |
+| **Amended** | **2026-09-19 (#18997)** — origin-qualified keys and the custody cut, for a corpus serving more than one repository. Authority: D#17846, graduated producer-only 2026-09-19 (`[GRADUATION_APPROVED by @neo-gpt]`, family-keyed quorum per `ideation-sandbox-workflow.md` §6.2). Amended sections: §2.1 + new §2.1.1, §2.2.1, §3.2 + new §3.2.1 / §3.2.2, §3.3 + new §3.3.1, §5.7, §5.8. **Nothing is retired:** the ordinal-100 rule (§2.2), the complete-membership precondition (§2.2.1) and ADR 0019's declared-configuration ownership all stand unchanged, and no second chunking primitive is introduced |
 
 ---
 
@@ -70,18 +71,31 @@ The `resources/content/` substrate uses a **single universal ordinal-100 chunkin
 ### 2.1 Target on-disk shape
 
 ```
-resources/content/
-├── issues/chunk-N/issue-NNNN.md                          (active, ordinal-100)
-├── pulls/chunk-N/pr-NNNN.md                              (active, ordinal-100)
-├── discussions/chunk-N/discussion-NNNN.md                (active, ordinal-100)
-├── release-notes/chunk-N/release-VV.MM.PP.md             (no archive tier; ordinal-100)
-└── archive/
-    ├── issues/v<X.Y.Z>/chunk-N/issue-NNNN.md             (sealed per release, ordinal-100)
-    ├── pulls/v<X.Y.Z>/chunk-N/pr-NNNN.md                 (sealed per release, ordinal-100)
-    └── discussions/v<X.Y.Z>/chunk-N/discussion-NNNN.md   (sealed per release, ordinal-100)
+<corpus-root>/
+└── <repoSlug>/                                           (origin root — see 2.1.1)
+    ├── issues/chunk-N/issue-NNNN.md                      (active, ordinal-100)
+    ├── pulls/chunk-N/pr-NNNN.md                          (active, ordinal-100)
+    ├── discussions/chunk-N/discussion-NNNN.md            (active, ordinal-100)
+    ├── release-notes/chunk-N/release-VV.MM.PP.md         (no archive tier; ordinal-100)
+    └── archive/
+        ├── issues/v<X.Y.Z>/chunk-N/issue-NNNN.md         (sealed per release, ordinal-100)
+        ├── pulls/v<X.Y.Z>/chunk-N/pr-NNNN.md             (sealed per release, ordinal-100)
+        └── discussions/v<X.Y.Z>/chunk-N/discussion-NNNN.md (sealed per release, ordinal-100)
 ```
 
 No `<NNN>xx/` folders. No GitHub-ID-stream math. No flat-vs-chunked branching. One primitive, one rule, applied universally.
+
+### 2.1.1 The origin root (amended 2026-09-19, #18997 — D#17846 producer-only graduation)
+
+**Everything below `<repoSlug>/` is unchanged.** The origin root is a new level *above* the families, not a new rule inside them: the ordinal-100 primitive, the chunk naming and the archive tiering all apply exactly as written, per origin.
+
+⚠️ **Sealed-bucket semantics are the exception, because their enforcement does not generalise.** §2.4's guarantee rests on `.github/workflows/prevent-reopen.yml`, which triggers on **`issues: [reopened]` in this repository only** — it covers neither pull requests nor Discussions, and no counterpart exists in the other origins. So "sealed" is an **enforced** property for Engine issues and a **conventional** one everywhere else. Each additional origin and resource family needs its own verified lifecycle policy before its buckets may be treated as immutable; this amendment neither deploys such guards nor assumes them. *(Falsified by @neo-gpt on PR #19002, where this paragraph previously extended the guarantee unqualified.)*
+
+`repoSlug` is the **bare repository name** as the Knowledge Base already defines it (`defaultRepoSlug`, e.g. `neo`), with the owner dimension carried by `tenantId`. This mirrors an existing authoritative vocabulary rather than minting a second one, so no mapping table exists to drift.
+
+**Why the corpus is no longer single-origin.** This ADR was written when `resources/content/` served one repository, and said so nowhere — the assumption was load-bearing and invisible, which is the condition under which it gets violated silently. D#17846 extracts the corpus into a dedicated repository serving every origin in the organisation, so "the corpus" and "this repository" stop being the same thing.
+
+`<corpus-root>` is therefore a **declared** location, not a derived one. It was `resources/content/` when the producer and the corpus lived in one repository; under the producer-only boundary it is the corpus repository's own root. Deriving it from the working directory is what §5.8 forbids.
 
 ### 2.2 The Universal Ordinal-100 Rule
 
@@ -101,6 +115,16 @@ For any content collection (e.g., active issues, archived discussions for v12.1.
 
 **A partial collection yields a DIFFERENT ordinal, not an approximate one.** An ordinal derived from a fraction of a bucket is not a smaller truth: the item lands in a chunk the complete ordering would never have chosen, beside the copy already there. The corpus on disk is the *only* complete membership that exists — the files outlive every cache that describes them. `metadata.{type}` and each run's delta fetch are **partial by design** (the delta sync rebuilds its cache from each run's fetch), so a planner reading only those is not "optimising" — it is computing a different number, and the failure is silent: a wrong ordinal produces a *valid-looking* artifact in a *plausible* chunk. Empirical anchor: #15130 / #15319 repaired 2,015 stale index entries → 0 and restored 27 divergent duplicate artifacts.
 
+**The bucket is per-origin (amended 2026-09-19, #18997).** Once origins share a tree, the bucket against which complete membership is computed is `(repoSlug, type[, version])`, never `(type[, version])`. A `buildContentInventory` scan rooted **above** the slugs reads two origins' items as one collection and computes **a different ordinal, not an approximate one** — this section's own failure mode, re-armed by the very change that adds the second origin, and silent in exactly the same way: a valid-looking artifact in a plausible chunk. D#17846 §8.4 measured the sibling case one layer up, where `findLogicalIdentityCollisions` pointed above the slugs reads repository directories as families and emits keys naming families that do not exist. **Adding an origin without adding its root must FAIL, not silently go unchecked.**
+
+**Does this amendment invalidate pre-amendment ordinals?** ✅ **No — and that is a narrower claim than "they were all correct".** The corpus had exactly one origin, so every pre-amendment bucket's membership is identical to the membership of its `(neo, type[, version])` bucket afterwards. The migration adds a path prefix *above* the families; it changes no bucket's contents, therefore it changes no `itemIndex`. **An already-correct ordinal stays correct; the ordering it was computed against is untouched.**
+
+⚠️ **This amendment certifies preservation, never pre-existing correctness — and the corpus itself is the reason the distinction matters.** A census of the archive families on `dev` finds **four chunk directories already over the 100-item ceiling**: `archive/issues/v13.0.0/chunk-1` (102), `archive/pulls/v13.0.0/chunk-1` (178), `archive/pulls/v13.0.0/chunk-2` (141), `archive/pulls/v13.1.0/chunk-1` (130). So a blanket "every historical ordinal is valid, and a repair pass would be a no-op" is **false**, and this section must not be read as saying it. A scope-preserving transformation preserves whatever validity exists; it cannot manufacture a certification of the data it moves. *(Census by @neo-gpt on PR #19002, reproduced independently before this correction was written.)*
+
+**Historical cleanup of those chunks is explicitly outside this delivery** — it is pre-existing state, not something the origin dimension creates or worsens, and it wants its own ticket with its own evidence.
+
+That guarantee holds only while membership is computed per-origin. It is void for any scan rooted above the slugs — which is why the paragraph above is a rule and not a recommendation, and why §5.7 states it as an anti-pattern.
+
 **Complete membership costs a full scan of both tiers, per type, per sync — and that is the correct price.** The only alternative is a membership cache that must never drift, which is exactly the thing that already failed (§1.2's substrate-bypass anti-pattern). `ai/services/github-workflow/shared/contentInventory.mjs` (`buildContentInventory` — active tier + every archive bucket, recursive) is the reference implementation and the canonical way to satisfy this precondition; a planner that computes placement from `metadata.{type}` plus a delta fetch does not satisfy it, and is free to reintroduce the defect until it reads complete membership.
 
 ### 2.3 Retired primitives
@@ -118,6 +142,8 @@ For any content collection (e.g., active issues, archived discussions for v12.1.
 - Reopen attempt past 24h → CI auto-re-closes + creates new ticket `${title} (reopened from #N)`, body `Originally: #N\n\n${body}`, labels preserved
 
 **Mechanical consequence:** post-24h-grace, `closedAt` is HARD-IMMUTABLE → archive placement is CI-enforced stable → sealed-chunk semantics are an automated primitive. This is what makes the ordinal chunking safe — chunk membership never shifts retroactively once a chunk is sealed.
+
+⚠️ **Scope of that enforcement (2026-09-19, #18997).** The workflow's trigger is `issues: [reopened]` in this repository. It therefore enforces immutability for **Engine issues only** — not pull requests, not Discussions, and not other origins, none of which have a counterpart workflow. Everywhere else the sealed-bucket property is a convention this ADR relies on, not a primitive CI holds up. §2.1.1 states the consequence for the origin dimension.
 
 ### 2.5 Insertion-order semantics
 
@@ -187,18 +213,55 @@ Single primitive serves all tiers and all types. Path-routing-by-version becomes
 
 Because chunk position is no longer derivable from GitHub ID alone (a non-existent ID has no folder; sparse-density doesn't matter — what matters is `itemIndex`), consumers need an index to find an item by ID:
 
-- New `resources/content/_index.json` (or per-type `_index.json` shards) maintained by syncers
-- Schema: `{type, id, version, chunkNumber, path}` per item
+- New `_index.json` at the corpus root (or per-type `_index.json` shards) maintained by syncers
+- Schema: `{repoSlug, type, id, version, chunkNumber, path}` per item
 - Updated at sync time alongside item write
 - `LocalFileService#getIssueById` reads the index; O(1) hashmap lookup remains; no folder-scan-per-lookup
+
+#### 3.2.1 Logical identity is the tuple `(repoSlug, type, id)` (amended 2026-09-19, #18997)
+
+**`path` is location. It is never an identity fallback.** Upsert, lookup, removal, integrity checks and serialization all key on the tuple; two origins' issue number 1 are different objects and must survive write, read, update and removal **independently**.
+
+**Measured, not assumed.** `indexKey()` returns `` `${type}:${id}` ``, and `normalizeContentIndexEntry` discards any origin field. @neo-gpt executed the real `updateContentIndex` in a disposable directory with two origins' issue 1 (`neo/issues/chunk-1/issue-1.md`, `neo-agent-brain/issues/chunk-1/issue-1.md`): **one entry**, both origin-qualified lookups returning the Brain path; a different-number control produced two. A `<repoSlug>/` directory prefix distinguishes the files on disk and does **not** survive normalization, which is precisely how the collision hid.
+
+**The tuple has four enforcement sites, and three of them do not route through the key.** Adding the field to `indexKey` alone therefore does not implement this section (@neo-opus-grace's measurement, re-verified at source):
+
+| Site | Why it needs its own change |
+|---|---|
+| `createContentIndexEntry`, `createContentIndexEntryFromPath` | accept no origin; 11 production construction sites across 4 files. This is where **emission** rejects |
+| `validateContentIntegrity` | filters `entry.type` directly. Two origins' issue 1 become `duplicateIndexEntryIds`, and out-of-tree rows become `staleIndexEntries` — **on correct data** |
+| `PullRequestSyncer`'s reconciliation map | keys by `Number(entry.id)`, rebuilding the collapse outside the module the tuple would be enforced in |
+| `findContentIndexEntry` → its reader | returns `null` on a miss, which the reader renders as *content absent, regenerate the index* — pointing the fix at the producer |
+
+#### 3.2.2 Migration boundary: emission rejects, stored rows tolerate, queries reject (amended 2026-09-19, #18997)
+
+The three rules are ordered, and the order is load-bearing:
+
+1. **Emission rejects an unqualified row.** A missing origin is refused at the factories. A round trip through a syncer is an **emission**, not a read (@neo-gpt's acceptance boundary).
+2. **Stored rows tolerate a legacy unqualified entry on read**, so the tree acquires its origin *during* the move rather than needing a flag day.
+3. **Queries reject an unqualified query**, distinctly from a miss.
+
+**Rule 3 is not about better error messages, and it is the rule most easily written wrong.** Because `indexKey` is `` `${type}:${id}` ``, a tolerated legacy unqualified row and an unqualified query produce **the same key** — so the lookup *matches*, returns the first such row, and a path check on a real file succeeds. For the whole migration window the tolerance in rule 2 therefore yields a **silent wrong-origin answer, not a null**. A guard written as *"reject when the result is null"* never fires on that path.
+
+⇒ **The query guard sits on the query shape, before the lookup** — never on its result.
+
+**No partially qualified publication, and no permanent second format.** Rule 2 is a migration affordance with an end; it is not a licence to publish unqualified rows, and reading it as one is §5.8.
 
 ### 3.3 Syncer write-paths
 
 All 3 syncers (`IssueSyncer`, `PullRequestSyncer`, `DiscussionSyncer`) + new `ReleaseNotesSyncer` consume the universal helper. Each syncer:
-1. Computes `itemCount` for its type (active) or for each version-bucket (archive)
+1. Computes `itemCount` for its type (active) or for each version-bucket (archive), **within its origin's bucket** (§2.2.1)
 2. Computes `itemIndex` per item from stable canonical order
-3. Calls `contentPath()` to determine target path
-4. Writes file + updates index
+3. Calls `contentPath()` to determine target path, **under that origin's root** (§2.1.1)
+4. Writes file + updates index, **carrying `repoSlug`** (§3.2.1)
+
+#### 3.3.1 The custody cut (amended 2026-09-19, #18997)
+
+**The producer writes only into the corpus repository.** Under D#17846's graduated producer-only boundary, publication is owned by a job in the corpus repository running a pinned Brain runtime; the Brain keeps the generator code. Portal derivation and release-note files are **excluded from the publication path** — emitting the corpus and deriving downstream artifacts are separate acts, and the first no longer performs the second.
+
+Per-origin sync state follows the same cut: each `repoSlug` carries its own cursor, so one origin's failure cannot stall another's, and the delivered revision identifies the published files **and** their index together.
+
+**Consumer activation is separately gated and is not authorized here.** No consumer — Knowledge Base, Portal/Pages, Fleet Manager, `LocalFileService`, `IssueIngestor` — is claimed current by this amendment. Each switch owns its own root/index/revision contract and either qualified identities or an explicit single-origin projection.
 
 ### 3.4 Release-cut substrate
 
@@ -271,7 +334,7 @@ If invariance holds → no further work needed in DreamService / gemma4 layer. I
 - **Single substrate anchor:** future agents have ONE document to V-B-A against before authoring migrations / syncer changes / consumer audits
 - **Symmetric across types AND tiers:** one mental model serves all content; sync code branches only on type-name, not on shape primitive or tier
 - **Consistent reasoning:** "chunk-N" means the same thing everywhere (archive-tier v12.1.0 / active issues / release notes — all use `chunk-N/` with the same ordinal math)
-- **Sealed-chunk semantics CI-enforced:** `prevent-reopen.yml` guarantees archive immutability; no voluntary discipline required
+- **Sealed-chunk semantics CI-enforced for Engine issues:** `prevent-reopen.yml` guarantees archive immutability there without voluntary discipline. Pull requests, Discussions and other origins have no counterpart workflow, so for them the property is conventional — see §2.4's scope note (2026-09-19, #18997)
 - **GitHub-ID-stream-math anti-pattern eliminated:** the false framing that "100 IDs across types ≈ 100 items per chunk" is no longer reachable; the math is ordinal on planned items
 - **Density-future-proof:** ordinal primitive handles growth automatically; no special-case "flat-or-chunked" branching; no Option-G-style density-tuning regret possible
 
@@ -323,6 +386,18 @@ Future agents MUST NOT add `@deprecated` JSDoc annotations to retired primitives
 
 **The Cycle-1+Cycle-2 review chain anti-pattern**: cross-family reviewers under the same RLHF anchor will MISS this anti-pattern at review time unless §5.6 is explicitly cited. The author-side AC list sanctions the deprecation theater; the reviewer-side pattern-match reads "responsible legacy support" as positive signal. Operator-at-merge-gate becomes the catch-of-last-resort. §5.6 codifies the pattern so cross-family review can fire before operator-catch.
 
+### 5.7 Computing membership above the origin roots (added 2026-09-19, #18997)
+
+A `buildContentInventory` or collision scan rooted at the corpus root rather than at `<repoSlug>/` reads two origins' items as one collection. It does not produce a rough ordinal; it produces **a different one**, placing an item in a chunk the correct ordering would never choose — §2.2.1's failure mode, re-armed by the change that introduced the second origin. It also inverts the integrity checks, turning correct two-origin data into `duplicateIndexEntryIds` and out-of-tree rows into `staleIndexEntries`.
+
+Root every membership computation at the origin. **Adding an origin without adding its root must fail loudly, never pass unchecked.**
+
+### 5.8 Reading read-tolerance as permission to publish (added 2026-09-19, #18997)
+
+§3.2.2 rule 2 tolerates a **stored** legacy unqualified row so the existing tree can acquire its origin during the move. It is a migration affordance with an end. It is **not** permission to emit unqualified rows, to publish a partially qualified corpus, or to maintain a second format indefinitely — emission rejects (rule 1), and a query for an unqualified identity rejects before it looks (rule 3), precisely because a tolerated row would otherwise answer it with silent wrong-origin content.
+
+The sibling of this anti-pattern is deriving the corpus root from the working directory instead of taking it as declared configuration (§2.1.1). A declared root owns relocatable children; a derived one silently re-homes the whole tree when the process runs somewhere new.
+
 ---
 
 ## 6. V-B-A Pre-Flight for Future Authors
@@ -364,7 +439,10 @@ You MUST:
 
 - **Draft (this version)** awaiting operator approval before commit
 - **Accepted** once operator confirms accuracy + completeness
+- **Amended 2026-09-19 (#18997)** — origin qualification and the custody cut; see the header's Amended row for the section list. The amendment is in place rather than superseding: §2.2.1 set the precedent when it wrote down a precondition this ADR had always assumed, and the same reasoning applies here — an origin dimension is a new bucket key, not a new architecture, and a standalone successor would have to restate ordinal-100, complete membership and `prevent-reopen.yml` verbatim to stand alone.
+- **What the amendment does NOT decide:** consumer activation (§3.3.1), archive dissolution, release-note relocation, and the Brain-side implementation of the contract (`neomjs/neo-agent-brain#387`). Those are separately gated; this document is the authority, not the delivery.
 - **Periodic re-review trigger:** any substrate-mutation PR touching `resources/content/` shape or content-path primitives MUST cite this ADR in its body; reviewer-side audit fires if absent
+- **Origin-qualification re-review trigger (added 2026-09-19):** any change to `indexKey()`, to either `createContentIndexEntry*` factory, or to the membership root a syncer scans, MUST cite §2.1.1 / §3.2.1 / §3.2.2. Those four surfaces are where the tuple is enforced, and three of them do not route through the key
 
 Origin Session ID: `cf76b29a-9cf5-4c35-a415-37d631a8a755`
 
