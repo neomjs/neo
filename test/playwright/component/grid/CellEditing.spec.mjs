@@ -49,6 +49,22 @@ const viewIdOf = page => page.locator(`${GRID} .neo-grid-view`).first().getAttri
  * @param {String} id
  * @returns {Promise<Boolean>}
  */
+/**
+ * Installs one `cellEditCancel` listener on the grid, inside the App Worker where the event lives. The counter makes
+ * every call a new module URL, so the module is evaluated again rather than served from the import cache.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} action
+ * @returns {Promise<void>}
+ */
+let cancelListenerCount = 0;
+
+const installCancelListener = async (page, action) => {
+    const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}),
+        `../../test/playwright/component/apps/grid-cell-editing/cancelListenerDriver.mjs?action=${action}&n=${++cancelListenerCount}`);
+
+    expect(success, `the ${action} listener was installed`).toBe(true)
+};
+
 const isLive = (page, id) => page.evaluate(id => Promise.race([
     Neo.worker.App.getConfigs({id, keys: ['id']}).then(reply => reply !== false),
     Neo.worker.App.getConfigs({id: 'grid-cell-editing-pooled', keys: ['id']}).then(() => false)
@@ -283,6 +299,48 @@ test.describe('grid cell editing — terminals', () => {
         await page.keyboard.press('ArrowRight');
         await expect(score).toHaveClass(/neo-selected/);
         await expect(name).not.toHaveClass(/neo-selected/)
+    });
+
+    // `cellEditCancel` fires synchronously while the cancel is still unwinding, so a listener runs before the gesture
+    // has finished. The anchor therefore belongs BEFORE that notification: these two arms are what the ordering buys,
+    // and both are red when the selection happens after `cancelEdit` instead.
+    test('a listener that ends the grid on cancel is not reached into afterwards', async ({page}) => {
+        const errors   = [],
+              recordId = await recordIdOf(page, 3),
+              name     = cell(page, 'name', recordId);
+
+        page.on('pageerror', error => errors.push(error.message));
+
+        await installCancelListener(page, 'destroyOnCancel');
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.press('Escape');
+
+        // The grid going is the listener's doing and fine. What must not happen is the cancel continuing into it,
+        // which threw `Cannot destructure property 'silentSelect' of 'view' as it is null`.
+        await expect.poll(() => isLive(page, 'grid-cell-editing'), {message: 'the listener destroyed the grid'}).toBe(false);
+        expect(errors, 'the cancel completed without touching the destroyed grid').toEqual([])
+    });
+
+    test('a listener that selects on cancel keeps its newer selection', async ({page}) => {
+        const recordId = await recordIdOf(page, 3),
+              name     = cell(page, 'name', recordId),
+              otherId  = await recordIdOf(page, 4),
+              score    = cell(page, 'score', otherId);
+
+        await installCancelListener(page, 'selectOnCancel');
+
+        await name.dblclick();
+        await expect.poll(() => editingIn(page, 'name', recordId)).toBe(true);
+
+        await page.keyboard.press('Escape');
+
+        // The listener acts last, so its choice is the newer intent and stands. The cancel overwriting it back to
+        // the edited cell is what this pins.
+        await expect(score, "the listener's selection survives the cancel").toHaveClass(/neo-selected/);
+        await expect(name, 'the cancelled cell did not overwrite it').not.toHaveClass(/neo-selected/)
     });
 
     // The scope boundary: only the gesture a user makes selects. A cancel the grid issues for its own reasons has

@@ -513,9 +513,14 @@ class CellEditing extends Plugin {
             {dataField}      = session,
             record           = me.getRecord(session);
 
-        me.cancelEdit('escape');
+        // Before the cancel, not after it: `cancelEdit` fires `cellEditCancel` synchronously, and a listener may
+        // destroy the grid or select something else. Selecting first leaves the anchor in place for the ordinary
+        // case, lets a listener's newer intent stand as the last word, and keeps this line from reaching into a
+        // grid that has already moved on. The selection change only clears the session's `refocus` flag, and the
+        // session is destroyed a line later.
+        record && selectionModel?.selectsCells && selectionModel.select(view.getLogicalCellId(record, dataField));
 
-        record && selectionModel?.selectsCells && selectionModel.select(view.getLogicalCellId(record, dataField))
+        me.cancelEdit('escape')
     }
 
     /**
