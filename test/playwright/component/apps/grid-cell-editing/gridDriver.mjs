@@ -9,6 +9,8 @@
  * every call a new module URL, evaluated again.
  *
  * `rowModel` swaps the View's cell-selecting model for the grid's default one, which selects rows and no cells.
+ * `setLocked` writes `locked` on the column the `field` parameter names, from the `locked` parameter (`start`, `end`,
+ * or empty for none): `c0` and `c39` are the only columns of their locked regions, so unlocking one empties its region.
  *
  * Store actions target record 3 and column actions target `c3`, the cell the arms edit. `optOutEdited` and
  * `optOutEnd` take `c3` and the locked `c39` out of suspension, for the arms that need an opted-out column under a lock
@@ -71,6 +73,7 @@ const actions = {
     release     : () => grid.getPlugin('grid-cell-editing').releaseEdit(),
     remove      : () => store.remove(3),
     rowModel    : () => {grid.view.selectionModel = RowModel},
+    setLocked   : () => {columns.get(searchParams.get('field')).locked = searchParams.get('locked') || null},
     sortAsc     : () => store.sort({property: 'id', direction: 'ASC'}),
     sortDesc    : () => store.sort({property: 'id', direction: 'DESC'}),
     startUpdates: () => {
