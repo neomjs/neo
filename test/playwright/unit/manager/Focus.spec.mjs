@@ -23,9 +23,8 @@ test.describe('Neo.manager.Focus', () => {
         components?.forEach(component => component.destroy());
         components = null;
 
-        FocusManager.history = [];
-        FocusManager.lastFocusInDate = null;
-        FocusManager.lastFocusOutDate = null;
+        FocusManager.history         = [];
+        FocusManager.pendingFocusOut = null;
     });
 
     function createFocusComponent(id, parentId, log) {
@@ -227,6 +226,40 @@ test.describe('Neo.manager.Focus', () => {
         ]);
     });
 
+    test('a focusin the App Worker handles after the gap still makes a move with the focusout waiting for it', async () => {
+        const log = [];
+
+        components = [
+            createFocusComponent('focus-busy-old', 'document.body', log),
+            createFocusComponent('focus-busy-new', 'document.body', log)
+        ];
+
+        const [oldComponent, newComponent] = components,
+              {maxFocusInOutGap}           = FocusManager;
+
+        FocusManager.onFocusin({componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
+
+        // The browser raises both halves of the move in one task. The worker handles the focusout, then work
+        // longer than the gap, then the focusin — before the focusout's timer gets to run.
+        FocusManager.onFocusout({componentPath: ['focus-busy-old'], data: {path: ['old-node'], relatedTarget: null}});
+
+        const busyUntil = Date.now() + maxFocusInOutGap * 2;
+        while (Date.now() < busyUntil) {}
+
+        FocusManager.onFocusin({componentPath: ['focus-busy-new'], data: {path: ['new-node'], relatedTarget: null}});
+
+        await FocusManager.timeout(maxFocusInOutGap * 2);
+
+        expect(oldComponent.containsFocus, 'the old path lost focus').toBe(false);
+        expect(newComponent.containsFocus).toBe(true);
+
+        expect(log).toEqual([
+            ['enter', 'focus-busy-old', 'focus-busy-old'],
+            ['leave', 'focus-busy-old', 'focus-busy-old'],
+            ['enter', 'focus-busy-new', 'focus-busy-new']
+        ])
+    });
+
     test('a superseded focusout does not deliver its stale leave, and a later one still delivers its own', async () => {
         const log = [];
 
@@ -271,9 +304,8 @@ test.describe('Neo.manager.Focus', () => {
 
         await FocusManager.timeout(step);
 
-        // An unrelated, later focusout. It carries its own opts and deserves its own leave — but it
-        // also pushes the manager-global lastFocusOutDate past lastFocusInDate, and that global pair
-        // is the only thing the FIRST focusout's pending timer consults before firing.
+        // An unrelated, later focusout. It carries its own opts and deserves its own leave, and it is
+        // the pending one when the FIRST focusout's timer comes due: that timer must not deliver for it.
         FocusManager.onFocusout({
             componentPath: ['focus-stale-other'],
             data         : {path: ['other-node'], relatedTarget: null}
