@@ -73,6 +73,92 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         expect(pageErrors, 'no page error in the arm').toEqual([])
     });
 
+    // Real keys must settle the edit before the selection model consumes them. Read the worker's event order and
+    // logical selection as well as the reprojected DOM: a new selected cell alone used to hide a surviving draft.
+    for (const model of ['cell', 'row', 'CellColumnModel', 'CellColumnRowModel']) {
+        const selectsCells = model !== 'row';
+
+        for (const key of selectsCells ? ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'] : ['ArrowDown', 'ArrowUp']) {
+            for (const invalid of [false, true]) {
+                test(`${model}: ${key} resolves ${invalid ? 'an invalid' : 'a valid'} suspended edit before navigation`, async ({page}) => {
+                    const recordId = await thirdRecordId(page),
+                          field    = invalid ? 'c5' : 'c3',
+                          viewId   = await page.locator(`${GRID} .neo-grid-view`).getAttribute('id'),
+                          config   = (id, keys) => page.evaluate(({id, keys}) => Neo.worker.App.getConfigs({id, keys}), {id, keys}),
+                          selected = () => config(viewId, selectsCells ? 'selectedCells' : 'selectedRows'),
+                          initial  = selectsCells ? [`${recordId}__${field}`] : [recordId],
+                          vertical = key === 'ArrowDown' || key === 'ArrowUp',
+                          nextRow  = vertical ? await page.locator(`${GRID} .neo-grid-cell[data-field="c3"]`)
+                              .getByText(key === 'ArrowDown' ? 'r4c3' : 'r2c3', {exact: true}).getAttribute('data-record-id') : recordId;
+
+                    model === 'row' && await drive(page, 'rowModel');
+
+                    if (model.startsWith('Cell')) {
+                        const {success} = await page.evaluate(path => Neo.worker.App.loadModule({path}), `../selection/grid/${model}.mjs`);
+
+                        expect(success).toBe(true);
+                        await page.evaluate(({viewId, model}) => Neo.worker.App.setConfigs({
+                            id: viewId, selectionModel: {ntype: `selection-grid-${model.toLowerCase()}`}
+                        }), {viewId, model})
+                    }
+
+                    await cell(page, field, recordId).click();
+                    await expect.poll(selected).toEqual(initial);
+
+                    // RowModel's keyboard activation is a separate repair. Two clicks keep the already selected row.
+                    if (model === 'row') {
+                        await cell(page, field, recordId).dblclick()
+                    } else {
+                        await page.keyboard.press('Enter')
+                    }
+
+                    await expect.poll(() => editingIn(page, field, recordId)).toBe(true);
+                    await expect.poll(selected).toEqual(initial);
+                    const editorId = await page.locator(EDITOR).getAttribute('id');
+
+                    await page.locator(INPUT).fill(invalid ? '' : 'arrow draft');
+                    await expect.poll(() => config(editorId, 'value')).toBe(invalid ? null : 'arrow draft');
+                    await drive(page, 'logEvents');
+
+                    await (vertical ? scrollVertically(page, 4000) : scrollHorizontally(page, 3000));
+                    await expect.poll(() => embodiment(page)).toEqual({count: 0, field: null, recordId: null});
+                    await expect(page.locator(`${GRID} .neo-grid-view`)).toBeFocused();
+                    await page.keyboard.press(key);
+
+                    if (invalid) {
+                        await expect.poll(() => editingIn(page, field, recordId), {message: 'the invalid draft returns to focus'}).toBe(true);
+                        expect(await page.locator(EDITOR).getAttribute('id'), 'the same editor survives').toBe(editorId);
+                        await expect.poll(selected, {message: 'validation vetoed the selection move'}).toEqual(initial);
+                        expect(await config(GRID.slice(1), 'driverEventLog')).toEqual([]);
+                        await expect(page.locator(INPUT)).toHaveValue('');
+                        await expect(page.locator(EDITOR)).toHaveClass(/neo-invalid/);
+                        await expect(page.locator(`${EDITOR} .neo-textfield-error-wrapper`)).toHaveText('Required');
+                        await page.keyboard.press('Escape');
+                        await expect(cell(page, field, recordId)).toHaveText(`r3${field}`)
+                    } else {
+                        const nextField = vertical ? field : key === 'ArrowLeft' ? 'c2' : 'c4',
+                              expected  = selectsCells ? [`${nextRow}__${nextField}`] : [nextRow];
+
+                        await expect.poll(() => config(editorId, 'id'), {message: 'the suspended editor is destroyed'}).toBe(false);
+                        await expect.poll(selected).toEqual(expected);
+                        const events = await config(GRID.slice(1), 'driverEventLog');
+
+                        expect(events[0], 'the draft commits before any selection change').toBe('commit:c3');
+                        expect(events.slice(1).length).toBeGreaterThan(0);
+                        expect(events.slice(1).every(event => event === 'select'), 'no second commit').toBe(true);
+                        await scrollVertically(page, 0);
+                        await scrollHorizontally(page, 0);
+                        await expect(cell(page, field, recordId)).toHaveText('arrow draft');
+                        await expect(page.locator(EDITOR)).toHaveCount(0);
+
+                        await page.keyboard.press({ArrowDown: 'ArrowUp', ArrowUp: 'ArrowDown', ArrowLeft: 'ArrowRight', ArrowRight: 'ArrowLeft'}[key]);
+                        await expect.poll(selected, {message: 'the next arrow navigates normally without an edit'}).toEqual(initial)
+                    }
+                })
+            }
+        }
+    }
+
     for (const [field, body] of [['c0', 'locked-start'], ['c3', 'center'], ['c39', 'locked-end']]) {
         test(`a double-click embodies the editor in a pooled grid's ${body} cell`, async ({page}) => {
             const recordId = await thirdRecordId(page);
@@ -370,7 +456,7 @@ test.describe('Grid cell editing across row and cell pooling', () => {
         // follow the host OS, which `navigator.platform` reports even under user-agent emulation.
         const macBindings = await page.evaluate(() => /Mac/.test(navigator.platform));
 
-        for (const key of ['PageDown', 'PageUp', 'End', 'Home']) {
+        for (const key of ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'PageDown', 'PageUp', 'End', 'Home']) {
             await page.evaluate(() => {
                 const input = document.activeElement;
                 input.setSelectionRange(2, 2)

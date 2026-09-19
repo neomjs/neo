@@ -225,6 +225,27 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * @summary Returns focus to an invalid edit, bringing a suspended cell back into view before its editor mounts.
+     * @param {Object} session
+     * @protected
+     */
+    focusEdit(session) {
+        let me       = this,
+            {owner}  = me,
+            {editor} = session,
+            rowIndex = owner.store.indexOf(me.getRecord(session));
+
+        if (me.isEmbodied(session)) {
+            editor.focus()
+        } else {
+            editor.on('mounted', () => editor.focus(), me, {once: true});
+
+            rowIndex >= 0 && owner.view.scrollByRows(rowIndex, 0);
+            owner.scrollByColumns(owner.columns.items.findIndex(column => column.dataField === session.dataField), 0)
+        }
+    }
+
+    /**
      * The editable cell `step` cells along from the session's, in the column order the arrow keys walk
      * ({@link Neo.selection.grid.BaseModel#dataFields}): a row's last editable cell is followed by the next record's
      * first, and its first preceded by the previous record's last. A logical target — record and `dataField` — so a
@@ -486,6 +507,26 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * @summary An arrow on the View is leave-edit intent, including while the editor is suspended. The selection
+     * model calls this before moving: a valid draft commits; an invalid draft reappears and vetoes navigation.
+     * Arrows arriving from a field or picker retain their own meaning.
+     * @param {Object} data
+     * @returns {Boolean} true permits the selection model's existing navigation
+     * @protected
+     */
+    onNavigationKey(data) {
+        let me        = this,
+            {session} = me;
+
+        if (!session || data.path?.[0]?.id !== me.owner.view.id || me.completeEdit()) {
+            return true
+        }
+
+        me.focusEdit(session);
+        return false
+    }
+
+    /**
      * Wires activation once the owner, and with it grid.View's key registry, exists.
      */
     onOwnerConstructed() {
@@ -531,7 +572,7 @@ class CellEditing extends Plugin {
             {owner, session} = me,
             {store, view}    = owner,
             {selectionModel} = view,
-            columnIndex, dataFields, rowIndex, target;
+            columnIndex, dataFields, target;
 
         // Tab on any other node inside the View keeps its default, and is not this edit's
         if (!session || !(owner.body.isEditorEvent(data) || data.path?.[0]?.id === view.id)) {
@@ -541,20 +582,10 @@ class CellEditing extends Plugin {
         // Read before the commit ends the session, and before a re-sort can move the record
         dataFields  = owner.columns.items.map(column => column.dataField);
         columnIndex = dataFields.indexOf(session.dataField);
-        rowIndex    = store.indexOf(me.getRecord(session));
         target      = me.getAdjacentEditableCell(session, data.shiftKey ? -1 : 1);
 
         if (!me.completeEdit()) {
-            let {editor} = session;
-
-            if (me.isEmbodied(session)) {
-                editor.focus()
-            } else {
-                editor.on('mounted', () => editor.focus(), me, {once: true});
-
-                rowIndex >= 0 && view.scrollByRows(rowIndex, 0);
-                owner.scrollByColumns(columnIndex, 0)
-            }
+            me.focusEdit(session)
         } else if (target) {
             let {dataField, record} = target;
 
