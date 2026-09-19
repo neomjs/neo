@@ -45,6 +45,33 @@ test.describe.serial('Neo.ai.client.ComponentService.serializeComponent', () => 
     });
 });
 
+test.describe.serial('Neo.ai.client.ComponentService.queryComponent', () => {
+    let originalFind, service;
+
+    test.beforeEach(() => {
+        originalFind = Neo.manager.Component.find;
+        service      = Neo.create(ComponentService)
+    });
+
+    test.afterEach(() => {
+        Neo.manager.Component.find = originalFind;
+        service.destroy()
+    });
+
+    test('returnProperties reads dotted paths like its sibling readers, and keeps an unresolvable one as null', () => {
+        const component = {className: 'Tree', id: 'tree', store: {count: 3, id: 'tree-store'}};
+
+        Neo.manager.Component.find = () => [component];
+
+        expect(service.queryComponent({selector: {}, returnProperties: ['id', 'store.id', 'store.count', 'store.missing']}))
+            .toEqual({components: [{
+                className : 'Tree',
+                id        : 'tree',
+                properties: {id: 'tree', 'store.id': 'tree-store', 'store.count': 3, 'store.missing': null}
+            }]})
+    });
+});
+
 /**
  * @summary Tests for the pure child-surface differ behind verify_component_consistency
  */
