@@ -174,6 +174,23 @@ test.describe('Grid cell editing: focus on reprojection, and a click on another 
         await expect(cell(page, 'c3', recordId), 'Escape discarded the draft').toHaveText('r3c3')
     });
 
+    test('a reprojected editor leaves focus on the View when a click selected a cell and a second click deselected it', async ({page}) => {
+        const recordId = await editAndSuspend(page),
+              other    = page.locator(`${GRID} .neo-grid-cell[data-field="c4"]`).nth(4);
+
+        // Two gestures that return the selection to the state the suspension left: a value comparison cannot see them
+        await other.click();
+        await expect(other, 'the first click selects the cell').toHaveClass(/neo-selected/);
+        await other.click();
+        await expect(other, 'the second click deselects it').not.toHaveClass(/neo-selected/);
+        await expect.poll(() => viewContainsFocus(page), {message: 'focus is still on the View'}).toBe(true);
+
+        await reproject(page, recordId);
+
+        expect(await page.evaluate(grid => document.activeElement === document.querySelector(`${grid} .neo-grid-view`), GRID),
+            'focus stayed on the View, for the gestures the clicks made').toBe(true)
+    });
+
     test('a reprojected editor leaves focus on the View when focus went out and came back to another of its cells', async ({page}) => {
         const recordId = await editAndSuspend(page),
               other    = page.locator(`${GRID} .neo-grid-cell[data-field="c4"]`).first();

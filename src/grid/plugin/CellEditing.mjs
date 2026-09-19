@@ -55,8 +55,8 @@ class CellEditing extends Plugin {
      * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it. `held` counts the lock
      * changes holding the editor out of every cell ({@link #holdEdit}), `blurOwed` marks the leave the first of them
      * causes, and `wasEmbodied` says whether a cell has shown the editor yet — a session born suspended has that
-     * still ahead of it. `selection` is the View's selection when a scroll or a lock change took the editor out
-     * ({@link #onEditorReprojected}).
+     * still ahead of it. `refocus` says a scroll or a lock change took the editor out while it had focus, and no
+     * selection change has happened since ({@link #onEditorReprojected}).
      * @member {Object|null} session=null
      * @protected
      */
@@ -253,17 +253,6 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * The View's selection as one comparable value: the cells, rows and columns its model selects.
-     * @returns {String}
-     * @protected
-     */
-    getSelectionKey() {
-        let model = this.owner.view.selectionModel;
-
-        return model ? JSON.stringify([model.getSelection(), model.selectedRows, model.selectedColumns]) : ''
-    }
-
-    /**
      * @returns {Object[]}
      * @protected
      */
@@ -385,17 +374,18 @@ class CellEditing extends Plugin {
         if (session && !session.blurOwed && me.isEmbodied(session)) {
             me.completeEdit()
         } else if (session) {
-            session.blurOwed  = false;
-            session.selection = me.getSelectionKey();
+            session.blurOwed = false;
+            session.refocus  = true;
             session.editor.on('mounted', me.onEditorReprojected, me, {once: true})
         }
     }
 
     /**
      * A suspended editor, which had focus, is embodied again. Its unmount returned focus to the View, so the editor
-     * takes it back only while nothing happened since: the View still holds focus, and its selection is the one the
-     * editor left. A newer gesture keeps the focus it made: one moving focus elsewhere, and one moving the selection
-     * inside the View, where DOM focus never moves.
+     * takes it back only while no newer gesture claimed it: the View still holds focus, and its selection has not
+     * changed since ({@link #onSelectionChange}). A gesture moving focus elsewhere keeps the focus it made, and so
+     * does one moving the selection inside the View, where DOM focus never moves — even when a later one returns the
+     * selection to where it was.
      *
      * The View's focus is read at the mount, not recorded at the gesture: `manager.Focus` settles a leave one gap
      * after its focusout, and an event recorded meanwhile would lag exactly as far, while a suspension whose focus
@@ -406,7 +396,10 @@ class CellEditing extends Plugin {
         let me        = this,
             {session} = me;
 
-        session && me.owner.view.containsFocus && me.getSelectionKey() === session.selection && session.editor.focus()
+        if (session?.refocus) {
+            session.refocus = false;
+            me.owner.view.containsFocus && session.editor.focus()
+        }
     }
 
     /**
@@ -463,6 +456,20 @@ class CellEditing extends Plugin {
 
         owner.on('cellDoubleClick', me.onCellDoubleClick, me);
         owner.view.keys.add(me.getViewKeys())
+    }
+
+    /**
+     * A selection change is the grid's own focus moving: a click on a cell, or keyboard navigation, both of which
+     * leave DOM focus on the View. A suspended editor that owes its focus back gives that up
+     * ({@link #onEditorReprojected}).
+     * @protected
+     */
+    onSelectionChange() {
+        let {session} = this;
+
+        if (session) {
+            session.refocus = false
+        }
     }
 
     /**
@@ -568,14 +575,16 @@ class CellEditing extends Plugin {
      * The single write to {@link #session}. While a session is open, Tab on the View belongs to the edit: the main
      * thread cancels its default for the View's node, so a Tab pressed while the editor is not embodied — its cell
      * scrolled out of the row pool or the column window — reaches {@link #onTabKey} instead of leaving the grid
-     * with the draft open. With no session the View's Tab is the browser's own again.
+     * with the draft open. With no session the View's Tab is the browser's own again. For the same span the plugin
+     * hears the View's selection changes ({@link #onSelectionChange}).
      * @param {Object|null} session
      * @protected
      */
     setSession(session) {
-        let me     = this,
-            {view} = me.owner,
-            wasSet = !!me.session;
+        let me               = this,
+            {view}           = me.owner,
+            {selectionModel} = view || {},
+            wasSet           = !!me.session;
 
         me.session = session;
 
@@ -584,7 +593,10 @@ class CellEditing extends Plugin {
                 id      : view.id,
                 keys    : ['Tab'],
                 windowId: view.windowId
-            })
+            });
+
+            selectionModel && !selectionModel.isDestroyed &&
+                selectionModel[session ? 'on' : 'un']('selectionChange', me.onSelectionChange, me)
         }
     }
 
