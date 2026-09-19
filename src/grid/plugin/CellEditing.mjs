@@ -459,8 +459,8 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * A selection change is the grid's own focus moving: a click on a cell, or keyboard navigation, both of which
-     * leave DOM focus on the View. A suspended editor that owes its focus back gives that up
+     * A selection change is the grid's own focus moving: a click on a cell or a row, or keyboard navigation, all of
+     * which leave DOM focus on the View. A suspended editor that owes its focus back gives that up
      * ({@link #onEditorReprojected}).
      * @protected
      */

@@ -174,6 +174,24 @@ test.describe('Grid cell editing: focus on reprojection, and a click on another 
         await expect(cell(page, 'c3', recordId), 'Escape discarded the draft').toHaveText('r3c3')
     });
 
+    test('under the grid\'s default RowModel, a reprojected editor leaves focus on the View when a click selected another row', async ({page}) => {
+        await drive(page, 'rowModel');
+
+        const recordId = await editAndSuspend(page),
+              other    = page.locator(`${GRID} .neo-grid-cell[data-field="c4"]`).nth(4),
+              otherId  = await other.getAttribute('data-record-id');
+
+        await other.click();
+        await expect(page.locator(`${GRID} .neo-grid-row.neo-selected[data-record-id="${otherId}"]`).first(), 'the click selects the row')
+            .toBeVisible();
+        await expect.poll(() => viewContainsFocus(page), {message: 'focus is still on the View'}).toBe(true);
+
+        await reproject(page, recordId);
+
+        expect(await page.evaluate(grid => document.activeElement === document.querySelector(`${grid} .neo-grid-view`), GRID),
+            'focus stayed on the View, for the row the click selected').toBe(true)
+    });
+
     test('a reprojected editor leaves focus on the View when a click selected a cell and a second click deselected it', async ({page}) => {
         const recordId = await editAndSuspend(page),
               other    = page.locator(`${GRID} .neo-grid-cell[data-field="c4"]`).nth(4);

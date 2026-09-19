@@ -92,7 +92,8 @@ class RowModel extends BaseModel {
                 me.selectRow(recordId);
 
                 view.scrollByRows(index, step);
-                view.fire('select', {record})
+                view.fire('select', {record});
+                me.fireRowSelectionChange()
             }
         }
     }
@@ -118,7 +119,8 @@ class RowModel extends BaseModel {
 
                 me.toggleRowSelection(recordId);
 
-                view.fire(me.isSelectedRow(recordId) ? 'select' : 'deselect', {record})
+                view.fire(me.isSelectedRow(recordId) ? 'select' : 'deselect', {record});
+                me.fireRowSelectionChange()
             }
         }
     }

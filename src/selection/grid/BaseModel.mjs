@@ -270,10 +270,7 @@ class BaseModel extends Model {
                 me.updateRows(items)
             }
 
-            me.fire('selectionChange', {
-                records  : me.selectedRows.map(id => me.view.store.get(id)),
-                selection: me.selectedRows
-            })
+            me.fireRowSelectionChange()
         } else if (!silent) {
             me.fire('noChange')
         }
@@ -289,6 +286,20 @@ class BaseModel extends Model {
         NeoArray.remove(me.selectedRows, recordId);
 
         me.updateRows(recordId, silent)
+    }
+
+    /**
+     * Reports the rows this model holds selected as `selectionChange`, the event {@link Neo.selection.Model#select}
+     * fires for its items: a row selection is a selection change too, and a listener hears it whichever model makes it.
+     * @protected
+     */
+    fireRowSelectionChange() {
+        let me = this;
+
+        me.fire('selectionChange', {
+            records  : me.selectedRows.map(id => me.view.store.get(id)),
+            selection: me.selectedRows
+        })
     }
 
     /**
