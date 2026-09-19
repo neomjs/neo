@@ -6,17 +6,17 @@
     overflow-y     : scroll;
     position       : relative;
 
-    // grid.View owns a single focus state for the multi-body grid. Modality is an explicit contract because
-    // :focus-visible cannot survive the async worker→main programmatic focus, and this tabindex=-1 node has
-    // no reliable user-agent ring to fall back on. DomAccess.focus stamps the modality class before focus():
-    // `neo-focus-keyboard` paints an intentional a11y ring; `neo-focus-pointer` (a row activation) paints none.
-    // The pointer class swaps to keyboard on the first keydown, so a pointer→keyboard switch restores the ring.
-    &.neo-focus-keyboard:focus {
-        outline: var(--grid-view-focus-outline, 2px solid #1a73e8);
+    // grid.View owns a single focus state for the multi-body grid, and the selection shows where that focus is: the
+    // selected cell, row or column, or an open editor. So the View paints no ring around the whole viewport, neither a
+    // default keyboard ring nor the user agent's, which an editor handing focus back would otherwise get.
+    // DomAccess.focus still stamps `neo-focus-keyboard` or `neo-focus-pointer`, because :focus-visible cannot survive
+    // the async worker→main programmatic focus. An app that wants a keyboard frame sets `--grid-view-focus-outline`.
+    &:focus {
+        outline: none;
     }
 
-    &.neo-focus-pointer:focus {
-        outline: none;
+    &.neo-focus-keyboard:focus {
+        outline: var(--grid-view-focus-outline, none);
     }
 
     &.neo-hide-scrollbar {
