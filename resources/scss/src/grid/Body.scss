@@ -63,8 +63,11 @@
              position        : absolute;
              width           : fit-content;
 
+             // The trailing edge sits just outside the column, so the row's paint containment clips it
+             // wherever the column meets its region's end: only unused width ever shows it.
              &.neo-last-column {
                  border-right-width : 0;
+                 box-shadow         : 1px 0 var(--grid-container-border-color);
              }
 
              &.neo-locked-end-first-column {
