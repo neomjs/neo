@@ -11,11 +11,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Component      from '../../../../src/component/Base.mjs';
-import TreeBuilder    from '../../../../src/util/vdom/TreeBuilder.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../src/Neo.mjs';
+import * as core        from '../../../../src/core/_export.mjs';
+import Component        from '../../../../src/component/Base.mjs';
+import ComponentManager from '../../../../src/manager/Component.mjs';
+import TreeBuilder      from '../../../../src/util/vdom/TreeBuilder.mjs';
 
 class MockComponent extends Component {
     static config = {
@@ -28,7 +29,7 @@ MockComponent = Neo.setupClass(MockComponent);
 
 /**
  * @summary Validates the logic of `Neo.util.vdom.TreeBuilder`.
- * 
+ *
  * Ensures that the VDOM tree is constructed correctly with respect to:
  * 1. Optimization: Pruning mounted subtrees (`neoIgnore`) at depth boundaries.
  * 2. Correctness: Expanding unmounted subtrees (Wake Up) even at depth boundaries.
@@ -48,7 +49,7 @@ test.describe('Neo.util.vdom.TreeBuilder', () => {
             id: childId,
             appName
         });
-        
+
         // Simulate mounted state (has vnode)
         child.vnode = {id: childId, vtype: 'vnode'};
 
@@ -74,7 +75,7 @@ test.describe('Neo.util.vdom.TreeBuilder', () => {
             id: childId,
             appName
         });
-        
+
         // Simulate unmounted state (no vnode)
         child.vnode = null;
 
@@ -90,5 +91,28 @@ test.describe('Neo.util.vdom.TreeBuilder', () => {
         expect(tree.cn[0].tag).toBe('div');
         expect(tree.cn[0].componentId).toBeUndefined();
         expect(tree.cn[0].neoIgnore).toBeUndefined();
+    });
+
+    /**
+     * A reference whose component this manager cannot resolve survives as a reference: the prune
+     * branch needs `component.vnode` and the expand branch needs `component.vdom`, so with neither
+     * it falls through to `#buildTree` — and JIT generation mints `neo-vnode-N` for it.
+     *
+     * That id is wrong, because a reference already HAS an identity. `Helper#createVnode` says so
+     * (`opts.id ??= opts.componentId`), but a generated id arrives first and its `??=` cannot undo
+     * it. Downstream, `Helper`'s child matching pairs the reference with the rendered node by
+     * `componentId` — deliberately, since a reference has no id of its own to match on — and
+     * `createDeltas` then refuses the pair because the ids differ.
+     */
+    test('an unresolvable component reference keeps its component id instead of a generated one', () => {
+        const orphanId = getUniqueId('orphan');
+
+        expect(ComponentManager.get(orphanId)).toBeFalsy();
+
+        const tree = TreeBuilder.getVdomTree({id: 'parent', cn: [{componentId: orphanId}]}, 1);
+
+        expect(tree.cn[0].componentId).toBe(orphanId);
+        // Absent is correct too — `createVnode` fills it from `componentId`. A generated id is not.
+        expect(tree.cn[0].id ?? orphanId).toBe(orphanId);
     });
 });

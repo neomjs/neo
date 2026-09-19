@@ -42,8 +42,18 @@ class TreeBuilder extends Base {
         // JIT ID Generation (App Authority)
         // If we are processing a VDOM tree (childKey === 'cn') and the node has no ID,
         // we must generate one now to ensure deterministic identity before the VDOM leaves the App Worker.
+        //
+        // A component reference takes its component's id rather than a generated one — that IS its
+        // deterministic identity, which is why `Helper#createVnode` states the same rule as
+        // `opts.id ??= opts.componentId`. A generated id gets there first and that `??=` can no
+        // longer undo it, so the reference reaches the VDom worker as `neo-vnode-N` while the
+        // rendered node it will be diffed against carries the component id. `Helper`'s child
+        // matching pairs the two by `componentId` — correctly, a reference has no id of its own to
+        // match on — and `createDeltas` then refuses the pair its own matching admitted.
+        // A reference only reaches here when neither branch below could use it: unresolvable in
+        // this ComponentManager, so it has no `vnode` to prune against and no `vdom` to expand into.
         if (childKey === 'cn' && !node.id) {
-            node.id = Neo.getId(node.vtype === 'text' ? 'vtext' : 'vnode')
+            node.id = node.componentId || Neo.getId(node.vtype === 'text' ? 'vtext' : 'vnode')
         }
 
         let output = {...node}; // Shallow copy
