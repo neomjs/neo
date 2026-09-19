@@ -691,6 +691,24 @@ class Participation extends Base {
     }
 
     /**
+     * @summary Releases one composed overlay through its owning container.
+     *
+     * A container holds each child in TWO collections — `items` and `vdom.cn` — and only the container
+     * owns both. `Component#destroy()` leaves the parent naming a component no `ComponentManager` can
+     * resolve; `destroy(true)` repairs `vdom.cn` and still leaves the dead child in `items`, so a later
+     * index-addressed `removeAt` reaches the wrong component. `remove()` is the one path that keeps the
+     * two agreed.
+     *
+     * An overlay with no container parent — a host-supplied seam this instance did not compose into a
+     * container — has no owner to release it, and destroys itself.
+     * @param {Neo.component.Base|null} overlay
+     * @protected
+     */
+    releaseOverlay(overlay) {
+        Neo.isFunction(overlay?.parent?.remove) ? overlay.parent.remove(overlay) : overlay?.destroy(true)
+    }
+
+    /**
      * @summary Unregisters and destroys the owned target before instance teardown — the unmount half of the
      * registration lifecycle.
      */
@@ -702,13 +720,13 @@ class Participation extends Base {
 
         // Only what this instance composed: a host-supplied preview seam owns its own overlay, and
         // destroying that would tear down a renderer the host still paints in-window drags with.
-        me.ownedAffordances?.destroy();
+        me.releaseOverlay(me.ownedAffordances);
         me.ownedAffordances = null;
 
-        me.ownedPreview?.destroy(true);
+        me.releaseOverlay(me.ownedPreview);
         me.ownedPreview = null;
 
-        me.ownedIndicators?.destroy(true);
+        me.releaseOverlay(me.ownedIndicators);
         me.ownedIndicators = null;
 
         super.destroy()

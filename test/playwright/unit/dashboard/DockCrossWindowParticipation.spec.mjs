@@ -112,16 +112,19 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
      * Asserted as an OUTCOME on the parent's vdom rather than as "destroy was called with true":
      * an argument assertion witnesses that the child was TOLD to detach, not that it detached.
      */
-    test('releasing owned overlays removes them from the parent vdom, not just from the manager', () => {
+    /**
+     * The overlays this adapter composes are CHILDREN of the workspace container, so releasing them
+     * has to leave the container's TWO collections agreed: `vdom.cn` and `items`. `Component#destroy()`
+     * defaults `updateParentVdom` to `false` and leaves the parent naming a component no
+     * `ComponentManager` can resolve; `destroy(true)` repairs `cn` and still leaves `items` holding the
+     * dead child, so a later `removeAt(index)` addresses the wrong one.
+     *
+     * Built through the real `add()` / release path rather than by pushing `cn` directly: a fixture
+     * shaped like the code under test cannot see a collection the code under test never touches.
+     */
+    test('releasing owned overlays leaves the parent container\'s vdom AND items agreed', () => {
         const parent = Neo.create(Container, {autoMount: false, items: []}),
-              owned  = id => {
-                  const child = Neo.create(Container, {autoMount: false, id});
-
-                  parent.vdom.cn.push({componentId: id});
-                  child.parentId = parent.id;
-
-                  return child
-              };
+              owned  = id => parent.add({module: Container, autoMount: false, id});
 
         const preview    = owned('test-owned-preview'),
               indicators = owned('test-owned-indicators');
@@ -137,14 +140,27 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         participation.ownedPreview    = preview;
         participation.ownedIndicators = indicators;
 
-        const named = () => parent.vdom.cn.map(node => node.componentId ?? node.id);
+        const namedInVdom  = () => (parent.vdom.cn || []).map(node => node.componentId ?? node.id),
+              namedInItems = () => parent.items.map(item => item.id);
 
-        expect(named(), 'the parent names both overlays before release')
+        expect(namedInVdom(), 'the parent names both overlays before release')
             .toEqual(expect.arrayContaining(['test-owned-preview', 'test-owned-indicators']));
+        expect(namedInItems(), 'and holds both as items')
+            .toEqual(['test-owned-preview', 'test-owned-indicators']);
 
         participation.destroy();
 
-        expect(named(), 'and names neither after it').toEqual([]);
+        expect(namedInVdom(), 'the vdom names neither after it').toEqual([]);
+        // The collection the previous shape of this arm could not see: a destroyed child left in
+        // `items` makes every later index-addressed removal point at the wrong component.
+        expect(namedInItems(), 'and items holds neither').toEqual([]);
+
+        // The consequence, driven rather than asserted about: a live child added after the release
+        // must be the one an index-addressed removal reaches.
+        const live = parent.add({module: Container, autoMount: false, id: 'test-live-after-release'});
+
+        expect(namedInItems(), 'the live child is the only item').toEqual(['test-live-after-release']);
+        expect(parent.items[0]).toBe(live);
 
         parent.destroy()
     });
