@@ -42,6 +42,18 @@ npm run test-unit         # engine units — no browser needed at all
 Every test command takes a path, so you can run just the area you touched:
 `npm run test-unit -- test/playwright/unit/util`.
 
+**Writing a test that converts between local time and UTC?** Run it through the timezone tier as well:
+
+```bash
+npm run test-unit-tz      # the same units, in a pinned non-UTC zone
+```
+
+`npm run test-unit` inherits your machine's timezone, and CI runs on UTC. Where the offset is zero a correct
+conversion and a missing one compute the same answer for **every** input, so a UTC run cannot fail on one and no
+extra test case changes that — only the zone does. `playwright.config.unit-tz.mjs` pins one
+(`Pacific/Kiritimati`, +14, no DST) and CI runs it twice, adding `Pacific/Niue` (−11) so a sign error is caught
+from both sides. Add your spec to its `testMatch` list; `NEO_UNIT_TZ=<zone>` overrides the zone locally.
+
 The browser suites need real browsers, and **they do not need the same one**:
 
 ```bash

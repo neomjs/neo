@@ -37,6 +37,11 @@ const isCI = !!process.env.CI;
 export default defineConfig({
     testDir      : path.join(__dirname, 'unit'),
     outputDir    : path.join(__dirname, 'test-results/unit'),
+    // Owned by `playwright.config.unit-tz.mjs`, which pins a non-UTC zone before the clock is first
+    // read. This spec asserts that its runner is NOT on UTC, because a local<->UTC conversion cannot
+    // be distinguished from a missing one at a zero offset - so on the UTC runner this tier uses, it
+    // would fail by design rather than pass emptily. The partition is stated in both configs.
+    testIgnore   : ['**/form/field/DateSubmitValue.spec.mjs'],
     fullyParallel: true,
     ...buildUnitRunPolicy({isCI}),
     use     : {trace: 'on-first-retry'},
