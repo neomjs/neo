@@ -213,6 +213,29 @@ test.describe('Grid Locked Columns', () => {
         expect(grid.getButton('col1')).toBeDefined();
     });
 
+    test('A re-homed header button carries its new region\'s locked class, and every other button keeps its own', async () => {
+        // The header seams and a locked button's stacking key on this class, so it has to follow the region
+        const regionOf = () => Object.fromEntries(grid.columns.items.map(({dataField}) => {
+            const {cls} = grid.getButton(dataField);
+
+            return [dataField, cls.includes('neo-locked-start') ? 'start' : cls.includes('neo-locked-end') ? 'end' : null]
+        }));
+
+        expect(regionOf()).toEqual({col1: null, col2: 'end', col3: 'start', col4: 'start', col5: null});
+
+        for (const [dataField, locked, expected] of [
+            ['col1', 'start', {col1: 'start', col2: 'end', col3: 'start', col4: 'start', col5: null}],
+            ['col1', 'end',   {col1: 'end',   col2: 'end', col3: 'start', col4: 'start', col5: null}],
+            ['col2', null,    {col1: 'end',   col2: null,  col3: 'start', col4: 'start', col5: null}],
+            ['col1', null,    {col1: null,    col2: null,  col3: 'start', col4: 'start', col5: null}]
+        ]) {
+            grid.columns.get(dataField).locked = locked;
+            await grid.timeout(50);
+
+            expect(regionOf(), `${dataField} → ${locked}`).toEqual(expected)
+        }
+    });
+
     test('ScrollManager row addons are re-synced on lock state change', async () => {
         const {scrollManager} = grid;
 
