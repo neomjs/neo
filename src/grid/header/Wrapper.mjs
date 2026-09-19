@@ -77,6 +77,8 @@ class Wrapper extends BaseContainer {
      * the lowest common ancestor (this Wrapper). The vdom diff then sees the move as a move and keeps
      * the DOM node alive — an uncoordinated remove + add pair diffs the two toolbars independently,
      * which destroys the node on the source side before the target side can adopt it.
+     *
+     * Each button takes its column's `locked` as it is placed, so its region class follows a runtime lock change.
      * @param {Object[]} lockedStartColumns
      * @param {Object[]} centerColumns
      * @param {Object[]} lockedEndColumns
@@ -90,6 +92,8 @@ class Wrapper extends BaseContainer {
                 let btn = me.getButton(col.dataField);
 
                 if (btn) {
+                    btn.locked = col.locked;
+
                     if (btn.parentId !== toolbar.id) {
                         toolbar.insert(targetIndex, btn)
                     } else {
