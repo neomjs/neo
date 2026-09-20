@@ -100,16 +100,37 @@ test.describe('Neo.collection multi-sorter precedence', () => {
             sorters: [{direction: 'ASC', property: 'name'}]
         });
 
+        // The comparator has to be one that would visibly lose if the code
+        // ignored it. `sortBy: () => 0` wins nothing and passes even when
+        // custom comparators are dropped entirely, so this one carries a
+        // conflicting property and direction: `sortBy` takes precedence over
+        // both, which makes a reversed result the only way it can pass.
         let sortByPath = Neo.create(Collection, {
             items: items(),
             sorters: [
-                {direction: 'ASC', property: 'name'},
-                {sortBy: () => 0}
+                // property + direction alone would give alpha, Beta, Gamma
+                {direction: 'ASC', property: 'name', sortBy: (a, b) => b.name.localeCompare(a.name)}
             ]
         });
 
         expect(rawPath.items.map(i => i.name)).toEqual(['alpha', 'Beta', 'Gamma']);
-        expect(sortByPath.items.map(i => i.name)).toEqual(['alpha', 'Beta', 'Gamma']);
+        expect(sortByPath.items.map(i => i.name)).toEqual(['Gamma', 'Beta', 'alpha']);
+    });
+
+    test('a numeric string and a number compare by coerced value', () => {
+        let collection = Neo.create(Collection, {
+            items: [
+                {id: 1, v: 5},
+                {id: 2, v: '10'},
+                {id: 3, v: 2}
+            ],
+            sorters: [{direction: 'ASC', property: 'v'}]
+        });
+
+        // `'10' > 5` coerces the string, so '10' sorts as ten rather than as
+        // "1" followed by "0". Nothing documents this, so the measured order is
+        // the record.
+        expect(collection.items.map(i => i.v)).toEqual([2, 5, '10']);
     });
 
     test('useTransformValue false opts out of the lowercase normalisation', () => {
@@ -144,6 +165,32 @@ test.describe('Neo.collection multi-sorter precedence', () => {
             .toEqual([['', 'string'], [0, 'number'], [1, 'number'], [null, 'object']]);
     });
 
+    test('nullish values sink inside their first-key group, not to the end', () => {
+        let collection = Neo.create(Collection, {
+            items: [
+                {id: 1, lastName: 'b', v: 1},
+                {id: 2, lastName: 'b', v: null},
+                {id: 3, lastName: 'a', v: 0},
+                {id: 4, lastName: 'a', v: null},
+                {id: 5, lastName: 'a', v: undefined}
+            ],
+            sorters: [
+                {direction: 'ASC', property: 'lastName'},
+                {direction: 'ASC', property: 'v'}
+            ]
+        });
+
+        const rows  = collection.items.map(i => [i.lastName, i.v]);
+        const group = (name) => rows.filter(r => r[0] === name);
+
+        // A null check applied before the first key would send every nullish
+        // item past the whole list. Both keys run in order, so they only sink
+        // within the lastName they belong to, and the 'a' group still leads.
+        expect(rows[0][0]).toBe('a');
+        expect(group('a').slice(-2)).toEqual([['a', null], ['a', undefined]]);
+        expect(group('b').slice(-1)).toEqual([['b', null]]);
+    });
+
     test('mixed number and non-numeric string values do not form a total order', () => {
         let collection = Neo.create(Collection, {
             items: [
@@ -164,7 +211,7 @@ test.describe('Neo.collection multi-sorter precedence', () => {
         expect(collection.items.map(i => i.v)).toEqual([5, 'abc', 1]);
     });
 
-    test('the caller array is not mutated and items are copied', () => {
+    test('the caller array is left alone but its item objects are shared', () => {
         const source = [{v: 3}, {v: 1}, {v: 2}];
         const before = JSON.stringify(source);
 
@@ -173,10 +220,25 @@ test.describe('Neo.collection multi-sorter precedence', () => {
             sorters: [{direction: 'ASC', property: 'v'}]
         });
 
-        // A test-only pass over this file would be misleading if it asserted the
-        // input order after a sort that happens in place, so pin both facts.
+        // The ARRAY is duplicated before the sort, so the caller's order
+        // survives. The copy comes from the `items_` descriptor
+        // (`clone: 'shallow'` runs Neo.clone(value, false, true) in the setter),
+        // verified by removing the later `_items.slice()` and watching this
+        // assertion still pass.
         expect(JSON.stringify(source)).toEqual(before);
+        expect(collection.items).not.toBe(source);
         expect(collection.items.map(i => i.v)).toEqual([1, 2, 3]);
-        expect(collection.items[0]).not.toBe(source[0]);
+
+        // The item OBJECTS are not copied, only the array holding them. A
+        // shallow clone keeps the references, so every element is shared and a
+        // mutation through the collection is visible in the caller's objects.
+        // An earlier version asserted `items[0] !== source[0]`, which passed
+        // only because sorting had moved index 0, and claimed "items are
+        // copied" while every item was in fact shared.
+        expect(collection.items.filter(i => source.includes(i)))
+            .toHaveLength(source.length);
+
+        collection.items[0].v = 99;
+        expect(source.some(i => i.v === 99)).toBe(true);
     });
 });
