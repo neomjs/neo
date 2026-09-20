@@ -21,21 +21,35 @@
  * form triggers it and nothing forbade it: a `=>` or `==` in the prose ABOVE the tag would otherwise win
  * the slice and publish that prose as the default. `Neo.plugin.Resizable`'s "Directions into which you
  * want to drag => resize" published `> resize`, and 18 other members published prose fragments the same
- * way. `\b` keeps `@memberOf` from anchoring, so those doclets keep the third edge's behaviour.
+ * way.
+ *
+ * The anchor matches a TAG, never a mention. `@member` must open its line — after the indent and either
+ * the `*` of a continuation line or the `/**` that opens the block — because a description is free to
+ * name the tag it belongs to: *"The @member declaration below maps key => value"* anchors on the prose
+ * and hands the slice straight back to the `=>`, which is the original defect wearing the fix's clothes.
+ * `\b` keeps `@memberOf` from anchoring, so those doclets keep the third edge's behaviour.
  *
  * Lifted out of `generateDocsJson.mjs` so the behaviour has ONE definition. A test that re-implements
  * it cannot fail when this changes, which is the only way a regression here would ever be caught:
  * every edge above is silent — nothing throws, and the docs build stays green.
- *
+ */
+
+// A `@member` that OPENS its line: the indent, then either a continuation line's `*` or the block's
+// own opener, then the tag. Matching the tag ANYWHERE would let a description that names it anchor
+// the slice, which is the defect this module exists to remove, one line further along.
+const TAG_ANCHOR = /^[^\S\n]*(?:\/\*\*|\*)?[^\S\n]*@member\b/m;
+
+/**
+ * @summary The default as published, which may differ from the parser's `defaultvalue`.
  * @param {Object} item A doclet whose `kind` is `member`.
- * @returns {*} The default as published, which may differ from `item.defaultvalue`.
+ * @returns {*}
  */
 export function publishedMemberDefault(item) {
     if (item.defaultvalue && item.type?.names) {
         const type = item.type.names[0].toLowerCase();
 
         if (type.indexOf('array') > -1 || type.indexOf('object') > -1) {
-            let defaultValue = item.comment.substr(item.comment.indexOf('=', item.comment.search(/@member\b/)) + 1);
+            let defaultValue = item.comment.substr(item.comment.indexOf('=', item.comment.search(TAG_ANCHOR)) + 1);
 
             return defaultValue.substr(0, defaultValue.indexOf('\n'))
         }

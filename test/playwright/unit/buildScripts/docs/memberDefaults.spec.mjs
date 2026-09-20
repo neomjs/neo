@@ -71,6 +71,27 @@ test.describe('publishedMemberDefault — the slice is anchored at the @member t
         expect(published).toBe(`{}`)
     });
 
+    test('a description that NAMES the tag does not anchor the slice', () => {
+        // A description may legitimately name the tag it belongs to. Anchoring on the first `@member`
+        // anywhere in the comment lets that mention win, and the `=>` after it takes the slice back —
+        // the same defect one line along. The anchor matches a TAG: `@member` opening its line.
+        const published = publishedMemberDefault(doclet(
+            `/**\n * The @member declaration below maps key => value.\n * @member {String[]} inlineMention=['safe']\n */`
+        ));
+
+        expect(published, 'the prose mention must not win').toBe(`['safe']`)
+    });
+
+    test('the same docblock without the mention is the control', () => {
+        // What makes the arm above discriminating: identical shape, one variable removed. Without it,
+        // an arm that passed for an unrelated reason would look like proof that the anchor works.
+        const published = publishedMemberDefault(doclet(
+            `/**\n * The declaration below maps key => value.\n * @member {String[]} inlineMention=['safe']\n */`
+        ));
+
+        expect(published).toBe(`['safe']`)
+    });
+
     test('a value whose own contents are full of = survives intact', () => {
         // Neo.collection.Filter#operators. The anchor must find the TAG's `=`, and then stop caring:
         // every `=` inside the value is part of the value.
