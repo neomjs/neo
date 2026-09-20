@@ -69,6 +69,13 @@ Playwright's Chromium — `npx playwright install` alone does not provide it.
 
 If you are fixing a unit test, you need none of this.
 
+⚠️ **Run the `npm run test-*` scripts, not `npx playwright test` directly.** There is no Playwright config at the
+repository root — each tier above has its own under `test/playwright/`, and the npm scripts pass it with `-c`. Without
+one, Playwright collects every tier's specs at once, none of them under the environment their own tier provides: the bare
+command exits 1 having run no test, after a stack trace about SEO metadata and a dozen repetitions of *"The neuralLink
+fixture requires NEO_AGENTOS_RUNTIME_ROOT"*. That looks like a broken checkout and is not one — the same misleading shape
+as skipping `bundle-browser-deps` above.
+
 Two things `npm install` does that are worth recognising when they scroll past:
 
 1. It registers our **Husky pre-commit hooks**, which check mechanical hygiene such as trailing whitespace.
