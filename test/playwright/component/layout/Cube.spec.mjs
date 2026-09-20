@@ -209,4 +209,71 @@ test.describe('Neo.layout.Cube', () => {
         // is discarded rather than merged.
         expect(result).toEqual({x: '0deg', y: '180deg'});
     });
+
+    test('perspective, side lengths and the container class reach the rendered styles', async ({page}) => {
+        await openFixture(page);
+
+        // Copilot flagged that #19010 also asks for size and perspective, and
+        // that the suite covered neither. These are read off the element's
+        // computed style, so a config that never reaches CSS fails here.
+        const rendered = await page.evaluate(() => {
+            const cube = document.querySelector('.neo-layout-cube');
+            const cs   = getComputedStyle(cube);
+            return {
+                perspective: cs.perspective,
+                sideX      : cs.getPropertyValue('--side-x').trim(),
+                sideY      : cs.getPropertyValue('--side-y').trim(),
+                sideZ      : cs.getPropertyValue('--side-z').trim(),
+                cls        : typeof cube.className === 'string' ? cube.className : ''
+            };
+        });
+
+        // The fixture sets 300x300 with perspective 600.
+        expect(rendered.perspective).toBe('600px');
+        expect(rendered.sideX).toBe('300px');
+        expect(rendered.sideY).toBe('300px');
+        expect(rendered.sideZ).toBe('300px');
+
+        // `containerCls` is what makes the 3D block exist at all: without it the
+        // children are laid out as plain boxes and no face is ever positioned.
+        expect(rendered.cls).toContain('neo-layout-cube');
+    });
+
+    test('changing perspective and the side lengths at runtime re-renders them', async ({page}) => {
+        await openFixture(page);
+
+        const layoutId = await page.evaluate(() =>
+            document.querySelector('.neo-plane').id.replace(/__plane$/, ''));
+
+        await page.evaluate((id) => Neo.worker.App.setConfigs({
+            id, perspective: 900, sideX: 500, sideY: 250, sideZ: 400
+        }), layoutId);
+
+        await page.waitForTimeout(400);
+
+        const after = await page.evaluate(() => {
+            const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
+            return {
+                perspective: cs.perspective,
+                sideX      : cs.getPropertyValue('--side-x').trim(),
+                sideY      : cs.getPropertyValue('--side-y').trim(),
+                sideZ      : cs.getPropertyValue('--side-z').trim()
+            };
+        });
+
+        expect(after).toEqual({
+            perspective: '900px', sideX: '500px', sideY: '250px', sideZ: '400px'
+        });
+
+        // The cube still presents a face after being resized, which is the part
+        // a config-level assertion cannot see.
+        const centre = await readCentre(page);
+        const visible = await page.evaluate((pt) => {
+            const el = document.elementFromPoint(pt.cx, pt.cy);
+            return el ? ['front','back','left','right','top','bottom']
+                .find(f => el.classList.contains(f)) || null : null;
+        }, centre);
+
+        expect(visible).toBe('front');
+    });
 });
