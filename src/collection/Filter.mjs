@@ -14,9 +14,8 @@ class Filter extends Base {
      */
     static observable = true
     /**
-     * Valid values for the operator config:<br>
-     * ['==','===','!=','!==','<','<=','>','>=','endsWith','excluded','included','isDefined','isUndefined','like','startsWith']
-     * @member {String[]} operators
+     * Valid values for the operator config
+     * @member {String[]} operators=['==','===','!=','!==','<','<=','>','>=','doesNotStartWith','endsWith','excluded','included','isDefined','isUndefined','like','startsWith']
      * @protected
      * @static
      */
