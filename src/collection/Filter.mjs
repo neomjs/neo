@@ -67,19 +67,7 @@ class Filter extends Base {
         listenerApplied: false,
         /**
          * The operator to filter by (use the combination of property, operator & value)
-         * Valid values:
-         *
-         * == (not recommended)
-         * ===
-         * != (not recommended)
-         * !==
-         * <
-         * >=
-         * >
-         * >=
-         * like (collectionValue.toLowerCase().indexOf(filterValue.toLowerCase()) > -1)
-         * included (expects value to be an array)
-         * excluded (expects value to be an array)
+         * Valid values: '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'doesNotStartWith', 'endsWith', 'excluded', 'included', 'isDefined', 'isUndefined', 'like', 'startsWith'
          * @member {String} operator='==='
          */
         operator_: '===',
