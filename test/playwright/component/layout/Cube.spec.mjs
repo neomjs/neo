@@ -213,9 +213,10 @@ test.describe('Neo.layout.Cube', () => {
     test('perspective, side lengths and the container class reach the rendered styles', async ({page}) => {
         await openFixture(page);
 
-        // Copilot flagged that #19010 also asks for size and perspective, and
-        // that the suite covered neither. These are read off the element's
-        // computed style, so a config that never reaches CSS fails here.
+        // The 3D presentation depends on values that never appear in the vdom:
+        // perspective and the three side lengths only reach CSS through the
+        // container's custom properties. Read them off the computed style so a
+        // config that stops short of CSS fails here.
         const rendered = await page.evaluate(() => {
             const cube = document.querySelector('.neo-layout-cube');
             const cs   = getComputedStyle(cube);
