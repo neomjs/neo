@@ -28,7 +28,7 @@ import Filter         from '../../../../src/collection/Filter.mjs';
  * so the RECORD is the first argument; and it returns `!Filter[operator](...)`, so a `true` return
  * means the item is filtered OUT. Both are easy to read backwards.
  */
-test.describe.serial('Neo.collection.Filter operators', () => {
+test.describe('Neo.collection.Filter operators', () => {
     /**
      * The sixteen operators, in the order `static operators` declares them. Named here only to
      * assert the array's contents are stable; every implementation check iterates the array itself.
