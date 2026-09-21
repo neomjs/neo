@@ -56,8 +56,8 @@ async function openFixture(page) {
     await expect(page.locator('.neo-layout-cube')).toBeAttached({timeout: 15000});
     // The container carries `neo-animate`, so a face change transitions rather
     // than snapping. Sampling mid-transition measures the animator, not the
-    // layout, so every read below waits for the rotation to stop moving.
-    await waitForCubeToSettle(page);
+    // layout, so every read below waits on the rotation it asked for.
+    await waitForCubeToSettle(page, EXPECTED_ROTATIONS.front);
     return readCentre(page);
 }
 
@@ -91,23 +91,34 @@ async function turnTo(page, face) {
         id: args.id, activeFace: args.face
     }), {id: layoutId, face});
 
-    await waitForCubeToSettle(page);
+    await waitForCubeToSettle(page, EXPECTED_ROTATIONS[face]);
 }
 
 /**
- * @summary Waits until the cube stops moving.
+ * @summary Waits until the cube holds the rotation it was asked for.
  *
- * The container's `--rot-x`/`--rot-y` update synchronously, but the transform
- * that MOVES the cube belongs to `.neo-box` and transitions over 300ms
- * (`resources/scss/src/layout/Cube.scss`). A hit test taken while that
- * transition is running sees the cube mid-turn and returns the face it is
- * passing through, not the one it is turning to. Waiting on the custom property
- * alone is therefore not enough: this waits for the box's own transform to hold
- * the same value across two reads.
+ * Two things need waiting for, in this order. The container's `--rot-x`/`--rot-y`
+ * update with the patch, but the patch arrives on the main thread after the
+ * worker call resolves, so a helper that only counts stable transform frames can
+ * report "settled" on the value it started from. Then the transform that MOVES
+ * the cube belongs to `.neo-box` and transitions over 300ms
+ * (`resources/scss/src/layout/Cube.scss`); a hit test taken during that
+ * transition sees the cube mid-turn and returns the face it is passing through,
+ * not the one it is turning to.
+ *
+ * The custom properties are the layout's input and settle with the patch, so
+ * they name the moment the request has arrived; the transform is the motion that
+ * follows it, and holding across frames is what says the motion stopped.
  * @param {Object} page
+ * @param {String[]} rotation the `[x, y]` the layout was asked for
  * @returns {Promise<void>}
  */
-async function waitForCubeToSettle(page) {
+async function waitForCubeToSettle(page, [x, y]) {
+    await expect.poll(() => page.evaluate(() => {
+        const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
+        return [cs.getPropertyValue('--rot-x').trim(), cs.getPropertyValue('--rot-y').trim()];
+    }), {message: `the cube reaches its ${x}/${y} rotation`}).toEqual([x, y]);
+
     await page.evaluate(() => new Promise((resolve) => {
         const box = document.querySelector('.neo-layout-cube .neo-box');
         let last = null;
@@ -183,7 +194,7 @@ test.describe('Neo.layout.Cube', () => {
     test('activeFace set beside a pending rotateX wins, and clears it', async ({page}) => {
         await page.goto('test/playwright/component/apps/layout-cube/index.html');
         await expect(page.locator('.neo-layout-cube')).toBeAttached({timeout: 15000});
-        await waitForCubeToSettle(page);
+        await waitForCubeToSettle(page, EXPECTED_ROTATIONS.front);
 
         // Both in one config object, which is the interaction the ticket calls
         // the subtlest thing in the file: afterSetActiveIndex deletes a pending
@@ -195,7 +206,7 @@ test.describe('Neo.layout.Cube', () => {
             id, activeFace: 'back', rotateX: 45
         }), layoutId);
 
-        await waitForCubeToSettle(page);
+        await waitForCubeToSettle(page, EXPECTED_ROTATIONS.back);
 
         const result = await page.evaluate(() => {
             const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
@@ -250,7 +261,13 @@ test.describe('Neo.layout.Cube', () => {
             id, perspective: 900, sideX: 500, sideY: 250, sideZ: 400
         }), layoutId);
 
-        await page.waitForTimeout(400);
+        // The new sizes reach CSS through the container's custom properties, so
+        // one of them reaching its target is the same event for all four. No
+        // transition is involved, which is why this is not the settle helper.
+        await expect.poll(() => page.evaluate(() =>
+            getComputedStyle(document.querySelector('.neo-layout-cube'))
+                .getPropertyValue('--side-x').trim()
+        ), {message: 'the resized cube reaches its new side length'}).toBe('500px');
 
         const after = await page.evaluate(() => {
             const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
