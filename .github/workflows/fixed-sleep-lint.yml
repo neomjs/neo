@@ -6,10 +6,12 @@ on:
   pull_request:
     branches: [dev]
     paths:
-      # The invariant is scanned ⊆ watched. The guard walks every unit spec, so every unit spec must
-      # re-run it; a filter narrower than the scan lets the introducing PR land ungated and turns the
+      # The invariant is scanned ⊆ watched. This list must equal the guard's `SCAN_ROOTS`, which is the
+      # authority; a filter narrower than the scan lets the introducing PR land ungated and turns the
       # NEXT unrelated run red — late, misattributed enforcement.
       - 'test/playwright/unit/**/*.mjs'
+      - 'test/playwright/component/**/*.mjs'
+      - 'test/playwright/e2e/**/*.mjs'
       # The baseline is an INPUT to the verdict, so editing it must re-run the check. Otherwise a site
       # can be blessed by editing the record of what exists, with nothing re-reading reality.
       - 'buildScripts/util/check-fixed-sleeps-baseline.json'
@@ -19,6 +21,8 @@ on:
     branches: [dev]
     paths:
       - 'test/playwright/unit/**/*.mjs'
+      - 'test/playwright/component/**/*.mjs'
+      - 'test/playwright/e2e/**/*.mjs'
       - 'buildScripts/util/check-fixed-sleeps-baseline.json'
       - 'buildScripts/util/check-fixed-sleeps.mjs'
       - '.github/workflows/fixed-sleep-lint.yml'

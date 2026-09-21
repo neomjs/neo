@@ -74,6 +74,9 @@ export const measureUiUpdatePerformanceInBrowser = (testName, condition) => {
 
         observer.observe(document.body, {attributes: true, childList: true, subtree: true});
 
+        // out-waits: the UI update this benchmark is timing. It is the failure deadline, not a wait —
+        // the happy path clears it in the observer above, so this elapses only when the condition never
+        // becomes true and the benchmark has nothing to report.
         const timeoutId = setTimeout(() => {
             observer.disconnect();
             reject(new Error(`UI update benchmark timed out for "${testName}".`));

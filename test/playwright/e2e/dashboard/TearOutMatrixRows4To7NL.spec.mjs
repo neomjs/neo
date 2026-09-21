@@ -245,6 +245,9 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         await cdp.send('Browser.setPermission', {browserContextId, origin, permission, setting: 'denied'});
 
         const denial = await page.evaluate(async () => {
+            // out-waits: the CDP-denied permission round trip below. This is the losing arm of a
+            // `Promise.race` — a labelled deadline that turns a hung query into a readable `timeout`
+            // outcome instead of a suite hang. It never elapses when the query settles or rejects.
             const timeout    = label => new Promise(resolve => setTimeout(() => resolve({outcome: 'timeout', label}), 2000)),
                   permission = await Promise.race([
                       navigator.permissions.query({name: 'window-management'})
