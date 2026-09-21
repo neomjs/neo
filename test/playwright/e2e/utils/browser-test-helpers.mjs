@@ -1,3 +1,10 @@
+/**
+ * @summary The failure deadline for {@link measureUiUpdatePerformanceInBrowser}, matching the
+ * `timeout` default its sibling above already exposes as an option.
+ * @member {Number} UI_UPDATE_BENCHMARK_TIMEOUT_MS=30000
+ */
+const UI_UPDATE_BENCHMARK_TIMEOUT_MS = 30000;
+
 export const measurePerformanceInBrowser = (testName, action, condition, passThrough, { timeout = 30000, resolveOnTimeout = false } = {}) => {
     return new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => {
@@ -74,13 +81,14 @@ export const measureUiUpdatePerformanceInBrowser = (testName, condition) => {
 
         observer.observe(document.body, {attributes: true, childList: true, subtree: true});
 
-        // out-waits: the UI update this benchmark is timing. It is the failure deadline, not a wait —
-        // the happy path clears it in the observer above, so this elapses only when the condition never
-        // becomes true and the benchmark has nothing to report.
+        // A failure deadline, not a wait: the observer above clears it on the happy path, so it costs
+        // nothing on a green run and fires only to fail a wedged one. Named rather than marked —
+        // `out-waits:` would enter this in the guard's "wall clock still paid" backlog, which is a
+        // number about time actually spent, and no green run ever spends this.
         const timeoutId = setTimeout(() => {
             observer.disconnect();
             reject(new Error(`UI update benchmark timed out for "${testName}".`));
-        }, 30000);
+        }, UI_UPDATE_BENCHMARK_TIMEOUT_MS);
 
         const startTime = performance.now(); // Measurement starts here
         // The action (store.add) is assumed to have just happened
