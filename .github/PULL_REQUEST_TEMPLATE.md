@@ -12,8 +12,8 @@ Resolves #
 <!-- Exactly one issue, and this PR must fully deliver it. -->
 
 <!-- Only finishing part of it? Please don't open a second issue for your part. Say so on the
-     issue instead — a maintainer splits it into pieces one PR can finish, and then this line
-     points at yours. -->
+     issue and a maintainer will sort the scope out with you, so this line ends up naming one
+     issue you fully deliver. -->
 
 <!-- If this PR doesn't resolve an issue, please explain why: -->
 
