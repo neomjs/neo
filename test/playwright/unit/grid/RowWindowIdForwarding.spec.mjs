@@ -50,20 +50,19 @@ test.describe('Neo.grid.Row forwards windowId to its cell components', () => {
     test('a canvas cell drops its registration on the id change and re-registers with the new windowId on remount', async () => {
         const transfers      = [],
               mainThread     = Neo.main ??= {},
-              workers        = Neo.worker ??= {},
-              originalAccess = mainThread.DomAccess,
-              originalCanvas = workers.Canvas;
+              originalAccess = mainThread.DomAccess;
 
-        // The single-thread unit run has neither a main thread nor a canvas worker: record the
-        // transfer and answer it the way the addon does, by resolving the component's registration
-        // callback for that node; accept the unregister a registered canvas issues on teardown.
+        // The single-thread unit run has no main thread: record the registration and answer it the way
+        // the addon does. A registration is now AWAITED rather than answered through a stored callback,
+        // so resolving is the return value and there is nothing to look up on the component; accept the
+        // release a registered presenter issues on teardown.
         mainThread.DomAccess = {
-            transferCanvasToWorker(opts) {
+            registerPresenter(opts) {
                 transfers.push(opts);
-                Neo.getComponent(opts.componentId)?.registerCanvasCallbacks?.[opts.nodeId]?.()
-            }
+                return {success: true}
+            },
+            unregisterPresenter() {}
         };
-        workers.Canvas = {unregisterCanvas() {}};
 
         try {
             row  = Neo.create(Row,    {appName: APP, windowId: 'w1'});
@@ -83,8 +82,7 @@ test.describe('Neo.grid.Row forwards windowId to its cell components', () => {
         } finally {
             cell?.destroy?.();
             cell = null;
-            mainThread.DomAccess = originalAccess;
-            workers.Canvas       = originalCanvas
+            mainThread.DomAccess = originalAccess
         }
     });
 });

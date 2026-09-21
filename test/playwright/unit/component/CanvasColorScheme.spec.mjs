@@ -103,7 +103,7 @@ test.describe('a canvas hands the resolved scheme to its renderer', () => {
 
     let calls          = [],
         instance       = null,
-        originalCanvas = null;
+        originalAccess = null;
 
     test.beforeEach(() => {
         calls = [];
@@ -116,20 +116,23 @@ test.describe('a canvas hands the resolved scheme to its renderer', () => {
             updateSize  : () => {}
         });
 
-        // `Canvas#destroy` unregisters through the Canvas Worker, which the unit engine does not
-        // start. Without this the teardown throws and the failure reads as the arm's, not the rig's.
-        originalCanvas    = Neo.worker.Canvas;
-        Neo.worker.Canvas = {unregisterCanvas: () => {}}
+        // `Canvas#destroy` releases its presenter through `main.DomAccess`, which the unit engine does
+        // not start. Without this the teardown throws and the failure reads as the arm's, not the rig's.
+        // Augmented, not replaced: the unit engine's DomAccess already answers `getBoundingClientRect`,
+        // which the component needs on the same path, and swapping the whole object takes that with it.
+        originalAccess     = Neo.main?.DomAccess;
+        Neo.main         ??= {};
+        Neo.main.DomAccess = {...originalAccess, unregisterPresenter: () => {}}
     });
 
     test.afterEach(() => {
         instance?.destroy();
         instance = null;
 
-        if (originalCanvas === undefined) {
-            delete Neo.worker.Canvas
+        if (originalAccess === undefined) {
+            delete Neo.main.DomAccess
         } else {
-            Neo.worker.Canvas = originalCanvas
+            Neo.main.DomAccess = originalAccess
         }
 
         delete Neo.test?.canvas?.ColorSchemeDouble
