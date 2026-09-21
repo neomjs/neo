@@ -95,14 +95,33 @@ class Canvas extends Base {
     }
 
     /**
-     * Overrides worker/Base to handle specific messages like registerCanvasDirect
+     * @summary Handles the messages a document sends this worker directly, bypassing the App Worker.
+     *
+     * A frame is replied to `msg.windowId`, never to `'main'`. In a SharedWorker `'main'` names no single
+     * document — {@link Neo.worker.Base#sendMessage} warns on it for exactly that reason — and a frame that
+     * cannot say which document it is for is a frame that can paint into the wrong one.
+     *
      * @param {MessageEvent} e
      */
     onMessage(e) {
-        let msg = e.data;
+        let me  = this,
+            msg = e.data;
 
         if (msg.action === 'registerCanvasDirect') {
-            this.registerCanvasDirect(msg)
+            me.registerCanvasDirect(msg)
+        } else if (msg.action === 'createPresenterCanvas') {
+            me.createPresenterCanvas(msg);
+            me.sendMessage(msg.windowId, {action: 'presenterCanvasReady', nodeId: msg.nodeId})
+        } else if (msg.action === 'readFrame') {
+            let frame = me.readFrame(msg);
+
+            frame.success && me.sendMessage(msg.windowId, {
+                action: 'presenterFrame',
+                buffer: frame.buffer,
+                height: frame.height,
+                nodeId: msg.nodeId,
+                width : frame.width
+            }, [frame.buffer])
         } else {
             super.onMessage(e)
         }
@@ -130,6 +149,67 @@ class Canvas extends Base {
                 module.onStart()
             })
         }
+    }
+
+    /**
+     * @summary Creates a canvas this worker OWNS, rather than adopting one a document transferred in.
+     *
+     * The distinction is the whole point. A canvas that arrives from a document carries that document's
+     * renderer process with it, and painting into it from a worker hosted elsewhere is what terminates the
+     * host — the failure this path exists to make unreachable. A canvas constructed here belongs to this
+     * worker, so no paint ever crosses a process boundary and the scene, the contexts and the render loop
+     * stay shared exactly as they are today.
+     *
+     * Registration lands in the same two maps as an adopted canvas, so {@link Neo.canvas.Base#waitForCanvas}
+     * finds it without knowing which kind it got. That is why the renderers need no change: they only ever
+     * ask for a 2d context and a size, and both are identical on an `OffscreenCanvas` the worker built.
+     *
+     * Sizes are LOGICAL CSS pixels. `devicePixelRatio` is backing-store resolution and belongs to whoever
+     * presents the frame, never to a coordinate.
+     *
+     * @param {Object} data
+     * @param {Number} data.height
+     * @param {String} data.nodeId
+     * @param {Number} data.width
+     * @param {String} data.windowId
+     * @returns {Object} {success: Boolean}
+     */
+    createPresenterCanvas({height, nodeId, width, windowId}) {
+        this.registerCanvas({node: new OffscreenCanvas(width, height), nodeId, windowId});
+
+        return {success: true}
+    }
+
+    /**
+     * @summary Reads a worker-owned canvas's current pixels as a transferable RGBA buffer.
+     *
+     * The transport is a transferable `ArrayBuffer` rather than an `ImageBitmap` because only the pixel
+     * buffer survives in every engine we support: bitmap delivery is a Chromium-only capability for a
+     * client outside the producing document, and a path that works in one engine is not a path.
+     *
+     * This is a PULL, answered from the worker's message queue, and that is what makes it safe without any
+     * cooperation from a renderer. A renderer paints its frame synchronously and only then schedules the
+     * next one, so a read served between messages can never observe a half-drawn frame. Nothing here needs
+     * a renderer to announce that it finished, which is why no renderer changes.
+     *
+     * Transferring detaches the buffer, so each read allocates a fresh one; the caller owns what it
+     * receives and is responsible for releasing it.
+     *
+     * @param {Object} data
+     * @param {String} data.nodeId
+     * @param {String} data.windowId
+     * @returns {Object} {success: Boolean, buffer: ArrayBuffer, height: Number, width: Number}
+     */
+    readFrame({nodeId, windowId}) {
+        let canvas = this.canvasWindowMap[nodeId]?.[windowId];
+
+        if (!canvas) {
+            return {success: false}
+        }
+
+        let image = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+
+        return {buffer: image.data.buffer, height: image.height, success: true, width: image.width}
     }
 
     /**
