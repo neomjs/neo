@@ -12,6 +12,7 @@ import Observable from '../core/Observable.mjs';
  * - **Value Transformation:** The `useTransformValue` config allows values to be normalized before comparison (e.g., lowercasing strings for case-insensitive sorting).
  * - **Custom Sorting:** The `sortBy` config allows providing a fully custom comparison function, overriding the default property-based logic.
  * - **Null Handling:** `null` and `undefined` values are always pushed to the bottom of the sorted results, regardless of the sort direction (`ASC` or `DESC`), ensuring stable transitivity and predictable UI rendering.
+ * - **Mixed Types:** a number sorts before a string that does not coerce to one, and unlike the null rule this rank follows the sort direction. Without it `5` and `'abc'` report a tie while `5` and `1` do not, which is intransitive and lets `Array.prototype.sort` emit an order that depends on the element count. {@link #compareValues} holds both rules, so this path and `Neo.collection.Base#doSort` cannot drift apart.
  *
  * @class Neo.collection.Sorter
  * @extends Neo.core.Base
@@ -124,18 +125,64 @@ class Sorter extends Base {
             b = me.transformValue(b);
         }
 
+        return Sorter.compareValues(a, b, me.directionMultiplier)
+    }
+
+    /**
+     * @summary The one ordering rule every collection sort uses, for a single already-transformed value pair.
+     *
+     * `Neo.collection.Base#doSort` reads it for its mapped-value path and {@link #defaultSortBy} for the
+     * `sortBy`-free path. They share it rather than each spelling it out, because the two paths disagreeing
+     * is the defect class this method exists to make impossible: an earlier nullish repair reached one of
+     * them and not the other.
+     *
+     * Two rules sit ahead of `>` / `<`, and they answer different questions:
+     *
+     * - **Absence** — `null` and `undefined` sink on ASC *and* DESC, ignoring `directionMultiplier`. "No value"
+     *   is not a position in the ordering, so it does not flip with the ordering.
+     * - **Type rank** — a number sorts before a string that does not coerce to a number, and this rank DOES
+     *   obey `directionMultiplier`, so DESC puts such strings first. Both operands are present values, so this
+     *   is an ordering question, not a presence one; inheriting the nullish behaviour here would quietly assert
+     *   that a string is a kind of absence.
+     *
+     * The type rank exists because `5 > 'abc'` and `5 < 'abc'` are both `false`, so the relational operators
+     * report a tie for the pair while still ordering `5` against `1` — an intransitive relation, which
+     * `Array.prototype.sort` is not specified for. The emitted order then depends on the element count and the
+     * engine's algorithm rather than on the data. A documented tie would not fix that; only removing it does.
+     *
+     * Strings that DO coerce are untouched: `'10'` against `5` still compares as ten, because only a pair whose
+     * string side yields `NaN` reaches the rank.
+     *
+     * @param {*} a First already-transformed value.
+     * @param {*} b Second already-transformed value.
+     * @param {Number} directionMultiplier `1` for ASC, `-1` for DESC.
+     * @returns {Number} `-1`, `0` or `1`; `0` only for genuinely equal values.
+     */
+    static compareValues(a, b, directionMultiplier) {
         if (a == null && b != null) return  1;
         if (a != null && b == null) return -1;
 
+        const
+            aIsNumber = typeof a === 'number',
+            bIsNumber = typeof b === 'number';
+
+        if (aIsNumber !== bIsNumber) {
+            const other = aIsNumber ? b : a;
+
+            if (typeof other === 'string' && Number.isNaN(Number(other))) {
+                return (aIsNumber ? -1 : 1) * directionMultiplier
+            }
+        }
+
         if (a > b) {
-            return 1 * me.directionMultiplier;
+            return 1 * directionMultiplier
         }
 
         if (a < b) {
-            return -1 * me.directionMultiplier;
+            return -1 * directionMultiplier
         }
 
-        return 0;
+        return 0
     }
 
     /**

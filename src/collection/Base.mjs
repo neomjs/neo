@@ -754,16 +754,10 @@ class Collection extends Base {
                         sortProperty = sortProperties[i];
                         val1         = a[sortProperty];
                         val2         = b[sortProperty];
+                        sortValue    = Sorter.compareValues(val1, val2, sortDirections[i]);
 
-                        if (val1 == null && val2 != null) return  1;
-                        if (val1 != null && val2 == null) return -1;
-
-                        if (val1 > val2) {
-                            return 1 * sortDirections[i]
-                        }
-
-                        if (val1 < val2) {
-                            return -1 * sortDirections[i]
+                        if (sortValue !== 0) {
+                            return sortValue
                         }
                     }
 
