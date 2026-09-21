@@ -245,8 +245,14 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         await cdp.send('Browser.setPermission', {browserContextId, origin, permission, setting: 'denied'});
 
         const denial = await page.evaluate(async () => {
-            const timeout    = label => new Promise(resolve => setTimeout(() => resolve({outcome: 'timeout', label}), 2000)),
-                  permission = await Promise.race([
+            // A labelled deadline that turns a hung permission query into a readable `timeout`
+            // outcome instead of a suite hang. `Promise.race` does not cancel its losing arm, so this
+            // timer still fires — it just does not delay completion, because the race has already
+            // settled on the query. Named rather than `out-waits:`-marked for that reason: the guard's
+            // backlog counts wall clock actually paid, and a losing race arm pays none of it.
+            const DENIAL_QUERY_DEADLINE_MS = 2000,
+                  timeout                  = label => new Promise(resolve => setTimeout(() => resolve({outcome: 'timeout', label}), DENIAL_QUERY_DEADLINE_MS)),
+                  permission               = await Promise.race([
                       navigator.permissions.query({name: 'window-management'})
                           .then(({state}) => ({outcome: 'settled', state}))
                           .catch(error => ({errorName: error.name, outcome: 'rejected'})),

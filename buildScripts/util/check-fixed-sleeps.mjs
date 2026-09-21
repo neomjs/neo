@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
- * @summary Fails a unit spec that waits a fixed second-scale sleep without saying what it is waiting for.
+ * @summary Fails a spec that waits a fixed second-scale sleep without saying what it is waiting for.
+ *
+ * Scans the unit, component and e2e tiers — see {@link SCAN_ROOTS}. Two boundaries are deliberate and
+ * neither is a synonym for "sleep": "second-scale" is {@link THRESHOLD_MS}, so an unexplained
+ * sub-second wait is outside this guard; and the detector matches `setTimeout` call shapes only, so
+ * Playwright's `page.waitForTimeout` is outside it too, at every threshold.
  *
  * ## The defect this is actually about
  *
@@ -100,7 +105,12 @@ const
     JUSTIFICATIONS = ['wall-clock-under-test:', 'out-waits:'],
     LOOKBEHIND     = 3,
     ROOT_DIR       = process.cwd(),
-    SCAN_ROOT      = 'test/playwright/unit',
+    // Plural because the guard shipped watching the tier with the fewest sleeps. The e2e tier held an
+    // unexplained twelve-second wait (`e2e/grid/RowPinning.spec.mjs`) that nothing could report, and
+    // the component tier held none — added anyway, so the first one to arrive is caught rather than
+    // found by a reviewer. A root added here must be added to `fixed-sleep-lint.yml`'s `paths:` in the
+    // same edit; `ScanSurfaceAlignment.spec.mjs` fails the `scanned ⊆ watched` invariant if it is not.
+    SCAN_ROOTS     = Object.freeze(['test/playwright/unit', 'test/playwright/component', 'test/playwright/e2e']),
     THRESHOLD_MS   = 1000,
     // ECMAScript ends a line on four terminators, not one. The parser counts all of them, so a guard
     // that splits on `\n` alone disagrees with the tree it is reading — and the disagreement is not
@@ -207,7 +217,7 @@ function isSelfNamingDeadline(callback) {
 // an INPUT to the verdict, so a run that does not re-trigger on a baseline edit would let a site be
 // blessed by editing the record of what exists, with nothing re-reading reality.
 export const SCAN_SURFACE = Object.freeze([
-    `${SCAN_ROOT}/**/*.mjs`,
+    ...SCAN_ROOTS.map(root => `${root}/**/*.mjs`),
     BASELINE_REL
 ]);
 
@@ -237,12 +247,12 @@ function collectSpecs(dir, out = []) {
  * puts the explanation in a comment block over the `await`, not trailing it.
  * @param {Object} [options]
  * @param {String} [options.rootDir] Repo root.
- * @param {String[]} [options.files] Absolute spec paths; defaults to the whole unit tree.
+ * @param {String[]} [options.files] Absolute spec paths; defaults to every tree in {@link SCAN_ROOTS}.
  * @returns {{backlog: Array<Object>, sites: Array<{file: String, line: Number, ms: Number, text: String}>}}
  */
 export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
     const
-        specs   = files || collectSpecs(path.join(rootDir, SCAN_ROOT)),
+        specs   = files || SCAN_ROOTS.flatMap(root => collectSpecs(path.join(rootDir, root))),
         backlog = [],
         found   = [];
 

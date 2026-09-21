@@ -153,7 +153,12 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
 
             requestAnimationFrame(monitor);
 
-            // Let it run while playwright scrolls
+            // Let it run while playwright scrolls. The rAF monitor above is what `blankFrames` and
+            // `bounces` are counted from, and both are asserted once `evaluationPromise` is awaited
+            // further down — after the wheel profiles have run.
+            // wall-clock-under-test: the telemetry window, not a wait for a state change. It has to
+            // outlast the whole gesture sequence driven from outside this `page.evaluate`, which is
+            // what makes it a duration rather than a condition.
             await new Promise(r => setTimeout(r, 12000));
             isRunning = false;
 
