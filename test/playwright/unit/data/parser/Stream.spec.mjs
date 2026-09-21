@@ -16,7 +16,7 @@ import StreamParser   from '../../../../../src/data/parser/Stream.mjs';
 /**
  * @summary Tests for Neo.data.parser.Stream
  */
-test.describe.serial('Neo.data.parser.Stream', () => {
+test.describe('Neo.data.parser.Stream', () => {
     let parser;
 
     test.beforeEach(() => {

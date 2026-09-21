@@ -25,7 +25,7 @@ import RecordFactory   from '../../../../src/data/RecordFactory.mjs';
  * 3. Version does not increment for redundant updates (identical values).
  * 4. Version increments only once for bulk updates (record.set()).
  */
-test.describe.serial('Neo.data.RecordFactory', () => {
+test.describe('Neo.data.RecordFactory', () => {
     let model;
 
     test.beforeEach(() => {

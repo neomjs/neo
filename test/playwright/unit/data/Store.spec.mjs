@@ -19,7 +19,7 @@ import Store          from '../../../../src/data/Store.mjs';
 /**
  * @summary Tests for Neo.data.Store
  */
-test.describe.serial('Neo.data.Store', () => {
+test.describe('Neo.data.Store', () => {
     let store;
 
     test.beforeEach(() => {
