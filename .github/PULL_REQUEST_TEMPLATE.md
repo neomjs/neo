@@ -5,12 +5,18 @@ https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
 <!-- PULL REQUEST TEMPLATE -->
 <!-- (Update "[ ]" to "[x]" to check a box) -->
 
-**Does this PR resolve an issue?** (Required — keep one line, delete the other)
+**Does this PR resolve an issue?** (Required)
 
-Closes #    <!-- this PR finishes the issue -->
-Refs #      <!-- this PR is one slice of it; the issue stays open for the rest -->
+Resolves #
 
-<!-- If this PR doesn't close an issue, please explain why: -->
+<!-- Exactly one issue, and this PR must fully deliver it. `Resolves` rather than `Closes`: an
+     issue can be closed without being resolved, and this line states that the work is done. -->
+
+<!-- Delivering only PART of a larger issue? Open a small issue for your slice, resolve that one
+     here, and add `Refs #<the larger issue>` on its own line so the two are linked. The larger
+     issue stays open for the rest. -->
+
+<!-- If this PR doesn't resolve an issue, please explain why: -->
 
 <!-- PRs without issue references may be closed. Please create an issue first if one doesn't exist. -->
 
