@@ -459,6 +459,45 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
         }
     });
 
+    test('an escaped computed name is a site, and the pre-parse filter admits it (#19030)', async () => {
+        // A computed property is a STRING, so the escape language that can spell `waitForTimeout` is
+        // much larger than the IdentifierName one the `\u` admission was written for. Each spelling
+        // below calls the real method — asserted here rather than assumed, because a fixture that does
+        // not run is a fixture that can drift from the runtime it claims to mirror.
+        //
+        // None of them contains the substring `waitForTimeout`, so they are also the gate-2 control:
+        // no `setTimeout` token appears either, and only the backslash admission lets them be parsed.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir  = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-esc-')),
+            hex  = "page['waitFor\\x54imeout'](3000);",
+            nonE = "page['waitForTim\\eout'](3000);",
+            cont = "page['waitForTime\\\nout'](3000);";
+
+        try {
+            for (const [name, source] of [['hex', hex], ['non-escape', nonE], ['continuation', cont]]) {
+                const fixture = path.join(dir, `${name}.spec.mjs`);
+
+                fs.writeFileSync(fixture, source, 'utf8');
+
+                let called = null;
+
+                new Function('page', source)({waitForTimeout: ms => { called = ms }});
+
+                expect(called, `${name}: the spelling reaches the real method`).toBe(3000);
+
+                expect(source.includes('waitForTimeout'), `${name}: and carries no literal token`).toBe(false);
+
+                const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+                expect(sites.map(site => site.ms), `${name}: so the guard must see it anyway`).toEqual([3000])
+            }
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
     test('importing the module runs no lint and exits no process', () => {
         // The module exports SCAN_SURFACE so the workflow-parity spec can import it as authority. Its
         // CLI body must therefore stay behind a direct-invocation guard: an unguarded top-level body

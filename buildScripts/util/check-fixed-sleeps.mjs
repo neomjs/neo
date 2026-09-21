@@ -304,20 +304,26 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
         // while the source contains no such substring. The filter is conservative over the token, not
         // over the IdentifierName language acorn actually accepts.
         //
-        // So a file is admitted when it carries the token OR any Unicode escape — `\u` covers both
-        // `\uXXXX` and `\u{X}` forms, and an escaped identifier cannot exist without one. That keeps
-        // the filter cheap (escapes are rare in specs) while making its claim true: a skipped file can
-        // contain neither a plain nor an escaped `setTimeout` callee.
+        // The line above predicted its own next failure, and it was right: *"widening `fixedWaitMs`
+        // beyond a `setTimeout` Identifier callee invalidates this argument again."* Admitting a
+        // `MemberExpression` callee did exactly that, because a computed property is a STRING, and the
+        // string-escape language is far larger than the IdentifierName one. `page['waitFor\x54imeout']`,
+        // `page['waitForTim\eout']` and a quoted name split by a backslash-newline continuation all
+        // call the real method and all contain no `waitForTimeout` substring. Found by @neo-gpt with
+        // three runtime-verified spellings.
         //
-        // Widening `fixedWaitMs` beyond a `setTimeout` Identifier callee invalidates this argument
-        // again, and the equivalence spec is what will say so.
+        // So the admission is now ANY BACKSLASH rather than a whitelist of escape forms. Every one of
+        // those spellings needs one, and so does every escape form nobody has thought of yet — which is
+        // the point: a conservative superset of the recognized language survives the next widening,
+        // where a partial whitelist has to be rediscovered by a probe each time. Measured cost on this
+        // tree: 338 of 672 spec files parsed rather than 185, and the whole run is 0.37s.
         //
         // It DOES narrow one thing, and the narrowing is deliberate: a file that fails to parse is no
         // longer reported unless it carries the token, because it is no longer parsed. The verdict is
         // unaffected — no token, no call to miss — but this guard used to surface broken files as a
         // side effect and now does so only for files it would actually have inspected. "Does every
         // file parse" is `check-parse.mjs`, which runs in the same pre-commit set and owns it.
-        if (!source.includes('setTimeout') && !source.includes('waitForTimeout') && !source.includes('\\u')) continue;
+        if (!source.includes('setTimeout') && !source.includes('waitForTimeout') && !source.includes('\\')) continue;
 
         let tree;
 
