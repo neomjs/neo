@@ -85,26 +85,13 @@ class Canvas extends Component {
             }
 
             if (offscreen) {
-                me.registerCanvasCallbacks ??= {};
+                await Neo.main.DomAccess.registerPresenter({nodeId: id, windowId});
 
-                let promise = new Promise(resolve => {
-                    me.registerCanvasCallbacks[id] = resolve;
-                });
-
-                Neo.main.DomAccess.transferCanvasToWorker({
-                    componentId: me.id,
-                    nodeId     : id,
-                    windowId
-                });
-
-                await promise;
-                me.offscreenRegistered = true;
+                me.offscreenRegistered = true
             }
         } else if (offscreen) {
             if (me.offscreenRegistered) {
-                Neo.worker.Canvas.unregisterCanvas({
-                    nodeId: id
-                })
+                Neo.main.DomAccess.unregisterPresenter({nodeId: id})
             }
 
             me.offscreenRegistered = false
@@ -131,9 +118,7 @@ class Canvas extends Component {
      */
     destroy(...args) {
         if (this.offscreenRegistered) {
-            Neo.worker.Canvas.unregisterCanvas({
-                nodeId: this.id
-            })
+            Neo.main.DomAccess.unregisterPresenter({nodeId: this.id})
         }
 
         super.destroy(...args)

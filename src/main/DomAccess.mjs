@@ -86,6 +86,7 @@ class DomAccess extends Base {
                 'measure',
                 'monitorAutoGrow',
                 'monitorAutoGrowHandler',
+                'registerPresenter',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
@@ -98,6 +99,7 @@ class DomAccess extends Base {
                 'transferCanvasToWorker',
                 'trapFocus',
                 'unalign',
+                'unregisterPresenter',
                 'waitForAnimation',
                 'windowScrollTo'
             ]
@@ -1402,6 +1404,100 @@ class DomAccess extends Base {
             } else {
                 this._modalMask?.remove()
             }
+        }
+    }
+
+    /**
+     * @summary Registers a document-local presenter for a canvas the Canvas Worker will own.
+     *
+     * This is the replacement for transferring a DOM canvas into a worker, and the difference is the point:
+     * the node stays here, keeps its own 2d context, and never leaves this process. The worker builds its
+     * own canvas for the same id and renders into that, so no worker ever paints into a canvas belonging to
+     * a document it does not host — which is the failure this path exists to make unreachable.
+     *
+     * Sizes are LOGICAL CSS pixels, read from the node. `devicePixelRatio` is backing-store resolution and
+     * is applied where pixels are produced, never folded into a size a coordinate is later compared against.
+     *
+     * Resolves once the worker confirms its canvas exists, so a caller can await a registration rather than
+     * hold a callback until some later message happens to arrive.
+     *
+     * @param {Object} data
+     * @param {String} data.nodeId
+     * @param {String} data.windowId
+     * @returns {Promise<Object>} {success: Boolean}
+     */
+    async registerPresenter({nodeId, windowId}) {
+        let me   = this,
+            node = me.getElement(nodeId);
+
+        if (!node) {
+            return {success: false}
+        }
+
+        me.presenters ??= {};
+
+        let height = node.clientHeight || node.height,
+            width  = node.clientWidth  || node.width;
+
+        await Neo.worker.Manager.promiseMessage('canvas', {action: 'createPresenterCanvas', height, nodeId, width, windowId});
+
+        me.presenters[nodeId] = {context: node.getContext('2d'), running: true, windowId};
+
+        me.presentFrames(nodeId);
+
+        return {success: true}
+    }
+
+    /**
+     * @summary Pulls frames for one presenter and paints them locally, until it is unregistered.
+     *
+     * A pull rather than a push, and that is what keeps every renderer unchanged. A renderer paints its
+     * frame synchronously and only then schedules the next, so a read answered from the worker's message
+     * queue lands between frames without the renderer having to announce anything.
+     *
+     * Paced by `requestAnimationFrame`, so the loop costs what the document can actually present and a
+     * hidden document stops asking. One frame is in flight at a time by construction — the next request is
+     * only made after the previous one has been painted — which is the bound on outstanding frames.
+     *
+     * @param {String} nodeId
+     * @protected
+     */
+    async presentFrames(nodeId) {
+        let me    = this,
+            entry = me.presenters[nodeId];
+
+        while (entry?.running) {
+            let frame = await Neo.worker.Manager.promiseMessage('canvas', {
+                action: 'readFrame', nodeId, windowId: entry.windowId
+            });
+
+            // Re-read: an await is a gap, and the presenter can be unregistered inside it. Painting a frame
+            // into a context whose component has gone is the stale-delivery case this loop must not create.
+            entry = me.presenters[nodeId];
+
+            if (entry?.running && frame?.success) {
+                entry.context.putImageData(new ImageData(new Uint8ClampedArray(frame.buffer), frame.width, frame.height), 0, 0)
+            }
+
+            await new Promise(resolve => requestAnimationFrame(resolve))
+        }
+    }
+
+    /**
+     * @summary Stops a presenter's frame loop and releases its context.
+     *
+     * Scoped to the one node. The worker keeps its canvas and its scene state, because a component
+     * unmounting in one document says nothing about the others presenting the same scene.
+     *
+     * @param {Object} data
+     * @param {String} data.nodeId
+     */
+    unregisterPresenter({nodeId}) {
+        let entry = this.presenters?.[nodeId];
+
+        if (entry) {
+            entry.running = false;
+            delete this.presenters[nodeId]
         }
     }
 
