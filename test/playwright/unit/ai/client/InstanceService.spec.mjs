@@ -10,7 +10,7 @@ import InstanceService from '../../../../../src/ai/client/InstanceService.mjs';
  * value — a silently-truncated deep read produces confident false negatives in exactly the
  * whitebox probes the wire exists for.
  */
-test.describe.serial('Neo.ai.client.Service.safeSerialize — truncation visibility', () => {
+test.describe('Neo.ai.client.Service.safeSerialize — truncation visibility', () => {
     let service;
 
     test.beforeAll(() => {

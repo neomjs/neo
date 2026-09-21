@@ -277,7 +277,7 @@ function installWindowConnectHarness(workspace) {
  * side of pop-out (real popup + reparent) is live-surface behavior; the e2e sibling leaf
  * owns it post-merge — these specs pin every seam the workspace itself decides.
  */
-test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
+test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
     let hostGroupId,
         workspace;
 

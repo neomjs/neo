@@ -58,7 +58,7 @@ function installWindowVessel({openError = null, openResult = true} = {}) {
  * detached ownership. The suite drives the real `Container` instance because both boundary callers
  * close over private drag-state latches that a prototype-only fake cannot witness.
  */
-test.describe.serial('Neo.dashboard.Container — popup admission', () => {
+test.describe('Neo.dashboard.Container — popup admission', () => {
     let container, vessel;
 
     const rect   = () => ({height: 530, width: 640, x: 40, y: 50}),

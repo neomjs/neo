@@ -26,7 +26,7 @@ function move(windowId, x, y) {
     WindowManager.onWindowPositionChange({windowId, screenLeft: x, screenTop: y, outerWidth: 420, outerHeight: 340, innerWidth: 400, innerHeight: 300})
 }
 
-test.describe.serial('Dock relative placement participant', () => {
+test.describe('Dock relative placement participant', () => {
     let groupId, placement, workspaces, settleMs;
     const mainWindow = 'placement-main-window', popupWindow = 'placement-popup-window';
 

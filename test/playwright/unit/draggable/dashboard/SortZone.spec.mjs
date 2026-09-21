@@ -16,7 +16,7 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
 /**
  * @summary Tests for Neo.draggable.dashboard.SortZone directional thresholds
  */
-test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () => {
+test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
     let DashboardContainer, DashboardSortZone, Rectangle, dwellConfigOnEntry, realApplyDeltas,
         realDragCoordinatorOnDragEnd, realDragCoordinatorOnWindowPositionChange, sortZone;
 

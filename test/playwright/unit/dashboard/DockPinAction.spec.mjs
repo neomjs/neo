@@ -78,7 +78,7 @@ function collapseInspector(workspace) {
     return workspace.handleDockPinAction({dockNodeId: 'inspector-tabs', tabContainer})
 }
 
-test.describe.serial('Dock pin action', () => {
+test.describe('Dock pin action', () => {
     let groupId, set;
 
     test.beforeEach(() => {

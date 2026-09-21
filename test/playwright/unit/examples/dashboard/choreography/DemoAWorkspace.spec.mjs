@@ -23,7 +23,7 @@ import {initialDocument} from '../../../../../../examples/dashboard/choreography
  * The full choreography replay lives with the screenplay spec; the live gesture/visual
  * tier rides the reserved whitebox-e2e leaf.
  */
-test.describe.serial('Neo.examples.dashboard.choreography.DemoAWorkspace', () => {
+test.describe('Neo.examples.dashboard.choreography.DemoAWorkspace', () => {
     let workspace;
 
     test.beforeEach(() => {

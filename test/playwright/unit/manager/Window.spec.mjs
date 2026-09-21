@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
-test.describe.serial('Neo.manager.Window connection ordering (#15396)', () => {
+test.describe('Neo.manager.Window connection ordering (#15396)', () => {
     let WindowManager;
 
     test.beforeAll(async () => {
@@ -146,7 +146,7 @@ test.describe.serial('Neo.manager.Window connection ordering (#15396)', () => {
     })
 });
 
-test.describe.serial('Neo.manager.Window native route authority (#18501)', () => {
+test.describe('Neo.manager.Window native route authority (#18501)', () => {
     let WindowManager;
 
     test.beforeAll(async () => {

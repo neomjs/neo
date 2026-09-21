@@ -349,7 +349,7 @@ function registerPopupState(workspace, workspaceId, state) {
     return state
 }
 
-test.describe.serial('Workstation.view.Workspace', () => {
+test.describe('Workstation.view.Workspace', () => {
     // The app imports the manager and is admitted at registration, so a Workspace constructs with its
     // window already bound into a Group and registers its participants there. The fixture binds the
     // unit window the same way before every arm, and retires the Group after it.

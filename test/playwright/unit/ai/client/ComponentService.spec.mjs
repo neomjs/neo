@@ -3,7 +3,7 @@ import Neo              from '../../../../../src/Neo.mjs';
 import * as core        from '../../../../../src/core/_export.mjs';
 import ComponentService from '../../../../../src/ai/client/ComponentService.mjs';
 
-test.describe.serial('Neo.ai.client.ComponentService.serializeComponent', () => {
+test.describe('Neo.ai.client.ComponentService.serializeComponent', () => {
     let originalGetDirectChildren, service;
 
     test.beforeEach(() => {
@@ -45,7 +45,7 @@ test.describe.serial('Neo.ai.client.ComponentService.serializeComponent', () => 
     });
 });
 
-test.describe.serial('Neo.ai.client.ComponentService.queryComponent', () => {
+test.describe('Neo.ai.client.ComponentService.queryComponent', () => {
     let originalFind, service;
 
     test.beforeEach(() => {
@@ -75,7 +75,7 @@ test.describe.serial('Neo.ai.client.ComponentService.queryComponent', () => {
 /**
  * @summary Tests for the pure child-surface differ behind verify_component_consistency
  */
-test.describe.serial('Neo.ai.client.ComponentService.diffChildSurfaces', () => {
+test.describe('Neo.ai.client.ComponentService.diffChildSurfaces', () => {
     test('Consistent surfaces produce no mismatches', () => {
         const result = ComponentService.diffChildSurfaces({
             componentId: 'container-1',
@@ -129,7 +129,7 @@ test.describe.serial('Neo.ai.client.ComponentService.diffChildSurfaces', () => {
     });
 });
 
-test.describe.serial('Neo.ai.client.ComponentService.observeMotion', () => {
+test.describe('Neo.ai.client.ComponentService.observeMotion', () => {
     const originalNow = Date.now;
 
     let originalGetComponent, originalMain, now, service;

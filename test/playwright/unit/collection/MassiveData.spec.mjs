@@ -26,7 +26,7 @@ import InstanceManager from '../../../../src/manager/Instance.mjs';
  * 3.  Prevention of data retention/corruption when clearing a filtered store and reloading data.
  * 4.  Consistency of items between the filtered view (`store.count`) and the source (`store.allItems.count`).
  */
-test.describe.serial('Massive Data Store', () => {
+test.describe('Massive Data Store', () => {
 
     test('Add 10k items, filter, clear, add again', () => {
         const store = Neo.create(Store, {

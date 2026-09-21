@@ -9,7 +9,7 @@ import * as core      from '../../../../src/core/_export.mjs';
 /**
  * @summary Failure controls for one Group's complete semantic write, through the real manager.
  */
-test.describe.serial('Neo.manager.Transaction atomic participant writes', () => {
+test.describe('Neo.manager.Transaction atomic participant writes', () => {
     let manager;
 
     test.beforeAll(async () => {

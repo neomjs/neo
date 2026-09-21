@@ -43,7 +43,7 @@ MockComponent = Neo.setupClass(MockComponent);
  * This optimization prevents redundant execution of component factory functions
  * and avoidable calls to component.set().
  */
-test.describe.serial('Neo.grid.column.Component', () => {
+test.describe('Neo.grid.column.Component', () => {
     let column, model, record;
 
     test.beforeEach(() => {
