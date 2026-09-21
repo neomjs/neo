@@ -686,6 +686,18 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Applies the collection's sorters to `items` in place, then fires `sort` unless silenced.
+     *
+     * Two paths, one ordering rule. Once any sorter carries a custom `sortBy` this delegates per item pair
+     * to {@link Neo.collection.Sorter#defaultSortBy}; otherwise it compares the mapped values itself. Both
+     * read {@link Neo.collection.Sorter#compareValues}, which owns the rules the relational operators cannot
+     * express: `null` and `undefined` sink on ASC and DESC alike, because absence has no position in an
+     * ordering; a number sorts before a string that does not coerce to one, and that rank DOES follow the
+     * sort direction, because both operands are present values and so pose an ordering question.
+     *
+     * The paths share that method rather than each restating it. Restating it is how one of them once kept
+     * a rule the other had lost, and a comparator the two disagree on is the same inconsistency as a
+     * comparator that contradicts itself.
      *
      * @param {Object[]} items=this._items
      * @param {Boolean} silent=false
