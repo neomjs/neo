@@ -12,7 +12,7 @@ import Observable from '../core/Observable.mjs';
  * - **Value Transformation:** The `useTransformValue` config allows values to be normalized before comparison (e.g., lowercasing strings for case-insensitive sorting).
  * - **Custom Sorting:** The `sortBy` config allows providing a fully custom comparison function, overriding the default property-based logic.
  * - **Null Handling:** `null` and `undefined` values are always pushed to the bottom of the sorted results, regardless of the sort direction (`ASC` or `DESC`), ensuring stable transitivity and predictable UI rendering.
- * - **Mixed Types:** a number sorts before a string that does not coerce to one, and unlike the null rule this rank follows the sort direction. Without it `5` and `'abc'` report a tie while `5` and `1` do not, which is intransitive and lets `Array.prototype.sort` emit an order that depends on the element count. {@link #compareValues} holds both rules, so this path and `Neo.collection.Base#doSort` cannot drift apart.
+ * - **Mixed Types:** values that convert to a number sort before those that do not, and unlike the null rule this rank follows the sort direction. See {@link #compareValues}, which owns both rules.
  *
  * @class Neo.collection.Sorter
  * @extends Neo.core.Base
@@ -129,55 +129,30 @@ class Sorter extends Base {
     }
 
     /**
-     * @summary The one ordering rule every collection sort uses, for a single already-transformed value pair.
+     * @summary The one ordering rule every collection sort uses, shared by {@link #defaultSortBy} and
+     * {@link Neo.collection.Base#doSort} so the two paths cannot drift apart.
      *
-     * `Neo.collection.Base#doSort` reads it for its mapped-value path and {@link #defaultSortBy} for the
-     * `sortBy`-free path. They share it rather than each spelling it out, because the two paths disagreeing
-     * is the defect class this method exists to make impossible: an earlier nullish repair reached one of
-     * them and not the other.
+     * `null` / `undefined` sink on ASC *and* DESC — absence has no position in an ordering, so it does not
+     * flip with one. Every present value then falls on one side of a single partition: values that convert
+     * to a number — numbers **and** numeric strings — lead and order by that value; the rest order as text.
+     * That rank does follow `directionMultiplier`.
      *
-     * **Absence first.** `null` and `undefined` sink on ASC *and* DESC, ignoring `directionMultiplier`.
-     * "No value" is not a position in the ordering, so it does not flip with the ordering.
+     * Partitioned by convertibility rather than by `typeof` because a numeric string otherwise carries two
+     * orderings at once, numeric against a number and textual against a string, and no rule keeping both is
+     * transitive. So `'10'` beats `5`, and now beats `'9'` too.
      *
-     * **Then one partition, and it is the whole design.** A present value either converts to a number or it
-     * does not, and the two groups are ordered separately: everything numeric — numbers *and* the strings that
-     * convert — comes first, ordered by numeric value; everything else follows, ordered as text. That rank does
-     * obey `directionMultiplier`, because both operands are present values and so pose an ordering question
-     * rather than a presence one.
-     *
-     * **Why partition by convertibility rather than by `typeof`.** The relational operators give a numeric
-     * string two incompatible orderings at once: numeric against a number, lexical against another string. Any
-     * rule that keeps both is intransitive, and not only for the obvious pair — `5 > 'abc'` and `5 < 'abc'` are
-     * both `false`, but so is every cycle built from that split, e.g. `20 < '!' < '10' < 20`. A comparator with
-     * a cycle is one `Array.prototype.sort` is not specified for, and its output then depends on the element
-     * count and the engine rather than on the data. One ordering per value is the only way out; this keeps the
-     * numeric one, because a numeric string is a number that arrived as text — which is exactly how mixed types
-     * reach a sort here, through `data.Store` soft hydration.
-     *
-     * So `'10'` against `5` still compares as ten, and `'10'` against `'9'` now does too, where the relational
-     * operators alone would have read them as `'1'` before `'9'`.
-     *
-     * **Ties are reserved for equality.** Equal numeric value is not equality — a number precedes an equal-valued
-     * string, and two distinct such strings fall back to text order, so `'05'` precedes `'5'`. `0` is returned
-     * only for operands a caller would call the same, because a tie between distinct values is the defect this
-     * method exists to remove, not a smaller version of it.
-     *
-     * **`NaN` is governed, not excluded.** It is a number that does not convert, so it orders inside the text
-     * group by its own text form — between the numbers and any string starting past `N`. Left to the relational
-     * operators it would tie with every non-converting string at once while they still ordered among themselves,
-     * which is the original defect one type later. Operands outside the number/string domain — objects, arrays,
-     * `Date`, `Symbol` — are **not supported**: the text comparison gives them an order rather than a false tie,
-     * which is a safer failure than the alternative, but no promise is made about what that order means.
+     * Supported domain is number and string, `NaN` included — it converts to nothing, so it orders as text.
+     * Objects, arrays, `Date` and `Symbol` are **unsupported**; they get an order rather than a false tie,
+     * which is the safer failure, but nothing is promised about it.
      *
      * @param {*} a First already-transformed value.
      * @param {*} b Second already-transformed value.
      * @param {Number} directionMultiplier `1` for ASC, `-1` for DESC.
-     * @returns {Number} `-1`, `0` or `1`; `0` only for genuinely equal values.
+     * @returns {Number} `-1`, `0` or `1`; `0` only where the operands share a basis for being equal.
      */
     static compareValues(a, b, directionMultiplier) {
-        // Absence is settled in full before the partition below opens, because `Number(null)` is 0 while
-        // `Number(undefined)` is NaN — so a partition by convertibility would order the two against each
-        // other, and "missing" has no internal ordering to express.
+        // Settled in full before the partition, which would otherwise split them: Number(null) is 0,
+        // Number(undefined) is NaN.
         if (a == null || b == null) {
             if (a == null && b == null) return 0;
 
@@ -198,24 +173,13 @@ class Sorter extends Base {
             if (numericA > numericB) return  1 * directionMultiplier;
             if (numericA < numericB) return -1 * directionMultiplier;
 
-            const aIsNumber = typeof a === 'number';
-
-            // Equal numeric value, so the remaining question is which representation leads. A number
-            // precedes an equal-valued string; two strings fall through to text order below.
-            if (aIsNumber !== (typeof b === 'number')) {
-                return (aIsNumber ? -1 : 1) * directionMultiplier
-            }
-
-            if (aIsNumber) return 0
+            // Equal value is equal, whatever it was written as: `5`, `'5'` and `'05'` are one value,
+            // and a stable sort keeps their input order rather than inventing one.
+            return 0
         }
 
-        // Compared as TEXT rather than with the raw operands, which for two strings is the same
-        // comparison and for anything else is the difference between an order and a false tie. `NaN`
-        // is the case in the supported domain: it is a number that does not convert, so it lands
-        // here, and `NaN > x` / `NaN < x` are both false against every string — which ties it to all
-        // of them at once while they still order among themselves. That is the same inconsistency
-        // this method removes for `5` against `'abc'`, one type later. Its text form gives it a
-        // position instead.
+        // Text, not the raw operands: identical for two strings, and the difference between an order
+        // and a false tie for NaN, which is false against every string in both directions.
         const
             textA = String(a),
             textB = String(b);

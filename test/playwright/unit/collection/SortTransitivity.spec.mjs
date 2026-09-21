@@ -68,17 +68,25 @@ test.describe('Neo.collection sorting is a consistent ordering (#19027)', () => 
         assertConsistentOrdering((a, b) => Sorter.compareValues(a, b, -1), values);
     });
 
-    test('no pair reports a tie unless it is genuinely equal', () => {
-        // The tie is the defect: a comparator may return 0 only for values a caller would call equal.
+    test('a tie means the operands share a basis for being equal', () => {
+        // The defect was the INCOHERENT tie — operands with no common basis reported equal, e.g. 5 and
+        // 'abc'. Equal numeric value is a coherent one, so 5, '5' and '05' tie and a stable sort keeps
+        // their input order.
+        const coherentlyEqual = (a, b) => {
+            if (a == null || b == null) return a == null && b == null;
+
+            const na = Number(a),
+                  nb = Number(b);
+
+            return Number.isNaN(na) || Number.isNaN(nb) ? String(a) === String(b) : na === nb
+        };
+
         for (const a of values) {
             for (const b of values) {
-                // `NaN !== NaN`, so identity alone would demand an order between a value and itself.
-                const same = a === b || (a == null && b == null) || (Number.isNaN(a) && Number.isNaN(b));
-
                 expect(
                     Sorter.compareValues(a, b, 1) === 0,
                     `tie: ${String(a)} vs ${String(b)}`
-                ).toBe(same);
+                ).toBe(coherentlyEqual(a, b));
             }
         }
     });
@@ -113,13 +121,15 @@ test.describe('Neo.collection sorting is a consistent ordering (#19027)', () => 
         expect(Sorter.compareValues('100','20', 1)).toBe( 1);  // and agrees here, for the wrong reason
     });
 
-    test('equal numeric value is not equality', () => {
-        // A tie is reserved for operands a caller would call the same. `5` and `'5'` are not, and
-        // neither are `'05'` and `'5'` — so each gets a defined order rather than a `0`.
-        expect(Sorter.compareValues(5, '5',    1)).toBe(-1);  // the number leads
-        expect(Sorter.compareValues('5', 5,    1)).toBe( 1);
-        expect(Sorter.compareValues('05', '5', 1)).toBe(-1);  // then text order decides
-        expect(Sorter.compareValues(5, 5,      1)).toBe( 0);  // genuinely equal
+    test('one value, however it was written', () => {
+        expect(Sorter.compareValues(5, '5',    1)).toBe(0);
+        expect(Sorter.compareValues('05', '5', 1)).toBe(0);
+        expect(Sorter.compareValues(5, 5,      1)).toBe(0);
+
+        // A stable sort then keeps their input order rather than inventing one.
+        const emitted = [{v: '5'}, {v: 5}, {v: 1}].sort((a, b) => Sorter.compareValues(a.v, b.v, 1));
+
+        expect(emitted.map(item => item.v)).toEqual([1, '5', 5]);
     });
 
     test('NaN is a number that does not convert, so it is ordered as text rather than tied to every string', () => {

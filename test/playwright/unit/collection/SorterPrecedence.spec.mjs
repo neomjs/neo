@@ -158,16 +158,11 @@ test.describe('Neo.collection multi-sorter precedence', () => {
             sorters: [{direction: 'ASC', property: 'v'}]
         });
 
-        // Only null and undefined take the absence path. `''` converts to 0, so it is ordered by
-        // that value against the other numbers rather than as text — and where the value ties, the
-        // number leads the equal-valued string.
-        //
-        // This arm previously expected `['', 0, 1, null]`, which held only because `'' > 0` and
-        // `'' < 0` are both false: the two compared EQUAL and kept their input order. That tie was
-        // one instance of the comparator's inconsistency, so the recorded order was a reading of the
-        // defect rather than of the data.
+        // Only null and undefined take the early-return path. The other falsy
+        // values reach the comparison and compare equal, so they keep input
+        // order among themselves.
         expect(collection.items.map(i => [i.v, typeof i.v]))
-            .toEqual([[0, 'number'], ['', 'string'], [1, 'number'], [null, 'object']]);
+            .toEqual([['', 'string'], [0, 'number'], [1, 'number'], [null, 'object']]);
     });
 
     test('nullish values sink inside their first-key group, not to the end', () => {
@@ -199,10 +194,8 @@ test.describe('Neo.collection multi-sorter precedence', () => {
     test('a number sorts before a non-numeric string, in both directions', () => {
         // The comparator's own return values, rather than a permutation of them.
         // `5 > 'abc'` and `5 < 'abc'` are both false, so the relational operators
-        // alone report a tie for a number against any non-numeric string while two
-        // numbers still compare — an intransitive relation. A type rank ahead of
-        // them removes the tie: numbers first, and unlike the nullish rule that
-        // rank follows the sort direction, because both operands are present.
+        // alone tie them while two numbers still compare — intransitive. Values
+        // that convert to a number now lead those that do not.
         let collection = Neo.create(Collection, {
             items: [{id: 1, v: 5}, {id: 2, v: 'abc'}],
             sorters: [{direction: 'ASC', property: 'v'}]
@@ -211,18 +204,16 @@ test.describe('Neo.collection multi-sorter precedence', () => {
         const sorter = collection.sorters[0];
         const compare = (a, b) => sorter.defaultSortBy({v: a}, {v: b});
 
-        // Neither order reports a tie, which is what makes the relation a total
-        // order rather than merely a preference.
         expect(compare(5, 'abc'), 'number against non-numeric string').toBeLessThan(0);
         expect(compare('abc', 5), 'non-numeric string against number').toBeGreaterThan(0);
 
-        // Two numbers still compare, so the rank above did not replace the
-        // ordinary comparison.
+        // Two numbers still compare, so the rank did not replace the ordinary
+        // comparison.
         expect(compare(5, 1), 'number against number').toBeGreaterThan(0);
         expect(compare(1, 5), 'number against number, reversed').toBeLessThan(0);
     });
 
-    test('mixed number and non-numeric string values form a total order', () => {
+    test('mixed number and non-numeric string values form a consistent order', () => {
         let collection = Neo.create(Collection, {
             items: [
                 {id: 1, v: 5},
@@ -232,12 +223,9 @@ test.describe('Neo.collection multi-sorter precedence', () => {
             sorters: [{direction: 'ASC', property: 'v'}]
         });
 
-        // The exact permutation is assertable here, and only because the
-        // comparator is consistent: numbers ascend among themselves and the
-        // non-coercing string ranks after all of them. While the relation was
-        // intransitive this line could only pin V8's binary insertion sort, since
-        // a different stable algorithm emits a different non-order from the same
-        // comparator — so the arm required the weaker "not sorted" instead.
+        // Assertable as an exact permutation only because the comparator is now
+        // consistent; while it was not, this could pin V8's algorithm and nothing
+        // else, so the arm required the weaker "not sorted" instead.
         const emitted = collection.items.map(i => i.v);
 
         expect(emitted).toHaveLength(3);

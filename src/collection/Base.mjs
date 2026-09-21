@@ -688,22 +688,10 @@ class Collection extends Base {
     /**
      * @summary Applies the collection's sorters to `items` in place, then fires `sort` unless silenced.
      *
-     * Two paths, one ordering rule. Once any sorter carries a custom `sortBy` this delegates per item pair
-     * to {@link Neo.collection.Sorter#defaultSortBy}; otherwise it compares the mapped values itself. Both
-     * read {@link Neo.collection.Sorter#compareValues}, which owns the rules the relational operators cannot
-     * express. `null` and `undefined` sink on ASC and DESC alike, because absence has no position in an
-     * ordering. Every present value then falls on one side of a single partition: those that convert to a
-     * number — numbers *and* numeric strings — order by that value and come first; everything else orders as
-     * text. That rank follows the sort direction, because both operands are present and so pose an ordering
-     * question rather than a presence one.
-     *
-     * The partition is by convertibility rather than by type because a numeric string otherwise carries two
-     * orderings at once — numeric against a number, textual against a string — and a comparator that keeps
-     * both has cycles, which `Array.prototype.sort` is not specified for.
-     *
-     * The paths share that method rather than each restating it. Restating it is how one of them once kept
-     * a rule the other had lost, and a comparator the two disagree on is the same inconsistency as a
-     * comparator that contradicts itself.
+     * Two paths, one ordering rule: with a custom `sortBy` in play this delegates per pair to
+     * {@link Neo.collection.Sorter#defaultSortBy}, otherwise it compares the mapped values itself. Both read
+     * {@link Neo.collection.Sorter#compareValues}, which documents the ordering and owns it for exactly that
+     * reason — a rule restated in two places is a rule one of them will lose.
      *
      * @param {Object[]} items=this._items
      * @param {Boolean} silent=false
