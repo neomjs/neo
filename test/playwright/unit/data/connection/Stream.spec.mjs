@@ -16,7 +16,7 @@ import Stream         from '../../../../../src/data/connection/Stream.mjs';
 /**
  * @summary Tests for Neo.data.connection.Stream
  */
-test.describe.serial('Neo.data.connection.Stream', () => {
+test.describe('Neo.data.connection.Stream', () => {
     let connection;
 
     test.beforeEach(() => {

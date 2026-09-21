@@ -28,7 +28,7 @@ const model = {
  * If it did, Store.load()'s `if (me.pipeline)` branch would shadow the `else if (me.api)` RPC branch,
  * so an `autoLoad: true` api store would never fire its remotes-api request.
  */
-test.describe.serial('Neo.data.Store api vs pipeline', () => {
+test.describe('Neo.data.Store api vs pipeline', () => {
     test('api-configured store has pipeline === null', () => {
         const store = Neo.create(Store, {
             api: {read: 'My.backend.Service.read'},
