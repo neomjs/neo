@@ -95,36 +95,47 @@ class Canvas extends Base {
     }
 
     /**
-     * @summary Handles the messages a document sends this worker directly, bypassing the App Worker.
-     *
-     * A frame is replied to `msg.windowId`, never to `'main'`. In a SharedWorker `'main'` names no single
-     * document — {@link Neo.worker.Base#sendMessage} warns on it for exactly that reason — and a frame that
-     * cannot say which document it is for is a frame that can paint into the wrong one.
-     *
+     * Overrides worker/Base to handle specific messages like registerCanvasDirect
      * @param {MessageEvent} e
      */
     onMessage(e) {
-        let me  = this,
-            msg = e.data;
+        let msg = e.data;
 
         if (msg.action === 'registerCanvasDirect') {
-            me.registerCanvasDirect(msg)
-        } else if (msg.action === 'createPresenterCanvas') {
-            me.createPresenterCanvas(msg);
-            me.sendMessage(msg.windowId, {action: 'presenterCanvasReady', nodeId: msg.nodeId})
-        } else if (msg.action === 'readFrame') {
-            let frame = me.readFrame(msg);
-
-            frame.success && me.sendMessage(msg.windowId, {
-                action: 'presenterFrame',
-                buffer: frame.buffer,
-                height: frame.height,
-                nodeId: msg.nodeId,
-                width : frame.width
-            }, [frame.buffer])
+            this.registerCanvasDirect(msg)
         } else {
             super.onMessage(e)
         }
+    }
+
+    /**
+     * @summary Reply-shaped entry point for {@link Neo.worker.Canvas#createPresenterCanvas}.
+     *
+     * Named `on<Action>` so {@link Neo.worker.Base#onMessage} dispatches to it, and answered through
+     * `resolve()` so the caller's `promiseMessage()` settles. That is what makes the caller able to AWAIT a
+     * presenter registration instead of holding a callback until some later message happens to arrive.
+     *
+     * @param {Object} msg
+     * @protected
+     */
+    onCreatePresenterCanvas(msg) {
+        this.resolve(msg, this.createPresenterCanvas(msg))
+    }
+
+    /**
+     * @summary Reply-shaped entry point for {@link Neo.worker.Canvas#readFrame}.
+     *
+     * The `{result, transfer}` shape is what `resolve()` understands: it moves the pixel buffer rather than
+     * copying it, and delivers `result` to the caller. A frame therefore crosses the thread boundary once,
+     * and the caller receives a buffer it owns.
+     *
+     * @param {Object} msg
+     * @protected
+     */
+    onReadFrame(msg) {
+        let frame = this.readFrame(msg);
+
+        this.resolve(msg, frame.success ? {result: frame, transfer: [frame.buffer]} : frame)
     }
 
     /**
