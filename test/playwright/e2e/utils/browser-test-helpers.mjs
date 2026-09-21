@@ -1,10 +1,3 @@
-/**
- * @summary The failure deadline for {@link measureUiUpdatePerformanceInBrowser}, matching the
- * `timeout` default its sibling above already exposes as an option.
- * @member {Number} UI_UPDATE_BENCHMARK_TIMEOUT_MS=30000
- */
-const UI_UPDATE_BENCHMARK_TIMEOUT_MS = 30000;
-
 export const measurePerformanceInBrowser = (testName, action, condition, passThrough, { timeout = 30000, resolveOnTimeout = false } = {}) => {
     return new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => {
@@ -62,6 +55,12 @@ export const measurePerformanceInBrowser = (testName, action, condition, passThr
 };
 
 export const measureUiUpdatePerformanceInBrowser = (testName, condition) => {
+    // Function-local on purpose. This helper is written to be serialized into the page, and
+    // `Function.prototype.toString` carries the body without its closure — a module-scope constant
+    // would be `undefined` there and the deadline would never be scheduled. Matches the `timeout`
+    // default its sibling above already exposes as an option.
+    const UI_UPDATE_BENCHMARK_TIMEOUT_MS = 30000;
+
     return new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => {
             try {
