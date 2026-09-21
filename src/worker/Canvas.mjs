@@ -123,6 +123,37 @@ class Canvas extends Base {
     }
 
     /**
+     * @summary Releases one window's presenter canvas, leaving the scene and every other window alone.
+     *
+     * Scoped to `windowId` on purpose. {@link Neo.worker.Canvas#unregisterCanvas} drops the whole `nodeId`,
+     * which is right when a single document owns the canvas and wrong once several present the same scene:
+     * one window unmounting would take the others' canvases with it. `map` is only cleared when it happens
+     * to point at the canvas being released, so a rehome that has already moved it is not undone here.
+     *
+     * @param {Object} msg
+     * @param {String} msg.nodeId
+     * @param {String} msg.windowId
+     * @protected
+     */
+    onReleasePresenterCanvas({nodeId, windowId}) {
+        let me      = this,
+            windows = me.canvasWindowMap[nodeId],
+            canvas  = windows?.[windowId];
+
+        if (canvas) {
+            delete windows[windowId];
+
+            if (me.map[nodeId] === canvas) {
+                delete me.map[nodeId]
+            }
+
+            if (!Object.keys(windows).length) {
+                delete me.canvasWindowMap[nodeId]
+            }
+        }
+    }
+
+    /**
      * @summary Reply-shaped entry point for {@link Neo.worker.Canvas#readFrame}.
      *
      * The `{result, transfer}` shape is what `resolve()` understands: it moves the pixel buffer rather than

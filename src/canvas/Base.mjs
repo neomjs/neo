@@ -260,7 +260,11 @@ class Base extends NeoBase {
                 me.renderLoop()
             }
         } else {
-            setTimeout(me.waitForCanvas.bind(me, canvasId, windowId, hasChange), 50)
+            // Not polled. `initGraph` runs from `afterSetOffscreenRegistered`, and that flag is only set
+            // after the registration has resolved — which is after the canvas exists in the map. So an
+            // absent canvas here is not a canvas that has yet to arrive; it is a renderer initialised
+            // without one, and retrying every 50ms forever would hide that indefinitely rather than fix it.
+            console.error('Neo.canvas.Base: no canvas registered for', {canvasId, windowId})
         }
     }
 }

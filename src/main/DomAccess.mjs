@@ -1530,7 +1530,13 @@ class DomAccess extends Base {
             // into a context whose component has gone is the stale-delivery case this loop must not create.
             entry = me.presenters[nodeId];
 
-            if (entry?.running && frame?.success) {
+            // A frame is only valid for the size it was produced at. The size can change while this request
+            // is in flight — the reconcile above closes the gap before asking, not during — and painting a
+            // frame from the previous size would clip or offset it against the new backing store. Dropping
+            // it costs one frame; painting it is a visibly wrong image that nothing else would catch.
+            let stale = frame?.success && (frame.height !== entry?.node.height || frame.width !== entry?.node.width);
+
+            if (entry?.running && frame?.success && !stale) {
                 entry.context.putImageData(new ImageData(new Uint8ClampedArray(frame.buffer), frame.width, frame.height), 0, 0)
             }
 
@@ -1552,7 +1558,13 @@ class DomAccess extends Base {
 
         if (entry) {
             entry.running = false;
-            delete this.presenters[nodeId]
+            delete this.presenters[nodeId];
+
+            // Release THIS window's canvas in the producer and nothing else. A component unmounting in one
+            // document says nothing about the others presenting the same scene, so the scene, its renderer
+            // and every other window's canvas survive. Without this the worker holds a canvas for a document
+            // that stopped asking for frames.
+            Neo.worker.Manager.sendMessage('canvas', {action: 'releasePresenterCanvas', nodeId, windowId: entry.windowId})
         }
     }
 
