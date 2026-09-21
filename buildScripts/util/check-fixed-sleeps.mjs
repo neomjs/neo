@@ -2,10 +2,10 @@
 /**
  * @summary Fails a spec that waits a fixed second-scale sleep without saying what it is waiting for.
  *
- * Scans the unit, component and e2e tiers — see {@link SCAN_ROOTS}. Two boundaries are deliberate and
- * neither is a synonym for "sleep": "second-scale" is {@link THRESHOLD_MS}, so an unexplained
- * sub-second wait is outside this guard; and the detector matches `setTimeout` call shapes only, so
- * Playwright's `page.waitForTimeout` is outside it too, at every threshold.
+ * Scans the unit, component and e2e tiers — see {@link SCAN_ROOTS}. Two call shapes are matched,
+ * `setTimeout(…, N)` and `<anything>.waitForTimeout(N)`; see {@link fixedWaitMs}. One boundary remains
+ * deliberate and is not a synonym for "sleep": "second-scale" is {@link THRESHOLD_MS}, so an
+ * unexplained sub-second wait is outside this guard.
  *
  * ## The defect this is actually about
  *
@@ -167,15 +167,41 @@ function* callExpressions(node) {
  * wait — it costs nothing on a green run, fires only to fail a wedged one, and names what it waits
  * for in the error it carries. That is more naming than a marker comment holds, so policing it here
  * would be ceremony, not accounting.
+ *
+ * ## The second shape: `waitForTimeout`
+ *
+ * `page.waitForTimeout(3000)` blocks the wall clock exactly as `setTimeout(r, 3000)` does and names
+ * nothing either, and it is the idiom a Playwright spec reaches for first. It is a `MemberExpression`
+ * callee, so an `Identifier`-only test rejects it before the delay contract is ever consulted — which
+ * is why the branch below is on the callee SHAPE rather than on one name.
+ *
+ * The RECEIVER is free and the method name is the key, deliberately: a helper that re-exposes the call
+ * on its own object is the same wait, and refusing to recognise it because the object is not literally
+ * `page` would be a bypass the next reader finds by accident. The computed form `page['waitForTimeout']`
+ * is admitted for the same reason — it is one keystroke from the dotted form and exempting it would
+ * reward the spelling.
+ *
+ * Its delay is `arguments[0]`, not `arguments[1]`, and it takes no callback — so
+ * {@link isSelfNamingDeadline} has nothing to inspect and does not apply. The delay-literal contract is
+ * shared: a named constant stays out on this arm too.
  * @param {Object} node A `CallExpression` node.
- * @returns {Number} Milliseconds, or `NaN` when this is not a fixed-delay `setTimeout`.
+ * @returns {Number} Milliseconds, or `NaN` when this is not a fixed-delay wait.
  */
 function fixedWaitMs(node) {
-    if (node.callee?.type !== 'Identifier' || node.callee.name !== 'setTimeout') return NaN;
+    const {callee} = node;
+    let delay;
 
-    if (isSelfNamingDeadline(node.arguments[0])) return NaN;
+    if (callee?.type === 'Identifier' && callee.name === 'setTimeout') {
+        if (isSelfNamingDeadline(node.arguments[0])) return NaN;
 
-    const delay = node.arguments[1];
+        delay = node.arguments[1]
+    } else if (callee?.type === 'MemberExpression' && (callee.computed
+        ? callee.property?.type === 'Literal'    && callee.property.value === 'waitForTimeout'
+        : callee.property?.type === 'Identifier' && callee.property.name  === 'waitForTimeout')) {
+        delay = node.arguments[0]
+    } else {
+        return NaN
+    }
 
     return delay?.type === 'Literal' && typeof delay.value === 'number' ? delay.value : NaN
 }
@@ -261,10 +287,15 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
             source = fs.readFileSync(abs, 'utf8'),
             lines  = source.split(ECMA_LINE_TERMINATOR);
 
-        // `fixedWaitMs` requires an Identifier callee named `setTimeout`, so the literal token must
-        // appear in source: no token, no call, nothing a parse could find. 927 of 1,036 unit specs
-        // contain no `setTimeout` at all, and parsing them to learn that cost 7x the pre-AST guard's
-        // wall clock and got this process SIGKILLed under lint-staged's concurrent task set.
+        // `fixedWaitMs` matches two callee shapes, so BOTH tokens gate the parse: no token, no call,
+        // nothing a parse could find. 927 of 1,036 unit specs contain no `setTimeout` at all, and
+        // parsing them to learn that cost 7x the pre-AST guard's wall clock and got this process
+        // SIGKILLed under lint-staged's concurrent task set.
+        //
+        // This gate is independent of the callee predicate and fails in the same direction, which is
+        // what makes it dangerous: widening `fixedWaitMs` alone ships a matcher that never reaches a
+        // file whose only waits are of the shape just added. Either half alone is a silent no-op, so
+        // a new callee shape means a new token here in the same edit.
         //
         // This is a substring test in a guard that moved to an AST precisely because substring tests
         // are unsound, so its soundness argument has to be exact — and my first one was wrong. I wrote
@@ -273,20 +304,26 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
         // while the source contains no such substring. The filter is conservative over the token, not
         // over the IdentifierName language acorn actually accepts.
         //
-        // So a file is admitted when it carries the token OR any Unicode escape — `\u` covers both
-        // `\uXXXX` and `\u{X}` forms, and an escaped identifier cannot exist without one. That keeps
-        // the filter cheap (escapes are rare in specs) while making its claim true: a skipped file can
-        // contain neither a plain nor an escaped `setTimeout` callee.
+        // The line above predicted its own next failure, and it was right: *"widening `fixedWaitMs`
+        // beyond a `setTimeout` Identifier callee invalidates this argument again."* Admitting a
+        // `MemberExpression` callee did exactly that, because a computed property is a STRING, and the
+        // string-escape language is far larger than the IdentifierName one. `page['waitFor\x54imeout']`,
+        // `page['waitForTim\eout']` and a quoted name split by a backslash-newline continuation all
+        // call the real method and all contain no `waitForTimeout` substring. Found by @neo-gpt with
+        // three runtime-verified spellings.
         //
-        // Widening `fixedWaitMs` beyond a `setTimeout` Identifier callee invalidates this argument
-        // again, and the equivalence spec is what will say so.
+        // So the admission is now ANY BACKSLASH rather than a whitelist of escape forms. Every one of
+        // those spellings needs one, and so does every escape form nobody has thought of yet — which is
+        // the point: a conservative superset of the recognized language survives the next widening,
+        // where a partial whitelist has to be rediscovered by a probe each time. Measured cost on this
+        // tree: 338 of 672 spec files parsed rather than 185, and the whole run is 0.37s.
         //
         // It DOES narrow one thing, and the narrowing is deliberate: a file that fails to parse is no
         // longer reported unless it carries the token, because it is no longer parsed. The verdict is
         // unaffected — no token, no call to miss — but this guard used to surface broken files as a
         // side effect and now does so only for files it would actually have inspected. "Does every
         // file parse" is `check-parse.mjs`, which runs in the same pre-commit set and owns it.
-        if (!source.includes('setTimeout') && !source.includes('\\u')) continue;
+        if (!source.includes('setTimeout') && !source.includes('waitForTimeout') && !source.includes('\\')) continue;
 
         let tree;
 
