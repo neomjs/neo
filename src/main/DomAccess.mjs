@@ -1436,16 +1436,63 @@ class DomAccess extends Base {
 
         me.presenters ??= {};
 
-        let height = node.clientHeight || node.height,
-            width  = node.clientWidth  || node.width;
+        // The backing store is sized here, and it is not optional. `putImageData` writes DEVICE pixels at
+        // 1:1 and ignores any canvas scaling, so a frame larger than the backing store is CLIPPED rather
+        // than fitted — and a `<canvas>` with no width/height attribute defaults to 300x150 regardless of
+        // how large its CSS box is. Sizing the producer from the CSS box while leaving the backing store at
+        // its default therefore paints the frame's top-left corner and stretches it over the element.
+        // Producer and presenter must agree in device pixels; `devicePixelRatio` is what converts.
+        let dpr    = globalThis.devicePixelRatio || 1,
+            height = Math.round((node.clientHeight || node.height) * dpr),
+            width  = Math.round((node.clientWidth  || node.width)  * dpr);
+
+        node.height = height;
+        node.width  = width;
 
         await Neo.worker.Manager.promiseMessage('canvas', {action: 'createPresenterCanvas', height, nodeId, width, windowId});
 
-        me.presenters[nodeId] = {context: node.getContext('2d'), running: true, windowId};
+        me.presenters[nodeId] = {context: node.getContext('2d'), node, running: true, windowId};
 
         me.presentFrames(nodeId);
 
         return {success: true}
+    }
+
+    /**
+     * @summary Brings a presenter's backing store and its producer back into agreement after a layout change.
+     *
+     * Reconciled from the frame loop rather than driven by a resize event, and that is deliberate: a size is
+     * a fact the element already carries, so comparing it costs two property reads and cannot miss an edge.
+     * A resize LISTENER can — an element settling between registration and its first observed resize leaves
+     * a backing store that is right at attach time and wrong forever after, which is exactly what the
+     * witness spec caught on a canvas whose height moved by four pixels after it registered.
+     *
+     * Assigning `width` or `height` also CLEARS the canvas, so this must not run on an unchanged size: doing
+     * it every frame would blank the element between paints.
+     *
+     * @param {Object} entry
+     * @param {String} nodeId
+     * @returns {Promise<Boolean>} true once the producer has been told, so the caller can skip a stale frame
+     * @protected
+     */
+    async syncPresenterSize(entry, nodeId) {
+        let {node} = entry,
+            dpr    = globalThis.devicePixelRatio || 1,
+            height = Math.round((node.clientHeight || node.height) * dpr),
+            width  = Math.round((node.clientWidth  || node.width)  * dpr);
+
+        if (!height || !width || (node.height === height && node.width === width)) {
+            return false
+        }
+
+        node.height = height;
+        node.width  = width;
+
+        await Neo.worker.Manager.promiseMessage('canvas', {
+            action: 'createPresenterCanvas', height, nodeId, width, windowId: entry.windowId
+        });
+
+        return true
     }
 
     /**
@@ -1467,6 +1514,14 @@ class DomAccess extends Base {
             entry = me.presenters[nodeId];
 
         while (entry?.running) {
+            // Reconcile before asking. A frame produced at the old size would be clipped or letterboxed into
+            // the new backing store, and that is the coordinate-space break this contract exists to prevent.
+            if (await me.syncPresenterSize(entry, nodeId)) {
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                entry = me.presenters[nodeId];
+                continue
+            }
+
             let frame = await Neo.worker.Manager.promiseMessage('canvas', {
                 action: 'readFrame', nodeId, windowId: entry.windowId
             });

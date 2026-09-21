@@ -26,10 +26,16 @@ const
     SETTLE   = 5000,
     VIEWPORT = '.neo-viewport';
 
-test.describe('a worker-driven canvas is presented locally, not transferred away', () => {
-    test.setTimeout(180000);
-
-    test('every neo canvas keeps its context and at least one carries painted pixels', async ({page}) => {
+/**
+ * Both arms assert the same contract; only `devicePixelRatio` differs.
+ *
+ * The DPR arm is not decoration. A hosted runner reports `devicePixelRatio: 1`, so at the default scale the
+ * conversion between the CSS box and the backing store is a multiplication by one — it cannot distinguish a
+ * correct implementation from one that ignores DPR entirely. Every retina laptop runs the other arm, so
+ * without it the rule would be unverified for the common case rather than the rare one.
+ * @param {Object} page
+ */
+const assertPresented = async page => {
         const problems = [];
 
         page.on('pageerror', error => problems.push(`pageerror: ${error.message}`));
@@ -51,7 +57,13 @@ test.describe('a worker-driven canvas is presented locally, not transferred away
                 painted = `throw: ${error.name}`
             }
 
-            return {id: canvas.id, painted}
+            return {
+                backing: `${canvas.width}x${canvas.height}`,
+                id     : canvas.id,
+                painted,
+                // What the backing store MUST be for a frame to land 1:1 rather than clipped.
+                wanted : `${Math.round(canvas.clientWidth * devicePixelRatio)}x${Math.round(canvas.clientHeight * devicePixelRatio)}`
+            }
         }));
 
         console.log('neo canvases:', JSON.stringify(report));
@@ -68,6 +80,34 @@ test.describe('a worker-driven canvas is presented locally, not transferred away
             'frames must actually arrive: a canvas that is never transferred and never painted would satisfy the check above while rendering nothing'
         ).toBe(true);
 
+        // The third half, and the one a pixel check cannot see. `putImageData` writes device pixels at 1:1
+        // and ignores canvas scaling, so a frame bigger than the backing store is clipped to its top-left
+        // corner and then stretched over the CSS box — visibly wrong, and every pixel assertion above still
+        // passes. An unsized `<canvas>` defaults to 300x150 however large its CSS box is, which is exactly
+        // the shape this caught.
+        expect(
+            report.filter(entry => entry.backing !== entry.wanted),
+            'every neo canvas backing store must equal its CSS box in device pixels, or frames land clipped'
+        ).toEqual([]);
+
         expect(problems, 'the presenter path must not log errors').toEqual([])
+};
+
+test.describe('a worker-driven canvas is presented locally, not transferred away', () => {
+    test.setTimeout(180000);
+
+    test('every neo canvas keeps its context, carries pixels, and matches its backing store', async ({page}) => {
+        await assertPresented(page)
+    })
+});
+
+test.describe('the same contract at devicePixelRatio 2', () => {
+    test.use({deviceScaleFactor: 2});
+    test.setTimeout(180000);
+
+    test('a retina backing store is the CSS box times the ratio, not the CSS box', async ({page}) => {
+        expect(await page.evaluate(() => devicePixelRatio), 'this arm is pointless unless the ratio really is 2').toBe(2);
+
+        await assertPresented(page)
     })
 });
