@@ -158,11 +158,16 @@ test.describe('Neo.collection multi-sorter precedence', () => {
             sorters: [{direction: 'ASC', property: 'v'}]
         });
 
-        // Only null and undefined take the early-return path. The other falsy
-        // values reach the comparison and compare equal, so they keep input
-        // order among themselves.
+        // Only null and undefined take the absence path. `''` converts to 0, so it is ordered by
+        // that value against the other numbers rather than as text — and where the value ties, the
+        // number leads the equal-valued string.
+        //
+        // This arm previously expected `['', 0, 1, null]`, which held only because `'' > 0` and
+        // `'' < 0` are both false: the two compared EQUAL and kept their input order. That tie was
+        // one instance of the comparator's inconsistency, so the recorded order was a reading of the
+        // defect rather than of the data.
         expect(collection.items.map(i => [i.v, typeof i.v]))
-            .toEqual([['', 'string'], [0, 'number'], [1, 'number'], [null, 'object']]);
+            .toEqual([[0, 'number'], ['', 'string'], [1, 'number'], [null, 'object']]);
     });
 
     test('nullish values sink inside their first-key group, not to the end', () => {

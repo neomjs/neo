@@ -136,22 +136,31 @@ class Sorter extends Base {
      * is the defect class this method exists to make impossible: an earlier nullish repair reached one of
      * them and not the other.
      *
-     * Two rules sit ahead of `>` / `<`, and they answer different questions:
+     * **Absence first.** `null` and `undefined` sink on ASC *and* DESC, ignoring `directionMultiplier`.
+     * "No value" is not a position in the ordering, so it does not flip with the ordering.
      *
-     * - **Absence** — `null` and `undefined` sink on ASC *and* DESC, ignoring `directionMultiplier`. "No value"
-     *   is not a position in the ordering, so it does not flip with the ordering.
-     * - **Type rank** — a number sorts before a string that does not coerce to a number, and this rank DOES
-     *   obey `directionMultiplier`, so DESC puts such strings first. Both operands are present values, so this
-     *   is an ordering question, not a presence one; inheriting the nullish behaviour here would quietly assert
-     *   that a string is a kind of absence.
+     * **Then one partition, and it is the whole design.** A present value either converts to a number or it
+     * does not, and the two groups are ordered separately: everything numeric — numbers *and* the strings that
+     * convert — comes first, ordered by numeric value; everything else follows, ordered as text. That rank does
+     * obey `directionMultiplier`, because both operands are present values and so pose an ordering question
+     * rather than a presence one.
      *
-     * The type rank exists because `5 > 'abc'` and `5 < 'abc'` are both `false`, so the relational operators
-     * report a tie for the pair while still ordering `5` against `1` — an intransitive relation, which
-     * `Array.prototype.sort` is not specified for. The emitted order then depends on the element count and the
-     * engine's algorithm rather than on the data. A documented tie would not fix that; only removing it does.
+     * **Why partition by convertibility rather than by `typeof`.** The relational operators give a numeric
+     * string two incompatible orderings at once: numeric against a number, lexical against another string. Any
+     * rule that keeps both is intransitive, and not only for the obvious pair — `5 > 'abc'` and `5 < 'abc'` are
+     * both `false`, but so is every cycle built from that split, e.g. `20 < '!' < '10' < 20`. A comparator with
+     * a cycle is one `Array.prototype.sort` is not specified for, and its output then depends on the element
+     * count and the engine rather than on the data. One ordering per value is the only way out; this keeps the
+     * numeric one, because a numeric string is a number that arrived as text — which is exactly how mixed types
+     * reach a sort here, through `data.Store` soft hydration.
      *
-     * Strings that DO coerce are untouched: `'10'` against `5` still compares as ten, because only a pair whose
-     * string side yields `NaN` reaches the rank.
+     * So `'10'` against `5` still compares as ten, and `'10'` against `'9'` now does too, where the relational
+     * operators alone would have read them as `'1'` before `'9'`.
+     *
+     * **Ties are reserved for equality.** Equal numeric value is not equality — a number precedes an equal-valued
+     * string, and two distinct such strings fall back to text order, so `'05'` precedes `'5'`. `0` is returned
+     * only for operands a caller would call the same, because a tie between distinct values is the defect this
+     * method exists to remove, not a smaller version of it.
      *
      * @param {*} a First already-transformed value.
      * @param {*} b Second already-transformed value.
@@ -159,19 +168,38 @@ class Sorter extends Base {
      * @returns {Number} `-1`, `0` or `1`; `0` only for genuinely equal values.
      */
     static compareValues(a, b, directionMultiplier) {
-        if (a == null && b != null) return  1;
-        if (a != null && b == null) return -1;
+        // Absence is settled in full before the partition below opens, because `Number(null)` is 0 while
+        // `Number(undefined)` is NaN — so a partition by convertibility would order the two against each
+        // other, and "missing" has no internal ordering to express.
+        if (a == null || b == null) {
+            if (a == null && b == null) return 0;
+
+            return a == null ? 1 : -1
+        }
 
         const
-            aIsNumber = typeof a === 'number',
-            bIsNumber = typeof b === 'number';
+            numericA  = Number(a),
+            numericB  = Number(b),
+            convertsA = !Number.isNaN(numericA),
+            convertsB = !Number.isNaN(numericB);
 
-        if (aIsNumber !== bIsNumber) {
-            const other = aIsNumber ? b : a;
+        if (convertsA !== convertsB) {
+            return (convertsA ? -1 : 1) * directionMultiplier
+        }
 
-            if (typeof other === 'string' && Number.isNaN(Number(other))) {
+        if (convertsA) {
+            if (numericA > numericB) return  1 * directionMultiplier;
+            if (numericA < numericB) return -1 * directionMultiplier;
+
+            const aIsNumber = typeof a === 'number';
+
+            // Equal numeric value, so the remaining question is which representation leads. A number
+            // precedes an equal-valued string; two strings fall through to text order below.
+            if (aIsNumber !== (typeof b === 'number')) {
                 return (aIsNumber ? -1 : 1) * directionMultiplier
             }
+
+            if (aIsNumber) return 0
         }
 
         if (a > b) {

@@ -25,11 +25,16 @@ import Sorter         from '../../../../src/collection/Sorter.mjs';
  */
 
 /**
- * The mixed population every arm below is checked against. Deliberately includes both sides of each
- * decision: numbers, a non-coercing string, a coercing string, an empty string (which coerces to 0),
- * and both nullish values.
+ * The mixed population every arm below is checked against.
+ *
+ * Its first version held only one convertible string and missed two whole cycle families, which is the
+ * lesson worth keeping: an exhaustive check over a population chosen from the hypothesis proves only
+ * that the hypothesis is self-consistent. These values are chosen from the BOUNDARIES instead —
+ * `'!'` sorts below every digit as text, `'2'` above `'10'` as text but below it as a number, `'5'`
+ * is numerically equal to `5` without being it, `'05'` is numerically equal to `'5'` without being it,
+ * and `''` converts to 0 while `undefined` does not convert at all.
  */
-const values = [5, 1, 'abc', 'zz', '10', '', null, undefined];
+const values = [5, 1, 20, 0, 'abc', 'zz', '!', '10', '2', '9', '100', '5', '05', '', null, undefined];
 
 /**
  * Exhaustively checks that `compare` is a consistent ordering over `population`: antisymmetric across
@@ -95,11 +100,51 @@ test.describe('Neo.collection sorting is a consistent ordering (#19027)', () => 
         expect(Sorter.compareValues('Acme', null,      -1)).toBe(-1);
     });
 
-    test('a string that coerces is still compared as a number, so the rank never reaches it', () => {
-        expect(Sorter.compareValues('10', 5, 1)).toBe( 1);  // ten is greater than five
-        expect(Sorter.compareValues(5, '10', 1)).toBe(-1);
-        expect(Sorter.compareValues('',  5,  1)).toBe(-1);  // '' coerces to 0
-        expect(Sorter.compareValues(5,  '',  1)).toBe( 1);
+    test('a convertible string is compared by value against a number AND against another string', () => {
+        expect(Sorter.compareValues('10', 5,   1)).toBe( 1);  // ten is greater than five
+        expect(Sorter.compareValues(5,   '10', 1)).toBe(-1);
+        expect(Sorter.compareValues('',  5,   1)).toBe(-1);  // '' converts to 0
+
+        // The half the relational operators could not give consistently: two convertible strings
+        // compare as numbers too. Text order would read '10' before '9', and the same string then
+        // orders numerically against a number and lexically against a string — which is the cycle.
+        expect(Sorter.compareValues('10', '9',  1)).toBe( 1);  // ten > nine; text order says -1
+        expect(Sorter.compareValues('100','20', 1)).toBe( 1);  // and agrees here, for the wrong reason
+    });
+
+    test('equal numeric value is not equality', () => {
+        // A tie is reserved for operands a caller would call the same. `5` and `'5'` are not, and
+        // neither are `'05'` and `'5'` — so each gets a defined order rather than a `0`.
+        expect(Sorter.compareValues(5, '5',    1)).toBe(-1);  // the number leads
+        expect(Sorter.compareValues('5', 5,    1)).toBe( 1);
+        expect(Sorter.compareValues('05', '5', 1)).toBe(-1);  // then text order decides
+        expect(Sorter.compareValues(5, 5,      1)).toBe( 0);  // genuinely equal
+    });
+
+    test('the three cycles this contract exists to remove', () => {
+        // Found by @neo-gpt reviewing the first shape of this fix, which removed one cycle family and
+        // left two. Each triple is asserted as a chain rather than as an emitted permutation: a cycle
+        // is a property of the comparator, and sorting it would only show one engine's opinion of it.
+        const chain = (x, y, z) => [
+            Math.sign(Sorter.compareValues(x, y, 1)),
+            Math.sign(Sorter.compareValues(y, z, 1)),
+            Math.sign(Sorter.compareValues(x, z, 1))
+        ];
+
+        // A cycle is three comparisons that agree in direction; a consistent order never produces one.
+        for (const [x, y, z] of [[20, '!', '10'], [5, '2', '10'], [5, 'abc', 1]]) {
+            const [xy, yz, xz] = chain(x, y, z);
+
+            expect(
+                xy < 0 && yz < 0 ? xz < 0 : true,
+                `${String(x)} < ${String(y)} < ${String(z)} must imply ${String(x)} < ${String(z)}`
+            ).toBe(true);
+
+            expect(
+                xy > 0 && yz > 0 ? xz > 0 : true,
+                `${String(x)} > ${String(y)} > ${String(z)} must imply ${String(x)} > ${String(z)}`
+            ).toBe(true);
+        }
     });
 
     test('BOTH collection sort paths emit the same order — the drift that caused this bug class', () => {
