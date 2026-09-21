@@ -395,6 +395,70 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
         }
     });
 
+    test('a `waitForTimeout` wait is a site, and the delay contract is shared with `setTimeout` (#19030)', async () => {
+        // The second call shape. Its delay is `arguments[0]` rather than `arguments[1]`, so a matcher
+        // that widened the callee and kept the index would read `undefined` and report nothing — which
+        // is indistinguishable from a clean file.
+        //
+        // Every fixture below carries a `setTimeout` token it does not otherwise need. That is what
+        // makes this arm a control on the CALLEE PREDICATE alone: without the token the pre-parse
+        // filter skips the file, and a red here would no longer say which of the two gates broke.
+        // Mutating each gate separately is how that got found — the first draft omitted the token and
+        // both arms reported the same failure.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir   = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-wft-')),
+            token = '// gate-2 token, deliberate: setTimeout\n',
+            file  = name => path.join(dir, name),
+            run   = name => findUnjustifiedSleeps({files: [file(name)], rootDir: dir});
+
+        try {
+            fs.writeFileSync(file('bare.spec.mjs'),     token + 'await page.waitForTimeout(3000);',           'utf8');
+            fs.writeFileSync(file('computed.spec.mjs'), token + "await page['waitForTimeout'](3000);",        'utf8');
+            fs.writeFileSync(file('named.spec.mjs'),    token + 'const D = 3000;\nawait page.waitForTimeout(D);', 'utf8');
+            fs.writeFileSync(file('under.spec.mjs'),    token + 'await page.waitForTimeout(400);',            'utf8');
+            fs.writeFileSync(file('marked.spec.mjs'), token + [
+                '// out-waits: POLL_INTERVAL_MS',
+                'await page.waitForTimeout(3000);'
+            ].join('\n'), 'utf8');
+
+            expect(run('bare.spec.mjs').sites.map(site => site.ms), 'the dotted form is a site').toEqual([3000]);
+            expect(run('computed.spec.mjs').sites.map(site => site.ms), 'the computed form is one keystroke away and is not a bypass').toEqual([3000]);
+            expect(run('named.spec.mjs').sites, 'a named delay names what it waits for, on this arm too').toEqual([]);
+            expect(run('under.spec.mjs').sites, 'THRESHOLD_MS is unchanged by the new shape').toEqual([]);
+
+            const marked = run('marked.spec.mjs');
+
+            expect(marked.sites, 'the marker discharges it').toEqual([]);
+            expect(marked.backlog.map(entry => entry.ms), 'and `out-waits:` still records the wall clock').toEqual([3000])
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('a file whose only wait is `waitForTimeout` is parsed rather than skipped (#19030)', async () => {
+        // The second gate, and its own arm because it fails in the same direction as the first: the
+        // pre-parse filter short-circuits on token presence, so a matcher widened without it never
+        // reaches the files that need it most. Satisfying the callee predicate alone leaves this closed,
+        // and the result is silence rather than an error.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-gate2-')),
+            fixture = path.join(dir, 'no-settimeout-token.spec.mjs');
+
+        try {
+            fs.writeFileSync(fixture, 'export const go = async page => { await page.waitForTimeout(5000) };', 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites.map(site => site.ms), 'no `setTimeout` token appears anywhere in this file').toEqual([5000])
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
     test('importing the module runs no lint and exits no process', () => {
         // The module exports SCAN_SURFACE so the workflow-parity spec can import it as authority. Its
         // CLI body must therefore stay behind a direct-invocation guard: an unguarded top-level body

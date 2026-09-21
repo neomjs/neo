@@ -1,5 +1,205 @@
 [
     {
+        "file": "test/playwright/component/dashboard/DockPreviewGeometry.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/component/menu/List.spec.mjs",
+        "text": "await page.waitForTimeout(1300);",
+        "count": 3
+    },
+    {
+        "file": "test/playwright/e2e/colors/tearOutMatrix.spec.mjs",
+        "text": "await page.waitForTimeout(1500);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/colors/tearOutMatrix.spec.mjs",
+        "text": "await page.waitForTimeout(2000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/core/RefreshDomCorpseRepro.spec.mjs",
+        "text": "await page.waitForTimeout(1000);",
+        "count": 3
+    },
+    {
+        "file": "test/playwright/e2e/core/RefreshDomCorpseRepro.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 4
+    },
+    {
+        "file": "test/playwright/e2e/core/RefreshDomCorpseRepro.spec.mjs",
+        "text": "await page.waitForTimeout(2500);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockAutoHideRevealNL.spec.mjs",
+        "text": "await page.waitForTimeout(1000)",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockAutoHideRevealNL.spec.mjs",
+        "text": "await page.waitForTimeout(1500);",
+        "count": 2
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockAutoHideRevealNL.spec.mjs",
+        "text": "await page.waitForTimeout(2500); // settle worker boot + first render",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockCrossZoneDragNL.spec.mjs",
+        "text": "await page.waitForTimeout(1000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockCrossZoneDragNL.spec.mjs",
+        "text": "await page.waitForTimeout(2500); // settle worker boot + first render",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockDragDropNL.spec.mjs",
+        "text": "await page.waitForTimeout(1000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockDragDropNL.spec.mjs",
+        "text": "await page.waitForTimeout(2500); // settle worker boot + first render",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs",
+        "text": "await page.waitForTimeout(2500); // settle worker boot + first render (the one sanctioned boot wait)",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockOperationsNL.spec.mjs",
+        "text": "await page.waitForTimeout(2500); // settle worker boot + first render",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/dashboard/DockPinCollapseNL.spec.mjs",
+        "text": "await page.waitForTimeout(2500); // settle worker boot + first render",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/grid/LockedDnDDuplication.spec.mjs",
+        "text": "await page.waitForTimeout(1000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/grid/LockedDnDDuplication.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 2
+    },
+    {
+        "file": "test/playwright/e2e/grid/LockedDnDDuplication.spec.mjs",
+        "text": "await page.waitForTimeout(2000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/grid/RowPinning.spec.mjs",
+        "text": "await page.waitForTimeout(1000);",
+        "count": 2
+    },
+    {
+        "file": "test/playwright/e2e/grid/RowPinning.spec.mjs",
+        "text": "await page.waitForTimeout(5000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/grid/RowSlotRemapDuplication.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/grid/RowSlotRemapDuplication.spec.mjs",
+        "text": "await page.waitForTimeout(1600);",
+        "count": 2
+    },
+    {
+        "file": "test/playwright/e2e/grid/ThumbDragPause.spec.mjs",
+        "text": "await page.waitForTimeout(1000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/grid/ThumbDragPause.spec.mjs",
+        "text": "await page.waitForTimeout(2500);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/grid/ThumbDragPause.spec.mjs",
+        "text": "await page.waitForTimeout(5000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs",
+        "text": "await page.waitForTimeout(1000); // settle the initial mount traffic",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/rendering/LivePreviewMultiWindow.spec.mjs",
+        "text": "await page.waitForTimeout(1000);",
+        "count": 2
+    },
+    {
+        "file": "test/playwright/e2e/rendering/LivePreviewMultiWindow.spec.mjs",
+        "text": "await page.waitForTimeout(3000);",
+        "count": 2
+    },
+    {
+        "file": "test/playwright/e2e/rendering/LivePreviewMultiWindow.spec.mjs",
+        "text": "await popup.waitForTimeout(2000);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/rendering/MarkdownStreamingCoherenceNL.spec.mjs",
+        "text": "await page.waitForTimeout(2000); // settle the tail",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationCrossZoneCueNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationDockSplitChromeNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationHumanPopupOverlapNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationResidentCardSizingNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200)",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationRootEdgeCornerNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationRootEdgeCornerNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200); // commit + re-projection settle",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/e2e/workstation/WorkstationRowActionNL.spec.mjs",
+        "text": "await page.waitForTimeout(1200);",
+        "count": 1
+    },
+    {
         "file": "test/playwright/unit/manager/DragCoordinator.spec.mjs",
         "text": "timeoutId     : setTimeout(() => { sourceTimerCleared = false }, 60_000)",
         "count": 1
