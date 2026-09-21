@@ -162,6 +162,13 @@ class Sorter extends Base {
      * only for operands a caller would call the same, because a tie between distinct values is the defect this
      * method exists to remove, not a smaller version of it.
      *
+     * **`NaN` is governed, not excluded.** It is a number that does not convert, so it orders inside the text
+     * group by its own text form — between the numbers and any string starting past `N`. Left to the relational
+     * operators it would tie with every non-converting string at once while they still ordered among themselves,
+     * which is the original defect one type later. Operands outside the number/string domain — objects, arrays,
+     * `Date`, `Symbol` — are **not supported**: the text comparison gives them an order rather than a false tie,
+     * which is a safer failure than the alternative, but no promise is made about what that order means.
+     *
      * @param {*} a First already-transformed value.
      * @param {*} b Second already-transformed value.
      * @param {Number} directionMultiplier `1` for ASC, `-1` for DESC.
@@ -202,11 +209,22 @@ class Sorter extends Base {
             if (aIsNumber) return 0
         }
 
-        if (a > b) {
+        // Compared as TEXT rather than with the raw operands, which for two strings is the same
+        // comparison and for anything else is the difference between an order and a false tie. `NaN`
+        // is the case in the supported domain: it is a number that does not convert, so it lands
+        // here, and `NaN > x` / `NaN < x` are both false against every string — which ties it to all
+        // of them at once while they still order among themselves. That is the same inconsistency
+        // this method removes for `5` against `'abc'`, one type later. Its text form gives it a
+        // position instead.
+        const
+            textA = String(a),
+            textB = String(b);
+
+        if (textA > textB) {
             return 1 * directionMultiplier
         }
 
-        if (a < b) {
+        if (textA < textB) {
             return -1 * directionMultiplier
         }
 

@@ -34,7 +34,7 @@ import Sorter         from '../../../../src/collection/Sorter.mjs';
  * is numerically equal to `5` without being it, `'05'` is numerically equal to `'5'` without being it,
  * and `''` converts to 0 while `undefined` does not convert at all.
  */
-const values = [5, 1, 20, 0, 'abc', 'zz', '!', '10', '2', '9', '100', '5', '05', '', null, undefined];
+const values = [5, 1, 20, 0, 'abc', 'zz', '!', '10', '2', '9', '100', '5', '05', '', NaN, null, undefined];
 
 /**
  * Exhaustively checks that `compare` is a consistent ordering over `population`: antisymmetric across
@@ -72,12 +72,13 @@ test.describe('Neo.collection sorting is a consistent ordering (#19027)', () => 
         // The tie is the defect: a comparator may return 0 only for values a caller would call equal.
         for (const a of values) {
             for (const b of values) {
-                const bothNullish = a == null && b == null;
+                // `NaN !== NaN`, so identity alone would demand an order between a value and itself.
+                const same = a === b || (a == null && b == null) || (Number.isNaN(a) && Number.isNaN(b));
 
                 expect(
                     Sorter.compareValues(a, b, 1) === 0,
                     `tie: ${String(a)} vs ${String(b)}`
-                ).toBe(a === b || bothNullish);
+                ).toBe(same);
             }
         }
     });
@@ -119,6 +120,21 @@ test.describe('Neo.collection sorting is a consistent ordering (#19027)', () => 
         expect(Sorter.compareValues('5', 5,    1)).toBe( 1);
         expect(Sorter.compareValues('05', '5', 1)).toBe(-1);  // then text order decides
         expect(Sorter.compareValues(5, 5,      1)).toBe( 0);  // genuinely equal
+    });
+
+    test('NaN is a number that does not convert, so it is ordered as text rather than tied to every string', () => {
+        // Found by @neo-gpt on the repartitioned shape. Left to the relational operators, `NaN > x`
+        // and `NaN < x` are both false against every string, so it tied with all of them at once
+        // while they still ordered among themselves — the original defect, one type later.
+        expect(Sorter.compareValues(NaN, 'abc', 1)).toBe(-1);  // 'NaN' precedes 'abc' as text
+        expect(Sorter.compareValues('zz', NaN,  1)).toBe( 1);
+        expect(Sorter.compareValues('zz', 'abc', 1)).toBe(1);  // and these still order, which is the point
+        expect(Sorter.compareValues(NaN, NaN,   1)).toBe( 0);
+
+        // It sits between the numbers and any string starting past `N`.
+        const emitted = [5, 'abc', NaN, 'zz', null].sort((a, b) => Sorter.compareValues(a, b, 1));
+
+        expect(emitted.map(String)).toEqual(['5', 'NaN', 'abc', 'zz', 'null']);
     });
 
     test('the three cycles this contract exists to remove', () => {

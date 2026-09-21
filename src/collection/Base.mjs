@@ -691,9 +691,15 @@ class Collection extends Base {
      * Two paths, one ordering rule. Once any sorter carries a custom `sortBy` this delegates per item pair
      * to {@link Neo.collection.Sorter#defaultSortBy}; otherwise it compares the mapped values itself. Both
      * read {@link Neo.collection.Sorter#compareValues}, which owns the rules the relational operators cannot
-     * express: `null` and `undefined` sink on ASC and DESC alike, because absence has no position in an
-     * ordering; a number sorts before a string that does not coerce to one, and that rank DOES follow the
-     * sort direction, because both operands are present values and so pose an ordering question.
+     * express. `null` and `undefined` sink on ASC and DESC alike, because absence has no position in an
+     * ordering. Every present value then falls on one side of a single partition: those that convert to a
+     * number — numbers *and* numeric strings — order by that value and come first; everything else orders as
+     * text. That rank follows the sort direction, because both operands are present and so pose an ordering
+     * question rather than a presence one.
+     *
+     * The partition is by convertibility rather than by type because a numeric string otherwise carries two
+     * orderings at once — numeric against a number, textual against a string — and a comparator that keeps
+     * both has cycles, which `Array.prototype.sort` is not specified for.
      *
      * The paths share that method rather than each restating it. Restating it is how one of them once kept
      * a rule the other had lost, and a comparator the two disagree on is the same inconsistency as a
