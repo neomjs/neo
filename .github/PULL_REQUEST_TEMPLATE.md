@@ -9,12 +9,11 @@ https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
 
 Resolves #
 
-<!-- Exactly one issue, and this PR must fully deliver it. `Resolves` rather than `Closes`: an
-     issue can be closed without being resolved, and this line states that the work is done. -->
+<!-- Exactly one issue, and this PR must fully deliver it. -->
 
-<!-- Delivering only PART of a larger issue? Open a small issue for your slice, resolve that one
-     here, and add `Refs #<the larger issue>` on its own line so the two are linked. The larger
-     issue stays open for the rest. -->
+<!-- Only finishing part of it? Please don't open a second issue for your part. Say so on the
+     issue instead — a maintainer splits it into pieces one PR can finish, and then this line
+     points at yours. -->
 
 <!-- If this PR doesn't resolve an issue, please explain why: -->
 
