@@ -5,9 +5,10 @@ https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
 <!-- PULL REQUEST TEMPLATE -->
 <!-- (Update "[ ]" to "[x]" to check a box) -->
 
-**Does this PR resolve an issue?** (Required)
+**Does this PR resolve an issue?** (Required — keep one line, delete the other)
 
-Closes #
+Closes #    <!-- this PR finishes the issue -->
+Refs #      <!-- this PR is one slice of it; the issue stays open for the rest -->
 
 <!-- If this PR doesn't close an issue, please explain why: -->
 
