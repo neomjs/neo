@@ -203,7 +203,7 @@ export const test = base.extend({
         await use(neo);
     },
 
-    neuralLink: async ({ page }, use) => {
+    neuralLink: async ({ context, page }, use) => {
         const {
             NeuralLink_ComponentService,
             NeuralLink_ConnectionService,
@@ -222,6 +222,19 @@ export const test = base.extend({
 
         // 1. Ensure Bridge connects
         await NeuralLink_ConnectionService.manageConnection({action: 'start'});
+
+        // The page's client dials `Neo.config.neuralLinkUrl`, which defaults to the shared :8081. A seat running its
+        // own Bridge (NEO_NL_PORT) must point the page there too, or it drives this Bridge and reads another. Routed
+        // on the context, because a popup loads its own config.
+        await context.route('**/neo-config.json*', async route => {
+            const response = await route.fetch();
+
+            if (!response.ok()) {
+                return route.fulfill({response})
+            }
+
+            await route.fulfill({response, json: {...await response.json(), neuralLinkUrl: `ws://127.0.0.1:${aiConfig.port}`}})
+        });
 
         // 2. Define the Neural Link Fixture object
         const nl = {
