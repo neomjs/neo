@@ -330,7 +330,7 @@ class Helper extends Base {
 
                 // Remove node, if no longer inside the new tree
                 if (!nodeInNewTree) {
-                    me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
+                    me.removeNode({deltas, oldVnode: oldChildNode, parentNode: oldVnode});
                     i--;
                     insertDelta++;
                     continue
@@ -800,19 +800,23 @@ class Helper extends Base {
     }
 
     /**
+     * @summary Emits the removal of `oldVnode` and drops it from the parent the caller is iterating.
+     *
+     * The parent is the caller's, never the vnode map's: `createDeltas` revisits the same index after a removal, so
+     * the removal must shrink the array it iterates. For a component referenced from two parents of the old tree the
+     * map holds only one of them, and removing from that one spun the diff until the VDom worker threw.
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
-     * @param {Map}            config.oldVnodeMap
+     * @param {Neo.vdom.VNode} config.parentNode The old-tree parent whose `childNodes` the caller iterates
      * @protected
      */
-    removeNode({deltas, oldVnode, oldVnodeMap}) {
+    removeNode({deltas, oldVnode, parentNode}) {
         if (oldVnode.componentId) {
             oldVnode.id ??= oldVnode.componentId
         }
 
-        let delta        = {action: 'removeNode', id: oldVnode.id},
-            {parentNode} = oldVnodeMap.get(oldVnode.id);
+        let delta = {action: 'removeNode', id: oldVnode.id};
 
         if (oldVnode.vtype === 'text' || oldVnode.nodeName === 'fragment') {
             delta.parentId = parentNode.id
