@@ -5,17 +5,18 @@ import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 import {
-    resolveHuskyBin,
+    resolvePackageBin,
     runPrepare
 } from '../../../../buildScripts/util/prepare.mjs';
 
 const
-    __filename = fileURLToPath(import.meta.url),
-    repoRoot   = path.resolve(path.dirname(__filename), '../../../..');
+    __filename      = fileURLToPath(import.meta.url),
+    repoRoot        = path.resolve(path.dirname(__filename), '../../../..'),
+    resolveHuskyBin = root => resolvePackageBin('husky', 'husky', root);
 
 /**
- * @summary The portable Engine prepare lifecycle: the lock-only guard short-circuits and a husky
- * failure fails the install without invoking Brain-owned setup.
+ * @summary The portable Engine prepare lifecycle: the lock-only guard short-circuits, then husky
+ * and the skills materializer run in order, and either failure fails the install.
  */
 test.describe('buildScripts/util/prepare — the portable prepare lifecycle', () => {
     const recordingSpawn = results => {
@@ -37,21 +38,44 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         expect(calls).toEqual([]);
     });
 
-    test('husky is the only Engine prepare step', () => {
-        const {calls, spawnFn} = recordingSpawn([0]),
+    test('husky runs, then the skills materializer', () => {
+        const {calls, spawnFn} = recordingSpawn([0, 0]),
               result           = runPrepare({env: {}, spawnFn});
 
-        expect(result).toEqual({skipped: null, stage: 'husky', status: 0});
-        expect(calls.length).toBe(1);
-        expect(calls[0].args[0]).toBe(resolveHuskyBin(repoRoot));
+        expect(result).toEqual({skipped: null, stage: 'materialize', status: 0});
+        expect(calls.map(call => call.args[0])).toEqual([
+            resolveHuskyBin(repoRoot),
+            resolvePackageBin('neo-agent-skills', 'neo-agent-skills-materialize', repoRoot)
+        ]);
     });
 
-    test('a husky failure fails the install', () => {
+    test('a husky failure fails the install before the materializer runs', () => {
         const {calls, spawnFn} = recordingSpawn([1]),
               result           = runPrepare({env: {}, spawnFn});
 
         expect(result).toEqual({skipped: null, stage: 'husky', status: 1});
         expect(calls.length).toBe(1);
+    });
+
+    test('a materializer failure fails the install', () => {
+        const {calls, spawnFn} = recordingSpawn([0, 1]),
+              result           = runPrepare({env: {}, spawnFn});
+
+        expect(result).toEqual({skipped: null, stage: 'materialize', status: 1});
+        expect(calls.length).toBe(2);
+    });
+
+    test('a manifest without the named bin entry is a named error, even when it declares others', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
+
+        fs.mkdirSync(path.join(dir, 'node_modules', 'neo-agent-skills'), {recursive: true});
+        fs.writeFileSync(path.join(dir, 'node_modules', 'neo-agent-skills', 'package.json'), JSON.stringify({bin: {'neo-agent-skills-secrets': 'secrets.mjs'}}));
+
+        try {
+            expect(() => resolvePackageBin('neo-agent-skills', 'neo-agent-skills-materialize', dir)).toThrow(/declares no bin entry 'neo-agent-skills-materialize'/);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
     });
 
     test('a missing husky entrypoint is a named error, not an opaque spawn failure', () => {
@@ -111,8 +135,9 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         expect(() => runPrepare({env: {}, spawnFn})).toThrow(/failed to launch.*ENOENT/);
     });
 
-    test('the husky entrypoint resolves from the package\'s own bin declaration on this host', () => {
-        // The resolution is read from husky's manifest, not hardcoded — and it exists here.
+    test('both entrypoints resolve from their packages\' own bin declarations on this host', () => {
+        // The resolution is read from each manifest, not hardcoded — and both exist here.
         expect(fs.existsSync(resolveHuskyBin(repoRoot))).toBe(true);
+        expect(fs.existsSync(resolvePackageBin('neo-agent-skills', 'neo-agent-skills-materialize', repoRoot))).toBe(true);
     });
 });

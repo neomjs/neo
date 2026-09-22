@@ -36,7 +36,7 @@ jobs:
           cache: 'npm'
 
       # The guard parses workflow YAML with js-yaml (a declared dependency). --ignore-scripts skips
-      # the postinstall we do not need — only node_modules must be present.
+      # the prepare lifecycle we do not need — only node_modules must be present.
       - name: Install dependencies (js-yaml)
         run: npm ci --ignore-scripts
 

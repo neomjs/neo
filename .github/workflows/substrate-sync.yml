@@ -1,7 +1,7 @@
 # Asserts the agent skill substrate is actually reachable in this checkout.
 #
 # Skills arrive as an npm dependency (`neo-agent-skills`) and are projected into `.claude/skills`
-# by that package's postinstall linker, as symlinks into `node_modules`. No skill bytes are
+# by that package's linker, run from this repo's `prepare` lifecycle, as symlinks into `node_modules`. No skill bytes are
 # committed here, so there is nothing to compare trees against — the only question worth asking is
 # whether the projection happened.
 #
