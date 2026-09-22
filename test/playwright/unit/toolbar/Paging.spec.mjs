@@ -11,7 +11,9 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../src/manager/Instance.mjs';
+// Bare import: the constructor registers `Neo.get`, which the child buttons call during
+// destroy. The binding itself is not used here.
+import '../../../../src/manager/Instance.mjs';
 import Store           from '../../../../src/data/Store.mjs';
 import Paging          from '../../../../src/toolbar/Paging.mjs';
 
@@ -129,6 +131,15 @@ test.describe.serial('Neo.toolbar.Paging - page maths and navigation enablement'
         })
     });
 
+    /**
+     * The two guards below are unreachable from the UI, and that is deliberate rather than an
+     * oversight: `updateNavigationButtons` disables next and last on the last page and first
+     * and prev on the first, so a click can never arrive in either state. They are pinned at
+     * the handler because the handler is what a future caller (a keyboard shortcut, a
+     * programmatic page step) reaches for, and the check is what stops it walking past the
+     * end. The empty-store case above is the one an operator does reach with the mouse: next
+     * and last stay enabled there, so clicking last assigns a page below the first.
+     */
     test.describe('handler bounds', () => {
         test('next refuses to cross the last page', () => {
             const t = toolbar(60, {pageSize: 30});
