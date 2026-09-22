@@ -98,11 +98,7 @@ class Workspace extends VesselWorkspace {
          */
         stateProvider: {
             module: StateProvider,
-            // `topology.additionalWindows` is DERIVED here: {@link #syncTopologyState} publishes it from
-            // the two places a committed topology arrives, and the seed only makes the key exist before
-            // the first publish. The departure from the shipped arrangement is not derived here — the
-            // engine publishes `dock.perspective.modified` on this same provider.
-            data  : {topology: {additionalWindows: 0}, tour: initialTourState},
+            data  : {tour: initialTourState},
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
@@ -135,28 +131,6 @@ class Workspace extends VesselWorkspace {
      */
     paneCache = {}
 
-    /**
-     * @summary How many workspaces stand beside the main one: the multi-window fact the engine does
-     * not publish.
-     *
-     * @description **The unit is the whole keyed topology, not this window's document.** What gets
-     * persisted and restored is {@link #getDockTopologyWorkspaces} — every registered workspace
-     * keyed by identity — because the thing a reader expects back when they open the app URL is
-     * their multi-window setup, not one window's panes. Window geometry needs no separate count:
-     * popup placement hints are measured relative to main, so any hint worth comparing already
-     * implies a second workspace.
-     *
-     * Whether main left the shipped arrangement is not measured here: the engine compares it with the
-     * declared `shipped` perspective and publishes `dock.perspective.modified`, so a pane torn out
-     * into a second window reads as both a departure and a window.
-     * @returns {{additionalWindows: Number}}
-     * @protected
-     */
-    readTopologyState() {
-        const keys = Object.keys(this.getDockTopologyWorkspaces());
-
-        return {additionalWindows: keys.filter(key => key !== Workspace.MAIN_WORKSPACE_ID).length}
-    }
 
     /**
      * @summary A valid document for a workspace that owns no panes.
@@ -265,55 +239,6 @@ class Workspace extends VesselWorkspace {
         return {errors, reset: !errors.length, transactionId: transactionId ?? null}
     }
 
-    /**
-     * @summary Publishes the first window count once the provider is resolvable.
-     *
-     * Boot is the second place a committed topology arrives and the only one the Group's document
-     * setter cannot see: `construct` creates the popup workspaces of a persisted topology, so without
-     * this the readout counts none of them until the next commit.
-     */
-    onConstructed() {
-        super.onConstructed();
-        this.syncTopologyState()
-    }
-
-    /**
-     * @summary Republishes the window count after a Group commit has settled.
-     *
-     * @description Presentation runs after the queue releases and cannot reject the commit, whereas
-     * the participant's document setter runs inside the adopt phase where a throw takes the whole
-     * transaction down. A status readout must never be able to fail the commit it reports on.
-     *
-     * It overrides the class method rather than wrapping `registerMainWorkspace`'s `project`
-     * callback, because that registration is deliberately `.call()`-able onto a plain dock Workspace.
-     * Undo and redo project through here too, so a window a commit adds or returns is counted with
-     * no path of its own.
-     *
-     * @param {Object} context The Group participant's projection context.
-     * @returns {Promise} This projection's outcome.
-     */
-    projectDockCommit(context) {
-        const projection = super.projectDockCommit(context);
-
-        this.syncTopologyState();
-
-        return projection
-    }
-
-    /**
-     * @summary Publishes {@link #readTopologyState} for the topology bar's readout.
-     *
-     * Written by path rather than by replacing the `topology` object, so a key added beside it later
-     * cannot be silently dropped by this publisher.
-     * @protected
-     */
-    syncTopologyState() {
-        const me = this;
-
-        if (me.isDestroyed || !me.getStateProvider()) return;
-
-        me.setState({'topology.additionalWindows': me.readTopologyState().additionalWindows})
-    }
 
     /**
      * @summary Creates all cold semantic owners before constructing their presentation.
@@ -336,7 +261,13 @@ class Workspace extends VesselWorkspace {
 
         me.getStateProvider().getStore('feed').appendBatch(25);
 
-        me.add([{module: TourToolbar}, {module: StatusComponent}, {module: TopologyToolbar, workspace: me}, {
+        me.add([{module: TourToolbar}, {
+            module: Container,
+            cls   : ['workstation-controls'],
+            flex  : 'none',
+            items : [{module: StatusComponent, flex: 1}, {module: TopologyToolbar, workspace: me}],
+            layout: {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'}
+        }, {
             module: Container,
             cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
             flex  : 1,
@@ -454,8 +385,7 @@ class Workspace extends VesselWorkspace {
      * @summary Saves a named multi-workspace composition and waits for durable acknowledgement.
      *
      * A command on the component, beside the state it reads — the keyed documents, the placement
-     * hints, the library and the Group — and the address the Neural Link already uses. The
-     * controller routes the toolbar's click here through `onSaveTopology`, which names no layout.
+     * hints, the library and the Group — and the address the Neural Link already uses.
      * @param {String} [layoutId]
      * @returns {Promise<Object>}
      */

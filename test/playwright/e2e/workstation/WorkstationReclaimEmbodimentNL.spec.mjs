@@ -3,7 +3,7 @@ import {test, expect} from '../../fixtures.mjs';
 /**
  * @summary Whitebox E2E regression arm for the gesture-less reclaim route: after Reset and after Undo
  * the SAME live pane instance is embodied where the document says it lives, and a vessel that never
- * connected keeps its retained pane past the lease, so `Show … here` re-trees that same instance.
+ * connected keeps its retained pane past the lease, so Reset recovers that same instance.
  *
  * Every assertion here is about the live component, never the document alone: the document moves
  * some 30 ms after the click and the pane embodies some 330–360 ms later on the reclaim route, so a
@@ -231,7 +231,7 @@ test.describe('Workstation reclaim route (Neural Link)', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('a vessel that never connected keeps its retained pane past the lease, and `Show … here` re-trees the same instance', async ({page, neuralLink}) => {
+    test('a vessel that never connected keeps its retained pane past the lease, and Reset recovers the same instance', async ({page, neuralLink}) => {
         test.setTimeout(180000);
 
         const pageErrors = [];
@@ -294,11 +294,11 @@ test.describe('Workstation reclaim route (Neural Link)', () => {
             'the workspace still resolves the same live instance').toBe(paneId);
         expect(await holdersOf(app, workspaceId), 'the vessel document still lists the pane').toEqual([vesselKey]);
 
-        // ── the recovery affordance re-trees the SAME cached instance into the root ───────────
-        const showHere = page.getByRole('button', {name: `Show ${vesselKey} here`, exact: true});
+        // Reset restores the shipped arrangement through the Group, preserving the cached pane.
+        const reset = page.getByRole('button', {name: 'Reset to default', exact: true});
 
-        await expect(showHere, 'the topology bar offers the retained workspace inline').toBeVisible({timeout: 10000});
-        await showHere.click();
+        await expect(reset).toBeEnabled({timeout: 10000});
+        await reset.click();
 
         await expect.poll(async () => ({
             embodiment: await embodimentOf(app, paneId),

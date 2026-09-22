@@ -82,7 +82,7 @@ flowchart TD
     Release["the window dies or is closed<br/>the binding is released, the lease starts running"]:::decision
     Retain["your host answers: retained<br/>the participant stays, the pane parks headless"]:::truth
     Retire["your host answers: retired<br/>the item re-trees home, the vessel document goes"]:::truth
-    Return["four roads home — Undo, Reset, Show here, the stack dragged back<br/>the same instance embodies again, ~360 ms after the document"]:::window
+    Return["three roads home — Undo, Reset, the stack dragged back<br/>the same instance embodies again, ~360 ms after the document"]:::window
     Reload["warm reload rebinds the same lineage — same objects, same history<br/>cold reload: a new heap restores the keyed documents headless — new instances, windows by gesture"]:::truth
 
     Home --> Terminal
@@ -169,10 +169,9 @@ into a download that never opens a second window. The Group is reachable through
 is the boundary — measured by an arm that walks the static closure in both directions rather than asserted in prose.
 
 What you see as an adopter, once the vessel is a participant, is small and useful. The set publishes its membership,
-so a topology bar can offer every registered workspace a recovery affordance the moment it exists — the Workstation's
-`Open … as window` and `Show … here` buttons appear when a participant registers and leave when it unregisters,
-without a reload. And the Group's provider publishes `canUndo` and `canRedo` to every window bound into it, so the
-undo button in your popup and the undo button in your main frame are the same cursor.
+and the Group's provider publishes `canUndo` and `canRedo` to every window bound into it. Controls bound to that
+provider share one cursor. Workstation keeps its layout controls to Reset, Undo and Redo, with reactive history
+badges, beside the live store statistics. The row stays the same as popup participants join and leave.
 
 ## Station three: the lease, and the question your host must answer
 
@@ -195,7 +194,9 @@ committed ownership"; retirement is a separate, explicit act. So when a vessel's
 asks: is this workspace *retained* — kept registered as a headless participant, its document intact, its pane parked
 until a render target admits it — or *retired*, its item brought home and its document dropped? The Workstation
 answers *retained*: a headless vessel keeps its place in the Group, its pane sits parked with `mounted: false`, and the
-topology bar keeps offering it back as a window or inline. Demo B, the example consumer, is built to show the other
+Reset can bring its shipped panes back to the default arrangement. Layout-preserving presentation of a retained
+participant remains available through the host's programmatic open and mount commands. Demo B, the example consumer,
+is built to show the other
 answer where its scenario wants it. Neither is right in the abstract; the design record insists only that "whether an
 emptied entry is retained or retired is decided and named separately from closing its OS window". Your product decides.
 
@@ -209,7 +210,7 @@ at 19.97 seconds, precisely one lease after a window nobody ever saw. The repair
 have read the Group's rules: the lifecycle owner remembers the host's retention answer per workspace key at release,
 clears it on a bind, and hands it to the expiry effect, so a lease that ends for a vessel that never bound asks the
 host before returning its pane. Today the same rig reads `mounted: false, isDestroyed: false` at lease end, the vessel
-document still lists the pane, and `Show … here` re-trees the very same instance.
+document still lists the pane. Reset can then recover the very same instance through a Group write.
 
 ## Station four: a half-finished drag, and why the window is parked
 
@@ -238,9 +239,9 @@ engine and the products keep their policy. Platform behaviour across browsers an
 catalogued, with verdicts and receipts, in the [Tear-Out Portability Matrix](../specificfeatures/TearOutPortabilityMatrix.md);
 this guide explains the mechanism and does not repeat the rows.
 
-## Station five: four roads home, and the read that fooled two of us
+## Station five: three roads home, and the read that fooled two of us
 
-A pane comes home by one of four roads, and they differ in what they do to the arrangement.
+A pane comes home by one of three user actions, and they differ in what they do to the arrangement.
 
 **Undo** is the Group's. A tear-out is one history row; undoing it returns the pane to the exact document state
 before the detach, through the same participant protocol, and the vessel's projection releases the instance the main
@@ -254,10 +255,6 @@ edge-root document rather than being unregistered, and that is not tidiness — 
 participant retired outside the transaction cannot be brought back by undo, and an early version of the command that
 retired vessels turned "tear out, reset, undo" into a pane owned by nobody. Retaining is the safe answer here for the
 same reason it is at the lease's end.
-
-**Show here** is recovery without a window: mount a retained headless participant inline in the main frame, its
-document unchanged. It is the road a user takes when the browser has decided it will not give them another popup, and
-it is why retention is worth the bookkeeping.
 
 **The whole stack, dragged back** is the road walked with the pointer, and it carries a vessel's stack home as one
 unit. A workspace opts in with `enableStackDrag` in its projection options — the Workstation's popup workspace always
@@ -320,8 +317,11 @@ again from its catalog record, and the Group — created fresh for this heap —
 hydrate is a preserving write, not a replay of the old one.
 
 The practical shape of that for a user: open the application URL after the browser closed and the arrangement is
-back — the saved keyed topology, headless popups offering themselves as windows one gesture away — together with
-whatever application state your host chose to persist beside it. What does not come back on its own is the objects.
+back — the saved keyed topology, including any headless participants — together with whatever application state
+your host chose to persist beside it. Workstation does not reopen those windows automatically or offer per-window
+recovery buttons: Reset returns its shipped panes to the default arrangement. A host that needs to preserve the
+saved arrangement while presenting headless participants must supply that recovery interaction.
+What does not come back on its own is the objects.
 The panes are new instances and the undo history starts empty; same objects and live history belong to the warm
 reload above, and to nothing else. Your host owes the cold boot more than it owed the first one: the storage adapter
 and the bootstrap that reads it under the root binding, a render target for each window a user opens, and the

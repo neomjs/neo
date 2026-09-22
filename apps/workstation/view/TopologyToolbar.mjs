@@ -3,8 +3,7 @@ import TransactionManager from '../../../src/manager/Transaction.mjs';
 
 /**
  * @summary Workstation's topology controls, borrowing its workspace and inherited provider.
- * The controller fills the recovery buttons through this toolbar's reference. History reads the
- * Group provider directly; this view creates no state, store or transaction owner.
+ * History reads the Group provider directly; this view creates no state, store or transaction owner.
  * @class Workstation.view.TopologyToolbar
  * @extends Neo.toolbar.Base
  */
@@ -16,7 +15,7 @@ class TopologyToolbar extends Toolbar {
         cls: ['workstation-topologybar'],
         /** @member {String} flex='none' */
         flex: 'none',
-        /** @member {Object} layout The controls wrap beside the recovery buttons. */
+        /** @member {Object} layout */
         layout: {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'},
         /** @member {String} reference='topology-toolbar' */
         reference: 'topology-toolbar',
@@ -32,8 +31,7 @@ class TopologyToolbar extends Toolbar {
      */
     construct(config) {
         const me        = this,
-              workspace = config.workspace ?? me.workspace,
-              lineState = data => ({additionalWindows: data.topology.additionalWindows, modified: data.dock.perspective.modified});
+              workspace = config.workspace ?? me.workspace;
 
         super.construct({
             actions: [{
@@ -58,30 +56,12 @@ class TopologyToolbar extends Toolbar {
                 showOnFocus: false,
                 text       : 'Redo'
             }],
-            // Recovery buttons join these ordinary items; the controller identifies its own
-            // buttons explicitly and never counts the action spacer or another owner's items.
             items: [{
-                ntype  : 'button',
-                handler: 'onSaveTopology',
-                text   : 'Save workspace'
-            }, {
-                ntype  : 'button',
-                handler: 'closeTopology',
-                text   : 'Close workspace'
-            }, {
                 ntype  : 'button',
                 bind   : {disabled: data => !data.dock.perspective.modified},
                 handler: () => workspace.resetTopology(),
                 iconCls: 'fa fa-rotate-left',
                 text   : 'Reset to default'
-            }, {
-                ntype: 'component',
-                bind : {
-                    hidden: data => !TopologyToolbar.topologyStateText(lineState(data)),
-                    html  : data => TopologyToolbar.topologyStateText(lineState(data))
-                },
-                cls : ['workstation-topology-state'],
-                flex: 'none'
             }],
             ...config
         })
@@ -101,23 +81,6 @@ class TopologyToolbar extends Toolbar {
         return Number.isFinite(steps) && steps > 0 ? `${steps}` : null
     }
 
-    /**
-     * @summary Formats committed window count and declared-perspective departure, hiding an empty line.
-     * @param {Object} [state={}]
-     * @param {Number} [state.additionalWindows=0]
-     * @param {Boolean} [state.modified=false]
-     * @returns {String}
-     */
-    static topologyStateText({additionalWindows=0, modified=false}={}) {
-        const parts = [];
-
-        if (modified)               parts.push('Modified from default');
-        else if (additionalWindows) parts.push('Default arrangement');
-
-        if (additionalWindows) parts.push(`${additionalWindows} additional window${additionalWindows === 1 ? '' : 's'}`);
-
-        return parts.join(' · ')
-    }
 }
 
 export default Neo.setupClass(TopologyToolbar);
