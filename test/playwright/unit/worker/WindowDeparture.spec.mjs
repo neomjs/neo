@@ -22,42 +22,42 @@ import WorkerBase     from '../../../../src/worker/Base.mjs';
  * only checked "does the Set contain the id" would pass against a predicate updated from the event and would not
  * see the staleness this fixes.
  */
+/**
+ * @summary A worker stub carrying only the port bookkeeping these arms read.
+ * @returns {Object}
+ */
+function create() {
+    const instance = Object.create(WorkerBase.prototype);
+
+    Object.assign(instance, {
+        departedWindowIds: new Set(),
+        isSharedWorker   : true,
+        ports            : [],
+        // removePort() also settles in-flight promises against the retired port; an empty map is the
+        // honest "nothing in flight" state rather than a stub that skips that half of the method.
+        promises         : {}
+    });
+
+    return instance
+}
+
+/**
+ * @summary Registers a fake port generation for one window, carrying the identity `isCurrentPort()` checks.
+ * @param {Object} instance
+ * @param {String} windowId
+ * @param {String} [appName='App']
+ * @returns {Object} the port entry
+ */
+function addPort(instance, windowId, appName='App') {
+    const entry = {appNames: new Set([appName]), id: windowId, port: {onmessage: null, close() {}}, windowId};
+
+    instance.ports.push(entry);
+
+    return entry
+}
+
 test.describe('Neo.worker.Base#isWindowDeparted', () => {
     let worker = null;
-
-    /**
-     * @summary A worker stub carrying only the port bookkeeping this predicate reads.
-     * @returns {Object}
-     */
-    function create() {
-        const instance = Object.create(WorkerBase.prototype);
-
-        Object.assign(instance, {
-            departedWindowIds: new Set(),
-            isSharedWorker   : true,
-            ports            : [],
-            // removePort() also settles in-flight promises against the retired port; an empty map is the
-            // honest "nothing in flight" state rather than a stub that skips that half of the method.
-            promises         : {}
-        });
-
-        return instance
-    }
-
-    /**
-     * @summary Registers a fake port generation for one window, carrying the identity `isCurrentPort()` checks.
-     * @param {Object} instance
-     * @param {String} windowId
-     * @param {String} [appName='App']
-     * @returns {Object} the port entry
-     */
-    function addPort(instance, windowId, appName='App') {
-        const entry = {appNames: new Set([appName]), id: windowId, port: {onmessage: null, close() {}}, windowId};
-
-        instance.ports.push(entry);
-
-        return entry
-    }
 
     test.beforeEach(() => {
         worker = create()
@@ -144,5 +144,107 @@ test.describe('Neo.worker.Base#isWindowDeparted', () => {
         worker.removePort(addPort(worker, 'win-a'));
 
         expect(worker.isWindowDeparted('win-a')).toBe(true)
+    });
+});
+
+/**
+ * A teardown call nobody awaits — an addon `unregister` after its window closed — rejects with nobody to tell. These
+ * arms fix what reaches the page: only the departure of the window the call targeted is settled; an unreachable
+ * window that never existed, and every other failure, are still mirrored.
+ */
+test.describe('Neo.worker.Base#onUnhandledRejection', () => {
+    let forwarded = null,
+        worker    = null;
+
+    /**
+     * @summary A rejection event as the browser dispatches it: cancelable, carrying its reason.
+     * @param {*} reason
+     * @returns {Object}
+     */
+    function rejectionEvent(reason) {
+        return {defaultPrevented: false, reason, preventDefault() {this.defaultPrevented = true}}
+    }
+
+    /**
+     * @summary The rejection `promiseMessage()` produces for a destination with no live port, caught as a caller would.
+     * @param {String} destination
+     * @param {String|null} windowId
+     * @returns {Promise<Error>}
+     */
+    async function deadPortReason(destination, windowId) {
+        worker.sendMessage = () => undefined;
+
+        try {
+            await worker.promiseMessage(destination, {
+                action         : 'remoteMethod',
+                remoteClassName: 'Neo.main.addon.ScrollSync',
+                remoteMethod   : 'unregister',
+                windowId
+            })
+        } catch (reason) {
+            return reason
+        }
+
+        return null
+    }
+
+    test.beforeEach(() => {
+        forwarded = [];
+        worker    = create();
+
+        worker.forwardErrorToMainThread = message => forwarded.push(message)
+    });
+
+    test('a dead-port rejection still reaches a caller that catches it, naming its destination and window', async () => {
+        worker.removePort(addPort(worker, 'win-a'));
+
+        expect(await deadPortReason('win-a', 'win-a')).toMatchObject({code: 'NEO_DEAD_PORT', destination: 'win-a', windowId: 'win-a'})
+    });
+
+    test('an unhandled call into a window that departed is settled, not mirrored', async () => {
+        worker.removePort(addPort(worker, 'win-a'));
+
+        const event = rejectionEvent(await deadPortReason('win-a', 'win-a'));
+
+        worker.onUnhandledRejection(event);
+
+        expect(forwarded).toEqual([]);
+        expect(event.defaultPrevented).toBe(true)
+    });
+
+    test('without a windowId, the destination identifies the departed window', async () => {
+        worker.removePort(addPort(worker, 'win-a'));
+
+        const event = rejectionEvent(await deadPortReason('win-a', null));
+
+        worker.onUnhandledRejection(event);
+
+        expect(forwarded).toEqual([])
+    });
+
+    test('the same rejection for a window that never existed is mirrored — unreachable is not departed', async () => {
+        const event = rejectionEvent(await deadPortReason('win-ghost', 'win-ghost'));
+
+        worker.onUnhandledRejection(event);
+
+        expect(forwarded).toHaveLength(1);
+        expect(event.defaultPrevented).toBe(false)
+    });
+
+    test('any other rejection is mirrored, even while its window is departed', () => {
+        worker.removePort(addPort(worker, 'win-a'));
+
+        worker.onUnhandledRejection(rejectionEvent(Object.assign(new Error('a live defect'), {windowId: 'win-a'})));
+
+        expect(forwarded).toHaveLength(1)
+    });
+
+    test('a rejection another listener already handled is not mirrored', () => {
+        const event = rejectionEvent(new Error('handled elsewhere'));
+
+        event.defaultPrevented = true;
+        worker.onUnhandledRejection(event);
+
+        expect(forwarded).toEqual([])
     });
 });
