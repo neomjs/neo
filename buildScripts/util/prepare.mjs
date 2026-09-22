@@ -27,7 +27,7 @@ const
  *
  * The skills materializer runs here too, never from `postinstall`: npm runs a dependency's
  * `postinstall` inside every consumer's install, where this package's devDependencies do not
- * exist, while `prepare` only runs in this package's own checkout.
+ * exist, while a registry or tarball install never runs `prepare`.
  */
 
 /**
