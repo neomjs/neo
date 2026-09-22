@@ -66,6 +66,12 @@ class Worker extends Base {
      */
     departedWindowIds = null
     /**
+     * Rejections {@link #onUnhandledRejection} settled because their window had departed. Counted, not logged: teardown
+     * in flight is expected, but a component that keeps calling into a gone window is a leak, and this is where it shows.
+     * @member {Number} settledDepartureCount=0
+     */
+    settledDepartureCount = 0
+    /**
      * Only needed for SharedWorkers
      * @member {Boolean} isConnected=false
      * @protected
@@ -674,6 +680,7 @@ class Worker extends Base {
         const {reason} = event;
 
         if (reason?.code === 'NEO_DEAD_PORT' && this.isWindowDeparted(reason.windowId ?? reason.destination)) {
+            this.settledDepartureCount++;
             event.preventDefault();
             return
         }

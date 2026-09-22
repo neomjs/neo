@@ -35,7 +35,8 @@ function create() {
         ports            : [],
         // removePort() also settles in-flight promises against the retired port; an empty map is the
         // honest "nothing in flight" state rather than a stub that skips that half of the method.
-        promises         : {}
+        promises             : {},
+        settledDepartureCount: 0
     });
 
     return instance
@@ -209,7 +210,9 @@ test.describe('Neo.worker.Base#onUnhandledRejection', () => {
         worker.onUnhandledRejection(event);
 
         expect(forwarded).toEqual([]);
-        expect(event.defaultPrevented).toBe(true)
+        expect(event.defaultPrevented).toBe(true);
+        // Settled, not lost: a component that keeps calling into a gone window stays measurable.
+        expect(worker.settledDepartureCount).toBe(1)
     });
 
     test('without a windowId, the destination identifies the departed window', async () => {
@@ -228,7 +231,8 @@ test.describe('Neo.worker.Base#onUnhandledRejection', () => {
         worker.onUnhandledRejection(event);
 
         expect(forwarded).toHaveLength(1);
-        expect(event.defaultPrevented).toBe(false)
+        expect(event.defaultPrevented).toBe(false);
+        expect(worker.settledDepartureCount).toBe(0)
     });
 
     test('any other rejection is mirrored, even while its window is departed', () => {
