@@ -110,9 +110,15 @@ class Sorter extends Base {
     }
 
     /**
-     * Default sorter function which gets used by collections in case at least one sorter has a real sortBy method
-     * @param a
-     * @param b
+     * @summary Compares two records by this sorter's `property` — the per-pair path a collection takes
+     * when at least one of its sorters has a custom `sortBy`.
+     *
+     * `null` / `undefined` sink on ASC and DESC alike; values that convert to a number lead text on ASC
+     * and trail it on DESC. {@link #compareValues} owns both rules.
+     *
+     * @param {Object} a First record.
+     * @param {Object} b Second record.
+     * @returns {Number} `-1`, `0` or `1`, already direction-adjusted.
      */
     defaultSortBy(a, b) {
         let me = this;
