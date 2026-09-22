@@ -47,7 +47,7 @@ const stubPane = reference => ({html: reference, ntype: 'component'});
  * proves the reducer's seeded id minting is stable through prune/re-mint cycles), and keeps
  * scene-by-scene parity with the storyboard's operation budget.
  */
-test.describe.serial('examples/dashboard/choreography/demoADockChoreography', () => {
+test.describe('examples/dashboard/choreography/demoADockChoreography', () => {
     let originalGetComponent, runner, service;
 
     /**

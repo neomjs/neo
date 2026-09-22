@@ -22,7 +22,7 @@ import StateProvider   from '../../../../src/state/Provider.mjs';
  * `bind`, then `write` / `undo` / `redo` — with registered, versioned participants applying their own
  * prepared values and the history's retained endpoints.
  */
-test.describe.serial('Neo.manager.Transaction — history admission, the queue and the Group provider', () => {
+test.describe('Neo.manager.Transaction — history admission, the queue and the Group provider', () => {
     let Transaction, importHistory, imports, log;
 
     /** @summary Supplies write metadata while retaining explicit participant changes. @param {Object} data @returns {Promise<Object>} */

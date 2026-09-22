@@ -207,6 +207,8 @@ const shape = (className, configs, fieldCount) => Neo.setupClass(class extends c
     }
 });
 
+// `describe.serial` is REQUIRED: the third arm reads `usPerInstance.tree`/`.grid`, which the first
+// two arms write — the ratio assertions cannot run before the profile arms have populated it.
 test.describe.serial('FieldConfigGuardProfile', () => {
     const usPerInstance = {};
 

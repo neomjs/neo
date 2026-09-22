@@ -137,7 +137,7 @@ function createHolder() {
     return holder
 }
 
-test.describe.serial('Neo.ai.client.TourRunner', () => {
+test.describe('Neo.ai.client.TourRunner', () => {
     let originalGetComponent, runner, service;
 
     test.beforeEach(() => {

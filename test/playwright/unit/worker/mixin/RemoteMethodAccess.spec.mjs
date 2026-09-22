@@ -42,11 +42,11 @@ class MockTarget extends Neo.core.Base {
 MockTarget = Neo.setupClass(MockTarget);
 
 
-test.describe.serial('worker/mixin/RemoteMethodAccess', () => {
+test.describe('worker/mixin/RemoteMethodAccess', () => {
 
     test('generateRemote should include remoteId if present in config', async () => {
         const worker = Neo.create(MockWorker);
-        
+
         const proxy = worker.generateRemote({
             className: 'Test.worker.MockTarget',
             id: 'mock-target-123',
@@ -102,7 +102,7 @@ test.describe.serial('worker/mixin/RemoteMethodAccess', () => {
 
     test('onRemoteMethod should fall back to namespace routing if no remoteId is provided', () => {
         const worker = Neo.create(MockWorker);
-        
+
         // Setup a mock singleton in the namespace
         Neo.ns('Test.worker.MockSingleton', true);
         Test.worker.MockSingleton.testMethod = (data) => data.value * 3;

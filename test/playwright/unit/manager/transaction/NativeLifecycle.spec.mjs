@@ -7,7 +7,7 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 
 /** @summary Native ownership survives views; asynchronous platform results remain generation-scoped. */
-test.describe.serial('Group native lifecycle (#18314)', () => {
+test.describe('Group native lifecycle (#18314)', () => {
     let manager;
 
     const deferred = () => {

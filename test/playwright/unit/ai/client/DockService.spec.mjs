@@ -66,7 +66,7 @@ function docRearranged() {
  * @summary Tests for the worker-side Neural Link dock tools: fail-closed operation vocabulary,
  * holder resolution, and the landed dual commit path (override-preferred, reducer-fallback).
  */
-test.describe.serial('Neo.ai.client.DockService', () => {
+test.describe('Neo.ai.client.DockService', () => {
     let originalGetComponent, service;
 
     test.beforeEach(() => {

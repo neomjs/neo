@@ -22,7 +22,7 @@ import {workstationTourScript, initialDocument} from '../../../../../../apps/wor
  * operation names, fail-closed validation, green real-reducer execution, and deterministic
  * document logs. Grid/overflow/Canvas runtime behavior remains the composed E2E's authority.
  */
-test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
+test.describe('apps/workstation/tour/denseWorkstation', () => {
     let originalGetComponent, runner, service;
 
     /**

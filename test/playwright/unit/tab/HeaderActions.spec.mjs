@@ -34,7 +34,7 @@ const focusOpts  = ids => ({componentPath: ids, data: {path: ids.map(id => ({id}
 /**
  * @summary Pins flat toolbar action materialisation and mixed TabContainer semantics.
  */
-test.describe.serial('Neo tab header actions', () => {
+test.describe('Neo tab header actions', () => {
     let dragDropSnapshot = null,
         instances        = [];
 

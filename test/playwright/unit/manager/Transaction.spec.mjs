@@ -19,7 +19,7 @@ import * as core      from '../../../../src/core/_export.mjs';
  * the app name, reloading A's root moves one generation and touches neither B nor a second Group, and a
  * late disconnect for the superseded generation cannot unbind its successor.
  */
-test.describe.serial('Neo.manager.Transaction — Groups and token-matched window bindings', () => {
+test.describe('Neo.manager.Transaction — Groups and token-matched window bindings', () => {
     let Transaction;
 
     // The worker admits a window when its config registers, carrying the identity the main thread read.

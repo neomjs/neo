@@ -19,7 +19,7 @@ import SortZone        from '../../../../../src/draggable/container/SortZone.mjs
 /**
  * @summary Tests for Neo.draggable.container.SortZone
  */
-test.describe.serial('Neo.draggable.container.SortZone', () => {
+test.describe('Neo.draggable.container.SortZone', () => {
     let container, sortZone;
 
     const

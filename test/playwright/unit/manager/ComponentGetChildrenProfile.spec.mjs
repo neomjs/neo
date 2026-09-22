@@ -22,7 +22,7 @@ import Container          from '../../../../src/container/Base.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs'; // <--- RENDERER
 import VdomHelper         from '../../../../src/vdom/Helper.mjs'; // <--- ENGINE
 
-test.describe.serial('ComponentManager getChildren Profile', () => {
+test.describe('ComponentManager getChildren Profile', () => {
 
     test('Profile getChildren vs getChildComponents with high DOM ratio', async () => {
         // 1. Create a parent component
@@ -42,7 +42,7 @@ test.describe.serial('ComponentManager getChildren Profile', () => {
         for (let i = 0; i < 10000; i++) {
             deepVnodes.push({nodeName: 'div', id: `div-${i}`});
         }
-        
+
         // Add the child component roots to the tree
         for (let i = 0; i < 50; i++) {
             deepVnodes.push({nodeName: 'span', id: `child-${i}`});

@@ -31,7 +31,7 @@ function document(key, title = 'before') {
 }
 
 /** @summary Exercises the dock adapter through the real Group writer and document validator. */
-test.describe.serial('Dock WorkspaceSet transaction participants', () => {
+test.describe('Dock WorkspaceSet transaction participants', () => {
     let binding, groupId, set;
 
     test.beforeEach(() => {
