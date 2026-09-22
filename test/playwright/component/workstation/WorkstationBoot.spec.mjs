@@ -201,7 +201,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
         await popup.close()
     });
 
-    test('a keyed workspace a cold boot recovers is adopted by the owner in the window its recovery button opens', async ({page, context}) => {
+    test('a cold boot retains the saved workspace and Reset brings its pane back', async ({page, context}) => {
         await page.goto(APP);
         await page.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
 
@@ -211,8 +211,6 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
               carrier = (await readBoot(page)).carrier;
 
         expect(carrier?.groupId, 'the root carries its Group identity').toBeTruthy();
-
-        await page.getByRole('button', {name: 'Save workspace', exact: true}).click();
 
         // The teardown may only start once the durable record holds the vessel workspace: read back
         // the collection the library wrote, under this Group's key, until its active topology lists it.
@@ -225,7 +223,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
         await page.close();
 
         // A cold boot with the same carrier hydrates the saved topology: the vessel workspace is
-        // retained, disconnected, and the bar offers to open it — the `?workspace=<key>` path.
+        // retained and disconnected. Reset is the compact toolbar's cold recovery path.
         const cold = await context.newPage();
 
         await cold.addInitScript(({key, identity}) => {
@@ -234,25 +232,12 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
         await cold.goto(APP);
         await cold.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
 
-        const reopen = cold.getByRole('button', {name: `Open ${FEED_KEY} as window`, exact: true});
-
-        await expect(reopen, 'the recovered topology offers the retained vessel workspace').toBeVisible({timeout: 60000});
+        await expect(cold.locator('.workstation-topologybar').getByRole('button'))
+            .toHaveText(['Reset to default', 'Undo', 'Redo']);
         expect(await cold.locator(FEED_PANE).count(), 'the pane is not in the root while its workspace is a window').toBe(0);
-
-        const savedPromise = context.waitForEvent('page', {timeout: 45000});
-
-        await reopen.click();
-
-        const saved = await savedPromise;
-
-        // The arriving window declares `?workspace=<key>`, its binding is under that key, and the owner's
-        // `connect` adoption mounts the retained workspace into it — nothing else renders here.
-        await saved.waitForSelector('.workstation-viewport', {state: 'attached', timeout: 60000});
-        expect(new URL(saved.url()).searchParams.get('workspace'), 'the recovery window is a saved-window URL').toBe(FEED_KEY);
-        await expect(saved.locator(FEED_PANE).first(), 'the owner adopted the window and mounted the pane').toBeVisible({timeout: 60000});
-        await expect(saved.getByText(REFUSAL), 'and the arriving side refused nothing').toHaveCount(0);
-
-        await saved.close()
+        await cold.getByRole('button', {name: 'Reset to default', exact: true}).click();
+        await expect(cold.locator(FEED_PANE).first(), 'Reset returns the retained pane to the default arrangement')
+            .toBeVisible({timeout: 60000})
     });
 
     test('a popout URL takes the popout branch and does not mount a default host', async ({page}) => {

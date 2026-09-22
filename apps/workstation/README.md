@@ -63,20 +63,24 @@ For programmatic playback from outside the view, resolve the optional owner with
 for its started cue work; a later Start creates a fresh controller. The workspace and its stores
 remain owned by the ordinary application.
 
-## Save and reopen a workspace
+## Layout controls and persistence
 
-**Save workspace** stores the complete keyed topology in IndexedDB, separately from undo history.
+Two rows keep the workspace chrome compact: tour and theme controls above, live store statistics
+beside **Reset to default**, **Undo** and **Redo** below. Undo and Redo retain their reactive step
+badges. Opening more popup participants adds no controls or rows.
+
+Group commits automatically store the complete keyed topology in IndexedDB, separately from undo history.
 Each logical root has its own collection. Cold boot uses its saved active layout; `?layout=<id>`
 explicitly selects another record in that collection. An unusable selection offers **Start a new
 workspace**, which preserves the saved collection and creates a new root.
 
-Saved window documents hydrate before presentation. **Open … as window** requests a popup from
-the button click; **Show … here** presents the same document in the root if a popup is unavailable.
+Use a pane's pop-out action or tear-out gesture to open its native window, and the browser's
+close control to close it. A closed or cold-restored popup remains a retained participant.
+**Reset to default** brings the shipped panes back to their default arrangement; **Undo** can reverse
+a preceding tear-out while that history still exists. Cold boot starts with empty history.
 Reloading a root or a restored popup while its SharedWorker survives reuses the live Workspace,
 host and pane instances without replaying history or writing a new topology.
 
-**Close workspace** waits for a current durable save, clears its windows' session carriers, and
-ends each render target. Browser-owned tabs that cannot close return to a blank document. The
-Group keeps its existing reconnect lease and only retires after storage acknowledges current
-truth and no retained reference remains. A failed final write keeps a `headless-dirty` Group and
-retries instead of discarding its documents.
+The underlying `saveTopology()`, `openTopologyWorkspace()`, `mountTopologyWorkspace()` and
+`closeTopology()` commands remain available to programmatic consumers. They are not additional
+toolbar actions; layout-preserving recovery of a headless participant is a programmatic path.

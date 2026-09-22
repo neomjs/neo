@@ -207,6 +207,54 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
     test.setTimeout(180000);
     test.use({viewport: {width: 1600, height: 900}});
 
+    test('two native popups leave exactly three toolbar controls at the original height', async ({page, context, neuralLink}) => {
+        await bootRoot(page);
+        const app         = await neuralLink.connectToApp('Workstation'),
+              workspaceId = await workspaceFor(app, await readWindowId(page)),
+              controlsRow = page.locator('.workstation-controls'),
+              toolbar     = controlsRow.locator('.workstation-topologybar'),
+              buttons     = toolbar.getByRole('button'),
+              labels      = toolbar.locator('.neo-button-text'),
+              height      = (await controlsRow.boundingBox()).height,
+              popups      = [];
+
+        await expect(labels).toHaveText(['Reset to default', 'Undo', 'Redo']);
+        await page.screenshot({path: test.info().outputPath('toolbar-before-popups.png'), fullPage: true});
+
+        try {
+            for (const title of ['Metrics', 'Commits']) {
+                const header  = await focusPane(page, title),
+                      opening = context.waitForEvent('page');
+                await header.locator('.neo-button:has([class*="fa-window-restore"])').click();
+                const popup = await opening;
+                popups.push(popup);
+                await expect(popup.locator(TAB, {hasText: title})).toBeVisible({timeout: 60000});
+                await expect(buttons).toHaveCount(3);
+                await expect(labels).toHaveText(['Reset to default', 'Undo', 'Redo']);
+                await expect.poll(async () => (await controlsRow.boundingBox()).height).toBe(height)
+            }
+
+            const state = await topologyState(app, workspaceId);
+            expect(Object.values(state.workspaceHosts).filter(host => host.windowId)).toHaveLength(2);
+            await expect(toolbar.getByRole('button', {name: /^Undo/}).locator('.neo-button-badge'))
+                .toHaveText(String(state.historyCursor + 1));
+            await page.screenshot({path: test.info().outputPath('toolbar-two-popups.png'), fullPage: true});
+            for (const [index, popup] of popups.entries()) {
+                await popup.screenshot({path: test.info().outputPath(`popup-${index + 1}.png`), fullPage: true})
+            }
+            await page.getByRole('button', {name: 'Light mode', exact: true}).click();
+            await expect(page.getByRole('button', {name: 'Dark mode', exact: true})).toBeVisible();
+            await page.evaluate(() => Promise.all(document.getAnimations()
+                .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+                .map(animation => animation.finished.catch(() => {}))));
+            await expect.poll(async () => (await controlsRow.boundingBox()).height).toBe(height);
+            await page.screenshot({path: test.info().outputPath('toolbar-two-popups-light.png'), fullPage: true})
+        } finally {
+            await Promise.all(popups.map(popup => popup.close()))
+        }
+    });
+
+
     test('topology restore presents the captured active pane in the real sibling window', async ({page, context, browser, baseURL, neuralLink}) => {
         const seed = await savedColdFixture(page, context, neuralLink, ['feed', 'alerts']);
         await context.close();
@@ -215,7 +263,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         try {
             const root         = await coldRoot(coldContext, neuralLink, seed.carrier);
             const popupPromise = coldContext.waitForEvent('page', {timeout: 45000});
-            await root.page.getByRole('button', {name: 'Open details as window', exact: true}).click();
+            expect(await root.app.callMethod(root.workspaceId, 'controller.openTopologyWorkspace', ['details'])).toMatchObject({opened: true});
             const popup = await popupPromise;
             await expect(popup.locator(TAB, {hasText: FEED_TITLE})).toBeVisible({timeout: 60000});
             const feedId   = await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['feed']);
@@ -313,7 +361,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         await keeper.close()
     });
 
-    test('cold active selection hydrates keyed truth, survives popup refusal and F5, and saves another cold round-trip', async ({page, context, browser, baseURL, neuralLink}) => {
+    test('cold active selection retains the compact toolbar and programmatic window recovery across refusal, F5 and persistence', async ({page, context, browser, baseURL, neuralLink}) => {
         test.setTimeout(300000);
         const seed = await savedColdFixture(page, context, neuralLink), contexts = [];
         await context.close();
@@ -330,18 +378,13 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             expect(hydrated.workspaceHosts.details.disconnected).toBe(true);
 
             await root.page.setViewportSize({width: 800, height: 900});
-            const recoveryButtons = ['Save workspace', 'Close workspace', 'Open details as window', 'Show details here']
-                .map(name => root.page.getByRole('button', {name, exact: true}));
-            for (const button of recoveryButtons) await expect(button).toBeVisible();
-            await expect.poll(async () => {
-                const boxes = await Promise.all(recoveryButtons.map(button => button.boundingBox()));
-                return boxes.every(box => box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 800 && box.y + box.height <= 900)
-            }, {message: 'all recovery actions remain inside the narrow viewport'}).toBe(true);
-            const topologyToolbar = root.page.locator('.neo-toolbar').filter({has: recoveryButtons[0]}),
+            const topologyToolbar = root.page.locator('.workstation-topologybar'),
+                  controls        = topologyToolbar.getByRole('button'),
                   dock            = root.page.locator('.workstation-dock-host');
+            await expect(controls).toHaveText(['Reset to default', 'Undo', 'Redo']);
             await expect.poll(async () => (await topologyToolbar.boundingBox())?.height, {
                 message: 'the topology toolbar stays compact at 800px'
-            }).toBeLessThanOrEqual(96);
+            }).toBeLessThanOrEqual(48);
             await expect.poll(async () => (await dock.boundingBox())?.height, {
                 message: 'the dock retains at least 600px of usable height in a 900px viewport'
             }).toBeGreaterThanOrEqual(600);
@@ -352,26 +395,20 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
                 window.__topologyPopupControl = {calls: 0, open: window.open};
                 window.open = () => { window.__topologyPopupControl.calls++; return null }
             });
-            await root.page.getByRole('button', {name: 'Open details as window', exact: true}).click();
+            expect(await root.app.callMethod(root.workspaceId, 'controller.openTopologyWorkspace', ['details'])).toMatchObject({opened: false});
             await root.page.waitForFunction(() => window.__topologyPopupControl.calls === 1);
             expect(coldContext.pages()).toHaveLength(1);
             expect(await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces'), 'native refusal keeps both keyed documents').toEqual(seed.records.b.workspaces);
 
-            await root.page.getByRole('button', {name: 'Show details here', exact: true}).click();
-            await expect.poll(async () => (await topologyState(root.app, root.workspaceId)).workspaceHosts.details.disconnected).toBe(false);
-            const inline = await topologyState(root.app, root.workspaceId),
-                  paneId = await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['feed']);
-            expect(inline.workspaceHosts.details.hostId, 'inline recovery reuses the hydrated owner')
-                .toBe(hydrated.workspaceHosts.details.hostId);
-            await expect(root.page.locator(`[id="${paneId}"]`), 'refusal has an inline recovery path').toBeVisible();
+            const paneId = await root.app.callMethod(root.workspaceId, 'getPaneIdentity', ['feed']);
             await root.page.evaluate(() => { window.open = window.__topologyPopupControl.open });
 
             const popupPromise = coldContext.waitForEvent('page', {timeout: 45000});
-            await root.page.getByRole('button', {name: 'Open details as window', exact: true}).click();
+            expect(await root.app.callMethod(root.workspaceId, 'controller.openTopologyWorkspace', ['details'])).toMatchObject({opened: true});
             const popup = await popupPromise;
             await expect(popup.locator(`[id="${paneId}"]`)).toBeVisible({timeout: 60000});
             const beforePopup = await topologyState(root.app, root.workspaceId), popupCarrier = await readCarrier(popup);
-            expect(beforePopup.workspaceHosts.details.hostId).toBe(inline.workspaceHosts.details.hostId);
+            expect(beforePopup.workspaceHosts.details.hostId).toBe(hydrated.workspaceHosts.details.hostId);
             expect(beforePopup.snapshot).toEqual(hydrated.snapshot);
 
             await popup.reload();
@@ -405,7 +442,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             expect(await root.app.executeDockOperation(root.workspaceId, {operation: 'setActiveItem', tabsNodeId: 'heavy-tabs', itemId: 'activity'})).toMatchObject({applied: true, errors: []});
             const changed = await root.app.callMethod(root.workspaceId, 'getDockTopologyWorkspaces');
             expect(changed['workstation-main'].nodes['heavy-tabs'].activeItemId).toBe('activity');
-            await root.page.getByRole('button', {name: 'Save workspace', exact: true}).click();
+            // The committed change persists automatically; no manual Save action is needed.
             await expect.poll(async () => (await root.app.callMethod(root.workspaceId, 'topologyLibrary.persistenceAdapter.read')).topologies['layout-b'].workspaces, {timeout: 15000}).toEqual(changed);
             expect((await root.app.callMethod(root.workspaceId, 'topologyLibrary.persistenceAdapter.read')).topologies['layout-b'].placementHints).toEqual(observedHints);
             const savedAgain = await coldContext.storageState({indexedDB: true}), carrierAgain = await readCarrier(root.page);
@@ -431,7 +468,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
                     window.addEventListener('beforeunload', () => console.log(marker + String(sessionStorage.getItem(key))), {once: true})
                 }, {key: CARRIER, marker})
             }
-            await root.page.getByRole('button', {name: 'Close workspace', exact: true}).click();
+            await root.app.callMethod(root.workspaceId, 'controller.closeTopology');
             await expect.poll(() => popup.isClosed(), {message: 'close-all reaches the retained popup through its own realm', timeout: 15000}).toBe(true);
             await expect.poll(() => root.page.isClosed() || root.page.url() === 'about:blank', {message: 'close-all ends the root document', timeout: 15000}).toBe(true);
             expect(carriersAtExit, 'every Group carrier cleared before its document left').toEqual({root: null, popup: null});

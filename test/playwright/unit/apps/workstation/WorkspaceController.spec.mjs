@@ -16,36 +16,8 @@ import Container        from '../../../../../src/container/Base.mjs';
 import WorkspaceController from '../../../../../apps/workstation/view/WorkspaceController.mjs';
 import ViewportController  from '../../../../../apps/workstation/view/ViewportController.mjs';
 import PopupWorkspace      from '../../../../../apps/workstation/view/PopupWorkspace.mjs';
-import TopologyToolbar     from '../../../../../apps/workstation/view/TopologyToolbar.mjs';
 import Workspace           from '../../../../../apps/workstation/view/Workspace.mjs';
 
-/**
- * @summary The controller under test with its bar syncs counted, so an arm can tell "re-synced" from
- * "the bar happens to read right" — and, after destroy, "not notified" from "notified and harmless".
- */
-class RecordingWorkspaceController extends WorkspaceController {
-    static config = {
-        className: 'Test.Workstation.RecordingWorkspaceController'
-    }
-
-    /**
-     * Class-level on purpose: `destroy` clears an instance's fields, and the arm reads the count after
-     * destroying the controller to prove it was not notified.
-     * @member {Number} syncs=0
-     * @static
-     */
-    static syncs = 0
-
-    /**
-     * @returns {Boolean}
-     */
-    syncTopologyBar() {
-        RecordingWorkspaceController.syncs++;
-        return super.syncTopologyBar()
-    }
-}
-
-Neo.setupClass(RecordingWorkspaceController);
 
 /**
  * @summary An event-driven storage boundary for a write already in flight.
@@ -82,32 +54,6 @@ test.describe('Workstation topology save and close coordination', () => {
         expect(component.topologyCollection.topologies.saved.placementHints).toEqual(stored)
     });
 
-    test('the toolbar\'s Save handler keeps the click payload out of the layout id', async () => {
-        // A button invokes a string handler with its click data. Routed straight into
-        // `saveTopology(layoutId)`, that payload became the record's name and the producer refused
-        // it — measured before this handler existed: "layoutId must be a non-empty string".
-        const clickData = {component: {id: 'neo-button-1'}, path: [{id: 'neo-button-1'}]},
-              calls     = [],
-              component = {
-                  getDockTopologyWorkspaces: () => ({main: {
-                      schema: 'neo.dock.zone.v1', root: 'tabs',
-                      items : {a: {reference: 'a'}},
-                      nodes : {tabs: {type: 'tabs', items: ['a'], activeItemId: 'a'}}
-                  }}),
-                  getPlacementHints    : () => ({}),
-                  perspectiveProvenance: () => ({declaredPerspective: 'shipped'}),
-                  topologyCollection   : null,
-                  saveTopology(...args) {calls.push(args); return Promise.resolve({persisted: true, current: true, errors: []})}
-              };
-
-        // The control: the payload IS harmful if it reaches the command.
-        expect(Workspace.prototype.captureTopology.call(component, clickData).errors.join(' '))
-            .toContain('layoutId must be a non-empty string');
-
-        // The handler: it never does.
-        await expect(WorkspaceController.prototype.onSaveTopology.call({component}, clickData)).resolves.toMatchObject({persisted: true});
-        expect(calls, 'the component command is called with no layout argument').toEqual([[]])
-    });
 
     test('a partial carrier refusal compensates cleared windows and closes none', async () => {
         const root      = Transaction.bind({windowId: 'controller-close-root'}),
@@ -222,168 +168,38 @@ test.describe('Workstation topology save and close coordination', () => {
         }
     });
 
-    test('the controller fills only its own buttons and cannot destroy what the toolbar owns', () => {
-        // The real topology toolbar, not a hand-written stand-in. `actions` is where the defect lived:
-        // toolbar.Base merges `createActionItemConfigs()` into `items` as a spacer plus one item per
-        // action, so the live bar holds more items than it authors. A fixture that omits `actions`
-        // cannot reproduce the defect and therefore cannot certify the fix — the previous one did.
-        // `originalConfig` captures the constructor's authored items/actions before their materialization.
-        // The bar must hold MORE than that authored list: a literal total would assert the boundary
-        // only by coincidence and fail when the view adds an unrelated item.
-        const bar           = Neo.create(TopologyToolbar, {workspace: {topologyGroupId: 'spec-group'}}),
-              declaration   = bar.originalConfig,
-              authoredCount = declaration.items.length,
-              actionCount   = declaration.actions.length;
-
-        expect(authoredCount, 'the toolbar class authors items at all').toBeGreaterThan(0);
-        expect(actionCount,   'and declares the actions whose merge is under test').toBeGreaterThan(0);
-
-        expect(bar.items.length, 'every authored item, plus the spacer and one item per action')
-            .toBe(authoredCount + 1 + actionCount);
-        expect(bar.getActionSpacer(), 'the toolbar owns a spacer once actions exist').not.toBeNull();
-
-        // The invariant whose violation threw `Component not found for id` on every viewport sync:
-        // a placeholder in the parent vdom must resolve to a live component. `items.length =` and a
-        // bare `destroy()` each break it silently — nothing reds until a vdom walk reaches the stub.
-        const expectVdomAligned = message => {
-            const ids = bar.getVdomItemsRoot().cn.map(node => node.componentId);
-
-            expect(ids.length, message).toBe(bar.items.length);
-            expect(ids.filter(id => id && !ComponentManager.get(id)), message).toEqual([])
-        };
-
-        expectVdomAligned('aligned before the controller runs');
-
-        let participants = ['alpha'];
-
-        // `isConstructed` sends `controller.Component#construct` down its immediate branch, so the
-        // engine's own `onComponentConstructed` seam runs here — the wiring is under test, not just
-        // the method it calls.
-        const controller = Neo.create(WorkspaceController, {
-            component: {
-                down          : () => bar,
-                getPopupStates: () => participants.map(workspaceId => ({workspaceId})),
-                isConstructed : true
-            }
-        });
-
-        // Ordinary BUTTONS only: the spacer and the action group are the toolbar's own structure and
-        // are asserted separately, because reaching into them is exactly what the defect was. The
-        // toolbar class also authors non-button readouts, and those are deliberately excluded by
-        // shape rather than by position — TopologyToolbar's own contract is that the authored
-        // list "is free to grow", so a filter keyed on what an item IS survives that growth while a
-        // filter keyed on where it sits does not.
-        const ordinaryTexts = () => bar.items
-            .filter(item => item.isToolbarAction !== true && item.isToolbarActionSpacer !== true &&
-                item.ntype === 'button')
-            .map(item => item.text);
-
-        expect(ordinaryTexts(), 'the lifecycle hook already populated it').toEqual([
-            'Save workspace', 'Close workspace', 'Reset to default', 'Open alpha as window', 'Show alpha here'
-        ]);
-
-        // Positional `slice(count)` destroyed these three, and `items.length = count` left their
-        // vdom placeholders pointing at the corpses.
-        expect(bar.getAction('undo'), 'the toolbar keeps its own actions across a sync').not.toBeNull();
-        expect(bar.getAction('redo')).not.toBeNull();
-        expect(bar.getActionSpacer(), 'and its own spacer').not.toBeNull();
-        expectVdomAligned('aligned after the first sync');
-
-        expect(controller.syncTopologyBar()).toBe(true);
-        expect(ordinaryTexts(), 'and a resync is not additive').toEqual([
-            'Save workspace', 'Close workspace', 'Reset to default', 'Open alpha as window', 'Show alpha here'
-        ]);
-        expectVdomAligned('aligned after a resync');
-
-        // The derived buttons join the ordinary items ahead of the `flex: 1` action spacer, rather
-        // than stranded past it on the far side of undo/redo. Asserted as an ORDERING rather than an
-        // index: the authored list is documented as free to grow, so a hard-coded position reds on
-        // the next readout the view adds and says nothing about the property it was protecting.
-        const derived = bar.items.filter(item => item.workspaceKey !== undefined);
-
-        expect(derived.length, 'both derived buttons are present').toBe(2);
-        expect(Math.max(...derived.map(item => bar.items.indexOf(item))),
-            'derived buttons precede the action group')
-            .toBeLessThan(bar.items.indexOf(bar.getActionSpacer()));
-
-        // Each derived button carries the participant it addresses, which is the whole of what the
-        // declarative handlers read — no closure over the controller or over this call.
-        expect(derived.map(item => [item.handler, item.workspaceKey])).toEqual([
-            ['onOpenTopologyWorkspace', 'alpha'], ['onMountTopologyWorkspace', 'alpha']
-        ]);
-
-        // Re-running is not additive, and the authored head survives a resync that removes every
-        // participant — the failure mode of replacing the whole list instead of only its own.
-        participants = [];
-
-        expect(controller.syncTopologyBar()).toBe(true);
-        expect(ordinaryTexts()).toEqual(['Save workspace', 'Close workspace', 'Reset to default']);
-        expect(bar.getAction('undo'), 'an emptied participant set still leaves the actions alone').not.toBeNull();
-        expectVdomAligned('aligned after every participant leaves');
-
-        // An unreachable bar is reported, never assumed: a destroyed view must not read as synced.
-        bar.destroy();
-        expect(controller.syncTopologyBar(), 'a destroyed bar is not a synced bar').toBe(false);
-
-        controller.destroy()
-    });
-
-    test('the bar follows membership through the production path: a popup workspace created after boot gains its buttons, a destroyed one loses them, and a destroyed controller stops listening', () => {
+    test('popup membership keeps exactly Reset, Undo and Redo and preserves their component identities', () => {
         const windowId = 'controller-membership-root',
               binding  = Transaction.bind({windowId, workspaceKey: 'main'}),
+              root     = Neo.create(Workspace, {windowId}),
+              bar      = root.controller.getReference('topology-toolbar'),
+              controls = () => bar.items.filter(item => item.ntype === 'button'),
+              initial  = controls(),
               document = key => ({
                   schema: 'neo.dock.zone.v1', root: 'tabs',
                   items : {[key]: {reference: key}},
                   nodes : {tabs: {type: 'tabs', items: [key], activeItemId: key}}
-              });
-
-        RecordingWorkspaceController.syncs = 0;
-
-        // The real root, its real registry, its real bar and its real popup-state lookup: the arm drives
-        // the one production seam both creation sites call, so it measures the order in which a popup
-        // workspace registers and becomes resolvable — not a stand-in for that order.
-        const root = Neo.create(Workspace, {controller: RecordingWorkspaceController, windowId}),
-              bar  = root.controller.getReference('topology-toolbar'),
-              // The derived buttons are read by what they ARE — each carries the participant it
-              // addresses — never by where the authored list ends: TopologyToolbar's contract is
-              // that the authored items are free to grow, so a pinned head reds on the next readout
-              // the view adds and says nothing about membership.
-              recoveryTexts = () => bar.items.filter(item => item.workspaceKey !== undefined).map(item => item.text),
-              authoredCount = () => bar.items.filter(item =>
-                  item.isToolbarAction !== true && item.isToolbarActionSpacer !== true && item.workspaceKey === undefined).length,
-              authored      = authoredCount();
+              }),
+              assertControls = () => {
+                  expect(controls().map(item => item.text)).toEqual(['Reset to default', 'Undo', 'Redo']);
+                  expect(controls()).toEqual(initial);
+                  expect(bar.items.filter(item => item.isToolbarActionSpacer !== true)).toEqual(initial);
+                  expect(bar.getVdomItemsRoot().cn.map(node => ComponentManager.get(node.componentId)))
+                      .toEqual(bar.items)
+              };
 
         try {
-            // Control: the construction-time population, with no popup workspace registered.
-            expect(RecordingWorkspaceController.syncs, 'constructed once').toBe(1);
-            expect(authored, 'the view authored its own items').toBeGreaterThan(0);
-            expect(recoveryTexts()).toEqual([]);
+            assertControls();
 
-            const alpha = root.createPopupWorkspace('alpha', document('alpha'), {committed: true, windowId: null});
+            const alpha = root.createPopupWorkspace('alpha', document('alpha'), {committed: true, windowId: null}),
+                  beta  = root.createPopupWorkspace('beta', document('beta'), {committed: true, windowId: null});
 
-            // The affordance first: this is the assertion a broken publication — or a registration that
-            // outruns its state — must fail on. Nothing here calls the controller.
-            expect(recoveryTexts(), 'the bar offers the new workspace without a reload').toEqual([
-                'Open alpha as window', 'Show alpha here'
-            ]);
-            expect(RecordingWorkspaceController.syncs, 'through exactly one more sync').toBe(2);
-            expect(root.getPopupState('alpha'), 'and the state the buttons address is the one created').toBe(alpha);
-            expect(authoredCount(), 'the authored items are untouched by the sync').toBe(authored);
-
+            expect(root.workspaceSet.ids()).toEqual(expect.arrayContaining(['alpha', 'beta']));
+            assertControls();
             alpha.host.destroy();
-
-            expect(RecordingWorkspaceController.syncs, 'the removal re-synced it too').toBe(3);
-            expect(recoveryTexts(), 'a gone workspace offers nothing').toEqual([]);
-            expect(authoredCount(), 'and the authored items survive the removal').toBe(authored);
-
-            // The component drops its controller the way its own destroy does: the config write destroys
-            // the old instance, and with it the subscription that instance owned.
-            root.controller = null;
-
-            const beta = root.createPopupWorkspace('beta', document('beta'), {committed: true, windowId: null});
-
-            expect(RecordingWorkspaceController.syncs, 'a destroyed controller is not notified').toBe(3);
-            beta.host.destroy()
+            assertControls();
+            beta.host.destroy();
+            assertControls()
         } finally {
             root.destroy();
             Transaction.retireGroup(binding.groupId)
