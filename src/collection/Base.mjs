@@ -686,6 +686,13 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Applies the collection's sorters to `items` in place, then fires `sort` unless silenced.
+     *
+     * Two paths, one ordering rule: with a custom `sortBy` in play this delegates per pair to
+     * {@link Neo.collection.Sorter#defaultSortBy}, otherwise it compares the mapped values itself. Both read
+     * {@link Neo.collection.Sorter#compareValues}, which owns the rule so the paths cannot drift: `null` /
+     * `undefined` sink on ASC and DESC alike, and values that convert to a number lead text on ASC and trail
+     * it on DESC.
      *
      * @param {Object[]} items=this._items
      * @param {Boolean} silent=false
@@ -754,16 +761,10 @@ class Collection extends Base {
                         sortProperty = sortProperties[i];
                         val1         = a[sortProperty];
                         val2         = b[sortProperty];
+                        sortValue    = Sorter.compareValues(val1, val2, sortDirections[i]);
 
-                        if (val1 == null && val2 != null) return  1;
-                        if (val1 != null && val2 == null) return -1;
-
-                        if (val1 > val2) {
-                            return 1 * sortDirections[i]
-                        }
-
-                        if (val1 < val2) {
-                            return -1 * sortDirections[i]
+                        if (sortValue !== 0) {
+                            return sortValue
                         }
                     }
 

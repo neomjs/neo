@@ -12,6 +12,7 @@ import Observable from '../core/Observable.mjs';
  * - **Value Transformation:** The `useTransformValue` config allows values to be normalized before comparison (e.g., lowercasing strings for case-insensitive sorting).
  * - **Custom Sorting:** The `sortBy` config allows providing a fully custom comparison function, overriding the default property-based logic.
  * - **Null Handling:** `null` and `undefined` values are always pushed to the bottom of the sorted results, regardless of the sort direction (`ASC` or `DESC`), ensuring stable transitivity and predictable UI rendering.
+ * - **Mixed Types:** values that convert to a number sort before those that do not, and unlike the null rule this rank follows the sort direction. See {@link #compareValues}, which owns both rules.
  *
  * @class Neo.collection.Sorter
  * @extends Neo.core.Base
@@ -109,9 +110,15 @@ class Sorter extends Base {
     }
 
     /**
-     * Default sorter function which gets used by collections in case at least one sorter has a real sortBy method
-     * @param a
-     * @param b
+     * @summary Compares two records by this sorter's `property` — the per-pair path a collection takes
+     * when at least one of its sorters has a custom `sortBy`.
+     *
+     * `null` / `undefined` sink on ASC and DESC alike; values that convert to a number lead text on ASC
+     * and trail it on DESC. {@link #compareValues} owns both rules.
+     *
+     * @param {Object} a First record.
+     * @param {Object} b Second record.
+     * @returns {Number} `-1`, `0` or `1`, already direction-adjusted.
      */
     defaultSortBy(a, b) {
         let me = this;
@@ -124,18 +131,74 @@ class Sorter extends Base {
             b = me.transformValue(b);
         }
 
-        if (a == null && b != null) return  1;
-        if (a != null && b == null) return -1;
+        return Sorter.compareValues(a, b, me.directionMultiplier)
+    }
 
-        if (a > b) {
-            return 1 * me.directionMultiplier;
+    /**
+     * @summary The one ordering rule every collection sort uses, shared by {@link #defaultSortBy} and
+     * {@link Neo.collection.Base#doSort} so the two paths cannot drift apart.
+     *
+     * `null` / `undefined` sink on ASC *and* DESC — absence has no position in an ordering, so it does not
+     * flip with one. Every present value then falls on one side of a single partition: values that convert
+     * to a number — numbers **and** numeric strings — lead and order by that value; the rest order as text.
+     * That rank does follow `directionMultiplier`.
+     *
+     * Partitioned by convertibility rather than by `typeof` because a numeric string otherwise carries two
+     * orderings at once, numeric against a number and textual against a string, and no rule keeping both is
+     * transitive. So `'10'` beats `5`, and now beats `'9'` too.
+     *
+     * Supported domain is number and string, `NaN` included — it converts to nothing, so it orders as text.
+     * Objects, arrays, `Date` and `Symbol` are **unsupported**; they get an order rather than a false tie,
+     * which is the safer failure, but nothing is promised about it.
+     *
+     * @param {*} a First already-transformed value.
+     * @param {*} b Second already-transformed value.
+     * @param {Number} directionMultiplier `1` for ASC, `-1` for DESC.
+     * @returns {Number} `-1`, `0` or `1`; `0` only where the operands share a basis for being equal.
+     */
+    static compareValues(a, b, directionMultiplier) {
+        // Settled in full before the partition, which would otherwise split them: Number(null) is 0,
+        // Number(undefined) is NaN.
+        if (a == null || b == null) {
+            if (a == null && b == null) return 0;
+
+            return a == null ? 1 : -1
         }
 
-        if (a < b) {
-            return -1 * me.directionMultiplier;
+        const
+            numericA  = Number(a),
+            numericB  = Number(b),
+            convertsA = !Number.isNaN(numericA),
+            convertsB = !Number.isNaN(numericB);
+
+        if (convertsA !== convertsB) {
+            return (convertsA ? -1 : 1) * directionMultiplier
         }
 
-        return 0;
+        if (convertsA) {
+            if (numericA > numericB) return  1 * directionMultiplier;
+            if (numericA < numericB) return -1 * directionMultiplier;
+
+            // Equal value is equal, whatever it was written as: `5`, `'5'` and `'05'` are one value,
+            // and a stable sort keeps their input order rather than inventing one.
+            return 0
+        }
+
+        // Text, not the raw operands: identical for two strings, and the difference between an order
+        // and a false tie for NaN, which is false against every string in both directions.
+        const
+            textA = String(a),
+            textB = String(b);
+
+        if (textA > textB) {
+            return 1 * directionMultiplier
+        }
+
+        if (textA < textB) {
+            return -1 * directionMultiplier
+        }
+
+        return 0
     }
 
     /**

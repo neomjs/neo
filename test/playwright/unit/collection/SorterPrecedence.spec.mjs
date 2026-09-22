@@ -191,13 +191,11 @@ test.describe('Neo.collection multi-sorter precedence', () => {
         expect(group('b').slice(-1)).toEqual([['b', null]]);
     });
 
-    test('a number and a non-numeric string tie in both directions, which is intransitive', () => {
+    test('a number sorts before a non-numeric string, in both directions', () => {
         // The comparator's own return values, rather than a permutation of them.
-        // `5 > 'abc'` and `5 < 'abc'` are both false, so it reports a tie for a
-        // number against any non-numeric string, while two numbers still compare
-        // normally. 5 ties 'abc', 'abc' ties 1, and 5 does not tie 1: the
-        // relation is intransitive, and the output order is then the sort
-        // algorithm's business rather than the data's.
+        // `5 > 'abc'` and `5 < 'abc'` are both false, so the relational operators
+        // alone tie them while two numbers still compare — intransitive. Values
+        // that convert to a number now lead those that do not.
         let collection = Neo.create(Collection, {
             items: [{id: 1, v: 5}, {id: 2, v: 'abc'}],
             sorters: [{direction: 'ASC', property: 'v'}]
@@ -206,18 +204,16 @@ test.describe('Neo.collection multi-sorter precedence', () => {
         const sorter = collection.sorters[0];
         const compare = (a, b) => sorter.defaultSortBy({v: a}, {v: b});
 
-        // Both orders report a tie, which is what makes the relation
-        // intransitive rather than merely unordered.
-        expect(compare(5, 'abc'), 'number against non-numeric string').toBe(0);
-        expect(compare('abc', 5), 'non-numeric string against number').toBe(0);
+        expect(compare(5, 'abc'), 'number against non-numeric string').toBeLessThan(0);
+        expect(compare('abc', 5), 'non-numeric string against number').toBeGreaterThan(0);
 
-        // Two numbers do compare, so the tie above is not a general refusal to
-        // order anything.
+        // Two numbers still compare, so the rank did not replace the ordinary
+        // comparison.
         expect(compare(5, 1), 'number against number').toBeGreaterThan(0);
         expect(compare(1, 5), 'number against number, reversed').toBeLessThan(0);
     });
 
-    test('mixed number and non-numeric string values do not form a total order', () => {
+    test('mixed number and non-numeric string values form a consistent order', () => {
         let collection = Neo.create(Collection, {
             items: [
                 {id: 1, v: 5},
@@ -227,20 +223,13 @@ test.describe('Neo.collection multi-sorter precedence', () => {
             sorters: [{direction: 'ASC', property: 'v'}]
         });
 
-        // Asserted as-is, and this one is worth a decision rather than a fix in
-        // a test-only PR: the comparator is intransitive on these values (see
-        // the test above), so the emitted order is the sort algorithm's
-        // business. Pinning the exact permutation would pin V8's binary
-        // insertion sort rather than the defect, and a different stable
-        // algorithm emits a different non-order from the same comparator.
-        //
-        // What the test can honestly require is that the result is NOT sorted,
-        // which stays true whichever algorithm runs and fails the day someone
-        // gives the comparator a total order.
+        // Assertable as an exact permutation only because the comparator is now
+        // consistent; while it was not, this could pin V8's algorithm and nothing
+        // else, so the arm required the weaker "not sorted" instead.
         const emitted = collection.items.map(i => i.v);
 
         expect(emitted).toHaveLength(3);
-        expect(emitted).not.toEqual([1, 5, 'abc']);
+        expect(emitted).toEqual([1, 5, 'abc']);
     });
 
     test('the caller array is left alone but its item objects are shared', () => {
