@@ -251,8 +251,12 @@ class Manager extends Base {
             cls        = isShared ? SharedWorker : Worker,
             worker     = new cls(filePath, {name, type: 'module'});
 
+        // `onmessage` stays on the port: that is where a SharedWorker's messages arrive. `onerror` does not move
+        // with it. A load or parse failure fires `error` on the worker object, while `port` is a MessagePort with
+        // no error event, so a handler bound on the port is a property nothing calls and a SharedWorker that
+        // never started reports nothing at all.
         (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
-        (isShared ? worker.port : worker).onerror   = me.onWorkerError  .bind(me);
+        worker.onerror                              = me.onWorkerError  .bind(me);
 
         me.activeWorkers++;
 
