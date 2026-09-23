@@ -68,8 +68,9 @@ folded into a tab bar's overflow menu is not a drag handle, and a torn-out pane'
 survive its departure for the stack to return to it.
 
 Both data-only screenplays live in `apps/workstation/tour/` (`denseWorkstation.mjs`,
-`fiveBeatFilm.mjs`); the mounted whitebox journeys are the runtime and visual falsifiers, and the
-film take (`NEO_FILM_TAKE=1`) records the same runnable script.
+`fiveBeatFilm.mjs`); the mounted whitebox journeys are the runtime and visual falsifiers. A
+recorded take of the same runnable script is the flagship-film epic's next step, not wired here.
+A cue that fails stops the tour at that beat, with the failed cue's receipt in the tour receipt.
 
 For programmatic playback from outside the view, resolve the optional owner with
 `await workspace.getController().getTourController()`, then call its `startTour()`,

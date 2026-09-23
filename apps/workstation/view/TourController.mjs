@@ -19,6 +19,10 @@ import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.m
  * settlement boundary ({@link #settleTourStep}) is what holds the runner at the gate; the runner
  * itself stays document-tier and never learns about viewers. Replays and takes pass
  * `autoGates: true` and gates resolve on their own.
+ *
+ * A cue that fails fails its beat: the settlement boundary rejects, so the runner stops before a
+ * later window effect could run on top of a world the screenplay no longer describes. The failed
+ * cue's receipt and error stay recorded — the stop carries its own forensics.
  * @class Workstation.view.TourController
  * @extends Neo.controller.Component
  */
@@ -44,7 +48,11 @@ class TourController extends Controller {
 
     /** @member {Object} activeScript=workstationTourScript The screenplay the owned runner plays. */
     activeScript = workstationTourScript
-    /** @member {Boolean} autoGates=false True resolves gate cues without a viewer (replays, takes). */
+    /**
+     * Gate mode: true resolves gate cues without a viewer (replays, takes). Set through
+     * `startTour({autoGates})`, or directly before Start by a transport that presses the button.
+     * @member {Boolean} autoGates=false
+     */
     autoGates = false
     /** @member {Promise} cuePromise */
     cuePromise = Promise.resolve()
@@ -149,7 +157,8 @@ class TourController extends Controller {
      * @summary Starts at most one visible playback of a screenplay, including its entry projection.
      * @param {Object} [script=workstationTourScript] `null` also resolves to the dense tour.
      * @param {Object} [options={}]
-     * @param {Boolean} [options.autoGates=false] Resolve gate cues without a viewer (replays, takes).
+     * @param {Boolean} [options.autoGates] Sets the gate mode for this controller: true resolves
+     * gate cues without a viewer (replays, takes). Omitted keeps the current mode.
      * @returns {Promise<Object>}
      */
     startTour(script=workstationTourScript, options={}) {
@@ -423,13 +432,14 @@ class TourController extends Controller {
         return {
             cueErrors: [...me.cueErrors],
             cues     : me.cueReceipts.map(({cue, receipt}) => ({
-                applied  : receipt?.applied ?? null,
-                cancelled: receipt?.cancelled ?? false,
-                diag     : receipt?.proof?.diag ?? null,
-                errors   : receipt?.errors ?? [],
-                phases   : receipt?.proof?.phaseOrder ?? null,
-                reentered: receipt?.reentered ?? false,
-                type     : cue.type
+                applied           : receipt?.applied ?? null,
+                cancelled         : receipt?.cancelled ?? false,
+                diag              : receipt?.proof?.diag ?? null,
+                documentsUnchanged: receipt?.proof?.documentsUnchanged ?? null,
+                errors            : receipt?.errors ?? [],
+                phases            : receipt?.proof?.phaseOrder ?? null,
+                reentered         : receipt?.reentered ?? false,
+                type              : cue.type
             })),
             pending  : {
                 activeGestures: me.gestureDriver?.activeRuns?.size ?? 0,
@@ -510,8 +520,17 @@ class TourController extends Controller {
                     throw new Error(receipt.errors.join('; '))
                 }
 
-                if (receipt.applied === false && !receipt.cancelled && !receipt.reentered) {
-                    throw new Error('terminal effect did not apply')
+                if (receipt.applied === false) {
+                    if (!receipt.cancelled && !receipt.reentered) {
+                        throw new Error('terminal effect did not apply')
+                    }
+
+                    // A legitimate un-applied terminal promises zero mutation, and the driver
+                    // proves it by comparing the document before and after. A missing or false
+                    // comparison is a failure, never a pass.
+                    if (receipt.proof?.documentsUnchanged !== true) {
+                        throw new Error('un-applied terminal did not prove the document unchanged')
+                    }
                 }
 
                 return receipt
@@ -522,7 +541,9 @@ class TourController extends Controller {
                 me.cueErrors.push(message);
                 me.setTourCaption(`Surface cue failed: ${message}`);
 
-                return false
+                // The chain itself stays resolved; the failure travels to the beat's settlement,
+                // which fails closed.
+                return {cueFailed: message}
             });
             cueSettlement = me.cuePromise
         }
@@ -534,6 +555,7 @@ class TourController extends Controller {
      * Settles the hosting surface for one runner step before the next screenplay beat may begin.
      * @summary Prevents a following document operation from re-projecting the dock while the
      * current surface cue still owns a live gesture, dwell, paint boundary — or a viewer gate.
+     * A failed cue fails the beat here, so the runner aborts before any later window effect.
      * @param {Object} data `TourRunner` settlement payload.
      * @returns {Promise<void>}
      */
@@ -541,9 +563,11 @@ class TourController extends Controller {
         if (this.isDestroyed) throw Neo.isDestroyed;
         let me            = this, workspace = me.workspace,
             key           = `${data.sceneIndex}:${data.stepIndex}`,
-            cueSettlement = me.cueSettlements.get(key) || Promise.resolve();
+            cueSettlement = me.cueSettlements.get(key) || Promise.resolve(),
+            outcome       = await cueSettlement;
 
-        await cueSettlement;
+        if (outcome?.cueFailed) throw new Error(outcome.cueFailed);
+
         await workspace.refreshPromise
     }
 
@@ -723,10 +747,10 @@ class TourController extends Controller {
      * @summary Runs a screenplay from a fresh document on every replay.
      * @param {Object} [script=workstationTourScript]
      * @param {Object} [options={}]
-     * @param {Boolean} [options.autoGates=false] Resolve gate cues without a viewer.
+     * @param {Boolean} [options.autoGates] Sets the gate mode when given; omitted keeps it.
      * @returns {Promise<Object>|undefined}
      */
-    async runVisibleTour(script=workstationTourScript, {autoGates=false}={}) {
+    async runVisibleTour(script=workstationTourScript, {autoGates}={}) {
         let me = this, workspace = me.workspace;
 
         me.getTourRunner(script);
@@ -736,7 +760,7 @@ class TourController extends Controller {
             return
         }
 
-        me.autoGates = autoGates;
+        if (autoGates !== undefined) me.autoGates = autoGates === true;
         me.setState({'tour.gatePrompt': null, 'tour.running': true, 'tour.totalBeats': TourController.totalBeats(script).length});
         me.cueErrors       = [];
         me.cuePromise      = Promise.resolve();
@@ -757,7 +781,9 @@ class TourController extends Controller {
             runnerResult   = await me.trap(me.tourRunner.start());
 
         const
-            errors      = [...runnerResult.errors, ...me.cueErrors],
+            // a cue failure that already stopped the runner is reported once, as the stop
+            cueOnly     = me.cueErrors.filter(cueError => !runnerResult.errors.some(error => error.endsWith(`: ${cueError}`))),
+            errors      = [...runnerResult.errors, ...cueOnly],
             appendError = (label, result) => {
                 if (result.status === 'rejected') {
                     const

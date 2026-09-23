@@ -1,6 +1,6 @@
-import {callWorkstationTour} from '../utils/workstationTour.mjs';
-import {test, expect}        from '../../fixtures.mjs';
-import {fiveBeatFilmScript}  from '../../../../apps/workstation/tour/fiveBeatFilm.mjs';
+import {callWorkstationTour, getWorkstationTour} from '../utils/workstationTour.mjs';
+import {test, expect}                            from '../../fixtures.mjs';
+import {fiveBeatFilmScript}                      from '../../../../apps/workstation/tour/fiveBeatFilm.mjs';
 
 /**
  * @summary The flagship film plays from the Workstation's own toolbar: **Start film tour** runs the
@@ -84,6 +84,68 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         }
     }
 
+    /**
+     * The receipt both arms must produce: one settled cue per beat in screenplay order, every
+     * gate continued the expected way, and each window effect proven by its own receipt.
+     * @param {Object} receipt The settled tour receipt.
+     * @param {Object} options
+     * @param {String} options.continued `'viewer'` or `'auto'` — how the three gates settled.
+     * @param {String[]} options.pageErrors
+     */
+    function assertFilmReceipt(receipt, {continued, pageErrors}) {
+        expect(receipt.errors, `film tour errors:\n${receipt.errors.join('\n')}\npage errors:\n${pageErrors.join('\n')}`).toEqual([]);
+        expect(receipt.completed).toBe(true);
+        expect(receipt.scriptId).toBe(fiveBeatFilmScript.id);
+        expect(receipt.log).toHaveLength(fiveBeatFilmScript.scenes.flatMap(scene => scene.steps).length);
+
+        // one settled receipt per cue, in screenplay order; three gates, each settled the same way
+        expect(receipt.cueReceipts.map(entry => entry.cue.type)).toEqual(filmCues);
+        expect(receipt.cueReceipts.filter(entry => entry.cue.type === 'gate').map(entry => entry.receipt.continued))
+            .toEqual([continued, continued, continued]);
+
+        const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
+
+        // scene 3 — the morph: born mid-gesture, retired on re-entry with zero mutation, proven
+        const [reentry, tearOut] = byType('tear-out');
+
+        expect(reentry.applied).toBe(false);
+        expect(reentry.reentered, 'the vessel must retire on re-entry, before pointer-up').toBe(true);
+        expect(reentry.proof?.documentsUnchanged, 'the re-entry must leave the committed document byte-identical').toBe(true);
+
+        // scene 4 — born mid-gesture, committed into its vessel
+        expect(tearOut.applied, 'the detached release must transfer into its vessel').toBe(true);
+        expect(tearOut.proof?.born, 'the vessel must be born before pointer-up').toBe(true);
+
+        // scene 5 — the conversion docks into the first vessel
+        const [convert] = byType('convert-while-dragging');
+
+        expect(convert.applied, 'commits must dock into the metrics vessel').toBe(true);
+
+        // scene 6 — the merged stack comes home
+        const [stackReturn] = byType('stack-return');
+
+        expect(stackReturn.applied, 'the whole stack must transfer home').toBe(true);
+
+        // scene 7 — capture, restore, undo, redo, each with the membership it produced
+        const [capture] = byType('perspective-capture'),
+              [restore] = byType('perspective-restore'),
+              [undo]    = byType('undo'),
+              [redo]    = byType('redo');
+
+        expect(capture.applied).toBe(true);
+        expect(restore.applied, 'the perspective must restore the captured arrangement').toBe(true);
+        expect(restore.tabs['heavy-tabs']).toContain('security');
+        expect(restore.tabs['tabs-security-0']).toBeUndefined();
+        expect(undo.applied).toBe(true);
+        expect(undo.tabs['heavy-tabs']).toContain('security');
+        expect(undo.tabs['scale-tabs']).not.toContain('security');
+        expect(redo.applied).toBe(true);
+        expect(redo.tabs['scale-tabs']).toContain('security');
+
+        // the room never stopped living
+        expect(receipt.feed.growth).toBeGreaterThan(0)
+    }
+
     test('Start film tour runs all eight scenes; the viewer\'s Continue clicks open every window', async ({page, neuralLink}) => {
         const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
@@ -149,60 +211,62 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
             receipt.completed || await dumpDiagnostics('incomplete receipt');
 
-            expect(receipt.errors, `film tour errors:\n${receipt.errors.join('\n')}\npage errors:\n${pageErrors.join('\n')}`).toEqual([]);
-            expect(receipt.completed).toBe(true);
-            expect(receipt.scriptId).toBe(fiveBeatFilmScript.id);
-            expect(receipt.log).toHaveLength(fiveBeatFilmScript.scenes.flatMap(scene => scene.steps).length);
-
-            // one settled receipt per cue, in screenplay order; three gates, each continued by the viewer
-            expect(receipt.cueReceipts.map(entry => entry.cue.type)).toEqual(filmCues);
-            expect(gatesSeen).toHaveLength(3);
-            expect(receipt.cueReceipts.filter(entry => entry.cue.type === 'gate').map(entry => entry.receipt.continued))
-                .toEqual(['viewer', 'viewer', 'viewer']);
-
-            const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
-
-            // scene 3 — the morph: born mid-gesture, retired on re-entry with zero mutation
-            const [reentry, tearOut] = byType('tear-out');
-
-            expect(reentry.applied).toBe(false);
-            expect(reentry.reentered, 'the vessel must retire on re-entry, before pointer-up').toBe(true);
-
-            // scene 4 — born mid-gesture, committed into its vessel
-            expect(tearOut.applied, 'the detached release must transfer into its vessel').toBe(true);
-            expect(tearOut.proof?.born, 'the vessel must be born before pointer-up').toBe(true);
-
-            // scene 5 — the conversion docks into the first vessel
-            const [convert] = byType('convert-while-dragging');
-
-            expect(convert.applied, 'commits must dock into the metrics vessel').toBe(true);
-
-            // scene 6 — the merged stack comes home
-            const [stackReturn] = byType('stack-return');
-
-            expect(stackReturn.applied, 'the whole stack must transfer home').toBe(true);
-
-            // scene 7 — capture, restore, undo, redo, each with the membership it produced
-            const [capture] = byType('perspective-capture'),
-                  [restore] = byType('perspective-restore'),
-                  [undo]    = byType('undo'),
-                  [redo]    = byType('redo');
-
-            expect(capture.applied).toBe(true);
-            expect(restore.applied, 'the perspective must restore the captured arrangement').toBe(true);
-            expect(restore.tabs['heavy-tabs']).toContain('security');
-            expect(restore.tabs['tabs-security-0']).toBeUndefined();
-            expect(undo.applied).toBe(true);
-            expect(undo.tabs['heavy-tabs']).toContain('security');
-            expect(undo.tabs['scale-tabs']).not.toContain('security');
-            expect(redo.applied).toBe(true);
-            expect(redo.tabs['scale-tabs']).toContain('security');
-
-            // the room never stopped living
-            expect(receipt.feed.growth).toBeGreaterThan(0);
+            expect(gatesSeen, 'the viewer continued every gate').toHaveLength(3);
+            assertFilmReceipt(receipt, {continued: 'viewer', pageErrors});
 
             // every window the film opened was closed again by the signature
             expect(popupProbe.length, 'three windows are born: the tear-out, the re-entry, the conversion').toBeGreaterThanOrEqual(3);
+            await expect.poll(() => popupProbe.every(fact => fact.closed), {timeout: 15000}).toBe(true);
+
+            expect(pageErrors).toEqual([])
+        } finally {
+            dispose()
+        }
+    });
+
+    test('under autoGates the film runs unattended: no gate waits for a viewer, and the same windows are born and closed', async ({page, neuralLink}) => {
+        const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
+
+        try {
+            // The replay/take mode is a controller property, set before the ordinary button is
+            // pressed — the same Start a viewer uses, minus the viewer.
+            await app.setProperties(await getWorkstationTour(app, wsId), {autoGates: true});
+            await page.click('.workstation-tour-film');
+
+            let pendingGates = 0, lastCaption = null;
+
+            await expect.poll(async () => {
+                if (await callWorkstationTour(app, wsId, 'getTourReceipt')) return true;
+
+                const state = await callWorkstationTour(app, wsId, 'getTourState');
+
+                if (state.caption !== lastCaption) {
+                    lastCaption = state.caption;
+                    console.log(`[film-probe] auto beat ${state.completedCount}/${state.totalBeats}: ${state.caption}`)
+                }
+
+                (await callWorkstationTour(app, wsId, 'getPendingGate')) && pendingGates++;
+
+                return false
+            }, {
+                message  : 'the unattended film tour settles its receipt after the signature scene',
+                timeout  : 200000,
+                intervals: [250, 500, 1000]
+            }).toBe(true).catch(async error => {
+                const cueLog = await callWorkstationTour(app, wsId, 'getCueLog').catch(err => ({error: String(err)}));
+
+                console.log(`[film-probe] auto receipt timeout: caption=${JSON.stringify(lastCaption)} cue log: ${JSON.stringify(cueLog)}`);
+                console.log(`[film-probe] popups: ${JSON.stringify(popupProbe)} page errors: ${JSON.stringify(pageErrors)}`);
+                throw error
+            });
+
+            const receipt = await callWorkstationTour(app, wsId, 'getTourReceipt');
+
+            expect(pendingGates, 'no gate ever waited for a viewer').toBe(0);
+            await expect(page.locator('.workstation-tour-continue')).toBeHidden();
+            assertFilmReceipt(receipt, {continued: 'auto', pageErrors});
+
+            expect(popupProbe.length, 'three windows are born without a click: the tear-out, the re-entry, the conversion').toBeGreaterThanOrEqual(3);
             await expect.poll(() => popupProbe.every(fact => fact.closed), {timeout: 15000}).toBe(true);
 
             expect(pageErrors).toEqual([])

@@ -2767,7 +2767,8 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
         const host = createCueHost({applied: false, errors: []});
 
         TourController.prototype.onTourBeat.call(host, beat);
-        await host.cueSettlements.get('0:0');
+        // the settlement resolves to the failure, so the step boundary can fail closed on it
+        await expect(host.cueSettlements.get('0:0')).resolves.toEqual({cueFailed: 'cross-zone-showcase: terminal effect did not apply'});
 
         expect(host.cueErrors).toEqual(['cross-zone-showcase: terminal effect did not apply']);
         expect(host.cueReceipts, 'the forensic receipt is retained alongside the failure')
@@ -2779,20 +2780,40 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
         const host = createCueHost({applied: true, errors: ['zone unreachable', 'no candidate']});
 
         TourController.prototype.onTourBeat.call(host, beat);
-        await host.cueSettlements.get('0:0');
+        await expect(host.cueSettlements.get('0:0')).resolves.toEqual({cueFailed: 'cross-zone-showcase: zone unreachable; no candidate'});
 
         expect(host.cueErrors).toEqual(['cross-zone-showcase: zone unreachable; no candidate']);
         expect(host.cueReceipts).toHaveLength(1)
     });
 
-    test('a cancel terminal settles legitimately un-applied', async () => {
-        const host = createCueHost({applied: false, cancelled: true, errors: []});
+    test('a cancel terminal settles legitimately un-applied only with its zero-mutation proof', async () => {
+        const host = createCueHost({applied: false, cancelled: true, errors: [], proof: {documentsUnchanged: true}});
 
         TourController.prototype.onTourBeat.call(host, beat);
-        await host.cueSettlements.get('0:0');
+        await expect(host.cueSettlements.get('0:0')).resolves.toMatchObject({applied: false, cancelled: true});
 
         expect(host.cueErrors).toEqual([]);
-        expect(host.cueReceipts).toHaveLength(1)
+        expect(host.cueReceipts).toHaveLength(1);
+
+        // a cancel that cannot show the document unchanged is a failure, not a pass
+        const unproven = createCueHost({applied: false, cancelled: true, errors: []});
+
+        TourController.prototype.onTourBeat.call(unproven, beat);
+        await expect(unproven.cueSettlements.get('0:0')).resolves.toEqual({cueFailed: 'cross-zone-showcase: un-applied terminal did not prove the document unchanged'});
+        expect(unproven.cueErrors).toEqual(['cross-zone-showcase: un-applied terminal did not prove the document unchanged']);
+        expect(unproven.cueReceipts, 'the unproven receipt stays as forensics').toHaveLength(1)
+    });
+
+    test('a failed cue fails the step boundary before the runner may begin the next beat', async () => {
+        const host = createCueHost({applied: false, errors: ['vessel did not open']});
+
+        host.workspace = {refreshPromise: Promise.resolve()};
+        TourController.prototype.onTourBeat.call(host, beat);
+
+        await expect(TourController.prototype.settleTourStep.call(host, {sceneIndex: 0, stepIndex: 0}))
+            .rejects.toThrow('cross-zone-showcase: vessel did not open');
+        // a beat without a cue, or with a settled one, still passes the boundary
+        await expect(TourController.prototype.settleTourStep.call(host, {sceneIndex: 0, stepIndex: 1})).resolves.toBeUndefined()
     });
 
     test('a healthy applied receipt settles clean', async () => {

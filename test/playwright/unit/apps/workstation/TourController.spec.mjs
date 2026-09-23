@@ -40,6 +40,131 @@ test('the configured runner cannot begin its next beat before the controller cue
     } finally {cue.resolve({applied: true, errors: []}); workspace.destroy()}
 });
 
+/**
+ * @summary A one-scene screenplay: two cued beats, then a plain pause.
+ * @param {Object} first  The first beat's cue.
+ * @param {Object} second The second beat's cue.
+ * @returns {Object}
+ */
+function cuedScript(first, second) {
+    return {
+        schema: 'neo.tour.script.v1', id: 'fail-closed-control', title: 'Fail-closed control',
+        scenes: [{id: 's', title: 'Scene', steps: [
+            {type: 'pause', ms: 0, cue: first},
+            {type: 'pause', ms: 0, cue: second},
+            {type: 'pause', ms: 0}
+        ]}]
+    }
+}
+
+test('a failed window cue fails its beat: the runner stops before the next window effect and keeps the forensics', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          executed   = [], beats = [];
+    controller.executeCue = async cue => {
+        executed.push(cue.type);
+        return cue.type === 'tear-out' ? {applied: false, errors: ['vessel did not open']} : {applied: true, errors: []}
+    };
+    controller.setPipProgress = async () => {};
+    controller.tourRunner = {script: cuedScript({type: 'tear-out', itemId: 'metrics'}, {type: 'convert-while-dragging', itemId: 'commits'})};
+    const runner = controller.tourRunner;
+    runner.on('beat', data => beats.push(data.stepIndex));
+    try {
+        const result = await runner.start();
+        expect(result.completed).toBe(false);
+        expect(result.errors).toEqual(['s[0] host step settlement failed: tear-out: vessel did not open']);
+        expect(executed, 'the conversion never runs on top of a failed tear-out').toEqual(['tear-out']);
+        expect(beats).toEqual([0]);
+        expect(controller.cueErrors).toEqual(['tear-out: vessel did not open']);
+        expect(controller.cueReceipts).toEqual([{
+            cue: {type: 'tear-out', itemId: 'metrics'}, receipt: {applied: false, errors: ['vessel did not open']}
+        }]);
+        await controller.progressPromise
+    } finally {workspace.destroy()}
+});
+
+test('an un-applied terminal passes only with the driver\'s zero-mutation proof', async () => {
+    const unproven = 's[0] host step settlement failed: tear-out: un-applied terminal did not prove the document unchanged';
+    for (const [proof, errors] of [
+        [{documentsUnchanged: true}, []],
+        [{documentsUnchanged: false}, [unproven]],
+        [undefined, [unproven]]
+    ]) {
+        const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+              controller = await workspace.getController().getTourController();
+        controller.executeCue = async () => ({applied: false, errors: [], proof, reentered: true});
+        controller.setPipProgress = async () => {};
+        controller.tourRunner = {script: cuedScript(
+            {type: 'tear-out', itemId: 'metrics', options: {reenter: true}}, {type: 'stack-return', ownerItemId: 'metrics'}
+        )};
+        try {
+            const result = await controller.tourRunner.start();
+            expect(result.errors, JSON.stringify(proof)).toEqual(errors);
+            expect(result.completed).toBe(errors.length === 0);
+            await controller.progressPromise
+        } finally {workspace.destroy()}
+    }
+});
+
+test('a gate holds until Continue; under autoGates it settles on its own and publishes no prompt', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          provider   = workspace.getStateProvider(), prompt = 'Continue — the window';
+    try {
+        expect(controller.autoGates).toBe(false);
+        const gate = controller.openGate({prompt});
+        expect(gate).toBeInstanceOf(Promise);
+        expect(controller.getPendingGate()).toEqual({prompt});
+        expect(provider.getData('tour.gatePrompt')).toBe(prompt);
+        expect(controller.getTourState().gate).toEqual({prompt});
+        expect(controller.continueTour()).toBe(true);
+        expect(await gate).toEqual({applied: true, continued: 'viewer', prompt});
+        expect(controller.getPendingGate()).toBeNull();
+        expect(provider.getData('tour.gatePrompt')).toBeNull();
+        expect(controller.continueTour(), 'nothing is waiting').toBe(false);
+
+        controller.autoGates = true;
+        expect(controller.openGate({prompt})).toEqual({applied: true, continued: 'auto', prompt});
+        expect(controller.getPendingGate()).toBeNull();
+        expect(provider.getData('tour.gatePrompt')).toBeNull()
+    } finally {workspace.destroy()}
+});
+
+test('startTour sets the gate mode only when asked: a gated screenplay then runs unattended, and stays so until told otherwise', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          prompt     = 'Continue — go',
+          script     = {
+              schema: 'neo.tour.script.v1', id: 'gate-mode', title: 'Gate mode',
+              scenes: [{id: 's', title: 'Scene', steps: [{type: 'pause', ms: 0, cue: {type: 'gate', prompt}}]}]
+          },
+          continued  = receipt => receipt.cueReceipts.map(entry => entry.receipt.continued);
+    controller.setPipProgress = async () => {};
+    workspace.refreshDockWorkspace = async () => {};
+    try {
+        // viewer mode: the run holds at the gate until Continue
+        const held = controller.startTour(script);
+        await expect.poll(() => controller.getPendingGate()).toEqual({prompt});
+        expect(controller.continueTour()).toBe(true);
+        const viewer = await held;
+        expect(viewer.completed).toBe(true);
+        expect(continued(viewer)).toEqual(['viewer']);
+
+        // asked once, the mode holds for this controller: the next Start needs no viewer either
+        const auto = await controller.startTour(script, {autoGates: true});
+        expect(auto.completed).toBe(true);
+        expect(continued(auto)).toEqual(['auto']);
+        expect(controller.autoGates).toBe(true);
+        expect(continued(await controller.startTour(script))).toEqual(['auto']);
+
+        // and the viewer gets the gate back when asked
+        const back = controller.startTour(script, {autoGates: false});
+        await expect.poll(() => controller.getPendingGate()).toEqual({prompt});
+        expect(controller.continueTour()).toBe(true);
+        expect(continued(await back)).toEqual(['viewer'])
+    } finally {workspace.destroy()}
+});
+
 test('repeated starts share the entry projection and cancellation does not start the runner afterward', async () => {
     const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
           controller = await workspace.getController().getTourController(),

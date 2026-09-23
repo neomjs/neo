@@ -8,7 +8,8 @@
  *   for the gestures themselves — a take that cannot pass the spec is not a take.
  * - THIS file is the NARRATIVE authority: show-order, pacing budget, the narration draft each
  *   beat speaks over the witnessed gesture — and the executable steps that drive it. One script,
- *   three consumers: the viewer's in-app tour, the whitebox replay, and the recorded take.
+ *   two consumers today: the viewer's in-app tour and the whitebox replay. The recorded take is
+ *   the film epic's next step and will consume this same script.
  * - The recorded transcript derives from the captured cut, never the reverse: these captions
  *   are the working screenplay, and the final voice track re-times to the footage.
  *
