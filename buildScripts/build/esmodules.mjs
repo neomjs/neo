@@ -162,7 +162,8 @@ Promise.all(promises).then(() => {
         unresolvable = findUnresolvableImports(
             emittedModules,
             fs.existsSync,
-            (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier)
+            (outputPath, specifier) => path.resolve(path.dirname(outputPath), specifier),
+            root
         ),
         describe     = ({outputPath, specifier}) => `  ${path.relative(root, outputPath)} → ${specifier}`,
         report       = (reason, format = describe) => unresolvable.filter(entry => entry.reason === reason).map(format),
