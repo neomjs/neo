@@ -290,7 +290,8 @@ class HeaderActionPolicy extends Base {
      * re-evaluates there — and again as it projects, which is a no-op after a commit and the one
      * publish a statically projected shell gets, so a header's bindings read committed truth on
      * their first run either way. The mount path of a never-refreshed shell publishes once more
-     * before it registers the chrome.
+     * before it registers the chrome. A transferred item leaves this workspace's catalog, but a
+     * retained pane may still read this provider; its former edge retires to `null`.
      * @param {Object|null} document The committed document
      */
     publishDocument(document) {
@@ -315,6 +316,12 @@ class HeaderActionPolicy extends Base {
             // Seeded so a binding's first run computes from a value rather than `undefined`. The
             // flight is owned by the workspace's reload path, so an existing value is never touched.
             !provider.getDataConfig(`dock.flights.${itemId}`) && (flights[itemId] = null)
+        });
+
+        const priorItems = provider.getDataConfig('dock.items')?.get() || {};
+
+        Object.keys(priorItems).forEach(itemId => {
+            !Object.hasOwn(items, itemId) && (items[itemId] = {edge: null})
         });
 
         Object.entries(document?.nodes || {}).forEach(([nodeId, node]) => {

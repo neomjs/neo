@@ -15,6 +15,7 @@ import Provider           from '../../../../src/state/Provider.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import HeaderActionPolicy from '../../../../src/dashboard/dock/projection/HeaderActionPolicy.mjs';
 import Reconciler         from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/tab/Container.mjs';
@@ -288,6 +289,55 @@ test.describe('Neo.dashboard.dock.Workspace — header state as bound data', () 
             expect(child.getData('dock.items.alpha.locked')).toBe(true);
             expect(child.getData('dock.items.alpha.closable')).toBe(false);
             expect(child.getData('appTheme'), 'unrelated app data still inherits').toBe('dark')
+        } finally {
+            childPolicy.destroy();
+            parentPolicy.destroy();
+            child.destroy();
+            parent.destroy()
+        }
+    });
+
+    test('a transfer retires the source edge while the popup publishes its own header truth', () => {
+        const parent       = Neo.create(Provider),
+              child        = Neo.create(Provider, {parent}),
+              parentPolicy = Neo.create(HeaderActionPolicy, {workspace: {
+                  stateProvider: parent, dockPopOutActionActive: true, hasDockRecreateFallback: () => true
+              }}),
+              childPolicy = Neo.create(HeaderActionPolicy, {workspace: {
+                  stateProvider: child, dockPopOutActionActive: false, hasDockRecreateFallback: () => false
+              }}),
+              source       = createDocument(),
+              target       = {
+                  schema: 'neo.dock.zone.v1', root: 'target-root', items: {}, nodes: {
+                      'target-root': {type: 'edge-zone', zones: {right: {nodeId: 'target-tabs', extent: 0.25}}},
+                      'target-tabs': {type: 'tabs', items: [], activeItemId: null}
+                  }
+              };
+
+        try {
+            parentPolicy.publishDocument(source);
+            const before = structuredClone(parent.getData('dock.items.side'));
+
+            expect(before.edge).toBe('right');
+
+            const transfer = Operations.transferItem(source, target, {
+                operation: 'transferItem', itemId: 'side', sourceWorkspaceId: 'main', targetWorkspaceId: 'popup:side',
+                target   : {operation: 'restoreTab', tabsNodeId: 'target-tabs', home: {parentId: 'target-root', slot: 'right'}}
+            });
+
+            expect(transfer.errors, 'the production transfer removes the source catalog record').toEqual([]);
+            expect(transfer.sourceDocument.items.side).toBeUndefined();
+            expect(transfer.targetDocument.items.side).toEqual(source.items.side);
+
+            childPolicy.publishDocument(transfer.targetDocument);
+            parentPolicy.publishDocument(transfer.sourceDocument);
+
+            expect(parent.getData('dock.items.side'), 'the retained pane sees its former truth with no source edge')
+                .toEqual({...before, edge: null});
+            expect(child.getData('dock.items.side.edge'), 'the popup owns its local edge despite the parent retirement')
+                .toBe('right');
+            expect(child.getDataConfig('dock.items.alpha.edge'), 'the popup did not retire an inherited parent item')
+                .toBe(null)
         } finally {
             childPolicy.destroy();
             parentPolicy.destroy();
