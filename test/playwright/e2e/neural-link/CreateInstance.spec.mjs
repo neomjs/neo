@@ -13,7 +13,7 @@ const {NeuralLink_InstanceService} = await loadNeuralLinkModules();
 test.describe('Neural Link - create_instance (e2e)', () => {
     test.setTimeout(90000);
 
-    test('creates standalone Store and parent-attached component through the live NL tool', async ({ page, neuralLink }) => {
+    test('creates standalone Store and parent-attached component through the live NL tool', async ({ page, neuralLink, workerErrors }) => {
         await page.goto('/examples/button/base/index.html');
         await expect(page.locator('.neo-button').first()).toBeVisible({ timeout: 30000 });
 
@@ -25,10 +25,11 @@ test.describe('Neural Link - create_instance (e2e)', () => {
             config   : {module: 'Neo.button.Base'}
         })).rejects.toThrow(/module.*cannot cross/);
 
+        workerErrors.expect(/^App Worker: Neo\.ai\.Client: Failed to handle message Error: Class Neo\.missing\.DoesNotExist does not exist(?:\n|$)/);
         await expect(NeuralLink_InstanceService.createInstance({
             sessionId: app.sessionId,
             className: 'Neo.missing.DoesNotExist'
-        })).rejects.toThrow(/does not exist/);
+        })).rejects.toThrow(/Class Neo\.missing\.DoesNotExist does not exist/);
 
         const
             suffix  = Date.now(),
@@ -60,6 +61,10 @@ test.describe('Neural Link - create_instance (e2e)', () => {
         const storeUndo = await NeuralLink_InstanceService.undo({sessionId: app.sessionId});
         expect(storeUndo.undone).toBe(true);
 
+        const escapedStoreId = storeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        workerErrors.expect(new RegExp(
+            '^App Worker: Neo\\.ai\\.Client: Failed to handle message Error: Store not found: ' + escapedStoreId + '(?:\\n|$)'
+        ));
         await expect(app.inspectStore(storeId)).rejects.toThrow(/Store not found/);
 
         const pick = res => res?.[0]?.id ?? res?.components?.[0]?.id ?? res?.instances?.[0]?.id ?? res?.id ?? null;

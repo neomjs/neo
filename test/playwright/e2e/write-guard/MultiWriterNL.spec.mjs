@@ -36,7 +36,7 @@ import { openRawAgent } from '../../util/rawAgent.mjs';
 test.describe('WriteGuard multi-writer enforcement (live two-writer e2e)', () => {
     test.setTimeout(90000);
 
-    test('a second writer is DENIED an overlapping write but ADMITTED a non-overlapping one', async ({ page, neuralLink }) => {
+    test('a second writer is DENIED an overlapping write but ADMITTED a non-overlapping one', async ({ page, neuralLink, workerErrors }) => {
         await page.goto('/examples/button/base/index.html');
         await expect(page.locator('.neo-button').first()).toBeVisible({ timeout: 30000 });
 
@@ -66,6 +66,14 @@ test.describe('WriteGuard multi-writer enforcement (live two-writer e2e)', () =>
         }
         const [componentA, componentB] = buttonIds;
         expect(componentA).not.toBe(componentB);
+        const escapedComponentA = componentA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const conflictPattern   = new RegExp(
+            '^Write denied for ' + escapedComponentA + ': conflict \\(held by .+ / .+\\)$'
+        );
+        const workerConflictPattern = new RegExp(
+            '^App Worker: Neo\\.ai\\.Client: Failed to handle message Error: ' +
+            conflictPattern.source.slice(1, -1) + '(?:\\n|$)'
+        );
 
         // writer-1 (the fixture ConnectionService, identity #1 [not-ticket-ref: ordinal label, not a ticket]) acquires + HOLDS the lock on A's subtree.
         await app.setProperties(componentA, { text: 'writer-1-holds-A' });
@@ -75,11 +83,11 @@ test.describe('WriteGuard multi-writer enforcement (live two-writer e2e)', () =>
 
         try {
             // (1) Overlapping write — same component A, different writer → DENIED (conflict).
+            workerErrors.expect(workerConflictPattern);
             const denied = await writer2.call(app.sessionId, 'set_instance_properties',
                 { id: componentA, properties: { text: 'writer-2-tries-A' } });
-            expect(denied.error,
-                'writer-2 overlapping write must be denied (conflict); an ADMIT here most likely means a STALE bridge'
-            ).toBeTruthy();
+            expect(denied.error?.message, 'writer-2 overlapping write must be denied for this exact component (conflict)')
+                .toMatch(conflictPattern);
 
             // (2) Non-overlapping control — sibling B → ADMITTED (proves writer-2 writes work absent a conflict).
             const admitted = await writer2.call(app.sessionId, 'set_instance_properties',

@@ -23,7 +23,7 @@ import { openRawAgent } from '../../util/rawAgent.mjs';
 test.describe('WriteGuard disconnect-release (live e2e)', () => {
     test.setTimeout(90000);
 
-    test('a disconnected writer\'s lock is released, re-admitting an overlapping second writer', async ({ page, neuralLink }) => {
+    test('a disconnected writer\'s lock is released, re-admitting an overlapping second writer', async ({ page, neuralLink, workerErrors }) => {
         await page.goto('/examples/button/base/index.html');
         await expect(page.locator('.neo-button').first()).toBeVisible({ timeout: 30000 });
 
@@ -34,6 +34,14 @@ test.describe('WriteGuard disconnect-release (live e2e)', () => {
             .map(c => c?.id).filter(Boolean);
         const componentA = idsOf(await app.findInstances({ ntype: 'button' }, ['id']))[0];
         expect(componentA, 'a button subtree to contend for').toBeTruthy();
+        const escapedComponentA = componentA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const conflictPattern   = new RegExp(
+            '^Write denied for ' + escapedComponentA + ': conflict \\(held by .+ / .+\\)$'
+        );
+        const workerConflictPattern = new RegExp(
+            '^App Worker: Neo\\.ai\\.Client: Failed to handle message Error: ' +
+            conflictPattern.source.slice(1, -1) + '(?:\\n|$)'
+        );
 
         // writer-1 is established + HOLDING before writer-2 exists — the deterministic ordering (a back-to-back
         // open races the lock acquisition). The Bridge mints writer-1 a distinct sessionId for the connection.
@@ -48,9 +56,11 @@ test.describe('WriteGuard disconnect-release (live e2e)', () => {
             writer2 = await openRawAgent(neuralLink.bridgePort, 'wg-disc-writer-2');
 
             // (1) Overlapping write while writer-1 holds the lock → DENIED (conflict).
+            workerErrors.expect(workerConflictPattern);
             const denied = await writer2.call(app.sessionId, 'set_instance_properties',
                 { id: componentA, properties: { text: 'writer-2-blocked' } });
-            expect(denied.error, 'writer-2 is denied while writer-1 holds the lock').toBeTruthy();
+            expect(denied.error?.message, 'writer-2 is denied for this exact overlapping component')
+                .toMatch(conflictPattern);
 
             // writer-1 disconnects → Bridge agent_disconnected (sessionId-stamped to the app) → releaseAgent.
             writer1.close();
