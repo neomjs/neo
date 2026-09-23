@@ -606,10 +606,13 @@ class Reconciler extends Base {
             .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
             .filter(Boolean))];
 
-        // Overflow controls float outside the dock host. Restore their visible state only after every
-        // retained toolbar owns final geometry, then let each plugin recapture its natural widths.
+        // A floating overflow control was hidden for transport (the visibility hold above) and is
+        // restored only after every retained toolbar owns final geometry. An action-mode control's
+        // visibility IS the plugin's verdict: the recapture below shows it exactly when tabs overflow,
+        // and forcing it visible first painted a control with nothing to show on a newborn single-tab
+        // strip for one frame.
         overflowPlugins.forEach(plugin => {
-            plugin.control?.hidden && (plugin.control.hidden = false)
+            !plugin.projectAsAction && plugin.control?.hidden && (plugin.control.hidden = false)
         });
         await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
 

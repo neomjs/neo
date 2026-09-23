@@ -428,6 +428,66 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         }
     })
 
+    test('a staged projection leaves an action-mode overflow control hidden until its own recapture shows it', async () => {
+        // The dock's header rail installs the overflow plugin in action mode: the control is a
+        // toolbar contribution whose visibility is the plugin's verdict, so a topology swap must not
+        // force it visible while the recapture that decides is still in flight — on a newborn
+        // single-tab strip that painted a control with nothing to show for one frame.
+        const
+            model = createSplitModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_reference, _item, itemId) => panes[itemId]
+                })]
+            }),
+            shell        = host.items[0],
+            tab          = shell.items.find(item => item.dockNodeId === 'alpha-tabs'),
+            plugin       = tab.getTabBar().getPlugin('tab-overflow'),
+            control      = plugin.createActionControl(),
+            transitions  = [],
+            next         = createThreeChildSplitModel(),
+            placeholders = new Map();
+
+        expect(plugin.projectAsAction).toBe(true);
+        expect(control.hidden, 'a control with nothing to show is born hidden').toBe(true);
+        control.on('hiddenChange', ({value}) => transitions.push(value));
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(next, {
+                resolveComponentRef(_reference, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            const result = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            });
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            expect(result.landedInPlace, 'a third split child stages a shell swap').toBe(false);
+            expect(result.overflowPlugins).toContain(plugin);
+            expect(transitions, 'the swap never forces the action-mode control visible').toEqual([]);
+            expect(control.hidden).toBe(true)
+        } finally {
+            host.destroy()
+        }
+    })
+
     test('normalizes an absent-item config to the inserted live component exactly once', async () => {
         const
             model = createRootTabsModel(),
