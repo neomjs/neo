@@ -76,6 +76,17 @@ test.describe('Neo.worker.Base#sendMessage — a departed window is not a siblin
         expect(sibling.posted).toHaveLength(0)
     });
 
+    test('a reply addressed to a worker still relays through its app when the window it names departed', () => {
+        const departed = addPort('win-a'),
+              sibling  = addPort('win-b');
+
+        worker.removePort(departed);
+
+        // The VDom worker's reply to an update: bound for the App worker, naming the window only as context.
+        expect(worker.sendMessage('app', {action: 'reply', appName: 'App', replyId: 'neo-app-1', windowId: 'win-a'})).toBeTruthy();
+        expect(sibling.posted).toHaveLength(1)
+    });
+
     test('control: a window that never departed still falls back to its app\'s port', () => {
         const other = addPort('win-b');
 
