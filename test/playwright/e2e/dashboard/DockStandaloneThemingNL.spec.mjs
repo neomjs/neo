@@ -1,9 +1,4 @@
 import { test, expect } from '../../fixtures.mjs';
-import fs               from 'fs';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * The standalone-dock invariant, demonstrated: the spec pins the standalone-proof AC and its
@@ -35,11 +30,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 test.describe('Dock standalone theming — the values layer (Neural Link)', () => {
     test.setTimeout(90000);
 
-    const EXAMPLE_CONFIG = path.resolve(__dirname, '../../../../examples/dashboard/dock/neo-config.json'),
-
-          // [token level] values-layer token → expected resolved value per theme.
-          // [paint level] the indicator chevron's resolved border-color per theme.
-          EXPECTATIONS = {
+    // [token level] values-layer token → expected resolved value per theme.
+    // [paint level] the indicator chevron's resolved border-color per theme.
+    const EXPECTATIONS = {
               'neo-theme-cyberpunk': {
                   acceptToken: '#00d2ff',
                   groundToken: 'rgba(13, 17, 23, 0.94)',
@@ -85,12 +78,8 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
      * @param {String} theme
      * @param {Boolean} blockValuesLayer mutation control: abort the values-layer stylesheet requests
      */
-    async function boot(page, theme, {blockValuesLayer = false} = {}) {
-        const config = {...JSON.parse(fs.readFileSync(EXAMPLE_CONFIG, 'utf8')), themes: [theme]};
-
-        await page.route('**/examples/dashboard/dock/neo-config.json*', route =>
-            route.fulfill({contentType: 'application/json', body: JSON.stringify(config)})
-        );
+    async function boot(page, neuralLink, theme, {blockValuesLayer = false} = {}) {
+        await neuralLink.routeConfig(page, config => ({...config, themes: [theme]}), '**/examples/dashboard/dock/neo-config.json*');
 
         if (blockValuesLayer) {
             // Fulfill with an EMPTY sheet (200, no rules) rather than aborting: the loader awaits
@@ -126,7 +115,7 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
     }
 
     test('composes a real Viewport root around the distinct dock holder', async ({page, neuralLink}) => {
-        await boot(page, 'neo-theme-neo-dark');
+        await boot(page, neuralLink, 'neo-theme-neo-dark');
 
         const app           = await neuralLink.connectToApp('Neo.examples.dashboard.dock'),
               viewports     = await app.queryComponent({className: 'Neo.container.Viewport'}, ['id', 'className', 'ntype']),
@@ -156,7 +145,7 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
 
     for (const [theme, expected] of Object.entries(EXPECTATIONS)) {
         test(`standalone host is fully themed under ${theme} — token and paint level`, async ({page, neuralLink}) => {
-            await boot(page, theme);
+            await boot(page, neuralLink, theme);
 
             // Whitebox engine truth: the dock holder is live in the App Worker with a committed
             // dock model — the engine surface this host renders (same anchor DockDragDropNL uses).
@@ -201,8 +190,8 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
     }
 
     for (const theme of MUTATION_THEMES) {
-        test(`MUTATION control: without the ${theme} values layer, paint uses the engine fallback`, async ({page}) => {
-            await boot(page, theme, {blockValuesLayer: true});
+        test(`MUTATION control: without the ${theme} values layer, paint uses the engine fallback`, async ({page, neuralLink}) => {
+            await boot(page, neuralLink, theme, {blockValuesLayer: true});
 
             // The blocked layer must be observable at token level too.
             const accept = await page.evaluate(() =>
@@ -236,7 +225,6 @@ test.describe('Relocated dock examples — example-owned palette (Neural Link)',
     const EXAMPLES = [{
               appName      : 'Neo.examples.dashboard.choreography',
               className    : 'Neo.examples.dashboard.choreography.DemoAWorkspace',
-              configPath   : path.resolve(__dirname, '../../../../examples/dashboard/choreography/neo-config.json'),
               configRoute  : '**/examples/dashboard/choreography/neo-config.json*',
               paintSelector: '.agentos-dockdemo-pane',
               slug         : 'choreography',
@@ -244,7 +232,6 @@ test.describe('Relocated dock examples — example-owned palette (Neural Link)',
           }, {
               appName      : 'Neo.examples.dashboard.crossWindow',
               className    : 'Neo.examples.dashboard.crossWindow.DemoBWorkspace',
-              configPath   : path.resolve(__dirname, '../../../../examples/dashboard/crossWindow/neo-config.json'),
               configRoute  : '**/examples/dashboard/crossWindow/neo-config.json*',
               paintSelector: '.agentos-dockdemo-pane',
               slug         : 'cross-window',
@@ -279,11 +266,7 @@ test.describe('Relocated dock examples — example-owned palette (Neural Link)',
      * @returns {Promise<{app: Object, workspaceId: String}>}
      */
     async function bootRelocatedExample(page, neuralLink, example, theme, {blockPalette = false} = {}) {
-        const config = {...JSON.parse(fs.readFileSync(example.configPath, 'utf8')), themes: [theme]};
-
-        await page.route(example.configRoute, route =>
-            route.fulfill({contentType: 'application/json', body: JSON.stringify(config)})
-        );
+        await neuralLink.routeConfig(page, config => ({...config, themes: [theme]}), example.configRoute);
 
         if (blockPalette) {
             await page.route(PALETTE_REQUEST, route =>

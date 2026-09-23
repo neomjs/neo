@@ -255,10 +255,10 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
     });
 
 
-    test('topology restore presents the captured active pane in the real sibling window', async ({page, context, browser, baseURL, neuralLink}) => {
+    test('topology restore presents the captured active pane in the real sibling window', async ({page, context, baseURL, neuralLink}) => {
         const seed = await savedColdFixture(page, context, neuralLink, ['feed', 'alerts']);
         await context.close();
-        const coldContext = await browser.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
+        const coldContext = await neuralLink.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
 
         try {
             const root         = await coldRoot(coldContext, neuralLink, seed.carrier);
@@ -361,13 +361,13 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         await keeper.close()
     });
 
-    test('cold active selection retains the compact toolbar and programmatic window recovery across refusal, F5 and persistence', async ({page, context, browser, baseURL, neuralLink}) => {
+    test('cold active selection retains the compact toolbar and programmatic window recovery across refusal, F5 and persistence', async ({page, context, baseURL, neuralLink}) => {
         test.setTimeout(300000);
         const seed = await savedColdFixture(page, context, neuralLink), contexts = [];
         await context.close();
 
         try {
-            const coldContext = await browser.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
+            const coldContext = await neuralLink.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
             contexts.push(coldContext);
             const root = await coldRoot(coldContext, neuralLink, seed.carrier);
             expect(root.app.sessionId, 'cold restore has a new App Worker').not.toBe(seed.sessionId);
@@ -480,7 +480,7 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
             expect(await root.app.callMethod(managerId, 'findByWindow', [keeperWindowId])).toMatchObject({groupId: keeperCarrier.groupId});
             await coldContext.close();
 
-            const secondContext = await browser.newContext({baseURL, storageState: savedAgain, viewport: {width: 1600, height: 900}});
+            const secondContext = await neuralLink.newContext({baseURL, storageState: savedAgain, viewport: {width: 1600, height: 900}});
             contexts.push(secondContext);
             const second = await coldRoot(secondContext, neuralLink, carrierAgain);
             expect(second.app.sessionId).not.toBe(root.app.sessionId);
@@ -505,11 +505,11 @@ test.describe('Workstation topology Groups — two roots under one SharedWorker 
         }
     });
 
-    test('a stale popup arriving first cannot choose a cold topology and the root can explicitly select the other saved layout', async ({page, context, browser, baseURL, neuralLink}) => {
+    test('a stale popup arriving first cannot choose a cold topology and the root can explicitly select the other saved layout', async ({page, context, baseURL, neuralLink}) => {
         test.setTimeout(240000);
         const seed = await savedColdFixture(page, context, neuralLink);
         await context.close();
-        const coldContext = await browser.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
+        const coldContext = await neuralLink.newContext({baseURL, storageState: seed.storageState, viewport: {width: 1600, height: 900}});
 
         try {
             const stale = await carriedPage(coldContext, seed.popupCarrier);

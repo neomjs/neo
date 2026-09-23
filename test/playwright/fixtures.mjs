@@ -203,7 +203,7 @@ export const test = base.extend({
         await use(neo);
     },
 
-    neuralLink: async ({ page }, use) => {
+    neuralLink: async ({ browser, context, page }, use) => {
         const {
             NeuralLink_ComponentService,
             NeuralLink_ConnectionService,
@@ -223,6 +223,22 @@ export const test = base.extend({
         // 1. Ensure Bridge connects
         await NeuralLink_ConnectionService.manageConnection({action: 'start'});
 
+        // The page's client dials `Neo.config.neuralLinkUrl`, which defaults to the shared :8081. A seat running its
+        // own Bridge (NEO_NL_PORT) must point the page there too, or it drives this Bridge and reads another. Routed
+        // per context, because a popup loads its own config and a test may open contexts of its own (`newContext`).
+        // A page route outranks a context route, so a spec that edits its config goes through `routeConfig` too.
+        const routeConfig = (target, mutate = config => config, url = '**/neo-config.json*') => target.route(url, async route => {
+            const response = await route.fetch();
+
+            if (!response.ok()) {
+                return route.fulfill({response})
+            }
+
+            await route.fulfill({response, json: {...mutate(await response.json()), neuralLinkUrl: `ws://127.0.0.1:${aiConfig.port}`}})
+        });
+
+        await routeConfig(context);
+
         // 2. Define the Neural Link Fixture object
         const nl = {
             /**
@@ -232,6 +248,31 @@ export const test = base.extend({
              * @member {Number} bridgePort
              */
             bridgePort: aiConfig.port,
+
+            /**
+             * Opens a browser context whose pages dial this fixture's Bridge. `browser.newContext()` skips the
+             * fixture's route, so its pages dial the default `:8081` while the test waits on `bridgePort`.
+             * @param {Object} [options] `browser.newContext()` options
+             * @returns {Promise<Object>} The Playwright `BrowserContext`
+             */
+            async newContext(options) {
+                const created = await browser.newContext(options);
+
+                await routeConfig(created);
+
+                return created
+            },
+
+            /**
+             * Routes `neo-config.json` through `mutate`, then points it at this fixture's Bridge. A spec that edits its
+             * config uses this instead of `page.route()`: a page route outranks the fixture's context route, so a plain
+             * one hands the page a config without the Bridge URL.
+             * @param {Object}   target   A Playwright `Page` or `BrowserContext`
+             * @param {Function} [mutate] Receives the served config, returns the edited one
+             * @param {String}   [url]    The config route pattern
+             * @returns {Promise<void>}
+             */
+            routeConfig,
 
             /**
              * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.

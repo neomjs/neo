@@ -1,16 +1,11 @@
 import { test, expect } from '../../fixtures.mjs';
-import fs               from 'fs';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url)),
-      configPath = path.resolve(__dirname, '../../../../examples/dashboard/dock/neo-config.json'),
-      engineThemes = [
-          'neo-theme-dark',
-          'neo-theme-light',
-          'neo-theme-neo-dark',
-          'neo-theme-neo-light'
-      ];
+const engineThemes = [
+    'neo-theme-dark',
+    'neo-theme-light',
+    'neo-theme-neo-dark',
+    'neo-theme-neo-light'
+];
 
 /**
  * Whitebox-e2e: the gesture proof for the pin/collapse ENTRY of the auto-hide round-trip
@@ -45,12 +40,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  */
 
 const bootDockExample = async ({ page, neuralLink, theme }) => {
-    if (theme) {
-        const config = {...JSON.parse(fs.readFileSync(configPath, 'utf8')), themes: [theme]};
-
-        await page.route('**/examples/dashboard/dock/neo-config.json*', route =>
-            route.fulfill({contentType: 'application/json', body: JSON.stringify(config)}))
-    }
+    theme && await neuralLink.routeConfig(page, config => ({...config, themes: [theme]}), '**/examples/dashboard/dock/neo-config.json*');
 
     await page.goto('/examples/dashboard/dock/');
     page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
