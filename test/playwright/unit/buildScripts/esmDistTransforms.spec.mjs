@@ -368,7 +368,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: [literal('./view.mjs')]}],
                 candidate => candidate === 'dist/esm/apps/x/view.mjs',
-                resolve);
+                resolve, '.');
 
             expect(failures).toEqual([])
         });
@@ -382,7 +382,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: [literal('./node_modules/neo.mjs/src/Neo.mjs')]}],
                 () => false,
-                resolve);
+                resolve, '.');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].outputPath).toBe('dist/esm/apps/x/app.mjs');
@@ -394,7 +394,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: [literal('../../components/Button.mjs')]}],
                 () => false,
-                resolve);
+                resolve, '.');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].specifier).toBe('../../components/Button.mjs')
@@ -404,7 +404,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: 'dist/esm/a.mjs', specifiers: [literal('./x.mjs'), literal('./y.mjs')]}],
                 () => false,
-                resolve);
+                resolve, '.');
 
             expect(failures.map(entry => entry.specifier)).toEqual(['./x.mjs', './y.mjs'])
         });
@@ -430,7 +430,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                     specifiers: [literal('../../../../node_modules/neo.mjs/src/Neo.mjs')]
                 }],
                 () => true,
-                resolveReal);
+                resolveReal, '/workspace');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('engine-identity');
@@ -450,7 +450,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                     specifiers: [literal('../../../../node_modules/some-lib/index.mjs')]
                 }],
                 () => true,
-                resolveReal)).toEqual([])
+                resolveReal, '/workspace')).toEqual([])
         });
 
         /** A package whose name merely starts with the engine's is somebody else's package. */
@@ -461,7 +461,55 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                     specifiers: [literal('../../../../node_modules/neo.mjs-examples/index.mjs')]
                 }],
                 () => true,
-                resolveReal)).toEqual([])
+                resolveReal, '/workspace')).toEqual([])
+        });
+
+        /**
+         * `neomjs/pages` builds the engine in place, with `node_modules/neo.mjs` as the build root, so
+         * every absolute path in its tree carries the segment the identity arm looks for. Judged below
+         * the root, a sibling import is what it is: the flattened copy.
+         */
+        test('an engine built inside node_modules/neo.mjs does not flag its own tree', () => {
+            expect(transforms.findUnresolvableImports(
+                [{outputPath: '/pages/node_modules/neo.mjs/dist/esm/apps/x/app.mjs', specifiers: [literal('../../src/Neo.mjs')]}],
+                () => true,
+                resolveReal, '/pages/node_modules/neo.mjs')).toEqual([])
+        });
+
+        /** The control for the arm above: building in place does not switch identity off. */
+        test('an in-place build still fails an import that names node_modules/neo.mjs', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{
+                    outputPath: '/pages/node_modules/neo.mjs/dist/esm/apps/x/app.mjs',
+                    specifiers: [literal('../../../../node_modules/neo.mjs/src/Neo.mjs')]
+                }],
+                () => true,
+                resolveReal, '/pages/node_modules/neo.mjs');
+
+            expect(failures.map(entry => entry.reason)).toEqual(['engine-identity'])
+        });
+
+        /**
+         * Why the resolved path is judged at all: a specifier can name the engine only once normalized,
+         * which the text arm cannot see and the rewrite treats as a foreign package. Relative to the
+         * root, one below it and one beside it both still read as the engine.
+         */
+        test('an engine named only after normalization is caught below and beside the root', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{
+                    outputPath: '/mono/app/dist/esm/apps/x/app.mjs',
+                    specifiers: [
+                        literal('../../../../node_modules/./neo.mjs/src/Neo.mjs'),
+                        literal('../../../../../node_modules/./neo.mjs/src/Neo.mjs')
+                    ]
+                }],
+                () => true,
+                resolveReal, '/mono/app');
+
+            expect(failures.map(({reason, resolved}) => [reason, resolved])).toEqual([
+                ['engine-identity', '/mono/app/node_modules/neo.mjs/src/Neo.mjs'],
+                ['engine-identity', '/mono/node_modules/neo.mjs/src/Neo.mjs']
+            ])
         });
 
         /** The two classes are distinguishable downstream, because the build reports them apart. */
@@ -469,7 +517,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: '/workspace/dist/esm/apps/x/app.mjs', specifiers: [literal('../../components/Button.mjs')]}],
                 () => false,
-                resolveReal);
+                resolveReal, '/workspace');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('missing')
@@ -495,7 +543,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             expect(transforms.findUnresolvableImports(
                 [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: [computed('../data/parser/${t}.mjs')]}],
                 candidate => candidate === '/w/dist/esm/src/data/parser',
-                resolveReal)).toEqual([])
+                resolveReal, '/w')).toEqual([])
         });
 
         /** The signal the exemption would have thrown away: a source root nothing copied. */
@@ -503,7 +551,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: [computed('../data/parser/${t}.mjs')]}],
                 () => false,
-                resolveReal);
+                resolveReal, '/w');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('computed-root');
@@ -520,7 +568,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             expect(transforms.findUnresolvableImports(
                 [{outputPath: '/w/dist/esm/src/worker/Task.mjs', specifiers: [computed('../../${path}/task.mjs')]}],
                 candidate => candidate === '/w/dist/esm',
-                resolveReal)).toEqual([])
+                resolveReal, '/w')).toEqual([])
         });
 
         /**
@@ -535,7 +583,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                     specifiers: [computed('../../../node_modules/neo.mjs/src/main/addon/${name}.mjs')]
                 }],
                 () => true,
-                resolveReal);
+                resolveReal, '/w');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('engine-identity')
@@ -545,7 +593,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: '/w/dist/esm/src/f/u/HtmlTemplateProcessor.mjs', specifiers: [literal('../../../dist/parse5.mjs')]}],
                 () => false,
-                resolveReal);
+                resolveReal, '/w');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('missing')
@@ -560,7 +608,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: [literal('../data/${x}.mjs')]}],
                 candidate => candidate === '/w/dist/esm/src/data',
-                resolveReal);
+                resolveReal, '/w');
 
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('missing');
