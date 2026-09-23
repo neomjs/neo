@@ -760,10 +760,14 @@ class Worker extends Base {
             // Fall through the remaining routing keys on a lookup miss: a stale opts.port
             // (a port which disconnected between message receipt and reply) must not
             // short-circuit the cascade — opts.windowId / opts.appName describe the same
-            // logical target and can still resolve its re-registered port.
+            // logical target and can still resolve its re-registered port. A window that
+            // DEPARTED re-registers nowhere: its app's other port is a sibling window, and
+            // delivering there hands its main thread a window id to relay as a worker name.
             if (!portObject && opts.port)     {portObject = me.getPort({id: opts.port})}
             if (!portObject && opts.windowId) {portObject = me.getPort({windowId: opts.windowId})}
-            if (!portObject && opts.appName)  {portObject = me.getPort({appName: opts.appName})}
+            if (!portObject && opts.appName && !me.isWindowDeparted(opts.windowId ?? dest)) {
+                portObject = me.getPort({appName: opts.appName})
+            }
 
             if (portObject) {
                 port      = portObject.port;
