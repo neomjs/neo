@@ -155,10 +155,10 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture Column Overdrag Scroll
 
             const lastBtn = centerTb.children[centerTb.children.length - 1];
             const atMax   = {
-                scrollbar: sb.scrollLeft,
-                toolbar  : centerTb.scrollLeft,
-                needed   : centerTb.scrollWidth - centerTb.clientWidth,
-                lastFlush: Math.abs(lastBtn.getBoundingClientRect().right - centerTb.getBoundingClientRect().right) < 2
+                scrollbar   : sb.scrollLeft,
+                scrollbarMax: sb.scrollWidth - sb.clientWidth,
+                toolbar     : centerTb.scrollLeft,
+                lastFlush   : Math.abs(lastBtn.getBoundingClientRect().right - centerTb.getBoundingClientRect().right) < 2
             };
 
             sb.scrollLeft = 0;
@@ -180,8 +180,8 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture Column Overdrag Scroll
         expect(result.marginRight, 'margin-right must equal the locked-end width').toBe(`${result.endWidth}px`);
         expect(result.scrollport,  'the scrollport must equal the centre clip width').toBe(result.centerClip);
 
-        expect(result.atMax.scrollbar, 'max scrollLeft must reach the full centre overflow (pre-fix: short by the locked widths)').toBe(result.atMax.needed);
-        expect(result.atMax.toolbar,   'the header sync must reach the same max').toBe(result.atMax.needed);
+        expect(result.atMax.scrollbar, 'the scrollbar must reach its own full scroll range').toBe(result.atMax.scrollbarMax);
+        expect(result.atMax.toolbar,   'the center header must track the scrollbar position').toBe(result.atMax.scrollbar);
         expect(result.atMax.lastFlush, 'the last centre column must be flush with the centre region edge at max scroll').toBe(true);
 
         expect(result.reset.scrollbar).toBe(0);
