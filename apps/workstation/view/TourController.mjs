@@ -737,7 +737,7 @@ class TourController extends Controller {
         }
 
         me.autoGates = autoGates;
-        me.setState({'tour.gatePrompt': null, 'tour.running': true, 'tour.totalBeats': me.totalBeats().length});
+        me.setState({'tour.gatePrompt': null, 'tour.running': true, 'tour.totalBeats': TourController.totalBeats(script).length});
         me.cueErrors       = [];
         me.cuePromise      = Promise.resolve();
         me.cueReceipts     = [];
@@ -777,7 +777,7 @@ class TourController extends Controller {
             .forEach((label, index) => appendError(label, settlements[index]));
 
         const [finalProgress] = await me.trap(Promise.allSettled([
-            me.setPipProgress(me.totalBeats().length)
+            me.setPipProgress(TourController.totalBeats(script).length)
         ]));
 
         appendError('final progress paint', finalProgress);
@@ -813,11 +813,14 @@ class TourController extends Controller {
     }
 
     /**
-     * @summary Returns the active screenplay's flattened steps for progress presentation.
+     * @summary Returns a screenplay's flattened steps for progress presentation. Static, so a
+     * playback host that only borrows the prototype's methods (the unit fixtures) can play too.
+     * @param {Object} [script=workstationTourScript]
      * @returns {Object[]} Flattened screenplay steps.
+     * @static
      */
-    totalBeats() {
-        return this.activeScript.scenes.flatMap(scene => scene.steps)
+    static totalBeats(script=workstationTourScript) {
+        return script.scenes.flatMap(scene => scene.steps)
     }
 }
 
