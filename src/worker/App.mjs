@@ -1,6 +1,8 @@
 import Neo             from '../Neo.mjs';
 import Base            from './Base.mjs';
+import CanvasGroups    from './CanvasGroups.mjs';
 import HiddenTick      from './HiddenTick.mjs';
+import Message         from './Message.mjs';
 import Application     from '../controller/Application.mjs';
 import InstanceManager from '../manager/Instance.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
@@ -121,6 +123,20 @@ class App extends Base {
         }
 
         return this.promiseMessage(windowId, {action: 'updateVdom', deltas})
+    }
+
+    /**
+     * @summary Addresses a reply like the base, and to the canvas group whose channel carried the request: a canvas
+     * worker's own requests name no window, so only their channel tells the groups apart.
+     * @param {Object} source The request
+     * @param {Object} target The reply options
+     */
+    assignPort(source, target) {
+        super.assignPort(source, target);
+
+        if (source?.canvasGroup) {
+            target.canvasGroup = source.canvasGroup
+        }
     }
 
     /**
@@ -302,6 +318,11 @@ class App extends Base {
      * @member {Neo.worker.HiddenTick} hiddenTick=new HiddenTick(this) Synced by onConnect() and onVisibilityChange()
      */
     hiddenTick = new HiddenTick(this)
+    /**
+     * @member {Neo.worker.CanvasGroups} canvasGroups Routes canvas-bound traffic per window group and gates it on
+     * the group's readiness
+     */
+    canvasGroups = new CanvasGroups({isDeparted: windowId => this.isWindowDeparted(windowId)})
 
     /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
@@ -544,6 +565,37 @@ class App extends Base {
     }
 
     /**
+     * @summary Handles one message from a canvas group's own channel, stamped with that group so its reply takes the
+     * same channel back, then marks the group ready once its `Neo.worker.Canvas` remotes have registered: a
+     * registered port alone is not readiness, since the worker's `registerRemote` follows its `registerPort`.
+     * @param {MessageEvent} event
+     * @param {String}       group
+     * @protected
+     */
+    onCanvasChannelMessage(event, group) {
+        let {data} = event;
+
+        if (data) {
+            data.canvasGroup = group
+        }
+
+        this.onMessage(event);
+
+        data?.action === 'registerRemote' && data.className === 'Neo.worker.Canvas' && this.canvasGroups.markReady(group)
+    }
+
+    /**
+     * @summary A window's main thread saw its canvas worker fail to load or parse: that group's waits reject now
+     * instead of running into the silent-start bound.
+     * @param {Object} msg
+     * @param {String} msg.group
+     * @protected
+     */
+    onCanvasStartFailed({group}) {
+        this.canvasGroups.fail(group, 'load')
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.appName
      * @param {Object} [data.sourcePort]
@@ -710,15 +762,39 @@ class App extends Base {
     }
 
     /**
+     * @summary A window's main thread announces which canvas group its canvas worker belongs to, before that worker
+     * exists, so canvas-bound traffic from this window can be routed to its own group.
      * @param {Object} msg
+     * @param {String} msg.group
+     * @param {String} msg.windowId
+     * @protected
+     */
+    onRegisterCanvasGroup({group, windowId}) {
+        this.canvasGroups.addWindow({group, windowId})
+    }
+
+    /**
+     * @summary Keeps a worker's direct channel. A canvas worker's channel is kept per group — one canvas worker per
+     * window group — and every message on it is attributed to that group; other workers keep one channel each.
+     * @param {Object}      msg
+     * @param {String}      [msg.group]  The canvas group, for a canvas worker named per group
+     * @param {String}      msg.origin
+     * @param {MessagePort} msg.transfer
      */
     onRegisterPort(msg) {
-        let me   = this,
-            port = msg.transfer;
+        let me              = this,
+            {group, origin} = msg,
+            port            = msg.transfer;
+
+        if (origin === 'canvas' && group) {
+            port.onmessage = event => me.onCanvasChannelMessage(event, group);
+            me.canvasGroups.setPort({group, port});
+            return
+        }
 
         port.onmessage = me.onMessage.bind(me);
 
-        me.channelPorts[msg.origin] = port
+        me.channelPorts[origin] = port
     }
 
     /**
@@ -804,6 +880,24 @@ class App extends Base {
     }
 
     /**
+     * @summary Retires a port as the base does; when it was the window's last one, that window leaves its canvas
+     * group too, so only its own canvas waits reject — as its departure — and a sibling keeps waiting.
+     * @param {Object} portEntry
+     * @returns {Boolean} True when the entry was live and removed
+     */
+    removePort(portEntry) {
+        let me         = this,
+            removed    = super.removePort(portEntry),
+            {windowId} = portEntry;
+
+        if (removed && windowId && !me.ports.some(entry => entry.windowId === windowId)) {
+            me.canvasGroups.removeWindow(windowId)
+        }
+
+        return removed
+    }
+
+    /**
      * @private
      */
     resolveThemeFilesCache() {
@@ -814,6 +908,37 @@ class App extends Base {
         });
 
         me.themeFilesCache = []
+    }
+
+    /**
+     * @summary Sends like the base, except that canvas-bound traffic resolves `windowId` → group → that group's own
+     * channel, and a reply takes the channel its request arrived on. It never falls back to another group's canvas
+     * worker, which would paint into a canvas owned by a different renderer process; an unroutable message is not
+     * sent, and `promiseMessage()` reports it. A canvas worker that registered without a group keeps the base routing.
+     * @param {String} dest
+     * @param {Object} opts
+     * @param {String} [opts.canvasGroup] The group of the channel a request arrived on, set for its reply
+     * @param {Array}  [transfer]
+     * @returns {Neo.worker.Message|undefined}
+     */
+    sendMessage(dest, opts, transfer) {
+        let me     = this,
+            groups = me.canvasGroups,
+            message, port;
+
+        if (dest !== 'canvas' || me.channelPorts.canvas) {
+            return super.sendMessage(dest, opts, transfer)
+        }
+
+        opts.destination = dest;
+        port             = opts.canvasGroup ? groups.groupPort(opts.canvasGroup) : groups.portFor(opts.windowId ?? opts.data?.windowId);
+
+        if (port) {
+            message = new Message(opts);
+            port.postMessage(message, transfer)
+        }
+
+        return message
     }
 
     /**
@@ -863,6 +988,17 @@ class App extends Base {
         }
 
         return Stylesheet.setCssVariable({theme, ...data})
+    }
+
+    /**
+     * @summary Resolves once the canvas worker of this window's group can take calls — the readiness entry that
+     * replaces polling for its remotes.
+     * @param {String} [windowId] The calling window; may be omitted only while one canvas group is known
+     * @returns {Promise<void>} Rejects with `NEO_UNROUTABLE`, `NEO_WORKER_START_FAILED`, or the window's departure
+     *     (`NEO_DEAD_PORT` naming it, see {@link Neo.worker.Base#isDeparture})
+     */
+    whenCanvasReady(windowId) {
+        return this.canvasGroups.whenReady(windowId)
     }
 }
 

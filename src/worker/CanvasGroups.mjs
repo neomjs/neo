@@ -201,13 +201,23 @@ class CanvasGroups {
     }
 
     /**
+     * @summary The port of one group, for traffic that already knows its group: a reply to a request that arrived
+     * on that group's own channel.
+     * @param {String} group
+     * @returns {MessagePort|null}
+     */
+    groupPort(group) {
+        return this.groups.get(group)?.port ?? null
+    }
+
+    /**
      * @summary The port a canvas-bound message for this window takes, or `null` when no port may take it.
      * @param {String} [windowId]
      * @returns {MessagePort|null}
      */
     portFor(windowId) {
         let {group} = this.resolve(windowId);
-        return group ? this.groups.get(group)?.port ?? null : null
+        return group ? this.groupPort(group) : null
     }
 
     /**

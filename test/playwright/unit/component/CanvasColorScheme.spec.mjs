@@ -116,10 +116,10 @@ test.describe('a canvas hands the resolved scheme to its renderer', () => {
             updateSize  : () => {}
         });
 
-        // `Canvas#destroy` unregisters through the Canvas Worker, which the unit engine does not
-        // start. Without this the teardown throws and the failure reads as the arm's, not the rig's.
+        // The unit engine starts no Canvas Worker, yet its canvas group reads as ready, and a ready group has
+        // registered its proxies: `initAsync` loads the renderer through them and `Canvas#destroy` unregisters.
         originalCanvas    = Neo.worker.Canvas;
-        Neo.worker.Canvas = {unregisterCanvas: () => {}}
+        Neo.worker.Canvas = {loadModule: async () => {}, unregisterCanvas: () => {}}
     });
 
     test.afterEach(() => {
