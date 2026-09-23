@@ -79,8 +79,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[1, 2]') }}
-        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[2]') }}
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[1, 2, 3]') }}
+        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || '[3]') }}
     # Bounds provisioning plus tests. The test-time ceiling is the step below; this
     # exists so a hung install cannot occupy a runner indefinitely.
     # The gate keeps its twelve minutes: provisioning plus a five-minute test step, so a hung
