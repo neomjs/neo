@@ -466,15 +466,42 @@ class Workspace extends VesselWorkspace {
 
         if (!record || !sparkline?.offscreenRegistered) return false;
 
-        let signal = record.trend.at(-1) ?? 50;
+        let previous = record.trend,
+            sequence = this.getStateProvider().getStore('feed').sequence,
+            trend;
 
-        record.trend = Array.from({length: 12}, (_, point) => {
-            signal = Math.max(8, Math.min(92, signal + ((this.getStateProvider().getStore('feed').sequence + point * 5) % 9) - 4));
-            return signal
-        });
+        // The seed (`store/Scale.mjs`) and this pulse draw their deltas from one family of nine
+        // cyclic patterns, and the sparkline normalises its values, so a picture is its deltas: a
+        // pulse whose pattern equals the record's current one repaints the identical picture and
+        // a Canvas receipt reads "unchanged" while the values did change. Advance the pattern
+        // until the deltas differ — the nine shifts are distinct twelve-point windows, so at most
+        // one of them can match.
+        for (let offset = 0; offset < 9; offset++) {
+            let signal = previous.at(-1) ?? 50;
+
+            trend = Array.from({length: 12}, (_, point) => {
+                signal = Math.max(8, Math.min(92, signal + ((sequence + offset + point * 5) % 9) - 4));
+                return signal
+            });
+
+            if (!Workspace.sameSparklineShape(previous, trend)) break
+        }
+
+        record.trend = trend;
         pane?.body?.createViewData(false, true);
 
         return {componentId: sparkline.id, recordId: record.id, values: [...record.trend]}
+    }
+
+    /**
+     * @summary Whether two trends draw the same normalised sparkline: same length and same deltas.
+     * @param {Number[]} [a]
+     * @param {Number[]} [b]
+     * @returns {Boolean}
+     */
+    static sameSparklineShape(a, b) {
+        return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.length > 1
+            && a.every((value, index) => index === 0 || value - a[index - 1] === b[index] - b[index - 1])
     }
 
     /**
