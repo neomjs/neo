@@ -119,6 +119,21 @@ class WorkspaceController extends Controller {
         return (await this.getTourController()).startTour()
     }
 
+    /** @summary Routes the film start action to the activated playback controller. @returns {Promise<Object>} */
+    async onStartFilmTour() {
+        return (await this.getTourController()).startFilmTour()
+    }
+
+    /**
+     * @summary Resolves the running playback's pending viewer gate. The click that reaches this
+     * handler is the user activation the gated window beat needs, so nothing is deferred here.
+     * @returns {Boolean} False when no playback is waiting at a gate.
+     */
+    onContinueTour() {
+        const controller = this.getReference('tour-bar')?.controller;
+        return controller && !controller.isDestroyed ? controller.continueTour() : false
+    }
+
     /** @summary Keeps the ordinary theme action independent of playback activation. @param {Object} data @returns {Promise<String>} */
     onToggleWorkspaceTheme(data) {
         return this.component.toggleWorkspaceTheme(data)

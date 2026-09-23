@@ -191,6 +191,8 @@ export const workstationTourScript = Object.freeze({
 export const initialTourState = Object.freeze({
     caption       : `${workstationTourScript.title} — twenty panes, 100k rows, a 10/sec feed, real overflow, and two themes.`,
     completedCount: 0,
-    running       : false,
-    totalBeats    : workstationTourScript.scenes.flatMap(scene => scene.steps).length
+    // the Continue prompt while the film tour waits for the viewer's click, `null` otherwise
+    gatePrompt: null,
+    running   : false,
+    totalBeats: workstationTourScript.scenes.flatMap(scene => scene.steps).length
 });

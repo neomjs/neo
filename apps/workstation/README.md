@@ -48,20 +48,34 @@ exposes `sequence`, `batchCount`, `batchSize` and `intervalMs`. `appendBatch()` 
 Neural Link readers can address `stateProvider.stores.feed.sequence` on the workspace. There is no
 second counter on the view.
 
-## Activate the optional tour
+## Activate the optional tours
 
-Press **Start dense tour**. The screenplay opens the real overflow menu, scrolls the 100k grid,
-promotes a live pane through `splitNode`, returns it through `addTab`, and flips both themes.
+Two screenplays share one player.
+
+**Start dense tour** opens the real overflow menu, scrolls the 100k grid, promotes a live pane
+through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened.
 Pane, store, component, and relevant DOM identities remain stable while the layout changes.
 
-The data-only screenplay lives in `apps/workstation/tour/denseWorkstation.mjs`; the mounted
-whitebox journey is the runtime and visual falsifier.
+**Start film tour** plays the flagship film's eight scenes: the same cold open and drop-zone
+showcase, then a pane that leaves the window into a real vessel mid-gesture and changes its mind
+before the pointer lifts, the same pane torn out for good, a second pane that becomes a window
+while dragged and docks into the first, the merged stack dragged home as one, a perspective
+captured, torn apart and restored, one dock mutation undone and redone, and the closing readout.
+Before every beat that opens a window the tour stops at a gate and shows **Continue**: that click
+is the user activation the browser demands for `window.open`, so the window is born inside your
+gesture rather than blocked as a popup. Two measured preconditions shape the screenplay: a tab
+folded into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
+survive its departure for the stack to return to it.
+
+Both data-only screenplays live in `apps/workstation/tour/` (`denseWorkstation.mjs`,
+`fiveBeatFilm.mjs`); the mounted whitebox journeys are the runtime and visual falsifiers, and the
+film take (`NEO_FILM_TAKE=1`) records the same runnable script.
 
 For programmatic playback from outside the view, resolve the optional owner with
 `await workspace.getController().getTourController()`, then call its `startTour()`,
-`runTourSpec()` or `getTourReceipt()`. `cancelTour()` retires that playback controller and waits
-for its started cue work; a later Start creates a fresh controller. The workspace and its stores
-remain owned by the ordinary application.
+`startFilmTour({autoGates})`, `continueTour()`, `runTourSpec()` or `getTourReceipt()`.
+`cancelTour()` retires that playback controller and waits for its started cue work; a later Start
+creates a fresh controller. The workspace and its stores remain owned by the ordinary application.
 
 ## Layout controls and persistence
 
