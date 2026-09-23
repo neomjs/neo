@@ -203,7 +203,7 @@ export const test = base.extend({
         await use(neo);
     },
 
-    neuralLink: async ({ context, page }, use) => {
+    neuralLink: async ({ browser, context, page }, use) => {
         const {
             NeuralLink_ComponentService,
             NeuralLink_ConnectionService,
@@ -225,8 +225,8 @@ export const test = base.extend({
 
         // The page's client dials `Neo.config.neuralLinkUrl`, which defaults to the shared :8081. A seat running its
         // own Bridge (NEO_NL_PORT) must point the page there too, or it drives this Bridge and reads another. Routed
-        // on the context, because a popup loads its own config.
-        await context.route('**/neo-config.json*', async route => {
+        // per context, because a popup loads its own config and a test may open contexts of its own (`newContext`).
+        const routeConfig = target => target.route('**/neo-config.json*', async route => {
             const response = await route.fetch();
 
             if (!response.ok()) {
@@ -235,6 +235,8 @@ export const test = base.extend({
 
             await route.fulfill({response, json: {...await response.json(), neuralLinkUrl: `ws://127.0.0.1:${aiConfig.port}`}})
         });
+
+        await routeConfig(context);
 
         // 2. Define the Neural Link Fixture object
         const nl = {
@@ -245,6 +247,20 @@ export const test = base.extend({
              * @member {Number} bridgePort
              */
             bridgePort: aiConfig.port,
+
+            /**
+             * Opens a browser context whose pages dial this fixture's Bridge. `browser.newContext()` skips the
+             * fixture's route, so its pages dial the default `:8081` while the test waits on `bridgePort`.
+             * @param {Object} [options] `browser.newContext()` options
+             * @returns {Promise<Object>} The Playwright `BrowserContext`
+             */
+            async newContext(options) {
+                const created = await browser.newContext(options);
+
+                await routeConfig(created);
+
+                return created
+            },
 
             /**
              * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.
