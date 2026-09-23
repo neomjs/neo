@@ -178,11 +178,10 @@ class Component extends BaseComponent {
             {wheel   : me.onWheel, scope: me}
         ]);
 
-        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
-            me.needsEventUpdate = true
-        }
-
-        me.needsEventUpdate && me.createContent(true);
+        // The days are the grid's frame, so they do not wait on data: a month with no calendars and
+        // no events still renders its weeks. Events are read per day cell inside `createWeek`, which
+        // skips a record whose calendar is missing, so no store count is needed to decide this.
+        me.createContent(true);
 
         me.updateHeader(true)
     }
@@ -533,7 +532,9 @@ class Component extends BaseComponent {
                     recordKey      = record[eventStore.keyProperty];
                     calendarRecord = calendarStore.get(record.calendarId);
 
-                    if (calendarRecord.active) {
+                    // An event whose calendar is not in the store has nothing to give it a color, and
+                    // `get()` answers `undefined` for it. The day is still drawn; the event is not.
+                    if (calendarRecord && calendarRecord.active) {
                         dayConfig.cn.push({
                             cls     : ['neo-event', `neo-${calendarRecord.color}`],
                             flag    : recordKey,
