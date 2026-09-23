@@ -357,6 +357,36 @@ const expectSparklineCellFit = geometry => {
 };
 
 /**
+ * @summary Waits until a press at the box's centre lands on the horizontal document splitter.
+ * The theme toggle reveals the new theme through a view transition whose pseudo-element tree owns
+ * hit-testing while it runs, so a press inside it lands on `<html>`: no `:active`, no drag.
+ * @param {import('@playwright/test').Page} page
+ * @param {Object} box The splitter's bounding box
+ * @returns {Promise<void>}
+ */
+const expectSplitterUnderPointer = (page, box) => expect.poll(() => page.evaluate(({x, y}) =>
+    document.elementFromPoint(x, y)?.matches(
+        '.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal'
+    ), {x: box.x + box.width / 2, y: box.y + box.height / 2}), {
+    message: 'a press at the splitter centre lands on the splitter once the theme reveal has settled'
+}).toBe(true);
+
+/**
+ * @summary Reads the dock chrome once the horizontal splitter's colour transitions have settled.
+ * Its hover and active paints transition over `--dock-transition-duration-fast`, so a read taken as
+ * the state flips reports the colour it is leaving, and two such reads compare equal.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>}
+ */
+const readSettledDockChrome = async page => {
+    await expect.poll(() => page.evaluate(() => document.querySelector(
+        '.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal'
+    )?.getAnimations().length), {message: 'the splitter has finished its colour transition'}).toBe(0);
+
+    return readDockChrome(page)
+};
+
+/**
  * @summary Reads the rendered Workstation splitter and pane-boundary style contract.
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<Object>}
@@ -1081,7 +1111,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(darkDockRest.pane.borderRadius).toBe('8px');
 
         await horizontalSplitter.hover();
-        const darkDockHover = await readDockChrome(page);
+        const darkDockHover = await readSettledDockChrome(page);
 
         expect(darkDockHover.horizontal.background, 'dark splitter hover strengthens the real boundary')
             .not.toBe(darkDockRest.horizontal.background);
@@ -1146,20 +1176,21 @@ test.describe('Workstation — dense living-data composition', () => {
         // registration round-trip gains an explicit completion signal.
         await page.waitForTimeout(1200);
         await horizontalSplitter.hover();
-        const lightDockHover = await readDockChrome(page);
+        const lightDockHover = await readSettledDockChrome(page);
 
         expect(lightDockHover.horizontal.background, 'light splitter hover strengthens the real boundary')
             .not.toBe(lightDockRest.horizontal.background);
 
         const lightSplitterBox = await horizontalSplitter.boundingBox();
 
+        await expectSplitterUnderPointer(page, lightSplitterBox);
         await page.mouse.move(
             lightSplitterBox.x + lightSplitterBox.width / 2,
             lightSplitterBox.y + lightSplitterBox.height / 2
         );
         await page.mouse.down();
 
-        const lightDockActive = await readDockChrome(page);
+        const lightDockActive = await readSettledDockChrome(page);
 
         expect(lightDockActive.horizontal.active, 'the real light-mode splitter owns the active pointer target')
             .toBe(true);
@@ -1283,13 +1314,14 @@ test.describe('Workstation — dense living-data composition', () => {
                 attributes     : true
             })
         });
+        await expectSplitterUnderPointer(page, dragSplitterBox);
         await page.mouse.move(
             dragSplitterBox.x + dragSplitterBox.width / 2,
             dragSplitterBox.y + dragSplitterBox.height / 2
         );
         await page.mouse.down();
 
-        const darkDockActive = await readDockChrome(page);
+        const darkDockActive = await readSettledDockChrome(page);
 
         expect(darkDockActive.horizontal.active, 'the real dark-mode splitter owns the active pointer target')
             .toBe(true);
@@ -1513,7 +1545,9 @@ test.describe('Workstation — dense living-data composition', () => {
                 initialPipCount     = root?.querySelectorAll('.workstation-pip-done').length || 0,
                 initialContainerIds = [...root?.querySelectorAll('.neo-tab-container') || []]
                     .map(element => element.id),
-                initialHeaderIds    = [...root?.querySelectorAll('.neo-tab-header-toolbar') || []]
+                // The tab containers' own headers: each rail's reveal overlay also composes a
+                // `tab.header.Toolbar` (runtime-only preview chrome, mounted idle-hidden from boot).
+                initialHeaderIds    = [...root?.querySelectorAll('.neo-tab-container > .neo-tab-header-toolbar') || []]
                     .map(element => element.id);
 
             const state = globalThis.__workstationMonitor = {
@@ -1624,7 +1658,8 @@ test.describe('Workstation — dense living-data composition', () => {
                         }
                     });
 
-                    const visibleToolbars = [...root.querySelectorAll('.neo-tab-header-toolbar')].filter(isVisible);
+                    const visibleToolbars = [...root.querySelectorAll('.neo-tab-container > .neo-tab-header-toolbar')]
+                        .filter(isVisible);
 
                     visibleToolbars.forEach(toolbar => {
                         if (!state.initialHeaderIds.includes(toolbar.id)) {
@@ -1689,23 +1724,11 @@ test.describe('Workstation — dense living-data composition', () => {
                     const sample = {
                         caption: document.querySelector('.workstation-tour-caption')?.textContent?.trim() || '',
                         owners : overflowControls.map(control => {
+                            // The control is the toolbar's own action contribution, so its owner is an ancestor.
                             const
-                                controlRect = control.getBoundingClientRect(),
-                                toolbar     = [...document.querySelectorAll('.neo-tab-header-toolbar')]
-                                    .filter(isVisible)
-                                    .map(element => {
-                                        const rect = element.getBoundingClientRect();
-
-                                        return {
-                                            distance: Math.hypot(
-                                                controlRect.right - rect.right,
-                                                controlRect.top + controlRect.height / 2 - (rect.top + rect.height / 2)
-                                            ),
-                                            element
-                                        }
-                                    })
-                                    .sort((a, b) => a.distance - b.distance)[0]?.element,
-                                container   = toolbar?.closest('.neo-tab-container');
+                                toolbar   = control.closest('.neo-tab-header-toolbar'),
+                                container = toolbar?.closest('.neo-tab-container'),
+                                rect      = toolbar?.getBoundingClientRect();
 
                             return {
                                 containerId: container?.id || null,
@@ -1713,7 +1736,8 @@ test.describe('Workstation — dense living-data composition', () => {
                                 tabs       : [...toolbar?.querySelectorAll('.neo-tab-header-button') || []]
                                     .filter(isVisible)
                                     .map(element => element.textContent?.trim() || ''),
-                                toolbarId: toolbar?.id || null
+                                toolbarId  : toolbar?.id || null,
+                                toolbarRect: rect && [rect.left, rect.top, rect.width, rect.height].map(Math.round)
                             }
                         }),
                         pipCount: root?.querySelectorAll('.workstation-pip-done').length || 0
