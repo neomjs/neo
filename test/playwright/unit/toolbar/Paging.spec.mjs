@@ -33,7 +33,7 @@ import Paging          from '../../../../src/toolbar/Paging.mjs';
  * (`Store.mjs:1016`) and never from local `data`, so a store built from an array reports
  * `getCount()` correctly while `totalCount` stays 0. That is what `getMaxPages()` reads.
  */
-test.describe.serial('Neo.toolbar.Paging - page maths and navigation enablement', () => {
+test.describe('Neo.toolbar.Paging - page maths and navigation enablement', () => {
     const owned = [];
     const own   = instance => {
         owned.push(instance);
