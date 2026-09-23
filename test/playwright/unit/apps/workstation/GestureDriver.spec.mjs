@@ -19,6 +19,205 @@ const down = {targetId: 'source-tab', windowId: 'source-window', type: 'mousedow
     options: {buttons: 1, clientX: 50, clientY: 60}},
       up = {...down, type: 'mouseup', options: {...down.options, buttons: 0}};
 
+/**
+ * @summary A tear-out driver with controlled birth and pacing, retaining real input cleanup.
+ * @param {Object} [options={}]
+ * @param {Boolean} [options.survived=true] Whether the post-birth survival probe still finds its vessel.
+ * @param {Boolean} [options.entry=true] Whether the returning pointer emits the re-entry event.
+ * @returns {Promise<Object>}
+ */
+async function birthHoldFixture({survived=true, entry=true}={}) {
+    const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+    const {default: WindowManager}       = await import('../../../../../src/manager/Window.mjs');
+    const windowId = 'gesture-birth-hold-window', calls = [], born = deferred(), hold = deferred(), listeners = new Map(),
+          document = {items: {metrics: {}, audit: {}}, nodes: {source: {type: 'tabs', items: ['metrics', 'audit']}}},
+          sortZone = {on() {}, un() {}, boundaryContainerRect: {x: 0, y: 0, width: 500, height: 400}},
+          button = {id: 'gesture-birth-hold-tab', windowId,
+              getDomRect: async () => [{x: 100, y: 100, width: 40, height: 20}]},
+          workspace = {id: 'gesture-birth-hold-workspace', isDestroyed: false, dockModel: document,
+              paneCache: {metrics: {}}, refreshPromise: null,
+              getDockHost: () => ({down: () => ({on: (event, fn) => listeners.set(event, fn), un: event => listeners.delete(event),
+                  getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
+              nativeWindows: {clearConnection() {}, getConnection: () => ({windowId: 'gesture-birth-hold-vessel'})},
+              tearOutHandlers: {activeVessel: null}, tearOutEmbodiment: {isStaged: () => false}},
+          driver = Neo.create(NativeGestureDriver, {workspace}),
+          service = driver.interactionService;
+
+    WindowManager.register({id: windowId, windowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    driver.timeout = async ms => {
+        if (ms === 1234) {
+            calls.push('hold');
+            await hold.promise;
+            calls.push('hold-settled')
+        }
+    };
+    driver.waitForTearOutDragArmed = async () => true;
+    driver.waitForTearOutVessel = async (itemId, {attempts}) => {
+        calls.push('born');
+        born.resolve();
+        return attempts === 0 ? survived : true
+    };
+    driver.waitForTearOutVesselRetired = async () => true;
+    driver.waitForTearOutCommit = async () => true;
+    driver.getTearOutCommitState = () => ({
+        transferCommitted: true,
+        sourceDocument: {items: {audit: {}}, nodes: {}},
+        targetDocument: {items: {metrics: {}}, nodes: {}}
+    });
+    service.simulateEvent = async ({events}) => {
+        calls.push(events[0].type);
+        if (entry && events[0].type === 'mousemove' && events[0].options.clientX < 200) {
+            listeners.get('dockTearOutEntry')?.()
+        }
+        return true
+    };
+    service.dispatch = async ({type}) => {calls.push(type); return true};
+
+    return {
+        born, calls, driver, hold, service, sortZone, workspace,
+        execute(options={}) {
+            return driver.executeTearOutStep({itemId: 'metrics', sourceNodeId: 'source'},
+                {moveDelay: 0, moveSteps: 2, ...options})
+        },
+        cleanup() {
+            hold.resolve();
+            driver.isDestroyed || driver.destroy();
+            WindowManager.unregister(windowId)
+        }
+    }
+}
+
+test.describe('film birth pacing retains the pressed-pointer bracket', () => {
+    for (const reenter of [false, true]) {
+        test(`birth hold precedes ${reenter ? 're-entry' : 'terminal release'}`, async () => {
+            const fixture = await birthHoldFixture();
+            try {
+                const pending = fixture.execute({birthDwellMs: 1234, reenter});
+                await Promise.race([fixture.born.promise, pending.then(receipt => {
+                    throw new Error('Tear-out ended before birth: ' + JSON.stringify(receipt))
+                })]);
+                await new Promise(setImmediate);
+                expect(fixture.calls.at(-1)).toBe('hold');
+                expect(fixture.calls).not.toContain('mouseup');
+                expect([...fixture.driver.activeRuns][0].pointer.options.buttons).toBe(1);
+
+                const heldCalls = [...fixture.calls];
+                await new Promise(setImmediate);
+                expect(fixture.calls, 'a held birth emits no further pointer movement').toEqual(heldCalls);
+                fixture.hold.resolve();
+                const receipt = await pending;
+                expect(receipt.errors).toEqual([]);
+                expect(receipt.proof.born).toBe(true);
+                expect(receipt.proof.birthHold).toEqual({durationMs: 1234, survived: true,
+                    claimCount: 0, hasTarget: false, hasPreview: false, converted: false});
+                expect(fixture.calls.indexOf('mouseup')).toBeGreaterThan(fixture.calls.indexOf('hold-settled'));
+                if (reenter) {
+                    expect(receipt.reentered).toBe(true);
+                    expect(receipt.proof.documentsUnchanged).toBe(true)
+                } else {
+                    expect(receipt.applied).toBe(true)
+                }
+            } finally {
+                fixture.cleanup()
+            }
+        })
+    }
+
+    test('omitting the hold preserves the ordinary terminal path', async () => {
+        const fixture = await birthHoldFixture();
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(true);
+            expect(fixture.calls).not.toContain('hold');
+            expect(fixture.calls.filter(type => type === 'mouseup')).toHaveLength(1)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a vessel lost during the survival probe is not held for narration', async () => {
+        const fixture = await birthHoldFixture({survived: false});
+        try {
+            const receipt = await fixture.execute({birthDwellMs: 1234});
+            expect(receipt.proof.survivedProbe).toBe(false);
+            expect(fixture.calls).not.toContain('hold')
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('destruction during the hold releases input without a late re-entry move', async () => {
+        const fixture = await birthHoldFixture();
+        try {
+            const pending = fixture.execute({birthDwellMs: 1234, reenter: true});
+            await Promise.race([fixture.born.promise, pending.then(receipt => {
+                throw new Error('Tear-out ended before birth: ' + JSON.stringify(receipt))
+            })]);
+            await new Promise(setImmediate);
+            expect(fixture.calls.at(-1)).toBe('hold');
+            fixture.driver.destroy();
+            const receipt = await pending;
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors.length).toBeGreaterThan(0);
+            expect(fixture.calls.slice(fixture.calls.indexOf('hold') + 1)).toEqual(['keydown', 'mouseup']);
+            expect(fixture.service.isDestroyed).toBe(true);
+            expect(fixture.workspace.isDestroyed).toBe(false);
+            fixture.hold.resolve();
+            await new Promise(setImmediate);
+            expect(fixture.calls.filter(type => type === 'mouseup')).toHaveLength(1);
+            expect(fixture.calls.slice(fixture.calls.indexOf('hold') + 1)).not.toContain('mousemove')
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    for (const fault of ['vessel lost', 'drop preview armed']) {
+        test(`${fault} during the hold cannot report re-entry`, async () => {
+            const fixture = await birthHoldFixture();
+            try {
+                const pending = fixture.execute({birthDwellMs: 1234, reenter: true});
+                await Promise.race([fixture.born.promise, pending.then(receipt => {
+                    throw new Error('Tear-out ended before birth: ' + JSON.stringify(receipt))
+                })]);
+                await new Promise(setImmediate);
+                expect(fixture.calls.at(-1)).toBe('hold');
+                if (fault === 'vessel lost') {
+                    fixture.driver.waitForTearOutVessel = async () => false
+                } else {
+                    fixture.sortZone.dragCoordinator = {
+                        activeTargetZone: {currentPreview: {previewId: 'unexpected'}},
+                        pointerClaimArbiter: {claimCount: 1}
+                    }
+                }
+                fixture.hold.resolve();
+                const receipt = await pending;
+                expect(receipt.applied).toBe(false);
+                expect(receipt.reentered).not.toBe(true);
+                expect(receipt.errors).toEqual(['birth hold did not retain an unclaimed tear-out vessel']);
+                expect(fixture.calls.slice(fixture.calls.indexOf('hold-settled') + 1).filter(call => call !== 'born'))
+                    .toEqual(['keydown', 'mouseup'])
+            } finally {
+                fixture.cleanup()
+            }
+        })
+    }
+
+    test('retirement without a re-entry event cannot certify the morph', async () => {
+        const fixture = await birthHoldFixture({entry: false});
+        try {
+            const pending = fixture.execute({birthDwellMs: 1234, reenter: true});
+            fixture.hold.resolve();
+            const receipt = await pending;
+            expect(receipt.proof.retired).toBe(true);
+            expect(receipt.proof.entrySeen).toBe(false);
+            expect(receipt.reentered).toBe(false);
+            expect(receipt.errors).toHaveLength(1)
+        } finally {
+            fixture.cleanup()
+        }
+    })
+});
+
 test('vessel survival reads a bound provisional connection or committed owner, never a headless owner', async () => {
     const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
     let   connection                     = {windowId: 'live-vessel'}, owner = null;

@@ -116,10 +116,10 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 97s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 103s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(97);
+        expect(total).toBe(103);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });

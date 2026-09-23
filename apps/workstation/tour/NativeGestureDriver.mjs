@@ -607,6 +607,8 @@ class NativeGestureDriver extends GestureDriver {
      * @param {Number} [options.birthAttempts=180] Vessel-birth poll attempts (16ms each) — film
      *     pacing widens this: vsync-limited boot can push the popup's shared-heap join past the
      *     default three-second gate.
+     * @param {Number} [options.birthDwellMs=0] Film pacing after confirmed birth, with the pointer
+     *     still down; zero keeps the ordinary gesture timing.
      * @param {Boolean} [options.cancel=false] Escape while detached — the zero-mutation witness.
      * @param {Number} [options.curve=0] Perpendicular path bow as a fraction of path length.
      * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
@@ -617,7 +619,7 @@ class NativeGestureDriver extends GestureDriver {
      *     the logged pointer coordinates — CDP events move no OS cursor, and the camera needs one.
      * @returns {Promise<Object>}
      */
-    async executeTearOutStep(step, {birthAttempts=180, cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false, showCursor=false}={}) {
+    async executeTearOutStep(step, {birthAttempts=180, birthDwellMs=0, cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false, showCursor=false}={}) {
         return this.runGesture(async run => {
             let me                     = run.workspace, driver = this,
                 {itemId, sourceNodeId} = step || {},
@@ -777,7 +779,34 @@ class NativeGestureDriver extends GestureDriver {
                     await driver.trap(moveTo(outX, outY + i * 12))
                 }
 
-                let survivedProbe = await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0}));
+                let survivedProbe = await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0})),
+                    birthHold     = null;
+
+                if (survivedProbe && birthDwellMs > 0) {
+                    await driver.trap(driver.timeout(birthDwellMs));
+
+                    const coordinator = sortZone.dragCoordinator,
+                          target      = coordinator?.activeTargetZone;
+
+                    birthHold = {
+                        durationMs: birthDwellMs,
+                        survived  : await driver.trap(driver.waitForTearOutVessel(itemId, {attempts: 0})),
+                        claimCount: coordinator?.pointerClaimArbiter?.claimCount ?? 0,
+                        hasTarget : Boolean(target),
+                        hasPreview: Boolean(target?.currentPreview),
+                        converted : sortZone.vesselConversionSensor?.converted === true
+                    };
+
+                    if (!birthHold.survived || birthHold.claimCount || birthHold.hasTarget || birthHold.hasPreview || birthHold.converted) {
+                        const cancellation = await driver.cancelTearOutGesture(run, button, release);
+
+                        return {
+                            applied: false,
+                            errors : ['birth hold did not retain an unclaimed tear-out vessel'],
+                            proof  : {born: true, survivedProbe, birthHold, cancellation}
+                        }
+                    }
+                }
 
                 if (reenter) {
                     // The morph beat: walk back INSIDE until the PROXY re-enters past the reattach
@@ -810,6 +839,7 @@ class NativeGestureDriver extends GestureDriver {
                     }
 
                     let retired     = await driver.trap(driver.waitForTearOutVesselRetired(itemId)),
+                        reentered   = entrySeen && retired,
                         reentryDiag = `boundaryEntrySeen=${boundaryEntrySeen} entrySeen=${entrySeen} isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} placeholder=${Boolean(sortZone.dragPlaceholder)} indexMap=${JSON.stringify(sortZone.indexMap)} ownerItems=${sortZone.owner?.items?.length} itemRectsLen=${sortZone.itemRects?.length} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} connects=${Boolean(me.nativeWindows?.getConnection(me.id, itemId))} staged=${me.tearOutEmbodiment.isStaged(itemId)} boundary=${JSON.stringify(b)} in=(${inX},${inY}) vesselDims=${JSON.stringify(me.tearOutVesselDims)}`;
 
                     sortZone.un('dragBoundaryEntry', boundaryProbe);
@@ -822,11 +852,13 @@ class NativeGestureDriver extends GestureDriver {
 
                     return {
                         applied  : false,
-                        errors   : retired ? [] : [`vessel did not retire on re-entry — ${reentryDiag}`],
-                        reentered: retired,
+                        errors   : reentered ? [] : [`vessel did not retire on observed re-entry — ${reentryDiag}`],
+                        reentered,
                         proof    : {
                             born              : true,
                             survivedProbe,
+                            birthHold,
+                            entrySeen,
                             retired,
                             windowGone,
                             cancellation,
@@ -851,6 +883,7 @@ class NativeGestureDriver extends GestureDriver {
                         proof    : {
                             born              : true,
                             survivedProbe,
+                            birthHold,
                             cancellation,
                             documentBefore,
                             documentAfter,
@@ -885,6 +918,7 @@ class NativeGestureDriver extends GestureDriver {
                         ...ownership,
                         born            : true,
                         survivedProbe,
+                        birthHold,
                         committed,
                         documentBefore,
                         documentAfter,
