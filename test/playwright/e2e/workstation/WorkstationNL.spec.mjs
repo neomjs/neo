@@ -2539,11 +2539,14 @@ test.describe('Workstation — dense living-data composition', () => {
             }
         });
 
-        expect(geometry.title.left).toBeGreaterThanOrEqual(geometry.header.left);
-        expect(geometry.title.right).toBeLessThanOrEqual(geometry.pin.left);
-        expect(geometry.text.left).toBeGreaterThanOrEqual(geometry.title.left);
-        expect(geometry.text.right).toBeLessThanOrEqual(geometry.title.right);
-        expect(geometry.pin.right).toBeLessThanOrEqual(geometry.header.right);
+        // Separate rects can disagree by sub-pixels; a real overflow must stay red.
+        const edgeTolerance = 0.5;
+
+        expect(geometry.title.left).toBeGreaterThanOrEqual(geometry.header.left - edgeTolerance);
+        expect(geometry.title.right).toBeLessThanOrEqual(geometry.pin.left + edgeTolerance);
+        expect(geometry.text.left).toBeGreaterThanOrEqual(geometry.title.left - edgeTolerance);
+        expect(geometry.text.right).toBeLessThanOrEqual(geometry.title.right + edgeTolerance);
+        expect(geometry.pin.right).toBeLessThanOrEqual(geometry.header.right + edgeTolerance);
         expect(geometry.text.overflow).toBe('hidden');
         expect(geometry.text.textOverflow).toBe('ellipsis');
         expect(geometry.overlayRatio).toBeGreaterThan(0.75);
