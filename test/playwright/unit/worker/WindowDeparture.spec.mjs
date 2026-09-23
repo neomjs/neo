@@ -252,3 +252,36 @@ test.describe('Neo.worker.Base#onUnhandledRejection', () => {
         expect(forwarded).toEqual([])
     });
 });
+
+/**
+ * The one predicate every settlement asks: the central unhandled boundary and each catch that also names its
+ * subsystem. Both halves or nothing — the code alone is "unreachable", which a window that never existed also is.
+ */
+test.describe('Neo.worker.Base#isDeparture', () => {
+    const deadPort = fields => Object.assign(new Error('no live port'), {code: 'NEO_DEAD_PORT', ...fields});
+
+    let worker = null;
+
+    test.beforeEach(() => {
+        worker = create();
+        worker.removePort(addPort(worker, 'win-a'))
+    });
+
+    test('a dead port to a departed window is a departure', () => {
+        expect(worker.isDeparture(deadPort({windowId: 'win-a'}))).toBe(true)
+    });
+
+    test('a dead port to a window that never departed is not', () => {
+        expect(worker.isDeparture(deadPort({windowId: 'win-ghost'}))).toBe(false)
+    });
+
+    test('any other rejection is not, even while its window is departed', () => {
+        expect(worker.isDeparture(Object.assign(new Error('live defect'), {windowId: 'win-a'}))).toBe(false)
+    });
+
+    test('the window defaults to the one the rejection names, then its destination; an explicit one wins', () => {
+        expect(worker.isDeparture(deadPort({destination: 'win-a'}))).toBe(true);
+        expect(worker.isDeparture(deadPort({windowId: 'win-ghost'}), 'win-a')).toBe(true);
+        expect(worker.isDeparture(deadPort({}))).toBe(false)
+    });
+});

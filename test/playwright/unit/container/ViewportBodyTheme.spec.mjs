@@ -10,6 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Viewport       from '../../../../src/container/Viewport.mjs';
+import WorkerBase     from '../../../../src/worker/Base.mjs';
 
 const appName = 'ViewportBodyThemeTest';
 
@@ -26,12 +27,13 @@ const appName = 'ViewportBodyThemeTest';
  * exists to remove, arriving through its own fix.
  */
 test.describe('Neo.container.Viewport — body-theme publication', () => {
-    let calls            = [],
-        departed         = false,
-        original         = null,
-        originalDeparted = undefined,
-        rejectWith       = null,
-        viewport         = null;
+    let calls             = [],
+        departed          = false,
+        original          = null,
+        originalDeparted  = undefined,
+        originalDeparture = undefined,
+        rejectWith        = null,
+        viewport          = null;
 
     test.beforeEach(() => {
         calls      = [];
@@ -40,7 +42,10 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
 
         Neo.currentWorker ??= {};
         originalDeparted   = Neo.currentWorker.isWindowDeparted;
+        originalDeparture  = Neo.currentWorker.isDeparture;
         Neo.currentWorker.isWindowDeparted = () => departed;
+        // The real predicate over the stubbed evidence: the site asks `isDeparture`, which reads both halves.
+        Neo.currentWorker.isDeparture = WorkerBase.prototype.isDeparture;
 
         Neo.main            ??= {};
         Neo.main.DomAccess  ??= {};
@@ -66,7 +71,8 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
 
         Neo.main.DomAccess.applyBodyCls    = original.applyBodyCls;
         Neo.main.DomAccess.setBodyCls      = original.setBodyCls;
-        Neo.currentWorker.isWindowDeparted = originalDeparted
+        Neo.currentWorker.isWindowDeparted = originalDeparted;
+        Neo.currentWorker.isDeparture      = originalDeparture
     });
 
     /** @returns {String|null} the theme the last publication put on the body */

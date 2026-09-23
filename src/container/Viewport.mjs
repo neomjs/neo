@@ -133,18 +133,11 @@ class Viewport extends Container {
         // console is the honest terminal surface. Without a handler the teardown case surfaces as an
         // unhandled rejection in the App Worker instead, naming the wrong subsystem.
         //
-        // Silence requires BOTH halves. `worker.Base#promiseMessage` attaches `code: 'NEO_DEAD_PORT'`
-        // to every send that resolved no message id, which includes a port that was never there — the
-        // code alone says "unreachable", not "departed". `isWindowDeparted` is the evidence half, and
-        // its own docblock names this pairing: it answers at the instant the rejection arrives, because
-        // `removePort()` records the departure before `onDisconnect()` fires. A body class for a window
-        // that closed is moot; an unreachable one that never departed is a failure worth seeing.
+        // A body class for a window that closed is moot; an unreachable one that never departed is a
+        // failure worth seeing, which is why silence asks `worker.Base#isDeparture` for both halves.
         Neo.main.DomAccess.setBodyCls({add: [theme], remove: [...remove], windowId})
             .catch(reason => {
-                const departed = reason?.code === 'NEO_DEAD_PORT' &&
-                    Neo.currentWorker?.isWindowDeparted?.(windowId);
-
-                departed ||
+                Neo.currentWorker?.isDeparture?.(reason, windowId) ||
                     console.error('container.Viewport: body-theme publication failed', {reason, windowId})
             })
     }

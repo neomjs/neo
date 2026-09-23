@@ -402,6 +402,20 @@ class Worker extends Base {
     }
 
     /**
+     * @summary Whether a rejection is the departure of the window its call targeted — the one teardown outcome a
+     * caller may settle silently.
+     *
+     * Both halves, always: `code: 'NEO_DEAD_PORT'` alone means "unreachable", which a window that never existed also
+     * is, and a message misrouted there is a defect worth seeing. {@link #isWindowDeparted} is the evidence half.
+     * @param {*}      reason   A rejection reason, typically from {@link #promiseMessage}
+     * @param {String} [windowId] The window the call targeted; defaults to the one the rejection names
+     * @returns {Boolean}
+     */
+    isDeparture(reason, windowId=reason?.windowId ?? reason?.destination) {
+        return reason?.code === 'NEO_DEAD_PORT' && this.isWindowDeparted(windowId)
+    }
+
+    /**
      * @summary Whether this worker recently retired the port of a window, so a call that cannot reach it is that
      * window's departure rather than a defect.
      *
@@ -679,7 +693,7 @@ class Worker extends Base {
     onUnhandledRejection(event) {
         const {reason} = event;
 
-        if (reason?.code === 'NEO_DEAD_PORT' && this.isWindowDeparted(reason.windowId ?? reason.destination)) {
+        if (this.isDeparture(reason)) {
             this.settledDepartureCount++;
             event.preventDefault();
             return

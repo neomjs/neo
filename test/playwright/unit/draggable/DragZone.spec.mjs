@@ -11,6 +11,22 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 import DragZone       from '../../../../src/draggable/DragZone.mjs';
+import WorkerBase     from '../../../../src/worker/Base.mjs';
+
+/**
+ * @summary Gives the unit worker the real `isDeparture` over a stubbed record of departed windows.
+ * @param {...String} windowIds
+ * @returns {Function} restores the worker's previous predicates
+ */
+function recordDepartures(...windowIds) {
+    const worker   = Neo.currentWorker,
+          previous = {isDeparture: worker.isDeparture, isWindowDeparted: worker.isWindowDeparted};
+
+    worker.isDeparture      = WorkerBase.prototype.isDeparture;
+    worker.isWindowDeparted = windowId => windowIds.includes(windowId);
+
+    return () => Object.assign(worker, previous)
+}
 import '../../../../src/manager/Instance.mjs';
 
 /**
@@ -139,8 +155,10 @@ test.describe('Neo.draggable.DragZone', () => {
         // misclassified one would surface through console.error.
         const
             originalConsoleError = console.error,
+            restore              = recordDepartures('test-window-1'),
             surfaced             = [];
 
+        // The evidence half: this window's port was retired, so the dead port IS its departure.
         console.error = (...args) => surfaced.push(args);
 
         let outcome;
@@ -154,11 +172,35 @@ test.describe('Neo.draggable.DragZone', () => {
                 deltaResult: () => Promise.reject(Object.assign(new Error('no live port for destination "main"'), {code: 'NEO_DEAD_PORT'}))
             })
         } finally {
-            console.error = originalConsoleError
+            console.error = originalConsoleError;
+            restore()
         }
 
         expect(outcome.recorded, 'the dispatch is still attempted at the vanished destination').toHaveLength(1);
         expect(surfaced, 'expected teardown must not be logged as a failure').toHaveLength(0)
+    });
+
+    test('a dead port for a window that never departed surfaces — unreachable is not departed', async () => {
+        const
+            originalConsoleError = console.error,
+            restore              = recordDepartures(),
+            surfaced             = [];
+
+        console.error = (...args) => surfaced.push(args);
+
+        try {
+            await recordProxyRemoval(zone => {
+                zone.destroyDragProxy();
+                return Promise.resolve()
+            }, {
+                deltaResult: () => Promise.reject(Object.assign(new Error('no live port for destination "main"'), {code: 'NEO_DEAD_PORT'}))
+            })
+        } finally {
+            console.error = originalConsoleError;
+            restore()
+        }
+
+        expect(surfaced, 'a misrouted or never-connected window is a defect worth seeing').toHaveLength(1)
     });
 
     test('a reasonless rejection is no longer classified as teardown — it surfaces', async () => {
