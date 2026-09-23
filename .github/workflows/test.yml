@@ -225,16 +225,27 @@ jobs:
           NEO_TEST_SKIP_CI: ${{ startsWith(matrix.suite, 'unit') && 'true' || '' }}
           NEO_UNIT_TZ     : ${{ matrix.tz }}
         run: |
+          # Without `pipefail` the pipeline reports `tee`'s status, and a red suite passes the gate.
+          set -o pipefail
+
           args=()
 
           [ -n "${SHARD_ARG}" ]      && args+=("${SHARD_ARG}")
           [ "${PROBE_REPEAT}" != 1 ] && args+=("--repeat-each=${PROBE_REPEAT}")
 
+          # `specs` takes paths. An option token would change what the run does: `--list` collects
+          # the whole tier, executes nothing and exits 0.
+          for spec in ${PROBE_SPECS}; do
+            case "${spec}" in
+              -*) echo "::error::specs takes spec paths only; '${spec}' is a Playwright option"; exit 1 ;;
+            esac
+          done
+
           # Word-splitting is the point here: each path in the input becomes its own argument.
           # shellcheck disable=SC2206
           [ -n "${PROBE_SPECS}" ] && args+=(${PROBE_SPECS})
 
-          npm run "test-${SUITE}" -- "${args[@]}"
+          npm run "test-${SUITE}" -- "${args[@]}" 2>&1 | tee /tmp/test-run.log
 
       # A probe's green means "this selection passed N times", never "the tier is covered". Saying so
       # in the summary is the difference between a measurement and a run someone later mistakes for one.
@@ -258,7 +269,12 @@ jobs:
               echo "Covers the ordinary ${SUITE} selection."
             fi
             echo
-            echo "Each selected test ran **${PROBE_REPEAT}×** — that is the denominator."
+            echo "- repeat-each requested: \`${PROBE_REPEAT}\`"
+            echo
+            # The denominator is Playwright's own tally, never the repeat that was asked for: a green
+            # step can execute nothing. No tally means the run never reached its reporter.
+            grep -asE '^ *[0-9]+ (passed|failed|flaky|skipped|did not run)' /tmp/test-run.log \
+              || echo 'no Playwright summary line — the run did not reach its reporter'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
