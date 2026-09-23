@@ -353,6 +353,17 @@ class Sparkline extends Base {
             // Initial load or invalid data: snap instantly
             // Or if transitions are disabled/throttled
             if (!canTransition || !item.values || !Array.isArray(data.values) || item.values.length !== data.values.length) {
+                // A snap must win over a transition still in flight: the render loop recomputes a
+                // transitioning item's values from its start and target every tick and lands on the
+                // old target, which silently overwrote the snapped data and left the old picture on
+                // glass. Retire the transition here; the loop no longer visits the item unless it pulses.
+                if (item.isTransitioning) {
+                    item.isTransitioning = false;
+                    item.startValues     = null;
+                    item.targetValues    = null;
+                    item.usePulse || me.activeItems.delete(item)
+                }
+
                 item.values = data.values;
                 item.points = null; // Invalidate cache
                 me.draw(item)
