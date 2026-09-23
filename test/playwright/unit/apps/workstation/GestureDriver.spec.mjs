@@ -218,6 +218,135 @@ test.describe('film birth pacing retains the pressed-pointer bracket', () => {
     })
 });
 
+/**
+ * @summary A rail-beat driver over a stub host: the pane's tab, its header pin action, the rail
+ * and its reveal answer clicks by flipping the document and the overlay the way the product does.
+ * @param {Object} [options={}]
+ * @param {Boolean} [options.railAppears=true] Whether the rail grows a tab once the item folds.
+ * @returns {Promise<Object>}
+ */
+async function railFixture({railAppears=true}={}) {
+    const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs');
+    const windowId                 = 'gesture-rail-window', calls = [],
+          document  = {
+              items: {audit: {autoHidden: false}, metrics: {autoHidden: false, pinned: false}},
+              nodes: {source: {type: 'tabs', activeItemId: 'audit', items: ['metrics', 'audit']}}
+          },
+          rect      = async () => [{x: 100, y: 100, width: 40, height: 20}],
+          // real focus is what mounts a focus-gated action; the synthetic click alone moves none
+          button    = {id: 'rail-source-tab', windowId, getDomRect: rect, focus() {tabs.containsFocus = true; pinAction.mounted = true}},
+          pinAction = {id: 'rail-pin-action', action: 'pin', hidden: true, mounted: false, windowId, getDomRect: rect},
+          railTab   = {id: 'rail-tab', cls: ['neo-dashboard-dock-rail-tab'], dockItemId: 'metrics', windowId, getDomRect: rect},
+          pinBack   = {id: 'reveal-pin', action: 'pin', windowId, getDomRect: rect},
+          overlay   = {revealPaneItemId: null, visible: false, down: config => config.action === 'pin' ? pinBack : null},
+          rail      = {
+              edge: 'right', railed: false, revealOverlay: overlay,
+              down(config, first=true) {
+                  const hit = rail.railed && config.dockItemId === 'metrics';
+                  return first ? (hit ? railTab : null) : (hit ? [railTab] : [])
+              }
+          },
+          tabs      = {containsFocus: false, getTabAtIndex: () => button, getTabBar: () => ({getAction: name => name === 'pin' ? pinAction : null})},
+          workspace = {
+              id         : 'gesture-rail-workspace', isDestroyed: false, dockModel: document, refreshPromise: null,
+              getDockHost: () => ({
+                  down(config, first=true) {
+                      if (config.dockNodeId === 'source') return tabs;
+                      if (config.ntype === 'dashboard-dock-rail') return first ? rail : [rail];
+                      return first ? null : []
+                  }
+              })
+          },
+          driver    = Neo.create(GestureDriver, {workspace}),
+          service   = driver.interactionService;
+
+    WindowManager.register({id: windowId, windowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    service.simulateEvent = async ({events}) => {
+        for (const event of events) {
+            calls.push(`${event.type}:${event.targetId}`);
+            if (event.type !== 'click') continue;
+            if (event.targetId === button.id)    {pinAction.hidden = false; document.nodes.source.activeItemId = 'metrics'}
+            if (event.targetId === pinAction.id) {document.items.metrics.autoHidden = true; document.nodes.source.items = ['audit']; rail.railed = railAppears}
+            if (event.targetId === railTab.id)   {overlay.visible = true; overlay.revealPaneItemId = 'metrics'}
+            if (event.targetId === pinBack.id)   {document.items.metrics.autoHidden = false; document.nodes.source.items = ['metrics', 'audit']; overlay.visible = false}
+        }
+        return true
+    };
+    service.dispatch = async ({type}) => {calls.push(type); return true};
+
+    return {
+        calls, driver, overlay, service, workspace,
+        execute(options={}) {
+            return driver.executeRailStep({itemId: 'metrics', sourceNodeId: 'source'}, {moveDelay: 0, moveSteps: 2, revealDelay: 0, ...options})
+        },
+        cleanup() {
+            driver.isDestroyed || driver.destroy();
+            WindowManager.unregister(windowId)
+        }
+    }
+}
+
+test.describe('the rail beat folds a pane away and brings it home through the pointer', () => {
+    test('focus, fold, reveal and pin back arrive as clicks in that order, and the document round-trips', async () => {
+        const fixture = await railFixture();
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof).toMatchObject({collapsed: true, documentsUnchanged: true, edge: 'right', restored: true, revealed: true});
+            expect(fixture.calls.filter(call => call.startsWith('click:')))
+                .toEqual(['click:rail-source-tab', 'click:rail-pin-action', 'click:rail-tab', 'click:reveal-pin']);
+            expect(fixture.calls.filter(call => call.startsWith('mousedown:'))).toHaveLength(4);
+            expect(fixture.calls.filter(call => call.startsWith('mouseup:'))).toHaveLength(4);
+            expect(fixture.driver.activeRuns.size).toBe(0)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a rail that never grows the tab fails by name, after the fold and before any reveal click', async () => {
+        const fixture = await railFixture({railAppears: false});
+        try {
+            const receipt = await fixture.execute({attempts: 3});
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(["the rail never showed a tab for 'metrics'"]);
+            expect(receipt.proof).toEqual({collapsed: true});
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action'])
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('destruction while the reveal is awaited settles the run without a late pin click', async () => {
+        const fixture = await railFixture();
+        try {
+            const railClicked = deferred(), original = fixture.service.simulateEvent;
+            // the overlay never reports visible, so the executor waits at the reveal until destroyed
+            fixture.service.simulateEvent = async data => {
+                const result = await original(data);
+                if (data.events.some(event => event.type === 'click' && event.targetId === 'rail-tab')) {
+                    fixture.overlay.visible = false;
+                    railClicked.resolve()
+                }
+                return result
+            };
+            const pending = fixture.execute();
+            await railClicked.promise;
+            await new Promise(setImmediate);
+            fixture.driver.destroy();
+            const receipt = await pending;
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors.length).toBeGreaterThan(0);
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).not.toContain('click:reveal-pin');
+            await fixture.driver.settledPromise;
+            expect(fixture.service.isDestroyed).toBe(true);
+            expect(fixture.workspace.isDestroyed).toBe(false)
+        } finally {
+            fixture.cleanup()
+        }
+    })
+});
+
 test('vessel survival reads a bound provisional connection or committed owner, never a headless owner', async () => {
     const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
     let   connection                     = {windowId: 'live-vessel'}, owner = null;

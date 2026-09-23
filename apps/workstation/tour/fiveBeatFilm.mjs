@@ -17,8 +17,9 @@
  * leaves the window and a real vessel is born mid-gesture — the most exciting thing the engine
  * does comes first, before any tour of the room. The morph (the window born and retired inside
  * one gesture) is that first beat and the committed tear-out its answer; then the conversion,
- * the return home, the drop-zone showcase that puts the travelled pane wherever the viewer likes,
- * perspectives with undo/redo, and the living close. Both window beats leave a two-tab group:
+ * the return home, the rail beat (a pane folds into its edge rail, is revealed, and comes back),
+ * the drop-zone showcase that puts the travelled pane wherever the viewer likes, perspectives
+ * with undo/redo, and the living close. Both window beats leave a two-tab group:
  * a re-entry can only re-arm on a strip that still exists (a tabs node emptied by its last pane
  * is removed with it — measured on 2026-09-23 as `reattachArmed=false` on a single-tab source),
  * and Audit holds `right-top-tabs` as the stored home the stack comes back to.
@@ -31,22 +32,24 @@
  * its own activation. The dense tour (`denseWorkstation.mjs`) stays the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The scenes sum to exactly 103s inside the
- * 90–150s envelope, 13s above the `minSeconds` floor: a budget edit trades seconds within the 103s
+ * real duration and the cut re-paces around them. The scenes sum to exactly 111s inside the
+ * 90–150s envelope, 21s above the `minSeconds` floor: a budget edit trades seconds within the 111s
  * sum or cuts toward the floor, and captured gesture durations plus the edit-layer cut-in re-pace
  * upward from there.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
- * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 3, 5, 8)
+ * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 3, 5, 9)
  * - zero-mutation re-entry     → `documentsUnchanged` after a vessel retires mid-gesture (scene 2)
  * - mid-gesture window birth   → `proof.born` before pointer-up (scenes 2, 3)
  * - exactly-one-claim          → `claimCount: 1` + single rendered preview (scene 4)
  * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 5)
- * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 6)
+ * - rail round trip            → `collapsed` / `revealed` / `restored` receipts, the pane home
+ *                                in its own node afterwards (scene 6)
+ * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 7)
  * - perspective restore        → store-backed capture/restore with exact-baseline document
- *                                fidelity, fail-closed on unknown names (scene 7)
- * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 7)
- * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 8)
+ *                                fidelity, fail-closed on unknown names (scene 8)
+ * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 8)
+ * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 9)
  * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
  * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
  *
@@ -74,7 +77,7 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
  * @type {ReadonlyArray<String>}
  */
 export const filmCueTypes = Object.freeze([
-    'scroll', 'canvas-update', 'cross-zone-showcase', 'gate', 'tear-out', 'convert-while-dragging',
+    'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'gate', 'tear-out', 'convert-while-dragging',
     'stack-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
 ]);
 
@@ -231,6 +234,26 @@ export const fiveBeatFilmScript = Object.freeze({
             type   : 'pause',
             ms     : 4650,
             caption: 'adoption and closure are settled before the next scene'
+        }]
+    }, {
+        id           : 'film-rails',
+        title        : 'Fold a pane away, reach it in one click',
+        targetSeconds: 8,
+        narration    : 'Fold the metrics away into the edge rail — the layout closes over the gap. One click on the rail reveals them, elevated over the room; pin them, and they are back where they lived.',
+        beats        : ['the header\'s pin folds the pane into its edge rail', 'the rail tab reveals it as an elevated pane', 'the reveal\'s pin brings it home'],
+        steps        : [{
+            // Metrics is the right group's active tab after the return, so its handle is rendered;
+            // the group keeps Audit and Commits while Metrics is away, so the pin back finds the
+            // strip it came from. The cursor walks the three clicks; the reveal stays open long
+            // enough to read before the pin.
+            type   : 'pause',
+            ms     : 800,
+            cue    : {type: 'rail', itemId: 'metrics', sourceNodeId: 'right-top-tabs', options: {moveDelay: 33, moveSteps: 24, revealDelay: 1200, showCursor: true}},
+            caption: 'the pin folds Metrics into the right rail; the rail tab reveals it; the reveal\'s pin brings it home'
+        }, {
+            type   : 'topology-assert',
+            caption: 'Metrics is home again, in flow',
+            expect : [{path: 'items.metrics.title', equals: 'System Metrics'}]
         }]
     }, {
         id           : 'film-showcase',

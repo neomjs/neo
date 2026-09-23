@@ -9,8 +9,8 @@
  * @type {ReadonlyArray<String>}
  */
 export const WORKSTATION_CUE_TYPES = Object.freeze([
-    // in-window surface cues (the dense tour's vocabulary)
-    'overflow', 'scroll', 'canvas-update', 'cross-zone-showcase', 'theme',
+    // in-window surface cues (the dense tour's vocabulary, plus the film's rail round trip)
+    'overflow', 'scroll', 'canvas-update', 'cross-zone-showcase', 'theme', 'rail',
     // the viewer gate: playback waits for a click, which is the user activation a window birth needs
     'gate',
     // real-pointer window gestures over the NativeGestureDriver's executors

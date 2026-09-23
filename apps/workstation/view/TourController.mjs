@@ -295,6 +295,10 @@ class TourController extends Controller {
                 return this.workspace.pulseScaleSparkline()
             case 'cross-zone-showcase':
                 return (await this.getGestureDriver()).executeCrossZoneShowcaseStep(cue, cue.options)
+            case 'rail':
+                return (await this.getGestureDriver()).executeRailStep(
+                    {itemId: cue.itemId, sourceNodeId: cue.sourceNodeId}, cue.options
+                )
             case 'theme':
                 return this.workspace.setWorkspaceTheme(cue.theme)
             case 'gate':

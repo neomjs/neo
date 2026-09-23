@@ -129,6 +129,13 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
         expect(stackReturn.applied, 'the whole stack must transfer home').toBe(true);
 
+        // scene 6 — the rail beat: the pane folds into its edge rail, is revealed, and comes home
+        const [rail] = byType('rail');
+
+        expect(rail.applied, 'the rail beat must fold, reveal and restore the pane').toBe(true);
+        expect(rail.proof, 'each rail phase carries its own receipt').toMatchObject({collapsed: true, revealed: true, restored: true});
+        expect(rail.proof?.edge, 'Metrics folds into the right rail').toBe('right');
+
         // scene 7 — capture, restore, undo, redo, each with the membership it produced
         const [capture] = byType('perspective-capture'),
               [restore] = byType('perspective-restore'),
