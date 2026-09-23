@@ -16,13 +16,7 @@ test.describe('Neural Link window operations (e2e)', () => {
 
         // Colors is the surviving Engine-owned dashboard host. Neural Link is test-provisioned
         // here rather than changing the app's production config solely to serve this witness.
-        await page.route('**/apps/colors/neo-config.json*', async route => {
-            const
-                response = await route.fetch(),
-                config   = await response.json();
-
-            await route.fulfill({response, json: {...config, useAiClient: true}})
-        });
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}), '**/apps/colors/neo-config.json*');
 
         await page.goto('/apps/colors/index.html');
         await expect(page.locator('.colors-viewport')).toBeVisible({timeout: 60000});
