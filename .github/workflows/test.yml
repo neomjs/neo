@@ -6,10 +6,39 @@ on:
   push:
     branches: [dev]
 
+  # The denominator these three tiers had no way to produce. `test-e2e.yml` has carried this since
+  # #18505; unit, unit-tz and components did not, so a day's worth of intermittent sightings across
+  # them yielded four failures and no rate. A rerun is the opposite of a sample: it marks the run
+  # green and erases the observation that provoked it.
+  #
+  # No classifier bypass, and that was measured rather than assumed: `classify-test-scope.yml`
+  # fails OPEN. On a dispatch `getChangedFiles()` matches neither the pull_request nor the push
+  # branch and returns null, so the "changed files unavailable" arm sets every run flag true; the
+  # sibling head check returns true for any non-pull_request event. Both gates on every step below
+  # therefore pass on a dispatch already.
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: 'Spec paths to run instead of the tier selection (space-separated). Empty runs the ordinary selection.'
+        type: string
+      repeatEach:
+        description: 'Run each selected test this many times — the denominator of the measurement.'
+        type: string
+        default: '1'
+      suite:
+        description: 'Restrict the probe to one tier. Empty runs all three.'
+        type: choice
+        options: ['', unit, unit-tz, components]
+        default: ''
+
 concurrency:
   # Initial attempts share the ref stream so new heads still supersede old work.
   # Reruns retain their original run_id and cannot cancel a newer head (#15593).
-  group: tests-${{ github.workflow }}-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  #
+  # A DISPATCH gets its own key, per `test-e2e.yml`'s measured finding: two probes on one ref shared
+  # the ref-keyed group and the second cancelled the first mid-measurement. Superseding is right for
+  # a gate and wrong for an instrument, where every sample is the point.
+  group: tests-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || (github.run_attempt == '1' && github.ref || github.run_id) }}
   cancel-in-progress: true
 
 
@@ -183,11 +212,70 @@ jobs:
           echo "${{ matrix.suite }} skipped: ${{ steps.head.outputs.skip_reason || needs.changes.outputs.skip_reason }}"
 
       - name: Run ${{ matrix.suite }} tests
-        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        run: npm run test-${{ matrix.suite }}${{ matrix.shard && format(' -- --shard={0}/{1}', matrix.shard, matrix.shards) || '' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite == '' || inputs.suite == matrix.suite) }}
         env:
+          # Dispatch inputs reach the shell as ENVIRONMENT, never interpolated into this script.
+          # `${{ inputs.specs }}` spliced into a `run:` is a command-injection surface, and "only
+          # maintainers can dispatch" is a mitigation rather than a fix. Read as `$PROBE_SPECS` the
+          # value is only ever word-split into arguments, so metacharacters inside it stay data.
+          PROBE_SPECS     : ${{ inputs.specs }}
+          PROBE_REPEAT    : ${{ inputs.repeatEach || '1' }}
+          SUITE           : ${{ matrix.suite }}
+          SHARD_ARG       : ${{ matrix.shard && format('--shard={0}/{1}', matrix.shard, matrix.shards) || '' }}
           NEO_TEST_SKIP_CI: ${{ startsWith(matrix.suite, 'unit') && 'true' || '' }}
-          NEO_UNIT_TZ: ${{ matrix.tz }}
+          NEO_UNIT_TZ     : ${{ matrix.tz }}
+        run: |
+          # Without `pipefail` the pipeline reports `tee`'s status, and a red suite passes the gate.
+          set -o pipefail
+
+          args=()
+
+          [ -n "${SHARD_ARG}" ]      && args+=("${SHARD_ARG}")
+          [ "${PROBE_REPEAT}" != 1 ] && args+=("--repeat-each=${PROBE_REPEAT}")
+
+          # `specs` takes paths. An option token would change what the run does: `--list` collects
+          # the whole tier, executes nothing and exits 0.
+          for spec in ${PROBE_SPECS}; do
+            case "${spec}" in
+              -*) echo "::error::specs takes spec paths only; '${spec}' is a Playwright option"; exit 1 ;;
+            esac
+          done
+
+          # Word-splitting is the point here: each path in the input becomes its own argument.
+          # shellcheck disable=SC2206
+          [ -n "${PROBE_SPECS}" ] && args+=(${PROBE_SPECS})
+
+          npm run "test-${SUITE}" -- "${args[@]}" 2>&1 | tee /tmp/test-run.log
+
+      # A probe's green means "this selection passed N times", never "the tier is covered". Saying so
+      # in the summary is the difference between a measurement and a run someone later mistakes for one.
+      - name: Report probe selection
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && matrix.run == 'true' && steps.head.outputs.current == 'true' && (inputs.suite == '' || inputs.suite == matrix.suite) }}
+        env:
+          PROBE_SPECS : ${{ inputs.specs }}
+          PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
+          SUITE       : ${{ matrix.suite }}
+        run: |
+          {
+            echo "### Probe — ${SUITE}"
+            echo
+            if [ -n "${PROBE_SPECS}" ]; then
+              echo "Covers this selection and nothing else, so its result says nothing about the tier:"
+              echo
+              echo '```'
+              echo "${PROBE_SPECS}"
+              echo '```'
+            else
+              echo "Covers the ordinary ${SUITE} selection."
+            fi
+            echo
+            echo "- repeat-each requested: \`${PROBE_REPEAT}\`"
+            echo
+            # The denominator is Playwright's own tally, never the repeat that was asked for: a green
+            # step can execute nothing. No tally means the run never reached its reporter.
+            grep -asE '^ *[0-9]+ (passed|failed|flaky|skipped|did not run)' /tmp/test-run.log \
+              || echo 'no Playwright summary line — the run did not reach its reporter'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test artifacts on failure
         if: ${{ failure() && matrix.run == 'true' && steps.head.outputs.current == 'true' }}
