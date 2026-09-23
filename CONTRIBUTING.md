@@ -107,7 +107,7 @@ Neo.mjs thrives on community engagement. One of the most impactful ways to contr
 ### 3.  Contribute to the Neo.mjs code base
 
 **What we are working on now.** The next engine release, 13.2, is the first since the project split into several
-repositories. <a href="ROADMAP.md">`ROADMAP.md`</a> says what ships and why, and the <a href="../../milestone/9">v13.2 milestone</a>
+repositories. <a href="ROADMAP.md">`ROADMAP.md`</a> says what ships and why, and the <a href="https://github.com/neomjs/neo/milestone/9">v13.2 milestone</a>
 holds the open work. The <a href="README.md#the-repository-map">repository map</a> names the repositories, and they release
 independently: this one as the `neo.mjs` npm package, the Brain as container images, the shared agent skills as
 `neo-agent-skills` on npm. A fix you land here ships with the next engine release.
