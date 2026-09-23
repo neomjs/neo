@@ -56,16 +56,19 @@ Two screenplays share one player.
 through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened.
 Pane, store, component, and relevant DOM identities remain stable while the layout changes.
 
-**Start film tour** plays the flagship film's eight scenes: the same cold open and drop-zone
-showcase, then a pane that leaves the window into a real vessel mid-gesture and changes its mind
-before the pointer lifts, the same pane torn out for good, a second pane that becomes a window
-while dragged and docks into the first, the merged stack dragged home as one, a perspective
-captured, torn apart and restored, one dock mutation undone and redone, and the closing readout.
-Before every beat that opens a window the tour stops at a gate and shows **Continue**: that click
-is the user activation the browser demands for `window.open`, so the window is born inside your
-gesture rather than blocked as a popup. Two measured preconditions shape the screenplay: a tab
-folded into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
-survive its departure for the stack to return to it.
+**Start film tour** plays the flagship film's eight scenes, and it opens on the tear-outs: a
+breath of the living room, then a pane leaves the window into a real vessel mid-gesture and
+changes its mind before the pointer lifts; the same pane is torn out for good; a second pane
+becomes a window while dragged and docks into the first; the merged stack is dragged home as one;
+the drop-zone showcase puts the travelled pane wherever the viewer likes; a perspective is
+captured, torn apart and restored, one dock mutation undone and redone; and the closing readout
+scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
+every beat that opens a window the tour stops at a gate and shows **Continue**: that click is the
+user activation the browser demands for `window.open`, so the window is born inside your gesture
+rather than blocked as a popup. Two measured preconditions shape the screenplay: a tab folded
+into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
+survive its departure for the stack to return to it — which is why the hook tears Metrics out of
+a two-tab group.
 
 Both data-only screenplays live in `apps/workstation/tour/` (`denseWorkstation.mjs`,
 `fiveBeatFilm.mjs`); the mounted whitebox journeys are the runtime and visual falsifiers. A
