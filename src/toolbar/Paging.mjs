@@ -184,7 +184,9 @@ class Paging extends Toolbar {
      * @returns {Number}
      */
     getMaxPages() {
-        return Math.ceil(this.store.totalCount / this.pageSize)
+        // An empty result is one empty page: keeps currentPage (1) === maxPages,
+        // so all four nav buttons disable and last can never land below page 1.
+        return Math.max(1, Math.ceil(this.store.totalCount / this.pageSize))
     }
 
     /**
