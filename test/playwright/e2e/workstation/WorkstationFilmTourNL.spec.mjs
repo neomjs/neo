@@ -105,23 +105,23 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
         const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
 
-        // scene 3 — the morph: born mid-gesture, retired on re-entry with zero mutation, proven
+        // scene 2 — the morph opens the film: born mid-gesture, retired on re-entry with zero mutation, proven
         const [reentry, tearOut] = byType('tear-out');
 
         expect(reentry.applied).toBe(false);
         expect(reentry.reentered, 'the vessel must retire on re-entry, before pointer-up').toBe(true);
         expect(reentry.proof?.documentsUnchanged, 'the re-entry must leave the committed document byte-identical').toBe(true);
 
-        // scene 4 — born mid-gesture, committed into its vessel
+        // scene 3 — born mid-gesture, committed into its vessel
         expect(tearOut.applied, 'the detached release must transfer into its vessel').toBe(true);
         expect(tearOut.proof?.born, 'the vessel must be born before pointer-up').toBe(true);
 
-        // scene 5 — the conversion docks into the first vessel
+        // scene 4 — the conversion docks into the first vessel
         const [convert] = byType('convert-while-dragging');
 
         expect(convert.applied, 'commits must dock into the metrics vessel').toBe(true);
 
-        // scene 6 — the merged stack comes home
+        // scene 5 — the merged stack comes home
         const [stackReturn] = byType('stack-return');
 
         expect(stackReturn.applied, 'the whole stack must transfer home').toBe(true);

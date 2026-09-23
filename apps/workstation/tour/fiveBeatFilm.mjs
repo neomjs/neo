@@ -13,6 +13,16 @@
  * - The recorded transcript derives from the captured cut, never the reverse: these captions
  *   are the working screenplay, and the final voice track re-times to the footage.
  *
+ * Show-order: the film opens on the tear-outs. The room is alive for a breath, then a live pane
+ * leaves the window and a real vessel is born mid-gesture — the most exciting thing the engine
+ * does comes first, before any tour of the room. The morph (the window born and retired inside
+ * one gesture) is that first beat and the committed tear-out its answer; then the conversion,
+ * the return home, the drop-zone showcase that puts the travelled pane wherever the viewer likes,
+ * perspectives with undo/redo, and the living close. Both window beats leave a two-tab group:
+ * a re-entry can only re-arm on a strip that still exists (a tabs node emptied by its last pane
+ * is removed with it — measured on 2026-09-23 as `reattachArmed=false` on a single-tab source),
+ * and Audit holds `right-top-tabs` as the stored home the stack comes back to.
+ *
  * How the window scenes run from a button: a vessel birth is `Neo.Main.windowOpen`, which the
  * browser permits only inside a user gesture. The screenplay therefore places a `gate` cue before
  * every beat that opens a window: the viewer's click on **Continue** is the activation the birth
@@ -21,29 +31,29 @@
  * its own activation. The dense tour (`denseWorkstation.mjs`) stays the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The scenes sum to exactly 106s inside the
- * 90–150s envelope: the `minSeconds` floor no longer binds scene-for-scene — 16s of slack sit
- * above it — so a budget edit trades seconds within the 106s sum or cuts toward the floor, and
- * captured gesture durations plus the edit-layer cut-in re-pace upward from there.
+ * real duration and the cut re-paces around them. The scenes sum to exactly 97s inside the
+ * 90–150s envelope, 7s above the `minSeconds` floor: a budget edit trades seconds within the 97s
+ * sum or cuts toward the floor, and captured gesture durations plus the edit-layer cut-in re-pace
+ * upward from there.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
- * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 3, 6, 8)
- * - mid-gesture window birth   → `proof.born` before pointer-up (scene 3)
- * - exactly-one-claim          → `claimCount: 1` + single rendered preview (scene 5)
- * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 6)
- * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 8)
- * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 2)
+ * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 3, 5, 8)
+ * - zero-mutation re-entry     → `documentsUnchanged` after a vessel retires mid-gesture (scene 2)
+ * - mid-gesture window birth   → `proof.born` before pointer-up (scenes 2, 3)
+ * - exactly-one-claim          → `claimCount: 1` + single rendered preview (scene 4)
+ * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 5)
+ * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 6)
  * - perspective restore        → store-backed capture/restore with exact-baseline document
  *                                fidelity, fail-closed on unknown names (scene 7)
  * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 7)
+ * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 8)
  * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
  * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
  *
- * Format decision (recorded): the v2 baseline is a SINGLE NARRATOR — the journey is one
- * continuous gesture story, and the engine-truth layer (worker receipts) rides as on-screen
- * caption overlays rather than a second voice. The dialogue variant (narrator = what you see,
- * engine voice = what the worker knows) stays the named alternative; operator ears decide at
- * the voice audition, and flipping requires only re-mapping `narration` lines to speakers.
+ * Format decision (recorded): the film is a DIALOGUE — one voice invites the gesture, the other
+ * says what the engine did, each line bound to a scene/cue id on the film epic so a re-ordered
+ * beat carries its words with it. The `narration` field here stays the single-voice caption
+ * draft the cut's captions derive from; the spoken lines live with the epic's dialogue draft.
  *
  * The N-window density beat (Fleet cockpit, three windows, live mailbox migration) is an
  * EDIT-LAYER cut-in sourced from its own witness spec — it is not part of this tour's runtime
@@ -70,8 +80,8 @@ export const filmCueTypes = Object.freeze([
 
 /**
  * The flagship-film screenplay. Scene ids are stable anchors for the cut, the caption
- * renderer, and the take QA checklist. Every scene carries runnable `steps`; `narration` is the
- * spoken draft and `beats` name what each step shows.
+ * renderer, the dialogue's cue bindings and the take QA checklist. Every scene carries runnable
+ * `steps`; `narration` is the spoken draft and `beats` name what each step shows.
  * @type {Object}
  */
 export const fiveBeatFilmScript = Object.freeze({
@@ -85,9 +95,9 @@ export const fiveBeatFilmScript = Object.freeze({
     scenes: [{
         id           : 'film-cold-open',
         title        : 'The room is alive',
-        targetSeconds: 12,
-        narration    : 'This is a living workspace. Twenty panes — a hundred-thousand-row grid, streaming feeds, live telemetry. Watch the split: the room answers, and nothing stops moving.',
-        beats        : ['dense opening topology', 'resizeSplit through the real boundary', 'the hundred-thousand-row matrix crosses its midpoint', 'feed heartbeat visibly advancing'],
+        targetSeconds: 3,
+        narration    : 'A living workspace: twenty panes, a hundred-thousand-row grid, streaming feeds. Nothing stops moving. Now take one outside.',
+        beats        : ['dense opening topology', 'resizeSplit through the real boundary', 'feed heartbeat visibly advancing'],
         steps        : [{
             type   : 'topology-assert',
             caption: 'all twenty panes are live; the heavy group deliberately overflows',
@@ -108,54 +118,15 @@ export const fiveBeatFilmScript = Object.freeze({
             ]
         }, {
             type   : 'pause',
-            ms     : 1400,
-            cue    : {type: 'scroll', index: 50000},
-            caption: 'a hundred thousand rows cross their midpoint — and the rest of the room keeps breathing'
-        }, {
-            type   : 'pause',
-            ms     : 1200,
+            ms     : 900,
             cue    : {type: 'canvas-update'},
             caption: 'the feed heartbeat advances; a visible sparkline repaints in the Canvas Worker'
-        }]
-    }, {
-        id           : 'film-showcase',
-        title        : 'Every target answers the pointer',
-        targetSeconds: 14,
-        narration    : 'Drag one tab. Every target answers — an edge preview here, a merge preview there. Release commits exactly what you saw. Escape cancels, and the document is untouched.',
-        beats        : ['cross-zone drag with two dwells', 'edge-bottom preview hugs its zone', 'tab-into preview fills its target', 'commit equals the active preview'],
-        steps        : [{
-            // Commits joins Metrics and Audit in `right-top-tabs`. That group is the stored home
-            // the later window beats return to: the tear-out must leave it populated (a tabs node
-            // emptied by its last pane is removed, and the stack return then aims at whichever
-            // tabs node comes first — measured on 2026-09-23 as the return that never settled).
-            type: 'pause',
-            ms  : 1600,
-            cue : {
-                type        : 'cross-zone-showcase',
-                itemId      : 'commits',
-                sourceNodeId: 'right-bottom-tabs',
-                terminal    : 'commit',
-                dwells      : [{
-                    targetNodeId : 'scale-tabs',
-                    placementKind: 'edge-bottom'
-                }, {
-                    targetNodeId : 'right-top-tabs',
-                    placementKind: 'tab-into'
-                }],
-                options: {
-                    dwellDelay: 700,
-                    moveDelay : 24,
-                    moveSteps : 18,
-                    showCursor: true
-                }
-            },
-            caption: 'Commits crosses the matrix split preview, then joins Metrics through the live center target'
         }]
     }, {
         id           : 'film-morph',
         title        : 'Change your mind — nothing happened',
         targetSeconds: 10,
-        narration    : 'Drag past the window’s edge — a real window is born mid-gesture. Changed your mind? Come back. The window retires itself before you release. Zero mutation — the workspace never even blinked. Same pane, one more time: this time it stays.',
+        narration    : 'Drag a live pane past the window’s edge — a real window is born mid-gesture. Changed your mind? Come back. The window retires itself before you release. Zero mutation — the workspace never even blinked.',
         beats        : ['the viewer opens the door: one click is the browser’s permission', 'boundary exit births the vessel before pointer-up', 're-entry while dragging retires the vessel', 'document byte-identical by guard'],
         steps        : [{
             type   : 'pause',
@@ -163,10 +134,12 @@ export const fiveBeatFilmScript = Object.freeze({
             cue    : {type: 'gate', prompt: 'Continue — Metrics leaves and comes back before the pointer lifts'},
             caption: 'A pane is about to leave the window and return before you let go. Your click is the browser’s permission to open the window.'
         }, {
-            // The re-entry pane is the group's ACTIVE tab, the one a narrow tab bar always renders:
-            // a tab folded into an overflow menu is no drag handle (Audit, third in the 14 %-wide
-            // right group, and Traces in the twelve-tab heavy group both refused to arm on
-            // 2026-09-23), and the five-beat witness proves the morph on Metrics exactly like this.
+            // The re-entry pane is a two-tab group's ACTIVE tab, the one a narrow tab bar always
+            // renders: a tab folded into an overflow menu is no drag handle (Audit, third in the
+            // 14 %-wide right group, and Traces in the twelve-tab heavy group both refused to arm
+            // on 2026-09-23), and a single tab cannot come back at all — its departure removes the
+            // group, so the re-entry finds no strip to re-arm on (Commits out of `right-bottom-tabs`
+            // ended with `reattachArmed=false`, the same day). Metrics leaves Audit behind.
             type   : 'pause',
             ms     : 1000,
             cue    : {type: 'tear-out', itemId: 'metrics', sourceNodeId: 'right-top-tabs', options: {...filmPace, reenter: true}},
@@ -188,6 +161,10 @@ export const fiveBeatFilmScript = Object.freeze({
             cue    : {type: 'gate', prompt: 'Continue — then watch Metrics leave the window'},
             caption: 'A real window is about to be born mid-gesture and stay. Your click is the browser’s permission to open it.'
         }, {
+            // Metrics leaves a two-tab group: Audit stays behind, so `right-top-tabs` — the stored
+            // home the stack return aims at — survives the departure (a tabs node emptied by its
+            // last pane is removed, and the return then aims at whichever tabs node comes first;
+            // measured on 2026-09-23 as the return that never settled).
             type   : 'pause',
             ms     : 1200,
             cue    : {type: 'tear-out', itemId: 'metrics', sourceNodeId: 'right-top-tabs', options: filmPace},
@@ -210,7 +187,7 @@ export const fiveBeatFilmScript = Object.freeze({
             cue : {
                 type        : 'convert-while-dragging',
                 itemId      : 'commits',
-                sourceNodeId: 'right-top-tabs',
+                sourceNodeId: 'right-bottom-tabs',
                 targetItemId: 'metrics',
                 options     : {attempts: 240, dwellDelay: 700, moveDelay: 33, moveSteps: 24, showCursor: true}
             },
@@ -237,6 +214,42 @@ export const fiveBeatFilmScript = Object.freeze({
                 {path: 'items.metrics.title', equals: 'System Metrics'},
                 {path: 'items.commits.title', equals: 'Commit Stream'}
             ]
+        }]
+    }, {
+        id           : 'film-showcase',
+        title        : 'Every target answers the pointer',
+        targetSeconds: 12,
+        narration    : 'Put it wherever you like. Drag the pane that just travelled: every target answers — an edge preview here, a merge preview there. Release commits exactly what you saw. Escape cancels, and the document is untouched.',
+        beats        : ['cross-zone drag with two dwells', 'edge-bottom preview hugs its zone', 'tab-into preview fills its target', 'commit equals the active preview'],
+        steps        : [{
+            // Metrics is the stack's owner and the group's active tab after the return, so its
+            // handle is always rendered and sits inside the executor's 48 px window-edge margin;
+            // Commits came home as the group's last tab, against that edge (refused on
+            // 2026-09-23: "source tab violates the 48px window-edge margin"). The drop-zone
+            // showcase is the viewer putting the travelled pane wherever they like — here, the
+            // feed's band.
+            type: 'pause',
+            ms  : 1600,
+            cue : {
+                type        : 'cross-zone-showcase',
+                itemId      : 'metrics',
+                sourceNodeId: 'right-top-tabs',
+                terminal    : 'commit',
+                dwells      : [{
+                    targetNodeId : 'scale-tabs',
+                    placementKind: 'edge-bottom'
+                }, {
+                    targetNodeId : 'bottom-tabs',
+                    placementKind: 'tab-into'
+                }],
+                options: {
+                    dwellDelay: 700,
+                    moveDelay : 24,
+                    moveSteps : 18,
+                    showCursor: true
+                }
+            },
+            caption: 'Metrics crosses the matrix split preview, then joins the feed through the live bottom target'
         }]
     }, {
         id           : 'film-perspectives-undo',
@@ -281,10 +294,15 @@ export const fiveBeatFilmScript = Object.freeze({
     }, {
         id           : 'film-signature',
         title        : 'It never left',
-        targetSeconds: 10,
-        narration    : 'Same instances, end to end. Heartbeats monotonic through every transition. The content never stopped living — because it never left.',
-        beats        : ['final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
+        targetSeconds: 12,
+        narration    : 'A hundred thousand rows still cross their midpoint. Same instances, end to end. Heartbeats monotonic through every transition. The content never stopped living — because it never left.',
+        beats        : ['the hundred-thousand-row matrix crosses its midpoint', 'final topology readout', 'identity equality end-to-end', 'monotonic heartbeat close'],
         steps        : [{
+            type   : 'pause',
+            ms     : 1400,
+            cue    : {type: 'scroll', index: 50000},
+            caption: 'a hundred thousand rows cross their midpoint — and the rest of the room keeps breathing'
+        }, {
             type   : 'topology-assert',
             caption: 'final readout: the split proportion, every travelled pane, all still here',
             expect : [

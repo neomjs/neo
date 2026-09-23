@@ -68,12 +68,13 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
 
         expect(valid).toBe(true);
         expect(errors).toEqual([]);
-        // the morph precedes the committed tear-out: tease the window, then let it stay — and the
-        // committed tear-out, the conversion and the return stay contiguous, the order the
-        // five-beat witness proves them in
+        // the film opens on the tear-outs right after a three-second cold open: the morph teases
+        // the window, the committed tear-out lets it stay, and the conversion and the return stay
+        // contiguous with them, the order the five-beat witness proves them in; the drop-zone
+        // showcase moves the travelled pane afterwards
         expect(fiveBeatFilmScript.scenes.map(scene => scene.id)).toEqual([
-            'film-cold-open', 'film-showcase', 'film-morph', 'film-tear-out',
-            'film-second-window', 'film-reintegration', 'film-perspectives-undo', 'film-signature'
+            'film-cold-open', 'film-morph', 'film-tear-out', 'film-second-window',
+            'film-reintegration', 'film-showcase', 'film-perspectives-undo', 'film-signature'
         ]);
         fiveBeatFilmScript.scenes.forEach(scene => {
             expect(scene.steps.length, `${scene.id} must carry runnable steps`).toBeGreaterThan(0);
@@ -115,10 +116,10 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 106s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 97s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(106);
+        expect(total).toBe(97);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });
