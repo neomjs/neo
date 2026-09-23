@@ -1,17 +1,40 @@
 import Controller                               from '../../../src/controller/Component.mjs';
 import ClassSystem                              from '../../../src/util/ClassSystem.mjs';
 import TourRunner                               from '../../../src/ai/client/TourRunner.mjs';
+import TransactionManager                       from '../../../src/manager/Transaction.mjs';
 import NativeGestureDriver                      from '../tour/NativeGestureDriver.mjs';
 import WorkspaceDocument                        from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import {WORKSTATION_CUE_TYPES}                  from '../tour/cueVocabulary.mjs';
+import {fiveBeatFilmScript}                     from '../tour/fiveBeatFilm.mjs';
 import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
 
 /**
  * @summary Optional playback controller attached to Workstation's tour toolbar.
  * Owns runner, gesture driver and settlement queues; borrows workspace, provider and stores.
+ *
+ * Two screenplays play through one runner: the dense tour and the flagship film. The film's
+ * window beats ride surface cues over the {@link Workstation.tour.NativeGestureDriver} executors,
+ * and each vessel birth is preceded by a `gate` cue — playback waits until the viewer clicks
+ * **Continue**, because `Neo.Main.windowOpen` is granted only inside a user gesture. The host
+ * settlement boundary ({@link #settleTourStep}) is what holds the runner at the gate; the runner
+ * itself stays document-tier and never learns about viewers. Replays and takes pass
+ * `autoGates: true` and gates resolve on their own.
+ *
+ * A cue that fails fails its beat: the settlement boundary rejects, so the runner stops before a
+ * later window effect could run on top of a world the screenplay no longer describes. The failed
+ * cue's receipt and error stay recorded — the stop carries its own forensics.
  * @class Workstation.view.TourController
  * @extends Neo.controller.Component
  */
 class TourController extends Controller {
+    /**
+     * The cue vocabulary {@link #executeCue} handles — the data-only list the screenplays'
+     * unit specs check their cues against.
+     * @member {ReadonlyArray<String>} cueTypes
+     * @static
+     */
+    static cueTypes = WORKSTATION_CUE_TYPES
+
     static config = {
         /** @member {String} className='Workstation.view.TourController' */
         className: 'Workstation.view.TourController',
@@ -23,6 +46,14 @@ class TourController extends Controller {
         gestureDriver_: null
     }
 
+    /** @member {Object} activeScript=workstationTourScript The screenplay the owned runner plays. */
+    activeScript = workstationTourScript
+    /**
+     * Gate mode: true resolves gate cues without a viewer (replays, takes). Set through
+     * `startTour({autoGates})`, or directly before Start by a transport that presses the button.
+     * @member {Boolean} autoGates=false
+     */
+    autoGates = false
     /** @member {Promise} cuePromise */
     cuePromise = Promise.resolve()
     /** @member {Map<String,Promise>} cueSettlements */
@@ -40,6 +71,8 @@ class TourController extends Controller {
     /** @member {Set<Neo.ai.client.TourRunner>} specRunners */
     specRunners = new Set()
 
+    /** @member {Object|null} #pendingGate=null `{prompt, reject, resolve}` while a gate cue waits for the viewer. */
+    #pendingGate = null
     /** @member {Promise|null} #settledPromise=null Retains cleanup completion after the controller retires. */
     #settledPromise = null
 
@@ -64,7 +97,7 @@ class TourController extends Controller {
             componentId   : this.workspace.id,
             dockService   : this.workspace.dockService,
             mode          : 'demo',
-            script        : workstationTourScript,
+            script        : this.activeScript,
             stepSettlement: data => this.settleTourStep(data),
             listeners     : {
                 beat : 'onTourBeat', complete: 'onTourComplete', error: 'onTourError',
@@ -84,9 +117,15 @@ class TourController extends Controller {
         return value ? ClassSystem.beforeSetInstance(value, NativeGestureDriver, {workspace: this.workspace}) : value
     }
 
-    /** @summary Creates the owned runner on first playback. @returns {Neo.ai.client.TourRunner} */
-    getTourRunner() {
+    /**
+     * @summary Creates the owned runner on first playback, or re-creates it when the screenplay changes.
+     * @param {Object} [script=this.activeScript]
+     * @returns {Neo.ai.client.TourRunner}
+     */
+    getTourRunner(script=this.activeScript) {
         if (this.isDestroyed) throw Neo.isDestroyed;
+        if (this.tourRunner && this.tourRunner.script !== script) this.tourRunner = null;
+        this.activeScript = script;
         this.tourRunner ||= {};
         return this.tourRunner
     }
@@ -114,14 +153,21 @@ class TourController extends Controller {
         await this.trap(Promise.resolve(this.getReference('tour-pips')?.promiseUpdate()))
     }
 
-    /** @summary Starts at most one visible playback, including its entry projection. @returns {Promise<Object>} */
-    startTour() {
+    /**
+     * @summary Starts at most one visible playback of a screenplay, including its entry projection.
+     * @param {Object} [script=workstationTourScript] `null` also resolves to the dense tour.
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.autoGates] Sets the gate mode for this controller: true resolves
+     * gate cues without a viewer (replays, takes). Omitted keeps the current mode.
+     * @returns {Promise<Object>}
+     */
+    startTour(script=workstationTourScript, options={}) {
         if (this.isDestroyed) return Promise.reject(Neo.isDestroyed);
         if (this.playbackPromise) {
             this.setTourCaption('Tour already running — the live stores continue underneath it.');
             return this.playbackPromise
         }
-        return this.playbackPromise = this.runVisibleTour().catch(error => {
+        return this.playbackPromise = this.runVisibleTour(script ?? workstationTourScript, options).catch(error => {
             if (error === Neo.isDestroyed) return {completed: false, cancelled: true, errors: ['Tour cancelled'], log: []};
             throw error
         }).finally(() => {
@@ -129,6 +175,81 @@ class TourController extends Controller {
                 this.playbackPromise = null;
                 this.setState({'tour.running': false})
             }
+        })
+    }
+
+    /**
+     * @summary Starts the flagship film's screenplay as a visible playback.
+     * @param {Object} [options={}] See {@link #startTour}.
+     * @returns {Promise<Object>}
+     */
+    startFilmTour(options={}) {
+        return this.startTour(fiveBeatFilmScript, options)
+    }
+
+    /**
+     * @summary Resolves the pending viewer gate. Called from the toolbar's Continue button, so the
+     * resolving click is the user activation the next window birth runs inside.
+     * @returns {Boolean} False when no gate is pending.
+     */
+    continueTour() {
+        const gate = this.#pendingGate;
+
+        if (!gate) return false;
+
+        this.#pendingGate = null;
+        this.setState({'tour.gatePrompt': null});
+        gate.resolve({applied: true, continued: 'viewer', prompt: gate.prompt});
+
+        return true
+    }
+
+    /**
+     * @summary The gate playback is waiting at, for transports that cannot read provider state.
+     * @returns {Object|null} `{prompt}` or `null`.
+     */
+    getPendingGate() {
+        return this.#pendingGate ? {prompt: this.#pendingGate.prompt} : null
+    }
+
+    /**
+     * @summary The bound tour presentation (`tour.*` on the root provider) as one JSON readout —
+     * the oracle a whitebox spec reads through the Neural Link, which resolves property paths but
+     * cannot call a method halfway through one.
+     * @returns {Object} `{caption, completedCount, gate, running, totalBeats}`
+     */
+    getTourState() {
+        const provider = this.getStateProvider(),
+              read     = key => provider?.getData(`tour.${key}`) ?? null,
+              prompt   = read('gatePrompt');
+
+        return {
+            caption       : read('caption'),
+            completedCount: read('completedCount'),
+            gate          : prompt ? {prompt} : null,
+            running       : read('running'),
+            totalBeats    : read('totalBeats')
+        }
+    }
+
+    /**
+     * @summary Opens a viewer gate: publishes the prompt and settles only on {@link #continueTour}.
+     * With {@link #autoGates} the gate settles at once — replays and takes carry their own activation.
+     * @param {Object} cue
+     * @param {String} [cue.prompt] The Continue button's text while this gate is pending.
+     * @returns {Promise<Object>|Object} The gate receipt `{applied, continued, prompt}`.
+     */
+    openGate(cue) {
+        const me     = this,
+              prompt = cue.prompt || 'Continue';
+
+        if (me.autoGates) return {applied: true, continued: 'auto', prompt};
+
+        // The prompt is published as one string: the toolbar's `hidden` and `text` binds read a
+        // primitive, so the gate's appearance never depends on how a nested object write is tracked.
+        return new Promise((resolve, reject) => {
+            me.#pendingGate = {prompt, reject, resolve};
+            me.setState({'tour.gatePrompt': prompt})
         })
     }
 
@@ -143,19 +264,23 @@ class TourController extends Controller {
     /** @summary Retires playback-owned objects without disposing borrowed workspace state. */
     destroy() {
         if (this.isDestroyed) return;
-        const provider = this.getStateProvider(), driver = this.gestureDriver,
+        const provider = this.getStateProvider(), driver = this.gestureDriver, gate = this.#pendingGate,
               pending  = [this.playbackPromise, this.cuePromise, this.progressPromise];
+        this.#pendingGate = null;
+        gate?.reject(Neo.isDestroyed);
         this.tourRunner = null;
         this.gestureDriver = null;
         this.specRunners.forEach(runner => runner.isDestroyed || runner.destroy());
         this.#settledPromise = Promise.allSettled([...pending, driver?.settledPromise]);
         super.destroy();
-        provider && !provider.isDestroyed && provider.setData({'tour.running': false})
+        provider && !provider.isDestroyed && provider.setData({'tour.gatePrompt': null, 'tour.running': false})
     }
 
     /**
      * Executes a surface cue for the visual take. Spec-mode correctness waits on explicit
      * E2E oracles because TourRunner intentionally does not await event listeners.
+     * Every case is listed in {@link .cueTypes}; an unknown cue returns `false`, which the beat
+     * records as a failed cue rather than a skipped one.
      * @param {Object} cue
      * @returns {Promise<*>}
      */
@@ -172,9 +297,97 @@ class TourController extends Controller {
                 return (await this.getGestureDriver()).executeCrossZoneShowcaseStep(cue, cue.options)
             case 'theme':
                 return this.workspace.setWorkspaceTheme(cue.theme)
+            case 'gate':
+                return this.openGate(cue)
+            case 'tear-out':
+                return (await this.getGestureDriver()).executeTearOutStep(
+                    {itemId: cue.itemId, sourceNodeId: cue.sourceNodeId}, cue.options
+                )
+            case 'convert-while-dragging':
+                return (await this.getGestureDriver()).executeCrossWindowDockStep(
+                    {itemId: cue.itemId, sourceNodeId: cue.sourceNodeId, targetItemId: cue.targetItemId}, cue.options
+                )
+            case 'stack-return':
+                return (await this.getGestureDriver()).executeStackReturnStep({ownerItemId: cue.ownerItemId}, cue.options)
+            case 'perspective-capture':
+                return this.capturePerspectiveCue(cue)
+            case 'perspective-restore':
+                return this.restorePerspectiveCue(cue)
+            case 'undo':
+            case 'redo':
+                return this.historyCue(cue.type)
             default:
                 return false
         }
+    }
+
+    /**
+     * @summary Captures the live arrangement into the workspace's perspective store through the
+     * same seam an agent uses (`capture_perspective`), so the film's claim is the product's path.
+     * @param {Object} cue
+     * @param {String} cue.name The perspective name; a second capture under it replaces the first.
+     * @param {String} [cue.layoutId=cue.name] The record's stable technical id; the name doubles as it.
+     * @param {String} [cue.title]
+     * @returns {Promise<Object>} `{applied, errors, name, stored}`
+     */
+    async capturePerspectiveCue({layoutId, name, title}) {
+        const workspace = this.workspace,
+              result    = await this.trap(workspace.dockService.capturePerspective({
+                  componentId    : workspace.id,
+                  layoutId       : layoutId ?? name,
+                  perspectiveName: name,
+                  replace        : true,
+                  title
+              }));
+
+        return {applied: result.captured === true, errors: result.errors ?? [], name, stored: result.stored === true}
+    }
+
+    /**
+     * @summary Restores a captured perspective through the agent seam and waits for the projection.
+     * @param {Object} cue
+     * @param {String} cue.name
+     * @returns {Promise<Object>} `{applied, errors, name, tabs}` — `tabs` is the membership the restore produced.
+     */
+    async restorePerspectiveCue({name}) {
+        const workspace = this.workspace,
+              result    = await this.trap(workspace.dockService.restorePerspective({componentId: workspace.id, name}));
+
+        await this.trap(Promise.resolve(workspace.refreshPromise));
+
+        return {applied: result.switched === true, errors: result.errors ?? [], name, tabs: this.tabsMembership()}
+    }
+
+    /**
+     * @summary Walks the workspace's Group cursor one step back or forward — the same call the
+     * topology toolbar's Undo and Redo buttons make.
+     * @param {String} direction `'undo'` or `'redo'`
+     * @returns {Promise<Object>} `{applied, direction, errors, tabs, transactionId}`; `applied` is false at the cursor bound.
+     */
+    async historyCue(direction) {
+        const workspace = this.workspace,
+              result    = await this.trap(TransactionManager[direction]({groupId: workspace.topologyGroupId}));
+
+        await this.trap(Promise.resolve(workspace.refreshPromise));
+
+        return {
+            applied      : result?.row != null,
+            direction,
+            errors       : result?.notificationErrors ?? [],
+            tabs         : this.tabsMembership(),
+            transactionId: result?.transactionId ?? null
+        }
+    }
+
+    /**
+     * @summary The live document's tabs membership, `{nodeId: itemIds}` — the small readout a cue
+     * receipt carries so a replay consumer can witness a cue's effect without a document dump.
+     * @returns {Object}
+     */
+    tabsMembership() {
+        return Object.fromEntries(Object.entries(this.workspace.dockModel?.nodes ?? {})
+            .filter(([, node]) => node.type === 'tabs')
+            .map(([nodeId, node]) => [nodeId, [...node.items]]))
     }
 
     /**
@@ -183,6 +396,60 @@ class TourController extends Controller {
      */
     getTourReceipt() {
         return this.lastTourReceipt
+    }
+
+    /**
+     * @summary The running (or last) playback's cue trail without the proof documents — what a
+     * stalled witness reads to name the cue it stalled on: every settled cue with its outcome,
+     * the cue errors so far, the vessels the workspace holds, and whether the promises a window
+     * gesture awaits are still pending at read time.
+     * @returns {Promise<Object>} `{cueErrors, cues, pending, vessels}`
+     */
+    async getCueLog() {
+        const
+            me        = this,
+            workspace = me.workspace,
+            // 'settled' | 'pending' | 'absent' — read without waiting on the promise itself
+            probe     = promise => promise
+                ? Promise.race([Promise.resolve(promise).then(() => 'settled', () => 'rejected'), me.timeout(50).then(() => 'pending')])
+                : 'absent',
+            states    = typeof workspace.getPopupStates === 'function' ? workspace.getPopupStates() ?? [] : [],
+            vessels   = [];
+
+        for (const state of states) {
+            vessels.push({
+                committed   : state?.committed ?? null,
+                disconnected: state?.disconnected ?? null,
+                hostRefresh : await probe(state?.host?.refreshPromise),
+                itemId      : state?.itemId ?? null,
+                storedHome  : workspace.tearOutHandlers?.peekPlacement?.(state?.itemId)?.tabsNodeId ?? null,
+                tabs        : state?.document?.nodes ? Object.fromEntries(Object.entries(state.document.nodes)
+                    .filter(([, node]) => node.type === 'tabs').map(([id, node]) => [id, [...node.items]])) : null,
+                workspaceId : state?.workspaceId ?? null
+            })
+        }
+
+        return {
+            cueErrors: [...me.cueErrors],
+            cues     : me.cueReceipts.map(({cue, receipt}) => ({
+                applied           : receipt?.applied ?? null,
+                cancelled         : receipt?.cancelled ?? false,
+                diag              : receipt?.proof?.diag ?? null,
+                documentsUnchanged: receipt?.proof?.documentsUnchanged ?? null,
+                errors            : receipt?.errors ?? [],
+                phases            : receipt?.proof?.phaseOrder ?? null,
+                reentered         : receipt?.reentered ?? false,
+                type              : cue.type
+            })),
+            pending  : {
+                activeGestures: me.gestureDriver?.activeRuns?.size ?? 0,
+                mainRefresh   : await probe(workspace.refreshPromise),
+                mainTabs      : me.tabsMembership(),
+                participation : await probe(workspace.crossWindowParticipationPromise),
+                participants  : [...(workspace.crossWindowParticipations?.keys?.() ?? [])]
+            },
+            vessels
+        }
     }
 
     /**
@@ -246,14 +513,24 @@ class TourController extends Controller {
                 me.cueReceipts.push({cue: {...cue}, receipt});
 
                 // Settlement is the cue's EFFECT, not its promise: executors report `errors`
-                // and `applied` (a cancel terminal settles legitimately un-applied). The
-                // receipt stays pushed either way, so a failure carries its own forensics.
+                // and `applied` (a cancel terminal, and the morph's re-entry terminal, settle
+                // legitimately un-applied). The receipt stays pushed either way, so a failure
+                // carries its own forensics.
                 if (receipt.errors?.length) {
                     throw new Error(receipt.errors.join('; '))
                 }
 
-                if (receipt.applied === false && !receipt.cancelled) {
-                    throw new Error('terminal effect did not apply')
+                if (receipt.applied === false) {
+                    if (!receipt.cancelled && !receipt.reentered) {
+                        throw new Error('terminal effect did not apply')
+                    }
+
+                    // A legitimate un-applied terminal promises zero mutation, and the driver
+                    // proves it by comparing the document before and after. A missing or false
+                    // comparison is a failure, never a pass.
+                    if (receipt.proof?.documentsUnchanged !== true) {
+                        throw new Error('un-applied terminal did not prove the document unchanged')
+                    }
                 }
 
                 return receipt
@@ -264,7 +541,9 @@ class TourController extends Controller {
                 me.cueErrors.push(message);
                 me.setTourCaption(`Surface cue failed: ${message}`);
 
-                return false
+                // The chain itself stays resolved; the failure travels to the beat's settlement,
+                // which fails closed.
+                return {cueFailed: message}
             });
             cueSettlement = me.cuePromise
         }
@@ -275,7 +554,8 @@ class TourController extends Controller {
     /**
      * Settles the hosting surface for one runner step before the next screenplay beat may begin.
      * @summary Prevents a following document operation from re-projecting the dock while the
-     * current surface cue still owns a live gesture, dwell, or paint boundary.
+     * current surface cue still owns a live gesture, dwell, paint boundary — or a viewer gate.
+     * A failed cue fails the beat here, so the runner aborts before any later window effect.
      * @param {Object} data `TourRunner` settlement payload.
      * @returns {Promise<void>}
      */
@@ -283,9 +563,11 @@ class TourController extends Controller {
         if (this.isDestroyed) throw Neo.isDestroyed;
         let me            = this, workspace = me.workspace,
             key           = `${data.sceneIndex}:${data.stepIndex}`,
-            cueSettlement = me.cueSettlements.get(key) || Promise.resolve();
+            cueSettlement = me.cueSettlements.get(key) || Promise.resolve(),
+            outcome       = await cueSettlement;
 
-        await cueSettlement;
+        if (outcome?.cueFailed) throw new Error(outcome.cueFailed);
+
         await workspace.refreshPromise
     }
 
@@ -462,20 +744,24 @@ class TourController extends Controller {
     }
 
     /**
-     * @summary Runs the screenplay from a fresh document on every replay.
+     * @summary Runs a screenplay from a fresh document on every replay.
+     * @param {Object} [script=workstationTourScript]
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.autoGates] Sets the gate mode when given; omitted keeps it.
      * @returns {Promise<Object>|undefined}
      */
-    async runVisibleTour() {
+    async runVisibleTour(script=workstationTourScript, {autoGates}={}) {
         let me = this, workspace = me.workspace;
 
-        me.getTourRunner();
+        me.getTourRunner(script);
 
         if (me.tourRunner.running) {
             me.setTourCaption('Tour already running — the live stores continue underneath it.');
             return
         }
 
-        me.setState({'tour.running': true});
+        if (autoGates !== undefined) me.autoGates = autoGates === true;
+        me.setState({'tour.gatePrompt': null, 'tour.running': true, 'tour.totalBeats': TourController.totalBeats(script).length});
         me.cueErrors       = [];
         me.cuePromise      = Promise.resolve();
         me.cueReceipts     = [];
@@ -495,7 +781,9 @@ class TourController extends Controller {
             runnerResult   = await me.trap(me.tourRunner.start());
 
         const
-            errors      = [...runnerResult.errors, ...me.cueErrors],
+            // a cue failure that already stopped the runner is reported once, as the stop
+            cueOnly     = me.cueErrors.filter(cueError => !runnerResult.errors.some(error => error.endsWith(`: ${cueError}`))),
+            errors      = [...runnerResult.errors, ...cueOnly],
             appendError = (label, result) => {
                 if (result.status === 'rejected') {
                     const
@@ -515,7 +803,7 @@ class TourController extends Controller {
             .forEach((label, index) => appendError(label, settlements[index]));
 
         const [finalProgress] = await me.trap(Promise.allSettled([
-            me.setPipProgress(TourController.totalBeats().length)
+            me.setPipProgress(TourController.totalBeats(script).length)
         ]));
 
         appendError('final progress paint', finalProgress);
@@ -538,7 +826,8 @@ class TourController extends Controller {
                     produced      : (feedStore.batchCount - feedStartBatch) * feedStore.batchSize,
                     startCount    : feedStartCount
                 },
-                log       : runnerResult.log
+                log     : runnerResult.log,
+                scriptId: script.id ?? null
             };
 
         me.lastTourReceipt = receipt;
@@ -550,12 +839,14 @@ class TourController extends Controller {
     }
 
     /**
-     * @summary Returns the screenplay's flattened steps for progress presentation.
+     * @summary Returns a screenplay's flattened steps for progress presentation. Static, so a
+     * playback host that only borrows the prototype's methods (the unit fixtures) can play too.
+     * @param {Object} [script=workstationTourScript]
      * @returns {Object[]} Flattened screenplay steps.
      * @static
      */
-    static totalBeats() {
-        return workstationTourScript.scenes.flatMap(scene => scene.steps)
+    static totalBeats(script=workstationTourScript) {
+        return script.scenes.flatMap(scene => scene.steps)
     }
 }
 
