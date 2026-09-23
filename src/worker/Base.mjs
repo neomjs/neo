@@ -66,6 +66,12 @@ class Worker extends Base {
      */
     departedWindowIds = null
     /**
+     * Rejections {@link #onUnhandledRejection} settled because their window had departed. Counted, not logged: teardown
+     * in flight is expected, but a component that keeps calling into a gone window is a leak, and this is where it shows.
+     * @member {Number} settledDepartureCount=0
+     */
+    settledDepartureCount = 0
+    /**
      * Only needed for SharedWorkers
      * @member {Boolean} isConnected=false
      * @protected
@@ -310,11 +316,8 @@ class Worker extends Base {
         };
 
         // A rejection nobody handles reaches neither the interceptor above nor `onerror`: the browser
-        // reports it to this worker's own inspector. `Neo.mjs` marks the rejections it expects as
-        // handled, so only the ones it lets through are mirrored.
-        globalThis.addEventListener?.('unhandledrejection', event => {
-            event.defaultPrevented || me.forwardErrorToMainThread(event.reason?.stack || String(event.reason))
-        })
+        // reports it to this worker's own inspector. See #onUnhandledRejection for what is mirrored.
+        globalThis.addEventListener?.('unhandledrejection', event => me.onUnhandledRejection(event))
     }
 
     /**
@@ -663,6 +666,29 @@ class Worker extends Base {
     }
 
     /**
+     * @summary Mirrors a rejection nobody handled, unless it is the departure of the window its call targeted.
+     *
+     * Teardown code rarely awaits its calls into a window — an addon `unregister`, a canvas transfer — so one that
+     * lands after the window left rejects with `NEO_DEAD_PORT` and has nobody to tell. Mirrored, it reads as a
+     * defect of whichever worker made the call. Both halves are required: the code alone means "unreachable", which a
+     * window that never existed also is, and {@link #isWindowDeparted} is the evidence this one was there and left.
+     * A caller that awaits or catches still receives the rejection; this decides only what reaches the page.
+     * @param {PromiseRejectionEvent} event
+     * @protected
+     */
+    onUnhandledRejection(event) {
+        const {reason} = event;
+
+        if (reason?.code === 'NEO_DEAD_PORT' && this.isWindowDeparted(reason.windowId ?? reason.destination)) {
+            this.settledDepartureCount++;
+            event.preventDefault();
+            return
+        }
+
+        event.defaultPrevented || this.forwardErrorToMainThread(reason?.stack || String(reason))
+    }
+
+    /**
      * @param {String} dest app, data, main or vdom (excluding the current worker)
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
@@ -686,7 +712,7 @@ class Worker extends Base {
 
                 reject(Object.assign(
                     new Error(`worker.Base#promiseMessage: no live port for destination "${dest}" (${opts.action}${remote}) — a window closed?`),
-                    {code: 'NEO_DEAD_PORT'}
+                    {code: 'NEO_DEAD_PORT', destination: dest, windowId: opts.windowId ?? null}
                 ))
             } else {
                 me.promises[msgId] = {
