@@ -31,8 +31,8 @@
  * its own activation. The dense tour (`denseWorkstation.mjs`) stays the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The scenes sum to exactly 97s inside the
- * 90–150s envelope, 7s above the `minSeconds` floor: a budget edit trades seconds within the 97s
+ * real duration and the cut re-paces around them. The scenes sum to exactly 103s inside the
+ * 90–150s envelope, 13s above the `minSeconds` floor: a budget edit trades seconds within the 103s
  * sum or cuts toward the floor, and captured gesture durations plus the edit-layer cut-in re-pace
  * upward from there.
  *
@@ -125,7 +125,7 @@ export const fiveBeatFilmScript = Object.freeze({
     }, {
         id           : 'film-morph',
         title        : 'Change your mind — nothing happened',
-        targetSeconds: 10,
+        targetSeconds: 16,
         narration    : 'Drag a live pane past the window’s edge — a real window is born mid-gesture. Changed your mind? Come back. The window retires itself before you release. Zero mutation — the workspace never even blinked.',
         beats        : ['the viewer opens the door: one click is the browser’s permission', 'boundary exit births the vessel before pointer-up', 're-entry while dragging retires the vessel', 'document byte-identical by guard'],
         steps        : [{
@@ -142,12 +142,17 @@ export const fiveBeatFilmScript = Object.freeze({
             // ended with `reattachArmed=false`, the same day). Metrics leaves Audit behind.
             type   : 'pause',
             ms     : 1000,
-            cue    : {type: 'tear-out', itemId: 'metrics', sourceNodeId: 'right-top-tabs', options: {...filmPace, reenter: true}},
+            cue    : {type: 'tear-out', itemId: 'metrics', sourceNodeId: 'right-top-tabs',
+                options: {...filmPace, birthDwellMs: 10000, reenter: true}},
             caption: 're-entry while dragging retires the vessel; the in-window proxy resumes'
         }, {
             type   : 'topology-assert',
             caption: 'document byte-identical: Metrics is still catalogued where it was',
             expect : [{path: 'items.metrics.title', equals: 'System Metrics'}]
+        }, {
+            type   : 'pause',
+            ms     : 1600,
+            caption: 'the re-entry is settled; its unchanged-layout response has room to finish'
         }]
     }, {
         id           : 'film-tear-out',
@@ -169,6 +174,10 @@ export const fiveBeatFilmScript = Object.freeze({
             ms     : 1200,
             cue    : {type: 'tear-out', itemId: 'metrics', sourceNodeId: 'right-top-tabs', options: filmPace},
             caption: 'boundary exit births the vessel before pointer-up; the same live pane rides along'
+        }, {
+            type   : 'pause',
+            ms     : 4600,
+            caption: 'the committed vessel stays visible through the identity response'
         }]
     }, {
         id           : 'film-second-window',
@@ -189,9 +198,13 @@ export const fiveBeatFilmScript = Object.freeze({
                 itemId      : 'commits',
                 sourceNodeId: 'right-bottom-tabs',
                 targetItemId: 'metrics',
-                options     : {attempts: 240, dwellDelay: 700, moveDelay: 33, moveSteps: 24, showCursor: true}
+                options     : {attempts: 240, dwellDelay: 3200, moveDelay: 33, moveSteps: 24, showCursor: true}
             },
             caption: 'dock zones glow inside a real OS window; exactly one target claims the pointer; A and B compose in the vessel'
+        }, {
+            type   : 'pause',
+            ms     : 3100,
+            caption: 'the committed window arrangement holds before the stack comes home'
         }]
     }, {
         id           : 'film-reintegration',
@@ -214,6 +227,10 @@ export const fiveBeatFilmScript = Object.freeze({
                 {path: 'items.metrics.title', equals: 'System Metrics'},
                 {path: 'items.commits.title', equals: 'Commit Stream'}
             ]
+        }, {
+            type   : 'pause',
+            ms     : 4650,
+            caption: 'adoption and closure are settled before the next scene'
         }]
     }, {
         id           : 'film-showcase',
@@ -313,7 +330,7 @@ export const fiveBeatFilmScript = Object.freeze({
             ]
         }, {
             type   : 'pause',
-            ms     : 1500,
+            ms     : 6000,
             caption: 'heartbeats monotonic through every transition — the content never left'
         }]
     }]
