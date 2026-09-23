@@ -31,10 +31,11 @@
  * its own activation. The dense tour (`denseWorkstation.mjs`) stays the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The scenes sum to exactly 103s inside the
- * 90–150s envelope, 13s above the `minSeconds` floor: a budget edit trades seconds within the 103s
+ * real duration and the cut re-paces around them. The scenes sum to exactly 106s inside the
+ * 90–150s envelope, 16s above the `minSeconds` floor: a budget edit trades seconds within the 106s
  * sum or cuts toward the floor, and captured gesture durations plus the edit-layer cut-in re-pace
- * upward from there.
+ * upward from there. Speech inside a held gesture is placed by the cut, not the screenplay: the
+ * change-of-mind line ends where the hold ends, so the return follows it.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
  * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 3, 5, 8)
@@ -157,7 +158,7 @@ export const fiveBeatFilmScript = Object.freeze({
     }, {
         id           : 'film-tear-out',
         title        : 'A window is born mid-gesture',
-        targetSeconds: 14,
+        targetSeconds: 17,
         narration    : 'Now let it go. A real window is born — mid-gesture, while the pointer is still down — and this time it stays. The pane inside it is the same live instance. The grid never reloaded. The feed never paused.',
         beats        : ['the viewer opens the door again', 'boundary exit births the vessel before pointer-up', 'pane identity preserved across the window boundary', 'living content uninterrupted'],
         steps        : [{
@@ -176,8 +177,8 @@ export const fiveBeatFilmScript = Object.freeze({
             caption: 'boundary exit births the vessel before pointer-up; the same live pane rides along'
         }, {
             type   : 'pause',
-            ms     : 4600,
-            caption: 'the committed vessel stays visible through the identity response'
+            ms     : 7000,
+            caption: 'the committed vessel stays visible through the two-line response'
         }]
     }, {
         id           : 'film-second-window',

@@ -116,12 +116,22 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 103s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 106s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(103);
+        expect(total).toBe(106);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
+    });
+
+    test('the committed tear-out holds the measured two-line response', () => {
+        const scene = fiveBeatFilmScript.scenes.find(candidate => candidate.id === 'film-tear-out'),
+              hold  = scene.steps.at(-1);
+
+        // 3.40 s + a 0.25 s gap + 3.00 s, measured on the coauthored opening's utterances
+        expect(hold.type).toBe('pause');
+        expect(hold.ms).toBeGreaterThanOrEqual(6650);
+        expect(scene.targetSeconds * 1000).toBeGreaterThan(hold.ms + 1200)
     });
 
     test('the document tier runs twice with identical logs and ends with Security in the matrix group', async () => {
