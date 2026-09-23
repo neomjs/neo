@@ -437,12 +437,12 @@ class DragZone extends Base {
             .catch(() => null)
             .then(() => Neo.applyDeltas(windowId, [{action: 'removeNode', id}]))
             .catch(reason => {
-                // The dispatch owns its terminal outcome: worker.Base's closed-port branch
-                // rejects with `code: 'NEO_DEAD_PORT'` when the destination window is already
-                // gone — the node died with its window, the cleanup is moot, settle silently.
-                // Every other rejection is a live-window delta failure; this detached chain
-                // has no caller to propagate to, so the console is the honest terminal surface.
-                reason?.code !== 'NEO_DEAD_PORT' && console.error('DragZone: proxy removal delta failed', {id, reason, windowId})
+                // The dispatch owns its terminal outcome: if the destination window departed, the
+                // node died with it and the cleanup is moot. Every other rejection is a delta failure,
+                // and this detached chain has no caller to propagate to, so the console is the
+                // honest terminal surface.
+                Neo.currentWorker?.isDeparture?.(reason, windowId) ||
+                    console.error('DragZone: proxy removal delta failed', {id, reason, windowId})
             });
 
         me.dragProxy.destroy()

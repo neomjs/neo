@@ -42,12 +42,22 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import GridBody       from '../../../../src/grid/Body.mjs';
 import TableBody      from '../../../../src/table/Body.mjs';
+import WorkerBase     from '../../../../src/worker/Base.mjs';
 
 const DEAD_PORT = () => Object.assign(new Error('no live port for destination "main" — a window closed?'),
     {code: 'NEO_DEAD_PORT'});
 
 test.describe('post-load scroll dispatch — terminal outcome is owned, never dropped', () => {
-    let body, restoreDomAccess;
+    let body, restoreDomAccess, restoreWorker;
+
+    /**
+     * @summary Installs a worker whose real `isDeparture` reads a recorded departure of `windowIds` — the
+     * evidence half a closed window must supply before its dead port may settle silently.
+     * @param {...*} windowIds
+     */
+    const recordDeparture = (...windowIds) => {
+        Neo.currentWorker = Object.assign(Object.create(WorkerBase.prototype), {departedWindowIds: new Set(windowIds)})
+    };
 
     /**
      * Drives one store load with `scrollTo` rejecting for the supplied reason, and records every
@@ -113,7 +123,8 @@ test.describe('post-load scroll dispatch — terminal outcome is owned, never dr
     };
 
     test.beforeEach(() => {
-        restoreDomAccess = Neo.main?.DomAccess
+        restoreDomAccess = Neo.main?.DomAccess;
+        restoreWorker    = Neo.currentWorker
     });
 
     test.afterEach(() => {
@@ -125,10 +136,13 @@ test.describe('post-load scroll dispatch — terminal outcome is owned, never dr
         } else {
             Neo.main.DomAccess = restoreDomAccess
         }
+
+        Neo.currentWorker = restoreWorker
     });
 
     test('a closed destination window settles silently — grid', async () => {
         body = makeBody(GridBody);
+        recordDeparture(1);
 
         const {unhandled, consoleErrors, dispatchCount} = await driveLoad({body, reason: DEAD_PORT()});
 
@@ -139,6 +153,7 @@ test.describe('post-load scroll dispatch — terminal outcome is owned, never dr
 
     test('a closed destination window settles silently — table twin', async () => {
         body = makeBody(TableBody);
+        recordDeparture(1);
 
         const {unhandled, consoleErrors, dispatchCount} = await driveLoad({body, reason: DEAD_PORT()});
 
@@ -146,6 +161,20 @@ test.describe('post-load scroll dispatch — terminal outcome is owned, never dr
         expect(unhandled,     'the twin owns its terminal outcome too').toEqual([]);
         expect(consoleErrors, 'silently, for the same reason').toEqual([])
     });
+
+    for (const [label, Cls] of [['grid', GridBody], ['table twin', TableBody]]) {
+        test(`a dead port for a window that never departed is REPORTED — ${label}`, async () => {
+            body = makeBody(Cls);
+
+            // Same typed rejection as the silent arms, no departure on record: unreachable is not departed,
+            // and a message misrouted there is a defect worth seeing.
+            const {unhandled, consoleErrors} = await driveLoad({body, reason: DEAD_PORT()});
+
+            expect(unhandled).toEqual([]);
+            expect(consoleErrors).toHaveLength(1);
+            expect(consoleErrors[0][0]).toContain('scroll-to-top dispatch failed')
+        })
+    }
 
     test('a LIVE failure still reaches the console — the signal survives the fix', async () => {
         body = makeBody(GridBody);

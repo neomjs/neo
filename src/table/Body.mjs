@@ -628,7 +628,7 @@ class TableBody extends Component {
                     windowId
                 }))
                 .catch(reason => {
-                    reason !== Neo.isDestroyed && reason?.code !== 'NEO_DEAD_PORT' &&
+                    reason !== Neo.isDestroyed && !Neo.currentWorker?.isDeparture?.(reason, windowId) &&
                         console.error('table.Body: scroll-to-top dispatch failed', {reason, windowId})
                 })
         }
