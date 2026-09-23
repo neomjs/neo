@@ -536,6 +536,7 @@
  "Neo.worker.App": "Neo.worker.Base",
  "Neo.worker.Base": "Neo.core.Base",
  "Neo.worker.Canvas": "Neo.worker.Base",
+ "Neo.worker.CanvasGroups": null,
  "Neo.worker.Data": "Neo.worker.Base",
  "Neo.worker.HiddenTick": null,
  "Neo.worker.Manager": "Neo.core.Base",
