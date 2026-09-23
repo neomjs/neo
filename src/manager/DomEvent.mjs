@@ -605,7 +605,7 @@ class DomEvent extends Base {
     }
 
     /**
-     * Verifies if the event target (or a delegate matching node) is a descendant of the listener's component.
+     * @summary Matches delegates within physical/logical ancestry; ID-only paths need no class data.
      * This check supports two modes:
      * 1. **DOM Ancestry (Standard):** Checks if the target is physically inside the listener's DOM node.
      * 2. **Logical Ancestry (Fallback):** If the DOM check fails, it checks the `componentPath` to see if the
@@ -644,10 +644,7 @@ class DomEvent extends Base {
                 }
 
                 for (; j < pathLen; j++) {
-                    if (
-                        (isId && path[j].id === item) ||
-                        path[j].cls.includes(item)
-                    ) {
+                    if (isId ? path[j].id === item : path[j].cls.includes(item)) {
                         hasMatch = true;
                         targetId = path[j].id;
                         break
