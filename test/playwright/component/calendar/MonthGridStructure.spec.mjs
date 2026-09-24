@@ -177,7 +177,8 @@ test.describe('Neo.calendar.view.month.Component: the month grid\'s structure', 
         // The weekStartDay write goes first, while the sidebar date selector has no month
         // transition in flight: that selector rebuilds its own day view in place. Moving the month
         // first would leave the selector's slide reading back a vdom the second write had already
-        // reshaped, which is how the pair crashed when it ran the other way round.
+        // reshaped, which is how the pair crashed when it ran the other way round. That crash is
+        // reported as #19172 [not-ticket-ref: authority]; this write order is the workaround for it.
         await drive(page, 'setWeekStartDay');
 
         await expect.poll(() => rowStarts(page), {message: 'the rows rebuild for the new first column'})
