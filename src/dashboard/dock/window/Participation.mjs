@@ -491,9 +491,10 @@ class Participation extends Base {
     }
 
     /**
-     * @summary Resolves a native single-pane drag from its Group-owned document membership.
+     * @summary Resolves a native popup drag from its Group-owned document membership.
      * A registered popup owns its document even when empty; only vessels without a separate
-     * participant use the admitting workspace's catalog. Multi-pane workspaces require a group drag.
+     * participant use the admitting workspace's catalog. A registered multi-item vessel may expose
+     * its complete model-resolved center stack as `dockGroupNodeId`; partial stacks fail closed.
      * @param {String|Number} movingWindowId
      * @returns {Object|null}
      * @protected
@@ -510,12 +511,50 @@ class Participation extends Base {
         const match = panes.find(([, entry]) => entry.windowId === movingWindowId);
         if (!match) return null;
 
-        const [itemId, entry] = match,
-              registered      = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
-              sourceId        = registered ? entry.workspaceKey : me.workspaceId,
-              document        = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel;
+        const
+            [itemId, entry] = match,
+            ownershipId     = me.ownershipId,
+            registered      = Boolean(me.workspaceSet?.has(entry.workspaceKey)),
+            sourceId        = registered ? entry.workspaceKey : me.workspaceId,
+            document        = registered ? me.workspaceSet.getDocument(sourceId) : workspace.dockModel,
+            itemIds         = Object.keys(document?.items ?? {});
 
-        if (registered && Object.keys(document?.items ?? {}).length !== 1) return null;
+        if (registered && itemIds.length === 0) {
+            return null
+        }
+
+        let groupNodeId = null;
+
+        if (registered && itemIds.length > 1) {
+            const nativeGroupId = workspace.nativeWindows.groupId ?? null;
+
+            if (!nativeGroupId || nativeGroupId !== ownershipId || me.workspaceSet.resolveGroupId?.() !== nativeGroupId) {
+                return null
+            }
+
+            groupNodeId = WorkspaceDocument.resolveStackRoot(document);
+
+            if (!groupNodeId || groupNodeId === document.root) {
+                return null
+            }
+
+            // Admit only a complete catalog whose owner is in the center subtree.
+            const
+                subtreeNodeIds = WorkspaceDocument.reachableNodeIds({nodes: document.nodes, root: groupNodeId}),
+                subtreeItemIds = new Set();
+
+            subtreeNodeIds.forEach(nodeId => {
+                const node = document.nodes[nodeId];
+
+                if (node?.type === 'tabs') {
+                    (node.items || []).forEach(subtreeItemId => subtreeItemIds.add(subtreeItemId))
+                }
+            });
+
+            if (!subtreeItemIds.has(itemId) || itemIds.some(sourceItemId => !subtreeItemIds.has(sourceItemId))) {
+                return null
+            }
+        }
 
         let item = document?.items?.[itemId],
             pane = item ? workspace.resolvePane?.(itemId, item) : null;
@@ -526,8 +565,9 @@ class Participation extends Base {
 
         delete pane.dockGroupNodeId;
         delete pane.dockSourceNodeId;
+        if (groupNodeId) pane.dockGroupNodeId = groupNodeId;
         pane.dockItemId            = itemId;
-        pane.dockSourceOwnershipId = me.ownershipId;
+        pane.dockSourceOwnershipId = ownershipId;
         pane.dockSourceWorkspaceId = sourceId;
 
         return {

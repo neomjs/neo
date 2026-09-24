@@ -185,6 +185,8 @@ class Placement extends Base {
 
     /**
      * @summary Coalesces a burst using the same quiet-period policy as native drop settling.
+     * A tagged physical effect supersedes that window's pending free-move observation, so a
+     * recovery or projection cannot later journal an intermediate position it already replaced.
      * @param {Object} event
      * @param {String} event.windowId
      * @param {Object|null} event.before
@@ -192,7 +194,11 @@ class Placement extends Base {
      */
     onGeometry({windowId, before, after, nativeEffect}) {
         const me = this, binding = Transaction.findByWindow(windowId);
-        if (nativeEffect) return;
+        if (nativeEffect) {
+            me.#pending.get(windowId)?.flush.cancel();
+            me.#pending.delete(windowId);
+            return
+        }
         if (!binding || binding.groupId !== me.groupId || !before || before.x === after.x && before.y === after.y) return;
         let pending = me.#pending.get(windowId);
         if (!pending) {

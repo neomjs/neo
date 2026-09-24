@@ -126,9 +126,18 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(convert.applied, 'commits must dock into the metrics vessel').toBe(true);
 
         // scene 4 — the merged stack comes home
-        const [stackReturn] = byType('stack-return');
+        const [stackReturn] = byType('native-return');
 
         expect(stackReturn.applied, 'the whole stack must transfer home').toBe(true);
+        expect(stackReturn.proof).toMatchObject({
+            identityPreserved: true,
+            sourceWindowGone : true,
+            sourceItemIds    : expect.arrayContaining(['metrics', 'commits']),
+            phaseOrder       : ['documents-adopted', 'projections-settled', 'close-dispatched', 'close-acknowledged'],
+            transfer         : {descriptor: {operation: 'transferNode'}, topologyExited: true}
+        });
+        expect(stackReturn.proof.positions.length, 'the actual frame travels through multiple positions').toBeGreaterThan(2);
+        expect(stackReturn.proof.previews.length, 'the native frame visits distinct live targets').toBeGreaterThan(1);
 
         // scene 5 — the rail beat: the pane folds into its edge rail, is revealed, and comes home
         const [rail] = byType('rail');
