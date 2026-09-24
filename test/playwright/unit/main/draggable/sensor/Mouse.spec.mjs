@@ -169,6 +169,31 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
 
         expect(bodyClasses.has('neo-drag-active')).toBe(false);
         expect(sensor.dragging).toBe(false);
+        expect(sensor.currentElement).toBe(null);
+        expect(sensor.startEvent).toBe(null);
+
+        sensor.detach()
+    });
+
+    test('a release before the threshold leaves no pressed element behind: the sensor reads idle for the next gesture', () => {
+        const sensor = createSensor();
+
+        Mouse.prototype.attach.call(sensor);
+
+        documentRef.dispatchEvent(mouseDown());
+        expect(sensor.currentElement).toBe(dragNode);
+        expect(sensor.startEvent).not.toBe(null);
+
+        // an ordinary click on a drag target: the release lands inside the delay window and no
+        // drag:start was ever emitted — the bracket ends, and with it the pressed element
+        documentRef.dispatchEvent(mouseEvent('mouseup', {button: 0, clientX: 10, clientY: 10, pageX: 10, pageY: 10}));
+
+        expect(sensor.currentElement).toBe(null);
+        expect(sensor.startEvent).toBe(null);
+        expect(sensor.mouseDownTime).toBe(0);
+        expect(sensor.dragging).toBe(false);
+        // the exact predicate `Neo.main.addon.EventSimulator#driveDrag` reads before refusing a drive as busy
+        expect(Boolean(sensor.currentElement || sensor.dragging)).toBe(false);
 
         sensor.detach()
     });
