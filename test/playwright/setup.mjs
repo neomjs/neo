@@ -56,6 +56,7 @@ Neo.currentWorker ??= {
         unregister: () => {}
     }),
     insertThemeFiles: () => {},
+    isDeparture     : () => false,
     isSharedWorker  : false,
     on              : () => {},
     un              : () => {},
@@ -76,7 +77,9 @@ Neo.currentWorker ??= {
         }
         return {};
     },
-    sendMessage     : () => {}
+    sendMessage     : () => {},
+    // One healthy canvas group: the canvas worker is ready at once
+    whenCanvasReady : async () => {}
 };
 
 export function setup(options = {}) {

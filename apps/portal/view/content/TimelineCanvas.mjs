@@ -259,7 +259,7 @@ class TimelineCanvas extends SharedCanvas {
             let canvasRect      = await me.getDomRect(me.getCanvasId()),
                 {nodes, startY} = me.buildNodes(records, rects, canvasRect);
 
-            await me.renderer.updateGraphData({nodes, reset, startY});
+            await me.renderer.updateGraphData({nodes, reset, startY, windowId: me.windowId});
 
             // Some `-target` rects can be zero-sized at first capture — a content-visibility-collapsed
             // `<details>` body, a lazy avatar image not yet loaded, or a mid-route-transition layout.

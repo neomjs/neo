@@ -162,6 +162,14 @@ class RemoteMethodAccess extends Base {
 
             me.isSharedWorker && me.assignPort(data, opts);
 
+            // A canvas call is settled against its group's readiness BEFORE it is sent: `sendMessage` must return
+            // the Message it actually sent, so waiting can never be queued inside it. The wait is bound to the port
+            // generation the call carries, as a sent call's promise is. Once ready, straight through.
+            if (origin === 'canvas' && me.canvasGroups && !me.canvasGroups.isReady(data?.windowId)) {
+                return me.canvasGroups.whenReady(data?.windowId, opts.port ? me.getPort({id: opts.port}) : null)
+                    .then(() => me.promiseMessage(opts.destination, opts, buffer))
+            }
+
             return me.promiseMessage(opts.destination, opts, buffer)
         };
 

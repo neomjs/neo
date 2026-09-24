@@ -60,7 +60,7 @@ class FooterCanvas extends SharedCanvas {
         super.afterSetIsCanvasReady(value, oldValue);
 
         if (value && this.activeId) {
-            this.renderer.updateActiveId({id: this.activeId})
+            this.renderer.updateActiveId({id: this.activeId, windowId: this.windowId})
         }
     }
 
@@ -86,7 +86,7 @@ class FooterCanvas extends SharedCanvas {
      */
     async afterSetActiveId(value, oldValue) {
         if (this.isCanvasReady) {
-            await this.renderer.updateActiveId({id: value})
+            await this.renderer.updateActiveId({id: value, windowId: this.windowId})
         }
     }
 
@@ -96,7 +96,7 @@ class FooterCanvas extends SharedCanvas {
      */
     async afterSetHoverId(value, oldValue) {
         if (this.isCanvasReady) {
-            await this.renderer.updateHoverId({id: value})
+            await this.renderer.updateHoverId({id: value, windowId: this.windowId})
         }
     }
 
@@ -142,7 +142,7 @@ class FooterCanvas extends SharedCanvas {
                     }
                 }).filter(Boolean);
 
-                me.renderer.updateNavRects({rects: me.navRects})
+                me.renderer.updateNavRects({rects: me.navRects, windowId: me.windowId})
             }
         }
     }

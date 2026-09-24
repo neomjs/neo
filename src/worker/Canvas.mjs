@@ -1,5 +1,6 @@
-import Neo  from '../Neo.mjs';
-import Base from './Base.mjs';
+import Neo          from '../Neo.mjs';
+import Base         from './Base.mjs';
+import CanvasGroups from './CanvasGroups.mjs';
 
 /**
  * The Canvas worker is responsible for dynamically manipulating offscreen canvas.
@@ -52,16 +53,18 @@ class Canvas extends Base {
     workerId = 'canvas'
 
     /**
-     *
+     * @summary Opens a direct channel to the app worker and registers it under this worker's canvas group, which
+     * the worker's own name carries, so the app worker routes each group's traffic to its own canvas worker.
      */
     afterConnect() {
         let me             = this,
             channel        = new MessageChannel(),
-            {port1, port2} = channel;
+            {port1, port2} = channel,
+            group          = CanvasGroups.groupFromWorkerName(globalThis.name);
 
         port1.onmessage = me.onMessage.bind(me);
 
-        me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
+        me.sendMessage('app', {action: 'registerPort', group, transfer: port2}, [port2]);
 
         me.channelPorts.app = port1
     }
@@ -170,6 +173,7 @@ class Canvas extends Base {
     }
 
     /**
+     * @deprecated No caller left: `registerCanvas` already maps a canvas the moment main transfers it.
      * @param {Object} data
      * @param {String} data.nodeId
      * @param {String} data.origin
