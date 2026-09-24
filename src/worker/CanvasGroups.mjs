@@ -19,6 +19,12 @@ export const CANVAS_WORKER_NAME_PREFIX = 'neomjs-canvas-worker-';
  * wrong process. A registered port is not readiness — the worker's `registerRemote` follows its `registerPort` —
  * so a group becomes `ready` only when its `Neo.worker.Canvas` registration arrives over its own channel.
  *
+ * A group routes to one live channel at a time. The canvas worker opens a channel per window connection and sends
+ * each new one over its current one, so a `registerPort` arriving over the group's channel is a handover within the
+ * same worker and keeps its readiness; one arriving any other way is a new worker, which must register again. A
+ * replaced or retired channel is closed and never counts again — its late signals can neither ready a group nor
+ * survive into a later reload of it.
+ *
  * Waits are settled here and never queued inside `sendMessage`, which must return the `Message` it actually sent.
  *
  * @class Neo.worker.CanvasGroups
@@ -80,6 +86,10 @@ class CanvasGroups {
      */
     pending = new Map()
     /**
+     * @member {WeakSet<MessagePort>} retired=new WeakSet() Channels this worker stopped routing to
+     */
+    retired = new WeakSet()
+    /**
      * @member {Map<String, String>} windows=new Map() windowId → group id
      */
     windows = new Map()
@@ -111,8 +121,8 @@ class CanvasGroups {
 
         if (early) {
             this.pending.delete(group);
-            early.port && (entry.port = early.port);
-            early.ready && this.markReady(group)
+            entry.port = early.port;
+            early.ready && this.markReady(group, early.port)
         }
     }
 
@@ -127,12 +137,25 @@ class CanvasGroups {
             entry    = groups.get(group);
 
         if (!entry) {
-            entry = {port: null, state: 'booting', timer: null, waiters: new Set()};
+            entry = {port: null, state: null, timer: null, waiters: new Set()};
             groups.set(group, entry);
-            entry.timer = setTimeout(() => this.fail(group, 'silent'), this.startBound)
+            this.boot(group, entry)
         }
 
         return entry
+    }
+
+    /**
+     * @summary Puts a group into `booting` with a fresh silent-start bound — at its creation, and again when a new
+     * canvas worker takes it over. Its waits keep waiting.
+     * @param {String} group
+     * @param {Object} entry
+     * @protected
+     */
+    boot(group, entry) {
+        clearTimeout(entry.timer);
+        entry.state = 'booting';
+        entry.timer = setTimeout(() => this.fail(group, 'silent'), this.startBound)
     }
 
     /**
@@ -177,19 +200,26 @@ class CanvasGroups {
 
     /**
      * @summary Marks a group ready once its canvas worker's remotes have arrived over the group's own channel,
-     * and releases its waits.
-     * @param {String} group
+     * and releases its waits. Readiness from any other channel — a replaced or retired one — counts for nothing.
+     * @param {String}      group
+     * @param {MessagePort} channel The channel the registration arrived over
      */
-    markReady(group) {
-        let entry = this.groups.get(group);
+    markReady(group, channel) {
+        let entry = this.groups.get(group),
+            early;
 
-        // A group with no member window is retired or not yet announced: park the signal, never revive state
         if (!entry) {
-            this.park(group, {ready: true});
+            early = this.pending.get(group);
+
+            // Not yet announced: kept only together with the channel that delivered it
+            if (early?.port === channel) {
+                early.ready = true
+            }
+
             return
         }
 
-        if (entry.state === 'ready') {
+        if (entry.port !== channel || entry.state === 'ready') {
             return
         }
 
@@ -235,7 +265,7 @@ class CanvasGroups {
 
         this.windows.delete(windowId);
 
-        entry?.waiters.forEach(waiter => {
+        entry.waiters.forEach(waiter => {
             if (waiter.windowId === windowId) {
                 entry.waiters.delete(waiter);
                 waiter.reject(CanvasGroups.error('NEO_DEAD_PORT', `window ${windowId} departed before its canvas group was ready`, {windowId}))
@@ -243,10 +273,55 @@ class CanvasGroups {
         });
 
         if (![...this.windows.values()].includes(group)) {
-            clearTimeout(entry?.timer);
-            this.groups.delete(group);
-            this.pending.delete(group)
+            this.retire(group, windowId)
         }
+    }
+
+    /**
+     * @summary Retires a group whose last window left. Its remaining waits — those that omitted a window while it
+     * was the only group — reject as that window's departure, and its channel is closed, so nothing that channel
+     * delivers late can ready the group again.
+     * @param {String} group
+     * @param {String} windowId The window that left last
+     * @protected
+     */
+    retire(group, windowId) {
+        let entry = this.groups.get(group);
+
+        clearTimeout(entry.timer);
+
+        entry.waiters.forEach(waiter => waiter.reject(
+            CanvasGroups.error('NEO_DEAD_PORT', `canvas group ${group} retired: its last window ${windowId} departed`, {group, windowId})
+        ));
+
+        entry.port && this.retireChannel(entry.port);
+        this.groups.delete(group)
+    }
+
+    /**
+     * @summary Stops routing to a channel for good: its handler is released, the port closed, and it never counts
+     * again.
+     * @param {MessagePort} channel
+     * @protected
+     */
+    retireChannel(channel) {
+        this.retired.add(channel);
+        channel.onmessage = null;
+        channel.close()
+    }
+
+    /**
+     * @summary Rejects the waits that one exact main-port generation admitted, once that port is retired — even when
+     * its window lives on in another port, the rule `Neo.worker.Base#removePort` applies to calls already sent.
+     * @param {Object} portEntry
+     */
+    retirePort(portEntry) {
+        this.groups.forEach(entry => entry.waiters.forEach(waiter => {
+            if (waiter.portEntry === portEntry) {
+                entry.waiters.delete(waiter);
+                waiter.reject(CanvasGroups.error('NEO_DEAD_PORT', `port ${portEntry.id} retired before its canvas group was ready`, {windowId: waiter.windowId}))
+            }
+        }))
     }
 
     /**
@@ -288,25 +363,38 @@ class CanvasGroups {
     }
 
     /**
-     * @summary Records the channel port a group's canvas worker registered.
+     * @summary Records the channel a group's canvas worker registered, and retires the channel it replaces.
+     *
+     * `handover` says the registration arrived over the group's own channel. Only the worker holding that channel can
+     * send over it, so the new one leads to the same worker and keeps the group's readiness. A replacement arriving
+     * any other way is a new worker: the group starts over at `booting`, and readiness must arrive over the new channel.
      * @param {Object}      data
      * @param {String}      data.group
+     * @param {Boolean}     [data.handover=false]
      * @param {MessagePort} data.port
      */
-    setPort({group, port}) {
-        let entry = this.groups.get(group);
+    setPort({group, handover=false, port}) {
+        if (this.retired.has(port)) {
+            return
+        }
 
-        entry ? entry.port = port : this.park(group, {port})
-    }
+        let entry = this.groups.get(group),
+            early = entry ? null : this.pending.get(group),
+            old   = entry ? entry.port : early?.port;
 
-    /**
-     * @summary Holds a port or readiness signal that arrived for a group no window has joined yet.
-     * @param {String} group
-     * @param {Object} signal `{port}` and/or `{ready: true}`
-     * @protected
-     */
-    park(group, signal) {
-        this.pending.set(group, {...this.pending.get(group), ...signal})
+        if (old === port) {
+            return
+        }
+
+        old && this.retireChannel(old);
+
+        if (entry) {
+            entry.port = port;
+            old && !handover && this.boot(group, entry)
+        } else {
+            // Before the window announcement: held for it, with readiness only when the same worker handed it over
+            this.pending.set(group, {port, ready: handover && Boolean(early?.ready)})
+        }
     }
 
     /**
@@ -323,10 +411,11 @@ class CanvasGroups {
     /**
      * @summary Waits until the canvas group of this window is ready.
      * @param {String} [windowId]
-     * @returns {Promise<void>} Rejects with `NEO_UNROUTABLE`, `NEO_WORKER_START_FAILED`, or — when the waiting window
-     *     departs first — `NEO_DEAD_PORT` naming that window
+     * @param {Object} [portEntry=null] The main-port generation that admitted the call: retiring it rejects the wait
+     * @returns {Promise<void>} Rejects with `NEO_UNROUTABLE`, `NEO_WORKER_START_FAILED`, or `NEO_DEAD_PORT` when the
+     *     admitting port, the waiting window or the group's last window leaves first
      */
-    whenReady(windowId) {
+    whenReady(windowId, portEntry=null) {
         let {error, group} = this.resolve(windowId);
 
         if (error) {
@@ -344,7 +433,7 @@ class CanvasGroups {
         }
 
         return new Promise((resolve, reject) => {
-            entry.waiters.add({reject, resolve, windowId})
+            entry.waiters.add({portEntry, reject, resolve, windowId})
         })
     }
 }

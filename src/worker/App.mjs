@@ -566,13 +566,14 @@ class App extends Base {
 
     /**
      * @summary Handles one message from a canvas group's own channel, stamped with that group so its reply takes the
-     * same channel back, then marks the group ready once its `Neo.worker.Canvas` remotes have registered: a
-     * registered port alone is not readiness, since the worker's `registerRemote` follows its `registerPort`.
+     * same channel back, then marks the group ready once its `Neo.worker.Canvas` remotes have registered over this
+     * channel: a registered port alone is not readiness, since the worker's `registerRemote` follows its `registerPort`.
      * @param {MessageEvent} event
      * @param {String}       group
+     * @param {MessagePort}  channel The channel that delivered the message
      * @protected
      */
-    onCanvasChannelMessage(event, group) {
+    onCanvasChannelMessage(event, group, channel) {
         let {data} = event;
 
         if (data) {
@@ -581,7 +582,7 @@ class App extends Base {
 
         this.onMessage(event);
 
-        data?.action === 'registerRemote' && data.className === 'Neo.worker.Canvas' && this.canvasGroups.markReady(group)
+        data?.action === 'registerRemote' && data.className === 'Neo.worker.Canvas' && this.canvasGroups.markReady(group, channel)
     }
 
     /**
@@ -777,7 +778,8 @@ class App extends Base {
      * @summary Keeps a worker's direct channel. A canvas worker's channel is kept per group — one canvas worker per
      * window group — and every message on it is attributed to that group; other workers keep one channel each.
      * @param {Object}      msg
-     * @param {String}      [msg.group]  The canvas group, for a canvas worker named per group
+     * @param {String}      [msg.canvasGroup] Set when the registration arrived over that canvas group's own channel
+     * @param {String}      [msg.group]       The canvas group, for a canvas worker named per group
      * @param {String}      msg.origin
      * @param {MessagePort} msg.transfer
      */
@@ -787,8 +789,8 @@ class App extends Base {
             port            = msg.transfer;
 
         if (origin === 'canvas' && group) {
-            port.onmessage = event => me.onCanvasChannelMessage(event, group);
-            me.canvasGroups.setPort({group, port});
+            port.onmessage = event => me.onCanvasChannelMessage(event, group, port);
+            me.canvasGroups.setPort({group, handover: msg.canvasGroup === group, port});
             return
         }
 
@@ -880,8 +882,9 @@ class App extends Base {
     }
 
     /**
-     * @summary Retires a port as the base does; when it was the window's last one, that window leaves its canvas
-     * group too, so only its own canvas waits reject — as its departure — and a sibling keeps waiting.
+     * @summary Retires a port as the base does, and with it the canvas waits that exact port admitted. When it was the
+     * window's last port, that window leaves its canvas group too, so only its own canvas waits reject — as its
+     * departure — and a sibling keeps waiting.
      * @param {Object} portEntry
      * @returns {Boolean} True when the entry was live and removed
      */
@@ -890,8 +893,12 @@ class App extends Base {
             removed    = super.removePort(portEntry),
             {windowId} = portEntry;
 
-        if (removed && windowId && !me.ports.some(entry => entry.windowId === windowId)) {
-            me.canvasGroups.removeWindow(windowId)
+        if (removed) {
+            me.canvasGroups.retirePort(portEntry);
+
+            if (windowId && !me.ports.some(entry => entry.windowId === windowId)) {
+                me.canvasGroups.removeWindow(windowId)
+            }
         }
 
         return removed

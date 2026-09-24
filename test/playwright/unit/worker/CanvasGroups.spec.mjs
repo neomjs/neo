@@ -9,6 +9,12 @@ import CanvasGroups, {CANVAS_WORKER_NAME_PREFIX} from '../../../../src/worker/Ca
 const settle = promise => promise.then(value => ({value}), error => ({error}));
 
 /**
+ * @summary A canvas channel end, as the app worker holds one.
+ * @returns {MessagePort}
+ */
+const channel = () => new MessageChannel().port2;
+
+/**
  * @summary Whether a promise is still pending after the microtask queue drained.
  * @param {Promise} promise
  * @returns {Promise<Boolean>}
@@ -93,26 +99,30 @@ test.describe('Neo.worker.CanvasGroups', () => {
 
     test.describe('readiness — the five outcomes', () => {
         test('send: a ready group resolves at once', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = new CanvasGroups({startBound: 1000}),
+                  port   = channel();
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
-            groups.markReady('g1');
+            groups.setPort({group: 'g1', port});
+            groups.markReady('g1', port);
 
             expect(groups.isReady('w1')).toBe(true);
             expect(await settle(groups.whenReady('w1'))).toEqual({value: undefined})
         });
 
         test('wait then send: a booting group resolves when its canvas remotes arrive', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = new CanvasGroups({startBound: 1000}),
+                  port   = channel();
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
+            groups.setPort({group: 'g1', port});
 
             const wait = groups.whenReady('w1');
 
             expect(await isPending(wait)).toBe(true);
             expect(groups.isReady('w1')).toBe(false);
 
-            groups.markReady('g1');
+            groups.markReady('g1', port);
             expect(await settle(wait)).toEqual({value: undefined})
         });
 
@@ -156,9 +166,12 @@ test.describe('Neo.worker.CanvasGroups', () => {
         });
 
         test('a failure reported after the group is ready does not fail it', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = new CanvasGroups({startBound: 1000}),
+                  port   = channel();
+
             groups.addWindow({group: 'g1', windowId: 'w1'});
-            groups.markReady('g1');
+            groups.setPort({group: 'g1', port});
+            groups.markReady('g1', port);
             groups.fail('g1', 'load');
 
             expect(groups.isReady('w1')).toBe(true)
@@ -167,10 +180,12 @@ test.describe('Neo.worker.CanvasGroups', () => {
 
     test.describe('lifetimes', () => {
         test('a departure cancels only its own waits, never a live sibling on the same group', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = new CanvasGroups({startBound: 1000}),
+                  port   = channel();
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
             groups.addWindow({group: 'g1', windowId: 'w1b'});
+            groups.setPort({group: 'g1', port});
 
             const leaver  = settle(groups.whenReady('w1')),
                   sibling = groups.whenReady('w1b');
@@ -180,7 +195,7 @@ test.describe('Neo.worker.CanvasGroups', () => {
             expect((await leaver).error.code).toBe('NEO_DEAD_PORT');
             expect(await isPending(sibling)).toBe(true);
 
-            groups.markReady('g1');
+            groups.markReady('g1', port);
             expect(await settle(sibling)).toEqual({value: undefined})
         });
 
@@ -214,27 +229,40 @@ test.describe('Neo.worker.CanvasGroups', () => {
             expect(groups.resolve('w1').error.code).toBe('NEO_DEAD_PORT')
         });
 
-        test('a retired group is never revived by a late signal', () => {
-            const groups = new CanvasGroups({startBound: 1000});
+        test('a retired group is never revived by a late signal, not even for the reload that rejoins it', () => {
+            const groups = new CanvasGroups({startBound: 1000}),
+                  old    = channel();
+
+            old.onmessage = () => {};
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
+            groups.setPort({group: 'g1', port: old});
+            groups.markReady('g1', old);
             groups.removeWindow('w1');
 
-            groups.setPort({group: 'g1', port: 'late-port'});
-            groups.markReady('g1');
+            expect(old.onmessage).toBeNull();
+
+            groups.setPort({group: 'g1', port: old});
+            groups.markReady('g1', old);
 
             expect(groups.has('g1')).toBe(false);
-            expect(groups.resolve('w1').error.code).toBe('NEO_UNROUTABLE')
+            expect(groups.resolve('w1').error.code).toBe('NEO_UNROUTABLE');
+
+            groups.addWindow({group: 'g1', windowId: 'w2'});
+
+            expect(groups.isReady('w2')).toBe(false);
+            expect(groups.portFor('w2')).toBeNull()
         });
 
         test('a port and readiness that arrive before the window announcement are kept for it', () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = new CanvasGroups({startBound: 1000}),
+                  early  = channel();
 
-            groups.setPort({group: 'g1', port: 'early-port'});
-            groups.markReady('g1');
+            groups.setPort({group: 'g1', port: early});
+            groups.markReady('g1', early);
             groups.addWindow({group: 'g1', windowId: 'w1'});
 
-            expect(groups.portFor('w1')).toBe('early-port');
+            expect(groups.portFor('w1')).toBe(early);
             expect(groups.isReady('w1')).toBe(true)
         })
     })
