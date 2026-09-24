@@ -590,7 +590,7 @@ class GestureDriver extends Base {
                 rail                   = null,
                 railed                 = false,
                 fail                   = async (errors, proof={}) => {
-                    let settled = await driver.settleRailFold({collapsed, itemId, overlay, rail, railed, sourceNodeId, workspace: me});
+                    let settled = await driver.settleRailFold({collapsed, itemId, overlay, pending: run.pending, rail, railed, sourceNodeId, workspace: me});
 
                     return {applied: false, errors: [...errors, ...settled.errors], proof: {...proof, settled}}
                 };
@@ -810,11 +810,14 @@ class GestureDriver extends Base {
      * whose rail tab exists is kept, because the pane is one click away. The settle also runs
      * after a destroyed driver's cancellation, so it borrows nothing the destruction retires: the
      * workspace comes from the run, not from this driver's config, and the poll is a plain timer,
-     * not {@link Neo.core.Base#timeout}.
+     * not {@link Neo.core.Base#timeout}. The input in flight when the cue failed settles first —
+     * a destroyed driver's trap rejects while that input's receipt can still commit the fold — and
+     * the fold is then read from the live document, never from a flag the cancellation outran.
      * @param {Object} state
-     * @param {Boolean} state.collapsed Whether the fold committed (`autoHidden` reached `true`).
+     * @param {Boolean} state.collapsed Whether the executor saw the fold commit before it failed.
      * @param {String} state.itemId
      * @param {Object|null} state.overlay The rail's reveal overlay, once the rail was found.
+     * @param {Promise|null} [state.pending] The input dispatch in flight when the cue failed.
      * @param {Object|null} state.rail The edge rail carrying the item, once found.
      * @param {Boolean} state.railed Whether the rail grew a tab for the item.
      * @param {String} state.sourceNodeId The tabs node the pane came from.
@@ -824,8 +827,8 @@ class GestureDriver extends Base {
      * @returns {Promise<Object>} `{committed, errors, foldKept, restoredHome, revealDismissed}`
      * @protected
      */
-    async settleRailFold({collapsed, itemId, overlay, rail, railed, sourceNodeId, workspace}, {attempts=60}={}) {
-        let receipt = {committed: collapsed === true, errors: [], foldKept: false, restoredHome: false, revealDismissed: false},
+    async settleRailFold({collapsed, itemId, overlay, pending, rail, railed, sourceNodeId, workspace}, {attempts=60}={}) {
+        let receipt = {committed: false, errors: [], foldKept: false, restoredHome: false, revealDismissed: false},
             poll    = async predicate => {
                 for (let attempt = 0; attempt <= attempts; attempt++) {
                     if (predicate()) {
@@ -840,7 +843,15 @@ class GestureDriver extends Base {
             home      = () => workspace.dockModel?.items?.[itemId]?.autoHidden === false
                 && workspace.dockModel?.nodes?.[sourceNodeId]?.items?.includes(itemId) === true;
 
-        if (!receipt.committed || !workspace || workspace.isDestroyed) {
+        if (!workspace || workspace.isDestroyed) {
+            return receipt
+        }
+
+        await pending?.catch(() => {});
+
+        receipt.committed = collapsed === true || workspace.dockModel?.items?.[itemId]?.autoHidden === true;
+
+        if (!receipt.committed) {
             return receipt
         }
 

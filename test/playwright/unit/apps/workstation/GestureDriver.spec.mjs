@@ -224,11 +224,13 @@ test.describe('film birth pacing retains the pressed-pointer bracket', () => {
  * @param {Object} [options={}]
  * @param {Boolean} [options.railAppears=true] Whether the rail grows a tab once the item folds.
  * @param {Boolean} [options.revealOffersPin=true] Whether the reveal carries its pin action.
+ * @param {Boolean} [options.destroyOnPinCommit=false] Destroy the driver inside the pin click's own
+ *     dispatch, right after the fold committed: the executor's trap rejects before it can read the fold.
  * @returns {Promise<Object>}
  */
-async function railFixture({railAppears=true, revealOffersPin=true}={}) {
+async function railFixture({destroyOnPinCommit=false, railAppears=true, revealOffersPin=true}={}) {
     const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs');
-    const windowId                 = 'gesture-rail-window', calls = [],
+    const windowId                 = 'gesture-rail-window', calls = [], cursors = [],
           document  = {
               items: {audit: {autoHidden: false}, metrics: {autoHidden: false, pinned: false}},
               nodes: {source: {type: 'tabs', activeItemId: 'audit', items: ['metrics', 'audit']}}
@@ -274,12 +276,32 @@ async function railFixture({railAppears=true, revealOffersPin=true}={}) {
           service   = driver.interactionService;
 
     WindowManager.register({id: windowId, windowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    // the film cursor without a DOM: creation and retirement are recorded on the prototype, because
+    // `core.Base#destroy` strips an instance's own members and a destroyed driver still retires its dot
+    const proto                 = Object.getPrototypeOf(driver),
+          originalCursorHelpers = {createFilmCursorDot: proto.createFilmCursorDot, retireFilmCursorDot: proto.retireFilmCursorDot};
+    proto.createFilmCursorDot = () => {
+        const dot = {isDestroyed: false, destroy() {dot.isDestroyed = true}};
+        calls.push('cursor:create');
+        cursors.push(dot);
+        return dot
+    };
+    proto.retireFilmCursorDot = async dot => {
+        if (!dot || dot.isDestroyed) return false;
+        calls.push('cursor:retire');
+        dot.destroy();
+        return true
+    };
     service.simulateEvent = async ({events}) => {
         for (const event of events) {
             calls.push(`${event.type}:${event.targetId}`);
             if (event.type !== 'click') continue;
             if (event.targetId === button.id)    {pinAction.hidden = false; document.nodes.source.activeItemId = 'metrics'}
-            if (event.targetId === pinAction.id) {document.items.metrics.autoHidden = true; document.nodes.source.items = ['audit']; rail.railed = railAppears}
+            if (event.targetId === pinAction.id) {
+                document.items.metrics.autoHidden = true; document.nodes.source.items = ['audit']; rail.railed = railAppears;
+                // the fold's receipt has landed; the driver dies before the executor can read it
+                destroyOnPinCommit && driver.destroy()
+            }
             if (event.targetId === railTab.id)   {overlay.visible = true; overlay.revealPaneItemId = 'metrics'}
             if (event.targetId === pinBack.id)   {document.items.metrics.autoHidden = false; document.nodes.source.items = ['metrics', 'audit']; overlay.visible = false}
         }
@@ -288,12 +310,13 @@ async function railFixture({railAppears=true, revealOffersPin=true}={}) {
     service.dispatch = async ({type}) => {calls.push(type); return true};
 
     return {
-        calls, driver, overlay, service, workspace,
+        calls, cursors, driver, overlay, service, workspace,
         execute(options={}) {
             return driver.executeRailStep({itemId: 'metrics', sourceNodeId: 'source'}, {moveDelay: 0, moveSteps: 2, revealDelay: 0, ...options})
         },
         cleanup() {
             driver.isDestroyed || driver.destroy();
+            Object.assign(proto, originalCursorHelpers);
             WindowManager.unregister(windowId)
         }
     }
@@ -345,7 +368,7 @@ test.describe('the rail beat folds a pane away and brings it home through the po
                 return result
             };
             // the reveal opens on the rail-tab click and the executor holds it for the reveal delay: destroy inside that hold
-            const pending = fixture.execute({revealDelay: 10000});
+            const pending = fixture.execute({revealDelay: 10000, showCursor: true});
             await railClicked.promise;
             await new Promise(setImmediate);
             expect(fixture.overlay.visible, 'the reveal is open when the driver dies').toBe(true);
@@ -360,6 +383,33 @@ test.describe('the rail beat folds a pane away and brings it home through the po
             // the rail tab exists, so the committed fold stays: the pane is one click away, not stranded
             expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(true);
             expect(fixture.calls).not.toContain('operation:setItemAutoHidden:false');
+            // no cursor and no pressed pointer survive the cancellation
+            expect(fixture.cursors).toHaveLength(1);
+            expect(fixture.cursors[0].isDestroyed).toBe(true);
+            expect(fixture.calls).toContain('cursor:retire');
+            expect(fixture.calls.filter(call => call.startsWith('mousedown:'))).toHaveLength(fixture.calls.filter(call => call.startsWith('mouseup:')).length);
+            await fixture.driver.settledPromise;
+            expect(fixture.service.isDestroyed).toBe(true);
+            expect(fixture.workspace.isDestroyed).toBe(false)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('destruction after the fold committed but before the executor read it still brings the pane home', async () => {
+        const fixture = await railFixture({destroyOnPinCommit: true});
+        try {
+            const receipt = await fixture.execute({showCursor: true});
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors.length).toBeGreaterThan(0);
+            // the local flag was never assigned; the live document says the fold committed, and no rail was ever found
+            expect(receipt.proof).toMatchObject({collapsed: false, settled: {committed: true, foldKept: false, restoredHome: true, revealDismissed: false}});
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(false);
+            expect(fixture.workspace.dockModel.nodes.source.items).toContain('metrics');
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action']);
+            expect(fixture.calls).toContain('operation:setItemAutoHidden:false');
+            expect(fixture.cursors[0].isDestroyed).toBe(true);
+            expect(fixture.calls.filter(call => call.startsWith('mousedown:'))).toHaveLength(fixture.calls.filter(call => call.startsWith('mouseup:')).length);
             await fixture.driver.settledPromise;
             expect(fixture.service.isDestroyed).toBe(true);
             expect(fixture.workspace.isDestroyed).toBe(false)
