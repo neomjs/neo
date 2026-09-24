@@ -24,12 +24,15 @@ class NativeGestureDriver extends GestureDriver {
      * @param {String|null} [options.previousTransactionId=null] The row before this gesture's release.
      * @param {Number} [options.attempts=240]
      * @param {Number} [options.delay=16]
+     * @param {Workstation.view.Workspace} [options.workspace=this.workspace] Retained owner during script teardown.
+     * @param {Boolean} [options.settle=false] Cleanup waits on the borrowed owner after driver destruction.
      * @returns {Promise<Object|null>}
      * @protected
      */
-    async waitForCrossWindowTransfer(expected, {attempts=240, delay=16, previousTransactionId=null}={}) {
-        let me = this.workspace, driver = this,
+    async waitForCrossWindowTransfer(expected, {attempts=240, delay=16, previousTransactionId=null, workspace=this.workspace, settle=false}={}) {
+        let me = workspace, driver = this,
             receipt;
+        const wait = promise => settle ? promise : driver.trap(promise);
 
         for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
             const row = me.workspaceSet.manager.get(me.topologyGroupId)?.history?.current;
@@ -40,7 +43,7 @@ class NativeGestureDriver extends GestureDriver {
                 row.sourceWorkspaceId === expected?.sourceWorkspaceId &&
                 row.targetWorkspaceId === expected?.targetWorkspaceId
             ) {
-                await driver.trap(Promise.all([me.refreshPromise,
+                await wait(Promise.all([me.refreshPromise,
                     me.getPopupState(row.sourceWorkspaceId)?.host?.refreshPromise,
                     me.getPopupState(row.targetWorkspaceId)?.host?.refreshPromise]));
                 receipt = me.lastCrossWindowTransfer;
@@ -52,10 +55,162 @@ class NativeGestureDriver extends GestureDriver {
                 return receipt
             }
 
-            attempt < attempts && await driver.timeout(delay)
+            attempt < attempts && await (settle ? me : driver).timeout(delay)
         }
 
         return receipt ?? null
+    }
+
+    /**
+     * @summary Moves a committed vessel's native frame through live targets and lets native dwell return its whole stack.
+     * The existing Group transaction owns adoption and empty-vessel close. Physical movement is untagged so it rides
+     * the normal native drag path; a pre-commit recovery uses a cue-owned effect marker, never a fabricated Group receipt.
+     * @param {Object} step
+     * @param {String} step.ownerItemId The native lifecycle's owner item, not whichever tab happens to be active.
+     * @param {String} [step.previewNodeId='heavy-tabs'] Foreign tabs zone visited before the stored home.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=240] Bounded transfer/close observation attempts.
+     * @param {Number} [options.moveDelay=33] Delay between physical movement samples.
+     * @param {Number} [options.moveSteps=8] Samples per leg through the live target rectangles.
+     * @returns {Promise<Object>} Observed movement, preview, transfer and recovery outcome.
+     */
+    async executeNativeReturnStep({ownerItemId, previewNodeId='heavy-tabs'}={}, {attempts=240, moveDelay=33, moveSteps=8}={}) {
+        return this.runGesture(async run => {
+            const me                = run.workspace, driver = this,
+                  WindowManager     = (await driver.trap(import('../../../src/manager/Window.mjs'))).default,
+                  coordinator       = (await driver.trap(import('../../../src/manager/DragCoordinator.mjs'))).default,
+                  workspaceId       = me.constructor.vesselWorkspaceId(ownerItemId),
+                  state             = workspaceId && me.getPopupState(workspaceId),
+                  sourceWindowId    = state?.windowId,
+                  targetWorkspaceId = me.constructor.MAIN_WORKSPACE_ID,
+                  previews          = [],
+                  positions         = [];
+
+            if (!state?.committed || state.closeRequested || !state.document || !me.workspaceSet.has(workspaceId)) {
+                return {applied: false, errors: ['native return requires one committed vessel workspace']}
+            }
+            if (coordinator.nativeWindowDropCandidates.has(sourceWindowId)) {
+                return {applied: false, errors: ['native return cannot replace an existing native gesture']}
+            }
+
+            let route, originalGeometry, sourceItemIds, sourceIdentities, previousTransactionId, returnNodeId,
+                movementStarted = false;
+            const liveRoute       = () => route && WindowManager.get(sourceWindowId)?.nativeRoute === route;
+            const transferStarted = () => {
+                const row = me.workspaceSet.manager.get(me.topologyGroupId)?.history?.current;
+                return Boolean(liveRoute() && coordinator.nativeWindowDropCandidates.get(sourceWindowId)?.phase) ||
+                    (row?.transactionId !== previousTransactionId && row?.cause === 'dock-transfer' &&
+                        row.sourceWorkspaceId === workspaceId);
+            };
+            const finish = async settle => {
+                const transfer = await driver.waitForCrossWindowTransfer({sourceWorkspaceId: workspaceId, targetWorkspaceId},
+                    {attempts, previousTransactionId, workspace: me, settle});
+                for (let i = 0; i < attempts && !me.isDestroyed && WindowManager.get(sourceWindowId); i++) {
+                    await (settle ? me : driver).timeout(16)
+                }
+                const phaseOrder = (transfer?.phases || []).filter(phase =>
+                          ['documents-adopted', 'projections-settled', 'close-dispatched', 'close-acknowledged'].includes(phase)),
+                      sourceWindowGone = !WindowManager.get(sourceWindowId),
+                      identityPreserved = sourceItemIds.every(itemId => sourceIdentities[itemId] &&
+                          me.getPaneIdentity(itemId) === sourceIdentities[itemId]),
+                      applied = transfer?.descriptor?.operation === 'transferNode' && transfer.closeRequested === true &&
+                          transfer.topologyExited === true && sourceWindowGone && identityPreserved &&
+                          sourceItemIds.every(itemId => me.dockModel.nodes[returnNodeId]?.items?.includes(itemId)) &&
+                          phaseOrder.join(',') === 'documents-adopted,projections-settled,close-dispatched,close-acknowledged';
+
+                return {applied, errors: applied ? [] : ['native return did not settle through whole-stack adoption and close'],
+                    proof: {identityPreserved, phaseOrder, positions, previews, sourceItemIds, sourceWindowGone, sourceWindowId,
+                        transfer    : transfer ? WorkspaceDocument.clone(transfer) : null,
+                        mainDocument: WorkspaceDocument.clone(me.dockModel)}}
+            };
+
+            try {
+                await driver.trap(Promise.resolve(me.refreshPromise));
+                await driver.trap(Promise.resolve(me.crossWindowParticipationPromise));
+                const source = coordinator.getNativeWindowDragSource(sourceWindowId),
+                      nodeId = WorkspaceDocument.resolveStackRoot(state.document);
+                if (!nodeId || source?.draggedItem?.dockGroupNodeId !== nodeId || source.widgetName !== ownerItemId) {
+                    throw new Error('native window does not expose its complete committed stack')
+                }
+                route = WindowManager.resolveNativeRoute({capability: 'position', ownerWindowId: me.windowId,
+                    windowId: sourceWindowId}).route;
+                if (!route) throw new Error('native return has no current owner-granted position route');
+                run.pending = Neo.Main.windowNativeGetGeometry({...route, windowId: route.ownerWindowId});
+                originalGeometry = await driver.trap(run.pending);
+                if (!originalGeometry || !liveRoute()) throw new Error('native return could not capture its source frame');
+
+                sourceItemIds = Object.keys(state.document.items);
+                sourceIdentities = Object.fromEntries(sourceItemIds.map(itemId => [itemId, me.getPaneIdentity(itemId)]));
+                previousTransactionId = me.workspaceSet.manager.get(me.topologyGroupId)?.history?.current?.transactionId;
+
+                const host                    = me.dragAffordances?.host,
+                      homeId                  = me.tearOutHandlers?.peekPlacement?.(ownerItemId)?.tabsNodeId,
+                      home                    = homeId && host?.down({dockNodeId: homeId}),
+                      previewTarget           = host?.down({dockNodeId: previewNodeId}),
+                      rects                   = previewTarget && home && await driver.trap(host.getDomRect([previewTarget.id, home.id], me.windowId)),
+                      [previewRect, homeRect] = rects || [];
+                if (previewNodeId === homeId || ![previewRect, homeRect].every(rect => rect?.width > 0 && rect?.height > 0)) {
+                    throw new Error('native return requires measured foreign and stored-home targets')
+                }
+                returnNodeId = homeId;
+
+                const points = [
+                    {x: previewRect.x + 10, y: previewRect.y + previewRect.height * 0.6},
+                    {x: previewRect.x + previewRect.width / 2, y: previewRect.y + previewRect.height / 2},
+                    {x: homeRect.x + homeRect.width / 2, y: homeRect.y + homeRect.height / 2}
+                ];
+                let from = {x: originalGeometry.x, y: originalGeometry.y};
+                for (const point of points) {
+                    const main = WindowManager.get(me.windowId)?.innerRect;
+                    if (!main) throw new Error('native return lost its main window');
+                    const to = {x: Math.round(main.x + point.x - coordinator.nativeWindowDropAnchorInset),
+                        y: Math.round(main.y + point.y - coordinator.nativeWindowDropAnchorInset)};
+                    for (let i = 1; i <= moveSteps; i++) {
+                        if (!liveRoute() || driver.isDestroyed) throw Neo.isDestroyed;
+                        if (transferStarted()) throw new Error('native return settled before its final target');
+                        const position = {x: Math.round(from.x + (to.x - from.x) * i / moveSteps),
+                            y: Math.round(from.y + (to.y - from.y) * i / moveSteps)};
+                        movementStarted = true;
+                        run.pending = Neo.Main.windowNativeMoveTo({...route, ...position, windowId: route.ownerWindowId});
+                        if (await driver.trap(run.pending) !== true) throw new Error('native frame movement was refused');
+                        positions.push(position);
+                        await driver.trap(driver.timeout(moveDelay));
+                        const snapshot = me.readCrossWindowGestureSnapshot({nativeWindowId: sourceWindowId, targetWorkspaceId});
+                        if (snapshot.ready && !previews.some(preview => preview.previewId === snapshot.preview.previewId)) {
+                            previews.push(WorkspaceDocument.clone(snapshot.preview))
+                        }
+                    }
+                    from = to;
+                }
+
+                const result = await finish(false);
+                if (result.applied || transferStarted()) return result;
+                throw new Error(result.errors[0])
+            } catch (error) {
+                await run.pending?.catch(() => {});
+                if (!movementStarted) return {applied: false, errors: [error?.message || String(error)]};
+                // Once parking/commit starts, the engine owns settlement. Destruction cannot turn an adopted stack
+                // into a rollback; wait on the retained workspace, whose lifetime is independent of this driver.
+                if (sourceItemIds && transferStarted()) return finish(true);
+                if (!liveRoute()) return {applied: false, errors: ['native return lost its original window route']};
+
+                coordinator.clearNativeWindowDropCandidate(sourceWindowId);
+                coordinator.endNativeGesture(sourceWindowId);
+                let   restored       = false, recoveryError = null;
+                const sourceDocument = me.getPopupState(workspaceId)?.document;
+                if (originalGeometry && liveRoute() && sourceItemIds?.every(itemId => sourceDocument?.items?.[itemId])) {
+                    run.pending = Neo.Main.windowNativeMoveTo({...route, x: originalGeometry.x, y: originalGeometry.y,
+                        windowId    : route.ownerWindowId,
+                        nativeEffect: {transactionId: Neo.getId('native-return'), effectId: Neo.getId('frame-recovery')}});
+                    restored = await run.pending.catch(error => {
+                        recoveryError = error?.message || String(error);
+                        return false
+                    }) === true
+                }
+                return {applied: false, errors: [error?.message || String(error)],
+                    proof: {positions, previews, recovery: {restored, error: recoveryError}, sourceWindowId}}
+            }
+        })
     }
 
     /**

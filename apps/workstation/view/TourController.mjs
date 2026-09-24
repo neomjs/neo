@@ -317,6 +317,10 @@ class TourController extends Controller {
                 )
             case 'stack-return':
                 return (await this.getGestureDriver()).executeStackReturnStep({ownerItemId: cue.ownerItemId}, cue.options)
+            case 'native-return':
+                return (await this.getGestureDriver()).executeNativeReturnStep(
+                    {ownerItemId: cue.ownerItemId, previewNodeId: cue.previewNodeId}, cue.options
+                )
             case 'perspective-capture':
                 return this.capturePerspectiveCue(cue)
             case 'perspective-restore':

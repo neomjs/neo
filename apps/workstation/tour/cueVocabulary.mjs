@@ -15,7 +15,7 @@ export const WORKSTATION_CUE_TYPES = Object.freeze([
     // the viewer gate: playback waits for a click, which is the user activation a window birth needs
     'gate',
     // real-pointer window gestures over the NativeGestureDriver's executors
-    'tear-out', 'convert-while-dragging', 'stack-return',
+    'tear-out', 'convert-while-dragging', 'stack-return', 'native-return',
     // perspectives and Group-cursor history through the workspace's own seams
     'perspective-capture', 'perspective-restore', 'undo', 'redo'
 ]);

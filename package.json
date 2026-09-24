@@ -168,6 +168,9 @@
         "{buildScripts,src}/**/*.mjs": [
             "node ./buildScripts/util/check-engine-brain-boundary.mjs"
         ],
+        "{apps,buildScripts,src}/**/*.mjs": [
+            "node ./buildScripts/util/check-content-root-derivations.mjs"
+        ],
         "src/**/*.mjs": [
             "node ./buildScripts/util/check-class-module-scope.mjs"
         ],

@@ -86,7 +86,7 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
  */
 export const filmCueTypes = Object.freeze([
     'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
-    'convert-while-dragging', 'stack-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
+    'convert-while-dragging', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
 ]);
 
 /**
@@ -189,16 +189,14 @@ export const fiveBeatFilmScript = Object.freeze({
         id           : 'film-reintegration',
         title        : 'The stack comes home as one',
         targetSeconds: 12,
-        narration    : 'Drag the merged stack home — as one. The commit is atomic. And the emptied window closes itself — after the document lands, never before.',
-        beats        : ['whole-stack grip', 'stored-home acquisition', 'atomic transferNode commit', 'vessel self-close strictly after adoption'],
+        narration    : 'Bring the whole window home — as one. The commit is atomic. And the emptied window closes itself — after the document lands, never before.',
+        beats        : ['native frame crosses live targets', 'stored-home acquisition', 'atomic transferNode commit', 'vessel self-close strictly after adoption'],
         steps        : [{
-            // No synthetic cursor on this beat: the return's cursor rides from the vessel into the
-            // main window, and with it the executor did not settle in three tour runs on 2026-09-23
-            // while the same return settled without it — the cursor is the camera's, not the tour's.
-            type   : 'pause',
-            ms     : 1200,
-            cue    : {type: 'stack-return', ownerItemId: 'metrics', options: {attempts: 240, moveDelay: 33, showCursor: false}},
-            caption: 'the whole stack rides one grip home; the emptied vessel closes itself after the document lands'
+            type: 'pause',
+            ms  : 1200,
+            cue : {type: 'native-return', ownerItemId: 'metrics', previewNodeId: 'heavy-tabs',
+                options: {attempts: 240, moveDelay: 33, moveSteps: 8}},
+            caption: 'the native window crosses the animated targets; both panes return before the empty vessel closes'
         }, {
             type   : 'topology-assert',
             caption: 'both panes are back in the main catalog with their identities intact',
