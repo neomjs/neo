@@ -10,7 +10,8 @@ import NeoBase from '../core/Base.mjs';
  * architecture for:
  * - **Lifecycle Management:** Initialization (`initGraph`), destruction (`clearGraph`), and resource cleanup.
  * - **Render Loop Control:** Unified `render` loop with pause/resume capabilities and frame scheduling.
- * - **Context Management:** Robust handling of `OffscreenCanvas` transfer and context acquisition via `waitForCanvas`.
+ * - **Context Management:** Robust handling of `OffscreenCanvas` transfer and context acquisition via `waitForCanvas`,
+ *   for the context a subclass declares with `contextType` and `contextAttributes`.
  * - **Shared State:** Common state management for mouse interaction, time, and theming.
  *
  * These renderers operate off the main thread to ensure high-performance, 60fps animations without
@@ -26,6 +27,20 @@ class Base extends NeoBase {
          * @protected
          */
         className: 'Neo.canvas.Base',
+        /**
+         * The second `getContext()` argument: `WebGLContextAttributes` for the WebGL types (`alpha`, `antialias`,
+         * `powerPreference`, `preserveDrawingBuffer`, …) or `CanvasRenderingContext2DSettings` for `'2d'`.
+         * Read once, together with `contextType`, when the canvas arrives; `null` passes no second argument.
+         * @member {Object|null} contextAttributes=null
+         */
+        contextAttributes: null,
+        /**
+         * The `OffscreenCanvas#getContext()` type this renderer draws with: `'2d'`, `'webgl'`, `'webgl2'` or
+         * `'bitmaprenderer'`. Read once when the canvas arrives: an `OffscreenCanvas` stays bound to its first
+         * context, so the config is not reactive and a later change cannot re-acquire.
+         * @member {String} contextType='2d'
+         */
+        contextType: '2d',
         /**
          * Remote method access
          * @member {Object} remote
@@ -63,7 +78,9 @@ class Base extends NeoBase {
      */
     canvasSize = null
     /**
-     * @member {OffscreenCanvasRenderingContext2D|null} context=null
+     * The context `waitForCanvas` acquired for `contextType`, or `null` before the canvas arrives and after a
+     * `getContext()` that returned nothing.
+     * @member {OffscreenCanvasRenderingContext2D|WebGLRenderingContext|WebGL2RenderingContext|ImageBitmapRenderingContext|null} context=null
      */
     context = null
     /**
@@ -241,18 +258,26 @@ class Base extends NeoBase {
 
     /**
      * Polls for the OffscreenCanvas until it is available in the Worker's `canvasWindowMap`.
-     * Once found, it initializes the context and starts the render loop.
+     * Once found, it acquires the `contextType` context with `contextAttributes` and starts the render loop.
+     * A `null` context (the type is unsupported on this host) is reported once and leaves the renderer idle:
+     * no size update, no mounted hook, no loop.
      * @param {String} canvasId
      * @param {String} windowId
      * @param {Boolean} hasChange
      * @protected
      */
     waitForCanvas(canvasId, windowId, hasChange) {
-        let me     = this,
-            canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
+        let me                               = this,
+            canvas                           = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId],
+            {contextAttributes, contextType} = me;
 
         if (canvas) {
-            me.context = canvas.getContext('2d');
+            me.context = contextAttributes ? canvas.getContext(contextType, contextAttributes) : canvas.getContext(contextType);
+
+            if (!me.context) {
+                console.error(`${me.className}: getContext('${contextType}') returned null for canvas ${canvasId}`);
+                return
+            }
 
             // Standardize size update
             me.updateSize({width: canvas.width, height: canvas.height});
