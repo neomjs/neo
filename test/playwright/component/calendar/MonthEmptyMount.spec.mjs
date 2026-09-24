@@ -87,9 +87,12 @@ test.describe('Neo.calendar.view.month.Component — the empty-store mount', () 
         await openFixture(page);
 
         // An event is drawn inside a day cell only through its calendar, which supplies the color
-        // class. With the calendar store empty there is nothing to read that from, and the arm is
-        // here for the read itself: `createWeek` calls `.active` on whatever the store returns.
+        // class. The orphan event alone does not reach that read: `onEventStoreLoad` returns while
+        // the calendar store is empty, so nothing rebuilds the grid around it. The calendar write
+        // that follows is the rebuild, and the rebuild is where `createWeek` reads `.active` with no
+        // calendar record to read it from.
         await drive(page, 'addOrphanEvent');
+        await drive(page, 'addCalendar');
 
         await expect.poll(() => countDays(page), {message: 'the month still renders its day cells'})
             .toBe(EXPECTED_DAYS);
@@ -102,6 +105,11 @@ test.describe('Neo.calendar.view.month.Component — the empty-store mount', () 
         await openFixture(page);
 
         await drive(page, 'addCalendar');
+
+        // The calendar arrives with the event store still empty, and the days are already drawn.
+        await expect.poll(() => countDays(page), {message: 'the month still renders its day cells'})
+            .toBe(EXPECTED_DAYS);
+
         await drive(page, 'addEvent');
 
         // The control for the arms above: the days are not bought by dropping events. One event on
