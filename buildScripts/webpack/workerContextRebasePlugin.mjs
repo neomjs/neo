@@ -9,12 +9,19 @@ import webpack from 'webpack';
 const MATCHES_NOTHING = /(?!)/;
 
 /**
+ * @summary Worker context roots that ship inside the package: the Canvas worker's engine renderers
+ * (`src/canvas`) and the Data worker's `src/data` tree.
+ * @private
+ */
+const PACKAGE_LOCAL_ROOTS = ['../canvas', '../data'];
+
+/**
  * @summary Does this context root resolve inside the installed `neo.mjs` package?
  *
- * Worker roots fall into two kinds. **Package-local** roots (`src/data`, and the connection,
- * parser and normalizer trees beneath it) ship with the framework, so they resolve as authored no
- * matter who installed it. Everything else is **app space** — the consumer's `apps`, `examples`
- * and `docs/app` trees — which live outside the package and must be rebased.
+ * Worker roots fall into two kinds. **Package-local** roots (`PACKAGE_LOCAL_ROOTS`, and the trees
+ * beneath them) ship with the framework, so they resolve as authored no matter who installed it.
+ * Everything else is **app space** — the consumer's `apps`, `examples` and `docs/app` trees — which
+ * live outside the package and must be rebased.
  *
  * Both separators are accepted, and a bare root counts: a context request carries no trailing
  * separator, so `../data` and `../data/connection` are equally package-local.
@@ -24,8 +31,9 @@ const MATCHES_NOTHING = /(?!)/;
  * @private
  */
 function isPackageLocal(request) {
-    return request === '../data'  || request.startsWith('../data/') ||
-           request === '..\\data' || request.startsWith('..\\data\\')
+    const root = request.replaceAll('\\', '/');
+
+    return PACKAGE_LOCAL_ROOTS.some(local => root === local || root.startsWith(`${local}/`))
 }
 
 /**
