@@ -1,4 +1,8 @@
 import Base               from '../core/Base.mjs';
+import CanvasGroups, {
+    CANVAS_GROUP_STORAGE_KEY,
+    CANVAS_WORKER_NAME_PREFIX
+}                         from './CanvasGroups.mjs';
 import DomAccess          from '../main/DomAccess.mjs';
 import DomEvents          from '../main/DomEvents.mjs';
 import Message            from './Message.mjs';
@@ -147,6 +151,12 @@ class Manager extends Base {
      * @member {ServiceWorker|null} serviceWorker=null
      */
     serviceWorker = null
+    /**
+     * @summary This window's canvas group, which names the canvas SharedWorker it shares. Resolved once per boot
+     * by {@link Neo.worker.CanvasGroups.resolveCarrier}.
+     * @member {String|null} canvasGroup=null
+     */
+    canvasGroup = null
 
     /**
      * @param {Object} config
@@ -160,7 +170,10 @@ class Manager extends Base {
 
         me.detectFeatures();
 
-        !Neo.insideWorker && me.createWorkers();
+        if (!Neo.insideWorker) {
+            me.canvasGroup = me.resolveCanvasGroup();
+            me.createWorkers()
+        }
 
         if (navigator.serviceWorker) {
             // Bind the message handler globally to ensure even "unmanaged" apps (those not using the SW addon)
@@ -179,11 +192,10 @@ class Manager extends Base {
         Neo.workerId        = 'main';
 
         me.on({
-            'message:addDomListener'    : {fn: DomEvents.addDomListener,       scope: DomEvents},
-            'message:getOffscreenCanvas': {fn: DomAccess.onGetOffscreenCanvas, scope: DomAccess},
-            'message:readDom'           : {fn: DomAccess.onReadDom,            scope: DomAccess},
-            'message:registerRemote'    : {fn: me.onRegisterRemote,            scope: me},
-            'message:workerConstructed' : {fn: me.onWorkerConstructed,         scope: me}
+            'message:addDomListener'   : {fn: DomEvents.addDomListener, scope: DomEvents},
+            'message:readDom'          : {fn: DomAccess.onReadDom,      scope: DomAccess},
+            'message:registerRemote'   : {fn: me.onRegisterRemote,      scope: me},
+            'message:workerConstructed': {fn: me.onWorkerConstructed,   scope: me}
         })
     }
 
@@ -243,16 +255,29 @@ class Manager extends Base {
      * @returns {SharedWorker|Worker}
      */
     createWorker(opts) {
-        let me         = this,
-            {fileName} = opts,
-            filePath   = (opts.basePath || Neo.config.workerBasePath) + fileName,
-            name       = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
-            isShared   = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
-            cls        = isShared ? SharedWorker : Worker,
-            worker     = new cls(filePath, {name, type: 'module'});
+        let me            = this,
+            {canvasGroup} = me,
+            {fileName}    = opts,
+            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName,
+            isCanvas      = opts === me.workers.canvas,
+            name          = isCanvas ? CANVAS_WORKER_NAME_PREFIX + canvasGroup : `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
+            isShared      = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
+            cls           = isShared ? SharedWorker : Worker,
+            worker;
+
+        // The app worker must know this window's group before the canvas worker can register anything with it
+        isCanvas && me.sendMessage('app', {action: 'registerCanvasGroup', group: canvasGroup});
+
+        worker = new cls(filePath, {name, type: 'module'});
 
         (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
         (isShared ? worker.port : worker).onerror   = me.onWorkerError  .bind(me);
+
+        // `error` on the worker object is the only programmatic signal that a canvas worker failed to load or
+        // parse; the app worker fails the group's waits instead of letting them run into the silent-start bound
+        isCanvas && worker.addEventListener('error', () => {
+            me.sendMessage('app', {action: 'canvasStartFailed', group: canvasGroup})
+        });
 
         me.activeWorkers++;
 
@@ -657,6 +682,29 @@ class Manager extends Base {
                 delete promises[replyId]
             }
         }
+    }
+
+    /**
+     * @summary Resolves this window's canvas group by the carrier rule and keeps it in the window's sessionStorage,
+     * where a `reload` of this window and a popup opened from it find it again.
+     * @returns {String}
+     * @protected
+     */
+    resolveCanvasGroup() {
+        let stored, group;
+
+        try {stored = sessionStorage.getItem(CANVAS_GROUP_STORAGE_KEY)} catch {}
+
+        group = CanvasGroups.resolveCarrier({
+            hasLiveOpener : Boolean(window.opener && !window.opener.closed),
+            mint          : CanvasGroups.mint,
+            navigationType: performance.getEntriesByType?.('navigation')[0]?.type,
+            stored
+        });
+
+        try {sessionStorage.setItem(CANVAS_GROUP_STORAGE_KEY, group)} catch {}
+
+        return group
     }
 
     /**

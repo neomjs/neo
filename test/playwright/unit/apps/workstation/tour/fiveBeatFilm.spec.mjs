@@ -68,13 +68,14 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
 
         expect(valid).toBe(true);
         expect(errors).toEqual([]);
-        // the film opens on the tear-outs right after a three-second cold open: the morph teases
-        // the window, the committed tear-out lets it stay, and the conversion and the return stay
-        // contiguous with them, the order the five-beat witness proves them in; the drop-zone
-        // showcase moves the travelled pane afterwards
+        // the film opens on the committed tear-out right after a three-second cold open, and the
+        // conversion and the return stay contiguous with it, the order the five-beat witness proves
+        // them in; the rail beat follows the return, the morph (a window born and retired inside
+        // one gesture) plays after it as the change of mind, and the drop-zone showcase moves the
+        // travelled pane afterwards
         expect(fiveBeatFilmScript.scenes.map(scene => scene.id)).toEqual([
-            'film-cold-open', 'film-morph', 'film-tear-out', 'film-second-window',
-            'film-reintegration', 'film-showcase', 'film-perspectives-undo', 'film-signature'
+            'film-cold-open', 'film-tear-out', 'film-second-window', 'film-reintegration',
+            'film-rails', 'film-morph', 'film-showcase', 'film-perspectives-undo', 'film-signature'
         ]);
         fiveBeatFilmScript.scenes.forEach(scene => {
             expect(scene.steps.length, `${scene.id} must carry runnable steps`).toBeGreaterThan(0);
@@ -111,17 +112,37 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(3);
         expect(steps().find(step => step.cue?.type === 'stack-return').cue.ownerItemId).toBe('metrics');
         expect(steps().filter(step => step.cue?.type === 'tear-out').map(step => step.cue.options.reenter === true))
-            .toEqual([true, false]);
+            .toEqual([false, true]);
         // the re-entry source is a small group; the heavy group overflows and cannot arm or re-arm there
         expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 103s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 93s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(103);
+        expect(total).toBe(93);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
+    });
+
+    test('the picture sets the pace: no hold inside a gesture over 1.5 s, no cue-free pause over 1 s except the named close', () => {
+        const
+            holds  = steps().filter(step => step.cue?.options?.birthDwellMs !== undefined).map(step => step.cue.options.birthDwellMs),
+            pauses = fiveBeatFilmScript.scenes.flatMap(scene => scene.steps
+                .filter(step => step.type === 'pause' && !step.cue)
+                .map(step => ({scene: scene.id, ms: step.ms, caption: step.caption}))),
+            close  = pauses.filter(pause => pause.scene === 'film-signature');
+
+        expect(holds.length, 'the morph keeps its born hold').toBe(1);
+        holds.forEach(ms => expect(ms, 'a hold inside a gesture reads as "that is a window", never as a park').toBeLessThanOrEqual(1500));
+
+        pauses.filter(pause => pause.scene !== 'film-signature').forEach(pause =>
+            expect(pause.ms, `${pause.scene}: "${pause.caption}"`).toBeLessThanOrEqual(1000));
+
+        // the living close is the one outcome the viewer reads at rest; it is named, and bounded
+        expect(close).toHaveLength(1);
+        expect(close[0].ms).toBeLessThanOrEqual(2000);
+        expect(close[0].caption).toContain('close')
     });
 
     test('the document tier runs twice with identical logs and ends with Security in the matrix group', async () => {

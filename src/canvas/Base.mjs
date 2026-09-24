@@ -183,11 +183,15 @@ class Base extends NeoBase {
     }
 
     /**
-     * Exposed method for Remote Access to trigger the reactive config setter.
-     * @param {String} value
+     * Exposed method for Remote Access to trigger the reactive config setter. The object form carries the calling
+     * window's `windowId`, which routes the call to that window's canvas group; the 13.1 scalar form still works
+     * while only one group is known, and is refused as ambiguous across several.
+     * @param {Object|String} data `{theme, windowId}`, or the theme itself
+     * @param {String} [data.theme]
+     * @param {String} [data.windowId]
      */
-    setTheme(value) {
-        this.theme = value
+    setTheme(data) {
+        this.theme = Neo.isObject(data) ? data.theme : data
     }
 
     /**

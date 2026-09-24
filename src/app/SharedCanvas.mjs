@@ -60,7 +60,7 @@ class SharedCanvas extends Canvas {
      */
     afterSetIsCanvasReady(value, oldValue) {
         if (value) {
-            this.renderer?.setTheme(this.resolveColorScheme());
+            this.renderer?.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId});
             this.fire('canvasReady')
         }
     }
@@ -77,7 +77,7 @@ class SharedCanvas extends Canvas {
         if (value) {
             await me.ready()
         } else if (me.offscreenRegistered) {
-            me.renderer?.clearGraph()
+            me.renderer?.clearGraph({windowId: me.windowId})
         }
 
         super.afterSetMounted(value, oldValue)
@@ -108,7 +108,7 @@ class SharedCanvas extends Canvas {
             await me.updateSize()
         } else if (oldValue) {
             me.isCanvasReady = false;
-            await me.renderer.clearGraph()
+            await me.renderer.clearGraph({windowId: me.windowId})
         }
     }
 
@@ -120,7 +120,7 @@ class SharedCanvas extends Canvas {
         super.afterSetTheme(value, oldValue);
 
         if (this.isCanvasReady) {
-            this.renderer.setTheme(this.resolveColorScheme())
+            this.renderer.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId})
         }
     }
 
@@ -149,7 +149,7 @@ class SharedCanvas extends Canvas {
      * @param {...*} args
      */
     destroy(...args) {
-        this.renderer?.clearGraph();
+        this.offscreenRegistered && this.renderer?.clearGraph({windowId: this.windowId});
         super.destroy(...args)
     }
 
@@ -162,38 +162,31 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (me.rendererImportPath) {
-             // Ensure Canvas Worker is running
-            await Neo.worker.Manager.startWorker({
-                name    : 'canvas',
-                windowId: me.windowId
-            });
+            let {windowId} = me;
 
-            // Wait for the Canvas Worker remote to be available.
-            let i = 0;
+            // Starts this window's canvas worker, in this window's own main thread
+            await Neo.worker.Manager.startWorker({name: 'canvas', windowId});
 
-            while (!Neo.ns('Neo.worker.Canvas.loadModule') && i < 40) {
-                await me.timeout(50);
-                i++
+            try {
+                await Neo.currentWorker.whenCanvasReady(windowId)
+            } catch (error) {
+                // A window leaving mid-boot is expected; any other failure is this group's worker not starting
+                Neo.currentWorker.isDeparture(error, windowId) || console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
+                return
             }
 
-            if (Neo.ns('Neo.worker.Canvas.loadModule')) {
-                // Load the specific renderer module for this component
-                await Neo.worker.Canvas.loadModule({
-                    path: me.rendererImportPath
-                });
+            // Load the specific renderer module for this component
+            await Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId});
 
-                // Wait for the remote stub to be created
-                let j = 0;
-                while (!me.renderer && j < 40) {
-                    await me.timeout(50);
-                    j++
-                }
+            // Wait for the remote stub to be created
+            let j = 0;
+            while (!me.renderer && j < 40) {
+                await me.timeout(50);
+                j++
+            }
 
-                if (!me.renderer) {
-                     console.error('Renderer Remote Stub not found:', me.rendererClassName)
-                }
-            } else {
-                console.error('Neo.component.CanvasShared: Canvas Worker failed to register remote methods.')
+            if (!me.renderer) {
+                 console.error('Renderer Remote Stub not found:', me.rendererClassName)
             }
         }
     }
@@ -207,9 +200,10 @@ class SharedCanvas extends Canvas {
 
         if (me.isCanvasReady && me.canvasRect) {
             me.renderer.updateMouseState({
-                click: true,
-                x    : data.clientX - me.canvasRect.left,
-                y    : data.clientY - me.canvasRect.top
+                click   : true,
+                windowId: me.windowId,
+                x       : data.clientX - me.canvasRect.left,
+                y       : data.clientY - me.canvasRect.top
             })
         }
     }
@@ -219,7 +213,7 @@ class SharedCanvas extends Canvas {
      */
     pause() {
         if (this.isCanvasReady) {
-            this.renderer.pause()
+            this.renderer.pause({windowId: this.windowId})
         }
     }
 
@@ -229,7 +223,7 @@ class SharedCanvas extends Canvas {
      */
     onMouseLeave(data) {
         if (this.isCanvasReady) {
-            this.renderer.updateMouseState({leave: true})
+            this.renderer.updateMouseState({leave: true, windowId: this.windowId})
         }
     }
 
@@ -243,8 +237,9 @@ class SharedCanvas extends Canvas {
         if (me.isCanvasReady) {
             if (me.canvasRect) {
                 me.renderer.updateMouseState({
-                    x: data.clientX - me.canvasRect.left,
-                    y: data.clientY - me.canvasRect.top
+                    windowId: me.windowId,
+                    x       : data.clientX - me.canvasRect.left,
+                    y       : data.clientY - me.canvasRect.top
                 })
             }
         }
@@ -264,12 +259,14 @@ class SharedCanvas extends Canvas {
      */
     resume() {
         if (this.isCanvasReady) {
-            this.renderer.resume()
+            this.renderer.resume({windowId: this.windowId})
         }
     }
 
     /**
-     * Pushes the new dimensions to the Shared Worker and caches the bounding rect.
+     * Caches the bounding rect, and pushes the new dimensions to the renderer once this window's canvas worker
+     * adopted the canvas: the app worker's renderer proxy exists as soon as ANY window's group registered it, even
+     * while this window's group boots or failed.
      * @param {Object|null} [rect]
      */
     async updateSize(rect) {
@@ -283,7 +280,7 @@ class SharedCanvas extends Canvas {
 
         if (rect) {
             me.canvasRect = rect;
-            await me.renderer?.updateSize({width: rect.width, height: rect.height})
+            me.offscreenRegistered && await me.renderer?.updateSize({height: rect.height, width: rect.width, windowId: me.windowId})
         }
     }
 }

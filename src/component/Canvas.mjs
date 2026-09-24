@@ -103,7 +103,8 @@ class Canvas extends Component {
         } else if (offscreen) {
             if (me.offscreenRegistered) {
                 Neo.worker.Canvas.unregisterCanvas({
-                    nodeId: id
+                    nodeId  : id,
+                    windowId: me.windowId
                 })
             }
 
@@ -132,7 +133,8 @@ class Canvas extends Component {
     destroy(...args) {
         if (this.offscreenRegistered) {
             Neo.worker.Canvas.unregisterCanvas({
-                nodeId: this.id
+                nodeId  : this.id,
+                windowId: this.windowId
             })
         }
 

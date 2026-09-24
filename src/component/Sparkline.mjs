@@ -83,7 +83,8 @@ class Sparkline extends Canvas {
         if (me.offscreenRegistered && value !== undefined) {
             me.renderer?.updateConfig({
                 canvasId: me.id,
-                usePulse: value
+                usePulse: value,
+                windowId: me.windowId
             })
         }
     }
@@ -99,7 +100,8 @@ class Sparkline extends Canvas {
         if (me.offscreenRegistered && value !== undefined) {
             me.renderer?.updateConfig({
                 canvasId     : me.id,
-                useTransition: value
+                useTransition: value,
+                windowId     : me.windowId
             })
         }
     }
@@ -118,7 +120,8 @@ class Sparkline extends Canvas {
         if (me.offscreenRegistered) {
             me.renderer?.updateConfig({
                 canvasId: me.id,
-                theme   : me.resolveColorScheme()
+                theme   : me.resolveColorScheme(),
+                windowId: me.windowId
             })
         }
     }
@@ -133,7 +136,8 @@ class Sparkline extends Canvas {
         if (me.offscreenRegistered && value) {
             me.renderer?.updateData({
                 canvasId: me.id,
-                values  : value
+                values  : value,
+                windowId: me.windowId
             })
         }
     }
@@ -146,7 +150,8 @@ class Sparkline extends Canvas {
 
         if (me.offscreenRegistered) {
             me.renderer?.unregister({
-                canvasId: me.id
+                canvasId: me.id,
+                windowId: me.windowId
             })
         }
 
@@ -166,7 +171,8 @@ class Sparkline extends Canvas {
             await me.ready()
         } else if (me.offscreenRegistered) {
             me.renderer?.unregister({
-                canvasId: me.id
+                canvasId: me.id,
+                windowId: me.windowId
             })
         }
 
@@ -194,7 +200,8 @@ class Sparkline extends Canvas {
             if (values) {
                 me.renderer?.updateData({
                     canvasId: me.id,
-                    values
+                    values,
+                    windowId: me.windowId
                 })
             }
 
@@ -202,10 +209,11 @@ class Sparkline extends Canvas {
             let rect = await me.getDomRect(me.id);
             if (rect) {
                 me.renderer?.updateSize({
-                    canvasId: me.id,
+                    canvasId        : me.id,
                     devicePixelRatio: Neo.config.devicePixelRatio,
-                    height  : rect.height,
-                    width   : rect.width
+                    height          : rect.height,
+                    width           : rect.width,
+                    windowId        : me.windowId
                 })
             }
         }
@@ -240,28 +248,21 @@ class Sparkline extends Canvas {
         await super.initAsync();
 
         if (this.rendererImportPath) {
-             // Ensure Canvas Worker is running
-            await Neo.worker.Manager.startWorker({
-                name    : 'canvas',
-                windowId: this.windowId
-            });
+            let {windowId} = this;
 
-            // Wait for the Canvas Worker remote to be available.
-            let i = 0;
+            // Starts this window's canvas worker, in this window's own main thread
+            await Neo.worker.Manager.startWorker({name: 'canvas', windowId});
 
-            while (!Neo.ns('Neo.worker.Canvas.loadModule') && i < 40) {
-                await this.timeout(50);
-                i++
+            try {
+                await Neo.currentWorker.whenCanvasReady(windowId)
+            } catch (error) {
+                // A window leaving mid-boot is expected; any other failure is this group's worker not starting
+                Neo.currentWorker.isDeparture(error, windowId) || console.error('Neo.component.Sparkline: canvas worker unavailable', error);
+                return
             }
 
-            if (Neo.ns('Neo.worker.Canvas.loadModule')) {
-                // Load the specific renderer module for this component
-                await Neo.worker.Canvas.loadModule({
-                    path: this.rendererImportPath
-                })
-            } else {
-                console.error('Neo.component.Sparkline: Canvas Worker failed to register remote methods.')
-            }
+            // Load the specific renderer module for this component
+            await Neo.worker.Canvas.loadModule({path: this.rendererImportPath, windowId})
         }
     }
 
@@ -269,32 +270,43 @@ class Sparkline extends Canvas {
      * @param {Object} data
      */
     onMouseLeave(data) {
-        this.renderer?.onMouseLeave({
-            canvasId: this.id
-        })
+        if (this.offscreenRegistered) {
+            this.renderer?.onMouseLeave({
+                canvasId: this.id,
+                windowId: this.windowId
+            })
+        }
     }
 
     /**
      * @param {Object} data
      */
     onMouseMove(data) {
-        this.renderer?.onMouseMove({
-            canvasId: this.id,
-            x       : data.offsetX,
-            y       : data.offsetY
-        })
+        if (this.offscreenRegistered) {
+            this.renderer?.onMouseMove({
+                canvasId: this.id,
+                windowId: this.windowId,
+                x       : data.offsetX,
+                y       : data.offsetY
+            })
+        }
     }
 
     /**
+     * Talks to the renderer only once this window's canvas worker adopted the canvas: the app worker's renderer
+     * proxy exists as soon as ANY window's group registered it, even while this window's group boots or failed.
      * @param {Object} data
      */
     onResize(data) {
-        this.renderer?.updateSize({
-            canvasId        : this.id,
-            devicePixelRatio: Neo.config.devicePixelRatio,
-            height          : data.contentRect.height,
-            width           : data.contentRect.width
-        })
+        if (this.offscreenRegistered) {
+            this.renderer?.updateSize({
+                canvasId        : this.id,
+                devicePixelRatio: Neo.config.devicePixelRatio,
+                height          : data.contentRect.height,
+                width           : data.contentRect.width,
+                windowId        : this.windowId
+            })
+        }
     }
 }
 

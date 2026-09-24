@@ -105,31 +105,39 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
         const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
 
-        // scene 2 — the morph opens the film: born mid-gesture, retired on re-entry with zero mutation, proven
-        const [reentry, tearOut] = byType('tear-out');
+        // scene 2 opens the film with the committed tear-out; scene 6, after the rails, is the morph:
+        // born mid-gesture, retired on re-entry with zero mutation, proven
+        const [tearOut, reentry] = byType('tear-out');
 
         expect(reentry.applied).toBe(false);
         expect(reentry.reentered, 'the vessel must retire on re-entry, before pointer-up').toBe(true);
         expect(reentry.proof?.documentsUnchanged, 'the re-entry must leave the committed document byte-identical').toBe(true);
-        expect(reentry.proof?.birthHold, 'the stationary dialogue hold must preserve the vessel without arming a preview')
-            .toEqual({durationMs: 10000, survived: true, claimCount: 0, hasTarget: false, hasPreview: false, converted: false});
+        expect(reentry.proof?.birthHold, 'the short born hold must preserve the vessel without arming a preview')
+            .toEqual({durationMs: 1500, survived: true, claimCount: 0, hasTarget: false, hasPreview: false, converted: false});
         expect(reentry.proof?.entrySeen, 'window absence alone is not proof of re-entry').toBe(true);
 
-        // scene 3 — born mid-gesture, committed into its vessel
+        // scene 2 — born mid-gesture, committed into its vessel
         expect(tearOut.applied, 'the detached release must transfer into its vessel').toBe(true);
         expect(tearOut.proof?.born, 'the vessel must be born before pointer-up').toBe(true);
 
-        // scene 4 — the conversion docks into the first vessel
+        // scene 3 — the conversion docks into the first vessel
         const [convert] = byType('convert-while-dragging');
 
         expect(convert.applied, 'commits must dock into the metrics vessel').toBe(true);
 
-        // scene 5 — the merged stack comes home
+        // scene 4 — the merged stack comes home
         const [stackReturn] = byType('stack-return');
 
         expect(stackReturn.applied, 'the whole stack must transfer home').toBe(true);
 
-        // scene 7 — capture, restore, undo, redo, each with the membership it produced
+        // scene 5 — the rail beat: the pane folds into its edge rail, is revealed, and comes home
+        const [rail] = byType('rail');
+
+        expect(rail.applied, 'the rail beat must fold, reveal and restore the pane').toBe(true);
+        expect(rail.proof, 'each rail phase carries its own receipt').toMatchObject({collapsed: true, revealed: true, restored: true});
+        expect(rail.proof?.edge, 'Metrics folds into the right rail').toBe('right');
+
+        // scene 8 — capture, restore, undo, redo, each with the membership it produced
         const [capture] = byType('perspective-capture'),
               [restore] = byType('perspective-restore'),
               [undo]    = byType('undo'),
@@ -236,7 +244,10 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
             await app.setProperties(await getWorkstationTour(app, wsId), {autoGates: true});
             await page.click('.workstation-tour-film');
 
-            let pendingGates = 0, lastCaption = null;
+            // The probe line carries the beat's elapsed milliseconds, since the previous beat and
+            // since the film started: one replay log is the silent choreography rehearsal's
+            // per-beat receipt, the pace the picture set before any voice is placed over it.
+            let pendingGates = 0, lastCaption = null, startedAt = Date.now(), lastBeatAt = startedAt;
 
             await expect.poll(async () => {
                 if (await callWorkstationTour(app, wsId, 'getTourReceipt')) return true;
@@ -244,8 +255,11 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
                 const state = await callWorkstationTour(app, wsId, 'getTourState');
 
                 if (state.caption !== lastCaption) {
+                    const now = Date.now();
+
                     lastCaption = state.caption;
-                    console.log(`[film-probe] auto beat ${state.completedCount}/${state.totalBeats}: ${state.caption}`)
+                    console.log(`[film-probe] auto beat ${state.completedCount}/${state.totalBeats} +${now - lastBeatAt}ms t=${now - startedAt}ms: ${state.caption}`);
+                    lastBeatAt  = now
                 }
 
                 (await callWorkstationTour(app, wsId, 'getPendingGate')) && pendingGates++;

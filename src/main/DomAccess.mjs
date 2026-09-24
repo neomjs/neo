@@ -958,6 +958,8 @@ class DomAccess extends Base {
     }
 
     /**
+     * @deprecated No caller left. It hands the OffscreenCanvas to the requesting worker, but a canvas renders in its
+     * window's canvas worker: use `transferCanvasToWorker`, which sends it there directly.
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.nodeId
