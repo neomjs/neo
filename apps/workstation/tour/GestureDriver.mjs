@@ -1033,10 +1033,15 @@ class GestureDriver extends Base {
                     return fail(['the release reached no terminal on the splitter'], {drive})
                 }
 
-                await driver.trap(Promise.resolve(me.refreshPromise));
-
-                let sizesAfter     = me.dockModel?.nodes?.[splitNodeId]?.sizes?.slice() ?? null,
-                    rejected       = terminals.flatMap(data => data?.result?.errors ?? []),
+                // The terminal carries the reducer's output: that document IS the commit. The
+                // workspace adopts it through its view-sync, which the beat waits for by value —
+                // a read of `dockModel` right after the terminal can still see the old vector.
+                let rejected   = terminals.flatMap(data => data?.result?.errors ?? []),
+                    sizesAfter = terminals[0]?.result?.document?.nodes?.[splitNodeId]?.sizes?.slice() ?? null,
+                    synced     = Boolean(sizesAfter) && await driver.trap(driver.waitFor(
+                        () => JSON.stringify(me.dockModel?.nodes?.[splitNodeId]?.sizes) === JSON.stringify(sizesAfter),
+                        {attempts, delay: 16}
+                    )),
                     previewTracked = mid !== null && Math.abs(mid[boundaryIndex] - current) >= Math.min(8, Math.abs(travelPx) / 4),
                     proof          = {
                         axis,
@@ -1046,6 +1051,7 @@ class GestureDriver extends Base {
                         previewTracked,
                         sizesAfter,
                         sizesBefore,
+                        synced,
                         travelPx
                     };
 
@@ -1054,7 +1060,11 @@ class GestureDriver extends Base {
                 }
 
                 if (!sizesAfter) {
-                    return fail([`the committed document carries no sizes for '${splitNodeId}'`], proof)
+                    return fail([`the release committed no sizes for '${splitNodeId}'`], proof)
+                }
+
+                if (!synced) {
+                    return fail([`the workspace did not adopt the committed vector [${sizesAfter.map(value => value.toFixed(3)).join(', ')}]`], proof)
                 }
 
                 let distance = Math.max(...normalized.sizes.map((value, index) => Math.abs(value - sizesAfter[index])));

@@ -536,7 +536,7 @@ test.describe('the resize beat drags a split boundary through the simulator\'s o
             expect(receipt.errors).toEqual([]);
             expect(receipt.applied).toBe(true);
             expect(receipt.proof).toMatchObject({
-                axis      : 'width', committedOnce: true, documentUnchangedDuringPreview: true, previewTracked: true,
+                axis      : 'width', committedOnce: true, documentUnchangedDuringPreview: true, previewTracked: true, synced: true,
                 sizesAfter: [0.42, 0.58], sizesBefore: [0.6, 0.4], travelPx: -180,
                 drive     : {phase: 'released', sensor: {delayMs: 100, minDistance: 5}, observed: {started: true, ended: true}}
             });

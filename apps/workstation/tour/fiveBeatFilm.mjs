@@ -13,7 +13,8 @@
  * - The recorded transcript derives from the captured cut, never the reverse: these captions
  *   are the working screenplay, and the final voice track re-times to the footage.
  *
- * Show-order: the film opens on the committed tear-out. The room is alive for a breath, then a
+ * Show-order: the film opens on the committed tear-out. The room is alive for a breath — its first
+ * motion a real splitter drag — then a
  * live pane leaves the window and a real vessel is born mid-gesture and stays — the most exciting
  * thing the engine does comes first, before any tour of the room; then the conversion, the
  * return home, the rail beat (a pane folds into its edge rail, is revealed, and comes back), the
@@ -107,7 +108,7 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'The room is alive',
         targetSeconds: 3,
         narration    : 'A living workspace: twenty panes, a hundred-thousand-row grid, streaming feeds. Nothing stops moving. Now take one outside.',
-        beats        : ['dense opening topology', 'resizeSplit through the real boundary', 'feed heartbeat visibly advancing'],
+        beats        : ['dense opening topology', 'the real boundary follows the first drag', 'feed heartbeat visibly advancing'],
         steps        : [{
             type   : 'topology-assert',
             caption: 'all twenty panes are live; the heavy group deliberately overflows',
@@ -119,17 +120,13 @@ export const fiveBeatFilmScript = Object.freeze({
                 {path: 'items.inspector.autoHidden', equals: true}
             ]
         }, {
-            // A document operation, not the `resize` drag scene 6 performs: within the first two
-            // seconds of a boot the main split's live preview is clamp-shut (a drive commits the
-            // start vector, measured 2026-09-24, 4 of 4 replays), so the cold open's proportion is
-            // set through the reducer and the pointer-driven resize plays once the room has settled.
-            type      : 'op',
-            caption   : 'resizeSplit(split-main → 52/48): the real boundary yields and the document keeps the proportion',
-            descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.52, 0.48]},
-            expect    : [
-                {path: 'nodes.split-main.sizes.0', equals: 0.52},
-                {path: 'nodes.split-main.sizes.1', equals: 0.48}
-            ]
+            // The film's first motion is a real drag: the main boundary follows the pointer from the
+            // shipped 60/40 to 52/48 with both panes re-flowing live, and the release commits the
+            // proportion. The receipt carries the vector (the document tier runs no cues).
+            type   : 'pause',
+            ms     : 800,
+            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.52, 0.48], options: {moveDelay: 33, moveSteps: 24, showCursor: true}},
+            caption: 'the first motion: the real boundary follows the pointer to 52/48 and the document keeps the proportion'
         }, {
             type   : 'pause',
             ms     : 900,

@@ -88,7 +88,9 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect([...new Set(cues)].sort()).toEqual([...filmCueTypes].sort());
         filmCueTypes.forEach(type => expect(WORKSTATION_CUE_TYPES).toContain(type));
 
-        expect(operations).toEqual(['resizeSplit', 'splitNode', 'addTab']);
+        // the cold open's resize is a pointer drag (a `resize` cue), so the document tier's own
+        // operations are the showcase's split and the perspective scene's re-add
+        expect(operations).toEqual(['splitNode', 'addTab']);
         operations.forEach(operation => expect(Operations.operations).toContain(operation))
     });
 
@@ -156,9 +158,9 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
 
         const firstDocument = Neo.getComponent('workstation-film-stage').dockZoneDocument;
 
-        // the cold open's op sets the proportion; scene 6's `resize` cue (a pointer drag) is not
-        // executed in spec mode, so its committed vector lives in the film witness's receipt
-        expect(firstDocument.nodes['split-main'].sizes).toEqual([0.52, 0.48]);
+        // both resizes are cues (pointer drags), which spec mode never executes: the shipped
+        // proportion stands, and the receipts carry the committed vectors in the film witness
+        expect(firstDocument.nodes['split-main'].sizes).toEqual([0.6, 0.4]);
         expect(firstDocument.nodes['scale-tabs'].activeItemId).toBe('security');
         expect(firstDocument.nodes['heavy-tabs'].items).not.toContain('security');
         // cues are not executed in spec mode, so the travelled panes never left the document

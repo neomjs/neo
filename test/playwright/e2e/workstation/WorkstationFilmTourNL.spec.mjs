@@ -137,15 +137,18 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(rail.proof, 'each rail phase carries its own receipt').toMatchObject({collapsed: true, revealed: true, restored: true});
         expect(rail.proof?.edge, 'Metrics folds into the right rail').toBe('right');
 
-        // scene 6 — the resize beat: the boundary follows the pointer live, the document commits once
-        const [resize] = byType('resize');
+        // scene 1's first motion and scene 6's resize beat: the boundary follows the pointer live,
+        // the document commits once and the workspace adopts it — each drive its own receipt
+        const [firstMotion, resize] = byType('resize');
 
-        expect(resize.applied, 'the resize beat must drive the boundary and commit the proportion').toBe(true);
-        expect(resize.proof, 'the preview moved before the commit, and the release committed once')
-            .toMatchObject({committedOnce: true, documentUnchangedDuringPreview: true, previewTracked: true});
-        expect(resize.proof?.drive?.observed?.started, 'the Mouse sensor armed the drag itself').toBe(true);
-        expect(resize.proof?.sizesAfter?.[0], 'the grid gave the busy group the room the screenplay asks for').toBeCloseTo(0.42, 2);
-        expect(resize.proof?.sizesAfter?.[1]).toBeCloseTo(0.58, 2);
+        for (const [drive, requested, label] of [[firstMotion, [0.52, 0.48], 'the first motion'], [resize, [0.42, 0.58], 'the resize beat']]) {
+            expect(drive.applied, `${label} must drive the boundary and commit the proportion`).toBe(true);
+            expect(drive.proof, `${label}: the preview moved before the commit, the release committed once, the workspace adopted it`)
+                .toMatchObject({committedOnce: true, documentUnchangedDuringPreview: true, previewTracked: true, synced: true});
+            expect(drive.proof?.drive?.observed?.started, `${label}: the Mouse sensor armed the drag itself`).toBe(true);
+            expect(drive.proof?.sizesAfter?.[0], `${label}: the committed proportion`).toBeCloseTo(requested[0], 2);
+            expect(drive.proof?.sizesAfter?.[1]).toBeCloseTo(requested[1], 2)
+        }
 
         // scene 9 — capture, restore, undo, redo, each with the membership it produced
         const [capture] = byType('perspective-capture'),
