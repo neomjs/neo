@@ -70,12 +70,13 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(errors).toEqual([]);
         // the film opens on the committed tear-out right after a three-second cold open, and the
         // conversion and the return stay contiguous with it, the order the five-beat witness proves
-        // them in; the rail beat follows the return, the morph (a window born and retired inside
-        // one gesture) plays after it as the change of mind, and the drop-zone showcase moves the
+        // them in; the rail beat follows the return, the resize (a real pointer drag with the live
+        // preview) settles the layout after it, the morph (a window born and retired inside one
+        // gesture) plays next as the change of mind, and the drop-zone showcase moves the
         // travelled pane afterwards
         expect(fiveBeatFilmScript.scenes.map(scene => scene.id)).toEqual([
             'film-cold-open', 'film-tear-out', 'film-second-window', 'film-reintegration',
-            'film-rails', 'film-morph', 'film-showcase', 'film-perspectives-undo', 'film-signature'
+            'film-rails', 'film-resize', 'film-morph', 'film-showcase', 'film-perspectives-undo', 'film-signature'
         ]);
         fiveBeatFilmScript.scenes.forEach(scene => {
             expect(scene.steps.length, `${scene.id} must carry runnable steps`).toBeGreaterThan(0);
@@ -117,10 +118,10 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 93s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 97s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(93);
+        expect(total).toBe(97);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });

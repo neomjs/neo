@@ -105,7 +105,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
         const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
 
-        // scene 2 opens the film with the committed tear-out; scene 6, after the rails, is the morph:
+        // scene 2 opens the film with the committed tear-out; scene 7, after the rails and the resize, is the morph:
         // born mid-gesture, retired on re-entry with zero mutation, proven
         const [tearOut, reentry] = byType('tear-out');
 
@@ -137,7 +137,17 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(rail.proof, 'each rail phase carries its own receipt').toMatchObject({collapsed: true, revealed: true, restored: true});
         expect(rail.proof?.edge, 'Metrics folds into the right rail').toBe('right');
 
-        // scene 8 — capture, restore, undo, redo, each with the membership it produced
+        // scene 6 — the resize beat: the boundary follows the pointer live, the document commits once
+        const [resize] = byType('resize');
+
+        expect(resize.applied, 'the resize beat must drive the boundary and commit the proportion').toBe(true);
+        expect(resize.proof, 'the preview moved before the commit, and the release committed once')
+            .toMatchObject({committedOnce: true, documentUnchangedDuringPreview: true, previewTracked: true});
+        expect(resize.proof?.drive?.observed?.started, 'the Mouse sensor armed the drag itself').toBe(true);
+        expect(resize.proof?.sizesAfter?.[0], 'the grid gave the busy group the room the screenplay asks for').toBeCloseTo(0.42, 2);
+        expect(resize.proof?.sizesAfter?.[1]).toBeCloseTo(0.58, 2);
+
+        // scene 9 — capture, restore, undo, redo, each with the membership it produced
         const [capture] = byType('perspective-capture'),
               [restore] = byType('perspective-restore'),
               [undo]    = byType('undo'),
