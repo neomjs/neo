@@ -7,7 +7,11 @@ import Canvas from '../component/Canvas.mjs';
  * SharedWorker canvas renderer. It handles:
  * 1.  **Lifecycle**: Initializing the graph when offscreen canvas is ready.
  * 2.  **Sizing**: Syncing DOM size to the worker via ResizeObserver.
- * 3.  **Interaction**: Bridging mouse events (move, click, leave) to the worker.
+ * 3.  **Interaction**: Bridging pointer input (move, click, leave, down, up, wheel) to the worker through one
+ *     `updateMouseState` payload. The owner of the DOM listeners calls the forwarders: a container's `domListeners`
+ *     delegating to its canvas item, or the host's own `addDomListeners`. Subscribe `wheel` as a local listener
+ *     (`wheel: {fn, local: true, passive: false}`), which is how a node outside the main thread's global wheel
+ *     target list receives deltas.
  * 4.  **Theming**: Syncing the component's theme to the worker.
  *
  * Subclasses must define:
@@ -192,20 +196,45 @@ class SharedCanvas extends Canvas {
     }
 
     /**
+     * Forwards one pointer report to the renderer: the canvas-relative position, then the button and modifier facts
+     * the DOM event carries (`button`, `buttons`, `altKey`, `ctrlKey`, `metaKey`, `shiftKey`), then what the caller
+     * adds (`click`, `down`, `up`, `wheel`). Nothing leaves before the canvas is ready and measured.
+     * @param {Object} data The DOM event data
+     * @param {Object} [extra]
+     * @protected
+     */
+    forwardPointer(data, extra) {
+        let me           = this,
+            {canvasRect} = me;
+
+        if (me.isCanvasReady && canvasRect) {
+            let facts = {x: data.clientX - canvasRect.left, y: data.clientY - canvasRect.top};
+
+            // Only facts the event carries: a report without modifiers must not reset them in the worker.
+            for (const key of ['altKey', 'button', 'buttons', 'ctrlKey', 'metaKey', 'shiftKey']) {
+                if (data[key] !== undefined) {
+                    facts[key] = data[key]
+                }
+            }
+
+            me.renderer.updateMouseState({...facts, ...extra, windowId: me.windowId})
+        }
+    }
+
+    /**
      * Forwards click events to the Shared Worker.
      * @param {Object} data
      */
     onClick(data) {
-        let me = this;
+        this.forwardPointer(data, {click: true})
+    }
 
-        if (me.isCanvasReady && me.canvasRect) {
-            me.renderer.updateMouseState({
-                click   : true,
-                windowId: me.windowId,
-                x       : data.clientX - me.canvasRect.left,
-                y       : data.clientY - me.canvasRect.top
-            })
-        }
+    /**
+     * Forwards a pressed button to the Shared Worker; the renderer's `onMouseDown` hook starts a drag from it.
+     * @param {Object} data
+     */
+    onMouseDown(data) {
+        this.forwardPointer(data, {down: true})
     }
 
     /**
@@ -228,21 +257,30 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Forwards mouse coordinates to the Shared Worker.
+     * Forwards mouse coordinates to the Shared Worker, with the held buttons and modifiers of the move.
      * @param {Object} data
      */
     onMouseMove(data) {
-        let me = this;
+        this.forwardPointer(data)
+    }
 
-        if (me.isCanvasReady) {
-            if (me.canvasRect) {
-                me.renderer.updateMouseState({
-                    windowId: me.windowId,
-                    x       : data.clientX - me.canvasRect.left,
-                    y       : data.clientY - me.canvasRect.top
-                })
-            }
-        }
+    /**
+     * Forwards a released button to the Shared Worker; the renderer's `onMouseUp` hook ends a drag on it.
+     * @param {Object} data
+     */
+    onMouseUp(data) {
+        this.forwardPointer(data, {up: true})
+    }
+
+    /**
+     * Forwards a wheel event to the Shared Worker: the deltas beside the position and modifiers, so a renderer can
+     * zoom (`ctrlKey` marks a trackpad pinch on macOS).
+     * @param {Object} data
+     */
+    onWheel(data) {
+        let {deltaMode, deltaX, deltaY, deltaZ} = data;
+
+        this.forwardPointer(data, {wheel: {deltaMode, deltaX, deltaY, deltaZ}})
     }
 
     /**

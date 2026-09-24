@@ -82,4 +82,31 @@ test.describe('Neo.main.DomEvents', () => {
             ['focus-moved-away', undefined]
         ])
     });
+
+    test('a wheel event reaches the app for a node a component listens on locally, and not for the body', () => {
+        const sent  = [],
+              calls = [],
+              // A canvas node: no class from the global wheel target list
+              node    = {classList: {contains: () => false}, clientHeight: 300, clientWidth: 400, scrollLeft: 0, scrollTop: 0},
+              wheelOn = currentTarget => ({
+                  composedPath   : () => [node, documentRef.body],
+                  currentTarget,
+                  deltaMode      : 0,
+                  deltaX         : 0,
+                  deltaY         : 120,
+                  deltaZ         : 0,
+                  preventDefault : () => calls.push('preventDefault'),
+                  stopPropagation: () => calls.push('stopPropagation'),
+                  type           : 'wheel'
+              });
+
+        DomEvents.getEventData     = ({type}) => ({type});
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        DomEvents.onWheel(wheelOn(node));
+        DomEvents.onWheel(wheelOn(documentRef.body));
+
+        expect(sent).toEqual([{type: 'wheel', clientHeight: 300, clientWidth: 400, deltaX: 0, deltaY: 120, deltaZ: 0, scrollLeft: 0, scrollTop: 0}]);
+        expect(calls, 'the local listener keeps the wheel for itself').toEqual(['preventDefault', 'stopPropagation'])
+    });
 });
