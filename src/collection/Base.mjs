@@ -1052,9 +1052,10 @@ class Collection extends Base {
             items = [],
             i     = start;
 
+        // `_items`, not `items`: the getter returns a copy of the whole array on every read
         for (; i < end; i++) {
-            if (fn.call(scope, me.items[i])) {
-                items.push(me.items[i])
+            if (fn.call(scope, me._items[i])) {
+                items.push(me._items[i])
             }
         }
 
