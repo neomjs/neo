@@ -450,21 +450,27 @@ function getGitLastModifiedBatch(filePaths) {
 
 /**
  * Reads existing sitemap lastmod values for stable fallback behavior.
+ * Each `<url>` block is read on its own, so an entry without a `<lastmod>` is skipped rather than paired with the
+ * next entry's, and the read stays linear in the file size — a sitemap written without git history has no dates.
  * @param {String} sitemapPath Absolute path to the existing sitemap.xml
  * @returns {Promise<Map<String, String>>} Map of loc URL -> ISO date string
  */
-async function getExistingSitemapLastmodMap(sitemapPath) {
+export async function getExistingSitemapLastmodMap(sitemapPath) {
     const lastmodMap = new Map();
 
     if (!sitemapPath || !(await fs.pathExists(sitemapPath))) {
         return lastmodMap;
     }
 
-    const sitemap  = await fs.readFile(sitemapPath, 'utf-8');
-    const urlRegex = /<url>[\s\S]*?<loc>(.*?)<\/loc>[\s\S]*?<lastmod>(.*?)<\/lastmod>[\s\S]*?<\/url>/g;
+    const sitemap = await fs.readFile(sitemapPath, 'utf-8');
 
-    for (const match of sitemap.matchAll(urlRegex)) {
-        lastmodMap.set(match[1], match[2]);
+    for (const [, block] of sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
+        const loc     = /<loc>(.*?)<\/loc>/.exec(block)?.[1],
+              lastmod = /<lastmod>(.*?)<\/lastmod>/.exec(block)?.[1];
+
+        if (loc && lastmod) {
+            lastmodMap.set(loc, lastmod);
+        }
     }
 
     return lastmodMap;
