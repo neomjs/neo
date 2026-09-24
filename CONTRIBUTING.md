@@ -113,15 +113,16 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
 `neo-agent-skills` on npm. A fix you land here ships with the next engine release.
 
 1. **Looking for somewhere to start?** For a first PR, take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>:
-   comment on one and we will assign it to you. No approval round needed; they are already approved.
+   comment on one to claim it (see 3). No approval round needed; they are already approved.
    **After your first merged PR**, move on to <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>
    or an unassigned issue in the v13.2 milestone, the same way. Good first issues stay reserved for first-time
    contributors, so there is always a way in for the next person.
 2. For anything else, please ***always*** create a new issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
    This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
    We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
-3. In case you want to work on an existing ticket, please add a comment there and get the ticket assigned to you.
-   Otherwise multiple contributors could work on the same item in parallel.
+3. **Claim before you start.** To work on an existing ticket, comment there; we assign the first person who asks.
+   You can open a PR without being assigned, but we merge the first approve-worthy PR for a ticket, so if someone
+   else holds it or gets there first, your work may not land. An assignment is what protects your time.
    To keep the project moving, if a ticket is assigned and we do not receive any feedback from the assignee (e.g. via a comment) within 7 days, the ticket may get re-assigned to make it available for other contributors.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
 5. Please create PRs for the `dev` branch, not for `main`.
