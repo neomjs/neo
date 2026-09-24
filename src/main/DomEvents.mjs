@@ -856,15 +856,17 @@ class DomEvents extends Base {
             }
 
             if (!preventUpdate) {
-                // The modifiers ride along: ctrl + wheel is the trackpad pinch on macOS, and a zooming consumer
-                // needs to tell it from a scroll.
-                let {altKey, ctrlKey, deltaMode, deltaX, deltaY, deltaZ, metaKey, shiftKey} = event;
+                // The pointer position and the modifiers ride along: a zooming consumer zooms towards the pointer,
+                // and ctrl + wheel is the trackpad pinch on macOS, which it must tell from a scroll.
+                let {altKey, clientX, clientY, ctrlKey, deltaMode, deltaX, deltaY, deltaZ, metaKey, shiftKey} = event;
 
                 this.sendMessageToApp({
                     ...this.getEventData(event),
                     altKey,
                     clientHeight: target.node.clientHeight,
                     clientWidth : target.node.clientWidth,
+                    clientX,
+                    clientY,
                     ctrlKey,
                     deltaMode,
                     deltaX,

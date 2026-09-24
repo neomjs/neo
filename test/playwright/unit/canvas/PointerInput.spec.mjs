@@ -164,6 +164,22 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
         expect(reports[1]).toEqual({leave: true, windowId: 'window-1'})
     });
 
+    test('a report without a pointer position carries none, so the worker keeps its last one', () => {
+        const {host, reports} = createHost();
+
+        host.onWheel({deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0});
+
+        expect(reports).toEqual([{windowId: 'window-1', wheel: {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0}}]);
+
+        const renderer = Neo.create(PointerRenderer);
+
+        renderer.updateMouseState({x: 5, y: 6});
+        renderer.updateMouseState(reports[0]);
+
+        expect(renderer.mouse).toEqual({...idle, x: 5, y: 6});
+        renderer.destroy()
+    });
+
     test('nothing is forwarded before the canvas is ready or measured', () => {
         const {host, reports} = createHost();
 

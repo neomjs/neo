@@ -208,9 +208,15 @@ class SharedCanvas extends Canvas {
             {canvasRect} = me;
 
         if (me.isCanvasReady && canvasRect) {
-            let facts = {x: data.clientX - canvasRect.left, y: data.clientY - canvasRect.top};
+            let facts = {};
 
-            // Only facts the event carries: a report without modifiers must not reset them in the worker.
+            // Only facts the event carries: a report without a position leaves the worker's position alone, and
+            // one without modifiers must not reset them.
+            if (typeof data.clientX === 'number' && typeof data.clientY === 'number') {
+                facts.x = data.clientX - canvasRect.left;
+                facts.y = data.clientY - canvasRect.top
+            }
+
             for (const key of ['altKey', 'button', 'buttons', 'ctrlKey', 'metaKey', 'shiftKey']) {
                 if (data[key] !== undefined) {
                     facts[key] = data[key]
