@@ -191,8 +191,9 @@ class Base extends NeoBase {
     onMouseDown(data) {}
 
     /**
-     * Hook for subclasses: a button was released on the canvas, or the pointer left the canvas while a button was
-     * held (the host forwards the leave; `mouse` is idle again by then).
+     * Hook for subclasses: a button was released on the canvas. A pointer that leaves the canvas with a button held
+     * reaches no hook — the leave resets `mouse` to idle, so a drag ends when `mouse.buttons` reads 0 on the next
+     * frame, not through this hook.
      * @param {Object} data The forwarded payload (`x`, `y`, `button`, `buttons`, the modifiers)
      */
     onMouseUp(data) {}
@@ -271,12 +272,20 @@ class Base extends NeoBase {
             return
         }
 
-        if (data.x !== undefined && data.y !== undefined) {
-            // The first report after a leave (or ever) has no previous position to move from.
+        // Each axis updates on its own, as it always has; the first report after a leave (or ever) has no
+        // previous position to move from, and an axis a report leaves out keeps its position and moves by nothing.
+        if (data.x !== undefined) {
             mouse.dx = mouse.x === -1000 ? 0 : data.x - mouse.x;
+            mouse.x  = data.x
+        } else {
+            mouse.dx = 0
+        }
+
+        if (data.y !== undefined) {
             mouse.dy = mouse.y === -1000 ? 0 : data.y - mouse.y;
-            mouse.x  = data.x;
             mouse.y  = data.y
+        } else {
+            mouse.dy = 0
         }
 
         for (const key of ['buttons', 'altKey', 'ctrlKey', 'metaKey', 'shiftKey']) {

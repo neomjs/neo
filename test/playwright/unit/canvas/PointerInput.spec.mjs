@@ -74,6 +74,21 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
         expect(renderer.hooks.map(([name]) => name), 'a leave reaches no hook').toEqual(['down'])
     });
 
+    test('an axis a report leaves out keeps its position and moves by nothing', () => {
+        renderer.updateMouseState({x: 10, y: 20});
+        renderer.updateMouseState({x: 15});
+
+        expect(renderer.mouse, 'x-only: y stays, dy is 0').toEqual({...idle, x: 15, y: 20, dx: 5, dy: 0});
+
+        renderer.updateMouseState({y: 26});
+
+        expect(renderer.mouse, 'y-only: x stays, dx is 0').toEqual({...idle, x: 15, y: 26, dx: 0, dy: 6});
+
+        renderer.updateMouseState({buttons: 1});
+
+        expect(renderer.mouse, 'positionless: both stay, both deltas 0').toEqual({...idle, x: 15, y: 26, buttons: 1})
+    });
+
     test('the first report after a leave moves by nothing', () => {
         renderer.updateMouseState({x: 100, y: 50});
 

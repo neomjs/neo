@@ -856,26 +856,22 @@ class DomEvents extends Base {
             }
 
             if (!preventUpdate) {
-                // The pointer position and the modifiers ride along: a zooming consumer zooms towards the pointer,
-                // and ctrl + wheel is the trackpad pinch on macOS, which it must tell from a scroll.
-                let {altKey, clientX, clientY, ctrlKey, deltaMode, deltaX, deltaY, deltaZ, metaKey, shiftKey} = event;
+                // A wheel event is a mouse event: the mouse serializer carries the pointer position, the held
+                // buttons and the modifiers (a zooming consumer zooms towards the pointer, tells the trackpad
+                // pinch — ctrl + wheel on macOS — from a scroll, and keeps a drag's buttons through a wheel tick);
+                // the deltas and the target's scroll geometry ride beside them.
+                let {deltaMode, deltaX, deltaY, deltaZ} = event;
 
                 this.sendMessageToApp({
-                    ...this.getEventData(event),
-                    altKey,
+                    ...this.getMouseEventData(event),
                     clientHeight: target.node.clientHeight,
                     clientWidth : target.node.clientWidth,
-                    clientX,
-                    clientY,
-                    ctrlKey,
                     deltaMode,
                     deltaX,
                     deltaY,
                     deltaZ,
-                    metaKey,
                     scrollLeft  : target.node.scrollLeft,
-                    scrollTop   : target.node.scrollTop,
-                    shiftKey
+                    scrollTop   : target.node.scrollTop
                 })
             }
 
