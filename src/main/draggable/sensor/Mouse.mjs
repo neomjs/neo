@@ -245,16 +245,21 @@ class Mouse extends Base {
             });
 
             document.removeEventListener('contextmenu', preventDefault, true);
-            document.removeEventListener('mousemove',   me.onMouseMove);
-
-            Object.assign(me, {
-                currentElement: null,
-                dragging      : false,
-                startEvent    : null
-            })
+            document.removeEventListener('mousemove',   me.onMouseMove)
         }
 
-        me.dragging = false
+        // The pressed element belongs to the physical bracket, not the logical drag: a release
+        // before the delay + distance threshold — every ordinary click on a drag target — must
+        // leave the sensor idle, or a consumer reading `currentElement` as engagement
+        // (`Neo.main.addon.EventSimulator#driveDrag`) refuses the next gesture as busy.
+        Object.assign(me, {
+            currentElement: null,
+            dragging      : false,
+            mouseDownTime : 0,
+            pageX         : null,
+            pageY         : null,
+            startEvent    : null
+        })
     }
 
     /**
