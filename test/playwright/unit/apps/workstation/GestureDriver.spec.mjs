@@ -622,16 +622,23 @@ test.describe('the rail beat folds a pane away and brings it home through the po
  * @param {Boolean} [options.holdRelease=false] Hold the drive open until the fixture's `release()`.
  * @returns {Promise<Object>}
  */
-async function resizeFixture({commit=[0.42, 0.58], driveError=null, holdRelease=false}={}) {
+async function resizeFixture({commit=[0.42, 0.58], driveError=null, duplicateTerminal=false, holdRelease=false, layoutAfterRelease=false, noPreview=false, prelude=0}={}) {
     const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs');
     const windowId                 = 'gesture-resize-window', calls = [], cursors = [], listeners = {}, released = deferred(), midRead = deferred(),
+          committed = deferred(),
           document  = {items: {}, nodes: {'split-main': {type: 'split', orientation: 'horizontal', children: ['scale-tabs', 'heavy-tabs'], sizes: [0.6, 0.4]}}},
           px        = {container: 1000, 'pane-a': 600, 'pane-b': 400},
           paneA     = {id: 'pane-a'}, paneB = {id: 'pane-b'},
           container = {id: 'container', async getLayoutRect(ids) {
               calls.push(`layout:${ids.join('+')}`);
-              // the executor's second read is its mid-drive preview proof: the fake drive releases only after it
-              calls.filter(call => call.startsWith('layout:')).length === 2 && midRead.resolve();
+              // the first pane read after the preview began is the executor's proof sample: the fake
+              // drive releases after it — or, in the after-release control, holds the read's reply
+              // until its commit has landed, so the box arrives with a document that no longer stands
+              if (previewStarted && !midReadSeen) {
+                  midReadSeen = true;
+                  midRead.resolve()
+              }
+              layoutAfterRelease && previewStarted && await committed.promise;
               return ids.map(id => ({width: px[id], height: 500}))
           }},
           splitter  = {
@@ -668,14 +675,22 @@ async function resizeFixture({commit=[0.42, 0.58], driveError=null, holdRelease=
     // the driver never dispatches pointer input of its own for this beat; any call here is a defect
     service.simulateEvent = async ({events}) => {events.forEach(event => calls.push(`${event.type}:${event.targetId}`)); return true};
     service.dispatch      = async ({type}) => {calls.push(type); return true};
+    let previewStarted = false, midReadSeen = false;
     service.driveDrag     = async request => {
         calls.push(`drive:${request.source.targetId}:${request.destination.deltaX}:${request.destination.deltaY}:${request.steps}`);
+        // the drive's own prelude (window and node resolution, addon imports) moves nothing yet
+        for (let hop = 0; hop < prelude; hop++) await new Promise(setImmediate);
         // the main thread previews the pair from the first move on: the pane tracks the pointer while the document waits
-        px['pane-a'] = 600 + request.destination.deltaX / 2;
-        px['pane-b'] = 400 - request.destination.deltaX / 2;
+        if (!noPreview) {
+            px['pane-a'] = 600 + request.destination.deltaX / 2;
+            px['pane-b'] = 400 - request.destination.deltaX / 2
+        }
+        previewStarted = true;
         // a held drive releases on the fixture's word (the driver may be dead by then, so no mid read
-        // is awaited); an ordinary one releases once the executor has taken its mid-drive read
+        // is awaited); an ordinary one releases once the executor has taken its proof sample, one
+        // macrotask later, as a real release lands after the sample's own microtasks completed
         await (holdRelease ? released.promise : midRead.promise);
+        layoutAfterRelease || await new Promise(setImmediate);
         if (driveError) {
             px['pane-a'] = 600; px['pane-b'] = 400;
             return {success: false, phase: driveError.phase, released: false, sensor: {delayMs: 100, minDistance: 5},
@@ -685,8 +700,11 @@ async function resizeFixture({commit=[0.42, 0.58], driveError=null, holdRelease=
         if (commit) {
             px['pane-a'] = commit[0] * 1000; px['pane-b'] = commit[1] * 1000;
             workspace.dockModel = {...document, nodes: {...document.nodes, 'split-main': {...document.nodes['split-main'], sizes: commit.slice()}}};
-            listeners.dockSplitterResize?.({descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: commit.slice()}, result: {document: workspace.dockModel, errors: []}, splitter})
+            const terminal = {descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: commit.slice()}, result: {document: workspace.dockModel, errors: []}, splitter};
+            listeners.dockSplitterResize?.(terminal);
+            duplicateTerminal && listeners.dockSplitterResize?.(terminal)
         }
+        committed.resolve();
         return {success: true, phase: 'released', released: true, sensor: {delayMs: 100, minDistance: 5},
             observed: {started: true, moveCount: request.steps, ended: true}, dispatch: {down: true, moveCount: request.steps + 1, up: true}}
     };
@@ -776,6 +794,57 @@ test.describe('the resize beat drags a split boundary through the simulator\'s o
             expect(receipt.errors).toHaveLength(1);
             expect(receipt.errors[0]).toBe('the boundary stopped at [0.500, 0.500] (bounded), 0.080 from the requested [0.420, 0.580]');
             expect(receipt.proof).toMatchObject({committedOnce: true, previewTracked: true, sizesAfter: [0.5, 0.5], settled: {committed: true, driveSettled: true}})
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a drive whose prelude starts late is waited out: the preview is proven once it moves, not on the clock', async () => {
+        const fixture = await resizeFixture({prelude: 3});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof).toMatchObject({committedOnce: true, documentUnchangedDuringPreview: true, previewTracked: true, sizesAfter: [0.42, 0.58]});
+            expect(receipt.proof.samples, 'the proof came from a sample, not the clock').toBeGreaterThanOrEqual(1)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a drive that commits without ever previewing fails closed', async () => {
+        const fixture = await resizeFixture({noPreview: true});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toHaveLength(1);
+            expect(receipt.errors[0]).toMatch(/^no live preview was observed: \d+ pane samples, none moved 8px or more while the committed document stood$/);
+            expect(receipt.proof).toMatchObject({previewTracked: false, documentUnchangedDuringPreview: false, committedOnce: true, sizesAfter: [0.42, 0.58], settled: {committed: true}})
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a pane box read that lands after the release cannot pass as a preview', async () => {
+        const fixture = await resizeFixture({layoutAfterRelease: true});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors[0]).toMatch(/^no live preview was observed/);
+            // the moved box arrived with a committed document behind it: the bracket refuses it
+            expect(receipt.proof).toMatchObject({previewTracked: false, documentUnchangedDuringPreview: false, committedOnce: true})
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a second terminal fails the one-commit contract', async () => {
+        const fixture = await resizeFixture({duplicateTerminal: true});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the release reached 2 terminals on the splitter; exactly one commit is the contract']);
+            expect(receipt.proof).toMatchObject({committedOnce: false, previewTracked: true, sizesAfter: [0.42, 0.58]})
         } finally {
             fixture.cleanup()
         }

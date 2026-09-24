@@ -996,32 +996,56 @@ class GestureDriver extends Base {
                     steps      : moveSteps
                 });
 
-                // The escort rides the drive's own clock: the cursor walks the same travel, and the
-                // pane is read once mid-way — the preview proof, taken while the commit is still ahead.
-                let escort = async () => {
-                    await driver.trap(driver.timeout(sensorDelayMs));
+                // The cursor rides the drive's clock; the preview proof does not. It is an observed
+                // condition: a pane box that moved while the committed document stood on both sides
+                // of the read and no terminal had landed — so a drive whose prelude starts late is
+                // waited out, and a box read that lands after the release cannot pass as a preview.
+                let readSizes      = () => JSON.stringify(me.dockModel?.nodes?.[splitNodeId]?.sizes ?? null),
+                    standing       = readSizes(),
+                    minTravel      = Math.min(8, Math.abs(travelPx) / 4),
+                    previewTracked = false,
+                    driveDone      = false,
+                    samples        = 0,
+                    sample         = async () => {
+                        let before = readSizes() === standing && terminals.length === 0,
+                            box    = await readPanes(),
+                            after  = readSizes() === standing && terminals.length === 0;
 
-                    for (let index = 1; index <= moveSteps; index++) {
-                        let ratio = index / moveSteps;
+                        samples++;
 
-                        if (cursorDot) {
-                            cursorDot.style = {
-                                ...cursorDot.style,
-                                left: `${Math.round(start.x + delta.deltaX * ratio) - 8}px`,
-                                top : `${Math.round(start.y + delta.deltaY * ratio) - 8}px`
+                        if (before && after && Math.abs(box[boundaryIndex] - current) >= minTravel) {
+                            mid            = box;
+                            midSizes       = sizesBefore.slice();
+                            previewTracked = true
+                        }
+                    },
+                    escort         = async () => {
+                        await driver.trap(driver.timeout(sensorDelayMs));
+
+                        for (let index = 1; index <= moveSteps; index++) {
+                            let ratio = index / moveSteps;
+
+                            if (cursorDot) {
+                                cursorDot.style = {
+                                    ...cursorDot.style,
+                                    left: `${Math.round(start.x + delta.deltaX * ratio) - 8}px`,
+                                    top : `${Math.round(start.y + delta.deltaY * ratio) - 8}px`
+                                }
                             }
+
+                            await driver.trap(driver.timeout(moveDelay));
+                            previewTracked || await sample()
                         }
 
-                        await driver.trap(driver.timeout(moveDelay));
-
-                        // the document snapshot first, then the layout box: the claim is that the
-                        // committed vector still stood when the moved boundary was sampled
-                        if (index === Math.ceil(moveSteps / 2)) {
-                            midSizes = me.dockModel?.nodes?.[splitNodeId]?.sizes?.slice() ?? null;
-                            mid      = await readPanes()
+                        // the drive may still be in its prelude or its moves: keep watching for the
+                        // preview until the release, bounded by `attempts`
+                        for (let poll = 0; poll < attempts && !driveDone && !previewTracked; poll++) {
+                            await driver.trap(driver.timeout(16));
+                            await sample()
                         }
-                    }
-                };
+                    };
+
+                run.pending.then(() => {driveDone = true}, () => {driveDone = true});
 
                 let [drive] = await Promise.all([driver.trap(run.pending), escort()]);
 
@@ -1042,13 +1066,15 @@ class GestureDriver extends Base {
                         () => JSON.stringify(me.dockModel?.nodes?.[splitNodeId]?.sizes) === JSON.stringify(sizesAfter),
                         {attempts, delay: 16}
                     )),
-                    previewTracked = mid !== null && Math.abs(mid[boundaryIndex] - current) >= Math.min(8, Math.abs(travelPx) / 4),
+                    // `documentUnchangedDuringPreview` is the accepted sample's bracket: the committed
+                    // vector stood before and after the moved box was read, with no terminal landed
                     proof          = {
                         axis,
                         committedOnce                 : terminals.length === 1 && rejected.length === 0,
-                        documentUnchangedDuringPreview: midSizes !== null && JSON.stringify(midSizes) === JSON.stringify(sizesBefore),
+                        documentUnchangedDuringPreview: previewTracked && midSizes !== null && JSON.stringify(midSizes) === JSON.stringify(sizesBefore),
                         drive                         : {observed: drive.observed, phase: drive.phase, sensor: drive.sensor},
                         previewTracked,
+                        samples,
                         sizesAfter,
                         sizesBefore,
                         synced,
@@ -1065,6 +1091,14 @@ class GestureDriver extends Base {
 
                 if (!synced) {
                     return fail([`the workspace did not adopt the committed vector [${sizesAfter.map(value => value.toFixed(3)).join(', ')}]`], proof)
+                }
+
+                if (!previewTracked) {
+                    return fail([`no live preview was observed: ${samples} pane samples, none moved ${minTravel}px or more while the committed document stood`], proof)
+                }
+
+                if (terminals.length !== 1) {
+                    return fail([`the release reached ${terminals.length} terminals on the splitter; exactly one commit is the contract`], proof)
                 }
 
                 let distance = Math.max(...normalized.sizes.map((value, index) => Math.abs(value - sizesAfter[index])));
