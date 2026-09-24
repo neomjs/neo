@@ -11,7 +11,14 @@ import Viewport from '../../../../../src/container/Viewport.mjs';
  * Both stores declare `autoLoad: false`: the fixture must not depend on a request, and an arm
  * that wants records seeds them through `driver.mjs` instead of a URL. `currentDate` is fixed so
  * the grid's span is a value the spec derives rather than one it reads back, and `weekStartDay: 0`
- * keeps the first rendered column Sunday.
+ * keeps the first rendered column Sunday. Both are the mount values: `driver.mjs` moves them at
+ * runtime for the structure spec.
+ *
+ * `neo-config.json` pins the locale to `en-US`, so the `Intl` day and month names do not follow
+ * the machine. It sits in the config rather than in `modelData`: the config value seeds the state
+ * provider as well as each view's static default, so the mount writes nothing. Sent through
+ * `modelData` alone it differs from the default during the application construct and fires
+ * `DateSelector.afterSetLocale`, which throws before the page mounts.
  *
  * `monthComponentConfig` names the child view, because the container generates an id for each
  * card it creates. A named month view is what lets the spec count rows and day cells belonging to

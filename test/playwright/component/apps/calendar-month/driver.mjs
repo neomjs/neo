@@ -1,7 +1,7 @@
 /**
  * @module test/playwright/component/apps/calendar-month/driver
- * @summary Seeds the month view's stores from inside the App Worker: one store write per import,
- * named by the module's own `action` query parameter.
+ * @summary Writes into the month view's stores or state from inside the App Worker: one write per
+ * import, named by the module's own `action` query parameter.
  *
  * A spec cannot add a record by pointer, and it cannot reach the stores through `page.evaluate`
  * either, because they live in the App Worker alongside the component that reads them.
@@ -12,7 +12,8 @@
  * These are the writes the ticket's cases need, and they are deliberately raw: `addCalendar` and
  * `addEvent` seed a matched pair, `addOrphanEvent` seeds an event whose calendar is absent from the
  * calendar store, which is the record shape that reaches `createWeek`'s `.active` read with nothing
- * to read it from.
+ * to read it from. `setCurrentDate`, `setWeekStartDay` and `setShowWeekends` move the fixture's
+ * mount values through the state provider, the path the app's own settings take.
  */
 const {searchParams} = new URL(import.meta.url),
       month          = Neo.getComponent('calendar-month-view'),
@@ -41,6 +42,15 @@ switch (action) {
             startDate : eventDate,
             title     : 'Orphan event'
         });
+        break;
+    case 'setCurrentDate':
+        month.setState('currentDate', new Date('2027-08-01T12:00:00'));
+        break;
+    case 'setWeekStartDay':
+        month.setState('weekStartDay', 1);
+        break;
+    case 'setShowWeekends':
+        month.setState('showWeekends', false);
         break;
     default:
         throw new Error(`Unknown calendar-month driver action: ${action}`)
