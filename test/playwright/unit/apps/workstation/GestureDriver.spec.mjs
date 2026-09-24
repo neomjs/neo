@@ -223,9 +223,10 @@ test.describe('film birth pacing retains the pressed-pointer bracket', () => {
  * and its reveal answer clicks by flipping the document and the overlay the way the product does.
  * @param {Object} [options={}]
  * @param {Boolean} [options.railAppears=true] Whether the rail grows a tab once the item folds.
+ * @param {Boolean} [options.revealOffersPin=true] Whether the reveal carries its pin action.
  * @returns {Promise<Object>}
  */
-async function railFixture({railAppears=true}={}) {
+async function railFixture({railAppears=true, revealOffersPin=true}={}) {
     const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs');
     const windowId                 = 'gesture-rail-window', calls = [],
           document  = {
@@ -238,9 +239,11 @@ async function railFixture({railAppears=true}={}) {
           pinAction = {id: 'rail-pin-action', action: 'pin', hidden: true, mounted: false, windowId, getDomRect: rect},
           railTab   = {id: 'rail-tab', cls: ['neo-dashboard-dock-rail-tab'], dockItemId: 'metrics', windowId, getDomRect: rect},
           pinBack   = {id: 'reveal-pin', action: 'pin', windowId, getDomRect: rect},
-          overlay   = {revealPaneItemId: null, visible: false, down: config => config.action === 'pin' ? pinBack : null},
+          overlay   = {revealPaneItemId: null, visible: false, down: config => config.action === 'pin' && revealOffersPin ? pinBack : null},
           rail      = {
               edge: 'right', railed: false, revealOverlay: overlay,
+              // the reveal's intent owner: Escape retires runtime reveal intent without a document operation
+              revealMachine: {escape() {calls.push('reveal:escape'); overlay.visible = false; overlay.revealPaneItemId = null}},
               down(config, first=true) {
                   const hit = rail.railed && config.dockItemId === 'metrics';
                   return first ? (hit ? railTab : null) : (hit ? [railTab] : [])
@@ -255,7 +258,17 @@ async function railFixture({railAppears=true}={}) {
                       if (config.ntype === 'dashboard-dock-rail') return first ? rail : [rail];
                       return first ? null : []
                   }
-              })
+              }),
+              // the holder contract: the reducer returns a new document, the view-sync is the only writer
+              applyDockZoneOperation(descriptor) {
+                  calls.push(`operation:${descriptor.operation}:${descriptor.autoHidden}`);
+                  if (descriptor.operation !== 'setItemAutoHidden') return {document: workspace.dockModel, errors: [`unexpected ${descriptor.operation}`]};
+                  const next = structuredClone(workspace.dockModel);
+                  next.items[descriptor.itemId].autoHidden = descriptor.autoHidden;
+                  descriptor.autoHidden || (next.nodes.source.items = ['metrics', 'audit']);
+                  return {document: next, errors: []}
+              },
+              async onDockZoneDocumentChange(next) {workspace.dockModel = next}
           },
           driver    = Neo.create(GestureDriver, {workspace}),
           service   = driver.interactionService;
@@ -304,43 +317,67 @@ test.describe('the rail beat folds a pane away and brings it home through the po
         }
     });
 
-    test('a rail that never grows the tab fails by name, after the fold and before any reveal click', async () => {
+    test('a rail that never grows the tab fails by name and brings the pane home through the document, not the pointer', async () => {
         const fixture = await railFixture({railAppears: false});
         try {
             const receipt = await fixture.execute({attempts: 3});
             expect(receipt.applied).toBe(false);
             expect(receipt.errors).toEqual(["the rail never showed a tab for 'metrics'"]);
-            expect(receipt.proof).toEqual({collapsed: true});
-            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action'])
+            expect(receipt.proof).toMatchObject({collapsed: true, settled: {committed: true, errors: [], foldKept: false, restoredHome: true, revealDismissed: false}});
+            // the pane is reachable again: auto-hidden is off and its source node lists it
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(false);
+            expect(fixture.workspace.dockModel.nodes.source.items).toContain('metrics');
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action']);
+            expect(fixture.calls).toContain('operation:setItemAutoHidden:false');
+            expect(fixture.calls).not.toContain('reveal:escape')
         } finally {
             fixture.cleanup()
         }
     });
 
-    test('destruction while the reveal is awaited settles the run without a late pin click', async () => {
+    test('destruction while a reveal is genuinely open dismisses it through its owner, keeps the fold and clicks no late pin', async () => {
         const fixture = await railFixture();
         try {
             const railClicked = deferred(), original = fixture.service.simulateEvent;
-            // the overlay never reports visible, so the executor waits at the reveal until destroyed
             fixture.service.simulateEvent = async data => {
                 const result = await original(data);
-                if (data.events.some(event => event.type === 'click' && event.targetId === 'rail-tab')) {
-                    fixture.overlay.visible = false;
-                    railClicked.resolve()
-                }
+                data.events.some(event => event.type === 'click' && event.targetId === 'rail-tab') && railClicked.resolve();
                 return result
             };
-            const pending = fixture.execute();
+            // the reveal opens on the rail-tab click and the executor holds it for the reveal delay: destroy inside that hold
+            const pending = fixture.execute({revealDelay: 10000});
             await railClicked.promise;
             await new Promise(setImmediate);
+            expect(fixture.overlay.visible, 'the reveal is open when the driver dies').toBe(true);
             fixture.driver.destroy();
             const receipt = await pending;
             expect(receipt.applied).toBe(false);
             expect(receipt.errors.length).toBeGreaterThan(0);
-            expect(fixture.calls.filter(call => call.startsWith('click:'))).not.toContain('click:reveal-pin');
+            expect(receipt.proof).toMatchObject({collapsed: true, settled: {committed: true, foldKept: true, restoredHome: false, revealDismissed: true}});
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action', 'click:rail-tab']);
+            expect(fixture.calls).toContain('reveal:escape');
+            expect(fixture.overlay.visible).toBe(false);
+            // the rail tab exists, so the committed fold stays: the pane is one click away, not stranded
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(true);
+            expect(fixture.calls).not.toContain('operation:setItemAutoHidden:false');
             await fixture.driver.settledPromise;
             expect(fixture.service.isDestroyed).toBe(true);
             expect(fixture.workspace.isDestroyed).toBe(false)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a reveal without a pin action fails by name, is dismissed through its owner, and the fold stays', async () => {
+        const fixture = await railFixture({revealOffersPin: false});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the reveal offers no pin action']);
+            expect(receipt.proof).toMatchObject({collapsed: true, revealed: true, settled: {committed: true, errors: [], foldKept: true, restoredHome: false, revealDismissed: true}});
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action', 'click:rail-tab']);
+            expect(fixture.overlay.visible).toBe(false);
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(true)
         } finally {
             fixture.cleanup()
         }

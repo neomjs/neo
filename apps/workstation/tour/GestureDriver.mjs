@@ -561,7 +561,9 @@ class GestureDriver extends Base {
      * focus, the header's pin action folds the pane into its edge rail, the rail tab reveals it as
      * an elevated pane, and the reveal's pin brings it home. Every wait reads committed document
      * truth or the overlay's own state, never a DOM inference; the receipt carries the three
-     * phases and the document before and after the round trip.
+     * phases and the document before and after the round trip. A fold that commits and then
+     * fails — a rail that never grows the tab, a reveal without its pin, a driver destroyed
+     * mid-beat — is settled by {@link #settleRailFold}, so the cue leaves no residue.
      * @param {Object} step
      * @param {String} step.itemId The live dock item to fold away and bring back.
      * @param {String} step.sourceNodeId The edge-zone tabs node currently holding it.
@@ -580,7 +582,18 @@ class GestureDriver extends Base {
                 document               = me.dockModel,
                 sourceNode             = document?.nodes?.[sourceNodeId],
                 cursorDot              = null,
-                lastPoint              = null;
+                lastPoint              = null,
+                // the fold's aftermath, read by the settle on every failed exit — including the one a
+                // destroyed driver takes through `catch`, where nothing trapped may be awaited again
+                collapsed              = false,
+                overlay                = null,
+                rail                   = null,
+                railed                 = false,
+                fail                   = async (errors, proof={}) => {
+                    let settled = await driver.settleRailFold({collapsed, itemId, overlay, rail, railed, sourceNodeId, workspace: me});
+
+                    return {applied: false, errors: [...errors, ...settled.errors], proof: {...proof, settled}}
+                };
 
             if (!itemId || sourceNode?.type !== 'tabs' || !sourceNode.items.includes(itemId)) {
                 return {applied: false, errors: ['rail step must name a live item held by a tabs node']}
@@ -710,18 +723,18 @@ class GestureDriver extends Base {
                 // 2. fold: the header's pin folds the pane into its edge rail
                 await driver.trap(click(pinAction));
 
-                let collapsed = await driver.trap(waitUntil(() => me.dockModel?.items?.[itemId]?.autoHidden === true));
+                collapsed = await driver.trap(waitUntil(() => me.dockModel?.items?.[itemId]?.autoHidden === true));
 
                 if (!collapsed) {
-                    return {applied: false, errors: [`'${itemId}' never reached auto-hidden truth`], proof: {collapsed}}
+                    return fail([`'${itemId}' never reached auto-hidden truth`], {collapsed})
                 }
 
                 await driver.trap(Promise.resolve(me.refreshPromise));
 
                 // 3. reveal: the rail tab that now carries the item, on whichever edge rail grew it
-                let rail    = null,
-                    railTab = null,
-                    railed  = await driver.trap(waitUntil(() => {
+                let railTab = null;
+
+                railed = await driver.trap(waitUntil(() => {
                         let rails = host.down({ntype: 'dashboard-dock-rail'}, false);
 
                         rails   = Array.isArray(rails) ? rails : rails ? [rails] : [];
@@ -739,16 +752,17 @@ class GestureDriver extends Base {
                     }));
 
                 if (!railed) {
-                    return {applied: false, errors: [`the rail never showed a tab for '${itemId}'`], proof: {collapsed}}
+                    return fail([`the rail never showed a tab for '${itemId}'`], {collapsed})
                 }
 
                 await driver.trap(click(railTab));
 
-                let overlay  = rail.revealOverlay,
-                    revealed = await driver.trap(waitUntil(() => overlay.visible === true && overlay.revealPaneItemId === itemId));
+                overlay = rail.revealOverlay;
+
+                let revealed = await driver.trap(waitUntil(() => overlay.visible === true && overlay.revealPaneItemId === itemId));
 
                 if (!revealed) {
-                    return {applied: false, errors: [`the rail tab did not reveal '${itemId}'`], proof: {collapsed, revealed}}
+                    return fail([`the rail tab did not reveal '${itemId}'`], {collapsed, revealed})
                 }
 
                 revealDelay > 0 && await driver.trap(driver.timeout(revealDelay));
@@ -757,7 +771,7 @@ class GestureDriver extends Base {
                 let pinBack = overlay.down({action: 'pin'});
 
                 if (!pinBack) {
-                    return {applied: false, errors: ['the reveal offers no pin action'], proof: {collapsed, revealed}}
+                    return fail(['the reveal offers no pin action'], {collapsed, revealed})
                 }
 
                 await driver.trap(click(pinBack));
@@ -766,22 +780,96 @@ class GestureDriver extends Base {
                     me.dockModel?.items?.[itemId]?.autoHidden === false
                     && me.dockModel?.nodes?.[sourceNodeId]?.items?.includes(itemId)));
 
-                restored && await driver.trap(Promise.resolve(me.refreshPromise));
+                if (!restored) {
+                    return fail([`'${itemId}' did not come home to '${sourceNodeId}'`], {collapsed, revealed})
+                }
+
+                await driver.trap(Promise.resolve(me.refreshPromise));
 
                 let documentAfter      = WorkspaceDocument.clone(me.dockModel),
                     documentsUnchanged = JSON.stringify(documentAfter) === JSON.stringify(documentBefore);
 
                 return {
-                    applied: restored,
-                    errors : restored ? [] : [`'${itemId}' did not come home to '${sourceNodeId}'`],
+                    applied: true,
+                    errors : [],
                     proof  : {collapsed, documentAfter, documentBefore, documentsUnchanged, edge: rail.edge ?? null, restored, revealed}
                 }
             } catch (error) {
-                return {applied: false, errors: [error?.message || String(error)]}
+                return fail([error?.message || String(error)], {collapsed})
             } finally {
                 await driver.retireFilmCursorDot(cursorDot)
             }
         })
+    }
+
+    /**
+     * @summary Settles a rail beat that failed after its fold committed, so the cue never leaves
+     * residue. An open reveal is runtime intent and is dismissed through the rail's own state
+     * machine, never by a late pointer. A fold whose rail never grew a tab would leave the pane
+     * unreachable, so the pane comes home through the workspace's document operation; a fold
+     * whose rail tab exists is kept, because the pane is one click away. The settle also runs
+     * after a destroyed driver's cancellation, so it borrows nothing the destruction retires: the
+     * workspace comes from the run, not from this driver's config, and the poll is a plain timer,
+     * not {@link Neo.core.Base#timeout}.
+     * @param {Object} state
+     * @param {Boolean} state.collapsed Whether the fold committed (`autoHidden` reached `true`).
+     * @param {String} state.itemId
+     * @param {Object|null} state.overlay The rail's reveal overlay, once the rail was found.
+     * @param {Object|null} state.rail The edge rail carrying the item, once found.
+     * @param {Boolean} state.railed Whether the rail grew a tab for the item.
+     * @param {String} state.sourceNodeId The tabs node the pane came from.
+     * @param {Workstation.view.Workspace} state.workspace The run's workspace, alive after the driver.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=60] Poll attempts (16 ms each) for each settle step.
+     * @returns {Promise<Object>} `{committed, errors, foldKept, restoredHome, revealDismissed}`
+     * @protected
+     */
+    async settleRailFold({collapsed, itemId, overlay, rail, railed, sourceNodeId, workspace}, {attempts=60}={}) {
+        let receipt = {committed: collapsed === true, errors: [], foldKept: false, restoredHome: false, revealDismissed: false},
+            poll    = async predicate => {
+                for (let attempt = 0; attempt <= attempts; attempt++) {
+                    if (predicate()) {
+                        return true
+                    }
+
+                    attempt < attempts && await new Promise(resolve => setTimeout(resolve, 16))
+                }
+
+                return false
+            },
+            home      = () => workspace.dockModel?.items?.[itemId]?.autoHidden === false
+                && workspace.dockModel?.nodes?.[sourceNodeId]?.items?.includes(itemId) === true;
+
+        if (!receipt.committed || !workspace || workspace.isDestroyed) {
+            return receipt
+        }
+
+        if (overlay?.visible === true && overlay.revealPaneItemId === itemId) {
+            rail?.revealMachine?.escape?.();
+
+            receipt.revealDismissed = await poll(() => overlay.visible !== true);
+            receipt.revealDismissed || receipt.errors.push(`the reveal for '${itemId}' stayed open after its dismissal`)
+        }
+
+        if (railed) {
+            receipt.foldKept = !home();
+            return receipt
+        }
+
+        let descriptor = {autoHidden: false, itemId, operation: 'setItemAutoHidden'},
+            result     = workspace.applyDockZoneOperation(descriptor);
+
+        if (!result?.document || result.errors?.length) {
+            receipt.errors.push(...(result?.errors?.length ? result.errors : [`'${itemId}' could not be brought home after the failed fold`]));
+            return receipt
+        }
+
+        await workspace.onDockZoneDocumentChange(result.document, descriptor);
+
+        receipt.restoredHome = await poll(home);
+        receipt.restoredHome || receipt.errors.push(`'${itemId}' did not come home to '${sourceNodeId}' after the failed fold`);
+
+        return receipt
     }
 
     /**
