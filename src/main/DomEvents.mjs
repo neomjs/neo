@@ -856,17 +856,24 @@ class DomEvents extends Base {
             }
 
             if (!preventUpdate) {
-                let {deltaX, deltaY, deltaZ} = event;
+                // The modifiers ride along: ctrl + wheel is the trackpad pinch on macOS, and a zooming consumer
+                // needs to tell it from a scroll.
+                let {altKey, ctrlKey, deltaMode, deltaX, deltaY, deltaZ, metaKey, shiftKey} = event;
 
                 this.sendMessageToApp({
                     ...this.getEventData(event),
+                    altKey,
                     clientHeight: target.node.clientHeight,
                     clientWidth : target.node.clientWidth,
+                    ctrlKey,
+                    deltaMode,
                     deltaX,
                     deltaY,
                     deltaZ,
+                    metaKey,
                     scrollLeft  : target.node.scrollLeft,
-                    scrollTop   : target.node.scrollTop
+                    scrollTop   : target.node.scrollTop,
+                    shiftKey
                 })
             }
 

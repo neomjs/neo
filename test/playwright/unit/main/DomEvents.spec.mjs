@@ -89,13 +89,17 @@ test.describe('Neo.main.DomEvents', () => {
               // A canvas node: no class from the global wheel target list
               node    = {classList: {contains: () => false}, clientHeight: 300, clientWidth: 400, scrollLeft: 0, scrollTop: 0},
               wheelOn = currentTarget => ({
+                  altKey         : false,
                   composedPath   : () => [node, documentRef.body],
+                  ctrlKey        : true,
                   currentTarget,
                   deltaMode      : 0,
                   deltaX         : 0,
                   deltaY         : 120,
                   deltaZ         : 0,
+                  metaKey        : false,
                   preventDefault : () => calls.push('preventDefault'),
+                  shiftKey       : false,
                   stopPropagation: () => calls.push('stopPropagation'),
                   type           : 'wheel'
               });
@@ -106,7 +110,11 @@ test.describe('Neo.main.DomEvents', () => {
         DomEvents.onWheel(wheelOn(node));
         DomEvents.onWheel(wheelOn(documentRef.body));
 
-        expect(sent).toEqual([{type: 'wheel', clientHeight: 300, clientWidth: 400, deltaX: 0, deltaY: 120, deltaZ: 0, scrollLeft: 0, scrollTop: 0}]);
+        expect(sent).toEqual([{
+            type     : 'wheel', clientHeight: 300, clientWidth: 400, scrollLeft: 0, scrollTop: 0,
+            deltaMode: 0, deltaX: 0, deltaY: 120, deltaZ: 0,
+            altKey   : false, ctrlKey: true, metaKey: false, shiftKey: false
+        }]);
         expect(calls, 'the local listener keeps the wheel for itself').toEqual(['preventDefault', 'stopPropagation'])
     });
 });
