@@ -191,6 +191,8 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
         expect(sensor.currentElement).toBe(null);
         expect(sensor.startEvent).toBe(null);
         expect(sensor.mouseDownTime).toBe(0);
+        expect(sensor.pageX).toBe(null);
+        expect(sensor.pageY).toBe(null);
         expect(sensor.dragging).toBe(false);
         // the exact predicate `Neo.main.addon.EventSimulator#driveDrag` reads before refusing a drive as busy
         expect(Boolean(sensor.currentElement || sensor.dragging)).toBe(false);

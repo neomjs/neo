@@ -116,6 +116,9 @@ test.describe('Neo.main.draggable.sensor.Touch — release contract', () => {
         expect(sensor.currentElement).toBe(null);
         expect(sensor.startEvent).toBe(null);
         expect(sensor.dragging).toBe(false);
+        expect(sensor.touchStartTime).toBe(0);
+        expect(sensor.pageX).toBe(null);
+        expect(sensor.pageY).toBe(null);
 
         sensor.detach()
     });

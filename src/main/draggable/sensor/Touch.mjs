@@ -143,7 +143,10 @@ class Touch extends Base {
         Object.assign(me, {
             currentElement: null,
             dragging      : false,
-            startEvent    : null
+            pageX         : null,
+            pageY         : null,
+            startEvent    : null,
+            touchStartTime: 0
         })
     }
 

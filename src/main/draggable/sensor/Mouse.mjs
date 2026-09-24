@@ -256,6 +256,8 @@ class Mouse extends Base {
             currentElement: null,
             dragging      : false,
             mouseDownTime : 0,
+            pageX         : null,
+            pageY         : null,
             startEvent    : null
         })
     }
