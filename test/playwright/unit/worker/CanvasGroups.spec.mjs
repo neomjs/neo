@@ -1,4 +1,10 @@
+import {setup} from '../../setup.mjs';
+
+setup({appConfig: {name: 'WorkerCanvasGroupsTest'}});
+
 import {test, expect}                            from '@playwright/test';
+import Neo                                       from '../../../../src/Neo.mjs';
+import * as core                                 from '../../../../src/core/_export.mjs';
 import CanvasGroups, {CANVAS_WORKER_NAME_PREFIX} from '../../../../src/worker/CanvasGroups.mjs';
 
 /**
@@ -80,7 +86,7 @@ test.describe('Neo.worker.CanvasGroups', () => {
         let groups;
 
         test.beforeEach(() => {
-            groups = new CanvasGroups({startBound: 1000});
+            groups = Neo.create(CanvasGroups, {startBound: 1000});
             groups.addWindow({group: 'g1', windowId: 'w1'});
             groups.setPort({group: 'g1', port: 'port-1'})
         });
@@ -115,19 +121,19 @@ test.describe('Neo.worker.CanvasGroups', () => {
 
     test.describe('readiness — the five outcomes', () => {
         test('send: a ready group resolves at once', async () => {
-            const groups = new CanvasGroups({startBound: 1000}),
+            const groups = Neo.create(CanvasGroups, {startBound: 1000}),
                   port   = channel();
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
             groups.setPort({group: 'g1', port});
             groups.markReady('g1', port);
 
-            expect(groups.isReady('w1')).toBe(true);
+            expect(groups.isReadyFor('w1')).toBe(true);
             expect(await settle(groups.whenReady('w1'))).toEqual({value: undefined})
         });
 
         test('wait then send: a booting group resolves when its canvas remotes arrive', async () => {
-            const groups = new CanvasGroups({startBound: 1000}),
+            const groups = Neo.create(CanvasGroups, {startBound: 1000}),
                   port   = channel();
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
@@ -136,14 +142,14 @@ test.describe('Neo.worker.CanvasGroups', () => {
             const wait = groups.whenReady('w1');
 
             expect(await isPending(wait)).toBe(true);
-            expect(groups.isReady('w1')).toBe(false);
+            expect(groups.isReadyFor('w1')).toBe(false);
 
             groups.markReady('g1', port);
             expect(await settle(wait)).toEqual({value: undefined})
         });
 
         test('departure: the waiting window leaves first', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = Neo.create(CanvasGroups, {startBound: 1000});
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
             groups.addWindow({group: 'g1', windowId: 'w1b'});
@@ -157,14 +163,14 @@ test.describe('Neo.worker.CanvasGroups', () => {
         });
 
         test('NEO_UNROUTABLE: a window in no group', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = Neo.create(CanvasGroups, {startBound: 1000});
             groups.addWindow({group: 'g1', windowId: 'w1'});
 
             expect((await settle(groups.whenReady('stranger'))).error.code).toBe('NEO_UNROUTABLE')
         });
 
         test('NEO_WORKER_START_FAILED: a load failure rejects waits now and later', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = Neo.create(CanvasGroups, {startBound: 1000});
             groups.addWindow({group: 'g1', windowId: 'w1'});
 
             const early = settle(groups.whenReady('w1'));
@@ -175,14 +181,14 @@ test.describe('Neo.worker.CanvasGroups', () => {
         });
 
         test('NEO_WORKER_START_FAILED: a start that stays silent past the bound', async () => {
-            const groups = new CanvasGroups({startBound: 20});
+            const groups = Neo.create(CanvasGroups, {startBound: 20});
             groups.addWindow({group: 'g1', windowId: 'w1'});
 
             expect((await settle(groups.whenReady('w1'))).error).toMatchObject({code: 'NEO_WORKER_START_FAILED', cause: 'silent'})
         });
 
         test('a failure reported after the group is ready does not fail it', async () => {
-            const groups = new CanvasGroups({startBound: 1000}),
+            const groups = Neo.create(CanvasGroups, {startBound: 1000}),
                   port   = channel();
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
@@ -190,13 +196,13 @@ test.describe('Neo.worker.CanvasGroups', () => {
             groups.markReady('g1', port);
             groups.fail('g1', 'load');
 
-            expect(groups.isReady('w1')).toBe(true)
+            expect(groups.isReadyFor('w1')).toBe(true)
         })
     });
 
     test.describe('lifetimes', () => {
         test('a departure cancels only its own waits, never a live sibling on the same group', async () => {
-            const groups = new CanvasGroups({startBound: 1000}),
+            const groups = Neo.create(CanvasGroups, {startBound: 1000}),
                   port   = channel();
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
@@ -216,7 +222,7 @@ test.describe('Neo.worker.CanvasGroups', () => {
         });
 
         test('a group failure rejects every wait of that group', async () => {
-            const groups = new CanvasGroups({startBound: 1000});
+            const groups = Neo.create(CanvasGroups, {startBound: 1000});
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
             groups.addWindow({group: 'g1', windowId: 'w1b'});
@@ -231,7 +237,7 @@ test.describe('Neo.worker.CanvasGroups', () => {
 
         test('late work from a departed window never takes a surviving sibling\'s port', () => {
             const departed = new Set(),
-                  groups   = new CanvasGroups({isDeparted: id => departed.has(id), startBound: 1000});
+                  groups   = Neo.create(CanvasGroups, {isDeparted: id => departed.has(id), startBound: 1000});
 
             groups.addWindow({group: 'g1', windowId: 'w1'});
             groups.addWindow({group: 'g1', windowId: 'w1b'});
@@ -246,7 +252,7 @@ test.describe('Neo.worker.CanvasGroups', () => {
         });
 
         test('a retired group is never revived by a late signal, not even for the reload that rejoins it', () => {
-            const groups = new CanvasGroups({startBound: 1000}),
+            const groups = Neo.create(CanvasGroups, {startBound: 1000}),
                   old    = channel();
 
             old.onmessage = () => {};
@@ -266,12 +272,12 @@ test.describe('Neo.worker.CanvasGroups', () => {
 
             groups.addWindow({group: 'g1', windowId: 'w2'});
 
-            expect(groups.isReady('w2')).toBe(false);
+            expect(groups.isReadyFor('w2')).toBe(false);
             expect(groups.portFor('w2')).toBeNull()
         });
 
         test('a port and readiness that arrive before the window announcement are kept for it', () => {
-            const groups = new CanvasGroups({startBound: 1000}),
+            const groups = Neo.create(CanvasGroups, {startBound: 1000}),
                   early  = channel();
 
             groups.setPort({group: 'g1', port: early});
@@ -279,7 +285,59 @@ test.describe('Neo.worker.CanvasGroups', () => {
             groups.addWindow({group: 'g1', windowId: 'w1'});
 
             expect(groups.portFor('w1')).toBe(early);
-            expect(groups.isReady('w1')).toBe(true)
+            expect(groups.isReadyFor('w1')).toBe(true)
+        })
+    });
+
+    test.describe('class system', () => {
+        test('it is registered in the namespace, and Neo.overwrites reaches the silent-start bound of an extension', () => {
+            const previous = Neo.overwrites;
+
+            class Extended extends CanvasGroups {
+                static config = {className: 'Test.Unit.Worker.CanvasGroups.Extended'}
+            }
+
+            expect(Neo.worker.CanvasGroups).toBe(CanvasGroups);
+            expect(Neo.create(CanvasGroups).startBound).toBe(30000);
+
+            try {
+                Neo.overwrites = {Test: {Unit: {Worker: {CanvasGroups: {Extended: {startBound: 7}}}}}};
+                expect(Neo.create(Neo.setupClass(Extended)).startBound).toBe(7)
+            } finally {
+                Neo.overwrites = previous
+            }
+        });
+
+        test('destroy() clears every silent-start bound, rejects every wait and closes every channel', async () => {
+            const {clearTimeout: clear, setTimeout: set} = globalThis,
+                  closed                                 = [],
+                  timers                                 = new Set(),
+                  track                                  = port => Object.assign(port, {close: () => closed.push(port)}),
+                  groups                                 = Neo.create(CanvasGroups, {startBound: 1000}),
+                  routed                                 = track(channel()),
+                  held                                   = track(channel());
+
+            globalThis.setTimeout   = (fn, ms) => {const id = set(fn, ms); timers.add(id); return id};
+            globalThis.clearTimeout = id => {timers.delete(id); clear(id)};
+
+            try {
+                groups.addWindow({group: 'g1', windowId: 'w1'});
+                groups.setPort({group: 'g1', port: routed});
+                groups.setPort({group: 'g2', port: held}); // before g2's announcement, so it is held
+
+                const wait = settle(groups.whenReady('w1'));
+
+                expect(timers.size).toBe(1);
+
+                groups.destroy();
+
+                expect(timers.size).toBe(0);
+                expect(closed).toEqual([routed, held]);
+                expect((await wait).error.code).toBe('NEO_DEAD_PORT')
+            } finally {
+                globalThis.setTimeout   = set;
+                globalThis.clearTimeout = clear
+            }
         })
     })
 });

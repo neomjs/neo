@@ -33,7 +33,7 @@ test.describe('canvas components boot against a canvas worker that never becomes
      * @returns {Object} `{errors, groups, starts, unhandled}`
      */
     function coldWorker() {
-        const groups          = new CanvasGroups({startBound: 20}),
+        const groups          = Neo.create(CanvasGroups, {startBound: 20}),
               errors          = [],
               starts          = [],
               unhandled       = [],

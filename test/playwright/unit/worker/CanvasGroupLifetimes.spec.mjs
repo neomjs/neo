@@ -29,18 +29,18 @@ async function runCase(body) {
         delete Neo.worker.App;
 
         const
-            {default: app}          = await import('./src/worker/App.mjs'),
-            {default: CanvasGroups} = await import('./src/worker/CanvasGroups.mjs'),
-            channels                = [],
-            report                  = {},
+            {default: app} = await import('./src/worker/App.mjs'),
+            channels       = [],
+            report         = {},
             // Two tasks: a signal lands in one, and what it releases crosses its channel in the next
-            tick                    = async () => {
+            tick           = async () => {
                 await new Promise(resolve => setTimeout(resolve, 5));
                 await new Promise(resolve => setTimeout(resolve, 5))
             };
 
         Object.assign(app, {isSharedWorker: true, ports: [], promises: {}});
-        app.canvasGroups = new CanvasGroups({isDeparted: id => app.isWindowDeparted(id), startBound: 5000});
+        // The app worker's own instance, as its construct() wired it, with a silent-start bound under this child's 15 s timeout
+        app.canvasGroups.startBound = 5000;
 
         // One main-thread port generation of a window
         const mainPort = (id, windowId) => {
@@ -144,12 +144,12 @@ test.describe('Neo.worker.App canvas group lifetimes', () => {
 
             register(A);
             await tick();
-            report.readyAfterOld = app.canvasGroups.isReady('W');
+            report.readyAfterOld = app.canvasGroups.isReadyFor('W');
             report.oldReleased   = A.port2.onmessage === null;
 
             register(B);
             await tick();
-            report.readyAfterNew = app.canvasGroups.isReady('W');
+            report.readyAfterNew = app.canvasGroups.isReadyFor('W');
 
             outcome(probe({windowId: 'W'}));
             await tick();
@@ -172,7 +172,7 @@ test.describe('Neo.worker.App canvas group lifetimes', () => {
 
             handOver('g', A, C);
             await tick();
-            report.ready       = app.canvasGroups.isReady('W');
+            report.ready       = app.canvasGroups.isReadyFor('W');
             report.oldReleased = A.port2.onmessage === null;
 
             outcome(probe({windowId: 'W'}));
@@ -199,12 +199,12 @@ test.describe('Neo.worker.App canvas group lifetimes', () => {
 
             mainPort('port-2', 'W2');
             app.onRegisterCanvasGroup({group: 'g', windowId: 'W2'});
-            report.readyOnRejoin = app.canvasGroups.isReady('W2');
+            report.readyOnRejoin = app.canvasGroups.isReadyFor('W2');
 
             relay('g', D);
             register(D);
             await tick();
-            report.readyOnNewWorker = app.canvasGroups.isReady('W2');
+            report.readyOnNewWorker = app.canvasGroups.isReadyFor('W2');
 
             outcome(probe({windowId: 'W2'}));
             await tick();
@@ -225,7 +225,7 @@ test.describe('Neo.worker.App canvas group lifetimes', () => {
             await tick();
 
             app.onRegisterCanvasGroup({group: 'g', windowId: 'W'});
-            report.ready = app.canvasGroups.isReady('W');
+            report.ready = app.canvasGroups.isReadyFor('W');
 
             outcome(probe({windowId: 'W'}));
             await tick();

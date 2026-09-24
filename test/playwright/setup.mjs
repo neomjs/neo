@@ -204,12 +204,8 @@ export function setup(options = {}) {
         localStorage.updateLocalStorageItem  ??= async () => {};
     }
 
-    Neo.worker ??= {
-        App: {
-            promiseMessage: async () => {}
-        },
-        Manager: {
-            startWorker: async () => {}
-        }
-    };
+    // Per member: a `Neo.worker.*` class a spec imports statically registers the namespace before this runs
+    Neo.worker         ??= {};
+    Neo.worker.App     ??= {promiseMessage: async () => {}};
+    Neo.worker.Manager ??= {startWorker: async () => {}};
 }
