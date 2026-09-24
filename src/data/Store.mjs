@@ -712,13 +712,28 @@ class Store extends Collection {
 
     /**
      * Overrides collection.Base:forEach() to ensure the iterated item is a Record instance.
-     * @param {Function} fn The function to execute for each record.
+     * @param {Function} fn The function to execute for each record, called as `fn(record, index, items)`. `items` is a
+     * defensive copy of the store's items, shared by the calls: every entry the loop has reached is its Record, and a
+     * callback that adds or removes store items gets a fresh copy from the next call on. Treat it as read-only.
      * @param {Object} [scope] Value to use as `this` when executing `fn`.
      */
     forEach(fn, scope) {
-        const me = this;
-        for (let i = 0; i < me.count; i++) {
-            fn.call(scope || me, me.getAt(i), i, me.items);
+        let me    = this,
+            count = me.count,
+            items = me.items, // the getter copies the whole array on every read: copy per change, not per record
+            i     = 0,
+            record;
+
+        for (; i < me.count; i++) {
+            if (me.count !== count) {
+                count = me.count;
+                items = me.items
+            }
+
+            record   = me.getAt(i);
+            items[i] = record; // lazy hydration swapped the raw entry for this Record
+
+            fn.call(scope || me, record, i, items)
         }
     }
 

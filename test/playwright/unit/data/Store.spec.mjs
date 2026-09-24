@@ -109,4 +109,60 @@ test.describe('Neo.data.Store', () => {
         const record = lazyStore.get('lazy3');
         expect(RecordFactory.isRecord(record)).toBe(true);
     });
+
+    // forEach hands its callbacks one shared copy of the items: these pin what that copy holds
+    test.describe('forEach callback items', () => {
+        function createLazyStore() {
+            return Neo.create(Store, {
+                autoInitRecords: false,
+                keyProperty    : 'id',
+                model          : {module: Model, fields: [{name: 'id'}, {name: 'name'}]},
+                data           : [{id: 1, name: 'a'}, {id: 2, name: 'b'}]
+            })
+        }
+
+        test('every reached entry is the Record the callback receives', () => {
+            const lazyStore = createLazyStore();
+
+            lazyStore.forEach((record, index, items) => {
+                expect(RecordFactory.isRecord(record)).toBe(true);
+                expect(items[index]).toBe(record)
+            });
+
+            lazyStore.destroy()
+        });
+
+        test('mutating the items copy leaves the store untouched', () => {
+            const
+                lazyStore = createLazyStore(),
+                seen      = [];
+
+            lazyStore.forEach((record, index, items) => {
+                index === 0 && items.pop();
+                seen.push(record.id);
+                expect(items[index]).toBe(record)
+            });
+
+            expect(seen).toEqual([1, 2]);
+            expect(lazyStore.count).toBe(2);
+
+            lazyStore.destroy()
+        });
+
+        test('a record a callback adds is visited and appears in the next copy', () => {
+            const
+                lazyStore = createLazyStore(),
+                seen      = [];
+
+            lazyStore.forEach((record, index, items) => {
+                index === 0 && lazyStore.add({id: 3, name: 'c'});
+                seen.push(record.id);
+                index === 2 && expect(items).toHaveLength(3)
+            });
+
+            expect(seen).toEqual([1, 2, 3]);
+
+            lazyStore.destroy()
+        })
+    })
 });
