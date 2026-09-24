@@ -119,6 +119,10 @@ export const fiveBeatFilmScript = Object.freeze({
                 {path: 'items.inspector.autoHidden', equals: true}
             ]
         }, {
+            // A document operation, not the `resize` drag scene 6 performs: within the first two
+            // seconds of a boot the main split's live preview is clamp-shut (a drive commits the
+            // start vector, measured 2026-09-24, 4 of 4 replays), so the cold open's proportion is
+            // set through the reducer and the pointer-driven resize plays once the room has settled.
             type      : 'op',
             caption   : 'resizeSplit(split-main → 52/48): the real boundary yields and the document keeps the proportion',
             descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.52, 0.48]},

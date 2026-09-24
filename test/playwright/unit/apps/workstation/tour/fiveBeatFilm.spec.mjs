@@ -156,6 +156,8 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
 
         const firstDocument = Neo.getComponent('workstation-film-stage').dockZoneDocument;
 
+        // the cold open's op sets the proportion; scene 6's `resize` cue (a pointer drag) is not
+        // executed in spec mode, so its committed vector lives in the film witness's receipt
         expect(firstDocument.nodes['split-main'].sizes).toEqual([0.52, 0.48]);
         expect(firstDocument.nodes['scale-tabs'].activeItemId).toBe('security');
         expect(firstDocument.nodes['heavy-tabs'].items).not.toContain('security');
