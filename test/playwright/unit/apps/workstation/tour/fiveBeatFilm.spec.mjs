@@ -110,7 +110,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         // the tear-out, the re-entry and the conversion; the stack return opens no window
         expect(births).toBe(3);
         expect(steps().filter(step => step.cue?.type === 'gate')).toHaveLength(3);
-        expect(steps().find(step => step.cue?.type === 'stack-return').cue.ownerItemId).toBe('metrics');
+        expect(steps().find(step => step.cue?.type === 'native-return').cue.ownerItemId).toBe('metrics');
         expect(steps().filter(step => step.cue?.type === 'tear-out').map(step => step.cue.options.reenter === true))
             .toEqual([false, true]);
         // the re-entry source is a small group; the heavy group overflows and cannot arm or re-arm there

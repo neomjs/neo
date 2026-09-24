@@ -15,6 +15,184 @@ function deferred() {
     return {promise, resolve}
 }
 
+/**
+ * @summary Controls physical completion and the observed Group outcome while retaining real driver teardown.
+ * @returns {Promise<Object>} Native-boundary fixture; adoption is a unit control, not a rendered witness.
+ */
+async function nativeReturnFixture() {
+    const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+    const {default: WindowManager}       = await import('../../../../../src/manager/Window.mjs');
+    const {default: coordinator}         = await import('../../../../../src/manager/DragCoordinator.mjs');
+    const sourceWindowId                 = 'native-return-unit-popup', mainId = 'native-return-unit-main',
+          sourceId = 'native-return-unit-vessel', targetId = 'native-return-unit-workspace',
+          route = {ownerWindowId: mainId, targetWindowId: sourceWindowId, nativeHandleKey: 'native-return-unit-handle',
+              capabilities: {position: true}},
+          original = {x: 900, y: 500}, calls = [], begun = deferred(), move = deferred(),
+          identities = {metrics: 'native-return-metrics-pane', commits: 'native-return-commits-pane'},
+          group = {history: {current: {transactionId: 'before-return'}}},
+          state = {windowId: sourceWindowId, committed: true, document: {
+              root: 'root', items: {metrics: {}, commits: {}}, nodes: {
+                  root : {type: 'edge-zone', zones: {center: {nodeId: 'stack'}}},
+                  stack: {type: 'tabs', items: ['metrics', 'commits']}
+              }
+          }},
+          workspace = {id: targetId, windowId: mainId, topologyGroupId: 'native-return-unit-group', isDestroyed: false,
+              constructor    : {MAIN_WORKSPACE_ID: targetId, vesselWorkspaceId: () => sourceId},
+              workspaceSet   : {has: () => true, manager: {get: () => group}},
+              getPopupState  : id => id === sourceId ? state : null,
+              getPaneIdentity: id => identities[id],
+              dockModel      : {items: {}, nodes: {home: {type: 'tabs', items: []}}},
+              tearOutHandlers: {peekPlacement: () => ({tabsNodeId: 'home'})},
+              dragAffordances: {host: {down: ({dockNodeId}) => ({id: dockNodeId}),
+                  getDomRect: async () => [{x: 10, y: 10, width: 400, height: 400}, {x: 450, y: 10, width: 300, height: 400}]}},
+              readCrossWindowGestureSnapshot: () => ({ready: true, preview: {previewId: `preview-${calls.length}`}}),
+              timeout                       : async () => {}
+          },
+          oldSource = coordinator.getNativeWindowDragSource,
+          oldGeometry = Neo.Main.windowNativeGetGeometry, oldMove = Neo.Main.windowNativeMoveTo,
+          driver = Neo.create(NativeGestureDriver, {workspace}), service = driver.interactionService;
+    let mode = 'success';
+
+    WindowManager.register({id: mainId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    WindowManager.register({id: sourceWindowId, nativeRoute: route});
+    coordinator.getNativeWindowDragSource = id => id === sourceWindowId
+        ? {widgetName: 'metrics', draggedItem: {dockGroupNodeId: 'stack'}} : oldSource.call(coordinator, id);
+    Neo.Main.windowNativeGetGeometry = async () => original;
+    Neo.Main.windowNativeMoveTo = async request => {
+        calls.push(request);
+        if (request.nativeEffect) return true;
+        if (mode === 'deferred') {
+            begun.resolve();
+            return move.promise
+        }
+        if (calls.length === 3) adopt();
+        return true
+    };
+
+    /** @summary Supplies a completed Group adoption at the controlled physical boundary. */
+    function adopt() {
+        const row = {transactionId: 'native-return-unit-transfer', cause: 'dock-transfer', operation: 'transferNode',
+            sourceWorkspaceId: sourceId, targetWorkspaceId: targetId};
+        group.history.current = row;
+        workspace.dockModel.items = state.document.items;
+        workspace.dockModel.nodes.home.items = ['metrics', 'commits'];
+        state.document.items = {};
+        workspace.lastCrossWindowTransfer = {...row, applied: true, descriptor: {operation: 'transferNode'},
+            closeRequested: true, topologyExited: true,
+            phases        : ['documents-adopted', 'projections-settled', 'close-dispatched', 'close-acknowledged']};
+        WindowManager.unregister(sourceWindowId)
+    }
+
+    return {
+        adopt, begun, calls, coordinator, driver, group, identities, mainId, move, original, route, service,
+        sourceWindowId, state, WindowManager, workspace,
+        defer() { mode = 'deferred' },
+        execute() { return driver.executeNativeReturnStep({ownerItemId: 'metrics'}, {attempts: 2, moveDelay: 0, moveSteps: 1}) },
+        async cleanup() {
+            move.resolve(true);
+            driver.isDestroyed || driver.destroy();
+            await driver.settledPromise;
+            coordinator.getNativeWindowDragSource = oldSource;
+            coordinator.nativeWindowDropCandidates.delete(sourceWindowId);
+            coordinator.nativeHoverTargets.delete(sourceWindowId);
+            coordinator.nativeClaimArbiters.delete(sourceWindowId);
+            Neo.Main.windowNativeGetGeometry = oldGeometry;
+            Neo.Main.windowNativeMoveTo = oldMove;
+            WindowManager.unregister(sourceWindowId);
+            WindowManager.unregister(mainId)
+        }
+    }
+}
+
+test.describe('native return physical completion and driver teardown', () => {
+    test('a settled whole-stack adoption reports the retained identities and physical exit', async () => {
+        const f = await nativeReturnFixture();
+        try {
+            const receipt = await f.execute();
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof).toMatchObject({identityPreserved: true, sourceWindowGone: true,
+                sourceItemIds: ['metrics', 'commits'],
+                phaseOrder   : ['documents-adopted', 'projections-settled', 'close-dispatched', 'close-acknowledged']});
+            expect(f.calls).toHaveLength(3);
+            expect(f.calls.every(call => !call.nativeEffect && call.nativeHandleKey === f.route.nativeHandleKey)).toBe(true)
+        } finally { await f.cleanup() }
+    });
+
+    test('destruction waits for physical movement before recovering the original frame', async () => {
+        const f = await nativeReturnFixture();
+        try {
+            f.defer();
+            const pending = f.execute();
+            await f.begun.promise;
+            f.coordinator.nativeWindowDropCandidates.set(f.sourceWindowId, {});
+            f.coordinator.nativeHoverTargets.set(f.sourceWindowId, {});
+            f.driver.destroy();
+            await new Promise(setImmediate);
+            expect(f.calls).toHaveLength(1);
+            expect(f.service.isDestroyed).toBeFalsy();
+            f.move.resolve(true);
+            const receipt = await pending;
+            await f.driver.settledPromise;
+            expect(receipt).toMatchObject({applied: false, proof: {recovery: {restored: true}}});
+            expect(f.calls).toHaveLength(2);
+            expect(f.calls[1]).toMatchObject({...f.original, nativeHandleKey: f.route.nativeHandleKey,
+                nativeEffect: {transactionId: expect.any(String), effectId: expect.any(String)}});
+            expect(Object.keys(f.state.document.items)).toEqual(['metrics', 'commits']);
+            expect(f.group.history.current.transactionId).toBe('before-return');
+            expect(f.coordinator.nativeWindowDropCandidates.has(f.sourceWindowId)).toBe(false);
+            expect(f.coordinator.nativeHoverTargets.has(f.sourceWindowId)).toBe(false);
+            expect(f.service.isDestroyed).toBe(true)
+        } finally { await f.cleanup() }
+    });
+
+    test('an adopted transfer settles through destruction without a recovery move', async () => {
+        const f = await nativeReturnFixture();
+        try {
+            f.defer();
+            const pending = f.execute();
+            await f.begun.promise;
+            f.driver.destroy();
+            f.adopt();
+            f.move.resolve(true);
+            const receipt = await pending;
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof.transfer.transactionId).toBe('native-return-unit-transfer');
+            expect(f.calls).toHaveLength(1);
+            expect(f.service.isDestroyed).toBe(true)
+        } finally { await f.cleanup() }
+    });
+
+    test('a replacement route retains its own candidate and hover when the old move settles', async () => {
+        const f = await nativeReturnFixture();
+        try {
+            f.defer();
+            const pending = f.execute();
+            await f.begun.promise;
+            const successor = {...f.route, nativeHandleKey: 'successor-handle'}, candidate = {phase: 'parking'}, hover = {};
+            f.WindowManager.get(f.sourceWindowId).nativeRoute = successor;
+            f.coordinator.nativeWindowDropCandidates.set(f.sourceWindowId, candidate);
+            f.coordinator.nativeHoverTargets.set(f.sourceWindowId, hover);
+            f.driver.destroy();
+            f.move.resolve(true);
+            expect(await pending).toMatchObject({applied: false, errors: ['native return lost its original window route']});
+            expect(f.calls).toHaveLength(1);
+            expect(f.coordinator.nativeWindowDropCandidates.get(f.sourceWindowId)).toBe(candidate);
+            expect(f.coordinator.nativeHoverTargets.get(f.sourceWindowId)).toBe(hover)
+        } finally { await f.cleanup() }
+    });
+
+    test('an owner route without position capability refuses before physical movement', async () => {
+        const f = await nativeReturnFixture();
+        try {
+            f.route.capabilities.position = false;
+            expect(await f.execute()).toMatchObject({applied: false,
+                errors: ['native return has no current owner-granted position route']});
+            expect(f.calls).toEqual([]);
+            expect(Object.keys(f.state.document.items)).toEqual(['metrics', 'commits'])
+        } finally { await f.cleanup() }
+    })
+});
+
 const down = {targetId: 'source-tab', windowId: 'source-window', type: 'mousedown',
     options: {buttons: 1, clientX: 50, clientY: 60}},
       up = {...down, type: 'mouseup', options: {...down.options, buttons: 0}};

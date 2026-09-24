@@ -1,5 +1,6 @@
-import {expect, test}        from '../../fixtures.mjs';
-import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
+import {expect, test}           from '../../fixtures.mjs';
+import {readNativeLifecycle}    from '../utils/dockNativeLifecycle.mjs';
+import {callWorkstationGesture} from '../utils/workstationGesture.mjs';
 
 /**
  * @summary The native-titlebar popup drag: previews and reintegration with no pointer event at all.
@@ -9,12 +10,14 @@ import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
  * no `mouseout` in the popup realm and no pointer stream anywhere; the only production signals are
  * the popup's `screenX`/`screenY` changing and the `WindowPosition` poll noticing.
  *
- * Trigger discipline: this spec dispatches NO mouse event to the popup and never calls
- * `publishGeometry()`. CDP `Browser.setWindowBounds` is the physical-window adapter, standing in
- * for the OS window server; every hop from the poll onward is production code. The poll must be
- * armed by the vessel's `observeMovement` config alone, which the spec asserts before moving —
- * a probe whose trigger never armed cannot report green. The popup realm's `mouseout` count is
- * asserted at zero to prove the synthetic half stayed out of the gesture.
+ * Return-leg discipline: this spec dispatches NO mouse event to the returning popup and never
+ * calls `publishGeometry()`. The two-pane witness deliberately uses ordinary pointer gestures to
+ * prepare its committed vessel; only its final native return is subject to this constraint. CDP
+ * `Browser.setWindowBounds` is the physical-window adapter, standing in for the OS window server;
+ * every hop from the poll onward is production code. The poll must be armed by the vessel's
+ * `observeMovement` config alone, which the spec asserts before moving — a probe whose trigger
+ * never armed cannot report green. The popup realm's `mouseout` count is asserted at zero to prove
+ * the synthetic half stayed out of the return gesture.
  */
 
 const
@@ -374,6 +377,258 @@ test.describe('Workstation — native titlebar popup drag (#18029)', () => {
             expect(pageErrors, 'no page errors during the native drag').toEqual([])
         } finally {
             popup && !popup.isClosed() && await popup.close()
+        }
+    });
+
+    test('a two-pane vessel moved by its OS titlebar returns its complete stack after the rendered dwell', async ({page, neuralLink}) => {
+        const pageErrors = [];
+        let   sourcePopup, targetPopup;
+
+        page.on('pageerror', error => pageErrors.push(String(error.stack || error.message || error)));
+
+        try {
+            await page.goto('/apps/workstation/index.html');
+            await page.waitForSelector('.workstation-workspace', {timeout: 30000});
+
+            const
+                app         = await neuralLink.connectToApp('Workstation'),
+                workspaceId = asArray(await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']))[0]?.id,
+                managerId   = asArray(await app.findInstances({className: 'Neo.manager.Window'}, ['id']))[0]?.id,
+                coordId     = asArray(await app.findInstances({className: 'Neo.manager.DragCoordinator'}, ['id']))[0]?.id,
+                metricsId   = await app.callMethod(workspaceId, 'getPaneIdentity', ['metrics']),
+                commitsId   = await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']),
+                mainBefore  = await readMainParticipationId(app),
+                pace        = {birthAttempts: 240, moveDelay: 16, moveSteps: 4};
+
+            expect(workspaceId, 'one live Workspace').toBeTruthy();
+            expect(managerId, 'manager.Window is live').toBeTruthy();
+            expect(coordId, 'manager.DragCoordinator is live').toBeTruthy();
+            expect(metricsId, 'Metrics owns a live pane before the vessel journey').toBeTruthy();
+            expect(commitsId, 'Commit Stream owns a live pane before the vessel journey').toBeTruthy();
+            expect(mainBefore, 'the main window starts with a cross-window participation').toBeTruthy();
+
+            const
+                {topologyGroupId} = await app.getComponent(workspaceId, ['topologyGroupId']),
+                transactionId     = asArray(await app.findInstances({className: 'Neo.manager.Transaction'}, ['id']))[0]?.id,
+                readGroup         = () => app.callMethod(transactionId, 'get', [topologyGroupId]);
+
+            expect(topologyGroupId, 'the vessel journey belongs to one live Group').toBeTruthy();
+            expect(transactionId, 'the Group transaction manager is observable').toBeTruthy();
+
+            // Build the film's actual A+B vessel through its two ordinary pointer-owned journeys.
+            // The return below is the only native-frame move in this test.
+            const targetPopupPromise = page.waitForEvent('popup', {timeout: 90000});
+            const ownerResult        = await callWorkstationGesture(app, workspaceId, 'executeTearOutStep', [
+                {itemId: 'metrics', sourceNodeId: 'right-top-tabs'}, pace
+            ]);
+
+            expect(ownerResult.errors, JSON.stringify(ownerResult.proof ?? null)).toEqual([]);
+            expect(ownerResult.applied, 'Metrics commits into its own vessel before the stack is composed').toBe(true);
+            targetPopup = await targetPopupPromise;
+            await targetPopup.waitForSelector('.workstation-viewport', {timeout: 30000});
+
+            const sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000});
+            const dockResult         = await callWorkstationGesture(app, workspaceId, 'executeCrossWindowDockStep', [
+                {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
+                {...pace, dwellDelay: 0}
+            ]);
+
+            expect(dockResult.errors, JSON.stringify(dockResult.proof ?? null)).toEqual([]);
+            expect(dockResult.applied, 'Commit Stream joins the Metrics vessel before titlebar return').toBe(true);
+            sourcePopup = await sourcePopupPromise;
+            await expect.poll(() => sourcePopup.isClosed(), {
+                message: 'the temporary conversion vessel retires after A+B compose', timeout: 15000
+            }).toBe(true);
+
+            let popupWindowId;
+
+            await expect.poll(async () => {
+                const lifecycle = await readNativeLifecycle(app, workspaceId);
+
+                popupWindowId = lifecycle.owners.metrics?.windowId ?? null;
+
+                return {
+                    commits: lifecycle.owners.commits?.windowId ?? null,
+                    metrics: popupWindowId
+                }
+            }, {
+                message  : 'one committed popup owns the Metrics and Commit Stream stack',
+                timeout  : 30000,
+                intervals: [50, 100, 250]
+            }).toEqual({commits: null, metrics: expect.any(String)});
+
+            await expect(targetPopup.locator(`#${metricsId}`), 'the inactive Metrics pane retains one mounted DOM identity').toHaveCount(1);
+            await expect(targetPopup.locator(`#${commitsId}`), 'the vessel retains the exact Commit Stream pane').toBeVisible();
+            await expect.poll(() => readMainParticipationId(app), {
+                message  : 'the first detach refresh has re-registered the main native target',
+                timeout  : 15000,
+                intervals: [50, 100, 250]
+            }).not.toBe(mainBefore);
+
+            await targetPopup.evaluate(() => {
+                globalThis.__nativeStackPointerEvents = 0;
+                for (const type of ['mousedown', 'mousemove', 'mouseup', 'mouseout']) {
+                    globalThis.addEventListener(type, () => globalThis.__nativeStackPointerEvents++)
+                }
+            });
+
+            await expect.poll(() => targetPopup.evaluate(() => {
+                const addon = globalThis.Neo.main.addon.WindowPosition;
+
+                return {armed: Boolean(addon.intervalId), observeMovement: addon.observeMovement}
+            }), {
+                message  : 'the merged vessel owns an armed movement poll before its titlebar return',
+                timeout  : 10000,
+                intervals: [25, 50, 100]
+            }).toEqual({armed: true, observeMovement: true});
+
+            const nativeSource = await app.callMethod(coordId, 'getNativeWindowDragSource', [popupWindowId]);
+            const ownerPayload = await app.getComponent(metricsId, ['dockGroupNodeId', 'dockSourceWorkspaceId']);
+
+            expect(nativeSource?.widgetName, 'the native source is the vessel owner, not its active tab').toBe('metrics');
+            expect(ownerPayload.dockGroupNodeId, 'the native source advertises its complete transferable stack')
+                .toBeTruthy();
+
+            const
+                sourceWorkspaceId   = ownerPayload.dockSourceWorkspaceId,
+                beforeHistory       = (await readGroup()).history,
+                historyBeforeReturn = beforeHistory?.rows?.[beforeHistory.cursor]?.transactionId ?? null;
+
+            expect(sourceWorkspaceId, 'the native source names the vessel document that must transfer').toBeTruthy();
+
+            const
+                mainHandle   = await acquireNativeWindow(page),
+                popupHandle  = await acquireNativeWindow(targetPopup),
+                pageWindowId = (await app.getComponent(workspaceId, ['windowId'])).windowId,
+                mainRect     = (await app.callMethod(managerId, 'toJSON')).windows.find(win =>
+                    win.id === pageWindowId)?.innerRect,
+                popupBefore = await readScreen(targetPopup),
+                {nativeWindowDropAnchorInset: inset} = await app.getComponent(coordId, ['nativeWindowDropAnchorInset']),
+                targetId    = readId(await app.queryComponent({dockNodeId: 'right-top-tabs'}, ['id'])),
+                targetBox   = targetId && await page.locator(`#${targetId}`).boundingBox(),
+                mainAtGrab  = await readMainParticipationId(app);
+
+            expect(popupHandle.windowId, 'the merged vessel is a distinct physical window').not.toBe(mainHandle.windowId);
+            expect(mainRect, 'manager.Window exposes the main frame').toBeTruthy();
+            expect(targetBox, 'the stored-home tabs node is measurable').toBeTruthy();
+
+            const
+                anchor     = {x: targetBox.x + targetBox.width / 2, y: targetBox.y + targetBox.height / 2},
+                targetLeft = Math.round(mainRect.x + anchor.x - inset),
+                targetTop  = Math.round(mainRect.y + anchor.y - inset);
+
+            for (const step of [0.5, 1]) {
+                const screen = await moveNative(popupHandle,
+                    Math.round(popupBefore.screenX + (targetLeft - popupBefore.screenX) * step),
+                    Math.round(popupBefore.screenY + (targetTop - popupBefore.screenY) * step)
+                );
+
+                await expect.poll(async () => {
+                    const managed = await readManagerRect(app, managerId, popupWindowId);
+
+                    return managed ? Math.max(Math.abs(managed.x - screen.screenX), Math.abs(managed.y - screen.screenY)) : Infinity
+                }, {
+                    message  : `the manager observes titlebar stack movement at step ${step}`,
+                    timeout  : 5000,
+                    intervals: [25, 50, 100]
+                }).toBeLessThanOrEqual(2)
+            }
+
+            let snapshot;
+            const observedSnapshots = [];
+
+            for (let sample = 0; sample < 12; sample++) {
+                const screen = await moveNative(popupHandle, targetLeft + (sample % 2 ? 12 : 0), targetTop);
+                await expect.poll(async () => {
+                    const rect = await readManagerRect(app, managerId, popupWindowId);
+                    return rect ? Math.abs(rect.x - screen.screenX) : Infinity
+                }, {message: 'the poll observes each continued titlebar movement', timeout: 3000, intervals: [25, 50]}).toBeLessThanOrEqual(2);
+                snapshot = await app.callMethod(workspaceId, 'readCrossWindowGestureSnapshot', [{
+                    nativeWindowId: popupWindowId, targetWorkspaceId: 'workstation-main'
+                }]);
+                observedSnapshots.push(snapshot);
+                if (snapshot.ready) break
+            }
+            expect(snapshot.ready, JSON.stringify(observedSnapshots)).toBe(true);
+
+            expect(snapshot).toMatchObject({
+                claimCount       : 1,
+                engaged          : true,
+                targetWorkspaceId: 'workstation-main',
+                winnerStableId   : 'workstation-main'
+            });
+            expect(snapshot.preview?.target?.nodeId, 'the native return aims at the stored home').toBe('right-top-tabs');
+            expect(snapshot.rendered?.previewId, 'the target paints the native semantic preview').toBe(snapshot.preview?.previewId);
+            await expect(page.locator('.neo-dock-preview-dwelling'), 'the target renders its dwell affordance').toHaveCount(1);
+            expect(await targetPopup.evaluate(() => globalThis.__nativeStackPointerEvents),
+                'the native return does not dispatch a popup pointer event').toBe(0);
+            expect(await readMainParticipationId(app), 'the target participation remains live throughout dwell').toBe(mainAtGrab);
+
+            let terminal;
+
+            await expect.poll(async () => {
+                const [state, lifecycle, group] = await Promise.all([
+                    app.getComponent(workspaceId, ['dockModel', 'lastCrossWindowTransfer']),
+                    readNativeLifecycle(app, workspaceId),
+                    readGroup()
+                ]);
+
+                terminal = {
+                    catalog     : Object.keys(state.dockModel.items ?? {}),
+                    home        : state.dockModel.nodes['right-top-tabs']?.items ?? [],
+                    history     : group.history?.rows?.[group.history.cursor] ?? null,
+                    metricsOwner: lifecycle.owners.metrics?.windowId ?? null,
+                    retirements : lifecycle.retirements.length,
+                    transfer    : state.lastCrossWindowTransfer ?? null
+                };
+
+                return {
+                    home        : terminal.home,
+                    metricsOwner: terminal.metricsOwner,
+                    retirements : terminal.retirements,
+                    transfer    : {
+                        closeRequested: terminal.transfer?.closeRequested ?? false,
+                        operation     : terminal.transfer?.descriptor?.operation ?? null,
+                        source        : terminal.transfer?.sourceWorkspaceId ?? null,
+                        topologyExited: terminal.transfer?.topologyExited ?? false
+                    }
+                }
+            }, {
+                message  : 'native dwell commits one whole-stack transfer before vessel retirement',
+                timeout  : 15000,
+                intervals: [50, 100, 250]
+            }).toEqual({
+                home        : ['audit', 'metrics', 'commits'],
+                metricsOwner: null,
+                retirements : 0,
+                transfer    : {closeRequested: true, operation: 'transferNode', source: sourceWorkspaceId, topologyExited: true}
+            });
+
+            expect(terminal.transfer?.transactionId, 'the return appends one new Group transaction')
+                .not.toBe(historyBeforeReturn);
+            expect(terminal.history?.transactionId, 'the Group history cursor names that exact return transaction')
+                .toBe(terminal.transfer?.transactionId);
+            expect(terminal.transfer?.phases).toEqual([
+                'documents-adopted', 'projections-settled', 'close-dispatched', 'close-acknowledged'
+            ]);
+            expect(terminal.catalog, 'the whole-stack transfer preserves both catalog records')
+                .toEqual(expect.arrayContaining(['metrics', 'commits']));
+            expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['metrics']), 'Metrics keeps its live instance')
+                .toBe(metricsId);
+            expect(await app.callMethod(workspaceId, 'getPaneIdentity', ['commits']), 'Commit Stream keeps its live instance')
+                .toBe(commitsId);
+            await expect(page.locator(`#${metricsId}`), 'Metrics returns with one mounted DOM identity').toHaveCount(1);
+            await expect(page.locator(`#${commitsId}`), 'Commit Stream returns with one mounted DOM identity').toHaveCount(1);
+            await expect.poll(() => targetPopup.isClosed(), {
+                message: 'the empty two-pane vessel physically closes after adoption', timeout: 15000
+            }).toBe(true);
+            expect(await readManagerRect(app, managerId, popupWindowId),
+                'the exact native source leaves manager topology after close acknowledgement').toBeNull();
+            expect(await page.locator('.neo-dock-preview-affordance').count(), 'native preview affordances clear after adoption').toBe(0);
+            expect(pageErrors, 'the native stack return causes no page errors').toEqual([])
+        } finally {
+            sourcePopup && !sourcePopup.isClosed() && await sourcePopup.close();
+            targetPopup && !targetPopup.isClosed() && await targetPopup.close()
         }
     })
 });

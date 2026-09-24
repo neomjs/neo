@@ -135,6 +135,38 @@ test.describe('Dock relative placement participant', () => {
         expect(placement.hints.popup.dx).toBe(400)
     });
 
+    test('a tagged restore retires an earlier buffered free move without swallowing another window move', async () => {
+        const secondWindow   = 'placement-recovery-control-window';
+        let   secondDocument = document('recovery-control');
+        workspaces.register('popup-two', {getDocument: () => secondDocument, setDocument: value => secondDocument = value});
+        const reserved = Transaction.reserve({groupId, workspaceKey: 'popup-two'});
+        Transaction.bind({...reserved, windowId: secondWindow});
+
+        try {
+            move(secondWindow, 700, 400);
+            await placement.write(placement.observedHints(), 'placement-baseline', 'preserve');
+
+            move(popupWindow, 560, 350);
+            WindowManager.onWindowPositionChange({
+                windowId    : popupWindow,
+                nativeEffect: {transactionId: 'native-return-recovery', effectId: 'restore-frame'},
+                screenLeft  : 500, screenTop: 300,
+                outerWidth  : 420, outerHeight: 340, innerWidth: 400, innerHeight: 300
+            });
+            move(secondWindow, 750, 430);
+
+            // The later real move is the settle-clock control; no arbitrary sleep certifies absence.
+            await expect.poll(() => placement.hints['popup-two']?.dx).toBe(650);
+            expect(placement.hints.popup).toMatchObject({dx: 400, dy: 220});
+            const history = Transaction.get(groupId).history;
+            expect(history.count).toBe(1);
+            expect(history.current.cause).toBe('native-popup-move');
+            expect(history.current.participants[0].after['popup-two']).toMatchObject({dx: 650, dy: 350})
+        } finally {
+            WindowManager.unregister(secondWindow)
+        }
+    });
+
     test('undo and redo observe their native effects without recording them again; a later free move still appends', async () => {
         const popup = WindowManager.get(popupWindow);
         popup.nativeRoute = {ownerWindowId: mainWindow, targetWindowId: popupWindow, nativeHandleKey: 'popup-route'};

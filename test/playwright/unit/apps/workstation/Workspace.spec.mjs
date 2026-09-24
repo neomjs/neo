@@ -191,6 +191,28 @@ test('pointer readiness reads current popup and supplied main visual owners', ()
     }
 });
 
+test('native-window readiness reads its own claim and hover instead of the pointer gesture', () => {
+    const workspaceId = Workspace.MAIN_WORKSPACE_ID, nativeWindowId = 'native-readiness-popup',
+          preview     = {previewId: 'native-current-preview'}, target = {currentPreview: preview},
+          coordinator = {
+              activeTargetZone   : {}, pointerClaimArbiter: {claimCount: 3, resolve: () => ({stableId: 'other'})},
+              nativeClaimArbiters: new Map([[nativeWindowId, {claimCount: 1, resolve: () => ({stableId: workspaceId})}]]),
+              nativeHoverTargets : new Map([[nativeWindowId, target]])
+          },
+          participation = {target, dragCoordinator: null, affordances: {
+              preview: {dockPreview: preview}, indicators: {activeCandidate: {preview}, candidateSet: {}, cls: []}
+          }},
+          workspace = {constructor: Workspace, crossWindowParticipations: new Map([[workspaceId, participation]])},
+          read = id => Workspace.prototype.readCrossWindowGestureSnapshot.call(workspace,
+              {nativeWindowId: id, targetWorkspaceId: workspaceId});
+
+    target.dragCoordinator = coordinator;
+    expect(read(nativeWindowId)).toMatchObject({claimCount: 1, engaged: true, ready: true});
+    expect(read('another-window')).toMatchObject({claimCount: 0, engaged: false, ready: false});
+    coordinator.nativeHoverTargets.delete(nativeWindowId);
+    expect(read(nativeWindowId)).toMatchObject({claimCount: 1, engaged: false, ready: false})
+});
+
 /**
  * @summary Captures object identities for every live logical tab surface in one Workstation shell.
  * @param {Workstation.view.Workspace} workspace
