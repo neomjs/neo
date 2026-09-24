@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
 
 /**
  * @module buildScripts/util/check-consumer-runtime-build
- * @summary Builds Data-worker, App-worker and Main entry points from an installed copy of this package,
+ * @summary Builds Data-, Canvas- and App-worker and Main entry points from an installed copy of this package,
  * because this repository's own build structurally cannot observe what a consumer's build does.
  *
  * ## The defect class
@@ -37,6 +37,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * - Main's opt-in `WS/` context resolved the consumer's optional `src/main/addon` directory even
  *   when no workspace addon existed, so a generated consumer needed a meaningless empty directory.
  *
+ * A sixth reached production first: the Canvas worker loaded every renderer through one root, which
+ * the rebase moved to the workspace, taking the engine's own `src/canvas` renderers with it.
+ *
  * ## Why it packs and builds for real
  *
  * Reasoning about relative paths is explicitly not a substitute, and neither is a simulated layout:
@@ -51,11 +54,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * ## What it does NOT do
  *
  * It does not assert bundle size, chunk counts, or anything about *this* repository's build — those
- * are observable here and belong to cheaper checks. It answers three consumer-only questions: does
- * Data resolve the consumer's modules and only those, does every app the package ships compile in the
- * App worker, and does Main preserve an optional workspace addon root without leaking package addons
- * into it? The App worker's context spans every shipped `app.mjs`, so it reaches each importer without
- * a list of them; one mode suffices, because a specifier that resolves nowhere fails both.
+ * are observable here and belong to cheaper checks. It answers four consumer-only questions: does
+ * Data resolve the consumer's modules and only those, does Canvas reach both the package's renderers
+ * and the consumer's, does every app the package ships compile in the App worker, and does Main
+ * preserve an optional workspace addon root without leaking package addons into it? The App worker's
+ * context spans every shipped `app.mjs`, so it reaches each importer without a list of them; one mode
+ * suffices, because a specifier that resolves nowhere fails both.
  */
 
 /**
@@ -107,6 +111,24 @@ export const APP_EXPECTATIONS = [{
     match  : /neo\.mjs[/\\]dist[/\\]marked\.mjs$/,
     present: true,
     because: 'marked resolves through the bundle the package ships, never through a node_modules layout'
+}];
+
+/**
+ * @summary What the Canvas worker's compile must reach: an engine renderer from the package and a
+ * consumer renderer from app space. Matched without an end anchor, because production concatenation
+ * names a renderer module `… + N modules`.
+ * @type {Object[]}
+ */
+export const CANVAS_EXPECTATIONS = [{
+    file   : 'node_modules/neo.mjs/src/canvas/Header.mjs',
+    match  : /neo\.mjs[/\\]src[/\\]canvas[/\\]Header\.mjs\b/,
+    present: true,
+    because: 'an engine renderer ships in the package, so the Canvas worker must load it from there'
+}, {
+    file   : 'apps/probe/canvas/ProbeRenderer.mjs',
+    match  : /apps[/\\]probe[/\\]canvas[/\\]ProbeRenderer\.mjs\b/,
+    present: true,
+    because: 'a consumer-owned renderer must stay reachable through the rebased app-space root'
 }];
 
 /**
@@ -200,11 +222,12 @@ export function collectMainContextFailures({mode, contextModules}, workspace, ar
  */
 function createFixture(workspace) {
     const files = {
-        'package.json'                    : JSON.stringify({name: 'neo-consumer-fixture', version: '1.0.0', type: 'module'}, null, 4),
-        'src/MicroLoader.mjs'             : 'export default "loader";\n',
-        'apps/probe/data/ConsumerOnly.mjs': 'export default class ConsumerOnly {}\n',
-        'RootOnly.mjs'                    : 'export default "root-level node script";\n',
-        'client/src/Unrelated.mjs'        : 'export default "unrelated application tree";\n'
+        'package.json'                       : JSON.stringify({name: 'neo-consumer-fixture', version: '1.0.0', type: 'module'}, null, 4),
+        'src/MicroLoader.mjs'                : 'export default "loader";\n',
+        'apps/probe/data/ConsumerOnly.mjs'   : 'export default class ConsumerOnly {}\n',
+        'apps/probe/canvas/ProbeRenderer.mjs': 'export default class ProbeRenderer {}\n',
+        'RootOnly.mjs'                       : 'export default "root-level node script";\n',
+        'client/src/Unrelated.mjs'           : 'export default "unrelated application tree";\n'
     };
 
     for (const [relative, contents] of Object.entries(files)) {
@@ -336,6 +359,9 @@ async function main() {
                 console.log(`check-consumer-runtime-build: building ${mode} Data…`);
                 failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, mode)));
 
+                console.log(`check-consumer-runtime-build: building ${mode} Canvas…`);
+                failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, mode, 'canvas'), CANVAS_EXPECTATIONS));
+
                 console.log(`check-consumer-runtime-build: building ${mode} Main without workspace addons…`);
                 const result = await buildMain(workspace, mode, 'absent');
 
@@ -372,7 +398,7 @@ async function main() {
             process.exit(1)
         }
 
-        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, and every shipped app compiles in the App worker.')
+        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, Canvas reaches the package\'s renderers and the consumer\'s, and every shipped app compiles in the App worker.')
     } finally {
         fs.rmSync(workspaceRoot, {recursive: true, force: true})
     }

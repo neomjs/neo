@@ -71,11 +71,15 @@ class Canvas extends Base {
 
     /**
      * @summary Remotely loads an ES module into the Canvas Worker.
-     * This method uses a scoped dynamic import to ensure Webpack only bundles
+     * This method uses scoped dynamic imports to ensure Webpack only bundles
      * relevant modules (inside 'canvas/' directories) for this worker.
      *
+     * The engine's own renderers (`src/canvas/…`) import through a root beside this worker, which stays
+     * inside the package wherever it is installed. Every other path is app space, whose root a consumer
+     * build rebases to its workspace, so a root shared with the engine renderers would lose them.
+     *
      * @param {Object} data
-     * @param {String} data.path The path to the module to load (e.g., 'apps/MyApp/canvas/MyShape.mjs').
+     * @param {String} data.path The path to the module to load (e.g., 'src/canvas/Header.mjs' or 'apps/MyApp/canvas/MyShape.mjs').
      * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
      */
     async loadModule({path}) {
@@ -84,12 +88,20 @@ class Canvas extends Base {
         }
 
         try {
-            await import(
-                /* webpackInclude: /(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
-                /* webpackMode: "lazy" */
-                `../../${path}.mjs`
-            );
+            if (path.startsWith('src/canvas/')) {
+                await import(
+                    /* webpackMode: "lazy" */
+                    `../canvas/${path.slice(11)}.mjs`
+                )
+            } else {
+                await import(
+                    /* webpackInclude: /(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
+                    /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                    /* webpackMode: "lazy" */
+                    `../../${path}.mjs`
+                )
+            }
+
             return {success: true, path}
         } catch (e) {
             console.error(`Canvas Worker: Failed to load module ${path}`, e);
