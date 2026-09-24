@@ -45,23 +45,24 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object} deltas
+     * @returns {Boolean} true when an innerHTML or textContent update was emitted, which replaces the node's children
      * @protected
      */
     compareAttributes({deltas, oldVnode, vnode, vnodeMap}) {
         // If either vnode is a component placeholder (indicated by the presence of componentId),
         // we must not compare element attributes.
         if (vnode.componentId || oldVnode.componentId) {
-            return deltas;
+            return false
         }
 
         // Fragments are "transparent" containers. They do not have physical DOM attributes or styles.
         // Therefore, we skip attribute comparison entirely.
         if (vnode.nodeName === 'fragment') {
-            return deltas
+            return false
         }
 
-        let delta = {},
+        let delta           = {},
+            replacesContent = false,
             attributes, value, keys, styles, add, remove;
 
         if (vnode.vtype === 'text' && vnode.textContent !== oldVnode.textContent) {
@@ -197,18 +198,16 @@ class Helper extends Base {
             }
 
             if (Object.keys(delta).length > 0) {
-                delta.id = vnode.id;
+                delta.id        = vnode.id;
+                replacesContent = Object.hasOwn(delta, 'innerHTML') || Object.hasOwn(delta, 'textContent');
 
                 // Markup replaces the old children, so it waits behind the moves, as their removal does: a child moving
                 // to a node the diff reaches later would be detached before its move could find it
-                deltas[
-                    (Object.hasOwn(delta, 'innerHTML') || Object.hasOwn(delta, 'textContent')) &&
-                    this.hasMovedDescendant(oldVnode, vnodeMap) ? 'remove' : 'default'
-                ].push(delta)
+                deltas[replacesContent && this.hasMovedDescendant(oldVnode, vnodeMap) ? 'remove' : 'default'].push(delta)
             }
         }
 
-        return deltas
+        return replacesContent
     }
 
     /**
@@ -291,12 +290,12 @@ class Helper extends Base {
             len           = Math.max(childNodes.length, oldChildNodes.length),
             childNode, nodeInNewTree, oldChildNode, oldChildNodeId;
 
-        me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
+        const replacesContent = me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
 
         if (childNodes.length === 0 && oldChildNodes.length > 1) {
-            // Setting textContent or innerHTML natively replaces every child node, and the remove
-            // bucket applies after it: a removeAll here would erase the content just written.
-            if (vnode.textContent === undefined && vnode.innerHTML === undefined) {
+            // An emitted textContent or innerHTML update replaces every child natively, and a removeAll behind it
+            // would erase the content just written. Without one (no content, or content unchanged), clear here.
+            if (!replacesContent) {
                 deltas.remove.push({action: 'removeAll', parentId: vnodeId})
             }
 

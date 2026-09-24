@@ -447,4 +447,18 @@ test.describe('Neo.vdom.Helper', () => {
 
         expect(deltas).toEqual([{action: 'removeAll', parentId: 'list'}]);
     });
+
+    // An unchanged empty value emits no update, so nothing else would clear the children
+    for (const key of ['text', 'html']) {
+        test(`Children collapsing under an unchanged empty ${key} still clear the node`, () => {
+            let vdom = {id: 'parent', [key]: '', cn: [{id: 'a', tag: 'span', text: 'A'}, {id: 'b', tag: 'span', text: 'B'}]};
+            let { vnode } = VdomHelper.create({vdom});
+
+            vdom = {id: 'parent', [key]: '', cn: []};
+
+            let { deltas } = VdomHelper.update({vdom, vnode});
+
+            expect(deltas).toEqual([{action: 'removeAll', parentId: 'parent'}]);
+        })
+    }
 });
