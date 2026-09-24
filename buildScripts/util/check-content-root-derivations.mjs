@@ -11,7 +11,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const ROOT       = path.resolve(__dirname, '../..');
 const BASELINE   = path.join(__dirname, 'check-content-root-derivations-baseline.json');
-const SELF       = path.relative(ROOT, __filename).split(path.sep).join('/');
 
 /**
  * @module buildScripts/util/check-content-root-derivations
@@ -24,13 +23,18 @@ const SELF       = path.relative(ROOT, __filename).split(path.sep).join('/');
  *
  * ## What counts
  *
- * A string or template literal naming `resources/content` in engine code. A relative path means
- * nothing until something resolves it — `process.cwd()`, a `projectRoot`, `__dirname`, a glob's `cwd`,
- * the page's base path at runtime — so the literal is the derivation, whatever it is joined to later.
- * That rule needs no data flow. A declared root carries no such literal: it arrives as a value.
+ * A path into `resources/content` spelled from literals in engine code, wherever the literals first
+ * form it: one string or template literal, consecutive literal arguments of one call
+ * (`path.join(root, 'resources', 'content')`), or consecutive literal operands of one `+` chain. A
+ * relative path means nothing until something resolves it — `process.cwd()`, a `projectRoot`,
+ * `__dirname`, a glob's `cwd`, the page's base path at runtime — so the spelled path is the derivation,
+ * whatever it is joined to later. A declared root carries no such spelling: it arrives as a value.
  *
- * Comments do not count, because the parse drops them: prose about the old layout reads nothing.
- * This module's own detector string is the one exemption.
+ * Out of reach, by construction: a path assembled from non-literal values, such as a variable holding
+ * one segment. No static scan of literals can see it.
+ *
+ * Comments do not count, because the parse drops them. The detector is a pattern, not a string, so
+ * this module is scanned like every other.
  *
  * ## Why a baseline
  *
@@ -54,28 +58,103 @@ export const SCAN_SURFACE = Object.freeze(['apps/**/*.mjs', 'buildScripts/**/*.m
 const SCAN_ROOTS = Object.freeze(['apps', 'buildScripts', 'src']);
 
 /**
- * @summary The mirror's repository-relative root, as a derivation names it.
- * @type {String}
+ * @summary The mirror's repository-relative root, as a derivation spells it.
+ * @type {RegExp}
  */
-const MIRROR = 'resources/content';
+const MIRROR = /resources\/content/;
 
 /**
- * @summary Finds every string and template literal in a module that names the mirror.
+ * @summary The text of a node that is a complete string on its own: a string literal, or a template
+ * literal without expressions.
+ * @param {Object} node
+ * @returns {String|null}
+ */
+function literalText(node) {
+    if (node.type === 'Literal' && typeof node.value === 'string') return node.value;
+    if (node.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0].value.cooked;
+
+    return null
+}
+
+/**
+ * @summary Maximal runs of consecutive nodes that are literals, as their texts.
+ * @param {Object[]} nodes
+ * @returns {Array<{texts: String[], line: Number}>}
+ */
+function literalRuns(nodes) {
+    const runs = [];
+    let   run  = null;
+
+    for (const node of nodes) {
+        const text = literalText(node);
+
+        if (text === null) {
+            run = null
+        } else {
+            if (!run) {
+                run = {texts: [], line: node.loc.start.line};
+                runs.push(run)
+            }
+
+            run.texts.push(text)
+        }
+    }
+
+    return runs
+}
+
+/**
+ * @summary The operands of a `+` chain in source order, following its left spine.
+ * @param {Object} node
+ * @param {WeakSet} chainNodes Receives every `+` node of the spine, so the walk visits each chain once.
+ * @returns {Object[]}
+ */
+function flattenConcat(node, chainNodes) {
+    if (node.type === 'BinaryExpression' && node.operator === '+') {
+        chainNodes.add(node);
+        return [...flattenConcat(node.left, chainNodes), node.right]
+    }
+
+    return [node]
+}
+
+/**
+ * @summary Finds every path into the mirror a module spells from literals, one finding where the
+ * literals first form it.
  * @param {String} source Module source.
  * @param {String} file Repo-relative path, carried into each finding.
  * @returns {Array<{file: String, line: Number, literal: String}>} One finding per occurrence.
  */
 export function findMirrorLiterals(source, file) {
-    const ast      = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module', locations: true}),
-          findings = [];
+    const ast        = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module', locations: true}),
+          chainNodes = new WeakSet(),
+          findings   = [];
+
+    // A run forms the path only if no single literal in it already does: that literal is its own finding.
+    const checkRuns = (runs, separator) => runs.forEach(({texts, line}) => {
+        const joined = texts.join(separator).replace(/\/{2,}/g, '/');
+
+        if (texts.length > 1 && MIRROR.test(joined) && !texts.some(text => MIRROR.test(text))) {
+            findings.push({file, line, literal: joined})
+        }
+    });
 
     walkAst(ast, node => {
         const text = node.type === 'Literal'         ? node.value
                    : node.type === 'TemplateElement' ? node.value.cooked
                    : null;
 
-        if (typeof text === 'string' && text.includes(MIRROR)) {
+        if (typeof text === 'string' && MIRROR.test(text)) {
             findings.push({file, line: node.loc.start.line, literal: text})
+        }
+
+        if (node.type === 'CallExpression') {
+            checkRuns(literalRuns(node.arguments), '/')
+        }
+
+        // The walk is pre-order, so a chain's outermost `+` arrives first and claims its spine.
+        if (node.type === 'BinaryExpression' && node.operator === '+' && !chainNodes.has(node)) {
+            checkRuns(literalRuns(flattenConcat(node, chainNodes)), '')
         }
     });
 
@@ -130,7 +209,7 @@ export function diffAgainstBaseline(findings, baseline) {
 if (isEntryModule(import.meta.url)) {
     const files = execFileSync('git', ['ls-files', ...SCAN_ROOTS], {cwd: ROOT, encoding: 'utf8'})
         .split('\n')
-        .filter(file => file.endsWith('.mjs') && file !== SELF);
+        .filter(file => file.endsWith('.mjs'));
 
     const findings            = files.flatMap(file => findMirrorLiterals(readFileSync(path.join(ROOT, file), 'utf8'), file));
     const baseline            = JSON.parse(readFileSync(BASELINE, 'utf8'));
@@ -139,7 +218,7 @@ if (isEntryModule(import.meta.url)) {
     if (added.length) {
         const addedKeys = new Set(added.map(literalKey));
 
-        console.error(`\x1b[31mcheck-content-root-derivations: ${added.length} NEW path(s) into resources/content:\x1b[0m`);
+        console.error(`\x1b[31mcheck-content-root-derivations: ${added.length} NEW path(s) into the frozen content mirror:\x1b[0m`);
         findings.filter(entry => addedKeys.has(literalKey(entry)))
             .forEach(entry => console.error(`  ${entry.file}:${entry.line} '${entry.literal}'`));
         console.error(`
