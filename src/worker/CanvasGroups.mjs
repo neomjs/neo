@@ -51,6 +51,18 @@ class CanvasGroups {
     }
 
     /**
+     * @summary Mints a fresh group id without needing a secure context.
+     *
+     * The group is resolved at every boot, before any worker exists. `crypto.randomUUID` exists only in a secure
+     * context, so an app served over plain http whose window id comes from SSR — which boots without it today —
+     * would throw here. `crypto.getRandomValues` has no such gate.
+     * @returns {String} 32 hex characters
+     */
+    static mint() {
+        return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+    }
+
+    /**
      * @summary Decides which canvas group a booting window joins — the carrier rule.
      *
      * Windows of one browsing-context group share a renderer process, so they may share one canvas SharedWorker.

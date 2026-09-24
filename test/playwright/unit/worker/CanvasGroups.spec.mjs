@@ -57,6 +57,22 @@ test.describe('Neo.worker.CanvasGroups', () => {
             expect(CanvasGroups.groupFromWorkerName(`${CANVAS_WORKER_NAME_PREFIX}g1`)).toBe('g1');
             expect(CanvasGroups.groupFromWorkerName('neomjs-canvas-worker')).toBeNull();
             expect(CanvasGroups.groupFromWorkerName(undefined)).toBeNull()
+        });
+
+        test('the mint needs no secure context: unique ids with `crypto.randomUUID` gone', () => {
+            // What an insecure origin looks like to the boot: the method is absent, not throwing
+            Object.defineProperty(crypto, 'randomUUID', {configurable: true, value: undefined});
+
+            try {
+                const ids = new Set(Array.from({length: 100}, () => CanvasGroups.mint()));
+
+                expect(ids.size).toBe(100);
+                ids.forEach(id => expect(id).toMatch(/^[0-9a-f]{32}$/))
+            } finally {
+                delete crypto.randomUUID
+            }
+
+            expect(typeof crypto.randomUUID, 'the rig\'s crypto is restored').toBe('function')
         })
     });
 

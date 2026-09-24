@@ -697,7 +697,7 @@ class Manager extends Base {
 
         group = CanvasGroups.resolveCarrier({
             hasLiveOpener : Boolean(window.opener && !window.opener.closed),
-            mint          : () => crypto.randomUUID(),
+            mint          : CanvasGroups.mint,
             navigationType: performance.getEntriesByType?.('navigation')[0]?.type,
             stored
         });
