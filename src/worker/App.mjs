@@ -98,6 +98,9 @@ class App extends Base {
         // convenience shortcuts
         Neo.applyDeltas    = me.applyDeltas   .bind(me);
         Neo.setCssVariable = me.setCssVariable.bind(me);
+
+        me.canvasGroups = Neo.create(CanvasGroups, {isDeparted: windowId => me.isWindowDeparted(windowId)});
+        me.hiddenTick   = Neo.create(HiddenTick,   {worker: me})
     }
 
     /**
@@ -232,6 +235,18 @@ class App extends Base {
     }
 
     /**
+     * Destroys the instances construct() created
+     */
+    destroy() {
+        let me = this;
+
+        me.canvasGroups?.destroy();
+        me.hiddenTick?.destroy();
+
+        super.destroy()
+    }
+
+    /**
      * Remote method to use inside main threads for destroying neo based class instances.
      *
      * @warning This provides legacy testing support for environments where Neural Link
@@ -315,14 +330,15 @@ class App extends Base {
     windowAddons = {}
 
     /**
-     * @member {Neo.worker.HiddenTick} hiddenTick=new HiddenTick(this) Synced by onConnect() and onVisibilityChange()
+     * Created in construct(); synced by onConnect() and onVisibilityChange()
+     * @member {Neo.worker.HiddenTick|null} hiddenTick=null
      */
-    hiddenTick = new HiddenTick(this)
+    hiddenTick = null
     /**
-     * @member {Neo.worker.CanvasGroups} canvasGroups Routes canvas-bound traffic per window group and gates it on
-     * the group's readiness
+     * Created in construct(); routes canvas-bound traffic per window group and gates it on the group's readiness
+     * @member {Neo.worker.CanvasGroups|null} canvasGroups=null
      */
-    canvasGroups = new CanvasGroups({isDeparted: windowId => this.isWindowDeparted(windowId)})
+    canvasGroups = null
 
     /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet

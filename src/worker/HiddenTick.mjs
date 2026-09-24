@@ -1,21 +1,41 @@
+import Base from '../core/Base.mjs';
+
 /**
  * @summary Ticks each hidden window from its worker: a hidden document throttles its own timers, not a worker's or its messages.
  *
  * @class Neo.worker.HiddenTick
+ * @extends Neo.core.Base
  */
-class HiddenTick {
+class HiddenTick extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.worker.HiddenTick'
+         * @protected
+         */
+        className: 'Neo.worker.HiddenTick',
+        /**
+         * Tick period in ms
+         * @member {Number} interval=1000
+         */
+        interval: 1000,
+        /**
+         * The worker whose ports carry the ticks
+         * @member {Neo.worker.Base|null} worker=null
+         */
+        worker: null
+    }
+
     /**
      * @member {Map<String, Number>} timers=new Map() Running interval ids, keyed by windowId
      */
     timers = new Map()
 
     /**
-     * @param {Neo.worker.Base} worker          The worker whose ports carry the ticks
-     * @param {Number}          [interval=1000] Tick period in ms
+     * Stops every tick before the instance releases its members
      */
-    constructor(worker, interval=1000) {
-        this.interval = interval;
-        this.worker   = worker
+    destroy() {
+        this.timers.forEach(timer => clearInterval(timer));
+        super.destroy()
     }
 
     /**
@@ -52,4 +72,4 @@ class HiddenTick {
     }
 }
 
-export default HiddenTick;
+export default Neo.setupClass(HiddenTick);
