@@ -557,6 +557,333 @@ class GestureDriver extends Base {
     }
 
     /**
+     * @summary Drives the rail beat through real simulated pointer input: the pane's tab takes
+     * focus, the header's pin action folds the pane into its edge rail, the rail tab reveals it as
+     * an elevated pane, and the reveal's pin brings it home. Every wait reads committed document
+     * truth or the overlay's own state, never a DOM inference; the receipt carries the three
+     * phases and the document before and after the round trip. A fold that commits and then
+     * fails — a rail that never grows the tab, a reveal without its pin, a driver destroyed
+     * mid-beat — is settled by {@link #settleRailFold}, so the cue leaves no residue.
+     * @param {Object} step
+     * @param {String} step.itemId The live dock item to fold away and bring back.
+     * @param {String} step.sourceNodeId The edge-zone tabs node currently holding it.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for each phase to settle.
+     * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
+     * @param {Number} [options.moveSteps=12] Samples per path leg.
+     * @param {Number} [options.revealDelay=600] Milliseconds the reveal stays open before the pin.
+     * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
+     * @returns {Promise<Object>}
+     */
+    async executeRailStep(step, {attempts=180, moveDelay=16, moveSteps=12, revealDelay=600, showCursor=false}={}) {
+        return this.runGesture(async run => {
+            let me                     = run.workspace, driver = this,
+                {itemId, sourceNodeId} = step || {},
+                document               = me.dockModel,
+                sourceNode             = document?.nodes?.[sourceNodeId],
+                cursorDot              = null,
+                lastPoint              = null,
+                // the fold's aftermath, read by the settle on every failed exit — including the one a
+                // destroyed driver takes through `catch`, where nothing trapped may be awaited again
+                collapsed              = false,
+                overlay                = null,
+                rail                   = null,
+                railed                 = false,
+                fail                   = async (errors, proof={}) => {
+                    let settled = await driver.settleRailFold({collapsed, itemId, overlay, pending: run.pending, rail, railed, sourceNodeId, workspace: me});
+
+                    return {applied: false, errors: [...errors, ...settled.errors], proof: {...proof, settled}}
+                };
+
+            if (!itemId || sourceNode?.type !== 'tabs' || !sourceNode.items.includes(itemId)) {
+                return {applied: false, errors: ['rail step must name a live item held by a tabs node']}
+            }
+
+            try {
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                let host          = me.getDockHost(),
+                    WindowManager = (await driver.trap(import('../../../src/manager/Window.mjs'))).default,
+                    tabs          = host?.down({dockNodeId: sourceNodeId}),
+                    button        = tabs?.getTabAtIndex(sourceNode.items.indexOf(itemId)),
+                    window        = WindowManager.get(button?.windowId),
+                    windowId      = button?.windowId;
+
+                if (!button || !tabs?.getTabBar || !window?.innerRect) {
+                    return {applied: false, errors: ['rail gesture surfaces are not ready']}
+                }
+
+                let opt = (clientX, clientY, buttons) => ({
+                        bubbles   : true,
+                        button    : 0,
+                        buttons,
+                        cancelable: true,
+                        clientX,
+                        clientY,
+                        screenX   : window.innerRect.x + clientX,
+                        screenY   : window.innerRect.y + clientY
+                    }),
+                    waitUntil = predicate => driver.waitFor(predicate, {attempts, delay: 16}),
+                    // A focus-gated action or a freshly grown rail tab exists as a component before
+                    // its node is painted, so the geometry read polls instead of judging the first frame.
+                    centerOf  = async component => {
+                        let rect = null;
+
+                        for (let attempt = 0; attempt < attempts && !rect?.width; attempt++) {
+                            attempt && await driver.trap(driver.timeout(16));
+                            [rect] = await driver.trap(component.getDomRect([component.id], component.windowId))
+                        }
+
+                        if (!rect?.width) {
+                            throw new Error(`'${component.id}' has no rendered geometry`)
+                        }
+
+                        return {x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2)}
+                    },
+                    moveTo    = (x, y) => {
+                        if (cursorDot) {
+                            cursorDot.style = {...cursorDot.style, left: `${x - 8}px`, top: `${y - 8}px`}
+                        }
+
+                        return driver.simulateEvent(run, {events: [{
+                            delay   : moveDelay,
+                            targetId: 'document.body',
+                            type    : 'mousemove',
+                            windowId,
+                            options : opt(x, y, 0)
+                        }]})
+                    },
+                    walkTo    = async point => {
+                        let from  = lastPoint,
+                            steps = from ? Math.max(2, Math.floor(moveSteps)) : 1;
+
+                        for (let index = 1; index <= steps; index++) {
+                            let ratio = index / steps;
+
+                            await driver.trap(moveTo(
+                                Math.round(from ? from.x + (point.x - from.x) * ratio : point.x),
+                                Math.round(from ? from.y + (point.y - from.y) * ratio : point.y)
+                            ))
+                        }
+
+                        lastPoint = point
+                    },
+                    // A click is the pressed pair plus the click a browser derives from it: synthetic
+                    // events derive nothing, so the button's handler needs the third event dispatched.
+                    click     = async component => {
+                        let point = await centerOf(component);
+
+                        await walkTo(point);
+
+                        return driver.simulateEvent(run, {events: [{
+                            targetId: component.id,
+                            type    : 'mousedown',
+                            windowId,
+                            options : opt(point.x, point.y, 1)
+                        }, {
+                            delay   : 60,
+                            targetId: component.id,
+                            type    : 'mouseup',
+                            windowId,
+                            options : opt(point.x, point.y, 0)
+                        }, {
+                            targetId: component.id,
+                            type    : 'click',
+                            windowId,
+                            options : opt(point.x, point.y, 0)
+                        }]})
+                    },
+                    start     = await centerOf(button);
+
+                showCursor && (cursorDot = driver.createFilmCursorDot(start.x, start.y, windowId));
+
+                // 1. focus: the header's contextual actions follow real focus (`containsFocus`, kept by
+                // manager.Focus), which no synthetic mouse event moves — so the tab takes the pointer
+                // for the camera and then the focus by name, and the pin action is awaited on glass.
+                await driver.trap(click(button));
+                button.focus?.();
+
+                let pinAction     = null,
+                    focused       = await driver.trap(waitUntil(() => {
+                        pinAction = tabs.getTabBar()?.getAction?.('pin') ?? null;
+
+                        return tabs.containsFocus === true && Boolean(pinAction) && pinAction.hidden !== true && pinAction.mounted === true
+                    }));
+
+                if (!focused) {
+                    return {applied: false, errors: [`the pin action never became visible for '${itemId}'`]}
+                }
+
+                // The round trip's baseline is the focused state: the click above may have moved the
+                // node's active item, and that is not what the beat claims to leave unchanged.
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                let documentBefore = WorkspaceDocument.clone(me.dockModel);
+
+                // 2. fold: the header's pin folds the pane into its edge rail
+                await driver.trap(click(pinAction));
+
+                collapsed = await driver.trap(waitUntil(() => me.dockModel?.items?.[itemId]?.autoHidden === true));
+
+                if (!collapsed) {
+                    return fail([`'${itemId}' never reached auto-hidden truth`], {collapsed})
+                }
+
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                // 3. reveal: the rail tab that now carries the item, on whichever edge rail grew it
+                let railTab = null;
+
+                railed = await driver.trap(waitUntil(() => {
+                        let rails = host.down({ntype: 'dashboard-dock-rail'}, false);
+
+                        rails   = Array.isArray(rails) ? rails : rails ? [rails] : [];
+                        railTab = null;
+                        rail    = rails.find(candidate => {
+                            let tabsForItem = candidate.down?.({dockItemId: itemId}, false);
+
+                            tabsForItem = Array.isArray(tabsForItem) ? tabsForItem : tabsForItem ? [tabsForItem] : [];
+                            railTab     = tabsForItem.find(entry => entry.cls?.includes?.('neo-dashboard-dock-rail-tab')) ?? null;
+
+                            return Boolean(railTab)
+                        }) ?? null;
+
+                        return Boolean(railTab && rail?.revealOverlay)
+                    }));
+
+                if (!railed) {
+                    return fail([`the rail never showed a tab for '${itemId}'`], {collapsed})
+                }
+
+                await driver.trap(click(railTab));
+
+                overlay = rail.revealOverlay;
+
+                let revealed = await driver.trap(waitUntil(() => overlay.visible === true && overlay.revealPaneItemId === itemId));
+
+                if (!revealed) {
+                    return fail([`the rail tab did not reveal '${itemId}'`], {collapsed, revealed})
+                }
+
+                revealDelay > 0 && await driver.trap(driver.timeout(revealDelay));
+
+                // 4. home: the reveal's own pin, a real tab-header toolbar action
+                let pinBack = overlay.down({action: 'pin'});
+
+                if (!pinBack) {
+                    return fail(['the reveal offers no pin action'], {collapsed, revealed})
+                }
+
+                await driver.trap(click(pinBack));
+
+                let restored = await driver.trap(waitUntil(() =>
+                    me.dockModel?.items?.[itemId]?.autoHidden === false
+                    && me.dockModel?.nodes?.[sourceNodeId]?.items?.includes(itemId)));
+
+                if (!restored) {
+                    return fail([`'${itemId}' did not come home to '${sourceNodeId}'`], {collapsed, revealed})
+                }
+
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                let documentAfter      = WorkspaceDocument.clone(me.dockModel),
+                    documentsUnchanged = JSON.stringify(documentAfter) === JSON.stringify(documentBefore);
+
+                return {
+                    applied: true,
+                    errors : [],
+                    proof  : {collapsed, documentAfter, documentBefore, documentsUnchanged, edge: rail.edge ?? null, restored, revealed}
+                }
+            } catch (error) {
+                return fail([error?.message || String(error)], {collapsed})
+            } finally {
+                await driver.retireFilmCursorDot(cursorDot)
+            }
+        })
+    }
+
+    /**
+     * @summary Settles a rail beat that failed after its fold committed, so the cue never leaves
+     * residue. An open reveal is runtime intent and is dismissed through the rail's own state
+     * machine, never by a late pointer. A fold whose rail never grew a tab would leave the pane
+     * unreachable, so the pane comes home through the workspace's document operation; a fold
+     * whose rail tab exists is kept, because the pane is one click away. The settle also runs
+     * after a destroyed driver's cancellation, so it borrows nothing the destruction retires: the
+     * workspace comes from the run, not from this driver's config, and the poll is a plain timer,
+     * not {@link Neo.core.Base#timeout}. The input in flight when the cue failed settles first —
+     * a destroyed driver's trap rejects while that input's receipt can still commit the fold — and
+     * the fold is then read from the live document, never from a flag the cancellation outran.
+     * @param {Object} state
+     * @param {Boolean} state.collapsed Whether the executor saw the fold commit before it failed.
+     * @param {String} state.itemId
+     * @param {Object|null} state.overlay The rail's reveal overlay, once the rail was found.
+     * @param {Promise|null} [state.pending] The input dispatch in flight when the cue failed.
+     * @param {Object|null} state.rail The edge rail carrying the item, once found.
+     * @param {Boolean} state.railed Whether the rail grew a tab for the item.
+     * @param {String} state.sourceNodeId The tabs node the pane came from.
+     * @param {Workstation.view.Workspace} state.workspace The run's workspace, alive after the driver.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=60] Poll attempts (16 ms each) for each settle step.
+     * @returns {Promise<Object>} `{committed, errors, foldKept, restoredHome, revealDismissed}`
+     * @protected
+     */
+    async settleRailFold({collapsed, itemId, overlay, pending, rail, railed, sourceNodeId, workspace}, {attempts=60}={}) {
+        let receipt = {committed: false, errors: [], foldKept: false, restoredHome: false, revealDismissed: false},
+            poll    = async predicate => {
+                for (let attempt = 0; attempt <= attempts; attempt++) {
+                    if (predicate()) {
+                        return true
+                    }
+
+                    attempt < attempts && await new Promise(resolve => setTimeout(resolve, 16))
+                }
+
+                return false
+            },
+            home      = () => workspace.dockModel?.items?.[itemId]?.autoHidden === false
+                && workspace.dockModel?.nodes?.[sourceNodeId]?.items?.includes(itemId) === true;
+
+        if (!workspace || workspace.isDestroyed) {
+            return receipt
+        }
+
+        await pending?.catch(() => {});
+
+        receipt.committed = collapsed === true || workspace.dockModel?.items?.[itemId]?.autoHidden === true;
+
+        if (!receipt.committed) {
+            return receipt
+        }
+
+        if (overlay?.visible === true && overlay.revealPaneItemId === itemId) {
+            rail?.revealMachine?.escape?.();
+
+            receipt.revealDismissed = await poll(() => overlay.visible !== true);
+            receipt.revealDismissed || receipt.errors.push(`the reveal for '${itemId}' stayed open after its dismissal`)
+        }
+
+        if (railed) {
+            receipt.foldKept = !home();
+            return receipt
+        }
+
+        let descriptor = {autoHidden: false, itemId, operation: 'setItemAutoHidden'},
+            result     = workspace.applyDockZoneOperation(descriptor);
+
+        if (!result?.document || result.errors?.length) {
+            receipt.errors.push(...(result?.errors?.length ? result.errors : [`'${itemId}' could not be brought home after the failed fold`]));
+            return receipt
+        }
+
+        await workspace.onDockZoneDocumentChange(result.document, descriptor);
+
+        receipt.restoredHome = await poll(home);
+        receipt.restoredHome || receipt.errors.push(`'${itemId}' did not come home to '${sourceNodeId}' after the failed fold`);
+
+        return receipt
+    }
+
+    /**
      * @summary Polls until the base drag has ARMED — a live proxy AND the async main-thread
      * `boundaryContainerRect` AND measured `itemRects` are all present: exactly the facts
      * the sort zone needs before it will sample a boundary exit.

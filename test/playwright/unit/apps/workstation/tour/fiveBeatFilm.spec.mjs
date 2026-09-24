@@ -74,7 +74,7 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         // showcase moves the travelled pane afterwards
         expect(fiveBeatFilmScript.scenes.map(scene => scene.id)).toEqual([
             'film-cold-open', 'film-morph', 'film-tear-out', 'film-second-window',
-            'film-reintegration', 'film-showcase', 'film-perspectives-undo', 'film-signature'
+            'film-reintegration', 'film-rails', 'film-showcase', 'film-perspectives-undo', 'film-signature'
         ]);
         fiveBeatFilmScript.scenes.forEach(scene => {
             expect(scene.steps.length, `${scene.id} must carry runnable steps`).toBeGreaterThan(0);
@@ -116,10 +116,10 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 103s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 111s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(103);
+        expect(total).toBe(111);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });

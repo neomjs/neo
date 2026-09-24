@@ -218,6 +218,222 @@ test.describe('film birth pacing retains the pressed-pointer bracket', () => {
     })
 });
 
+/**
+ * @summary A rail-beat driver over a stub host: the pane's tab, its header pin action, the rail
+ * and its reveal answer clicks by flipping the document and the overlay the way the product does.
+ * @param {Object} [options={}]
+ * @param {Boolean} [options.railAppears=true] Whether the rail grows a tab once the item folds.
+ * @param {Boolean} [options.revealOffersPin=true] Whether the reveal carries its pin action.
+ * @param {Boolean} [options.destroyOnPinCommit=false] Destroy the driver inside the pin click's own
+ *     dispatch, right after the fold committed: the executor's trap rejects before it can read the fold.
+ * @returns {Promise<Object>}
+ */
+async function railFixture({destroyOnPinCommit=false, railAppears=true, revealOffersPin=true}={}) {
+    const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs');
+    const windowId                 = 'gesture-rail-window', calls = [], cursors = [],
+          document  = {
+              items: {audit: {autoHidden: false}, metrics: {autoHidden: false, pinned: false}},
+              nodes: {source: {type: 'tabs', activeItemId: 'audit', items: ['metrics', 'audit']}}
+          },
+          rect      = async () => [{x: 100, y: 100, width: 40, height: 20}],
+          // real focus is what mounts a focus-gated action; the synthetic click alone moves none
+          button    = {id: 'rail-source-tab', windowId, getDomRect: rect, focus() {tabs.containsFocus = true; pinAction.mounted = true}},
+          pinAction = {id: 'rail-pin-action', action: 'pin', hidden: true, mounted: false, windowId, getDomRect: rect},
+          railTab   = {id: 'rail-tab', cls: ['neo-dashboard-dock-rail-tab'], dockItemId: 'metrics', windowId, getDomRect: rect},
+          pinBack   = {id: 'reveal-pin', action: 'pin', windowId, getDomRect: rect},
+          overlay   = {revealPaneItemId: null, visible: false, down: config => config.action === 'pin' && revealOffersPin ? pinBack : null},
+          rail      = {
+              edge: 'right', railed: false, revealOverlay: overlay,
+              // the reveal's intent owner: Escape retires runtime reveal intent without a document operation
+              revealMachine: {escape() {calls.push('reveal:escape'); overlay.visible = false; overlay.revealPaneItemId = null}},
+              down(config, first=true) {
+                  const hit = rail.railed && config.dockItemId === 'metrics';
+                  return first ? (hit ? railTab : null) : (hit ? [railTab] : [])
+              }
+          },
+          tabs      = {containsFocus: false, getTabAtIndex: () => button, getTabBar: () => ({getAction: name => name === 'pin' ? pinAction : null})},
+          workspace = {
+              id         : 'gesture-rail-workspace', isDestroyed: false, dockModel: document, refreshPromise: null,
+              getDockHost: () => ({
+                  down(config, first=true) {
+                      if (config.dockNodeId === 'source') return tabs;
+                      if (config.ntype === 'dashboard-dock-rail') return first ? rail : [rail];
+                      return first ? null : []
+                  }
+              }),
+              // the holder contract: the reducer returns a new document, the view-sync is the only writer
+              applyDockZoneOperation(descriptor) {
+                  calls.push(`operation:${descriptor.operation}:${descriptor.autoHidden}`);
+                  if (descriptor.operation !== 'setItemAutoHidden') return {document: workspace.dockModel, errors: [`unexpected ${descriptor.operation}`]};
+                  const next = structuredClone(workspace.dockModel);
+                  next.items[descriptor.itemId].autoHidden = descriptor.autoHidden;
+                  descriptor.autoHidden || (next.nodes.source.items = ['metrics', 'audit']);
+                  return {document: next, errors: []}
+              },
+              async onDockZoneDocumentChange(next) {workspace.dockModel = next}
+          },
+          driver    = Neo.create(GestureDriver, {workspace}),
+          service   = driver.interactionService;
+
+    WindowManager.register({id: windowId, windowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+    // the film cursor without a DOM: creation and retirement are recorded on the prototype, because
+    // `core.Base#destroy` strips an instance's own members and a destroyed driver still retires its dot
+    const proto                 = Object.getPrototypeOf(driver),
+          originalCursorHelpers = {createFilmCursorDot: proto.createFilmCursorDot, retireFilmCursorDot: proto.retireFilmCursorDot};
+    proto.createFilmCursorDot = () => {
+        const dot = {isDestroyed: false, destroy() {dot.isDestroyed = true}};
+        calls.push('cursor:create');
+        cursors.push(dot);
+        return dot
+    };
+    proto.retireFilmCursorDot = async dot => {
+        if (!dot || dot.isDestroyed) return false;
+        calls.push('cursor:retire');
+        dot.destroy();
+        return true
+    };
+    service.simulateEvent = async ({events}) => {
+        for (const event of events) {
+            calls.push(`${event.type}:${event.targetId}`);
+            if (event.type !== 'click') continue;
+            if (event.targetId === button.id)    {pinAction.hidden = false; document.nodes.source.activeItemId = 'metrics'}
+            if (event.targetId === pinAction.id) {
+                document.items.metrics.autoHidden = true; document.nodes.source.items = ['audit']; rail.railed = railAppears;
+                // the fold's receipt has landed; the driver dies before the executor can read it
+                destroyOnPinCommit && driver.destroy()
+            }
+            if (event.targetId === railTab.id)   {overlay.visible = true; overlay.revealPaneItemId = 'metrics'}
+            if (event.targetId === pinBack.id)   {document.items.metrics.autoHidden = false; document.nodes.source.items = ['metrics', 'audit']; overlay.visible = false}
+        }
+        return true
+    };
+    service.dispatch = async ({type}) => {calls.push(type); return true};
+
+    return {
+        calls, cursors, driver, overlay, service, workspace,
+        execute(options={}) {
+            return driver.executeRailStep({itemId: 'metrics', sourceNodeId: 'source'}, {moveDelay: 0, moveSteps: 2, revealDelay: 0, ...options})
+        },
+        cleanup() {
+            driver.isDestroyed || driver.destroy();
+            Object.assign(proto, originalCursorHelpers);
+            WindowManager.unregister(windowId)
+        }
+    }
+}
+
+test.describe('the rail beat folds a pane away and brings it home through the pointer', () => {
+    test('focus, fold, reveal and pin back arrive as clicks in that order, and the document round-trips', async () => {
+        const fixture = await railFixture();
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            expect(receipt.proof).toMatchObject({collapsed: true, documentsUnchanged: true, edge: 'right', restored: true, revealed: true});
+            expect(fixture.calls.filter(call => call.startsWith('click:')))
+                .toEqual(['click:rail-source-tab', 'click:rail-pin-action', 'click:rail-tab', 'click:reveal-pin']);
+            expect(fixture.calls.filter(call => call.startsWith('mousedown:'))).toHaveLength(4);
+            expect(fixture.calls.filter(call => call.startsWith('mouseup:'))).toHaveLength(4);
+            expect(fixture.driver.activeRuns.size).toBe(0)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a rail that never grows the tab fails by name and brings the pane home through the document, not the pointer', async () => {
+        const fixture = await railFixture({railAppears: false});
+        try {
+            const receipt = await fixture.execute({attempts: 3});
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(["the rail never showed a tab for 'metrics'"]);
+            expect(receipt.proof).toMatchObject({collapsed: true, settled: {committed: true, errors: [], foldKept: false, restoredHome: true, revealDismissed: false}});
+            // the pane is reachable again: auto-hidden is off and its source node lists it
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(false);
+            expect(fixture.workspace.dockModel.nodes.source.items).toContain('metrics');
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action']);
+            expect(fixture.calls).toContain('operation:setItemAutoHidden:false');
+            expect(fixture.calls).not.toContain('reveal:escape')
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('destruction while a reveal is genuinely open dismisses it through its owner, keeps the fold and clicks no late pin', async () => {
+        const fixture = await railFixture();
+        try {
+            const railClicked = deferred(), original = fixture.service.simulateEvent;
+            fixture.service.simulateEvent = async data => {
+                const result = await original(data);
+                data.events.some(event => event.type === 'click' && event.targetId === 'rail-tab') && railClicked.resolve();
+                return result
+            };
+            // the reveal opens on the rail-tab click and the executor holds it for the reveal delay: destroy inside that hold
+            const pending = fixture.execute({revealDelay: 10000, showCursor: true});
+            await railClicked.promise;
+            await new Promise(setImmediate);
+            expect(fixture.overlay.visible, 'the reveal is open when the driver dies').toBe(true);
+            fixture.driver.destroy();
+            const receipt = await pending;
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors.length).toBeGreaterThan(0);
+            expect(receipt.proof).toMatchObject({collapsed: true, settled: {committed: true, foldKept: true, restoredHome: false, revealDismissed: true}});
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action', 'click:rail-tab']);
+            expect(fixture.calls).toContain('reveal:escape');
+            expect(fixture.overlay.visible).toBe(false);
+            // the rail tab exists, so the committed fold stays: the pane is one click away, not stranded
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(true);
+            expect(fixture.calls).not.toContain('operation:setItemAutoHidden:false');
+            // no cursor and no pressed pointer survive the cancellation
+            expect(fixture.cursors).toHaveLength(1);
+            expect(fixture.cursors[0].isDestroyed).toBe(true);
+            expect(fixture.calls).toContain('cursor:retire');
+            expect(fixture.calls.filter(call => call.startsWith('mousedown:'))).toHaveLength(fixture.calls.filter(call => call.startsWith('mouseup:')).length);
+            await fixture.driver.settledPromise;
+            expect(fixture.service.isDestroyed).toBe(true);
+            expect(fixture.workspace.isDestroyed).toBe(false)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('destruction after the fold committed but before the executor read it still brings the pane home', async () => {
+        const fixture = await railFixture({destroyOnPinCommit: true});
+        try {
+            const receipt = await fixture.execute({showCursor: true});
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors.length).toBeGreaterThan(0);
+            // the local flag was never assigned; the live document says the fold committed, and no rail was ever found
+            expect(receipt.proof).toMatchObject({collapsed: false, settled: {committed: true, foldKept: false, restoredHome: true, revealDismissed: false}});
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(false);
+            expect(fixture.workspace.dockModel.nodes.source.items).toContain('metrics');
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action']);
+            expect(fixture.calls).toContain('operation:setItemAutoHidden:false');
+            expect(fixture.cursors[0].isDestroyed).toBe(true);
+            expect(fixture.calls.filter(call => call.startsWith('mousedown:'))).toHaveLength(fixture.calls.filter(call => call.startsWith('mouseup:')).length);
+            await fixture.driver.settledPromise;
+            expect(fixture.service.isDestroyed).toBe(true);
+            expect(fixture.workspace.isDestroyed).toBe(false)
+        } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a reveal without a pin action fails by name, is dismissed through its owner, and the fold stays', async () => {
+        const fixture = await railFixture({revealOffersPin: false});
+        try {
+            const receipt = await fixture.execute();
+            expect(receipt.applied).toBe(false);
+            expect(receipt.errors).toEqual(['the reveal offers no pin action']);
+            expect(receipt.proof).toMatchObject({collapsed: true, revealed: true, settled: {committed: true, errors: [], foldKept: true, restoredHome: false, revealDismissed: true}});
+            expect(fixture.calls.filter(call => call.startsWith('click:'))).toEqual(['click:rail-source-tab', 'click:rail-pin-action', 'click:rail-tab']);
+            expect(fixture.overlay.visible).toBe(false);
+            expect(fixture.workspace.dockModel.items.metrics.autoHidden).toBe(true)
+        } finally {
+            fixture.cleanup()
+        }
+    })
+});
+
 test('vessel survival reads a bound provisional connection or committed owner, never a headless owner', async () => {
     const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
     let   connection                     = {windowId: 'live-vessel'}, owner = null;
