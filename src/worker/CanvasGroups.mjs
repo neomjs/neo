@@ -1,3 +1,5 @@
+import Base from '../core/Base.mjs';
+
 /**
  * @summary The sessionStorage key a window keeps its canvas group id under.
  * @type {String}
@@ -28,8 +30,28 @@ export const CANVAS_WORKER_NAME_PREFIX = 'neomjs-canvas-worker-';
  * Waits are settled here and never queued inside `sendMessage`, which must return the `Message` it actually sent.
  *
  * @class Neo.worker.CanvasGroups
+ * @extends Neo.core.Base
  */
-class CanvasGroups {
+class CanvasGroups extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.worker.CanvasGroups'
+         * @protected
+         */
+        className: 'Neo.worker.CanvasGroups',
+        /**
+         * `(windowId) => Boolean`: whether a window recently departed, so a late call from it rejects as its departure
+         * rather than as a routing defect
+         * @member {Function|null} isDeparted=null
+         */
+        isDeparted: null,
+        /**
+         * Milliseconds a group may stay silent before its start counts as failed
+         * @member {Number} startBound=30000
+         */
+        startBound: 30000
+    }
+
     /**
      * @summary Creates a typed rejection for a canvas call.
      * @param {String} code    `NEO_UNROUTABLE`, `NEO_WORKER_START_FAILED` or `NEO_DEAD_PORT`
@@ -107,17 +129,6 @@ class CanvasGroups {
     windows = new Map()
 
     /**
-     * @param {Object}   [options]
-     * @param {Function} [options.isDeparted] `(windowId) => Boolean`: whether a window recently departed, so a late
-     *     call from it rejects as its departure rather than as a routing defect
-     * @param {Number}   [options.startBound=30000] Milliseconds a group may stay silent before its start counts as failed
-     */
-    constructor({isDeparted=() => false, startBound=30000}={}) {
-        this.isDeparted = isDeparted;
-        this.startBound = startBound
-    }
-
-    /**
      * @summary Records that a window's canvas worker belongs to a group — announced by the window's main thread
      * before that worker exists, so routing never has to guess.
      * @param {Object} data
@@ -171,6 +182,28 @@ class CanvasGroups {
     }
 
     /**
+     * @summary Settles what the instance still holds before it releases its members: every silent-start bound is
+     * cleared, every wait rejects as a dead port, and every channel, routed or held for an announcement, is closed.
+     */
+    destroy() {
+        let me = this;
+
+        me.groups.forEach((entry, group) => {
+            clearTimeout(entry.timer);
+
+            entry.waiters.forEach(waiter => waiter.reject(
+                CanvasGroups.error('NEO_DEAD_PORT', `canvas group ${group} destroyed before it was ready`, {group, windowId: waiter.windowId})
+            ));
+
+            entry.port && me.retireChannel(entry.port)
+        });
+
+        me.pending.forEach(({port}) => me.retireChannel(port));
+
+        super.destroy()
+    }
+
+    /**
      * @summary Fails a group whose canvas worker did not start: every wait on it rejects, now and later.
      * A failure reported after the group became ready is ignored — a running worker's own errors are mirrored,
      * not treated as a failed start.
@@ -202,10 +235,13 @@ class CanvasGroups {
 
     /**
      * @summary Whether the group of this window is ready, so a canvas call may go straight through.
+     *
+     * Not `isReady`: that is `core.Base`'s reactive config, and applying its default creates an instance property
+     * that would shadow a method of the same name.
      * @param {String} [windowId]
      * @returns {Boolean}
      */
-    isReady(windowId) {
+    isReadyFor(windowId) {
         let group = this.resolve(windowId).group;
         return Boolean(group) && this.groups.get(group)?.state === 'ready'
     }
@@ -357,7 +393,7 @@ class CanvasGroups {
 
             // Late work from a window that just left is that window's departure, and never a sibling's to take
             return {
-                error: this.isDeparted(windowId)
+                error: this.isDeparted?.(windowId)
                     ? CanvasGroups.error('NEO_DEAD_PORT', `window ${windowId} departed`, {windowId})
                     : CanvasGroups.error('NEO_UNROUTABLE', `window ${windowId} belongs to no canvas group`, {windowId}),
                 group: null
@@ -450,4 +486,4 @@ class CanvasGroups {
     }
 }
 
-export default CanvasGroups;
+export default Neo.setupClass(CanvasGroups);

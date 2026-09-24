@@ -51,11 +51,53 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test.afterEach(() => {
-        ticker?.timers.forEach((timer, windowId) => ticker.stop(windowId))
+        ticker?.destroy()
+    });
+
+    test('it is registered in the namespace, and Neo.overwrites reaches the tick period of an extension', () => {
+        const previous = Neo.overwrites;
+
+        class Extended extends HiddenTick {
+            static config = {className: 'Test.Unit.Worker.HiddenTick.Extended'}
+        }
+
+        expect(Neo.worker.HiddenTick).toBe(HiddenTick);
+        expect(Neo.create(HiddenTick).interval).toBe(1000);
+
+        try {
+            Neo.overwrites = {Test: {Unit: {Worker: {HiddenTick: {Extended: {interval: 7}}}}}};
+            expect(Neo.create(Neo.setupClass(Extended)).interval).toBe(7)
+        } finally {
+            Neo.overwrites = previous
+        }
+    });
+
+    test('destroy() stops every window\'s tick', () => {
+        const {clearInterval: clear, setInterval: set} = globalThis,
+              intervals                                = new Set();
+
+        globalThis.setInterval   = (fn, ms) => {const id = set(fn, ms); intervals.add(id); return id};
+        globalThis.clearInterval = id => {intervals.delete(id); clear(id)};
+
+        try {
+            ticker = Neo.create(HiddenTick, {worker: createWorker(['w1', 'w2'])});
+
+            ticker.sync({hidden: true, windowId: 'w1'});
+            ticker.sync({hidden: true, windowId: 'w2'});
+
+            expect(intervals.size).toBe(2);
+
+            ticker.destroy();
+
+            expect(intervals.size).toBe(0)
+        } finally {
+            globalThis.setInterval   = set;
+            globalThis.clearInterval = clear
+        }
     });
 
     test('a hidden report starts one interval per window, and a repeated report does not stack a second', () => {
-        ticker = new HiddenTick(createWorker(['w1', 'w2']));
+        ticker = Neo.create(HiddenTick, {worker: createWorker(['w1', 'w2'])});
 
         ticker.sync({hidden: true, windowId: 'w1'});
 
@@ -69,7 +111,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test('a visible report stops that window and leaves the others ticking', () => {
-        ticker = new HiddenTick(createWorker(['w1', 'w2']));
+        ticker = Neo.create(HiddenTick, {worker: createWorker(['w1', 'w2'])});
 
         ticker.sync({hidden: true, windowId: 'w1'});
         ticker.sync({hidden: true, windowId: 'w2'});
@@ -79,7 +121,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test('ticks keep arriving on the interval, through the window\'s own port', async () => {
-        ticker = new HiddenTick(createWorker(['w1', 'w2']), 10);
+        ticker = Neo.create(HiddenTick, {interval: 10, worker: createWorker(['w1', 'w2'])});
 
         ticker.sync({hidden: true, windowId: 'w2'});
 
@@ -92,7 +134,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     });
 
     test('a window whose port is gone stops ticking, and no other window receives its tick', () => {
-        ticker = new HiddenTick(createWorker(['w-other']));
+        ticker = Neo.create(HiddenTick, {worker: createWorker(['w-other'])});
 
         ticker.sync({hidden: true, windowId: 'w-gone'});
         ticker.tick('w-gone');
@@ -105,7 +147,7 @@ test.describe('Neo.worker.HiddenTick', () => {
     test('retiring one of a window\'s two ports is not a departure: the tick goes through the port left', () => {
         const worker = createWorker(['w1', 'w1']);
 
-        ticker = new HiddenTick(worker);
+        ticker = Neo.create(HiddenTick, {worker});
         ticker.sync({hidden: true, windowId: 'w1'});
 
         // removePort records w1 as departed although w1 still holds a port, so a departure check would stop it here
