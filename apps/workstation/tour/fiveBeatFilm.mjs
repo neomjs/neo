@@ -13,10 +13,13 @@
  * - The recorded transcript derives from the captured cut, never the reverse: these captions
  *   are the working screenplay, and the final voice track re-times to the footage.
  *
- * Show-order: the film opens on the committed tear-out. The room is alive for a breath, then a
+ * Show-order: the film opens on the committed tear-out. The room is alive for a breath — its first
+ * motion a real splitter drag — then a
  * live pane leaves the window and a real vessel is born mid-gesture and stays — the most exciting
  * thing the engine does comes first, before any tour of the room; then the conversion, the
  * return home, the rail beat (a pane folds into its edge rail, is revealed, and comes back), the
+ * resize (the main boundary follows a real pointer drag, both panes re-flowing live, and commits
+ * once on release), the
  * morph (the window born and retired inside one gesture — the change of mind, once the viewer
  * has seen a window stay), the drop-zone showcase that puts the travelled pane wherever the
  * viewer likes, perspectives with undo/redo, and the living close. The picture sets the pace: a
@@ -34,24 +37,27 @@
  * its own activation. The dense tour (`denseWorkstation.mjs`) stays the no-window fallback.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The scenes sum to exactly 93s inside the
- * 90–150s envelope, 3s above the `minSeconds` floor: a budget edit trades seconds within the 93s
+ * real duration and the cut re-paces around them. The scenes sum to exactly 97s inside the
+ * 90–150s envelope, 7s above the `minSeconds` floor: a budget edit trades seconds within the 97s
  * sum or cuts toward the floor, and captured gesture durations plus the edit-layer cut-in re-pace
  * upward from there.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
- * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 4, 9)
- * - zero-mutation re-entry     → `documentsUnchanged` after a vessel retires mid-gesture (scene 6)
- * - mid-gesture window birth   → `proof.born` before pointer-up (scenes 2, 3, 6)
+ * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 2, 4, 10)
+ * - zero-mutation re-entry     → `documentsUnchanged` after a vessel retires mid-gesture (scene 7)
+ * - mid-gesture window birth   → `proof.born` before pointer-up (scenes 2, 3, 7)
  * - exactly-one-claim          → `claimCount: 1` + single rendered preview (scene 3)
  * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 4)
  * - rail round trip            → `collapsed` / `revealed` / `restored` receipts, the pane home
  *                                in its own node afterwards (scene 5)
- * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 7)
+ * - live-preview resize        → `previewTracked` while `documentUnchangedDuringPreview`, then
+ *                                `committedOnce` at the requested proportion — the receipt carries
+ *                                the value, the document tier runs no cues (scene 6)
+ * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 8)
  * - perspective restore        → store-backed capture/restore with exact-baseline document
- *                                fidelity, fail-closed on unknown names (scene 8)
- * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 8)
- * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 9)
+ *                                fidelity, fail-closed on unknown names (scene 9)
+ * - undo/redo round-trip       → one dock mutation walked back and replayed on the Group cursor (scene 9)
+ * - living-content continuity  → the Feed store's monotonic `sequence`, never reset (scenes 1, 10)
  * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
  * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
  *
@@ -79,8 +85,8 @@ const filmPace = Object.freeze({birthAttempts: 240, curve: 0.18, moveDelay: 33, 
  * @type {ReadonlyArray<String>}
  */
 export const filmCueTypes = Object.freeze([
-    'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'gate', 'tear-out', 'convert-while-dragging',
-    'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
+    'scroll', 'canvas-update', 'cross-zone-showcase', 'rail', 'resize', 'gate', 'tear-out',
+    'convert-while-dragging', 'native-return', 'perspective-capture', 'perspective-restore', 'undo', 'redo'
 ]);
 
 /**
@@ -102,7 +108,7 @@ export const fiveBeatFilmScript = Object.freeze({
         title        : 'The room is alive',
         targetSeconds: 3,
         narration    : 'A living workspace: twenty panes, a hundred-thousand-row grid, streaming feeds. Nothing stops moving. Now take one outside.',
-        beats        : ['dense opening topology', 'resizeSplit through the real boundary', 'feed heartbeat visibly advancing'],
+        beats        : ['dense opening topology', 'the real boundary follows the first drag', 'feed heartbeat visibly advancing'],
         steps        : [{
             type   : 'topology-assert',
             caption: 'all twenty panes are live; the heavy group deliberately overflows',
@@ -114,13 +120,13 @@ export const fiveBeatFilmScript = Object.freeze({
                 {path: 'items.inspector.autoHidden', equals: true}
             ]
         }, {
-            type      : 'op',
-            caption   : 'resizeSplit(split-main → 52/48): the real boundary yields and the document keeps the proportion',
-            descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.52, 0.48]},
-            expect    : [
-                {path: 'nodes.split-main.sizes.0', equals: 0.52},
-                {path: 'nodes.split-main.sizes.1', equals: 0.48}
-            ]
+            // The film's first motion is a real drag: the main boundary follows the pointer from the
+            // shipped 60/40 to 52/48 with both panes re-flowing live, and the release commits the
+            // proportion. The receipt carries the vector (the document tier runs no cues).
+            type   : 'pause',
+            ms     : 800,
+            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.52, 0.48], options: {moveDelay: 33, moveSteps: 24, showCursor: true}},
+            caption: 'the first motion: the real boundary follows the pointer to 52/48 and the document keeps the proportion'
         }, {
             type   : 'pause',
             ms     : 900,
@@ -222,6 +228,29 @@ export const fiveBeatFilmScript = Object.freeze({
             type   : 'topology-assert',
             caption: 'Metrics is home again, in flow',
             expect : [{path: 'items.metrics.title', equals: 'System Metrics'}]
+        }]
+    }, {
+        id           : 'film-resize',
+        title        : 'Give the busy group room',
+        targetSeconds: 4,
+        narration    : 'Drag the boundary. Both sides follow the pointer live — the grid gives, the group takes — and the layout settles the moment you let go.',
+        beats        : ['the main boundary follows a real pointer drag', 'both panes re-flow live while the document waits', 'one commit on release; the layout settles'],
+        steps        : [{
+            // The main split's boundary moves left: the hundred-thousand-row grid gives the twelve-tab
+            // group the room the cold open denied it. The preview IS the picture — both panes re-flow
+            // on the main thread while the committed document waits for the release — so the travel
+            // is sampled at the film pace with the cursor visible, and the release commits once.
+            type   : 'pause',
+            ms     : 800,
+            cue    : {type: 'resize', splitNodeId: 'split-main', sizes: [0.42, 0.58], options: {moveDelay: 33, moveSteps: 24, showCursor: true}},
+            caption: 'the boundary follows the pointer; both panes re-flow live; one commit on release'
+        }, {
+            // The proportion lives in the cue's receipt (`sizesAfter`, asserted by the film witness),
+            // not here: the document tier runs the screenplay without cues, so a topology assert
+            // can only pin what holds in both tiers — the boundary moved, the room's order did not.
+            type   : 'topology-assert',
+            caption: 'the layout settled: the boundary moved, the room\'s order did not',
+            expect : [{path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']}]
         }]
     }, {
         id           : 'film-morph',
@@ -346,9 +375,11 @@ export const fiveBeatFilmScript = Object.freeze({
             caption: 'a hundred thousand rows cross their midpoint — and the rest of the room keeps breathing'
         }, {
             type   : 'topology-assert',
-            caption: 'final readout: the split proportion, every travelled pane, all still here',
+            caption: 'final readout: the main split intact, every travelled pane, all still here',
             expect : [
-                {path: 'nodes.split-main.sizes', equals: [0.52, 0.48]},
+                // the main split's proportion differs by tier after the resize beat (the document
+                // tier runs no cues), so the readout pins its order; the witness pins the proportion
+                {path: 'nodes.split-main.children', equals: ['scale-tabs', 'heavy-tabs']},
                 {path: 'items.metrics.title', equals: 'System Metrics'},
                 {path: 'items.commits.title', equals: 'Commit Stream'},
                 {path: 'items.traces.title', equals: 'Distributed Trace Explorer'}

@@ -299,6 +299,10 @@ class TourController extends Controller {
                 return (await this.getGestureDriver()).executeRailStep(
                     {itemId: cue.itemId, sourceNodeId: cue.sourceNodeId}, cue.options
                 )
+            case 'resize':
+                return (await this.getGestureDriver()).executeResizeStep(
+                    {sizes: cue.sizes, splitNodeId: cue.splitNodeId}, cue.options
+                )
             case 'theme':
                 return this.workspace.setWorkspaceTheme(cue.theme)
             case 'gate':

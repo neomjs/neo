@@ -70,12 +70,13 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(errors).toEqual([]);
         // the film opens on the committed tear-out right after a three-second cold open, and the
         // conversion and the return stay contiguous with it, the order the five-beat witness proves
-        // them in; the rail beat follows the return, the morph (a window born and retired inside
-        // one gesture) plays after it as the change of mind, and the drop-zone showcase moves the
+        // them in; the rail beat follows the return, the resize (a real pointer drag with the live
+        // preview) settles the layout after it, the morph (a window born and retired inside one
+        // gesture) plays next as the change of mind, and the drop-zone showcase moves the
         // travelled pane afterwards
         expect(fiveBeatFilmScript.scenes.map(scene => scene.id)).toEqual([
             'film-cold-open', 'film-tear-out', 'film-second-window', 'film-reintegration',
-            'film-rails', 'film-morph', 'film-showcase', 'film-perspectives-undo', 'film-signature'
+            'film-rails', 'film-resize', 'film-morph', 'film-showcase', 'film-perspectives-undo', 'film-signature'
         ]);
         fiveBeatFilmScript.scenes.forEach(scene => {
             expect(scene.steps.length, `${scene.id} must carry runnable steps`).toBeGreaterThan(0);
@@ -87,7 +88,9 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect([...new Set(cues)].sort()).toEqual([...filmCueTypes].sort());
         filmCueTypes.forEach(type => expect(WORKSTATION_CUE_TYPES).toContain(type));
 
-        expect(operations).toEqual(['resizeSplit', 'splitNode', 'addTab']);
+        // the cold open's resize is a pointer drag (a `resize` cue), so the document tier's own
+        // operations are the showcase's split and the perspective scene's re-add
+        expect(operations).toEqual(['splitNode', 'addTab']);
         operations.forEach(operation => expect(Operations.operations).toContain(operation))
     });
 
@@ -117,10 +120,10 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
         expect(steps().find(step => step.cue?.options?.reenter === true).cue.sourceNodeId).not.toBe('heavy-tabs')
     });
 
-    test('the pacing budget sums to 93s inside the 90–150s envelope', () => {
+    test('the pacing budget sums to 97s inside the 90–150s envelope', () => {
         const total = fiveBeatFilmScript.scenes.reduce((sum, scene) => sum + scene.targetSeconds, 0);
 
-        expect(total).toBe(93);
+        expect(total).toBe(97);
         expect(total).toBeGreaterThanOrEqual(fiveBeatFilmScript.envelope.minSeconds);
         expect(total).toBeLessThanOrEqual(fiveBeatFilmScript.envelope.maxSeconds)
     });
@@ -155,7 +158,9 @@ test.describe('apps/workstation/tour/fiveBeatFilm', () => {
 
         const firstDocument = Neo.getComponent('workstation-film-stage').dockZoneDocument;
 
-        expect(firstDocument.nodes['split-main'].sizes).toEqual([0.52, 0.48]);
+        // both resizes are cues (pointer drags), which spec mode never executes: the shipped
+        // proportion stands, and the receipts carry the committed vectors in the film witness
+        expect(firstDocument.nodes['split-main'].sizes).toEqual([0.6, 0.4]);
         expect(firstDocument.nodes['scale-tabs'].activeItemId).toBe('security');
         expect(firstDocument.nodes['heavy-tabs'].items).not.toContain('security');
         // cues are not executed in spec mode, so the travelled panes never left the document

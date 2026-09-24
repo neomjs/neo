@@ -884,6 +884,293 @@ class GestureDriver extends Base {
     }
 
     /**
+     * @summary Drives the resize beat through the Mouse sensor's own arming: the named split
+     * boundary follows a real pointer drag, both panes re-flow live on the main thread while the
+     * committed document waits, and the release commits exactly one `resizeSplit` equal to the
+     * last previewed frame. The drive is the product's own path —
+     * {@link Neo.ai.client.InteractionService#driveDrag}, the method the Neural Link's `drive_drag`
+     * tool consumes — so the simulator crosses the sensor's delay and distance thresholds and
+     * correlates `drag:start/move/end` itself; this executor adds the dock semantics only: the
+     * boundary to move, the travel that reaches the requested proportion, the preview proof read
+     * mid-drive and the committed vector. Every failed exit, including a destroyed driver's, is
+     * settled by {@link #settleResizeDrive}.
+     * @param {Object} step
+     * @param {String} step.splitNodeId The split node whose boundary moves.
+     * @param {Number[]} step.sizes The proportion to reach, one entry per child of the split.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for the release's terminal.
+     * @param {Number} [options.boundaryIndex=0] Which boundary of the split moves.
+     * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
+     * @param {Number} [options.moveSteps=12] Samples along the travel.
+     * @param {Number} [options.sensorDelayMs=100] The Mouse sensor's own arming delay
+     *     (`src/main/draggable/sensor/Mouse.mjs`), which the drive waits before its first move; the
+     *     film cursor waits the same, and the receipt records the sensor's actual thresholds.
+     * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
+     * @param {Number} [options.tolerance=0.01] Largest accepted distance between the committed and
+     *     the requested proportion; a boundary stopped short of it fails by name.
+     * @returns {Promise<Object>}
+     */
+    async executeResizeStep(step, {attempts=180, boundaryIndex=0, moveDelay=16, moveSteps=12, sensorDelayMs=100, showCursor=false, tolerance=0.01}={}) {
+        return this.runGesture(async run => {
+            let me                   = run.workspace, driver = this,
+                {sizes, splitNodeId} = step || {},
+                split                = me.dockModel?.nodes?.[splitNodeId],
+                children             = split?.type === 'split' ? split.children || [] : [],
+                normalized           = split ? WorkspaceDocument.normalizeSplitSizes(sizes, children.length, splitNodeId) : {errors: [], sizes: []},
+                sizesBefore          = split?.sizes?.slice() ?? null,
+                cursorDot            = null,
+                splitter             = null,
+                terminals            = [],
+                onTerminal           = data => terminals.push(data),
+                fail                 = async (errors, proof={}) => {
+                    let settled = await driver.settleResizeDrive({pending: run.pending, sizesBefore, splitNodeId, workspace: me});
+
+                    return {applied: false, errors: [...errors, ...settled.errors], proof: {...proof, settled, sizesBefore}}
+                };
+
+            if (!split || split.type !== 'split') {
+                return {applied: false, errors: [`resize step must name a split node; '${splitNodeId}' is not one`]}
+            }
+
+            if (normalized.errors.length) {
+                return {applied: false, errors: normalized.errors}
+            }
+
+            if (!Number.isInteger(boundaryIndex) || boundaryIndex < 0 || boundaryIndex + 1 >= children.length) {
+                return {applied: false, errors: [`'${splitNodeId}' has no boundary ${boundaryIndex}`]}
+            }
+
+            try {
+                await driver.trap(Promise.resolve(me.refreshPromise));
+
+                let host          = me.getDockHost(),
+                    WindowManager = (await driver.trap(import('../../../src/manager/Window.mjs'))).default;
+
+                splitter = host?.down({boundaryIndex, dockNodeType: 'splitter', splitNodeId});
+
+                let container = splitter?.parent,
+                    window    = WindowManager.get(splitter?.windowId),
+                    windowId  = splitter?.windowId,
+                    panes     = splitter?.getSplitChildItems?.() ?? [];
+
+                if (!splitter || !container?.getLayoutRect || !window?.innerRect || panes.length !== children.length) {
+                    return {applied: false, errors: ['resize gesture surfaces are not ready']}
+                }
+
+                // The panes' layout boxes through the splitter's own seam: the transform-immune read
+                // the splitter itself captures on drag start, so the travel and the proof share one truth.
+                let axis      = splitter.getSizeAxis(),
+                    layoutIds = panes.map(pane => splitter.getLayoutElementId(pane)),
+                    readPanes = async () => {
+                        let rects = await driver.trap(container.getLayoutRect(layoutIds, windowId));
+
+                        return rects.map(rect => Number(rect?.[axis]) || 0)
+                    },
+                    before    = await readPanes(),
+                    total     = before.reduce((sum, value) => sum + value, 0),
+                    current   = before[boundaryIndex];
+
+                if (!(total > 0)) {
+                    return {applied: false, errors: [`'${splitNodeId}' has no rendered geometry`]}
+                }
+
+                // The committed vector is the panes' pixels over their total, so the boundary's travel
+                // is the requested share of that total minus the pane's current extent.
+                let travelPx   = Math.round(normalized.sizes[boundaryIndex] * total - current),
+                    [rect]     = await driver.trap(splitter.getDomRect([splitter.id], windowId)),
+                    start      = {x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2)},
+                    delta      = axis === 'width' ? {deltaX: travelPx, deltaY: 0} : {deltaX: 0, deltaY: travelPx},
+                    durationMs = Math.max(moveSteps * 16, Math.round(moveDelay * moveSteps)),
+                    mid        = null,
+                    midSizes   = null;
+
+                showCursor && (cursorDot = driver.createFilmCursorDot(start.x, start.y, windowId));
+                splitter.on({dockSplitterResize: onTerminal, dockSplitterResizeRejected: onTerminal});
+
+                // The drive owns the mousedown → mouseup bracket on the main thread; `run.pending` is
+                // the lease every exit awaits, so no late input is ever dispatched behind it.
+                run.pending = run.service.driveDrag({
+                    destination: delta,
+                    durationMs,
+                    source     : {targetId: splitter.id, windowId},
+                    steps      : moveSteps
+                });
+
+                // The cursor rides the drive's clock; the preview proof does not. It is an observed
+                // condition: a pane box that moved while the committed document stood on both sides
+                // of the read and no terminal had landed — so a drive whose prelude starts late is
+                // waited out, and a box read that lands after the release cannot pass as a preview.
+                let readSizes      = () => JSON.stringify(me.dockModel?.nodes?.[splitNodeId]?.sizes ?? null),
+                    standing       = readSizes(),
+                    minTravel      = Math.min(8, Math.abs(travelPx) / 4),
+                    previewTracked = false,
+                    driveDone      = false,
+                    samples        = 0,
+                    sample         = async () => {
+                        let before = readSizes() === standing && terminals.length === 0,
+                            box    = await readPanes(),
+                            after  = readSizes() === standing && terminals.length === 0;
+
+                        samples++;
+
+                        if (before && after && Math.abs(box[boundaryIndex] - current) >= minTravel) {
+                            mid            = box;
+                            midSizes       = sizesBefore.slice();
+                            previewTracked = true
+                        }
+                    },
+                    escort         = async () => {
+                        await driver.trap(driver.timeout(sensorDelayMs));
+
+                        for (let index = 1; index <= moveSteps; index++) {
+                            let ratio = index / moveSteps;
+
+                            if (cursorDot) {
+                                cursorDot.style = {
+                                    ...cursorDot.style,
+                                    left: `${Math.round(start.x + delta.deltaX * ratio) - 8}px`,
+                                    top : `${Math.round(start.y + delta.deltaY * ratio) - 8}px`
+                                }
+                            }
+
+                            await driver.trap(driver.timeout(moveDelay));
+                            previewTracked || await sample()
+                        }
+
+                        // the drive may still be in its prelude or its moves: keep watching for the
+                        // preview until the release, bounded by `attempts`
+                        for (let poll = 0; poll < attempts && !driveDone && !previewTracked; poll++) {
+                            await driver.trap(driver.timeout(16));
+                            await sample()
+                        }
+                    };
+
+                run.pending.then(() => {driveDone = true}, () => {driveDone = true});
+
+                let [drive] = await Promise.all([driver.trap(run.pending), escort()]);
+
+                if (!drive?.success) {
+                    return fail([`the drive failed in phase '${drive?.phase}': ${drive?.error?.code} — ${drive?.error?.message}`], {drive})
+                }
+
+                if (!await driver.trap(driver.waitFor(() => terminals.length > 0, {attempts, delay: 16}))) {
+                    return fail(['the release reached no terminal on the splitter'], {drive})
+                }
+
+                // The terminal carries the reducer's output: that document IS the commit. The
+                // workspace adopts it through its view-sync, which the beat waits for by value —
+                // a read of `dockModel` right after the terminal can still see the old vector.
+                let rejected   = terminals.flatMap(data => data?.result?.errors ?? []),
+                    sizesAfter = terminals[0]?.result?.document?.nodes?.[splitNodeId]?.sizes?.slice() ?? null,
+                    synced     = Boolean(sizesAfter) && await driver.trap(driver.waitFor(
+                        () => JSON.stringify(me.dockModel?.nodes?.[splitNodeId]?.sizes) === JSON.stringify(sizesAfter),
+                        {attempts, delay: 16}
+                    )),
+                    // `documentUnchangedDuringPreview` is the accepted sample's bracket: the committed
+                    // vector stood before and after the moved box was read, with no terminal landed
+                    proof          = {
+                        axis,
+                        committedOnce                 : terminals.length === 1 && rejected.length === 0,
+                        documentUnchangedDuringPreview: previewTracked && midSizes !== null && JSON.stringify(midSizes) === JSON.stringify(sizesBefore),
+                        drive                         : {observed: drive.observed, phase: drive.phase, sensor: drive.sensor},
+                        previewTracked,
+                        samples,
+                        sizesAfter,
+                        sizesBefore,
+                        synced,
+                        travelPx
+                    };
+
+                if (rejected.length) {
+                    return fail([`the release was refused: ${rejected.join('; ')}`], proof)
+                }
+
+                if (!sizesAfter) {
+                    return fail([`the release committed no sizes for '${splitNodeId}'`], proof)
+                }
+
+                if (!synced) {
+                    return fail([`the workspace did not adopt the committed vector [${sizesAfter.map(value => value.toFixed(3)).join(', ')}]`], proof)
+                }
+
+                if (!previewTracked) {
+                    return fail([`no live preview was observed: ${samples} pane samples, none moved ${minTravel}px or more while the committed document stood`], proof)
+                }
+
+                if (terminals.length !== 1) {
+                    return fail([`the release reached ${terminals.length} terminals on the splitter; exactly one commit is the contract`], proof)
+                }
+
+                let distance = Math.max(...normalized.sizes.map((value, index) => Math.abs(value - sizesAfter[index])));
+
+                if (distance > tolerance) {
+                    return fail([
+                        `the boundary stopped at [${sizesAfter.map(value => value.toFixed(3)).join(', ')}] (bounded), `
+                        + `${distance.toFixed(3)} from the requested [${normalized.sizes.map(value => value.toFixed(3)).join(', ')}]`
+                    ], proof)
+                }
+
+                return {applied: true, errors: [], proof}
+            } catch (error) {
+                return fail([error?.message || String(error)])
+            } finally {
+                splitter?.un?.({dockSplitterResize: onTerminal, dockSplitterResizeRejected: onTerminal});
+                await driver.retireFilmCursorDot(cursorDot)
+            }
+        })
+    }
+
+    /**
+     * @summary Settles a resize beat that failed after its drive was handed to the main thread, so
+     * the cue never leaves residue. The simulator owns the mousedown → mouseup bracket and releases
+     * it itself — a failed drive attempts its own mouseup, a refused terminal restores the panes'
+     * styles on the main thread — so nothing here dispatches input: the settle waits for that
+     * physical transaction to end, then reads what the document says. It also runs after a
+     * destroyed driver's cancellation, so it borrows nothing the destruction retires: the
+     * workspace comes from the run and the poll is a plain timer, not {@link Neo.core.Base#timeout}.
+     * @param {Object} state
+     * @param {Promise|null} [state.pending] The drive in flight when the cue failed.
+     * @param {Number[]|null} state.sizesBefore The split's committed vector before the drive.
+     * @param {String} state.splitNodeId
+     * @param {Workstation.view.Workspace} state.workspace The run's workspace, alive after the driver.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=60] Poll attempts (16 ms each) for a commit to land after the drive.
+     * @returns {Promise<Object>} `{committed, driveSettled, errors, sizes}`
+     * @protected
+     */
+    async settleResizeDrive({pending, sizesBefore, splitNodeId, workspace}, {attempts=60}={}) {
+        let receipt = {committed: false, driveSettled: !pending, errors: [], sizes: null},
+            read    = () => workspace?.dockModel?.nodes?.[splitNodeId]?.sizes?.slice() ?? null,
+            changed = () => {
+                let sizes = read();
+
+                return Boolean(sizes && sizesBefore && JSON.stringify(sizes) !== JSON.stringify(sizesBefore))
+            };
+
+        if (!workspace || workspace.isDestroyed) {
+            return receipt
+        }
+
+        if (pending) {
+            try {
+                await pending;
+                receipt.driveSettled = true
+            } catch (error) {
+                receipt.errors.push(`the physical drive did not settle: ${error?.message || error}`)
+            }
+        }
+
+        for (let attempt = 0; attempt < attempts && !changed(); attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 16))
+        }
+
+        receipt.sizes     = read();
+        receipt.committed = changed();
+
+        return receipt
+    }
+
+    /**
      * @summary Polls until the base drag has ARMED — a live proxy AND the async main-thread
      * `boundaryContainerRect` AND measured `itemRects` are all present: exactly the facts
      * the sort zone needs before it will sample a boundary exit.

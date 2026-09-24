@@ -105,7 +105,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
         const byType = type => receipt.cueReceipts.filter(entry => entry.cue.type === type).map(entry => entry.receipt);
 
-        // scene 2 opens the film with the committed tear-out; scene 6, after the rails, is the morph:
+        // scene 2 opens the film with the committed tear-out; scene 7, after the rails and the resize, is the morph:
         // born mid-gesture, retired on re-entry with zero mutation, proven
         const [tearOut, reentry] = byType('tear-out');
 
@@ -146,7 +146,20 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(rail.proof, 'each rail phase carries its own receipt').toMatchObject({collapsed: true, revealed: true, restored: true});
         expect(rail.proof?.edge, 'Metrics folds into the right rail').toBe('right');
 
-        // scene 8 — capture, restore, undo, redo, each with the membership it produced
+        // scene 1's first motion and scene 6's resize beat: the boundary follows the pointer live,
+        // the document commits once and the workspace adopts it — each drive its own receipt
+        const [firstMotion, resize] = byType('resize');
+
+        for (const [drive, requested, label] of [[firstMotion, [0.52, 0.48], 'the first motion'], [resize, [0.42, 0.58], 'the resize beat']]) {
+            expect(drive.applied, `${label} must drive the boundary and commit the proportion`).toBe(true);
+            expect(drive.proof, `${label}: the preview moved before the commit, the release committed once, the workspace adopted it`)
+                .toMatchObject({committedOnce: true, documentUnchangedDuringPreview: true, previewTracked: true, synced: true});
+            expect(drive.proof?.drive?.observed?.started, `${label}: the Mouse sensor armed the drag itself`).toBe(true);
+            expect(drive.proof?.sizesAfter?.[0], `${label}: the committed proportion`).toBeCloseTo(requested[0], 2);
+            expect(drive.proof?.sizesAfter?.[1]).toBeCloseTo(requested[1], 2)
+        }
+
+        // scene 9 — capture, restore, undo, redo, each with the membership it produced
         const [capture] = byType('perspective-capture'),
               [restore] = byType('perspective-restore'),
               [undo]    = byType('undo'),
